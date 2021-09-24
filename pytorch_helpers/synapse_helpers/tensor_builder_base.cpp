@@ -44,8 +44,10 @@ tensor::shape_t to_stride_t(
 
   PT_SYNHELPER_DEBUG("to_stride_t : tensor element size = ", size);
   std::string str = "to_stride_t : tensor shape {";
+  auto tensor_size = size;
   for (const auto& s : shape) {
     str += std::to_string(s) + ", ";
+    tensor_size *= s;
   }
   str += "}";
   PT_SYNHELPER_DEBUG(str);
@@ -92,7 +94,15 @@ tensor::shape_t to_stride_t(
     // For an 1D tensor, synapse wants the stride to be size * shape(dim(0)).
     // For example, a float32 tensor of shape[3] will have stride {3*4} = {12}
     // The shape(dim(0)) is retrived from the PT tensor shape
-    dimensions[0] = size * shape[num_dims - 1];
+    // Use stride in case it is higher than the shape (indicates a non-deafult
+    // stride)
+    auto first_dim_value = shape[num_dims - 1];
+    if (num_dims > 1) {
+      if (stride[num_dims - 2] > first_dim_value) {
+        first_dim_value = stride[num_dims - 2];
+      }
+    }
+    dimensions[0] = size * first_dim_value;
     if (num_dims > 1) {
       // First dim stride for synapse tensor is already set above. The last
       // dim stride will be the entire tensor size. Fill up the synapse
@@ -113,6 +123,11 @@ tensor::shape_t to_stride_t(
       }
       // Fill up last dim stride
       dimensions[num_dims - 1] = shape[0] * dimensions[num_dims - 2];
+
+      // Ensure that the last dim stride doesn't exceed the tensor size
+      if (dimensions[num_dims - 1] > tensor_size) {
+        dimensions[num_dims - 1] = tensor_size;
+      }
     }
   }
 

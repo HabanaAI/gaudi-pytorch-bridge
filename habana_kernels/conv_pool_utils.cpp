@@ -102,6 +102,10 @@ void check_convolution_params(
     TORCH_CHECK(
         groups * weight.size(weight_channel) == input.size(input_channel),
         "Number of input channels doesn't match weight channels times groups ",
+        "weight_channel = ",
+        weight_channel,
+        "input_channel = ",
+        input_channel,
         weight.sizes().vec(),
         " ",
         input.sizes().vec(),

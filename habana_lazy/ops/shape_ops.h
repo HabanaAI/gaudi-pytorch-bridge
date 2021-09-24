@@ -59,8 +59,9 @@ class AsStrided : public ir::Node {
       const at::Tensor& self,
       at::IntArrayRef size,
       at::IntArrayRef stride,
-      int64_t storage_offset)
-      : Node(c10::Symbol::fromQualString("hpu::as_strided_lazy_")) {
+      int64_t storage_offset,
+      std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
@@ -115,6 +116,5 @@ class AsStrided : public ir::Node {
     return prod_size;
   }
 };
-
 } // namespace ir
 } // namespace habana_lazy

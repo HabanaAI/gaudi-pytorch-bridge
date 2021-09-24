@@ -10,6 +10,8 @@ ControlEdgeType nodeRequiresControlEdge(const char* node_name) {
     return ControlEdgeType::kCONTROL_EDGE_OTHER_;
   else if (strcmp(node_name, "hpu::as_strided_lazy_") == 0)
     return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
+  else if (strcmp(node_name, "hpu::as_strided_lazy_cl_") == 0)
+    return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
   else if (strcmp(node_name, "hpu::as_strided_layout_") == 0)
     return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
   else

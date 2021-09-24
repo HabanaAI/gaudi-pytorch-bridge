@@ -1426,6 +1426,7 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
   auto tensor = value_to_ivalue[value_in]->toTensor();
   auto is_5d_layout = tensor.dim() == 5 ? true : false;
+
   // for 0D and 1D tensors adjust sizes skipped
   if (tensor.dim() > 1) {
     auto sizes = tensor.sizes().vec();
@@ -2239,6 +2240,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
 
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
+    PT_BRIDGE_DEBUG("Going to add ", *node);
     // See if we need to modify/permute tesnors
     if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())
       processInputs(node, HabanaKernel);
@@ -2611,6 +2613,7 @@ void HabanaLaunchOpPT::AdjustInputLayout() {
       // want, we can review it with PT folks
 
       auto tensor = at::alias(pt_stack_sh[j]->toTensor());
+
       // WE dont support 0D tensors internally, so convert to 1D internally
       if (tensor.dim() == 0) {
         tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});

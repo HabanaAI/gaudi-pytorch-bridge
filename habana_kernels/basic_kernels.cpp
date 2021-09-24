@@ -511,6 +511,41 @@ void DummyOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
+    compute_output_shape(
+        const Tensor& self,
+        IntArrayRef size,
+        IntArrayRef stride) {
+  std::vector<int64_t> out_size_vec;
+  std::vector<int64_t> out_stride_vec;
+
+  if ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) &&
+      (size.size() == 4)) {
+    // NCHW -> NHWC
+    const int64_t dim_pos_in[4] = {0, 2, 3, 1};
+    for (size_t idx = 0; idx < size.size(); idx++) {
+      out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+      out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
+    }
+  } else if (
+      (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) &&
+      (size.size() == 5)) {
+    // NCDHW -> NDHWC
+    const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
+    for (size_t idx = 0; idx < size.size(); idx++) {
+      out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+      out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
+    }
+  } else {
+    for (size_t idx = 0; idx < size.size(); idx++) {
+      out_size_vec.emplace_back(size[idx]);
+      out_stride_vec.emplace_back(stride[idx]);
+    }
+  }
+
+  return std::make_tuple(out_size_vec, out_stride_vec);
+}
+
 /*************************************************************************
  * @brief Kernel implementation for As strided, used for tensor views
  * @param self - input which needs to be viewed
@@ -532,6 +567,7 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
   auto offset = inputs[3].toInt();
   auto opt_offset = c10::make_optional(offset);
   at::Tensor output;
+
   output = at::as_strided(self, size, strides, opt_offset);
 
   p_context_->syn_outputs_.emplace_back(
@@ -635,6 +671,12 @@ static auto& KernelRegistry =
             "hpu::as_strided_lazy_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AsStridedOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::as_strided_lazy_cl_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AsStridedClOperator>(
+                  device_id, node_type);
             })
         .add(
             "hpu::as_strided_layout_",

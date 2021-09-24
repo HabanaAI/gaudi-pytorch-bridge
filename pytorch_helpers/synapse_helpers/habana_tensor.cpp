@@ -244,14 +244,20 @@ synapse_error_o tensor::create_old_synapi() {
           "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
       PT_SYNHELPER_DEBUG(
-          "synTensorCreate ", *this, " created with offset ", offset_);
+          "synTensorCreate ",
+          *this,
+          " new section created with offset ",
+          offset_);
       status =
           synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else if (memory_section_ && is_persistent_) {
       // the only valid use case for today with user-defined memory section is
       // to do in-place update, therefore offset parameter is 0
       PT_SYNHELPER_DEBUG(
-          "synTensorCreate ", *this, " created with offset ", offset_);
+          "synTensorCreate ",
+          *this,
+          " existing section created with offset ",
+          offset_);
       status =
           synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else {
@@ -360,7 +366,10 @@ synapse_error_o tensor::create() {
           "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
       PT_SYNHELPER_DEBUG(
-          "synTensorCreate ", *this, " created with offset ", offset_);
+          "synTensorCreate ",
+          *this,
+          " new mem section created with offset ",
+          offset_);
       status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "synTensorAssignToSection failed.", status, cleanup());
@@ -368,7 +377,10 @@ synapse_error_o tensor::create() {
       // the only valid use case for today with user-defined memory section is
       // to do in-place update, therefore offset parameter is 0
       PT_SYNHELPER_DEBUG(
-          "synTensorCreate ", *this, " created with offset ", offset_);
+          "synTensorCreate ",
+          *this,
+          " old mem section created with offset ",
+          offset_);
       status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "synTensorAssignToSection failed.", status, cleanup());

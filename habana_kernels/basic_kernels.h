@@ -129,9 +129,31 @@ class AsStridedOperator : public habana::HabanaOperator {
       : HabanaOperator("dummy") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NCHW});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
-  virtual void AllocateAndAddSynapseNode(
+
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
+  compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
+};
+
+// As Strided for channels last
+/* The implementation follows the implementation of original Asstrided op with
+ *the additional change of setting kernel meta data for NHWC layout to signal
+ * the permute pass
+ */
+class AsStridedClOperator : public AsStridedOperator {
+ public:
+  AsStridedClOperator(int device_id, c10::ScalarType scalarType)
+      : AsStridedOperator(device_id, scalarType) {
+    static_cast<void>(scalarType);
+
+    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+  }
 };
