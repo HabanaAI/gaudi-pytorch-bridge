@@ -2,3 +2,4 @@ flake8
 lark
 ninja
 pyyaml
+cython
