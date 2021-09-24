@@ -338,6 +338,14 @@ cumsum_:
   guid: cumsum_fwd
   inplace_ids: [0]
 
+div.Tensor_mode:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Float, BFloat16, Long, Int, Char]
+  guid: div
+  lazy_class: LazyDiv
+  op_base_class: DivRoundModeOperator
+  out_ids: [0]
+
 elu.out:
   dtypes: [BFloat16, Float]
   guid: elu_fwd
