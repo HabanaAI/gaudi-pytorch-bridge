@@ -1943,6 +1943,23 @@ Tensor hpu_wrap::norm(const Tensor& self, const c10::Scalar& p) {
   }
 }
 
+Tensor hpu_wrap::norm(
+    const at::Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim,
+    at::ScalarType dtype) {
+  if (!hpu_check_inputs_impl("norm", {self}))
+    return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+  // when both dtype and grad are float avoid fallback
+  if (dtype == c10::ScalarType::Float &&
+      self.scalar_type() == c10::ScalarType::Float) {
+    return hpu_wrap::norm(self, p, dim, keepdim);
+  } else {
+    return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+  }
+}
+
 Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
   if (!hpu_check_inputs_impl("frobenius_norm", {self}))
     return AtenHpuTypeDefault::frobenius_norm(self);
