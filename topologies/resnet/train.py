@@ -267,8 +267,7 @@ def permute_params(model, to_filters_last, lazy_mode):
                 else:
                     param.data = param.data.permute((3, 2, 0, 1))  # permute RSCK to KCRS
 
-    if args.run_lazy_mode:
-        htcore.mark_step()
+    htcore.mark_step()
 
 # permute the momentum from filters first (KCRS) to filters last(RSCK) or vice versa.
 # and permute from RSCK to KCRS is used for checkpoint saving
@@ -289,8 +288,7 @@ def permute_momentum(optimizer, to_filters_last, lazy_mode):
                         buf = buf.permute((3, 2, 0, 1))
                     param_state['momentum_buffer'] = buf
 
-    if lazy_mode:
-        htcore.mark_step()
+    htcore.mark_step()
 
 def main(args):
 
