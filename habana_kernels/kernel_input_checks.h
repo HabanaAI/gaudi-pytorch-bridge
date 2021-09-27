@@ -811,6 +811,8 @@ static const std::
                 "sum_dim_IntList",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
+                  at::ScalarType::Bool,
+                  at::ScalarType::Byte,
                   at::ScalarType::Int,
                   at::ScalarType::Float,
                   at::ScalarType::Long}},
@@ -1714,6 +1716,7 @@ static const std::
             {
                 "scatter_add_",
                 {{at::ScalarType::Float,
+                  at::ScalarType::Long,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
             },
