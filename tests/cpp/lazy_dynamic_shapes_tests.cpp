@@ -15,6 +15,7 @@
 #include <torch/torch.h>
 
 #include "habana_lazy_test_infra.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -52,7 +53,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
 
   std::vector<int> in_sizes{16, 32, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
-    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
     torch::Tensor bias1 =
@@ -115,7 +116,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     auto out = torch::upsample_nearest2d(out_add, {}, scale_factors);
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
-    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -151,7 +152,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
 
   std::vector<int> in_sizes{16, 32, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
-    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
     torch::Tensor bias1 =
@@ -205,7 +206,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
 
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
-    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -244,7 +245,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
 
   std::vector<int> in_sizes{16, 32, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
-    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
     torch::Tensor bias1 =
@@ -314,7 +315,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
 
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
-    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -357,7 +358,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
 
   std::vector<int> in_sizes{16, 32, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
-    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
     // weight_tensor = bias1 + bias2
     torch::Tensor bias1 =
@@ -428,7 +429,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
 
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
-    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -448,8 +449,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
     torch::Tensor c1 = torch::randn({C, B, A}, torch::requires_grad(false));
 
@@ -458,22 +458,12 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
     torch::Tensor c6 = torch::mul(c4, c5);
     torch::Tensor c7 = torch::relu(c6);
 
-    std::cout << "PTI_DBG ::"
-              << " c0.shape : " << c0.sizes()
-              << " c0.strides : " << c0.strides() << '\n';
-    std::cout << "PTI_DBG ::"
-              << " c1.shape : " << c1.sizes()
-              << " c1.strides : " << c1.strides() << '\n';
-
-    // std::cout << "PTI_DBG ::" << " c4.shape : " << c4.sizes() << " c4.strides
-    // : " << c4.strides() << '\n'; std::cout << "PTI_DBG ::" << " c5.shape : "
-    // << c5.sizes() << " c5.strides : " << c5.strides() << '\n'; std::cout <<
-    // "PTI_DBG ::" << " c6.shape : " << c6.sizes() << " c6.strides : " <<
-    // c6.strides() << '\n';
-    //
-    std::cout << "PTI_DBG ::"
-              << " c7.shape : " << c7.sizes()
-              << " c7.strides : " << c7.strides() << '\n';
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c1.shape : ", c1.sizes(), " c1.strides : ", c1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c7.shape : ", c7.sizes(), " c7.strides : ", c7.strides());
 
     torch::Tensor h0 = c0.to(torch::kHPU);
     torch::Tensor h1 = c1.to(torch::kHPU);
@@ -483,19 +473,15 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
     torch::Tensor h7 = torch::relu(h6);
     torch::Tensor h7_c = h7.to(torch::kCPU);
 
-    std::cout << "PTI_DBG ::"
-              << " h0.shape : " << h0.sizes()
-              << " h0.strides : " << h0.strides() << '\n';
-    std::cout << "PTI_DBG ::"
-              << " h1.shape : " << h1.sizes()
-              << " h1.strides : " << h1.strides() << '\n';
-
-    std::cout << "PTI_DBG ::"
-              << " h7.shape : " << h7.sizes()
-              << " h7.strides : " << h7.strides() << '\n';
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h1.shape : ", h1.sizes(), " h1.strides : ", h1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h7.shape : ", h7.sizes(), " h7.strides : ", h7.strides());
 
     EXPECT_EQ(allclose(c7, h7_c, 0.01, 0.01), true);
-    std::cout << "PTI_DBG :: TEST " << i << "  ========" << '\n';
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
   }
 
   if (!refine_enabled) {
@@ -516,34 +502,27 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
 
     torch::Tensor c4 = torch::relu(c0);
 
-    std::cout << "PTI_DBG ::"
-              << " c0.shape : " << c0.sizes()
-              << " c0.strides : " << c0.strides() << '\n';
-
-    std::cout << "PTI_DBG ::"
-              << " c4.shape : " << c4.sizes()
-              << " c4.strides : " << c4.strides() << '\n';
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c1.shape : ", c4.sizes(), " c4.strides : ", c4.strides());
 
     torch::Tensor h0 = c0.to(torch::kHPU);
     torch::Tensor h4 = torch::relu(h0);
     torch::Tensor h4_c = h4.to(torch::kCPU);
 
-    std::cout << "PTI_DBG ::"
-              << " h0.shape : " << h0.sizes()
-              << " h0.strides : " << h0.strides() << '\n';
-
-    std::cout << "PTI_DBG ::"
-              << " h4.shape : " << h4.sizes()
-              << " h4.strides : " << h4.strides() << '\n';
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h1.shape : ", h4.sizes(), " h4.strides : ", h4.strides());
 
     EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
-    std::cout << "PTI_DBG :: TEST " << i << "  ========" << '\n';
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
   }
 
   if (!refine_enabled) {
@@ -671,8 +650,7 @@ TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
     auto cpu_pool = torch::avg_pool2d(input_tensor, 3, 1);
     auto cpu_out = torch::relu(cpu_pool);
@@ -709,8 +687,7 @@ TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
     auto cpu_pool = torch::max_pool2d(input_tensor, 3, 1);
     auto cpu_out = torch::relu(cpu_pool);
@@ -749,8 +726,7 @@ TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor weight_tensor =
         torch::randn({C, C, kW, kH}, torch::requires_grad(true));
     auto in_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
@@ -792,8 +768,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_ProdTest) {
   std::vector<int> in_sizes{6, 8, 10};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hOut = torch::prod(hA);
@@ -816,8 +791,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     int64_t dim = 2;
@@ -849,8 +823,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({A, B});
     torch::Tensor c1 = torch::randn({A, B});
     torch::Tensor c2 = torch::randn({A, B});
@@ -886,8 +859,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({A, B});
     torch::Tensor c1 = torch::randn({A, B});
     torch::Tensor c2 = torch::randn({A, B});
@@ -926,8 +898,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int B = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
 
     c0 = torch::relu_(c0);
@@ -959,8 +930,7 @@ TEST_F(LazyDynamicShapesTest, AddConstantTest) {
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor out_hpu = torch::add(hA, B, alpha);
@@ -988,8 +958,7 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    std::cout << '\n';
-    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor B = torch::randn({C, H, N}, torch::requires_grad(false));

@@ -234,6 +234,7 @@ class PtLogger {
     HABANAHOOKS = 0x40,
     FALLBACK = 0x80,
     STATS = 0x100,
+    TEST = 0x200,
   };
 };
 
@@ -343,6 +344,9 @@ class PTFuncLog {
 #define PT_FALLBACK_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
 
+#define PT_TEST_WARN(...) \
+  PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::TEST, __VA_ARGS__)
+
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&               \
@@ -438,3 +442,4 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 #define PT_FALLBACK_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
+#define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::TEST, __VA_ARGS__)
