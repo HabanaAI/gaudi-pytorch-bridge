@@ -188,18 +188,14 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
     // Create IndexSelect operator
     auto indexSelectOp = make_operator<IndexSelectOperator>(
         this->p_context_->device_id_, weight.scalar_type());
-    auto& indexSelect_syn_1 =
-        indexSelectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& indexSelect_syn_2 =
-        indexSelectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     // Build Params for the graph
     int64_t dim = 0;
     std::vector<c10::IValue> stack{
         IValue(weight), IValue(dim), IValue(indices)};
     indexSelectOp->AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(indexSelect_syn_1);
-    p_context_->syn_inputs_[1] = std::move(indexSelect_syn_2);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(indexSelectOp->GetSynOutputs()[0]));
@@ -214,8 +210,7 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
 
     auto ReshapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, indices.scalar_type());
-    auto& reshape_syn =
-        ReshapeOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
 
     int64_t data[1];
     data[0] = indices.numel();
@@ -225,27 +220,24 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(indices));
     stack.emplace_back(IValue(shape));
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1] = std::move(reshape_syn);
     stack.clear();
 
     auto indexSelectOp = make_operator<IndexSelectOperator>(
         this->p_context_->device_id_, weight.scalar_type());
-    auto& indexSelect_syn_1 =
-        indexSelectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    indexSelectOp->SetSynapseInput(std::move(ReshapeOp->GetSynOutputs()[0]));
+    indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    indexSelectOp->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
     // Build Params for the graph
     int64_t dim = 0;
     stack.emplace_back(IValue(weight));
     stack.emplace_back(IValue(dim));
     stack.emplace_back(IValue(ReshapeOp->GetOutputs()[0]));
     indexSelectOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(indexSelect_syn_1);
     stack.clear();
 
     auto ReshapeOp_2 = make_operator<ReshapeOperator>(
         this->p_context_->device_id_,
         indexSelectOp->GetOutputs()[0].scalar_type());
-    ReshapeOp_2->SetSynapseInput(std::move(indexSelectOp->GetSynOutputs()[0]));
+    ReshapeOp_2->SetSynapseInput(indexSelectOp->GetSynOutputs()[0]);
     // Build Params for the graph
     stack.emplace_back(IValue(indexSelectOp->GetOutputs()[0]));
     stack.emplace_back(IValue(size));
@@ -382,14 +374,12 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   // Node: indices_flattened = indices.view(-1); // assumes non-FCDs are size 1s
   auto reshape_op_indices = make_operator<ReshapeOperator>(
       indices.device().index(), indices.scalar_type());
-  auto& syn_in_indices = reshape_op_indices->SetSynapseInput(
-      std::move(p_context_->syn_inputs_[1]));
+  reshape_op_indices->SetSynapseInput(p_context_->syn_inputs_[1]);
   int64_t size1[] = {indices.numel()};
   c10::IntArrayRef modified_indices_shape(size1, 1);
   torch::jit::Stack indices_stack = {
       c10::IValue(indices), c10::IValue(modified_indices_shape)};
   reshape_op_indices->AllocateAndAddSynapseNode(graph, indices_stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn_in_indices);
   auto indices_flattened = reshape_op_indices->GetOutputs()[0];
 
   // Node: updates = grad.view(size);
@@ -397,20 +387,17 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   int64_t size2[] = {grad.numel() / grad.size(-1), grad.size(-1)};
   auto reshape_op_grad =
       make_operator<ReshapeOperator>(grad.device().index(), grad.scalar_type());
-  auto& save_syn1 =
-      reshape_op_grad->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  reshape_op_grad->SetSynapseInput(p_context_->syn_inputs_[0]);
   c10::IntArrayRef modified_input_shape(size2, 2);
   torch::jit::Stack updates_stack = {
       c10::IValue(grad), c10::IValue(modified_input_shape)};
   reshape_op_grad->AllocateAndAddSynapseNode(graph, updates_stack, false);
-  p_context_->syn_inputs_[0] = std::move(save_syn1);
   auto updates = reshape_op_grad->GetOutputs()[0];
   // Create cast operator for indices->Float = node_type = "cast_i32_to_f32" for
   // topk
   auto castIndicesToFloatOp = make_operator<CastOperator>(
       this->p_context_->device_id_, "cast_i32_to_f32");
-  castIndicesToFloatOp->SetSynapseInput(
-      std::move(reshape_op_indices->GetSynOutputs()[0]));
+  castIndicesToFloatOp->SetSynapseInput(reshape_op_indices->GetSynOutputs()[0]);
   c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
   std::vector<c10::IValue> cast_stack{
       IValue(indices_flattened), IValue(cast_scalar_type)};
@@ -422,7 +409,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   int64_t dim = 0;
   bool largest = true;
   bool sorted = true;
-  topkOp->SetSynapseInput(std::move(castIndicesToFloatOp->GetSynOutputs()[0]));
+  topkOp->SetSynapseInput(castIndicesToFloatOp->GetSynOutputs()[0]);
   std::vector<c10::IValue> topk_stack{
       IValue(castIndicesToFloatOp->GetOutputs()[0]),
       IValue(numel),
@@ -435,7 +422,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   // Create cast operator for topk_values = node_type = "cast_f32_to_i32"
   auto castTopkValsOp = make_operator<CastOperator>(
       this->p_context_->device_id_, "cast_f32_to_i32");
-  castTopkValsOp->SetSynapseInput(std::move(topkOp->GetSynOutputs()[0]));
+  castTopkValsOp->SetSynapseInput(topkOp->GetSynOutputs()[0]);
   cast_scalar_type = c10::ScalarType::Int;
   std::vector<c10::IValue> cast_stack1{
       IValue(topkOp->GetOutputs()[0]), IValue(cast_scalar_type)};
@@ -445,8 +432,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   // Node: reordered_updates = at::gather(updates, 0, topk_indices);
   auto gatherOp = make_operator<GatherOperator>(
       this->p_context_->device_id_, updates.scalar_type());
-  gatherOp->SetSynapseInput(std::move(syn_updates));
-  gatherOp->SetSynapseInput(std::move(topkOp->GetSynOutputs()[1]));
+  gatherOp->SetSynapseInput(syn_updates);
+  gatherOp->SetSynapseInput(topkOp->GetSynOutputs()[1]);
   bool sparse_grad = false;
   std::vector<c10::IValue> gather_stack{
       IValue(updates),
@@ -460,9 +447,9 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   */
   auto scatterAddOp = make_operator<ScatterAddOperator>(
       this->p_context_->device_id_, grad.scalar_type());
-  scatterAddOp->SetSynapseInput(std::move(zeroOp->GetSynOutputs()[0]));
-  scatterAddOp->SetSynapseInput(std::move(castTopkValsOp->GetSynOutputs()[0]));
-  scatterAddOp->SetSynapseInput(std::move(gatherOp->GetSynOutputs()[0]));
+  scatterAddOp->SetSynapseInput(zeroOp->GetSynOutputs()[0]);
+  scatterAddOp->SetSynapseInput(castTopkValsOp->GetSynOutputs()[0]);
+  scatterAddOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
   std::vector<c10::IValue> sa_stack{
       IValue(zeroOp->GetOutputs()[0]),
       IValue(dim),
@@ -520,9 +507,9 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
 
     auto indexputOp = make_operator<IndexPutOperator>(
         this->p_context_->device_id_, grad_weight.scalar_type());
-    indexputOp->SetSynapseInput(std::move(syn_grad_weight));
-    indexputOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
-    indexputOp->SetSynapseInput(std::move(zeroOp1->GetSynOutputs()[0]));
+    indexputOp->SetSynapseInput(syn_grad_weight);
+    indexputOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    indexputOp->SetSynapseInput(zeroOp1->GetSynOutputs()[0]);
 
     std::vector<c10::IValue> indexputOp_stack = {
         IValue(grad_weight),
