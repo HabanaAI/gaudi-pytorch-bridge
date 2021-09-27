@@ -67,17 +67,11 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
       make_operator<BitwiseOutOperator>(this->p_context_->device_id_, guid_);
 
   if (inputs[1].isTensor() && inputs[2].isTensor()) {
-    auto& syn_arg0 =
-        BitwiseOutOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_arg1 =
-        BitwiseOutOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-    auto& syn_arg2 =
-        BitwiseOutOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+    BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[2]);
     BitwiseOutOp->AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
-    p_context_->syn_inputs_[1] = std::move(syn_arg1);
-    p_context_->syn_inputs_[2] = std::move(syn_arg2);
   } else if (inputs[1].isTensor() && inputs[2].isScalar()) {
     auto arg1 = inputs[1].toTensor();
     auto constOp = make_operator<ConstantOperator>(
@@ -86,19 +80,14 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constInputs = {IValue(const_shape_tensor), inputs[2]};
     constOp->AllocateAndAddSynapseNode(graph, constInputs, false);
-    auto& syn_arg0 =
-        BitwiseOutOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_arg1 =
-        BitwiseOutOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-    UNUSED auto& syn_arg2 =
-        BitwiseOutOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+    BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    BitwiseOutOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
     BitwiseOutOp->AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
-    p_context_->syn_inputs_[1] = std::move(syn_arg1);
   }
 
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
@@ -140,18 +129,12 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   // Create xor operator
   auto xorOp = make_operator<BitwiseXorOutOperator>(
       this->p_context_->device_id_, scalar_type);
-  auto& syn_arg0 =
-      xorOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  auto& syn_arg1 =
-      xorOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  UNUSED auto& syn_arg2 =
-      xorOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+  xorOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  xorOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+  xorOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
 
   inputs.emplace_back(constOp->GetOutputs()[0]);
   xorOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-
-  p_context_->syn_inputs_[0] = std::move(syn_arg0);
-  p_context_->syn_inputs_[1] = std::move(syn_arg1);
 
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(std::move(xorOp->GetSynOutputs()[0]));

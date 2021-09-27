@@ -440,13 +440,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   } else {
     auto identityOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
-    auto& syn_arg0 =
-        identityOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     torch::jit::Stack stack = {IValue(self)};
     identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
     p_context_->syn_outputs_.emplace_back(
         std::move(identityOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(

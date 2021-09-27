@@ -127,7 +127,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto intToBoolOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    intToBoolOp->SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+    intToBoolOp->SetSynapseInput(p_context_->syn_outputs_[0]);
 
     // Build Params for the graph
     stack.emplace_back(IValue(output_mult));
