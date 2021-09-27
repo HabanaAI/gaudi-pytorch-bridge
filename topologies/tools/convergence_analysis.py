@@ -73,15 +73,15 @@ def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_
                 if 'hpu' in dev1:
                     tid = 1
                 elif 'hpu' in dev2:
-                        tid = 2
-    if 'unet2d' in topology and same_device is False and t_dev1_torch.ndim == 4:
+                    tid = 2
+    if same_device is False and (('unet2d' in topology and t_dev1_torch.ndim == 4) or ('unet3d' in topology and t_dev1_torch.ndim == 5)):
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
             if (tail != "target.pt")  and (tail != "input.pt") and (tail != "output.pt"):
                 if 'hpu' in dev1:
                     tid = 1
                 elif 'hpu' in dev2:
-                        tid = 2
+                    tid = 2
     return tid
 
 def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
@@ -92,7 +92,10 @@ def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
         tensor_to_perm = t_dev2_torch
 
     if tensor_to_perm is not None:
-        tensor_to_perm = tensor_to_perm.permute((3,2,0,1)) # permute RSCK to KCRS
+        if tensor_to_perm.ndim == 4:
+            tensor_to_perm = tensor_to_perm.permute((3,2,0,1)) # permute RSCK to KCRS
+        elif tensor_to_perm.ndim == 5:
+            tensor_to_perm = tensor_to_perm.permute((4, 3, 0, 1, 2)) # permute RSTCK to KCRST
         if tid == 1:
             return tensor_to_perm, t_dev2_torch
         elif tid == 2:
