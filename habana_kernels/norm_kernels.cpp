@@ -1259,8 +1259,10 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
     AT_ERROR(ss.str());
   }
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n = multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+  int64_t m =
+      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n =
+      multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1381,7 +1383,8 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto input_ndim = input.dim();
   const int normalized_ndim = normalized_shape.size();
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t m =
+      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1535,8 +1538,10 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto input_ndim = X.dim();
   const int normalized_ndim = normalized_shape.size();
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n = multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+  int64_t m =
+      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n =
+      multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
 
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
@@ -1644,7 +1649,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       std::move(p_context_->syn_outputs_[2]));
   stack = {c10::IValue(output2), c10::IValue(output2.sizes().vec())};
   reshape_op_grad_gamma->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[2]);
+      graph, stack, is_output_persistent[1]);
   synapse_helpers::tensor& syn_reshape_grad_gamma =
       reshape_op_grad_gamma->GetSynOutputs()[0];
 
@@ -1653,7 +1658,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   reshape_op_grad_beta->SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
   stack = {c10::IValue(output1), c10::IValue(output1.sizes().vec())};
   reshape_op_grad_beta->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[1]);
+      graph, stack, is_output_persistent[2]);
   synapse_helpers::tensor& syn_reshape_grad_beta =
       reshape_op_grad_beta->GetSynOutputs()[0];
 
