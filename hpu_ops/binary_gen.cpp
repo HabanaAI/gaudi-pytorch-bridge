@@ -13,6 +13,9 @@
 namespace habana {
 sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
+  if (stack.at(1).isScalar()) {
+    return {self.sizes().vec()};
+  }
   const torch::Tensor& other = stack_tensor(stack, 1);
   return {at::infer_size(self.sizes(), other.sizes())};
 }
@@ -21,8 +24,8 @@ void BinaryOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  const at::Tensor other = stack_tensor(stack, 1);
+  const at::Tensor& self = stack_tensor(stack, 0);
+  const at::Tensor& other = stack_tensor(stack, 1);
   const at::ScalarType& result_type = at::result_type(self, other);
 
   bool do_alpha_mul =

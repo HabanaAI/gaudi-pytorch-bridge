@@ -79,6 +79,10 @@ class HabanaOperatorHelper : public HabanaOperator {
     m_num_out_tensors = n;
   }
 
+  void EnableTypePromotion() {
+    m_promote_type = true;
+  }
+
   void SetFillParams(
       std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> fn) {
     m_fill_params = std::move(fn);
@@ -95,7 +99,7 @@ class HabanaOperatorHelper : public HabanaOperator {
 
   sizes_vec ComputeOutputShapes(
       const at::Stack& stack,
-      bool is_lowering = false) {
+      bool is_lowering = false) const {
     if (m_compute_output_shapes) {
       return m_compute_output_shapes(stack, is_lowering);
     }
@@ -114,6 +118,9 @@ class HabanaOperatorHelper : public HabanaOperator {
       const std::vector<bool>& is_output_persistent_list);
   void HandleInplaceFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleOutFn(synapse_helpers::graph& graph, const at::Stack& stack);
+  void HandleTypePromotion(
+      synapse_helpers::graph& graph,
+      const at::Stack& stack);
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -153,17 +160,27 @@ class HabanaOperatorHelper : public HabanaOperator {
     return p_context_->syn_outputs_.at(index);
   }
 
+  synapse_helpers::tensor CastHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      const at::ScalarType& from,
+      const at::ScalarType& to,
+      bool persistent = false,
+      bool final_node = false);
+
   virtual void AddNode(
       synapse_helpers::graph&,
       at::Stack&,
       const std::vector<bool>&);
 
  private:
-  const c10::ScalarType m_scalar_type;
   const int m_out_id;
   const int m_inplace_id;
   const int m_scalar_id;
   const bool m_is_outfn;
+
+  c10::ScalarType m_scalar_type;
   bool m_promote_type = false;
   int m_num_out_tensors = 1;
 

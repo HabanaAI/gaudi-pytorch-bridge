@@ -413,6 +413,22 @@ floor_:
   inplace_ids: [0]
   legacy_eager: true
 
+fmod.Scalar:
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  op_base_class: Fmod
+  out_ids: [0]
+  scalar_ids: [1]
+  type_promotion: true
+
+fmod.Tensor:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  op_base_class: Fmod
+  out_ids: [0]
+  type_promotion: true
+
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd

@@ -515,6 +515,41 @@ class LazyOp {
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
 };
 
+template <typename T>
+class LazyOpWithTypePromotion : public LazyOp<T> {
+ public:
+  explicit LazyOpWithTypePromotion(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      const std::function<
+          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+          out_shapes_fn = nullptr) noexcept
+      : LazyOp<T>(qualstring, inputs, out_shapes_fn, -1) {}
+
+ private:
+  at::Tensor get_result_overrideable() override {
+    const auto& inputs = LazyOp<at::Tensor>::get_inputs();
+    const auto& self = inputs.at(0).toTensor();
+    at::ScalarType result_type;
+
+    if (inputs.at(1).isTensor()) {
+      result_type = at::result_type(self, inputs.at(1).toTensor());
+    } else {
+      result_type = at::result_type(self, inputs.at(1).toScalar());
+    }
+
+    const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
+        ? self.sizes()
+        : LazyOp<at::Tensor>::get_out_shapes().at(0);
+
+    return empty_hpu_lazy(
+        outshape,
+        self.options().device(c10::kHPU).dtype(result_type),
+        self.suggest_memory_format(),
+        false);
+  }
+};
+
 template <typename ReturnType>
 class LazyBinaryOp : public LazyOp<ReturnType> {
  public:
@@ -538,8 +573,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     auto inputs = LazyOp<T>::get_inputs();
 
     if (!LazyOp<T>::IsConvertWrappedTensorToScalar()) {
-      for (auto& t : inputs) { // Any tensor on CPU needs to be moved to HPU for
-                               // type promotion to work
+      for (auto& t : inputs) { // Any tensor on CPU needs to be moved to HPU
+                               // for type promotion to work
         if (t.isTensor() &&
             t.toTensor().device().type() != c10::DeviceType::HPU) {
           auto h_tensor = t.toTensor().to(c10::kHPU);

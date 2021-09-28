@@ -52,11 +52,11 @@ HabanaOperatorHelper::HabanaOperatorHelper(
     int scalar_id,
     bool is_outfn)
     : HabanaOperator(guid + habana_helpers::name_suffix_from_type(scalar_type)),
-      m_scalar_type{scalar_type},
       m_out_id{out_id},
       m_inplace_id{inplace_id},
       m_scalar_id{scalar_id},
-      m_is_outfn{is_outfn} {
+      m_is_outfn{is_outfn},
+      m_scalar_type{scalar_type} {
   CreateSynContext(device_id);
   kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -70,12 +70,12 @@ void HabanaOperatorHelper::HandleScalarToTensor(
   }
 
   const at::Scalar& val = stack.at(m_scalar_id).toScalar();
-  const auto& val_type = m_promote_type ? val.type() : ScalarType();
+  const at::ScalarType& val_type = m_promote_type ? val.type() : ScalarType();
   m_scalar_inputs.emplace(m_scalar_id, val);
 
   size_t size = 0;
   PARAMS_STUB(ns_ConstantKernel::Params);
-  if (val_type == c10::ScalarType::Int) {
+  if (val_type == c10::ScalarType::Int or val_type == c10::ScalarType::Long) {
     get<int>(params->constant) = val.to<int>();
   } else {
     get<float>(params->constant) = val.to<float>();
@@ -105,6 +105,7 @@ void HabanaOperatorHelper::HandleFn(
 
   const auto& outshapes = ComputeOutputShapes(stack, true);
   const auto& t = stack.at(m_out_id).toTensor();
+  const auto& dtype = m_promote_type ? ScalarType() : t.scalar_type();
 
   HABANA_ASSERT(
       outshapes.empty() || outshapes.size() == is_output_persistent_list.size(),
@@ -119,7 +120,7 @@ void HabanaOperatorHelper::HandleFn(
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
     bool is_output_persistent = is_output_persistent_list[i];
     const auto& output = habana_helpers::createPTTensor(
-        t, outshape, t.options(), is_output_persistent);
+        t, outshape, t.options().dtype(dtype), is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
   }
 }
@@ -161,6 +162,82 @@ void HabanaOperatorHelper::HandleInplaceFn(
   p_context_->pt_outputs_.emplace_back(stack[m_inplace_id].toTensor());
 }
 
+void HabanaOperatorHelper::HandleTypePromotion(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  if (!m_promote_type) {
+    return;
+  }
+
+  auto get_type = [stack](int index) {
+    const auto& ival = stack.at(index);
+    auto type = ival.isTensor() ? ival.toTensor().scalar_type()
+                                : ival.toScalar().type();
+    if (type == at::ScalarType::Long) {
+      return at::ScalarType::Int;
+    } else if (type == at::ScalarType::Double) {
+      return at::ScalarType::Float;
+    } else if (type == at::ScalarType::Bool) {
+      return at::ScalarType::Char;
+    }
+    return type;
+  };
+
+  const std::array<at::ScalarType, 2> input_types{get_type(0), get_type(1)};
+  const at::ScalarType& result_type =
+      at::promote_types(input_types[0], input_types[1]);
+
+  int cast_index = -1;
+  if (input_types[0] != result_type and input_types[1] == result_type) {
+    cast_index = 0;
+  } else if (input_types[0] == result_type and input_types[1] != result_type) {
+    cast_index = 1;
+  } else {
+    // No cast needed
+    return;
+  }
+
+  std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1)};
+  const std::string& cast_from =
+      habana_helpers::name_suffix_from_type(input_types[cast_index]);
+  const std::string& cast_to =
+      habana_helpers::name_suffix_from_type(result_type);
+
+  // Insert cast on the input with lower dtype
+  auto cast = BuildOp(
+      graph,
+      "cast_" + cast_from + "_to_" + cast_to,
+      {syn_inputs.at(cast_index)},
+      {{stack.at(cast_index).isTensor()
+            ? stack_tensor(stack, cast_index).sizes()
+            : 1,
+        result_type}});
+
+  // Replace the input with the casted input
+  p_context_->syn_inputs_.at(cast_index) = std::move(cast[0]);
+
+  // Update the guid to reflect the promoted type
+  SetGuid(guid_.substr(0, guid_.find_last_of('_') + 1) + cast_to);
+
+  // Update m_scalar_type
+  m_scalar_type = result_type;
+}
+
+synapse_helpers::tensor HabanaOperatorHelper::CastHelper(
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    const at::ScalarType& from,
+    const at::ScalarType& to,
+    bool persistent,
+    bool final_node) {
+  const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
+      "_to_" + habana_helpers::name_suffix_from_type(to);
+  auto cast =
+      BuildOp(graph, guid, {syn_in}, {{sizes, to, persistent, final_node}});
+  return std::move(cast.at(0));
+}
+
 void HabanaOperatorHelper::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
@@ -175,10 +252,12 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
     at::Stack& stack,
     std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
+  HandleScalarToTensor(graph, stack);
+  HandleTypePromotion(graph, stack);
+
   HandleFn(graph, stack, is_output_persistent_list);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
-  HandleScalarToTensor(graph, stack);
 
   AddNode(graph, stack, is_output_persistent_list);
 }

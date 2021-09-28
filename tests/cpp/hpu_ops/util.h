@@ -81,6 +81,23 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
     }
   }
 
+  void GenerateIntInputs(
+      int num_inputs,
+      torch::ArrayRef<torch::IntArrayRef> sizes,
+      int low,
+      int high) {
+    SetSeed();
+    ASSERT_EQ(num_inputs, sizes.size());
+
+    m_cpu_inputs.resize(num_inputs);
+    m_hpu_inputs.resize(num_inputs);
+
+    for (int i = 0; i < num_inputs; ++i) {
+      m_cpu_inputs[i] = torch::randint(low, high, sizes.at(i), torch::kInt);
+      m_hpu_inputs[i] = m_cpu_inputs[i].to("hpu");
+    }
+  }
+
  private:
   const torch::IntArrayRef m_dims = torch::IntArrayRef({2, 3, 2});
   std::vector<torch::Tensor> m_cpu_inputs;
