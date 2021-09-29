@@ -238,6 +238,7 @@ class PtLogger {
     FALLBACK = 0x80,
     STATS = 0x100,
     TEST = 0x200,
+    DYNAMIC_SHAPE = 0x400,
   };
 };
 
@@ -308,6 +309,9 @@ class PTFuncLog {
 #define PT_HABANAHOOKS_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 
+#define PT_DYNAMIC_SHAPE_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
+
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...)                                       \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
@@ -349,6 +353,10 @@ class PTFuncLog {
 
 #define PT_TEST_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::TEST, __VA_ARGS__)
+
+#define PT_DYNAMIC_SHAPE_WARN(...) \
+  PT_MOD_WARN_WITHOUT_LINE_FILE(   \
+      PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
@@ -413,6 +421,9 @@ class PTFuncLog {
 #define PT_SYNHELPER_TRACE \
   PT_MOD_TRACE(            \
       PtLogger::ModuleMask::SYNHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_DYNAMIC_SHAPE_TRACE \
+  PT_MOD_TRACE(                \
+      PtLogger::ModuleMask::DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
@@ -446,3 +457,5 @@ class PTFuncLog {
 #define PT_FALLBACK_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
 #define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::TEST, __VA_ARGS__)
+#define PT_DYNAMIC_SHAPE_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)

@@ -28,15 +28,13 @@
 #include "synapse_helpers/env_flags.h"
 
 #include "synapse_helpers/graph.h"
+#include "synapse_helpers/time_slot.h"
 
 #define PGM_LRU_MAX_EAGER_NRECIPES 9000
 #define PGM_LRU_MAX_LAZY_NRECIPES 2500
 #define PGM_LRU_MIN_NRECIPES 3
 
 namespace habana {
-enum class PGMCachingPolicy { simple, single, lru };
-
-std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P);
 
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
@@ -179,7 +177,8 @@ struct RecipeValueSpec {
       int numel = -1);
   void d2h_dbuff(size_t buf_idx);
 
-  std::string get_header_str();
+  std::string header_str();
+  std::string digest_str();
   int update_hit_count();
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -200,8 +199,46 @@ struct RecipeValueSpec {
       std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
       std::string map_name);
 
-  size_t get_recipe_count() {
+  static size_t get_recipe_count() {
     return recipe_count;
+  }
+  static size_t get_dynamic_recipe_count() {
+    return dynamic_recipe_count;
+  }
+
+  static void increment_compile_count() {
+    compile_count++;
+  }
+  static size_t get_compile_count() {
+    return compile_count;
+  }
+  static void increment_launch_count() {
+    launch_count++;
+  }
+  static size_t get_launch_count() {
+    return launch_count;
+  }
+
+  bool get_enable_time_scope() {
+    return enable_time_scope;
+  }
+
+  void set_enable_time_scope(bool flag) {
+    enable_time_scope = flag;
+  }
+
+  void increment_recipe_count() {
+    recipe_count++;
+    if (dynamic_graph) {
+      RecipeValueSpec::dynamic_recipe_count++;
+    }
+  }
+
+  void decrement_recipe_count() {
+    recipe_count--;
+    if (dynamic_graph) {
+      RecipeValueSpec::dynamic_recipe_count--;
+    }
   }
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
@@ -233,88 +270,32 @@ struct RecipeValueSpec {
   size_t num_input_to_outduplicates{0};
   size_t num_intermediate_to_outduplicates{0};
   size_t num_output_to_outduplicates{0};
+  size_t num_launches{0};
 
   size_t ntensorbytes{0};
 
   size_t key{0};
 
-  std::string header_str;
+  std::string header;
   size_t num_tensors{0};
   uint64_t* tensor_ids{nullptr};
   const char** tensor_names{nullptr};
   bool dynamic_graph{false};
+  bool enable_time_scope{false};
+
+  // Multiple recipes can be queued up, so each recipe would need
+  // a dedicated time slot for itself
+  std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
 
   static size_t count;
   static size_t recipe_count;
+  static size_t dynamic_recipe_count;
   static size_t total_recipe_ntbytes;
+  static size_t compile_count;
+  static size_t launch_count;
 
  private:
   std::atomic<bool> in_use {false};
-};
-
-struct RecipeCacheSimple {
-  std::unordered_map<
-      std::shared_ptr<RecipeArgumentSpec>,
-      std::shared_ptr<RecipeValueSpec>,
-      RecipeArgumentSpecHash,
-      RecipeArgumentSpecEqual>
-      map_;
-
-  bool empty() {
-    return (map_.size() == 0);
-  }
-
-  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
-    bool ret_flag{false};
-    if (!empty() && map_.end() != map_.find(key)) {
-      ret_flag = true;
-    }
-    return ret_flag;
-  }
-
-  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key) {
-    if (exists(key)) {
-      return map_[key];
-    }
-
-    return {nullptr};
-  }
-
-  void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
-
-  friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
-};
-
-struct RecipeCacheSingle {
-  std::shared_ptr<RecipeArgumentSpec> last_rargpsh {nullptr};
-  std::shared_ptr<RecipeValueSpec> last_rvalpsh {nullptr};
-  bool is_valid {false};
-
-  bool empty() {
-    return (!is_valid);
-  }
-
-  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
-    bool ret_flag{false};
-    if (!empty() && *last_rargpsh == *key) {
-      ret_flag = true;
-    }
-    return ret_flag;
-  }
-
-  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key) {
-    if (exists(key)) {
-      TORCH_CHECK(is_valid, "recipe.get is called on an empty cache");
-      return last_rvalpsh;
-    }
-
-    return {nullptr};
-  }
-
-  void add(std::shared_ptr<RecipeArgumentSpec> &rargpsh,
-      std::shared_ptr<RecipeValueSpec> &rvalpsh);
-
-  friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
 };
 
 class RecipeCacheLRU {
@@ -350,7 +331,7 @@ class RecipeCacheLRU {
 
   void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
   std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key);
-  bool drop_lru(size_t& recipe_count);
+  bool drop_lru(size_t& num_recipes);
   void remove_oldest();
 
   //friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);

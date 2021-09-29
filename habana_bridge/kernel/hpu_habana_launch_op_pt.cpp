@@ -131,21 +131,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   id_str = oss.str();
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
-
-  caching_policy = PGMCachingPolicy::lru;
-  char* caching_policy_str = getenv("HABANA_PGM_CACHING_POLICY");
-  if (caching_policy_str != nullptr) {
-    if (std::string("simple") == std::string(caching_policy_str)) {
-      caching_policy = PGMCachingPolicy::simple;
-    } else if (std::string("single") == std::string(caching_policy_str)) {
-      caching_policy = PGMCachingPolicy::single;
-    } else if (std::string("lru") == std::string(caching_policy_str)) {
-      caching_policy = PGMCachingPolicy::lru;
-    }
-  }
-
-  if (caching_policy == PGMCachingPolicy::lru &&
-      !HPUDeviceAllocator::drop_cached_recipe_cb) {
+  if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
     HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
   }
 
@@ -2308,15 +2294,29 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     UpdateOutputs();
     return;
   }
+
+  std::chrono::steady_clock::time_point t_start;
+  t_start = std::chrono::steady_clock::now();
   auto&& error_variant{syn_graph.compile()};
+  auto t_compile = std::chrono::steady_clock::now() - t_start;
+  uint64_t t_compile_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
+
   if (ABSL_PREDICT_FALSE(
           absl::holds_alternative<synapse_helpers::synapse_error>(
               error_variant))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
     PT_BRIDGE_FATAL(
-        "syn compile encountered : ", error.error, " ", error.status);
-    TORCH_CHECK(false, "syn compile failed");
+        "syn compile encountered : ",
+        error.error,
+        " ",
+        error.status,
+        " compile time ",
+        t_compile_ns,
+        " ns");
   }
+
+  RecipeValueSpec::increment_compile_count();
 
   auto cur_recipe = get_value(std::move(error_variant));
 
@@ -2459,17 +2459,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
 
-  PT_BRIDGE_DEBUG("num_inputs ", rv.num_inputs);
-  PT_BRIDGE_DEBUG("num_induplicates ", rv.num_induplicates);
-  PT_BRIDGE_DEBUG("num_dma_inputs ", rv.num_dma_inputs);
-  PT_BRIDGE_DEBUG("num_intermediates ", rv.num_intermediates);
-  PT_BRIDGE_DEBUG("num_outputs ", rv.num_outputs);
-  PT_BRIDGE_DEBUG("num_outduplicates ", rv.num_outduplicates);
-  PT_BRIDGE_DEBUG("num_input_to_outduplicates ", rv.num_input_to_outduplicates);
-  PT_BRIDGE_DEBUG(
-      "num_intermediate_to_outduplicates ",
-      rv.num_intermediate_to_outduplicates);
-
   if (enable_tensor_dump_) {
     if (0 == htensor_wbuff_size) {
       for (size_t i = 0; i < rv.num_tinfos; ++i) {
@@ -2493,7 +2482,27 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   }
 
   rv.populate_syn_tensor_ids();
+
+  if (refine_ds_enabled_) {
+    // Initiate recipe run time collection
+    if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
+      auto& syn_device = synapse_helpers::HPURegistrar::get_device();
+      rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
+          syn_device.get_cached_time_event_handle(),
+          syn_device.get_cached_time_event_handle(),
+          static_cast<synStreamHandle>(syn_device.get_compute_stream()));
+      current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
+    }
+    // Add the jit_ir_graph to current_dbipsh_
+    current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph);
+    current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
+  }
+
+  PT_BRIDGE_DEBUG(
+      "HabanaOp recipe cache :: launching new recipe", rv.header_str());
+
   rv.launch(input_refs);
+  rv.update_hit_count();
 
   if (enable_tensor_dump_) {
     DumpTensors(rv);
@@ -2510,22 +2519,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
               input_refs,
               jit_ir_graph,
               enable_tensor_release_ ? "" : id_str);
-
       rv.key = rargpsh->hashCode();
-
-      switch (caching_policy) {
-        case PGMCachingPolicy::simple:
-          recipe_cache_simple.add(rargpsh, rvalpsh);
-          break;
-        case PGMCachingPolicy::single:
-          recipe_cache_single.add(rargpsh, rvalpsh);
-          break;
-        case PGMCachingPolicy::lru:
-          RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
-          break;
-        default:
-          TORCH_CHECK(false, "should not be reachable");
-      }
+      RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
     } else {
       std::shared_ptr<RecipeArgumentSpec> rargpsh =
           std::make_shared<RecipeArgumentSpec>(
@@ -2534,21 +2529,10 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
       rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
       RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
     }
-
-    device.get_recipe_handle_cache().increaseHitCount(rv.key);
-
     PT_BRIDGE_DEBUG(
-        "HabanaOp recipe cache :: adding new recipe",
-        rv.get_header_str(),
-        "\n total size of graph recipes ",
-        synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes),
-        "\n #hits ",
-        device.get_recipe_handle_cache().getHitCount(rv.key),
-        "\n #graph_recipes ",
-        rv.get_recipe_count(),
-        "\n #eager_recipes ",
-        device.get_recipe_handle_cache().getCount());
+        "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
+  PT_BRIDGE_DEBUG(rv.digest_str());
 
   UpdateOutputs(rv);
 }
@@ -2647,74 +2631,46 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
-  PT_BRIDGE_DEBUG("PTI_DBG :: DYNAMIC SHAPE FLOW ENABLED");
-  PT_BRIDGE_DEBUG(
-      "PTI_DBG :: JIT IR Graph----",
-      jit_ir_graph->toString(),
-      " PTI_DBG :: JIT IT Graph----\n");
   std::shared_ptr<RecipeArgumentSpec> rargpsh =
       std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
-  PT_BRIDGE_DEBUG(
-      "PTI_DBG :: ",
-      __FUNCTION__,
-      ':',
-      __LINE__,
-      " :: ",
-      "graph_hash_code : ",
-      rargpsh->graphHashCode(),
-      ", ",
-      "hash_code : ",
-      rargpsh->hashCode());
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "====\n",
+      "Processing with dynamic shape enabled\n",
+      "JIT IR graph_hash_code : ",
+      rargpsh->graphHashCode());
 
-  std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh =
-      DynamicBucketInfoMap::get_instance().get(rargpsh);
-  if (nullptr == dbipsh) {
-    PT_BRIDGE_DEBUG(
-        "PTI_DBG :: ",
-        __FUNCTION__,
-        ':',
-        __LINE__,
-        " :: ",
-        "Creating new DynamicBucketInfo");
+  current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh);
+  if (nullptr == current_dbipsh_) {
+    PT_DYNAMIC_SHAPE_DEBUG("Creating new DynamicBucketInfo");
     auto dbi = habana_helpers::DynamicBucketInfo();
-    dbipsh = std::make_shared<habana_helpers::DynamicBucketInfo>(dbi);
-    DynamicBucketInfoMap::get_instance().add(rargpsh, dbipsh);
+    current_dbipsh_ = std::make_shared<habana_helpers::DynamicBucketInfo>(dbi);
+    DynamicBucketInfoMap::get_instance().add(rargpsh, current_dbipsh_);
   }
 
   CreateDynamicBucketInputShapes(act_input_tshapes);
 
-  dbipsh->CollectDynamicDims(act_input_tshapes);
-  auto bucket_id = dbipsh->GetBucketId(act_input_tshapes);
-  auto ranges = dbipsh->CalculateShapes(bucket_id);
+  current_dbipsh_->CollectDynamicDims(act_input_tshapes);
+  current_bucket_id_ = current_dbipsh_->GetBucketId(act_input_tshapes);
+  cur_ds_token_ = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
 
-  cur_ds_token_ = dbipsh->GetTokenForBucketId(bucket_id);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      jit_ir_graph->toString(),
+      current_dbipsh_->digest_str(),
+      "current bucket id : ",
+      current_bucket_id_);
+
+  auto ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
   if (ranges.empty()) {
-    PT_BRIDGE_DEBUG(
-        "PTI_DBG :: ",
-        __FUNCTION__,
-        ':',
-        __LINE__,
-        " :: ",
-        "working on exact graph with cur_ds_token : ",
-        cur_ds_token_,
-        "\n",
-        "Returned bucket id : ",
-        bucket_id);
-    PT_BRIDGE_DEBUG(*dbipsh);
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "exact graph with token : ", cur_ds_token_, "\n----");
   } else {
-    PT_BRIDGE_DEBUG(
-        "PTI_DBG :: ",
-        __FUNCTION__,
-        ':',
-        __LINE__,
-        " :: ",
-        "working on exact graph with cur_ds_token : ",
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "dynamic graph with token : ",
         cur_ds_token_,
-        "\n",
-        "Returned bucket id : ",
-        bucket_id);
-    PT_BRIDGE_DEBUG(*dbipsh);
-    PT_BRIDGE_DEBUG("Received ranges ::\n", ranges);
+        '\n',
+        "current range ::",
+        ranges,
+        "----");
 
     min_input_tshapes.insert(
         ranges.min_shapes.begin(), ranges.min_shapes.end());
@@ -2737,28 +2693,29 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // 2. Patch using the exact shape
       // 3. Launch
       // 4. Update outputs
+      current_dbipsh_->IncrementHitCount(current_bucket_id_);
+
       RecipeValueSpec& rv = *rvpsh;
-      auto rv_hit_count = rv.update_hit_count();
+      rv.update_hit_count();
+
+      // Initiate recipe execution time collection
+      if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
+        auto& syn_device = synapse_helpers::HPURegistrar::get_device();
+        rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
+            syn_device.get_cached_time_event_handle(),
+            syn_device.get_cached_time_event_handle(),
+            static_cast<synStreamHandle>(syn_device.get_compute_stream()));
+        current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
+      }
 
       if (rv.dynamic_graph) {
-        // For Dynamic shapes in case of cash hit, we need to run
+        // For Dynamic shapes in case of cache hit, we need to run
         // shape inference for determining the output shape and
         // persistent intermediates
         PT_BRIDGE_DEBUG("run output shape inference pass");
         run_shape_inference(ShapeInfo::InferencePass::OUTPUT_SHAPE);
       }
 
-      PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache hit ::",
-          rv.get_header_str(),
-          "\n total size of graph recipes ",
-          synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes),
-          "\n #hits ",
-          rv_hit_count,
-          "\n #graph_recipes ",
-          rv.get_recipe_count(),
-          "\n #eager_recipes ",
-          device.get_recipe_handle_cache().getCount());
 
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
           std::make_shared<std::vector<IValPtrShared>>(
@@ -2779,19 +2736,20 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // Update the stack from the recipe itself
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
+      PT_DYNAMIC_SHAPE_DEBUG("HabanaOp recipe cache hit ::", rv.header_str());
+      PT_DYNAMIC_SHAPE_DEBUG(rv.digest_str());
 
       clear();
       PT_BRIDGE_END;
       return;
     } else {
-      PT_BRIDGE_DEBUG(
+      PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
     }
   }
 
-  //
-  // In case of dynamic mode (cache miss & dynamic range exists)
-  // thn we need to run shape inference for min and max passes
+  // In case of dynamic mode (cache miss & dynamic range exists), we need to
+  // run shape inference for min and max passes
   // TODO: Once the bucket range issue is fixed, we need to run
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
@@ -2940,35 +2898,6 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
   jit_to_synapse_node_idx_map.clear();
 }
 
-std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::GetCachedRecipe(
-    std::shared_ptr<RecipeArgumentSpec>& spec_key) {
-  switch (caching_policy) {
-    case PGMCachingPolicy::simple:
-      return recipe_cache_simple.get(spec_key);
-    case PGMCachingPolicy::single:
-      return recipe_cache_single.get(spec_key);
-    case PGMCachingPolicy::lru:
-      return RecipeCacheLRU::get_cache().get(spec_key);
-    default:
-      TORCH_CHECK(false, "should not be reachable");
-  }
-  return {nullptr};
-}
-
-void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
-  switch (caching_policy) {
-    case PGMCachingPolicy::simple:
-      break;
-    case PGMCachingPolicy::single:
-      break;
-    case PGMCachingPolicy::lru:
-      rv.set_use_flag(false);
-      break;
-    default:
-      TORCH_CHECK(false, "should not be reachable");
-  }
-}
-
 void RecipeValueSpec::create_outdup(
     size_t ti_idx,
     std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
@@ -3079,19 +3008,13 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       RecipeValueSpec& rv = *rvpsh;
-      auto rv_hit_count = rv.update_hit_count();
+      rv.update_hit_count();
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit ::",
-          rv.get_header_str(),
-          "\n total size of graph recipes ",
-          synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes),
-          "\n #hits ",
-          rv_hit_count,
-          "\n #graph_recipes ",
-          RecipeValueSpec::recipe_count,
-          "\n #eager_recipes ",
-          device.get_recipe_handle_cache().getCount());
+          rv.header_str(),
+          "\n",
+          rv.digest_str());
 
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
           std::make_shared<std::vector<IValPtrShared>>(

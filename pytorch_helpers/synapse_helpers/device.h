@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2021 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -251,6 +254,10 @@ class device {
     return event_handle_cache_;
   }
 
+  CachedEventHandle get_cached_time_event_handle() {
+    return CachedEventHandle(time_event_handle_cache_);
+  }
+
   recipe_handle_cache& get_recipe_handle_cache() {
     return recipe_handle_cache_;
   }
@@ -326,6 +333,7 @@ class device {
                                    // used to launch recipes
   std::mutex ws_mutex_;
   event_handle_cache event_handle_cache_;
+  event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
   stream stream_comp_;
   stream stream_network_collective_;

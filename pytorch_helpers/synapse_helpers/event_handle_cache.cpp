@@ -25,8 +25,12 @@
 constexpr std::size_t MAX_NUM_EVENTS = 1000;
 
 namespace synapse_helpers {
-event_handle_cache::event_handle_cache(device& device)
-    : mutex_{}, cond_var_{}, device_{device}, events_count_{0} {
+event_handle_cache::event_handle_cache(device& device, uint32_t event_flag)
+    : event_flag_(event_flag),
+      mutex_{},
+      cond_var_{},
+      device_{device},
+      events_count_{0} {
   free_handles_.reserve(MAX_NUM_EVENTS);
 }
 
@@ -50,7 +54,7 @@ synEventHandle event_handle_cache::get_free_handle() {
     return handle;
   }
 
-  auto status{synEventCreate(&handle, device_.id(), EVENT_FLAGS)};
+  auto status{synEventCreate(&handle, device_.id(), event_flag_)};
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("Event creation failed");
   } else {

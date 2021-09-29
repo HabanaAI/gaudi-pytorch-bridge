@@ -148,10 +148,14 @@ void SplitStatImplDynamic::CalculateNewRanges(
 Bucket::Bucket(
     DynamicRanges&& ranges,
     DynamicDims dynamic_dims,
-    bool is_refine_allowed,
-    SplitPolicy sp)
-    : ranges_(std::move(ranges)), dynamic_dims_(std::move(dynamic_dims)) {
-  if (is_refine_allowed) {
+    bool is_refine_enabled,
+    SplitPolicy sp,
+    const uint64_t base_time)
+    : ranges_(std::move(ranges)),
+      dynamic_dims_(std::move(dynamic_dims)),
+      base_time_(base_time),
+      refine_candidate_(is_refine_enabled) {
+  if (is_refine_enabled) {
     const auto m = max_number_of_dims;
     TORCH_CHECK(
         ranges_.size() <= m,
@@ -187,12 +191,22 @@ bool Bucket::IsInRange(
   return true;
 }
 
+void Bucket::UpdateRunTime(uint64_t elapsed_time) {
+  run_time_stat_.Update(elapsed_time);
+  if (base_time_ > 0) {
+    uint64_t time_to_beat = static_cast<uint64_t>(
+        static_cast<double>(base_time_) * time_improve_factor_);
+    refine_candidate_ = time_to_beat > run_time_stat_.getTime();
+  }
+};
+
 void Bucket::IncStats(const std::vector<int64_t>& dims) {
-  if (nullptr == split_stat_impl_)
+  IncrementRunCount();
+  if (ranges_.empty() || nullptr == split_stat_impl_) {
     return;
+  }
 
   split_stat_impl_->Increment(ranges_, dims);
-  count_++;
 }
 
 Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
@@ -304,8 +318,9 @@ uint64_t DynamicBucketInfo::GetBucketId(
     const PadShapes& pad_shapes) {
   TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
   if (buckets_.empty()) {
-    buckets_.emplace_back(DynamicRanges{}, DynamicDims{}, false, split_policy_);
+    buckets_.emplace_back(DynamicRanges{}, DynamicDims{}, true, split_policy_);
     auto& new_bucket = buckets_.back();
+    new_bucket.IncStats({});
     new_bucket.SetIndex(buckets_.size() - 1);
     return 0;
   }
@@ -335,6 +350,7 @@ uint64_t DynamicBucketInfo::GetBucketId(
   }
   if (best_bucket_id.has_value()) {
     buckets_[best_bucket_id.value()].IncStats(dims);
+
     return best_bucket_id.value();
   }
 
@@ -360,28 +376,33 @@ uint64_t DynamicBucketInfo::GetBucketId(
 
 absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   if (!refine_enabled_ || global_count < min_iterations_to_split_ ||
-      buckets_.size() > max_buckets_number_)
+      buckets_.size() > max_buckets_number_) {
     return {};
+  }
 
   auto freq_used_bucket = std::max_element(
       buckets_.begin(), buckets_.end(), [](const Bucket& a, const Bucket& b) {
-        return a.getCount() < b.getCount();
+        return a.getRunCount() < b.getRunCount();
       });
 
-  if (freq_used_bucket == buckets_.begin())
+  if (freq_used_bucket == buckets_.begin()) {
     return {};
+  }
 
-  if (density_coefficient_ * global_count < freq_used_bucket->getCount()) {
+  auto target_count{
+      static_cast<decltype(global_count)>(density_coefficient_ * global_count)};
+  if (target_count < freq_used_bucket->getRunCount()) {
     buckets_.push_back(freq_used_bucket->CreateNewBucket(split_policy_));
     auto& new_bucket = buckets_.back();
     new_bucket.SetIndex(buckets_.size() - 1);
 
     for (auto& el : buckets_)
-      el.ResetCount();
+      el.ResetRunCount();
     global_count = 0;
     return buckets_.size() - 1;
-  } else
+  } else {
     return {};
+  }
 }
 
 bool DynamicBucketInfo::IsConsistentDynamicDimsCount() {
@@ -670,6 +691,30 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     result.emplace_back(std::make_pair(min, max));
   }
   return result;
+}
+
+void DynamicBucketInfo::RegisterTimeSlot(
+    const std::shared_ptr<synapse_helpers::TimeSlotBase>& ts,
+    int bucket) {
+  UpdateRunTimes();
+  run_time_states.emplace(ts, bucket);
+}
+
+void DynamicBucketInfo::UpdateRunTimes() {
+  while (!run_time_states.empty()) {
+    auto time = run_time_states.front().first->getTime();
+    if (false == time.has_value()) {
+      break;
+    }
+    auto t_ns{time.value()};
+    buckets_[run_time_states.front().second].UpdateRunTime(t_ns);
+    cumu_run_time_stat_.Update(t_ns);
+    run_time_states.pop();
+  }
+}
+
+bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
+  return bucket < buckets_.size() && buckets_[bucket].GetKeepRunTime();
 }
 
 void DynamicBucketInfo::DynamicDimsHelper::FindOrAdd(

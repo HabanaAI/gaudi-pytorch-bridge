@@ -164,12 +164,8 @@ class HabanaLaunchOpPT {
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
-  RecipeCacheSimple recipe_cache_simple;
-  RecipeCacheSingle recipe_cache_single;
-
   // Making the cache eviction policy as lru as default
 
-  PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
@@ -299,8 +295,12 @@ class HabanaLaunchOpPT {
   void clearMember(T& m_container);
 
   std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
-      std::shared_ptr<RecipeArgumentSpec>& spec_key);
-  void ReturnCachedRecipe(RecipeValueSpec& rv);
+      std::shared_ptr<RecipeArgumentSpec>& spec_key) {
+    return RecipeCacheLRU::get_cache().get(spec_key);
+  }
+  void ReturnCachedRecipe(RecipeValueSpec& rv) {
+    rv.set_use_flag(false);
+  }
 
   void OrderInputs();
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
@@ -353,6 +353,9 @@ class HabanaLaunchOpPT {
   }
 
   // Dynamic shape specific parts
+  uint64_t current_bucket_id_{};
+  std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
+
   void CreateDynamicBucketInputShapes(
       habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);
 

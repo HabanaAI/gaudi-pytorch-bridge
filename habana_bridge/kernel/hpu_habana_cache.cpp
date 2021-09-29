@@ -35,27 +35,13 @@ size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
 
 size_t RecipeValueSpec::count = 0;
 size_t RecipeValueSpec::recipe_count = 0;
+size_t RecipeValueSpec::dynamic_recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
+size_t RecipeValueSpec::compile_count = 0;
+size_t RecipeValueSpec::launch_count = 0;
 
 std::mutex DynamicBucketInfoMap::mutex_;
 DynamicBucketInfoMap* DynamicBucketInfoMap::instance_ = nullptr;
-
-std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P) {
-  switch (P) {
-    case PGMCachingPolicy::simple:
-      O << "simple";
-      break;
-    case PGMCachingPolicy::single:
-      O << "single";
-      break;
-    case PGMCachingPolicy::lru:
-      O << "lru";
-      break;
-    default:
-      O << "unknown";
-  }
-  return O;
-}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
     const std::shared_ptr<torch::jit::Graph>& irgraph,
@@ -226,7 +212,9 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << " <id : " << v.id << "> "
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
-    << " <use_count : " << v.recipe.use_count() << "> " << '\n';
+    << " <use_count : " << v.recipe.use_count() << ">"
+    << " <num_launches : " << v.num_launches << ">" << '\n';
+
   O << " ntensorbytes : " << synapse_helpers::get_mem_str(v.ntensorbytes)
     << '\n';
   O << " workspace    : " << synapse_helpers::get_mem_str(v.workspace_size)
@@ -362,10 +350,10 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   }
 }
 
-std::string RecipeValueSpec::get_header_str() {
-  if (header_str.empty()) {
-    std::ostringstream o;
-    o << "\n key " << key << "\n num_inputs " << num_inputs
+std::string RecipeValueSpec::header_str() {
+  if (header.empty()) {
+    std::ostringstream O;
+    O << "\n key " << key << "\n num_inputs " << num_inputs
       << "\n num_induplicates " << num_induplicates << "\n num_dma_inputs "
       << num_dma_inputs << "\n num_intermediates " << num_intermediates
       << "\n num_outputs " << num_outputs << "\n num_outduplicates "
@@ -373,11 +361,32 @@ std::string RecipeValueSpec::get_header_str() {
       << num_input_to_outduplicates << "\n num_intermediate_to_outduplicates "
       << num_intermediate_to_outduplicates << "\n size "
       << synapse_helpers::get_mem_str(ntensorbytes);
+    O << "\n " << (dynamic_graph ? "dynamic graph" : "static graph");
 
-    header_str = o.str();
+    header = O.str();
   }
 
-  return header_str;
+  return header;
+}
+
+std::string RecipeValueSpec::digest_str() {
+  std::ostringstream O;
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  O << "Recipe digest : total size of graph recipes "
+    << synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes)
+    << '\n';
+  auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
+  if (-1 != rv_hit_count) {
+    // Hit count needs to be enabled with
+    // PT_HABANA_MAX_RECIPE_HIT_COUNT=<positive number>
+    O << " #hits " << rv_hit_count << '\n';
+  }
+  O << " #graph_recipes " << recipe_count << " (#static "
+    << (recipe_count - dynamic_recipe_count) << ", #dynamic "
+    << dynamic_recipe_count << ')' << '\n'
+    << " #eager_recipes " << device.get_recipe_handle_cache().getCount();
+
+  return O.str();
 }
 
 int RecipeValueSpec::update_hit_count() {
@@ -844,6 +853,7 @@ void RecipeValueSpec::launch(
   std::vector<synLaunchTensorInfoExt> syn_launch_info;
   patch_launch_info(syn_launch_info);
   if (device.IsStreamASyncEnabled()) {
+    synapse_helpers::TimeScope ts(std::move(time_slot_));
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
     auto&& error_optional{synapse_helpers::graph::launch(
@@ -868,6 +878,7 @@ void RecipeValueSpec::launch(
           return;
         });
   } else {
+    synapse_helpers::TimeScope ts(std::move(time_slot_));
     auto&& error_optional{synapse_helpers::graph::launch(
         device, *recipe, workspace_size, syn_launch_info)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
@@ -882,56 +893,8 @@ void RecipeValueSpec::launch(
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
-}
-
-void RecipeCacheSimple::add(
-    std::shared_ptr<RecipeArgumentSpec>& key,
-    std::shared_ptr<RecipeValueSpec>& val) {
-  RecipeValueSpec::recipe_count++;
-  map_.emplace(key, val);
-  RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes;
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
-  O << "number of recipes : " << v.map_.size() << '\n';
-  for (auto& i : v.map_) {
-    O << "-------------------" << '\n';
-    O << "key :: " << *i.first;
-    O << "-------------------" << '\n';
-    O << "val :: " << *i.second;
-    O << "-------------------" << '\n';
-  }
-  return O;
-}
-
-void RecipeCacheSingle::add(
-    std::shared_ptr<RecipeArgumentSpec>& rargpsh,
-    std::shared_ptr<RecipeValueSpec>& rvalpsh) {
-  if (!is_valid) {
-    RecipeValueSpec::recipe_count++;
-    is_valid = true;
-  } else {
-    TORCH_CHECK(
-        RecipeValueSpec::total_recipe_ntbytes >= last_rvalpsh->ntensorbytes,
-        "error in total tensor byte accounting, total_recipe_ntbytes ",
-        RecipeValueSpec::total_recipe_ntbytes,
-        " should be greater than last_recipe.ntensorbytes ",
-        last_rvalpsh->ntensorbytes);
-
-    RecipeValueSpec::total_recipe_ntbytes -= last_rvalpsh->ntensorbytes;
-  }
-  last_rargpsh = rargpsh;
-  last_rvalpsh = rvalpsh;
-  RecipeValueSpec::total_recipe_ntbytes += last_rvalpsh->ntensorbytes;
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeCacheSingle& v) {
-  O << "-------------------" << '\n';
-  O << "key :: " << *v.last_rargpsh;
-  O << "-------------------" << '\n';
-  O << "val :: " << *v.last_rvalpsh;
-  O << "-------------------" << '\n';
-  return O;
+  num_launches++;
+  increment_launch_count();
 }
 
 void RecipeCacheLRU::add(
@@ -957,7 +920,7 @@ void RecipeCacheLRU::add(
     }
   }
 
-  RecipeValueSpec::recipe_count++;
+  val->increment_recipe_count();
 
   auto mit = map_.find(key);
   TORCH_CHECK(
@@ -1012,13 +975,13 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
   return {nullptr};
 }
 
-bool RecipeCacheLRU::drop_lru(size_t& recipe_count) {
+bool RecipeCacheLRU::drop_lru(size_t& num_recipes) {
   std::lock_guard<std::mutex> lg(mutex_);
-  bool dropped = drop_lru_impl(recipe_count, true);
+  bool dropped = drop_lru_impl(num_recipes, true);
   return dropped;
 }
 
-bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
+bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
   bool dropped{false};
   int use_count = 0;
   // remove a recipe from the last that is not being used
@@ -1054,7 +1017,7 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
             synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       }
 
-      RecipeValueSpec::recipe_count--;
+      lit->second->decrement_recipe_count();
       RecipeValueSpec::total_recipe_ntbytes -= lit->second->ntensorbytes;
 
       // Drop the entry from map_ and list_
@@ -1064,7 +1027,7 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
 
       PT_BRIDGE_WARN(
           "after dropping lru recipe, #recipes ",
-          RecipeValueSpec::recipe_count,
+          RecipeValueSpec::get_recipe_count(),
           ", total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
     } else {
@@ -1076,7 +1039,7 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
     }
   }
 
-  recipe_count = map_.size() - use_count;
+  num_recipes = map_.size() - use_count;
   return dropped;
 }
 

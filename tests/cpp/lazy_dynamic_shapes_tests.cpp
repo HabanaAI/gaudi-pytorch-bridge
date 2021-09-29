@@ -489,7 +489,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
+TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -497,7 +497,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
 
   int A = 4;
   const int C = 3;
-  std::vector<int> in_sizes{6, 8, 10};
+  std::vector<int> in_sizes{6, 8, 10, 12, 14, 16};
   int num;
 
   for (int i = 0; i < in_sizes.size(); i++) {
