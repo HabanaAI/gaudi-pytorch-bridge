@@ -364,6 +364,17 @@ eq.Tensor_out:
   legacy_eager: true
   op_base_class: CompareHabanaOperator
 
+eq_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
+
+eq_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  inplace_ids: [0]
+
 erf.out:
   dtypes: [BFloat16, Float]
   guid: erf_fwd
@@ -423,6 +434,17 @@ grid_sampler_2d:
   - [NHWC]
   out_ids: [0]
 
+ge_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
+
+ge_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+  inplace_ids: [0]
+
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
@@ -433,6 +455,17 @@ gt.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   op_base_class: CompareHabanaOperator
+
+gt_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
+
+gt_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+  inplace_ids: [0]
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
@@ -449,6 +482,17 @@ le.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
   op_base_class: CompareHabanaOperator
+
+le_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
+
+le_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
+  inplace_ids: [0]
 
 leaky_relu.out:
   dtypes: [BFloat16, Float]
@@ -478,10 +522,32 @@ log2_:
   inplace_ids: [0]
   legacy_eager: true
 
+logaddexp:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogAddExp
+  out_ids: [0]
+
+logaddexp.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogAddExp
+
+logaddexp2:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogAddExp2
+  out_ids: [0]
+
+logaddexp2.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogAddExp2
+
 logcumsumexp:
   dtypes: [BFloat16, Float]
   op_base_class: LogCumsumExp
   out_ids: [0]
+
+logcumsumexp.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogCumsumExp
 
 lt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -493,6 +559,17 @@ lt.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
   op_base_class: CompareHabanaOperator
+
+lt_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  inplace_ids: [0]
+
+lt_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
 
 maximum.out:
   dtypes: [BFloat16, Float, Int]
@@ -519,6 +596,15 @@ mv.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: mv
   op_base_class: MvOpOut
+
+ne.Tensor_out:
+  dtypes: [BFloat16, Float, Int,Byte,Char]
+  op_base_class: NE
+
+ne.Scalar_out:
+  dtypes: [BFloat16, Float, Int,Byte, Char]
+  scalar_ids: [1]
+  op_base_class: NE
 
 neg.out:
   dtypes: [BFloat16, Float, Int]
@@ -553,6 +639,10 @@ pow.Tensor_Scalar_out:
   dtypes: [BFloat16, Float]
   guid: pow_fwd
   scalar_ids: [1]
+
+pow.Tensor_Tensor_out:
+  dtypes: [BFloat16, Float]
+  guid: pow_fwd
 
 prelu:
   dtypes: [BFloat16, Float, Int]
