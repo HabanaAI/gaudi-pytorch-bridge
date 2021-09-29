@@ -267,6 +267,12 @@ struct hpu_wrap {
       at::Tensor& self,
       int64_t dim_,
       const at::Tensor& indices,
+      const at::Tensor& source,
+      const at::Scalar& alpha);
+  static at::Tensor& index_add_(
+      at::Tensor& self,
+      int64_t dim_,
+      const at::Tensor& indices,
       const at::Tensor& source);
   static at::Tensor index_put(
       const at::Tensor& self,

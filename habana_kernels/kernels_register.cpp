@@ -1084,6 +1084,24 @@ Tensor& hpu_wrap::index_add_(
     Tensor& self,
     int64_t dim_,
     const Tensor& indices,
+    const Tensor& source,
+    const Scalar& alpha) {
+  Tensor alpha_times_source = hpu_wrap::mul(source, alpha);
+  if (!hpu_check_inputs_impl("index_add_", {self, indices, source}))
+    return AtenHpuTypeDefault::index_add_(
+        self, dim_, indices, alpha_times_source);
+
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+    return index_add_hpu_lazy_(self, dim_, indices, alpha_times_source);
+
+  } else {
+    return index_add_hpu_(self, dim_, indices, alpha_times_source);
+  }
+};
+Tensor& hpu_wrap::index_add_(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& indices,
     const Tensor& source) {
   if (!hpu_check_inputs_impl("index_add_", {self, indices, source}))
     return AtenHpuTypeDefault::index_add_(self, dim_, indices, source);
