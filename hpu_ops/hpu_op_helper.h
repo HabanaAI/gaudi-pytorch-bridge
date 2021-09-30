@@ -164,6 +164,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   const int m_inplace_id;
   const int m_scalar_id;
   const bool m_is_outfn;
+  bool m_promote_type = false;
   int m_num_out_tensors = 1;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;

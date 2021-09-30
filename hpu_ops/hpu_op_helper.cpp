@@ -69,12 +69,13 @@ void HabanaOperatorHelper::HandleScalarToTensor(
     return;
   }
 
-  at::Scalar val = stack.at(m_scalar_id).toScalar();
+  const at::Scalar& val = stack.at(m_scalar_id).toScalar();
+  const auto& val_type = m_promote_type ? val.type() : ScalarType();
   m_scalar_inputs.emplace(m_scalar_id, val);
 
   size_t size = 0;
   PARAMS_STUB(ns_ConstantKernel::Params);
-  if (m_scalar_type == c10::ScalarType::Int) {
+  if (val_type == c10::ScalarType::Int) {
     get<int>(params->constant) = val.to<int>();
   } else {
     get<float>(params->constant) = val.to<float>();
@@ -82,9 +83,9 @@ void HabanaOperatorHelper::HandleScalarToTensor(
 
   auto const_out = BuildOp(
       graph,
-      "constant_" + habana_helpers::name_suffix_from_type(m_scalar_type),
+      "constant_" + habana_helpers::name_suffix_from_type(val_type),
       {},
-      {{1, m_scalar_type}},
+      {{1, val_type}},
       params.get(),
       size);
 
@@ -130,8 +131,8 @@ void HabanaOperatorHelper::HandleOutFn(
     return;
   }
 
-  int stack_size = stack.size();
-  int syn_inputs_size = p_context_->syn_inputs_.size();
+  unsigned stack_size = stack.size();
+  unsigned syn_inputs_size = p_context_->syn_inputs_.size();
 
   for (int i = m_num_out_tensors; i > 0; --i) {
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
