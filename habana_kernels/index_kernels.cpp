@@ -78,14 +78,11 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
 
   ArangeOperator Op(device_id, ScalarType::Float);
 
-  auto& arange_input_syn =
-      Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  Op.SetSynapseInput(p_context_->syn_inputs_[0]);
 
   std::vector<c10::IValue> stack{
       IValue(start), IValue(end), IValue(delta), IValue(out)};
   Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
-  p_context_->syn_inputs_[0] = std::move(arange_input_syn);
 
   p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
@@ -577,16 +574,10 @@ void ScatterValueOperator::AllocateAndAddSynapseNode(
       IValue(index),
       IValue(constOp->GetOutputs()[0])};
 
-  auto& syn_scatter1 =
-      scatterOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  auto& syn_scatter2 =
-      scatterOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  UNUSED auto& syn_scatter3 =
-      scatterOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+  scatterOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
   scatterOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
-  p_context_->syn_inputs_[0] = std::move(syn_scatter1);
-  p_context_->syn_inputs_[1] = std::move(syn_scatter2);
   p_context_->syn_outputs_.emplace_back(
       std::move(scatterOp->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
@@ -770,13 +761,9 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   auto index_selectOp = make_operator<IndexSelectOperator>(
       this->p_context_->device_id_, self.scalar_type());
   temp_stack = {IValue(self), IValue(dim), IValue(index)};
-  auto& syn_isSelf =
-      index_selectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  auto& syn_isIndex =
-      index_selectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  index_selectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  index_selectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   index_selectOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-  p_context_->syn_inputs_[0] = std::move(syn_isSelf);
-  p_context_->syn_inputs_[1] = std::move(syn_isIndex);
   temp_stack.clear();
 
   ////value_acc += slice;
@@ -786,12 +773,10 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       IValue(value),
       IValue(index_selectOp->GetOutputs()[0]),
       IValue(Scalar(1.0))};
-  auto& syn_isValue =
-      addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
-  addOp->SetSynapseInput(std::move(index_selectOp->GetSynOutputs()[0]));
+  addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+  addOp->SetSynapseInput(index_selectOp->GetSynOutputs()[0]);
   addOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
   addSynOutput.push_back(std::move(addOp->GetSynOutputs()[0]));
-  p_context_->syn_inputs_[2] = std::move(syn_isValue);
   temp_stack.clear();
 
   // Expand 1D index tensor to same number of dimensions as value tensor
@@ -802,10 +787,8 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   auto reshapeOp = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, index.scalar_type());
   temp_stack = {IValue(index), IValue(expanded_sizes)};
-  auto& syn_reshape =
-      reshapeOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn_reshape);
   temp_stack.clear();
 
   // Broadcast index tensor to same shape as value tensor
@@ -817,7 +800,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       IValue(reshapeOp->GetOutputs()[0]),
       IValue(value.sizes()),
       IValue(implicit)};
-  bcastOp->SetSynapseInput(std::move(reshapeOp->GetSynOutputs()[0]));
+  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
   bcastOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
   temp_stack.clear();
 
@@ -830,15 +813,11 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       IValue(bcastOp->GetOutputs()[0]),
       IValue(value)};
 
-  auto& syn_scatter1 =
-      scatterOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  UNUSED auto& syn_scatter2 =
-      scatterOp->SetSynapseInput(std::move(bcastOp->GetSynOutputs()[0]));
-  UNUSED auto& syn_scatter3 =
-      scatterOp->SetSynapseInput(std::move(addSynOutput[0]));
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+  scatterOp->SetSynapseInput(addSynOutput[0]);
 
   scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(syn_scatter1);
 
   p_context_->syn_outputs_.emplace_back(
       std::move(scatterOp->GetSynOutputs()[0]));
@@ -959,13 +938,9 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
     auto index_selectOp = make_operator<IndexSelectOperator>(
         this->p_context_->device_id_, self.scalar_type());
     temp_stack = {IValue(self), IValue(dim), IValue(index)};
-    auto& syn_isSelf =
-        index_selectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_isIndex =
-        index_selectOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    index_selectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    index_selectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     index_selectOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-    p_context_->syn_inputs_[0] = std::move(syn_isSelf);
-    p_context_->syn_inputs_[1] = std::move(syn_isIndex);
     temp_stack.clear();
 
     ////value_acc += slice;
@@ -975,12 +950,10 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
         IValue(value),
         IValue(index_selectOp->GetOutputs()[0]),
         IValue(Scalar(1.0))};
-    auto& syn_isValue =
-        addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[last_index]));
-    addOp->SetSynapseInput(std::move(index_selectOp->GetSynOutputs()[0]));
+    addOp->SetSynapseInput(p_context_->syn_inputs_[last_index]);
+    addOp->SetSynapseInput(index_selectOp->GetSynOutputs()[0]);
     addOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
     addSynOutput.push_back(std::move(addOp->GetSynOutputs()[0]));
-    p_context_->syn_inputs_[last_index] = std::move(syn_isValue);
     temp_stack.clear();
   }
 
@@ -992,10 +965,8 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   auto reshapeOp = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, index.scalar_type());
   temp_stack = {IValue(index), IValue(expanded_sizes)};
-  auto& syn_reshape =
-      reshapeOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn_reshape);
   temp_stack.clear();
 
   // Broadcast index tensor to same shape as value tensor
@@ -1007,7 +978,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
       IValue(reshapeOp->GetOutputs()[0]),
       IValue(value.sizes()),
       IValue(implicit)};
-  bcastOp->SetSynapseInput(std::move(reshapeOp->GetSynOutputs()[0]));
+  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
   bcastOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
   temp_stack.clear();
 
@@ -1020,19 +991,11 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
       IValue(bcastOp->GetOutputs()[0]),
       IValue(value)};
 
-  auto& syn_scatter1 =
-      scatterOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  UNUSED auto& syn_scatter2 =
-      scatterOp->SetSynapseInput(std::move(bcastOp->GetSynOutputs()[0]));
-  auto& syn_scatter3 = accumulate
-      ? scatterOp->SetSynapseInput(std::move(addSynOutput[0]))
-      : scatterOp->SetSynapseInput(
-            std::move(p_context_->syn_inputs_[last_index]));
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+  accumulate ? scatterOp->SetSynapseInput(addSynOutput[0])
+             : scatterOp->SetSynapseInput(p_context_->syn_inputs_[last_index]);
   scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(syn_scatter1);
-  if (!accumulate) {
-    p_context_->syn_inputs_[last_index] = std::move(syn_scatter3);
-  }
 
   p_context_->syn_outputs_.emplace_back(
       std::move(scatterOp->GetSynOutputs()[0]));
@@ -1617,12 +1580,10 @@ void SelectOperator::AllocateAndAddSynapseNode(
 
   auto slice_op =
       make_operator<SliceOperator>(self.device().index(), self.scalar_type());
-  auto& syn_in_slice =
-      slice_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  slice_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   std::vector<c10::IValue> stack1 = {
       IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
   slice_op->AllocateAndAddSynapseNode(graph, stack1, is_slice_output);
-  p_context_->syn_inputs_[0] = std::move(syn_in_slice);
 
   if (is_slice_output == false) {
     // Add Reshape node to graph
@@ -1819,14 +1780,13 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     // Build Params for the graph
     torch::jit::Stack stack = {IValue(output_range), IValue(result)};
     // syn_output_[1] is the output of range node
-    castOp->SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
+    castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
     // syn_output_[0] is the original Out result tensor
-    castOp->SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+    castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
     castOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     // There are 2 outputs {result, rangeOut}, we need only one {result}
     p_context_->syn_outputs_.pop_back();
     p_context_->pt_outputs_.pop_back();
-    p_context_->syn_outputs_[0] = std::move(castOp->GetSynOutputs()[0]);
     p_context_->pt_outputs_[0] = std::move(castOp->GetOutputs()[0]);
   }
 }
@@ -1985,10 +1945,8 @@ void IndexOperator::AllocateAndAddSynapseNode(
     // broadcast index tensor to largest index tensor size
     auto bcastOp = make_operator<BroadcastOperator>(device_id, scalar_type);
     Stack stack = {IValue(tensorlist[i]), IValue(max_size), IValue(false)};
-    auto& broadcast_syn =
-        bcastOp->SetSynapseInput(std::move(p_context_->syn_inputs_[i + 1]));
+    bcastOp->SetSynapseInput(p_context_->syn_inputs_[i + 1]);
     bcastOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[i + 1] = std::move(broadcast_syn);
 
     stack.clear();
 
@@ -1998,11 +1956,11 @@ void IndexOperator::AllocateAndAddSynapseNode(
     }
     stack = {IValue(bcastOp->GetOutputs()[0]), IValue(expanded_size)};
     auto ReshapeOp = make_operator<ReshapeOperator>(device_id, scalar_type);
-    ReshapeOp->SetSynapseInput(std::move(bcastOp->GetSynOutputs()[0]));
+    ReshapeOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
 
     cat_input.emplace_back(ReshapeOp->GetOutputs()[0]);
-    cat_indices->SetSynapseInput(std::move(ReshapeOp->GetSynOutputs()[0]));
+    cat_indices->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
   }
   // index is implemented using mxnet_gatherNd, where indices needs to be
   // single tensor, wherease we get tensorlist. so we stack the tensors

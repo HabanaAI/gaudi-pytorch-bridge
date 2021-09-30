@@ -729,7 +729,7 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
     auto syn_tensor_input = habana_helpers::create_tensor(
         input, graph, is_persistent, c10::nullopt);
 
-    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    p_context_->syn_inputs_.emplace_back(syn_tensor_input);
 
     p_context_->pt_inputs_.emplace_back(input);
   }
@@ -740,9 +740,9 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
 /*SetSynapseInput needs to be overloaded as it is used in PT bridge code for
  * intermediate nodes*/
 synapse_helpers::tensor_or_ref& EmbeddingBagSumForwardOperator::SetSynapseInput(
-    synapse_helpers::tensor_or_ref&& tensor) {
+    synapse_helpers::tensor& tensor) {
   if (valid_input_idx.count(input_idx)) {
-    p_context_->syn_inputs_.emplace_back(std::move(tensor));
+    p_context_->syn_inputs_.emplace_back(tensor);
   }
 
   input_idx++;
@@ -871,7 +871,7 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
     auto syn_tensor_input = habana_helpers::create_tensor(
         input, graph, is_persistent, c10::nullopt);
 
-    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    p_context_->syn_inputs_.emplace_back(syn_tensor_input);
 
     p_context_->pt_inputs_.emplace_back(input);
   }
@@ -882,9 +882,9 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
 /*SetSynapseInput needs to be overloaded as it is used in PT bridge code for
  * intermediate nodes*/
 synapse_helpers::tensor_or_ref& EmbeddingBagSumBackwardOperator::
-    SetSynapseInput(synapse_helpers::tensor_or_ref&& tensor) {
+    SetSynapseInput(synapse_helpers::tensor& tensor) {
   if (valid_input_idx.count(input_idx)) {
-    p_context_->syn_inputs_.emplace_back(std::move(tensor));
+    p_context_->syn_inputs_.emplace_back(tensor);
   }
 
   input_idx++;

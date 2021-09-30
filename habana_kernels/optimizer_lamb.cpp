@@ -80,8 +80,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
 
     auto add_exp_avg =
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_12 = add_exp_avg->SetSynapseInput(
-        std::move(mul_exp_avg->GetSynOutputs()[0]));
+    add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
     add_exp_avg->SetSynapseInput(div_grad->GetSynOutputs()[0]);
     stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
@@ -101,15 +100,14 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
 
     auto addcmul_exp_avg_sq =
         make_operator<habana::AddcmulInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_14 = addcmul_exp_avg_sq->SetSynapseInput(
-        std::move(mul_exp_avg_sq->GetSynOutputs()[0]));
+    addcmul_exp_avg_sq->SetSynapseInput(mul_exp_avg_sq->GetSynOutputs()[0]);
     addcmul_exp_avg_sq->SetSynapseInput(div_grad->GetSynOutputs()[0]);
     // Internally we are going to use "pow" instead of "mul",
     // therefore 3rd synapse tensor will be unused. We can give
     // a dummy tensor
-    UNUSED auto& syn_in_34 =
-        addcmul_exp_avg_sq->SetSynapseInput(habana_helpers::create_tensor(
-            div_grad->GetOutputs()[0], graph, true, c10::nullopt));
+    auto syn_in_34 = habana_helpers::create_tensor(
+        div_grad->GetOutputs()[0], graph, true, c10::nullopt);
+    addcmul_exp_avg_sq->SetSynapseInput(syn_in_34);
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
@@ -121,8 +119,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     // exp_avg_sq = exp_avg_sq_.div(bias_correction2)
     auto div_exp_avg =
         make_operator<habana::DivOperator>(device_id, scalar_type);
-    auto& syn_in_15 = div_exp_avg->SetSynapseInput(
-        std::move(add_exp_avg->GetSynOutputs()[0]));
+    div_exp_avg->SetSynapseInput(add_exp_avg->GetSynOutputs()[0]);
     div_exp_avg->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
     stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(bias_correction1));
@@ -130,8 +127,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     stack.clear();
     auto div_exp_avg_sq =
         make_operator<habana::DivOperator>(device_id, scalar_type);
-    auto& syn_in_16 = div_exp_avg_sq->SetSynapseInput(
-        std::move(addcmul_exp_avg_sq->GetSynOutputs()[0]));
+    div_exp_avg_sq->SetSynapseInput(addcmul_exp_avg_sq->GetSynOutputs()[0]);
     div_exp_avg_sq->SetSynapseInput(
         p_context_->syn_inputs_[4 * num_params + 2]);
     stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
@@ -233,16 +229,20 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     // Note that these outputs are being filled just to keep GC
     // runtime happy No need to return these since updates on
     // weights, exp_avg, exp_avg_sq are all inplace
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_12));
+    synapse_helpers::tensor& syn_in_12 = mul_exp_avg->GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(syn_in_12);
     p_context_->pt_outputs_.emplace_back(mul_exp_avg->GetOutputs()[0]);
 
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_15));
+    synapse_helpers::tensor& syn_in_15 = add_exp_avg->GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(syn_in_15);
     p_context_->pt_outputs_.emplace_back(add_exp_avg->GetOutputs()[0]);
 
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_14));
+    synapse_helpers::tensor& syn_in_14 = mul_exp_avg_sq->GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(syn_in_14);
     p_context_->pt_outputs_.emplace_back(mul_exp_avg_sq->GetOutputs()[0]);
 
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_16));
+    synapse_helpers::tensor& syn_in_16 = addcmul_exp_avg_sq->GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(syn_in_16);
     p_context_->pt_outputs_.emplace_back(addcmul_exp_avg_sq->GetOutputs()[0]);
   }
 }

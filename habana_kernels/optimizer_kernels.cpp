@@ -346,9 +346,9 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // Internally we are going to use "pow" instead of "mul",
     // therefore 3rd synapse tensor will be unused. We can give
     // a dummy tensor
-    UNUSED auto& syn_in_3 =
-        addcmul_exp_avg_sq->SetSynapseInput(habana_helpers::create_tensor(
-            gradients.get(i), graph, true, c10::nullopt));
+    auto syn_in_3 = habana_helpers::create_tensor(
+        gradients.get(i), graph, true, c10::nullopt);
+    addcmul_exp_avg_sq->SetSynapseInput(syn_in_3);
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(gradients.get(i)));

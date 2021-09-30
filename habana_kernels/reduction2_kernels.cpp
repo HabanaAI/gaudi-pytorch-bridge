@@ -78,11 +78,10 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
 
   auto reduce_op =
       make_operator<Reduce2Operator>(self.device().index(), this->guid_);
-  auto& syn_self = reduce_op->SetSynapseInput((p_context_->syn_inputs_[0]));
+  reduce_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   std::vector<bool> reshapeadd{false, false};
   reduce_op->AllocateAndAddSynapseNode(
       graph, inputs, keepdim ? is_output_persistent : reshapeadd);
-  p_context_->syn_inputs_[0] = std::move(syn_self);
 
   auto reshape_op =
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
@@ -186,18 +185,16 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
   return std::make_tuple(out.at(0), out.at(1));
 }
 
-synapse_helpers::tensor_or_ref MaxOperator::ReduceSingle(
+void MaxOperator::ReduceSingle(
     synapse_helpers::graph& graph,
     Tensor& input,
     int64_t i,
-    synapse_helpers::tensor_or_ref syn_input) {
+    synapse_helpers::tensor& syn_input) {
   Reduce2Operator reduce(input.device().index(), this->guid_);
-  auto& reduce_syn_input = reduce.SetSynapseInput(std::move(syn_input));
+  reduce.SetSynapseInput(syn_input);
   torch::jit::Stack stack = {IValue(input), IValue(i), IValue(true)};
   reduce.AllocateAndAddSynapseNode(graph, stack, {false, false});
   ReduceOpList.push_back(reduce);
-  syn_input = std::move(reduce_syn_input);
-  return syn_input;
 }
 
 void MaxOperator::AllocateAndAddSynapseNode(
@@ -212,21 +209,19 @@ void MaxOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for aten::max operator");
 
   Tensor self = inputs[0].toTensor();
-  p_context_->syn_inputs_[0] =
-      ReduceSingle(graph, self, 0, std::move(p_context_->syn_inputs_[0]));
+  ReduceSingle(graph, self, 0, p_context_->syn_inputs_[0]);
   for (auto i = 1; i < self.dim(); i++) {
     ReduceSingle(
         graph,
         ReduceOpList[i - 1].GetOutputs()[0],
         i,
-        std::move(ReduceOpList[i - 1].GetSynOutputs()[0]));
+        (ReduceOpList[i - 1].GetSynOutputs()[0]));
   }
 
   auto reshape_op =
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   std::vector<int64_t> out_shape{1};
-  reshape_op->SetSynapseInput(
-      std::move(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]));
+  reshape_op->SetSynapseInput(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]);
   torch::jit::Stack stack = {
       IValue(ReduceOpList[self.dim() - 1].GetOutputs()[0]), IValue(out_shape)};
   reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -282,18 +277,16 @@ Tensor max_hpu(const at::Tensor& self) {
   return out.at(0);
 }
 
-synapse_helpers::tensor_or_ref MinOperator::ReduceSingle(
+void MinOperator::ReduceSingle(
     synapse_helpers::graph& graph,
     Tensor& input,
     int64_t i,
-    synapse_helpers::tensor_or_ref syn_input) {
+    synapse_helpers::tensor& syn_input) {
   Reduce2Operator reduce(input.device().index(), this->guid_);
-  auto& reduce_syn_input = reduce.SetSynapseInput(std::move(syn_input));
+  reduce.SetSynapseInput(syn_input);
   torch::jit::Stack stack = {IValue(input), IValue(i), IValue(true)};
   reduce.AllocateAndAddSynapseNode(graph, stack, {false, false});
   ReduceOpList.push_back(reduce);
-  syn_input = std::move(reduce_syn_input);
-  return syn_input;
 }
 
 void MinOperator::AllocateAndAddSynapseNode(
@@ -308,22 +301,20 @@ void MinOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for aten::min operator");
 
   Tensor self = inputs[0].toTensor();
-  p_context_->syn_inputs_[0] =
-      ReduceSingle(graph, self, 0, std::move(p_context_->syn_inputs_[0]));
+  ReduceSingle(graph, self, 0, p_context_->syn_inputs_[0]);
   for (auto i = 1; i < self.dim(); i++) {
     ReduceSingle(
         graph,
         ReduceOpList[i - 1].GetOutputs()[0],
         i,
-        std::move(ReduceOpList[i - 1].GetSynOutputs()[0]));
+        ReduceOpList[i - 1].GetSynOutputs()[0]);
   }
 
   // Convert to 1D tensor for output
   auto reshape_op =
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   std::vector<int64_t> out_shape{1};
-  reshape_op->SetSynapseInput(
-      std::move(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]));
+  reshape_op->SetSynapseInput(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]);
   torch::jit::Stack stack = {
       IValue(ReduceOpList[self.dim() - 1].GetOutputs()[0]), IValue(out_shape)};
   reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);

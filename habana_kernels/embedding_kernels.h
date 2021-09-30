@@ -75,7 +75,7 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
       bool is_shape_tensor = false) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(
-      synapse_helpers::tensor_or_ref&& tensor) override;
+      synapse_helpers::tensor& tensor) override;
 
  private:
   int input_idx;
@@ -122,7 +122,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
       bool is_shape_tensor = false) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(
-      synapse_helpers::tensor_or_ref&& tensor) override;
+      synapse_helpers::tensor& tensor) override;
 
  private:
   int input_idx;

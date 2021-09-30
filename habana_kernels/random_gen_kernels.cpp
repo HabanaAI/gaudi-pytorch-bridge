@@ -175,7 +175,8 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   stack.clear();
 
   // Move inputs[0] as output tensor
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  synapse_helpers::tensor& syn_out_t = p_context_->syn_inputs_[0];
+  p_context_->syn_outputs_.emplace_back(syn_out_t);
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin());
   p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin());

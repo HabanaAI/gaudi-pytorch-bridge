@@ -279,12 +279,9 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
 }
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
-    synapse_helpers::tensor_or_ref&& tensor) {
-  //
-  // The tensor already exists and hence we just add this to the context
-  // no need to convert to synapse tensor
-  p_context_->syn_inputs_.emplace_back(std::move(tensor));
-  return p_context_->syn_inputs_.back();
+    UNUSED synapse_helpers::tensor_or_ref&& tensor) {
+  TORCH_CHECK(
+      0, "Should never reach this SetSynapseInput, avoid using std::move");
 }
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(

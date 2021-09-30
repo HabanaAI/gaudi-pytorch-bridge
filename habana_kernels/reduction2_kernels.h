@@ -77,11 +77,11 @@ class MaxOperator : public HabanaOperator {
   };
 
  private:
-  synapse_helpers::tensor_or_ref ReduceSingle(
+  void ReduceSingle(
       synapse_helpers::graph& graph,
       at::Tensor& input,
       int64_t i,
-      synapse_helpers::tensor_or_ref syn_input);
+      synapse_helpers::tensor& syn_input);
 
   std::vector<Reduce2Operator> ReduceOpList;
 };
@@ -106,11 +106,11 @@ class MinOperator : public HabanaOperator {
   };
 
  private:
-  synapse_helpers::tensor_or_ref ReduceSingle(
+  void ReduceSingle(
       synapse_helpers::graph& graph,
       at::Tensor& input,
       int64_t i,
-      synapse_helpers::tensor_or_ref syn_input);
+      synapse_helpers::tensor& syn_input);
 
   std::vector<Reduce2Operator> ReduceOpList;
 };
