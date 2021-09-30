@@ -2649,11 +2649,6 @@ static auto& KernelRegistry =
               return std::make_shared<ExpInplaceOperator>(device_id, node_type);
             })
         .add(
-            "aten::log",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LogOperator>(device_id, node_type);
-            })
-        .add(
             "aten::isnan",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IsnanOperator>(device_id, node_type);

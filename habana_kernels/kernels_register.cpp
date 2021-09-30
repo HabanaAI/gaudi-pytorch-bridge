@@ -3516,21 +3516,12 @@ Tensor& hpu_wrap::floor_(Tensor& self) {
 Tensor hpu_wrap::log(const Tensor& input) {
   if (!hpu_check_inputs_impl("log", {input}))
     return AtenHpuTypeDefault::log(input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return log_hpu_lazy(input);
-  } else {
-    return log_hpu(input);
-  }
+  return log_hpu(input);
 };
 Tensor& hpu_wrap::log_(Tensor& self) {
   if (!hpu_check_inputs_impl("log_", {self}))
     return AtenHpuTypeDefault::log_(self);
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return log_hpu_lazy_(self);
-  } else {
-    return log_hpu_(self);
-  }
+  return log_hpu_(self);
 };
 Tensor hpu_wrap::log2(const Tensor& input) {
   if (!hpu_check_inputs_impl("log2", {input}))

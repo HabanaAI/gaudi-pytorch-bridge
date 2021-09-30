@@ -5109,58 +5109,6 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   return ret;
 }
 
-Tensor log_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::log"), {hl_input.GetIrValue()});
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
-Tensor& log_hpu_lazy_(Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-  auto hl_result = GetHbLazyTensor(input);
-  updateDstDependencies(hl_result, input, true);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::log"), {hl_input.GetIrValue()});
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(input.device().index());
-  context->MarkTensorStatus(
-      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-  flush_op(input);
-  return input;
-}
-
 Tensor upsample_nearest2d_hpu_lazy(
     const Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
