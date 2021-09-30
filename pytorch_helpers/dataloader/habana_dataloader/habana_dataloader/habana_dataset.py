@@ -34,8 +34,9 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, self.batch_size, self.num_workers, is_train)
             self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(aeon_config_json,
                                                                       True, # pin_memory
-                                                                      True, # drop_last
-                                                                      False # channels-last
+                                                                      True, # use_prefetch
+                                                                      False, # channels-last
+                                                                      self.drop_last
                                                                       )
 
         except ValueError as e:
@@ -67,7 +68,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
         self.num_workers = kwargs.get('num_workers', 8)
         self._enforce_value_for_arg(kwargs, 'collate_fn', None)
         self._enforce_value_for_arg(kwargs, 'pin_memory', True, False)  # TODO: support
-        self._enforce_value_for_arg(kwargs, 'drop_last', True, False)  # TODO: support
+        self.drop_last = kwargs.get('drop_last', False)
         self._enforce_value_for_arg(kwargs, 'timeout', 0)
         self._enforce_value_for_arg(kwargs, 'worker_init_fn', None)
         self._enforce_value_for_arg(kwargs, 'multiprocessing_context', None)

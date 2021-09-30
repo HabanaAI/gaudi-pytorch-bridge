@@ -32,7 +32,8 @@ class HabanaAcceleratedPytorchDL {
       py::dict dict_config,
       bool pin_memory,
       bool use_prefetch,
-      bool channels_last)
+      bool channels_last,
+      bool drop_last)
       : m_prefetchQueue(s_buffer_level) {
     std::string config_path_name = saveDictToFile(dict_config);
     m_record_count = initializeAeon(config_path_name);
@@ -44,16 +45,17 @@ class HabanaAcceleratedPytorchDL {
     m_pin_memory = pin_memory;
     m_use_prefetch = use_prefetch;
     m_channels_last = channels_last;
-    const bool drop_last = true;
     m_user_idx = 0;
     m_aeon_idx = 0;
     m_shouldStopPrefetch = false;
 
     if (drop_last) {
       m_total_batch_count = m_record_count / m_batch_size;
+      m_last_batch_remainder = 0;
     } else {
       // Round up
       m_total_batch_count = (m_record_count + m_batch_size - 1) / m_batch_size;
+      m_last_batch_remainder = m_record_count % m_batch_size;
     }
   }
 
@@ -73,7 +75,7 @@ class HabanaAcceleratedPytorchDL {
     if (m_use_prefetch)
       return m_prefetchQueue.pop();
     else {
-      return getTensorTuple();
+      return getTensorTuple(m_user_idx == m_total_batch_count);
     }
   }
 
@@ -99,24 +101,35 @@ class HabanaAcceleratedPytorchDL {
   void addPytorchPairToQueueThread() {
     while (++m_aeon_idx <= m_total_batch_count && !m_shouldStopPrefetch) {
       // This is a blocking API
-      m_prefetchQueue.push(getTensorTuple());
+      m_prefetchQueue.push(getTensorTuple(m_aeon_idx == m_total_batch_count));
     }
   }
 
-  std::pair<torch::Tensor, torch::Tensor> getTensorTuple() {
+  std::pair<torch::Tensor, torch::Tensor> getTensorTuple(bool is_last_batch) {
     auto image_options = torch::TensorOptions()
                              .dtype(torch::kFloat32)
                              .pinned_memory(m_pin_memory);
     auto target_options =
         torch::TensorOptions().dtype(torch::kInt32).pinned_memory(m_pin_memory);
 
+    int step_batch_size;
+    if (is_last_batch) {
+      if (m_last_batch_remainder == 0) {
+        step_batch_size = m_batch_size;
+      } else {
+        step_batch_size = m_last_batch_remainder;
+      }
+    } else {
+      step_batch_size = m_batch_size;
+    }
+
     auto image = torch::empty(
-        {m_batch_size, m_img_height, m_img_width, 3}, image_options);
-    auto target = torch::empty({m_batch_size}, target_options);
+        {step_batch_size, m_img_height, m_img_width, 3}, image_options);
+    auto target = torch::empty({step_batch_size}, target_options);
 
     const int image_size =
-        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
-    const int target_size = m_batch_size * sizeof(uint32_t);
+        m_img_height * m_img_width * 3 * step_batch_size * sizeof(float);
+    const int target_size = step_batch_size * sizeof(uint32_t);
 
     char* image_data_ptr = (char*)image.data_ptr();
     char* label_data_ptr = (char*)target.data_ptr();
@@ -202,6 +215,7 @@ class HabanaAcceleratedPytorchDL {
   bool m_pin_memory;
   bool m_use_prefetch;
   uint64_t m_record_count;
+  int m_last_batch_remainder;
   bool m_channels_last;
 
   // For prefetching:
@@ -223,7 +237,7 @@ PYBIND11_MODULE(habana_dl_app, m) {
   m.doc() = "pybind11 wrapper for aeon-pytorch generation";
 
   py::class_<HabanaAcceleratedPytorchDL>(m, "HabanaAcceleratedPytorchDL")
-      .def(py::init<py::dict, bool, bool, bool>())
+      .def(py::init<py::dict, bool, bool, bool, bool>())
       .def("__iter__", &HabanaAcceleratedPytorchDL::getIter)
       .def("__next__", &HabanaAcceleratedPytorchDL::getNextTensorTuple)
       .def("__len__", &HabanaAcceleratedPytorchDL::getLength)
