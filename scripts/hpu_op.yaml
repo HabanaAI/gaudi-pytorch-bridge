@@ -423,6 +423,12 @@ nll_loss_forward.output:
   guid: nll_loss_fwd
   op_base_class: NllLoss
 
+norm.ScalarOpt_dtype:
+  custom_output_shape: NormOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: NormHabanaOperator
+  out_ids: [0]
+
 pow.Scalar_out:
   custom_output_shape: PowOutputShape
   dtypes: [BFloat16, Float]
