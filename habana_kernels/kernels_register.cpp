@@ -3305,13 +3305,7 @@ Tensor& hpu_wrap::reciprocal_out(const Tensor& self, Tensor& result) {
 Tensor hpu_wrap::clamp_min(const Tensor& self, const Scalar& min) {
   if (!hpu_check_inputs_impl("clamp_min", {self}))
     return AtenHpuTypeDefault::clamp_min(self, min);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return clamp_min_hpu_lazy(self, min);
-
-  } else {
-    return clamp_min_hpu(self, min);
-  }
+  return clamp_min_hpu(self, min);
 };
 Tensor& hpu_wrap::clamp_(
     Tensor& self,
@@ -3319,13 +3313,7 @@ Tensor& hpu_wrap::clamp_(
     const c10::optional<Scalar>& max) {
   if (!hpu_check_inputs_impl("clamp_", {self}))
     return AtenHpuTypeDefault::clamp_(self, min, max);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return clamp_hpu_lazy_(self, min, max);
-
-  } else {
-    return clamp_hpu_(self, min, max);
-  }
+  return clamp_hpu_(self, min, max);
 };
 Tensor hpu_wrap::clamp(
     const Tensor& self,
@@ -3333,13 +3321,7 @@ Tensor hpu_wrap::clamp(
     const c10::optional<Scalar>& max) {
   if (!hpu_check_inputs_impl("clamp", {self}))
     return AtenHpuTypeDefault::clamp(self, min, max);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return clamp_hpu_lazy(self, min, max);
-
-  } else {
-    return clamp_hpu(self, min, max);
-  }
+  return clamp_hpu(self, min, max);
 };
 
 Tensor hpu_wrap::isnan(const Tensor& self) {

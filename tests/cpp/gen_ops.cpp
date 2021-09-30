@@ -226,13 +226,13 @@ class GenOps : public HpuOpTestUtil {
                    const torch::optional<torch::Tensor>&,
                    const torch::optional<torch::Tensor>&,
                    torch::Tensor&)>& fn) {
-    GenerateInputs(2);
+    GenerateInputs(3);
 
-    auto out = torch::empty({0});
-    auto hout = torch::empty({0}, "hpu");
+    auto out = torch::empty_like(GetCpuInput(0));
+    auto hout = torch::empty_like(GetHpuInput(0));
 
-    fn(GetCpuInput(0), GetCpuInput(1), torch::nullopt, out);
-    fn(GetHpuInput(0), GetHpuInput(1), torch::nullopt, hout);
+    fn(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), out);
+    fn(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), hout);
 
     Compare(out, hout);
   }
@@ -264,10 +264,37 @@ class GenOps : public HpuOpTestUtil {
       const std::function<torch::Tensor&(torch::Tensor&, const torch::Tensor&)>&
           fn) {
     GenerateInputs(2);
-    torch::Scalar s = 0.001;
 
     auto res = fn(GetCpuInput(0), GetCpuInput(1));
     auto hres = fn(GetHpuInput(0), GetHpuInput(1));
+
+    EXPECT_EQ(hres.storage().data_ptr(), GetHpuInput(0).storage().data_ptr());
+    Compare(res, hres);
+  }
+
+  void TestInplace(const std::function<torch::Tensor&(
+                       torch::Tensor&,
+                       const torch::optional<torch::Tensor>&,
+                       const torch::optional<torch::Tensor>&)>& fn) {
+    GenerateInputs(3);
+
+    auto res = fn(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2));
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2));
+
+    EXPECT_EQ(hres.storage().data_ptr(), GetHpuInput(0).storage().data_ptr());
+    Compare(res, hres);
+  }
+
+  void TestInplace(const std::function<torch::Tensor&(
+                       torch::Tensor&,
+                       const torch::Scalar&,
+                       const torch::Scalar&)>& fn) {
+    GenerateInputs(1);
+    torch::Scalar s1 = -0.05;
+    torch::Scalar s2 = 0.05;
+
+    auto res = fn(GetCpuInput(0), s1, s2);
+    auto hres = fn(GetHpuInput(0), s1, s2);
 
     EXPECT_EQ(hres.storage().data_ptr(), GetHpuInput(0).storage().data_ptr());
     Compare(res, hres);
@@ -335,6 +362,18 @@ class GenOps : public HpuOpTestUtil {
     Compare(res, hres);
   }
 
+  void TestFn(const std::function<torch::Tensor(
+                  const torch::Tensor&,
+                  const torch::optional<torch::Tensor>&,
+                  const torch::optional<torch::Tensor>&)>& fn) {
+    GenerateInputs(3);
+
+    auto res = fn(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2));
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2));
+
+    Compare(res, hres);
+  }
+
   void TestFnCustomSizes(
       const std::function<
           torch::Tensor(torch::Tensor, torch::Tensor, int64_t, int64_t, bool)>&
@@ -359,6 +398,23 @@ class GenOps : public HpuOpTestUtil {
 
     Compare(res, hres);
   }
+
+  void TestOutClampCustom(const std::function<torch::Tensor&(
+                              const torch::Tensor&,
+                              const torch::optional<torch::Tensor>&,
+                              const torch::optional<torch::Tensor>&,
+                              torch::Tensor&)>& fn) {
+    GenerateInputs(2);
+
+    auto out = torch::empty_like(GetCpuInput(0));
+    auto hout = torch::empty_like(GetHpuInput(0));
+
+    // calling to clamp with Max tensor is not defined
+    fn(GetCpuInput(0), GetCpuInput(1), torch::nullopt, out);
+    fn(GetHpuInput(0), GetHpuInput(1), torch::nullopt, hout);
+
+    Compare(out, hout);
+  }
 };
 
 TEST_F(GenOps, Fns) {
@@ -375,8 +431,6 @@ TEST_F(GenOps, Fns) {
   TestFn(torch::exp2);
   TestInplace(torch::asin_);
   TestInplace(torch::ceil_);
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(torch::clamp_min_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(torch::clamp_min_));
   TestInplace(torch::neg_);
   TestInplace(torch::sigmoid_);
   TestInplace(torch::sin_);
@@ -409,12 +463,6 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::atan_outf);
   TestOut(torch::bitwise_not_outf, torch::kChar);
   TestOut(torch::ceil_outf);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_min_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_min_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&, torch::Tensor&)>(torch::clamp_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&,torch::Tensor&)>(torch::clamp_outf));
   TestOut(torch::cosh_outf);
   TestOut(torch::cos_outf);
   TestOut(torch::_cumprod_outf);
@@ -447,5 +495,31 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::tanh_backward_outf);
   TestOut(torch::tanh_outf);
   TestOut(torch::tan_outf);
+  // clang-format on
+}
+
+TEST_F(GenOps, clampGen) {
+  // clang-format off
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&)>(torch::clamp));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&)>(torch::clamp));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&)>(torch::clamp_min));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Scalar&)>(torch::clamp_min));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&)>(torch::clamp_max));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Scalar&)>(torch::clamp_max));
+
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&)>(torch::clamp_));
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&)>(torch::clamp_));
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(torch::clamp_min_));
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(torch::clamp_min_));
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(torch::clamp_max_));
+  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(torch::clamp_max_));
+
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_min_outf));
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_min_outf));
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&, torch::Tensor&)>(torch::clamp_outf));
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&,torch::Tensor&)>(torch::clamp_outf));
+  TestOutClampCustom(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&,torch::Tensor&)>(torch::clamp_outf));
   // clang-format on
 }

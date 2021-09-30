@@ -188,6 +188,11 @@ clamp:
   out_ids: [0]
   legacy_eager: true
 
+clamp.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: clampTensor
+  out_ids: [0]
+
 clamp_:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
@@ -195,10 +200,19 @@ clamp_:
   inplace_ids: [0]
   legacy_eager: true
 
+clamp_.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: clampTensor
+  inplace_ids: [0]
+
 clamp.out:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+
+clamp.Tensor_out:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: clampTensor
 
 clamp_max:
   custom_fill_params: FillClampMaxParams
@@ -206,10 +220,10 @@ clamp_max:
   guid: clamp_fwd
   out_ids: [0]
 
-clamp_max.out:
-  custom_fill_params: FillClampMaxParams
+clamp_max.Tensor:
   dtypes: [BFloat16, Float, Int]
-  guid: clamp_fwd
+  guid: min_fwd
+  out_ids: [0]
 
 clamp_max_:
   custom_fill_params: FillClampMaxParams
@@ -217,10 +231,19 @@ clamp_max_:
   guid: clamp_fwd
   inplace_ids: [0]
 
-clamp_min.out:
-  custom_fill_params: FillClampMinParams
+clamp_max_.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  guid: min_fwd
+  inplace_ids: [0]
+
+clamp_max.out:
+  custom_fill_params: FillClampMaxParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+
+clamp_max.Tensor_out:
+  dtypes: [BFloat16, Float, Int]
+  guid: min_fwd
 
 clamp_min:
   custom_fill_params: FillClampMinParams
@@ -229,11 +252,30 @@ clamp_min:
   out_ids: [0]
   legacy_eager: true
 
+clamp_min.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  guid: max_fwd
+  out_ids: [0]
+
 clamp_min_:
   custom_fill_params: FillClampMinParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   inplace_ids: [0]
+
+clamp_min_.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  guid: max_fwd
+  inplace_ids: [0]
+
+clamp_min.out:
+  custom_fill_params: FillClampMinParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+
+clamp_min.Tensor_out:
+  dtypes: [BFloat16, Float, Int]
+  guid: max_fwd
 
 cos:
   dtypes: [BFloat16, Float]

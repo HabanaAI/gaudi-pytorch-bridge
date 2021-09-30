@@ -753,21 +753,12 @@ at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
 at::Tensor& reciprocal_hpu_lazy_(at::Tensor& self);
 at::Tensor reciprocal_hpu_lazy(const at::Tensor& self);
 at::Tensor& reciprocal_out_hpu_lazy(at::Tensor& result, const at::Tensor& self);
-at::Tensor clamp_min_hpu_lazy(const at::Tensor& self, const at::Scalar& min);
 at::Tensor sign_hpu_lazy(const at::Tensor& input);
 at::Tensor& sign_hpu_lazy_(at::Tensor& self);
 at::Tensor sgn_hpu_lazy(const at::Tensor& input);
 at::Tensor& sgn_hpu_lazy_(at::Tensor& self);
 at::Tensor log_hpu_lazy(const at::Tensor& input);
 at::Tensor& log_hpu_lazy_(at::Tensor& self);
-at::Tensor& clamp_hpu_lazy_(
-    at::Tensor& self,
-    const c10::optional<at::Scalar>& min,
-    const c10::optional<at::Scalar>& max);
-at::Tensor clamp_hpu_lazy(
-    const at::Tensor& self,
-    const c10::optional<at::Scalar>& min,
-    const c10::optional<at::Scalar>& max);
 at::Tensor abs_hpu_lazy(const at::Tensor& input);
 at::Tensor& abs_hpu_lazy_(at::Tensor& self);
 at::Tensor round_hpu_lazy(const at::Tensor& self);

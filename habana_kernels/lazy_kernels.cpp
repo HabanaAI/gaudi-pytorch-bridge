@@ -43,7 +43,6 @@
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/ops/cast_ops.h"
 #include "habana_lazy/ops/cat.h"
-#include "habana_lazy/ops/clamp.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/embedding.h"
@@ -5743,40 +5742,6 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   HABANA_ASSERT(0);
   return reciprocal_out_hpu(result, self);
 }
-Tensor clamp_min_hpu_lazy(const Tensor& self, const Scalar& min) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::clamp_min", {self, min}};
-  return k.call();
-}
-Tensor& clamp_hpu_lazy_(
-    Tensor& self,
-    const c10::optional<Scalar>& min,
-    const c10::optional<Scalar>& max) {
-  auto hl_result = GetHbLazyTensor(self);
-  updateDstDependencies(hl_result, self, true);
-  ir::NodePtr node = std::make_shared<ir::Clamp>(self, min, max);
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-  context->MarkTensorRegistered(hl_result.getTensorUniqueId());
-
-  flush_op(self);
-  return self;
-}
 
 Tensor round_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
@@ -5907,15 +5872,6 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
 
   flush_op(result);
   return result;
-}
-
-Tensor clamp_hpu_lazy(
-    const Tensor& self,
-    const c10::optional<Scalar>& min,
-    const c10::optional<Scalar>& max) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::clamp", {self, min, max}, {1, 2}};
-  return k.call();
 }
 
 Tensor abs_hpu_lazy(const Tensor& input) {

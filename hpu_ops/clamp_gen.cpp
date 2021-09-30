@@ -9,6 +9,7 @@
  */
 
 #include "generated/hpu_op.h"
+#include "hpu_op_helper.h"
 
 namespace habana {
 template <typename ScalarType>
@@ -58,6 +59,49 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
   }
   return ClampParams(
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
+}
+
+void clampTensor::AddNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    const std::vector<bool>& is_output_persistent_list) {
+  const at::Tensor self = stack_tensor(stack, 0);
+  const auto& outshape = stack_tensor(stack, 0).sizes();
+  bool minTensorDefined = stack.at(1).isTensor();
+  bool maxTensorDefined = stack.at(2).isTensor();
+  if (minTensorDefined && maxTensorDefined) {
+    auto maxOut = BuildOp(
+        graph,
+        "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        {syn_in(0), syn_in(1)},
+        {{outshape, self.scalar_type(), false}});
+
+    auto minOut = BuildOp(
+        graph,
+        "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        {maxOut[0].get(), syn_in(2)},
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+
+    syn_out(0) = std::move(minOut[0]);
+  } else if (minTensorDefined) {
+    auto maxOut = BuildOp(
+        graph,
+        "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        {syn_in(0), syn_in(1)},
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+
+    syn_out(0) = std::move(maxOut[0]);
+  } else {
+    HABANA_ASSERT(
+        maxTensorDefined, "At least one of 'min' or 'max' must not be None")
+    auto minOut = BuildOp(
+        graph,
+        "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        {syn_in(0), syn_in(1)},
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+
+    syn_out(0) = std::move(minOut[0]);
+  }
 }
 
 } // namespace habana
