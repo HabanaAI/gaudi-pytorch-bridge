@@ -502,6 +502,8 @@ Chunk* CoalescedStringentPooling::try_defragmenting(uint64_t size) const {
       size,
       " chunk size :: ",
       free_chunk->size);
+  bin_utils->RemoveFreeChunkFromBin(free_chunk);
+  free_chunk->used = true;
   return free_chunk;
 }
 
@@ -537,6 +539,8 @@ Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
     }
     PT_SYNHELPER_DEBUG(
         "After split chunk:: ", chunk, " of Size:: ", chunk->size);
+    bin_utils->RemoveFreeChunkFromBin(chunk);
+    chunk->used = true;
     return chunk;
   }
   return nullptr;
@@ -693,13 +697,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   auto defrag_chunk = try_defragmenting(size);
   if (defrag_chunk) {
     ++chunk_count;
-    /* remove from pool */
-    Bin* bin = bin_utils->BinForSize(size);
-    auto it = bin->free_chunks.find(defrag_chunk);
-    if (it != bin->free_chunks.end()) {
-      bin->free_chunks.erase(it);
-    }
-    defrag_chunk->used = true;
     chunks[defrag_chunk->memptr] = defrag_chunk;
     bytes_in_use += defrag_chunk->size;
     stats.UpdateStats(defrag_chunk->size, true);
@@ -708,13 +705,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   auto split_chunk = try_block_splitting(size);
   if (split_chunk) {
     ++chunk_count;
-    /* remove from pool */
-    Bin* bin = bin_utils->BinForSize(size);
-    auto it = bin->free_chunks.find(split_chunk);
-    if (it != bin->free_chunks.end()) {
-      bin->free_chunks.erase(it);
-    }
-    split_chunk->used = true;
     chunks[split_chunk->memptr] = split_chunk;
     bytes_in_use += split_chunk->size;
     stats.UpdateStats(split_chunk->size, true);
