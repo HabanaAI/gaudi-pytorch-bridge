@@ -978,3 +978,30 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }
+
+TEST_F(LazyDynamicShapesTest, CastTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  PT_TEST_DEBUG("\nPTI_DBG :: TEST ", 0, "  --------\n");
+  torch::Tensor A = torch::randn({1}, torch::dtype(torch::kBFloat16));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = hA.to(torch::kFloat);
+  torch::Tensor Out = A.to(torch::kFloat);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
+  int H = 1024;
+  std::vector<int> in_sizes{32768, 65536};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, "  --------\n");
+    torch::Tensor A = torch::randn({W, H}, torch::dtype(torch::kBFloat16));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = hA.to(torch::kFloat);
+    torch::Tensor Out = A.to(torch::kFloat);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
+  }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}

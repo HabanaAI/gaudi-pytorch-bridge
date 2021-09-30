@@ -16,36 +16,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 
 namespace habana_lazy {
 struct Data;
 
 namespace ir {
-
-inline int64_t mod_exp(int64_t y, int64_t x = 997) {
-  const int64_t p{1000000007};
-  int64_t z = 1;
-  y = y % p;
-  if (y == 0) {
-    return 0;
-  }
-
-  while (y > 0) {
-    if (y & 1) {
-      z = (z * x) % p;
-    }
-
-    y >>= 1;
-    x = (x * x) % p;
-  }
-  return z;
-}
-
-inline int64_t mod_exp(bool w, int64_t x = 997) {
-  int64_t y = (w ? 97 : 43);
-  return (mod_exp(y, x));
-}
 
 class Node;
 struct Value;
@@ -239,11 +217,11 @@ class MetaData {
 
   size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
     if (v.isInt()) {
-      return at::hash_combine(h, at::get_hash(mod_exp(v.toInt())));
+      return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
     } else if (v.isString()) {
       return at::hash_combine(h, at::get_hash(v.toString()));
     } else if (v.isBool()) {
-      return at::hash_combine(h, at::get_hash(mod_exp(v.toBool())));
+      return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toBool())));
     } else if (v.isScalar()) {
       return at::hash_combine(
           h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue

@@ -100,7 +100,8 @@ struct RecipeArgumentSpec {
  private:
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const std::string& id);
+      const std::string& id,
+      at::ArrayRef<torch::jit::IValue> input_refs);
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 
   torch::jit::CompleteArgumentSpec cas;

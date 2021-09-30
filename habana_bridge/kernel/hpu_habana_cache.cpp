@@ -20,6 +20,7 @@
 #include "habana_device/hpu_cached_devices.h"
 
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 
@@ -61,7 +62,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string id)
     : cas(false, input_refs) {
-  ComputeGraphHashCode(irgraph, id);
+  ComputeGraphHashCode(irgraph, id, input_refs);
   hash_code = graph_hash_code;
 }
 
@@ -71,7 +72,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     const uint64_t token,
     const std::string id)
     : cas(false, input_refs) {
-  ComputeGraphHashCode(irgraph, id);
+  ComputeGraphHashCode(irgraph, id, input_refs);
   hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, token);
 
@@ -89,7 +90,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       opstrs(std::string()),
       hash_code(cas.hashCode()) {
   cargspec_hash_code = cas.hashCode();
-  ComputeGraphHashCode(irgraph, id);
+  ComputeGraphHashCode(irgraph, id, input_refs);
   hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
   hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
@@ -100,7 +101,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
 void RecipeArgumentSpec::ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const std::string& id) {
+    const std::string& id,
+    at::ArrayRef<torch::jit::IValue> input_refs) {
   std::hash<std::string> str_hash;
   opstrs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -154,6 +156,22 @@ void RecipeArgumentSpec::ComputeGraphHashCode(
     connection_hash = at::hash_combine(connection_hash, output_connection_hash);
   }
   graph_hash_code = at::hash_combine(graph_hash_code, connection_hash);
+
+  // Handle the dims also
+  size_t typedims_hash{0};
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      typedims_hash =
+          at::hash_combine(typedims_hash, habana::mod_exp(pt_tensor.dim()));
+      auto pt_type = pt_tensor.scalar_type();
+      int64_t pt_type_int{
+          static_cast<std::underlying_type<c10::ScalarType>::type>(pt_type)};
+      typedims_hash =
+          at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
+    }
+  }
+  graph_hash_code = at::hash_combine(graph_hash_code, typedims_hash);
 }
 
 void RecipeArgumentSpec::ComputeOffsetHashCode(
