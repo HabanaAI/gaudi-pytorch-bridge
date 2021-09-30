@@ -50,7 +50,8 @@ void Reduce2Operator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       is_output_persistent[1]);
-  AllocateSynapseOutputs(graph, {output, index}, is_output_persistent);
+  AllocateSynapseOutputs(
+      graph, {output, index}, is_output_persistent, {true, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -79,6 +80,9 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
   auto reduce_op =
       make_operator<Reduce2Operator>(self.device().index(), this->guid_);
   reduce_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  if (keepdim) {
+    reduce_op->SetOutputMetadata(output_metadata_);
+  }
   std::vector<bool> reshapeadd{false, false};
   reduce_op->AllocateAndAddSynapseNode(
       graph, inputs, keepdim ? is_output_persistent : reshapeadd);
@@ -91,6 +95,7 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
     auto out_shape = reduce_op->GetOutputs()[0].sizes().vec();
     out_shape.erase(out_shape.cbegin() + dim);
     reshape_op->SetSynapseInput((reduce_op->GetSynOutputs()[0]));
+    reshape_op->SetOutputMetadata(SelectVectorIndices(output_metadata_, {0}));
     torch::jit::Stack stack = {
         IValue(reduce_op->GetOutputs()[0]), IValue(out_shape)};
     reshape_op->AllocateAndAddSynapseNode(
@@ -98,6 +103,8 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
     stack.clear();
 
     reshape_index->SetSynapseInput((reduce_op->GetSynOutputs()[1]));
+    reshape_index->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {1}));
     stack = {IValue(reduce_op->GetOutputs()[1]), IValue(out_shape)};
     reshape_index->AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent[1]);
@@ -222,6 +229,7 @@ void MaxOperator::AllocateAndAddSynapseNode(
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   std::vector<int64_t> out_shape{1};
   reshape_op->SetSynapseInput(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]);
+  reshape_op->SetOutputMetadata(output_metadata_);
   torch::jit::Stack stack = {
       IValue(ReduceOpList[self.dim() - 1].GetOutputs()[0]), IValue(out_shape)};
   reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -315,6 +323,7 @@ void MinOperator::AllocateAndAddSynapseNode(
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   std::vector<int64_t> out_shape{1};
   reshape_op->SetSynapseInput(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]);
+  reshape_op->SetOutputMetadata(output_metadata_);
   torch::jit::Stack stack = {
       IValue(ReduceOpList[self.dim() - 1].GetOutputs()[0]), IValue(out_shape)};
   reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);

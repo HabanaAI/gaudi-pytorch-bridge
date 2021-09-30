@@ -118,19 +118,22 @@ synapse_helpers::tensor create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     int devid,
-    const c10::ScalarType dtype);
+    const c10::ScalarType dtype,
+    const std::string& name = std::string());
 
 synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const c10::optional<c10::ScalarType> dtype = c10::nullopt);
+    const c10::optional<c10::ScalarType> dtype = c10::nullopt,
+    const std::string& name = std::string());
 
 synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    bool is_device_shape_tensor);
+    bool is_device_shape_tensor,
+    const std::string& name = std::string());
 
 /**
 @brief This function can be used to create an intermediate
@@ -141,7 +144,8 @@ synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const synDataType dtype);
+    const synDataType dtype,
+    const std::string& name = std::string());
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(

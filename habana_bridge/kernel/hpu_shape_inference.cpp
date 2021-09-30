@@ -27,11 +27,14 @@ void ShapeInference::Reset() {
 
 std::string ShapeInference::UpdateShapeInfo(
     synapse_helpers::graph& graph,
-    const std::vector<int64_t>& sizes) {
+    const std::vector<int64_t>& sizes,
+    const std::string& tensor_name_suffix) {
   std::string tensor_name;
   if (graph.is_dynamic_graph()) {
     HABANA_ASSERT(ShapeInference::m_shape_info);
-    tensor_name = tensor_name_generator::get_next_tensor_name();
+    tensor_name =
+        tensor_name_generator::get_next_tensor_name(tensor_name_suffix);
+
     // We only care about the shape during shape inference, hence
     // passing a dummy type of Undefined when creating the shape tensor
     auto shape = habana_helpers::TensorShape(sizes, c10::ScalarType::Undefined);

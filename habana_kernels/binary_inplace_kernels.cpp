@@ -126,6 +126,7 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
       inputs[1].isTensor()) { // First 2 inputs are both tensors
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    binaryOp->SetOutputMetadata(output_metadata_);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -140,6 +141,7 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    binaryOp->SetOutputMetadata(output_metadata_);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
@@ -224,6 +226,7 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
     binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    binaryInplaceOp->SetOutputMetadata(output_metadata_);
     binaryInplaceOp->AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -238,6 +241,7 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryInplaceOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    binaryInplaceOp->SetOutputMetadata(output_metadata_);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
@@ -577,6 +581,7 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
+    addOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
     stack.emplace_back(IValue(alphaValue));
@@ -601,6 +606,7 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
+    addOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
     stack.emplace_back(IValue(alphaValue));
@@ -708,6 +714,7 @@ void habana::AddcdivInplaceOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, scalar_type);
   addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   addOp->SetSynapseInput(divOp->GetSynOutputs()[0]);
+  addOp->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(divOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));

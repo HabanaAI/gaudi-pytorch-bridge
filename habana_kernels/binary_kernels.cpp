@@ -108,7 +108,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         c10::ScalarType::Int,
         false);
 
-    AllocateSynapseOutput(graph, output_mult, false);
+    AllocateSynapseOutput(graph, output_mult, false, false, -1);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
     synapse_helpers::tensor& synInput1 = boolToIntOp1->GetSynOutputs()[0];
     synapse_helpers::tensor& synInput2 = boolToIntOp2->GetSynOutputs()[0];
@@ -128,6 +128,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     auto intToBoolOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     intToBoolOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+    intToBoolOp->SetOutputMetadata(output_metadata_);
 
     // Build Params for the graph
     stack.emplace_back(IValue(output_mult));
@@ -226,6 +227,7 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
 
   auto binaryOp = make_operator<BinaryOperator>(
       this->p_context_->device_id_, guid_, this->scalarType_);
+  binaryOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -403,6 +405,7 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
   auto binaryOp = make_operator<BinaryOperatorWithAlpha>(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
+  binaryOp->SetOutputMetadata(output_metadata_);
   if (inputs[0].isTensor() &&
       inputs[1].isTensor()) { // First 2 inputs are both tensors
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -965,6 +968,7 @@ void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderOperator>(
       this->p_context_->device_id_, this->scalarType_);
+  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -1027,7 +1031,10 @@ void habana::RemainderOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       is_output_persistent);
   AllocateSynapseOutputs(
-      graph, {quotient, remainder}, {false, is_output_persistent});
+      graph,
+      {quotient, remainder},
+      {false, is_output_persistent},
+      {false, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -1115,7 +1122,7 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       is_output_persistent[0]);
-  AllocateSynapseOutput(graph, quotient, is_output_persistent[0]);
+  AllocateSynapseOutput(graph, quotient, is_output_persistent[0], false);
 
   // Note here we are using input[0] to store output[1]
   p_context_->syn_outputs_.emplace_back(
@@ -1164,6 +1171,7 @@ void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderInplaceOperator>(
       this->p_context_->device_id_, this->scalarType_);
+  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -1414,6 +1422,7 @@ void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderOutOperator>(
       this->p_context_->device_id_, this->scalarType_);
+  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);

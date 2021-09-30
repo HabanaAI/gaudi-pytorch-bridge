@@ -71,6 +71,7 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
       make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
   addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
+  addOp->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
@@ -180,6 +181,7 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
       make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
   addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   addOp->SetSynapseInput(divOp->GetSynOutputs()[0]);
+  addOp->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(divOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));

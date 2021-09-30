@@ -73,6 +73,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     auto mul_exp_avg =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
     mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    mul_exp_avg->SetOutputMetadata(SelectVectorIndices(output_metadata_, {3}));
     stack.emplace_back(IValue(exp_avg.get(i)));
     stack.emplace_back(IValue(beta1));
     mul_exp_avg->AllocateAndAddSynapseNode(graph, stack, false);
@@ -82,6 +83,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
     add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
     add_exp_avg->SetSynapseInput(div_grad->GetSynOutputs()[0]);
+    add_exp_avg->SetOutputMetadata(SelectVectorIndices(output_metadata_, {4}));
     stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
     stack.emplace_back(IValue(beta3));
@@ -93,6 +95,8 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
     mul_exp_avg_sq->SetSynapseInput(
         p_context_->syn_inputs_[3 * num_params + i]);
+    mul_exp_avg_sq->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {5}));
     stack.emplace_back(IValue(exp_avg_sq.get(i)));
     stack.emplace_back(IValue(beta2));
     mul_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
@@ -108,6 +112,8 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     auto syn_in_34 = habana_helpers::create_tensor(
         div_grad->GetOutputs()[0], graph, true, c10::nullopt);
     addcmul_exp_avg_sq->SetSynapseInput(syn_in_34);
+    addcmul_exp_avg_sq->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {6}));
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
@@ -167,6 +173,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       auto add_wt = make_operator<habana::AddOperator>(device_id, scalar_type);
       add_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
       add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      add_wt->SetOutputMetadata(SelectVectorIndices(output_metadata_, {0}));
       stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(weight_decay));
@@ -176,6 +183,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       // adam_norm = adam_step.norm()
       auto norm_adam_step = make_operator<NormOperator>(device_id, scalar_type);
       norm_adam_step->SetSynapseInput(add_wt->GetSynOutputs()[0]);
+      add_wt->SetOutputMetadata(SelectVectorIndices(output_metadata_, {1}));
       stack.emplace_back(IValue(add_wt->GetOutputs()[0]));
       stack.emplace_back(IValue(2.0));
       norm_adam_step->AllocateAndAddSynapseNode(
@@ -192,6 +200,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       auto div_wt = make_operator<habana::DivOperator>(device_id, scalar_type);
       div_wt->SetSynapseInput(div_exp_avg->GetSynOutputs()[0]);
       div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
+      div_wt->SetOutputMetadata(SelectVectorIndices(output_metadata_, {0}));
       stack.emplace_back(IValue(div_exp_avg->GetOutputs()[0]));
       stack.emplace_back(IValue(add_exp_avg_sq->GetOutputs()[0]));
       div_wt->AllocateAndAddSynapseNode(
@@ -200,6 +209,8 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
 
       auto norm_adam_step = make_operator<NormOperator>(device_id, scalar_type);
       norm_adam_step->SetSynapseInput(div_wt->GetSynOutputs()[0]);
+      norm_adam_step->SetOutputMetadata(
+          SelectVectorIndices(output_metadata_, {1}));
       stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
       stack.emplace_back(IValue(2.0));
       norm_adam_step->AllocateAndAddSynapseNode(
@@ -216,6 +227,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     // weight_norm = p.data.norm()
     auto norm_wt = make_operator<NormOperator>(device_id, scalar_type);
     norm_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+    norm_wt->SetOutputMetadata(SelectVectorIndices(output_metadata_, {2}));
     stack.emplace_back(IValue(weights.get(i)));
     stack.emplace_back(IValue(2.0));
     norm_wt->AllocateAndAddSynapseNode(
@@ -531,6 +543,7 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
     auto add3_lp = make_operator<AddInplaceOperator>(device_id, scalar_type);
     add3_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
     add3_lp->SetSynapseInput(mul4->GetSynOutputs()[0]);
+    add3_lp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(weights.get(i)));
     stack.emplace_back(IValue(mul4->GetOutputs()[0]));
     stack.emplace_back(IValue(1.0));
@@ -771,6 +784,7 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   auto add = make_operator<AddOperator>(device_id, scalar_type);
   add->SetSynapseInput(mul1->GetSynOutputs()[0]);
   add->SetSynapseInput(mul2->GetSynOutputs()[0]);
+  add->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(mul1->GetOutputs()[0]));
   stack.emplace_back(IValue(mul2->GetOutputs()[0]));
   stack.emplace_back(IValue(1.0));

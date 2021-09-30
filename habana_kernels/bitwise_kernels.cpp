@@ -65,6 +65,7 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
 
   auto BitwiseOutOp =
       make_operator<BitwiseOutOperator>(this->p_context_->device_id_, guid_);
+  BitwiseOutOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor() && inputs[2].isTensor()) {
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -120,6 +121,7 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   // Create a constant operator to get a tensor of ones of size self
   auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, scalar_type);
+  constOp->SetOutputMetadata(output_metadata_);
   auto const_shape_tensor = habana_helpers::createPTTensor(
       self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
   torch::jit::Stack constOp_stack = {

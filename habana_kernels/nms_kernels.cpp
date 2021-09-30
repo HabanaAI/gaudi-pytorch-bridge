@@ -64,7 +64,8 @@ void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(
       graph,
       {scores, box_ids, valid_box_ids},
-      {is_output_persistent, is_output_persistent, is_output_persistent});
+      {is_output_persistent, is_output_persistent, is_output_persistent},
+      {true, true, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -133,7 +134,8 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(
       graph,
       {box_id_out, valid_box_id_out},
-      {is_output_persistent[0], is_output_persistent[1]});
+      {is_output_persistent[0], is_output_persistent[1]},
+      {true, true});
 
   auto shape_tensor = habana_helpers::createPTTensor(
       valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent[2]);
@@ -293,6 +295,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       scores.device().index(), "post_nms_fwd_i32");
   postnms_op->SetSynapseInput(nms_op->GetSynOutputs()[0]);
   postnms_op->SetSynapseInput(syn_nms2);
+  postnms_op->SetOutputMetadata(output_metadata_);
   stack = {IValue(nms_op->GetOutputs()[0]), IValue(filter_op->GetOutputs()[2])};
   postnms_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   stack.clear();

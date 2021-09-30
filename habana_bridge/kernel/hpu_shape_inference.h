@@ -58,7 +58,8 @@ class ShapeInference {
    */
   static std::string UpdateShapeInfo(
       synapse_helpers::graph& graph,
-      const std::vector<int64_t>& sizes);
+      const std::vector<int64_t>& sizes,
+      const std::string& tensor_name_suffix = std::string());
   /*
    * Get the shape of the Min & Max tensor values for the specified
    * tensor name

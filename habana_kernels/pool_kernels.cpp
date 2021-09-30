@@ -292,8 +292,12 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   // AllocateSynapseOutputs, the order is revered and the is_output_persistent
   // flag also need to be accordingly reversed.
   std::swap(is_output_persistent[0], is_output_persistent[1]);
+  // TODO: swap metadata order to match allocation order?
   AllocateSynapseOutputs(
-      graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
+      graph,
+      {output_idx_nhwc, output_nhwc},
+      is_output_persistent,
+      {true, true});
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
   std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
   std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);

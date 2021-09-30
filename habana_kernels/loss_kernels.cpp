@@ -948,6 +948,9 @@ void KlDivOperator::AllocateAndAddSynapseNode(
   (log_target) ? mul_op1->SetSynapseInput(log_exp_op->GetSynOutputs()[0])
                : mul_op1->SetSynapseInput(p_context_->syn_inputs_[1]);
   mul_op1->SetSynapseInput(sub_op->GetSynOutputs()[0]);
+  if (reduction == at::Reduction::Reduction::None) {
+    mul_op1->SetOutputMetadata(output_metadata_);
+  }
   stack = {
       (log_target) ? IValue(log_exp_op->GetOutputs()[0]) : IValue(target),
       IValue(sub_op->GetOutputs()[0])};
@@ -965,6 +968,7 @@ void KlDivOperator::AllocateAndAddSynapseNode(
         : static_cast<HabanaOperatorPtr>(make_operator<MeanOperator>(
               self.device().index(), self.scalar_type()));
     sum_mean_op->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
+    sum_mean_op->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op1->GetOutputs()[0]), IValue(self.scalar_type())};
     sum_mean_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     stack.clear();
@@ -1107,6 +1111,7 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
     auto mul_op3 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     mul_op3->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
+    mul_op3->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op1->GetOutputs()[0]), IValue(-1)};
     mul_op3->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     stack.clear();
@@ -1129,6 +1134,7 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
     auto mul_op4 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     mul_op4->SetSynapseInput(mul_op2->GetSynOutputs()[0]);
+    mul_op4->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op2->GetOutputs()[0]), IValue(-1)};
     mul_op4->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     stack.clear();
@@ -1408,6 +1414,8 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(
       graph,
       habana_helpers::createPTTensor(reshape_self->GetOutputs()[0], false),
+      false,
+      false,
       false);
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
   synapse_helpers::tensor& syn_in_target = reshape_target->GetSynOutputs()[0];
@@ -1431,6 +1439,7 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   reshape_grad_in->SetSynapseInput(p_context_->syn_outputs_[0]);
   stack = {
       c10::IValue(p_context_->pt_outputs_[0]), c10::IValue(self.sizes().vec())};
+  reshape_grad_in->SetOutputMetadata(output_metadata_);
   reshape_grad_in->AllocateAndAddSynapseNode(
       graph, stack, is_output_persistent);
   stack.clear();

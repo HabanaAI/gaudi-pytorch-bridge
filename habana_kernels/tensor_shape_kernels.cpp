@@ -1090,6 +1090,8 @@ void SplitWithSizeOperator::AllocateAndAddSynapseNode(
     auto narrowOp = make_operator<NarrowOperator>(
         self.device().index(), self.scalar_type());
     narrowOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    narrowOp->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {(unsigned int)i}));
     torch::jit::Stack stack = {
         IValue(self), IValue(dim), IValue(start_idx), IValue(length)};
     narrowOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i]);

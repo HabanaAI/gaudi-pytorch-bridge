@@ -2216,6 +2216,16 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     // Otherwise this results in spurious control edges
     syn_graph_ptr->clear_node_indices();
 
+    // Set output metadata for node
+    const auto& outputs = node->outputs();
+    OutputMetaDataVector outputs_metadata;
+    std::transform(
+        outputs.begin(),
+        outputs.end(),
+        std::back_inserter(outputs_metadata),
+        [](CValPtr value) -> OutputMetaData { return OutputMetaData(*value); });
+    HabanaKernel->SetOutputMetadata(outputs_metadata);
+
     // Create/attach the synapse inputs from aten tensors
     GetSynapseInputs(HabanaKernel, node);
 

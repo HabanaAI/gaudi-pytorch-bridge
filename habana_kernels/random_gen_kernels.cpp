@@ -187,6 +187,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(arangeOutput));
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  randShuffleOp->SetOutputMetadata(output_metadata_);
   randShuffleOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_outputs_[0] = std::move(randShuffleOp->GetSynOutputs()[0]);
   p_context_->pt_outputs_[0] = std::move(randShuffleOp->GetOutputs()[0]);
@@ -476,6 +477,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, castOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(castOp->GetSynOutputs()[0]);
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    memcopyOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(castOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
     memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -489,6 +491,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, brnliOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(brnliOp->GetSynOutputs()[0]);
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    memcopyOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
     memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -618,7 +621,10 @@ void DropoutOperator::AllocateAndAddSynapseNode(
       is_output_persistent[1]);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
   AllocateSynapseOutputs(
-      graph, pt_outputs, {is_output_persistent[0], is_output_persistent[1]});
+      graph,
+      pt_outputs,
+      {is_output_persistent[0], is_output_persistent[1]},
+      {true, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

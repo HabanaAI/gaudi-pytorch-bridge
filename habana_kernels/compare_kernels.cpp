@@ -81,6 +81,7 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     auto arg1 = inputs[0].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
+    constOp->SetOutputMetadata(output_metadata_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};

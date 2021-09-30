@@ -190,6 +190,7 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, weight.scalar_type());
     indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    indexSelectOp->SetOutputMetadata(output_metadata_);
     // Build Params for the graph
     int64_t dim = 0;
     std::vector<c10::IValue> stack{
@@ -238,6 +239,7 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_,
         indexSelectOp->GetOutputs()[0].scalar_type());
     ReshapeOp_2->SetSynapseInput(indexSelectOp->GetSynOutputs()[0]);
+    ReshapeOp_2->SetOutputMetadata(output_metadata_);
     // Build Params for the graph
     stack.emplace_back(IValue(indexSelectOp->GetOutputs()[0]));
     stack.emplace_back(IValue(size));
@@ -450,6 +452,9 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   scatterAddOp->SetSynapseInput(zeroOp->GetSynOutputs()[0]);
   scatterAddOp->SetSynapseInput(castTopkValsOp->GetSynOutputs()[0]);
   scatterAddOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
+  if (padding_idx == -1) {
+    scatterAddOp->SetOutputMetadata(output_metadata_);
+  }
   std::vector<c10::IValue> sa_stack{
       IValue(zeroOp->GetOutputs()[0]),
       IValue(dim),
@@ -510,6 +515,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
     indexputOp->SetSynapseInput(syn_grad_weight);
     indexputOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     indexputOp->SetSynapseInput(zeroOp1->GetSynOutputs()[0]);
+    indexputOp->SetOutputMetadata(output_metadata_);
 
     std::vector<c10::IValue> indexputOp_stack = {
         IValue(grad_weight),

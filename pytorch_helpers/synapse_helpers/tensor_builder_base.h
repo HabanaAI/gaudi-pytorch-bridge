@@ -43,8 +43,9 @@ tensor::shape_t to_stride_t(
 namespace detail {
 class tensor_name_generator {
  public:
-  static std::string get_next_tensor_name();
-  static std::string generate();
+  static std::string get_next_tensor_name(
+      const std::string& suffix = std::string());
+  static std::string generate(const std::string& suffix = std::string());
   static void set_tensor_id(uint64_t id);
   static uint64_t get_tensor_id();
 
@@ -175,14 +176,6 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove
-  // this line when we switch to tidy-10.
-  ConcreteBuilder& override_name(std::string name) {
-    is_name_overridden_ = true;
-    append_name(name); // txx_name as final tensor name
-    return static_cast<ConcreteBuilder&>(*this);
-  }
-
   ConcreteBuilder& mark_persistence(const bool is_persistent = true) {
     is_persistent_ = is_persistent;
     return static_cast<ConcreteBuilder&>(*this);
@@ -257,13 +250,14 @@ class tensor_builder_base {
       return {
           synapse_error{"Unsupported tensor dtype", synStatus::synUnsupported}};
     }
+    std::string tensor_name = generate_name();
     auto t = tensor(
         syn_device.id(),
         data_type_,
         total_size_bytes(),
         shape_,
         stride_,
-        tensor_name_,
+        tensor_name,
         graph,
         is_persistent_,
         memory_section_,
@@ -295,11 +289,9 @@ class tensor_builder_base {
   tensor::dynamic_shape_t shape_{};
   tensor::dynamic_shape_t stride_{};
   synDataType data_type_{};
-  std::string tensor_name_ = generate_name();
   std::string suffix_ = "";
   bool is_persistent_{false};
   bool is_const_{false};
-  bool is_name_overridden_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t host_ptr_size_{0};
@@ -312,13 +304,8 @@ class tensor_builder_base {
     return detail::size_bytes_from_shape(shape_.max(), data_type_);
   }
 
-  static std::string generate_name() {
-    return detail::tensor_name_generator::generate();
-  }
-
-  ConcreteBuilder& append_name(const std::string& name) {
-    tensor_name_.append("_" + name);
-    return static_cast<ConcreteBuilder&>(*this);
+  std::string generate_name() const {
+    return detail::tensor_name_generator::generate(suffix_);
   }
 };
 

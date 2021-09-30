@@ -150,7 +150,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   std::vector<at::Tensor> outputs{values, indices};
-  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AllocateSynapseOutputs(graph, outputs, is_output_persistent, {true, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

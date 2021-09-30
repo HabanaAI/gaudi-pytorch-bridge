@@ -580,6 +580,7 @@ void ScatterValueOperator::AllocateAndAddSynapseNode(
   scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   scatterOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   scatterOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+  scatterOp->SetOutputMetadata(output_metadata_);
   scatterOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_outputs_.emplace_back(
       std::move(scatterOp->GetSynOutputs()[0]));
@@ -819,6 +820,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
   scatterOp->SetSynapseInput(addSynOutput[0]);
+  scatterOp->SetOutputMetadata(output_metadata_);
 
   scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
 
@@ -998,6 +1000,8 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
   accumulate ? scatterOp->SetSynapseInput(addSynOutput[0])
              : scatterOp->SetSynapseInput(p_context_->syn_inputs_[last_index]);
+  scatterOp->SetOutputMetadata(output_metadata_);
+
   scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
 
   p_context_->syn_outputs_.emplace_back(
@@ -1597,6 +1601,9 @@ void SelectOperator::AllocateAndAddSynapseNode(
   auto slice_op =
       make_operator<SliceOperator>(self.device().index(), self.scalar_type());
   slice_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  if (is_slice_output) {
+    slice_op->SetOutputMetadata(output_metadata_);
+  }
   std::vector<c10::IValue> stack1 = {
       IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
   slice_op->AllocateAndAddSynapseNode(graph, stack1, is_slice_output);
@@ -1607,6 +1614,8 @@ void SelectOperator::AllocateAndAddSynapseNode(
         self.device().index(), self.scalar_type());
     UNUSED auto& syn_in_reshape =
         reshape_op->SetSynapseInput(slice_op->GetSynOutputs()[0]);
+    reshape_op->SetOutputMetadata(output_metadata_);
+
     auto slice_out_tensor = slice_op->GetOutputs()[0];
     auto shape = slice_out_tensor.sizes().vec();
     shape.erase(shape.begin() + dim);
@@ -1767,7 +1776,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         c10::ScalarType::Float,
         false);
 
-    AllocateSynapseOutput(graph, output_range, false);
+    AllocateSynapseOutput(graph, output_range, false, false, false);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
 
     std::vector<synTensor> syn_in{};
@@ -1799,6 +1808,8 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
     // syn_output_[0] is the original Out result tensor
     castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+    castOp->SetOutputMetadata(output_metadata_);
+
     castOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     // There are 2 outputs {result, rangeOut}, we need only one {result}
     p_context_->syn_outputs_.pop_back();

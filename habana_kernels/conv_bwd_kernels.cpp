@@ -314,6 +314,8 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
     bool mask_grad_in) {
   auto grad_out_nhwc = inputs[0].toTensor();
   auto channel_dim = 4;
+  std::vector<OutputMetaData> out_2_metadata =
+      SelectVectorIndices(output_metadata_, {2});
   auto grad_bias = habana_helpers::createPTTensor(
       grad_out_nhwc,
       {grad_out_nhwc.size(channel_dim)},
@@ -338,6 +340,7 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
         this->p_context_->device_id_, scalar_type);
 
     SumOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    SumOp->SetOutputMetadata(out_2_metadata);
 
     std::vector<c10::IValue> stack = {
         IValue(grad_out_nhwc),
@@ -354,7 +357,11 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
 
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        grad_bias, graph, is_output_persistent[2], c10::nullopt));
+        grad_bias,
+        graph,
+        is_output_persistent[2],
+        c10::nullopt,
+        out_2_metadata.at(0).name));
     p_context_->pt_outputs_.emplace_back(grad_bias);
   }
 }
@@ -371,6 +378,9 @@ void ConvBackwardOperator::ComputeBiasGrad(
       grad_out_nhwc.options(),
       c10::nullopt,
       is_output_persistent[2]);
+
+  std::vector<OutputMetaData> out_2_metadata =
+      SelectVectorIndices(output_metadata_, {2});
 
   if (mask_grad_in) {
     std::vector<int64_t> dim_to_reduce;
@@ -389,6 +399,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
         this->p_context_->device_id_, scalar_type);
 
     SumOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    SumOp->SetOutputMetadata(out_2_metadata);
 
     std::vector<c10::IValue> stack = {
         IValue(grad_out_nhwc),
@@ -405,7 +416,11 @@ void ConvBackwardOperator::ComputeBiasGrad(
 
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        grad_bias, graph, is_output_persistent[2], c10::nullopt));
+        grad_bias,
+        graph,
+        is_output_persistent[2],
+        c10::nullopt,
+        out_2_metadata.at(0).name));
     p_context_->pt_outputs_.emplace_back(grad_bias);
   }
 }
@@ -486,6 +501,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       memory_format,
       is_output_persistent[0]);
 
+  std::vector<OutputMetaData> out_0_metadata =
+      SelectVectorIndices(output_metadata_, {0});
+  std::vector<OutputMetaData> out_1_metadata =
+      SelectVectorIndices(output_metadata_, {1});
+
   if (transposed) { // conv_transpose2d bwd
     // Create the "spatial_convolution" operator
     auto ConvInputDiffOp = make_operator<ConvOperator>(
@@ -494,6 +514,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       // Assign Inputs to the Operator
       ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+
+      ConvInputDiffOp->SetOutputMetadata(out_0_metadata);
 
       // Build Params for the graph
       // use spatial_convolution with bias = None and
@@ -519,7 +541,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           std::move(ConvInputDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_input_nhwc, graph, is_output_persistent[0], c10::nullopt));
+          grad_input_nhwc,
+          graph,
+          is_output_persistent[0],
+          c10::nullopt,
+          output_metadata_.at(0).name));
       p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
     }
 
@@ -529,6 +555,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         // Assign Inputs to the Operator
         ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
         ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+
+        ConvWeightDiffOp->SetOutputMetadata(out_1_metadata);
 
         // Build Params for the graph
         // order of input_nhwc & grad_out_nhwc swapped (w.r.t. regular
@@ -588,6 +616,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
 
+            ConvWeightDiffOp->SetOutputMetadata(out_1_metadata);
+
             // Build Params for the graph
             std::vector<c10::IValue> stack = {
                 IValue(grad_out_nhwc),
@@ -610,6 +640,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
             // Assign Inputs to the Operator
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+
+            ConvInputDiffOp->SetOutputMetadata(out_1_metadata);
 
             // Build Params for the graph
             std::vector<c10::IValue> stack = {

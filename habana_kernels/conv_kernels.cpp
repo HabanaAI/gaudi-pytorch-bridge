@@ -521,6 +521,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
         [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
           scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
           scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+          scOp->SetOutputMetadata(output_metadata_);
           scOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 
           p_context_->syn_outputs_.emplace_back(
@@ -544,6 +545,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
             scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+            scOp->SetOutputMetadata(output_metadata_);
             scOp->AllocateAndAddSynapseNode(
                 graph, inputs, is_output_persistent);
 
@@ -572,6 +574,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
                 this->p_context_->device_id_, input.scalar_type());
             addOp->SetSynapseInput(scOp->GetSynOutputs()[0]);
             addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+            addOp->SetOutputMetadata(output_metadata_);
             // Build Params for the graph
             Scalar alphaValue = 1.0;
             torch::jit::Stack stack;

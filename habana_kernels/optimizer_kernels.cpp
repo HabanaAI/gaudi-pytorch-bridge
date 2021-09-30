@@ -277,11 +277,11 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   */
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
-  auto num_params = static_cast<int>(weights.size());
+  auto num_params = static_cast<unsigned int>(weights.size());
   torch::jit::Stack stack;
   std::vector<synNodeId> syn_node_ids;
 
-  for (auto i = 0; i < num_params; i++) {
+  for (unsigned int i = 0; i < num_params; i++) {
     // Synapse Graph for single parameter update to be created here
     // All synapse input tensor references are there in a single std::vector
     // gradients ; weights ; exp_avg ; exp_avg_sq ; lr ; neg_step_size
@@ -611,19 +611,21 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
   auto epoch_num = inputs[3].toTensor();
   auto lr = inputs[4].toTensor();
 
-  auto num_params = static_cast<int>(gradients.size());
+  auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
   size_t device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
 
-  for (auto i = 0; i < num_params; i++) {
+  for (unsigned int i = 0; i < num_params; i++) {
     auto op = make_operator<OptimizerAdagradOperator>(device_id, scalar_type);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
+    op->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {i * 2, i * 2 + 1}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -799,17 +801,18 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
   auto weights = inputs[1].toTensorList();
   auto lr = inputs[2].toTensor();
 
-  auto num_params = static_cast<int>(gradients.size());
+  auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
   size_t device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
 
-  for (auto i = 0; i < num_params; i++) {
+  for (unsigned int i = 0; i < num_params; i++) {
     auto op = make_operator<OptimizerSGDOperator>(device_id, scalar_type);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    op->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -989,13 +992,13 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
   auto epoch_num = inputs[3].toTensor();
   auto lr = inputs[4].toTensor();
 
-  auto num_params = static_cast<int>(gradients.size());
+  auto num_params = static_cast<unsigned int>(gradients.size());
 
   torch::jit::Stack stack;
   size_t device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
 
-  for (auto i = 0; i < num_params; i++) {
+  for (unsigned int i = 0; i < num_params; i++) {
     auto op =
         make_operator<OptimizerSGDMomentumOperator>(device_id, scalar_type);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
@@ -1003,6 +1006,8 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
+    op->SetOutputMetadata(
+        SelectVectorIndices(output_metadata_, {i * 2, i * 2 + 1}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));

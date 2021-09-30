@@ -495,14 +495,14 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     int devid,
-    const c10::ScalarType dtype) {
+    const c10::ScalarType dtype,
+    const std::string& name) {
   std::string syn_tensor_name;
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
     syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, shape.vec());
+        habana::ShapeInference::UpdateShapeInfo(graph, shape.vec(), name);
   }
-
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
@@ -534,12 +534,15 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
-  auto variant = synapse_helpers::tensor_builder(
+  auto builder = synapse_helpers::tensor_builder(
                      shape, stride, pytorch_to_synapse_type(dtype))
-                     .mark_persistence(persistent)
-                     .build(
-                         synapse_helpers::HPURegistrar::get_device(devid),
-                         graph.get_graph_handle());
+                     .mark_persistence(persistent);
+  if (!name.empty()) {
+    builder.use_suffix(name);
+  }
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(devid),
+      graph.get_graph_handle());
   return absl::get<synapse_helpers::tensor>(std::move(variant));
 }
 
@@ -547,12 +550,13 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const c10::optional<c10::ScalarType> dtype) {
+    const c10::optional<c10::ScalarType> dtype,
+    const std::string& name) {
   std::string syn_tensor_name;
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
+        graph, tensor.sizes().vec(), name);
   }
 
   if (graph.is_dry_run()) {
@@ -576,32 +580,38 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     for (size_t d = max.size() - 1; d > 0; --d) {
       max_stride[d - 1] = max_stride[d] * max[d];
     }
-    auto variant =
+    auto builder =
         synapse_helpers::tensor_builder(
             max,
             max_stride,
             pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
             .mark_persistence(persistent)
-            .with_dynamic_shape(dynamic_shape)
-            .build(
-                synapse_helpers::HPURegistrar::get_device(
-                    tensor.device().index()),
-                graph.get_graph_handle());
+            .with_dynamic_shape(dynamic_shape);
+    if (!name.empty()) {
+      builder.use_suffix(name);
+    }
+
+    auto variant = builder.build(
+        synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+        graph.get_graph_handle());
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
-  auto variant =
+  auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
           tensor.strides(),
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
           .set_offset(syn_offset)
-          .mark_persistence(persistent)
-          .build(
-              synapse_helpers::HPURegistrar::get_device(
-                  tensor.device().index()),
-              graph.get_graph_handle());
+          .mark_persistence(persistent);
+  if (!name.empty()) {
+    builder.use_suffix(name);
+  }
+
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+      graph.get_graph_handle());
   if (absl::holds_alternative<synapse_helpers::synapse_error>(variant)) {
     auto error = absl::get<synapse_helpers::synapse_error>(variant);
     TORCH_HABANA_CHECK(error.status, error.error);
@@ -613,12 +623,13 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const synDataType synType) {
+    const synDataType synType,
+    const std::string& name) {
   std::string syn_tensor_name;
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
+        graph, tensor.sizes().vec(), name);
   }
 
   if (graph.is_dry_run()) {
@@ -642,23 +653,27 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     for (size_t d = max.size() - 1; d > 0; --d) {
       max_stride[d - 1] = max_stride[d] * max[d];
     }
-    auto variant = synapse_helpers::tensor_builder(max, max_stride, synType)
+    auto builder = synapse_helpers::tensor_builder(max, max_stride, synType)
                        .mark_persistence(persistent)
-                       .with_dynamic_shape(dynamic_shape)
-                       .build(
-                           synapse_helpers::HPURegistrar::get_device(
-                               tensor.device().index()),
-                           graph.get_graph_handle());
+                       .with_dynamic_shape(dynamic_shape);
+    if (!name.empty()) {
+      builder.use_suffix(name);
+    }
+    auto variant = builder.build(
+        synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+        graph.get_graph_handle());
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
-  auto variant =
+  auto builder =
       synapse_helpers::tensor_builder(tensor.sizes(), tensor.strides(), synType)
-          .mark_persistence(persistent)
-          .build(
-              synapse_helpers::HPURegistrar::get_device(
-                  tensor.device().index()),
-              graph.get_graph_handle());
+          .mark_persistence(persistent);
+  if (!name.empty()) {
+    builder.use_suffix(name);
+  }
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+      graph.get_graph_handle());
   return absl::get<synapse_helpers::tensor>(std::move(variant));
 }
 
@@ -666,12 +681,13 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    bool is_device_shape_tensor) {
+    bool is_device_shape_tensor,
+    const std::string& name) {
   std::string syn_tensor_name;
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
+        graph, tensor.sizes().vec(), name);
   }
 
   if (graph.is_dry_run()) {
@@ -728,6 +744,9 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   } else {
     builder.mark_device_shape_tensor();
     builder.mark_persistence(persistent);
+  }
+  if (!name.empty()) {
+    builder.use_suffix(name);
   }
   auto variant = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device().index()),

@@ -90,6 +90,28 @@ typedef struct KernelMetaData {
   }
 } KernelMetaData;
 
+class OutputMetaData {
+ public:
+  std::string name;
+  // bool persistent;
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {}
+};
+using OutputMetaDataVector = std::vector<OutputMetaData>;
+
+// Utility method to select a subset of metadata vector
+template <class T>
+std::vector<T> SelectVectorIndices(
+    const std::vector<T>& src,
+    const std::vector<unsigned int> indices) {
+  std::vector<T> result;
+  result.reserve(indices.size());
+  for (auto index : indices) {
+    if (index >= 0 && index < src.size())
+      result.push_back(src.at(index));
+  }
+  return result;
+}
+
 //
 // Generic Operator implementation class, holds the operator context
 // kernel meta data and helper methods for adding the node to the
@@ -133,6 +155,8 @@ class HabanaOperator {
   virtual void SetPTOutput(torch::jit::Stack& inputs);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
   virtual void SetPTOutputs(std::vector<at::Tensor>& outputs);
+  virtual void SetOutputMetadata(int index, const OutputMetaData& md);
+  virtual void SetOutputMetadata(const OutputMetaDataVector& md);
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,
@@ -188,7 +212,8 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& output,
       bool is_persistent = false,
-      bool is_shape_tensor = false);
+      bool is_shape_tensor = false,
+      bool use_metadata = true);
 
   //
   // Method to add output tensors to graph builder context
@@ -198,7 +223,8 @@ class HabanaOperator {
       const at::Tensor& output,
       const synDataType synType,
       bool is_persistent = false,
-      bool is_shape_tensor = false);
+      bool is_shape_tensor = false,
+      bool use_metadata = true);
 
   // Method to add output tensors to graph builder context
   virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);
@@ -208,7 +234,8 @@ class HabanaOperator {
   virtual void AllocateSynapseOutputs(
       synapse_helpers::graph& graph,
       const std::vector<at::Tensor>& outputs,
-      std::vector<bool> is_persistent);
+      std::vector<bool> is_persistent,
+      std::vector<bool> use_metadata);
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -303,6 +330,9 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
+  std::vector<OutputMetaData>
+      output_metadata_; // Must be ordered by allocation order
+  unsigned output_allocation_index_ = 0;
 };
 
 class RegisterKernel {

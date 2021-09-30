@@ -791,7 +791,8 @@ void GeluOperator::AllocateAndAddSynapseNode(
       self, self.sizes(), self.options(), self.suggest_memory_format(), false);
 
   std::vector<at::Tensor> outputs{output1, output2};
-  AllocateSynapseOutputs(graph, outputs, {is_output_persistent, false});
+  AllocateSynapseOutputs(
+      graph, outputs, {is_output_persistent, false}, {true, false});
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -826,7 +827,7 @@ void HbGeluOperator::AllocateAndAddSynapseNode(
       is_output_persistent[1]);
 
   std::vector<at::Tensor> outputs{output1, output2};
-  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AllocateSynapseOutputs(graph, outputs, is_output_persistent, {true, true});
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -1232,6 +1233,7 @@ void ErfOperator::AllocateAndAddSynapseNode(
   auto tanhOp =
       make_operator<TanhOperator>(this->p_context_->device_id_, scalar_type);
   tanhOp->SetSynapseInput(mulOp2->GetSynOutputs()[0]);
+  tanhOp->SetOutputMetadata(output_metadata_);
   // Build Params for the graph
   stack.emplace_back(IValue(mulOp2->GetOutputs()[0]));
   tanhOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -1560,6 +1562,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
     auto floatToIntOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     floatToIntOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+    floatToIntOp->SetOutputMetadata(output_metadata_);
 
     // Build Params for the graph
     stack = {IValue(p_context_->pt_outputs_[0]), IValue(c10::ScalarType::Int)};
@@ -1633,7 +1636,7 @@ void ClampMinOperator::AllocateAndAddSynapseNode(
     auto floatToIntOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     floatToIntOp->SetSynapseInput(p_context_->syn_outputs_[0]);
-
+    floatToIntOp->SetOutputMetadata(output_metadata_);
     // Build Params for the graph
     stack = {IValue(p_context_->pt_outputs_[0]), IValue(c10::ScalarType::Int)};
 

@@ -1266,6 +1266,7 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   grtOp->SetSynapseInput(reduce_syn_tensor); // 0
   grtOp->SetSynapseInput(p_context_->syn_inputs_[0]); // 1 - dummy
   grtOp->SetSynapseInput(p_context_->syn_inputs_[1]); // 2
+  grtOp->SetOutputMetadata(output_metadata_);
 
   // Build Params for the graph
   stack.emplace_back(IValue(output_reduce));
@@ -1389,6 +1390,7 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
   auto grtOp = make_operator<GeOperator>(
       this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
   grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
+  grtOp->SetOutputMetadata(output_metadata_);
   Scalar compareOne = 1.0;
   // Build Params for the graph
   stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
@@ -1487,6 +1489,7 @@ void AnyOperator::AllocateAndAddSynapseNode(
     auto grtOp = make_operator<GeOperator>(
         this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
     grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
+    grtOp->SetOutputMetadata(output_metadata_);
     Scalar compareOne = 1.0;
     // Build Params for the graph
     stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
@@ -1503,6 +1506,7 @@ void AnyOperator::AllocateAndAddSynapseNode(
     auto anyDimOp = make_operator<AnyDimOperator>(
         this->p_context_->device_id_, self.scalar_type());
     anyDimOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    anyDimOp->SetOutputMetadata(output_metadata_);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{IValue(self), IValue(dim), IValue(keepdim)};
@@ -1586,6 +1590,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
   auto sum_op = make_operator<SumDimOperator>(device_id, scalar_type);
   if (!reduce_dims.empty()) {
     sum_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    sum_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {
         IValue(self), IValue(reduce_dims), IValue(true), IValue(scalar_type)};
     sum_op->AllocateAndAddSynapseNode(
@@ -1598,6 +1603,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
     reshape_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
     torch::jit::Stack stack = {IValue(sum_op->GetOutputs()[0]), IValue(shape)};
     reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    reshape_op->SetOutputMetadata(output_metadata_);
     p_context_->syn_outputs_.emplace_back(
         std::move(reshape_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(
@@ -1613,6 +1619,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
       // as tensor aliased to input (within GC)
       auto identityOp = make_operator<IdentityOperator>(device_id, scalar_type);
       identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      identityOp->SetOutputMetadata(output_metadata_);
 
       torch::jit::Stack stack = {IValue(self)};
       identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -1889,7 +1896,7 @@ void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
 
   auto output = habana_helpers::createPTTensor(
       grad_out, dim_arr, grad_out.options(), is_output_persistent);
-  AllocateSynapseOutputs(graph, {output}, {is_output_persistent});
+  AllocateSynapseOutputs(graph, {output}, {is_output_persistent}, {true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -1924,7 +1931,7 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
   auto output = habana_helpers::createPTTensor(
       grad_out, dim_arr, grad_out.options(), is_output_persistent);
 
-  AllocateSynapseOutputs(graph, {output}, {is_output_persistent});
+  AllocateSynapseOutputs(graph, {output}, {is_output_persistent}, {true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

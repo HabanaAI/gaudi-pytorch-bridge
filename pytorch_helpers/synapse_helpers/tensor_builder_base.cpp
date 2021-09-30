@@ -139,12 +139,19 @@ namespace detail {
 
 thread_local uint64_t tensor_name_generator::syn_tensor_id = 0;
 
-std::string tensor_name_generator::get_next_tensor_name() {
-  return "tensor_" + std::to_string(syn_tensor_id);
+std::string tensor_name_generator::get_next_tensor_name(
+    const std::string& suffix) {
+  std::string tensor_name = "tensor_" + std::to_string(syn_tensor_id);
+  if (!suffix.empty()) {
+    tensor_name.append("_" + suffix);
+  }
+  return tensor_name;
 }
 
-std::string tensor_name_generator::generate() {
-  return "tensor_" + std::to_string(syn_tensor_id++);
+std::string tensor_name_generator::generate(const std::string& suffix) {
+  std::string tensor_name = get_next_tensor_name(suffix);
+  syn_tensor_id++;
+  return tensor_name;
 }
 
 void tensor_name_generator::set_tensor_id(uint64_t id) {

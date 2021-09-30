@@ -349,6 +349,7 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     auto memcopyOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    memcopyOp->SetOutputMetadata(output_metadata_);
 
     torch::jit::Stack stack = {IValue(self)};
     memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -366,6 +367,7 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
 
   auto Op = make_operator<CastOperator>(self.device().index(), node_type);
   Op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  Op->SetOutputMetadata(output_metadata_);
   Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
   p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
@@ -434,6 +436,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   if (node_type.compare("cast_identity")) {
     auto Op = make_operator<CastOperator>(self.device().index(), node_type);
     Op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    Op->SetOutputMetadata(output_metadata_);
     Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
     p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
@@ -441,6 +444,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
     auto identityOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
     identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    identityOp->SetOutputMetadata(output_metadata_);
 
     torch::jit::Stack stack = {IValue(self)};
     identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
