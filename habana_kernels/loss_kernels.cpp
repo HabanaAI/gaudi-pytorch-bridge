@@ -131,9 +131,15 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_NLLLossKernel::ParamsOptionalIgnoreIndex>(
       params);
   p_context_->params_size_ = sizeof(params);
+  std::vector<int64_t> reshaped_self_sizes;
+  if (reduction == at::Reduction::Reduction::None) {
+    reshaped_self_sizes.emplace_back(self.sizes()[0]);
+  } else {
+    reshaped_self_sizes.emplace_back(1);
+  }
   auto output1 = habana_helpers::createPTTensor(
       self,
-      {1},
+      reshaped_self_sizes,
       self.options(),
       at::MemoryFormat::Contiguous,
       is_output_persistent[0]);
@@ -198,7 +204,7 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   std::vector<int64_t> reshaped_self_sizes;
-  if (reduction == 2) {
+  if (reduction == at::Reduction::Reduction::None) {
     reshaped_self_sizes.emplace_back(self.sizes()[0]);
     reshaped_self_sizes.emplace_back(self.sizes()[1]);
     reshaped_self_sizes.emplace_back(self.sizes()[2]);
@@ -270,7 +276,14 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   std::vector<at::Tensor> pt_inputs{self, modified_target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output1 = at::empty({1}, self.options(), at::MemoryFormat::Contiguous);
+    std::vector<int64_t> reshaped_self_sizes;
+    if (reduction == at::Reduction::Reduction::None) {
+      reshaped_self_sizes.emplace_back(self.sizes()[0]);
+    } else {
+      reshaped_self_sizes.emplace_back(1);
+    }
+    auto output1 = at::empty(
+        reshaped_self_sizes, self.options(), at::MemoryFormat::Contiguous);
     auto output2 = at::empty({1}, self.options(), at::MemoryFormat::Contiguous);
     Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output1, output2};
@@ -294,8 +307,10 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
-  // Note: pytorch expects 0d tensor (scalar)
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  if (reduction != at::Reduction::Reduction::None) {
+    // Note: pytorch expects 0d tensor (scalar)
+    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
 
   PT_KERNEL_END;
   return std::make_tuple(out.at(0), out.at(1));
@@ -345,8 +360,18 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
   std::vector<at::Tensor> pt_inputs{self_nhwc, modified_target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output0 =
-        at::empty({1}, self_nhwc.options(), self_nhwc.suggest_memory_format());
+    std::vector<int64_t> reshaped_self_sizes;
+    if (reduction == at::Reduction::Reduction::None) {
+      reshaped_self_sizes.emplace_back(self.sizes()[0]);
+      reshaped_self_sizes.emplace_back(self.sizes()[1]);
+      reshaped_self_sizes.emplace_back(self.sizes()[2]);
+    } else {
+      reshaped_self_sizes.emplace_back(1);
+    }
+    auto output0 = at::empty(
+        reshaped_self_sizes,
+        self_nhwc.options(),
+        self_nhwc.suggest_memory_format());
     auto output1 =
         at::empty({1}, self_nhwc.options(), self_nhwc.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
@@ -371,8 +396,10 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
-  // Note: pytorch expects 0d tensor (scalar)
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  if (reduction != at::Reduction::Reduction::None) {
+    // Note: pytorch expects 0d tensor (scalar)
+    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
 
   PT_KERNEL_END;
   return std::make_tuple(out.at(0), out.at(1));

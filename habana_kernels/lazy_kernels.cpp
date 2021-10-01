@@ -3031,12 +3031,19 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     int64_t ignore_index) {
   PT_LAZY_TRACE;
 
+  std::vector<int64_t> out_shape;
+  if (reduction ==
+      at::Reduction::Reduction::None) { // consider input in nchw format
+    out_shape.emplace_back(self.sizes()[0]);
+  } else {
+    out_shape.emplace_back(1);
+  }
   using T = std::tuple<at::Tensor, at::Tensor>;
   LazyOp<T> k(
       "aten::nll_loss_forward",
       {self, target, weight, reduction, ignore_index},
       {3, 4}, // metadata_indices
-      {{1}, {}} // out_shapes
+      {out_shape, {}} // out_shapes
   );
   return k.call();
 }
@@ -3050,7 +3057,8 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu_lazy(
   PT_LAZY_TRACE;
 
   std::vector<int64_t> out_shape;
-  if (reduction == 2) { // consider input in nchw format
+  if (reduction ==
+      at::Reduction::Reduction::None) { // consider input in nchw format
     out_shape.emplace_back(self.sizes()[0]);
     out_shape.emplace_back(self.sizes()[2]);
     out_shape.emplace_back(self.sizes()[3]);
@@ -3067,7 +3075,7 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu_lazy(
 
   T results = k.call();
   Tensor output = std::get<0>(results);
-  if (reduction != 2) {
+  if (reduction != at::Reduction::Reduction::None) {
     output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   }
   return std::make_tuple(output, std::get<1>(results));

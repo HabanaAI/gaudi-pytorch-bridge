@@ -245,6 +245,48 @@ def test_hpu_nllloss2d_fwd_bwd(N, C,H, W, ignore_index):
         kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
     )
 
+@pytest.mark.parametrize("N, C, H, W", [(32, 81, 8, 1091)])
+def test_hpu_crossentropyloss_4d_fwd(N, C, H, W):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    kernel = torch.nn.CrossEntropyLoss(reduction='none')
+    input = torch.randn(N, C, H, W, requires_grad=True)
+    target = torch.randint(low=0, high=C - 1, size=(N, H, W))
+    kernel_params = {
+        "input": input,
+        "target": target
+    }
+
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+
+@pytest.mark.parametrize("N, C, H", [(32, 81, 8732)])
+def test_hpu_crossentropyloss_fwd(N, C, H):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    kernel = torch.nn.CrossEntropyLoss(reduction='none')
+    input = torch.randn(N, C, H, requires_grad=True)
+    target = torch.randint(low=0, high=C - 1, size=(N, H))
+    kernel_params = {
+        "input": input,
+        "target": target
+    }
+
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+
+@pytest.mark.parametrize("N, C", [(32, 81)])
+def test_hpu_crossentropyloss_1d_fwd(N, C):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    kernel = torch.nn.CrossEntropyLoss(reduction='none')
+    input = torch.randn(N, C, requires_grad=True)
+    target = torch.randint(low=0, high=C - 1, size=(N,))
+    kernel_params = {
+        "input": input,
+        "target": target
+    }
+
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+
 if __name__ == "__main__":
     test_hpu_nllloss_fwd_bwd(*test_case_list[0])
     test_hpu_mseloss_fwd_bwd(*test_case_list[0], "none")
