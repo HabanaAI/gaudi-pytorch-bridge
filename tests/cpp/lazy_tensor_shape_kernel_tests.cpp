@@ -373,17 +373,18 @@ TEST_F(LazyTensorShapeKernelTest, TriuTrilTest) {
 
     auto ha = a.to("hpu");
     auto hout = op(ha, diag);
+
     EXPECT_TRUE(
         allclose(out, hout.to("cpu"), 0.001, 0.001, /*equal_nan*/ true));
   };
-  typetest(&torch::triu, 1, torch::kFloat, {3, 3});
-  typetest(&torch::triu, 0, torch::kFloat, {4, 4});
-  typetest(&torch::triu, -1, torch::kFloat, {2, 2});
+  typetest(&torch::triu, 1, torch::kFloat, {1, 4, 3});
+  typetest(&torch::triu, 0, torch::kFloat, {1, 3, 3});
+  typetest(&torch::triu, -1, torch::kFloat, {1, 3, 2});
   typetest(&torch::triu, 1, torch::kFloat, {5, 8});
   typetest(&torch::triu, 0, torch::kFloat, {5, 7});
   typetest(&torch::triu, -1, torch::kFloat, {7, 8});
-  typetest(&torch::tril, 1, torch::kFloat, {4, 4});
-  typetest(&torch::tril, 0, torch::kFloat, {5, 5});
+  typetest(&torch::tril, 1, torch::kFloat, {1, 3, 3});
+  typetest(&torch::tril, 0, torch::kFloat, {1, 3, 3});
   typetest(&torch::tril, -1, torch::kFloat, {6, 6});
   typetest(&torch::tril, 1, torch::kFloat, {8, 5});
   typetest(&torch::tril, 0, torch::kFloat, {7, 5});

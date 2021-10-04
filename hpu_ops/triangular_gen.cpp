@@ -15,10 +15,11 @@ std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
-  int64_t n = self.sizes()[1];
+  int dim = self.ndimension();
+  int64_t n = self.sizes()[dim - 1];
 
   params->numLower = diagonal;
-  params->numUpper = n;
+  params->numUpper = n - 1;
   params->excludeDiag = 1;
   return params;
 }
@@ -27,9 +28,10 @@ std::shared_ptr<void> FillTrilParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
-  int64_t m = self.sizes()[0];
+  int dim = self.ndimension();
+  int64_t m = self.sizes()[dim - 2];
 
-  params->numLower = -m;
+  params->numLower = -(m - 1);
   params->numUpper = diagonal;
   params->excludeDiag = 1;
   return params;
