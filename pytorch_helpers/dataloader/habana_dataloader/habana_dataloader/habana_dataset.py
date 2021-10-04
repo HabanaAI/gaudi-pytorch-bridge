@@ -30,7 +30,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
 
             ht = HabanaAeonTransforms(torch_transforms)
             aeon_transform_config, is_train = ht.get_aeon_transforms()
-            manifest_filename = generate_aeon_manifest(aeon_data_dir)
+            manifest_filename = generate_aeon_manifest(self.dataset.imgs)
             aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, self.batch_size, self.num_workers, is_train)
             self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(aeon_config_json,
                                                                       True, # pin_memory
