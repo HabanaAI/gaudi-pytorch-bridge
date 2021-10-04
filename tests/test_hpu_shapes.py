@@ -169,7 +169,7 @@ def test_hpu_index_add(N, H, W, C, dim):
         'input': torch.randn(tuple(dim_list), requires_grad=True),
         'dim': dim,
         'index': torch.tensor([0, 2]),
-        'source': torch.randn(tuple(dim_list_tensor), requires_grad=True)
+        'source': torch.randn(tuple(dim_list_tensor), requires_grad=True),
         'alpha' : 1
     }
 
