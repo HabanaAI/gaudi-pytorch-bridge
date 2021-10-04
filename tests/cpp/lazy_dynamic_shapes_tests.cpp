@@ -71,8 +71,11 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck =
-        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor out_conv = torch::conv2d(
@@ -170,8 +173,12 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck =
-        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
+
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor out_conv = torch::conv2d(
@@ -263,8 +270,11 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
     torch::Tensor in_tensor =
         torch::randn(N * C * H * W, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck =
-        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor.reshape({N, C, H, W}),
         h_weight_tensor_hwck,
@@ -353,7 +363,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest4) {
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -382,8 +392,11 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest4) {
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck =
-        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor out_conv = torch::conv2d(
@@ -769,7 +782,7 @@ TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -794,8 +807,12 @@ TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
 
     // fwd propgation
     torch::Tensor h_weight_tensor = weight_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck =
-        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
+
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);

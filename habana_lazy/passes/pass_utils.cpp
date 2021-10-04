@@ -61,6 +61,17 @@ at::IntArrayRef getDimsForLayout(
   return dims;
 }
 
+bool isRetunrOut(
+    std::shared_ptr<torch::jit::Graph>& graph,
+    const torch::jit::Value* value_out) {
+  auto node_return = graph->return_node();
+  for (auto value : node_return->inputs()) {
+    if (value_out == value)
+      return true;
+  }
+  return false;
+}
+
 bool WeightIdentificationPass::isTensor(const torch::jit::Value* value) {
   HABANA_ASSERT(value->node());
   return !(value->node()->kind() == c10::prim::Constant);
@@ -101,13 +112,14 @@ void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
     // markOutput of Outvariant kernels
     if (is_mark_out_varients) {
       auto it = kernelOutVariantIdx.find(node_str);
-      if (kernelOutWeightIdx.end() != it) {
+      if (kernelOutVariantIdx.end() != it) {
         auto outIdx = it->second;
         HABANA_ASSERT(outIdx < node->inputs().size());
         auto weightOut = node->inputs()[outIdx];
         if (!weightTensors.count(weightOut)) {
           weightTensors.insert(weightOut);
-          markOutputs(weightOut);
+          markInputs(weightOut);
+          markOutputs(in);
         }
       }
     }
@@ -117,6 +129,64 @@ void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
 void WeightIdentificationPass::markWeights(const torch::jit::Value* in) {
   markInputs(in);
   markOutputs(in);
+}
+
+void WeightIdentificationPass::markInOutputs(const torch::jit::Value* in) {
+  for (auto& use : in->uses()) {
+    auto node = use.user;
+    HABANA_ASSERT(node);
+
+    // TODO: check if its binary/unary ops & then mark
+    std::string node_str = node->kind().toQualString();
+    if (0 == kernelWeightIdx.count(node_str) &&
+        !(strcmp(node->kind().toQualString(), "hpu::control_edge_other_") ==
+          0)) {
+      for (auto& in1 : node->inputs()) {
+        if (!weightTensors.count(in1)) {
+          if (strcmp(node->kind().toQualString(), "prim::Return") != 0) {
+            markInputs(in1);
+          }
+        }
+      }
+
+      for (auto& out : node->outputs()) {
+        if (!weightTensors.count(out)) {
+          weightTensors.insert(out);
+          markInOutputs(out);
+        }
+      }
+    }
+
+    // markOutput of Outvariant kernels
+    if (is_mark_out_varients) {
+      auto it = kernelOutVariantIdx.find(node_str);
+      if (kernelOutVariantIdx.end() != it) {
+        auto outIdx = it->second;
+        HABANA_ASSERT(outIdx < node->inputs().size());
+        auto weightOut = node->inputs()[outIdx];
+        if (!weightTensors.count(weightOut)) {
+          weightTensors.insert(weightOut);
+          markInOutputs(weightOut);
+        }
+      }
+    }
+  }
+}
+
+void WeightIdentificationPass::markWeightInTensors(
+    std::shared_ptr<torch::jit::Graph>& graph) {
+  for (auto node : graph->nodes()) {
+    std::string kernel = node->kind().toQualString();
+    auto it = kernelWeightIdx.find(kernel);
+    // mark kernel weight-inputs
+    if (kernelWeightIdx.end() != it) {
+      auto weightIdx = it->second;
+      HABANA_ASSERT(weightIdx < node->inputs().size());
+      auto weightIn = node->inputs()[weightIdx];
+      weightTensors.insert(weightIn);
+      markInputs(weightIn);
+    }
+  }
 }
 
 void WeightIdentificationPass::markWeightTensors(
@@ -142,7 +212,7 @@ void WeightIdentificationPass::markWeightTensors(
       HABANA_ASSERT(weightIdx < node->outputs().size());
       auto weightOut = node->outputs()[weightIdx];
       weightTensors.insert(weightOut);
-      markOutputs(weightOut);
+      markInOutputs(weightOut);
     }
   }
 }

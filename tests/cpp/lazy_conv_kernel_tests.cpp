@@ -26,8 +26,12 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
       torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({3, 3, 3, 1}); // hwck
 
-  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-  torch::Tensor tHabanaW = wt_hwck.to(torch::kHPU);
+  torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    tHabanaW = wt_hwck.to(torch::kHPU);
+  }
 
   torch::Tensor outConv =
       torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -61,11 +65,16 @@ class LazyConvKernelGraphTest : public habana_lazy_test::LazyTest {
 TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   auto grad_output = torch::randn({2, 6, 2, 3}, torch::requires_grad(false));
   auto input = torch::randn({2, 5, 3, 4}, torch::requires_grad(false));
-  auto weight = torch::randn({2, 2, 5, 6}, torch::requires_grad(false));
+  auto weight = torch::randn({6, 5, 2, 2}, torch::requires_grad(false));
 
   auto h_grad_output = grad_output.to(torch::kHPU);
   auto hinput = input.to(torch::kHPU);
   auto hweight = weight.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = weight.permute({2, 3, 1, 0}).contiguous();
+    hweight = wt_hwck.to(torch::kHPU);
+  }
 
   torch::Tensor out1, out2, out3;
   std::tie(out1, out2, out3) = convolution_backward_overrideable(
@@ -87,7 +96,13 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   std::vector<int> indices1{0, 1, 2};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
-  std::vector<at::Tensor> input_list{h_grad_output, hinput, hweight};
+  auto hl_grad_output = GetHbLazyTensor(h_grad_output);
+  auto hl_input = GetHbLazyTensor(hinput);
+  auto hl_weight = GetHbLazyTensor(hweight);
+  std::vector<at::Tensor> input_list{
+      *(hl_grad_output.GetHbLazyTensorData()),
+      *(hl_input.GetHbLazyTensorData()),
+      *(hl_weight.GetHbLazyTensorData())};
 
   auto stack = torch::jit::Stack(
       std::make_move_iterator(input_list.begin()),
@@ -127,8 +142,12 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
   auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
 
   auto h_in = in.to(torch::kHPU);
-  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-  auto h_wt = wt_hwck.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
 
   torch::Tensor result =
       torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -145,8 +164,12 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
   auto h_in = in.to(torch::kHPU);
-  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-  auto h_wt = wt_hwck.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
 
   torch::Tensor result = torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
   Tensor out = result.to(kCPU);
@@ -157,8 +180,12 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad()); // nchw
   auto hin = in.to(torch::kHPU);
   auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
-  auto wt_hwck = wt.detach().permute({2, 3, 1, 0}).contiguous();
-  auto hwt = wt_hwck.to(torch::kHPU);
+  auto hwt = wt.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.detach().permute({2, 3, 1, 0}).contiguous();
+    hwt = wt_hwck.to(torch::kHPU);
+  }
   auto bias = torch::randn({5}, torch::requires_grad()); // k
   auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
@@ -187,7 +214,12 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  EXPECT_EQ(allclose(grad_in, hgrad_in_cpu, 0.01, 0.01), true);
-  EXPECT_EQ(
-      allclose(grad_wt, hgrad_wt_cpu.permute({3, 2, 0, 1}), 0.01, 0.01), true);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    EXPECT_EQ(
+        allclose(grad_wt, hgrad_wt_cpu.permute({3, 2, 0, 1}), 0.01, 0.01),
+        true);
+  } else {
+    EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
+  }
 }

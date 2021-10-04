@@ -107,15 +107,6 @@ at::IntArrayRef getDimsForLayout5d(
   return dims;
 }
 
-bool isRetunrOut(std::shared_ptr<Graph>& graph, const Value* value_out) {
-  auto node_return = graph->return_node();
-  for (auto value : node_return->inputs()) {
-    if (value_out == value)
-      return true;
-  }
-  return false;
-}
-
 using ValuePtrTensorLayoutMap =
     std::unordered_map<const torch::jit::Value*, habanaTensorLayoutInfo>;
 using NodePtrVecIndxDimsMap = std::unordered_map<
@@ -308,10 +299,24 @@ void InsertPermute_graph(
 
   auto weight_values = weight_pass.getWeightTensors();
   for (auto win : weight_values) {
-    value_to_tensor_layout[win].layout = habana::LayoutFormat::HWCK;
-    value_to_tensor_layout[win].layout_at_graph_entry =
-        habana::LayoutFormat::HWCK;
+    if (*win->type()->cast<TensorType>()->dim() == 4 ||
+        *win->type()->cast<TensorType>()->dim() == 5) {
+      value_to_tensor_layout[win].layout = habana::LayoutFormat::HWCK;
+      value_to_tensor_layout[win].layout_at_graph_entry =
+          habana::LayoutFormat::HWCK;
+    }
   }
+
+  std::ostringstream o;
+  auto str = o.str();
+  for (auto weight : weight_values) {
+    std::ostringstream o;
+    o << "weight vlaueID: ";
+    o << weight->debugName();
+    str.append(o.str());
+    str.append("\n");
+  }
+  PT_BRIDGE_DEBUG(str);
 
   std::unordered_map<
       torch::jit::Node*,
@@ -564,9 +569,12 @@ void InsertPermute_graph(
         // %2 = aten::view(%1)
         auto value_in = node->input(0);
         for (auto value_out : node->outputs()) {
-          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              value_to_tensor_layout[value_in].layout_at_graph_entry;
+          if (!weight_pass.isMarkedAsweight(value_out)) {
+            value_to_tensor_layout[value_out].layout =
+                habana::LayoutFormat::NCHW;
+            value_to_tensor_layout[value_out].layout_at_graph_entry =
+                value_to_tensor_layout[value_in].layout_at_graph_entry;
+          }
         }
       } else if (isDimBasedOp(node)) {
         auto value_in = node->input(0);
@@ -757,8 +765,10 @@ void InsertPermute_graph(
             at::IntArrayRef dims;
             static const int64_t dimarr[] = {0, 3, 1, 2};
             dims = dimarr;
-            anchor_restride_nodes_[node_return].push_back(
-                std::make_pair(value_out, dims));
+            if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+              anchor_restride_nodes_[node_return].push_back(
+                  std::make_pair(value_out, dims));
+            }
           }
         }
       } else {

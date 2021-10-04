@@ -325,7 +325,7 @@ class HabanaLaunchOpPT {
       const LayoutFormat& supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
-  void handleRestrideNode(torch::jit::Node* node);
+  void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 
   bool IsOutputToRestride(torch::jit::Value* val);

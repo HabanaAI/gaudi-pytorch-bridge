@@ -138,8 +138,8 @@ class OptPassCfg {
     enable_fuse_bn_relu_optimization = true;
     enable_permute_pass = true;
     enable_replace_inplace_ops = true;
-    enable_weight_permute_pass = false;
     enable_replace_views = true;
+    enable_weight_permute_pass = false;
   }
 
  private:

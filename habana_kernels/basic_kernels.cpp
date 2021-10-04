@@ -629,14 +629,30 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   c10::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
   auto sizes = self.sizes().vec();
   auto dims = inputs[1].toIntVector();
+  auto is_5d_layout = dims.size() == 5 ? true : false;
   std::vector<int64_t> swapped_sizes = {
       sizes[dims[0]], sizes[dims[1]], sizes[dims[2]], sizes[dims[3]]};
+  if (is_5d_layout) {
+    swapped_sizes.push_back(sizes[dims[4]]);
+  }
 
-  std::vector<int64_t> new_strides = {
+  std::vector<long int> new_strides = {
       swapped_sizes[1] * swapped_sizes[2] * swapped_sizes[3],
       swapped_sizes[3] * swapped_sizes[2],
       swapped_sizes[3],
       1};
+
+  if (is_5d_layout) {
+    new_strides.clear();
+    new_strides.push_back(
+        swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2] *
+        swapped_sizes[1]);
+    new_strides.push_back(
+        swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2]);
+    new_strides.push_back(swapped_sizes[4] * swapped_sizes[3]);
+    new_strides.push_back(swapped_sizes[4]);
+    new_strides.push_back(1);
+  }
 
   output = at::as_strided(self, swapped_sizes, new_strides, opt_offset);
   output.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);

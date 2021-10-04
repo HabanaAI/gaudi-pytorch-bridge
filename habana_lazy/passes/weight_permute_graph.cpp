@@ -48,11 +48,94 @@ bool isD2DCopyOther(const torch::jit::Value* value) {
     auto node = u.user;
     if (strcmp(node->kind().toQualString(), "hpu::habana_d2d_memcpy_other") ==
         0) {
-      node->dump();
       return true;
     }
   }
   return false;
+}
+
+bool isControlEdge(const torch::jit::Value* value) {
+  for (auto u : value->uses()) {
+    auto node = u.user;
+    if (strcmp(node->kind().toQualString(), "hpu::control_edge_") == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool isAsStridedNode(const torch::jit::Value* value_in) {
+  if (strcmp(
+          value_in->node()->kind().toQualString(), "hpu::as_strided_lazy_") ==
+      0) {
+    return true;
+  }
+  return false;
+}
+
+bool is_4d_5d_tensor(const at::Tensor tensor) {
+  return (tensor.dim() == 4 || tensor.dim() == 5) ? true : false;
+}
+
+bool is_4d_5d_value(const torch::jit::Value* value_in) {
+  return (*value_in->type()->cast<TensorType>()->dim() == 4 ||
+          *value_in->type()->cast<TensorType>()->dim() == 5)
+      ? true
+      : false;
+}
+
+at::IntArrayRef getDimsForWeightLayout(
+    habana::LayoutFormat channel_order,
+    habana::LayoutFormat current_order,
+    unsigned tensor_dims) {
+  at::IntArrayRef dims;
+
+  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
+  // is not clear. Note that for 5d layout channel dim is 1 for
+  // NCDHW and 4 for NDHWC
+  if (current_order == habana::LayoutFormat::NCHW) {
+    if (channel_order == habana::LayoutFormat::HWCK) {
+      if (tensor_dims == 5) {
+        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        dims = dimarr;
+      } else if (tensor_dims == 4) {
+        static const int64_t dimarr[] = {2, 3, 1, 0};
+        dims = dimarr;
+      } else {
+        TORCH_CHECK(
+            0,
+            " InsertWeightPermute_graph: Weight permute called for unsupported channel order");
+      }
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertWeightPermute_graph: Weight permute called for unsupported channel order");
+    }
+  } else if (current_order == habana::LayoutFormat::HWCK) {
+    if (channel_order == habana::LayoutFormat::NCHW) {
+      if (tensor_dims == 5) {
+        static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+        dims = dimarr;
+      } else if (tensor_dims == 4) {
+        static const int64_t dimarr[] = {3, 2, 0, 1};
+        dims = dimarr;
+      } else {
+        TORCH_CHECK(
+            0,
+            " InsertWeightPermute_graph: Weight permute called for unsupported channel order");
+      }
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertWeightPermute_graph: Weight permute called for unsupported channel order");
+    }
+  } else {
+    TORCH_CHECK(
+        0,
+        " InsertWeightPermute_graph: Weight permute called for unsupported channel order");
+  }
+
+  return dims;
 }
 
 void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
@@ -63,8 +146,18 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       auto value_in = node->input(1);
       WithInsertPoint insert_point(node);
       auto op_permute = c10::Symbol::fromQualString("aten::permute");
-      at::IntArrayRef dims1 = {2, 3, 1, 0};
-      auto value_dims1 = graph->insertConstant(IValue(dims1));
+      torch::jit::Value* value_dims1 = nullptr;
+      if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+        static const int64_t dimarr[] = {2, 3, 1, 0};
+        at::IntArrayRef dims1 = dimarr;
+        value_dims1 = graph->insertConstant(IValue(dims1));
+      } else if (*value_in->type()->cast<TensorType>()->dim() == 5) {
+        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        at::IntArrayRef dims1 = dimarr;
+        value_dims1 = graph->insertConstant(IValue(dims1));
+      } else {
+        HABANA_ASSERT(0);
+      }
       auto permute_node = graph->create(op_permute, {value_in, value_dims1}, 1);
       graph->insertNode(permute_node);
       node->replaceInputWith(value_in, permute_node->output(0));
@@ -76,21 +169,356 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       auto value_in = node->input(2);
       WithInsertPoint insert_point(node);
       auto op_permute = c10::Symbol::fromQualString("aten::permute");
-      at::IntArrayRef dims1 = {2, 3, 1, 0};
-      auto value_dims1 = graph->insertConstant(IValue(dims1));
+      torch::jit::Value* value_dims1 = nullptr;
+      if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+        static const int64_t dimarr[] = {2, 3, 1, 0};
+        at::IntArrayRef dims1 = dimarr;
+        value_dims1 = graph->insertConstant(IValue(dims1));
+      } else if (*value_in->type()->cast<TensorType>()->dim() == 5) {
+        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        at::IntArrayRef dims1 = dimarr;
+        value_dims1 = graph->insertConstant(IValue(dims1));
+      } else {
+        HABANA_ASSERT(0);
+      }
       auto permute_node = graph->create(op_permute, {value_in, value_dims1}, 1);
       graph->insertNode(permute_node);
       node->replaceInputWith(value_in, permute_node->output(0));
 
       auto value_out = node->output(1);
-      WithInsertPoint insert_point1(node);
       auto op_permute2 = c10::Symbol::fromQualString("aten::permute");
-      at::IntArrayRef dims2 = {3, 2, 0, 1};
-      auto value_dims2 = graph->insertConstant(IValue(dims2));
+      torch::jit::Value* value_dims2 = nullptr;
+      if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+        static const int64_t dimarr[] = {3, 2, 0, 1};
+        at::IntArrayRef dims2 = dimarr;
+        value_dims2 = graph->insertConstant(IValue(dims2));
+      } else if (*value_out->type()->cast<TensorType>()->dim() == 5) {
+        static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+        at::IntArrayRef dims2 = dimarr;
+        value_dims2 = graph->insertConstant(IValue(dims2));
+      } else {
+        HABANA_ASSERT(0);
+      }
       auto permute_node2 =
           graph->create(op_permute2, {value_out, value_dims2}, 1);
-      graph->insertNode(permute_node2);
-      value_out->replaceAllUsesAfterNodeWith(node, permute_node2->output(0));
+      permute_node2->insertAfter(node);
+      value_out->replaceAllUsesAfterNodeWith(
+          permute_node2, permute_node2->output(0));
+    }
+  }
+}
+
+void InsertWeightRestride_graph(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Stack& stack) {
+  // Remove permute Nodes to replace with inplace permutes
+  std::vector<torch::jit::Node*> remove_nodes;
+  for (auto node : graph->nodes()) {
+    if ((strcmp(node->kind().toQualString(), "hpu::permute_weight") == 0) ||
+        (strcmp(node->kind().toQualString(), "hpu::permuted_weight_restride") ==
+         0)) {
+      remove_nodes.push_back(node);
+    }
+  }
+  for (auto node : remove_nodes) {
+    auto value_in = node->input(0);
+    auto value_out = node->output(0);
+    value_out->replaceAllUsesAfterNodeWith(node, value_in);
+    node->removeInput(1);
+    node->destroy();
+  }
+
+  // mark already permuted weights
+  WeightIdentificationPass weight_pass;
+  auto graph_inputs = graph->inputs();
+  for (auto value_in : graph_inputs) {
+    auto value_idx = getValuePosInStack(graph, value_in);
+    HABANA_ASSERT(value_idx + 1);
+    if (stack[value_idx].isTensor()) {
+      auto tensor = stack[value_idx].toTensor();
+      if (tensor.has_storage() && is_4d_5d_tensor(tensor)) {
+        auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+        auto layout_format = hb_tensor->GetTensorLayout();
+        if (layout_format == habana_lazy::LayoutFormat::kHWCK) {
+          weight_pass.weightMarker(value_in);
+        }
+      }
+    }
+  }
+
+  {
+    auto weight_values = weight_pass.getWeightTensors();
+    std::ostringstream o;
+    auto str = o.str();
+    for (auto weight : weight_values) {
+      std::ostringstream o;
+      o << "Already Marked weight vlaueID: ";
+      o << weight->debugName();
+      str.append(o.str());
+      str.append("\n");
+    }
+    PT_LAZY_DEBUG(str);
+  }
+
+  // mark customKernel Weights
+  auto OptimKernls = weight_pass.getCustomOptimizerWeights();
+  for (auto node : graph->nodes()) {
+    auto node_str = node->kind().toQualString();
+    if (OptimKernls.count(node_str)) {
+      auto allIdx = OptimKernls[node_str];
+      for (auto idx : allIdx) {
+        auto in_val = node->input(idx);
+        if (strcmp(
+                in_val->node()->kind().toQualString(), "prim::ListConstruct") ==
+            0) {
+          for (auto list_input_val : in_val->node()->inputs()) {
+            torch::jit::Value* value_in = nullptr;
+            if (isInGraphInputs(graph, list_input_val)) {
+              value_in = list_input_val;
+            } else {
+              auto list_input_node = list_input_val->node();
+              if (isInGraphInputs(graph, list_input_node->input(0))) {
+                value_in = list_input_node->input(0);
+              }
+            }
+            if (value_in) {
+              auto value_idx = getValuePosInStack(graph, value_in);
+              HABANA_ASSERT(value_idx + 1);
+              if (stack[value_idx].isTensor()) {
+                auto tensor = stack[value_idx].toTensor();
+                if (is_4d_5d_tensor(tensor)) {
+                  weight_pass.weightMarker(value_in);
+                }
+              }
+            }
+          }
+        }
+      }
+      for (auto output : node->outputs()) {
+        auto uses = output->uses();
+        for (auto u : uses) {
+          auto output_node = u.user;
+          if (strcmp(output_node->kind().toQualString(), "prim::ListUnpack") ==
+              0) {
+            for (auto list_output_val : output_node->outputs()) {
+              if (*list_output_val->type()->cast<TensorType>()->dim() == 4)
+                weight_pass.weightMarker(list_output_val);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // mark weights of full graph
+  weight_pass.markWeightTensors(graph, true);
+  auto weight_values = weight_pass.getWeightTensors();
+
+  std::ostringstream o;
+  auto str = o.str();
+  for (auto weight : weight_values) {
+    std::ostringstream o;
+    o << "weight vlaueID: ";
+    o << weight->debugName();
+    str.append(o.str());
+    str.append("\n");
+  }
+  PT_LAZY_DEBUG(str);
+
+  std::map<torch::jit::Value*, torch::jit::Node*> d2d_memcpy_nodes_;
+  // In-place weight permute loop
+  for (auto weight_value : weight_values) {
+    if (isInGraphInputs(graph, weight_value)) {
+      auto value_idx = getValuePosInStack(graph, weight_value);
+      HABANA_ASSERT(value_idx + 1);
+      if (stack[value_idx].isTensor()) {
+        auto tensor = stack[value_idx].toTensor();
+        if (!is_4d_5d_tensor(tensor))
+          continue;
+        auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+        auto layout_format = hb_tensor->GetTensorLayout();
+        if ((isD2DCopyOther(weight_value) || (isControlEdge(weight_value)))) {
+          hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+          layout_format = habana_lazy::LayoutFormat::kHWCK;
+        }
+        if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
+          auto value_in = const_cast<torch::jit::Value*>(weight_value);
+
+          auto op_permute = c10::Symbol::fromQualString("aten::permute");
+          auto dims1 = getDimsForWeightLayout(
+              habana::LayoutFormat::HWCK,
+              habana::LayoutFormat::NCHW,
+              tensor.dim());
+          auto value_dims1 = graph->insertConstant(IValue(dims1));
+          auto permute_node =
+              graph->create(op_permute, {value_in, value_dims1}, 1);
+          permute_node->insertAfter(value_in->node());
+          value_dims1->node()->moveBefore(permute_node);
+
+          auto op_control_edge1 =
+              c10::Symbol::fromQualString("hpu::control_edge_");
+          auto control_edge_node1 =
+              graph->create(op_control_edge1, {value_in}, 1);
+          control_edge_node1->insertAfter(value_in->node());
+
+          auto op_as_strided1 =
+              c10::Symbol::fromQualString("hpu::as_strided_layout_");
+          auto dims2 = getDimsForWeightLayout(
+              habana::LayoutFormat::HWCK,
+              habana::LayoutFormat::NCHW,
+              tensor.dim());
+          auto value_dims2 = graph->insertConstant(IValue(dims2));
+          auto as_strided_node1 = graph->create(
+              op_as_strided1, {control_edge_node1->output(0), value_dims2}, 1);
+          as_strided_node1->insertAfter(control_edge_node1);
+          value_dims2->node()->moveBefore(as_strided_node1);
+
+          auto op_control_edge2 =
+              c10::Symbol::fromQualString("hpu::control_edge_");
+          auto control_edge_node2 =
+              graph->create(op_control_edge2, {as_strided_node1->output(0)}, 1);
+          control_edge_node2->insertAfter(as_strided_node1);
+
+          auto op_d2d_copy =
+              c10::Symbol::fromQualString("hpu::habana_d2d_memcpy_other");
+          auto d2d_copy_node = graph->create(
+              op_d2d_copy,
+              {permute_node->output(0), control_edge_node2->output(0)},
+              1);
+          d2d_copy_node->insertAfter(permute_node);
+
+          value_in->replaceAllUsesAfterNodeWith(
+              d2d_copy_node, d2d_copy_node->output(0));
+          hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+        } else {
+          // add restride NCHW -> HWCK
+          auto value_in = const_cast<torch::jit::Value*>(weight_value);
+          auto op_restride = c10::Symbol::fromQualString("hpu::restride");
+          auto dims = getDimsForWeightLayout(
+              habana::LayoutFormat::HWCK,
+              habana::LayoutFormat::NCHW,
+              tensor.dim());
+          auto value_dims = graph->insertConstant(IValue(dims));
+          auto restride_node =
+              graph->create(op_restride, {value_in, value_dims}, 1);
+          restride_node->insertAfter(value_in->node());
+          value_dims->node()->moveBefore(restride_node);
+          {
+            auto value_in_tt = value_in->type()->cast<TensorType>();
+            restride_node->output(0)->setType(c10::TensorType::create(
+                value_in_tt->scalarType(),
+                value_in_tt->device(),
+                value_in_tt->dim(),
+                false));
+          }
+          value_in->replaceAllUsesAfterNodeWith(
+              restride_node, restride_node->output(0));
+        }
+      }
+    } else {
+      auto value_in = const_cast<torch::jit::Value*>(weight_value);
+      if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+        if (is_4d_5d_value(value_in)) {
+          if (isAsStridedNode(value_in)) {
+            auto node = value_in->node();
+            auto sizes = toIValue(node->input(1))->toIntVector();
+            auto is_5d_layout = sizes.size() == 5 ? true : false;
+            int64_t dim_out_pos[] = {2, 3, 1, 0};
+            int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
+            at::IntArrayRef out_pos;
+            out_pos = dim_out_pos;
+            if (is_5d_layout)
+              out_pos = dim_out_pos_3d;
+
+            auto new_pos = out_pos.vec();
+            std::vector<long int> swapped_sizes = {
+                sizes[new_pos[0]],
+                sizes[new_pos[1]],
+                sizes[new_pos[2]],
+                sizes[new_pos[3]]};
+            if (is_5d_layout) {
+              swapped_sizes.push_back(sizes[new_pos[4]]);
+            }
+
+            std::vector<long int> strides = {
+                swapped_sizes[1] * swapped_sizes[2] * swapped_sizes[3],
+                swapped_sizes[3] * swapped_sizes[2],
+                swapped_sizes[3],
+                1};
+            if (is_5d_layout) {
+              strides.clear();
+              strides.push_back(
+                  swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2] *
+                  swapped_sizes[1]);
+              strides.push_back(
+                  swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2]);
+              strides.push_back(swapped_sizes[4] * swapped_sizes[3]);
+              strides.push_back(swapped_sizes[4]);
+              strides.push_back(1);
+            }
+
+            WithInsertPoint insert_point(node);
+            auto value_dim = graph->insertConstant(IValue(swapped_sizes));
+            auto value_strides = graph->insertConstant(IValue(strides));
+            node->replaceInputWith(node->input(1), value_dim);
+            node->replaceInputWith(node->input(2), value_strides);
+          }
+        }
+      }
+    }
+  }
+
+  auto node_return = graph->return_node();
+  for (auto weight_value : weight_values) {
+    if (isRetunrOut(graph, weight_value)) {
+      if (!is_4d_5d_value(weight_value))
+        continue;
+      // add restride HWCk -> NCHW
+      auto value_in = const_cast<torch::jit::Value*>(weight_value);
+      WithInsertPoint insert_point(node_return);
+      auto op_restride = c10::Symbol::fromQualString("hpu::restride");
+      auto dims = getDimsForWeightLayout(
+          habana::LayoutFormat::NCHW,
+          habana::LayoutFormat::HWCK,
+          *weight_value->type()->cast<TensorType>()->dim());
+      auto value_dims = graph->insertConstant(IValue(dims));
+      auto restride_node =
+          graph->create(op_restride, {value_in, value_dims}, 1);
+      graph->insertNode(restride_node);
+      value_dims->node()->moveBefore(restride_node);
+      {
+        auto value_in_tt = value_in->type()->cast<TensorType>();
+        restride_node->output(0)->setType(c10::TensorType::create(
+            value_in_tt->scalarType(),
+            value_in_tt->device(),
+            value_in_tt->dim(),
+            false));
+      }
+      value_in->replaceAllUsesAfterNodeWith(
+          restride_node, restride_node->output(0));
+
+      auto d2d_value_out = const_cast<torch::jit::Value*>(weight_value);
+      if (d2d_memcpy_nodes_.find(d2d_value_out) != d2d_memcpy_nodes_.end()) {
+        auto node = d2d_memcpy_nodes_[d2d_value_out];
+        WithInsertPoint insert_point(node);
+
+        auto op_fill = c10::Symbol::fromQualString("aten::fill_");
+        static const int64_t fill_zero = 0;
+        auto value_zero = graph->insertConstant(IValue(fill_zero));
+        auto fill_node =
+            graph->create(op_fill, {node->input(1), value_zero}, 1);
+        graph->insertNode(fill_node);
+
+        auto op_add_ = c10::Symbol::fromQualString("aten::add_");
+        static const int64_t constant = 1;
+        auto value_const = graph->insertConstant(IValue(constant));
+        auto add_node_ = graph->create(
+            op_add_, {fill_node->output(0), node->input(0), value_const}, 1);
+        graph->insertNode(add_node_);
+        d2d_value_out->replaceAllUsesAfterNodeWith(
+            add_node_, add_node_->output(0));
+        node->destroy();
+      }
     }
   }
 }
@@ -103,6 +531,10 @@ void InsertWeightPermute_graph(
     WeightPermutesEagerMode(graph);
     return;
   }
+
+  // weight restrieds only
+  InsertWeightRestride_graph(graph, stack);
+  return;
 
   // Remove permute Nodes to replace with inplace permutes
   std::vector<torch::jit::Node*> remove_nodes;
@@ -149,7 +581,6 @@ void InsertWeightPermute_graph(
         if (strcmp(
                 in_val->node()->kind().toQualString(), "prim::ListConstruct") ==
             0) {
-          in_val->node()->dump();
           for (auto list_input_val : in_val->node()->inputs()) {
             torch::jit::Value* value_in = nullptr;
             if (isInGraphInputs(graph, list_input_val)) {

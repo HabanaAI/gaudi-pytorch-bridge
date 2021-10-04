@@ -445,7 +445,6 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   } else {
     PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToDot(po_data.post_order, p_roots));
   }
-
   return po_data;
 }
 

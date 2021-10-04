@@ -42,6 +42,8 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch::jit;
@@ -318,7 +320,9 @@ bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
     auto restride_node = u.user;
-    if (strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") == 0) {
+    if ((strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") ==
+         0) ||
+        (strcmp(restride_node->kind().toQualString(), "hpu::restride") == 0)) {
       return true;
     }
   }
@@ -329,7 +333,9 @@ torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
     torch::jit::Value* val) {
   for (auto u : val->uses()) {
     auto restride_node = u.user;
-    if (strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") == 0) {
+    if ((strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") ==
+         0) ||
+        (strcmp(restride_node->kind().toQualString(), "hpu::restride") == 0)) {
       return restride_node->output(0);
     }
   }
@@ -574,8 +580,11 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
-      if (strcmp(value_in->node()->kind().toQualString(), "hpu::restride_cl") ==
-          0) {
+      if ((strcmp(
+               value_in->node()->kind().toQualString(), "hpu::restride_cl") ==
+           0) ||
+          (strcmp(value_in->node()->kind().toQualString(), "hpu::restride") ==
+           0)) {
         auto restride_node = value_in->node();
         auto restride_value_in = restride_node->input(0);
         if (isInGraphInputs(restride_value_in) != -1) {
@@ -1407,7 +1416,9 @@ IValPtrShared castConstantTensor(IValPtrShared ival) {
   return ivptrsh;
 }
 
-void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
+void HabanaLaunchOpPT::handleRestrideNode(
+    torch::jit::Node* node,
+    bool is_restride_cl) {
   auto value_in = node->input(0);
   auto value_out = node->output(0);
   HABANA_ASSERT(value_to_ivalue.find(value_in) != std::end(value_to_ivalue));
@@ -1429,11 +1440,22 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
     }
     tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
         swapped_sizes, swapped_strides);
+    tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::Contiguous);
 
     if (isInGraphOutputs(value_out)) {
       auto format = is_5d_layout ? c10::MemoryFormat::ChannelsLast3d
                                  : c10::MemoryFormat::ChannelsLast;
-      tensor.unsafeGetTensorImpl()->empty_tensor_restride(format);
+      if (!is_restride_cl) {
+        if (tensor.dim() == 4 || tensor.dim() == 5) {
+          auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(tensor);
+          hb_grad_weight->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+        }
+        tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+            c10::MemoryFormat::Contiguous);
+      } else {
+        tensor.unsafeGetTensorImpl()->empty_tensor_restride(format);
+      }
     } else {
       tensor.unsafeGetTensorImpl()->empty_tensor_restride(
           c10::MemoryFormat::Contiguous);
@@ -1649,7 +1671,6 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
 torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
   torch::jit::Stack stack_in;
   auto node_inputs = node->inputs();
-
   for (auto input : node_inputs) {
     if (value_to_ivalue.count(input)) {
       stack_in.insert(stack_in.end(), *value_to_ivalue[input]);
@@ -2209,6 +2230,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
   }
+
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;
     std::string opname(node->kind().toQualString());
@@ -2232,12 +2254,16 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     }
 
     if (habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
-      if (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) {
-        handleRestrideNode(node);
+      if ((strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) ||
+          (strcmp(node->kind().toQualString(), "hpu::restride") == 0)) {
+        bool is_restride_cl =
+            (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0)
+            ? true
+            : false;
+        handleRestrideNode(node, is_restride_cl);
         continue;
       }
     }
-
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =

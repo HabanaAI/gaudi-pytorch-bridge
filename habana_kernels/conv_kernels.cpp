@@ -154,6 +154,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
     const int64_t dim_pos_wt[5] = {0, 1, 2, 3, 4};
     const int64_t dim_pos_in_chlast[5] = {0, 1, 2, 3, 4};
+    const int64_t wt_hwck_dims[5] = {2, 3, 4, 1, 0};
 
     const int64_t* p_dim_pos_in;
     const int64_t* p_dim_pos_wt;
@@ -169,6 +170,9 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     }
 
     p_dim_pos_wt = dim_pos_wt;
+    if (!is_weight_hwck) {
+      p_dim_pos_wt = wt_hwck_dims;
+    }
     const auto input_D = shape_in[p_dim_pos_in[1]];
     const auto pad_D = pad[0];
     const auto dil_D = dilation[0];

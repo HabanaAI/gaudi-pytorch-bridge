@@ -24,6 +24,10 @@ at::IntArrayRef getDimsForLayout(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order);
 
+bool isRetunrOut(
+    std::shared_ptr<torch::jit::Graph>& graph,
+    const torch::jit::Value* value_out);
+
 class WeightIdentificationPass {
  public:
   WeightIdentificationPass() {}
@@ -32,8 +36,20 @@ class WeightIdentificationPass {
       std::shared_ptr<torch::jit::Graph>& graph,
       bool mark_out_varients = true);
 
+  void markWeightInTensors(std::shared_ptr<torch::jit::Graph>& graph);
+
   std::unordered_set<const torch::jit::Value*> getWeightTensors() const {
     return weightTensors;
+  }
+
+  bool isMarkedAsweight(const torch::jit::Value* value_in) {
+    if (weightTensors.find(value_in) != weightTensors.end()) {
+      if (*value_in->type()->cast<torch::jit::TensorType>()->dim() == 4 ||
+          *value_in->type()->cast<torch::jit::TensorType>()->dim() == 5) {
+        return true;
+      }
+    }
+    return false;
   }
 
   const std::unordered_map<std::string, size_t> getConvKernelInWeights() const {
@@ -52,6 +68,7 @@ class WeightIdentificationPass {
 
   void weightMarker(const torch::jit::Value* weight_value) {
     weightTensors.insert(weight_value);
+    markInOutputs(weight_value);
   }
 
  private:
@@ -59,17 +76,20 @@ class WeightIdentificationPass {
   std::unordered_set<const torch::jit::Value*> weightTensors;
   const std::unordered_map<std::string, size_t> kernelWeightIdx = {
       {"aten::convolution_overrideable", 1},
-      {"aten::convolution_backward_overrideable", 2}};
+      {"aten::convolution_backward_overrideable", 2},
+      {"hpu::permuted_weight", 0},
+      {"hpu::permuted_weight_restride", 0}};
   const std::unordered_map<std::string, size_t> kernelOutWeightIdx = {
       {"aten::convolution_backward_overrideable", 1}};
   const std::unordered_map<std::string, size_t> kernelOutVariantIdx = {
-      {"hpu::habana_d2d_memcpy_other", 1}};
+      {"hpu::habana_d2d_memcpy_other", 1},
+      {"hpu::mul_out", 0}};
 
   const std::unordered_map<std::string, std::vector<size_t>>
       customOptimizerWeightIdx = {
           {"hpu::habanaOptimizerFusedSGDMomentum", {0, 1, 2}},
           {"hpu::habanaOptimizerFusedAdagrad", {0, 1, 2}},
-          {"hpu::habanaOptimizerAdamW", {0, 1}},
+          {"hpu::habanaOptimizerAdamW", {0, 1, 2, 3}},
           {"hpu::habanaOptimizerLambPhase1", {0, 1}},
           {"hpu::habanaOptimizerLambPhase1", {0, 1}}};
 
@@ -77,5 +97,6 @@ class WeightIdentificationPass {
   bool isTensor(const torch::jit::Value* value);
   void markInputs(const torch::jit::Value* value);
   void markOutputs(const torch::jit::Value* value);
+  void markInOutputs(const torch::jit::Value* value);
 };
 }; // namespace habana_lazy

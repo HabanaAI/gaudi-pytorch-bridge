@@ -4559,6 +4559,7 @@ TORCH_LIBRARY(hpu, m) {
       "gather_elements(Tensor self, Tensor index, Tensor? opt, int64_t dim_, bool sorted) -> Tensor");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
+  m.def("restride(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("permute_weight(Tensor self, int[] size) -> (Tensor)");
   m.def("permuted_weight_restride(Tensor self, int[] size) -> (Tensor)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
