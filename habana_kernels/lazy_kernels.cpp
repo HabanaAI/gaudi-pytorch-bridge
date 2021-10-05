@@ -1075,40 +1075,10 @@ Tensor& addcdiv_hpu_lazy_(
     const Tensor& tensor2,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_tensor1 = GetOrCreateHbLazyTensor(tensor1, c10::kHPU);
-  auto hl_tensor2 = GetOrCreateHbLazyTensor(tensor2, c10::kHPU);
-
   auto alpha_float = alpha.toFloat();
   if (alpha_float == 1.0) {
-    auto hl_alpha = GetIrValueForScalar(alpha);
-
-    updateDstDependencies(hl_self, self, true);
-
-    auto node = ir::Node::Create(
-        Symbol::fromQualString("aten::addcdiv_"),
-        {hl_self.GetIrValue(),
-         hl_tensor1.GetIrValue(),
-         hl_tensor2.GetIrValue(),
-         hl_alpha});
-
-    ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_self.GetDevice(),
-        hl_self.GetSizes(),
-        hl_self.dtype_optional());
-    std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context =
-        habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    LazyOp<at::Tensor&> op{"aten::addcdiv_", {self, tensor1, tensor2, alpha}};
+    return op.call(self);
   } else {
     auto div_out = div_tensor_hpu_lazy(tensor1, tensor2);
     auto alpha_tensor = get_tensor_for_scalar(alpha_float, div_out.options());
@@ -1149,37 +1119,9 @@ Tensor add_scalar_hpu_lazy(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_other = GetIrValueForScalar(other);
-  auto hl_alpha = GetIrValueForScalar(alpha);
-
-  if (self.dim() == 0) {
-    auto tensor_impl = hl_self.getAttachedTensorImpl();
-    HABANA_ASSERT(tensor_impl);
-    tensor_impl->set_sizes_and_strides({1}, {1});
-  }
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::add"),
-      {hl_self.GetIrValue(), hl_other, hl_alpha});
-  auto shape_out = self.sizes().vec();
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, self);
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> op{
+      "aten::add", {self, other, alpha}, {}, {self.sizes().vec()}};
+  return op.call();
 }
 
 Tensor& add_scalar_hpu_lazy_(
@@ -1228,38 +1170,11 @@ Tensor sub_scalar_hpu_lazy(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_other = GetIrValueForScalar(other);
-  auto hl_alpha = GetIrValueForScalar(alpha);
-
-  if (self.dim() == 0) {
-    auto tensor_impl = hl_self.getAttachedTensorImpl();
-    HABANA_ASSERT(tensor_impl);
-    tensor_impl->set_sizes_and_strides({1}, {1});
-  }
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::sub"),
-      {hl_self.GetIrValue(), hl_other, hl_alpha});
-  auto shape_out = self.sizes().vec();
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, self);
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> op{
+      "aten::sub", {self, other, alpha}, {}, {self.sizes().vec()}};
+  return op.call();
 }
+
 Tensor& sub_scalar_hpu_lazy_(
     Tensor& self,
     const Scalar& other,
@@ -1273,31 +1188,8 @@ Tensor rsub_scalar_hpu_lazy(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_other = GetIrValueForScalar(other);
-  auto hl_alpha = GetIrValueForScalar(alpha);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::rsub"),
-      {hl_self.GetIrValue(), hl_other, hl_alpha});
-
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, self);
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> op("aten::rsub", {self, other, alpha});
+  return op.call();
 }
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
@@ -1531,26 +1423,11 @@ Tensor all_hpu_lazy(const Tensor& self) {
 
 Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);
-
-  auto result = empty_hpu_lazy(
-      ReduceOperator::compute_output_shape(self, dim, keepdim),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  std::vector<int64_t> sizes =
+      ReduceOperator::compute_output_shape(self, dim, keepdim);
+  LazyOp<at::Tensor, ir::AllDim> op(node, {self, dim, keepdim}, {sizes});
+  return op.call();
 }
 
 Tensor& all_dim_out_hpu_lazy(
