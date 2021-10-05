@@ -665,10 +665,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
               dim_max_multiplier;
     }
     if (min == default_min_value_) {
-      PT_BRIDGE_WARN(
-          "[Dyn WARN] Using default_min_value_ = ",
-          default_min_value_,
-          " as min");
+      PT_BRIDGE_WARN("[Dyn WARN] Using default_min_value_ = ", min, " as min");
     }
     result.emplace_back(std::make_pair(min, max));
   }
