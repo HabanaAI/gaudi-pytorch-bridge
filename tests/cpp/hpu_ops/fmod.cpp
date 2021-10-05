@@ -30,3 +30,45 @@ TEST_F(HpuOpTest, fmod_scalar) {
 
   Compare(exp, res);
 }
+
+TEST_F(HpuOpTest, fmod_scalar_out) {
+  GenerateIntInputs(1, {{2, 3, 3}}, -10000, 10000);
+  c10::ScalarType dtype = torch::kFloat;
+
+  auto exp = torch::empty(0, dtype);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::fmod_outf(GetCpuInput(0), 4.2, exp);
+  torch::fmod_outf(GetHpuInput(0), 4.2, res);
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, fmod_tensor_out) {
+  GenerateInputs(2, {{2, 3}, {3}}, {torch::kLong, torch::kDouble});
+  c10::ScalarType dtype = torch::kDouble;
+
+  auto exp = torch::empty(0, dtype);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::fmod_outf(GetCpuInput(0), GetCpuInput(1), exp);
+  torch::fmod_outf(GetHpuInput(0), GetHpuInput(1), res);
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, fmod_) {
+  GenerateIntInputs(2, {{2, 3, 3}, {2, 3, 1}}, -30, 10);
+  auto exp = GetCpuInput(0).fmod_(GetCpuInput(1));
+  auto res = GetHpuInput(0).fmod_(GetHpuInput(1));
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, fmod__scalar) {
+  GenerateInputs(1);
+  auto exp = GetCpuInput(0).fmod_(-2.3);
+  auto res = GetHpuInput(0).fmod_(-2.3);
+
+  Compare(exp, res);
+}

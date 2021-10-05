@@ -421,6 +421,13 @@ fmod.Scalar:
   scalar_ids: [1]
   type_promotion: true
 
+fmod.Scalar_out:
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  op_base_class: Fmod
+  scalar_ids: [1]
+  type_promotion: true
+
 fmod.Tensor:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
@@ -428,6 +435,26 @@ fmod.Tensor:
   op_base_class: Fmod
   out_ids: [0]
   type_promotion: true
+
+fmod.Tensor_out:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  op_base_class: Fmod
+  type_promotion: true
+
+fmod_.Scalar:
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  op_base_class: Fmod
+
+fmod_.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  guid: mod_fwd
+  inplace_ids: [0]
+  op_base_class: Fmod
 
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]

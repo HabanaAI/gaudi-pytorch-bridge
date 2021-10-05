@@ -523,31 +523,10 @@ class LazyOpWithTypePromotion : public LazyOp<T> {
       const std::vector<at::IValue>& inputs,
       const std::function<
           std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-          out_shapes_fn = nullptr) noexcept
-      : LazyOp<T>(qualstring, inputs, out_shapes_fn, -1) {}
+          out_shapes_fn = nullptr) noexcept;
 
  private:
-  at::Tensor get_result_overrideable() override {
-    const auto& inputs = LazyOp<at::Tensor>::get_inputs();
-    const auto& self = inputs.at(0).toTensor();
-    at::ScalarType result_type;
-
-    if (inputs.at(1).isTensor()) {
-      result_type = at::result_type(self, inputs.at(1).toTensor());
-    } else {
-      result_type = at::result_type(self, inputs.at(1).toScalar());
-    }
-
-    const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
-        ? self.sizes()
-        : LazyOp<at::Tensor>::get_out_shapes().at(0);
-
-    return empty_hpu_lazy(
-        outshape,
-        self.options().device(c10::kHPU).dtype(result_type),
-        self.suggest_memory_format(),
-        false);
-  }
+  T get_result_overrideable() override;
 };
 
 template <typename ReturnType>
