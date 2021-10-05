@@ -148,10 +148,20 @@ bitwise_and.Tensor_out:
   guid: bitwise_and_fwd
   legacy_eager: true
 
+bitwise_not:
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_not_fwd
+  out_ids: [0]
+
 bitwise_not.out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
   legacy_eager: true
+
+bitwise_not_:
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_not_fwd
+  inplace_ids: [0]
 
 bitwise_or.Scalar_out:
   dtypes: [Int, Short, Byte, Char]
