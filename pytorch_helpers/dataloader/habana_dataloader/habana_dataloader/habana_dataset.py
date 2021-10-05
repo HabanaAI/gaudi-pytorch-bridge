@@ -8,7 +8,6 @@ import copy
 import torch.utils.data
 import torchvision.datasets
 
-import habana_dataloader.habana_dl_app
 from .aeon_config import get_aeon_config
 from .aeon_transformers import HabanaAeonTransforms
 from .aeon_manifest import generate_aeon_manifest
@@ -22,6 +21,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
         self.fallback_activated = False
 
         try:
+            import habana_dataloader.habana_dl_app
             self._handle_vars(keyword_args)
             if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
                 raise ValueError("HabanaDataLoader supports only ImageFolder as dataset")
@@ -39,7 +39,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                                                                       self.drop_last
                                                                       )
 
-        except ValueError as e:
+        except (ValueError, ImportError) as e:
             print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
             self.fallback_activated = True
             super(HabanaDataLoader, self).__init__(*args, **kwargs)
