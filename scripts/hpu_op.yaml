@@ -955,6 +955,52 @@ reciprocal.out:
   guid: reciprocal_fwd
   legacy_eager: true
 
+remainder.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  out_ids: [0]
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  out_ids: [0]
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
+
+remainder_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  inplace_ids: [0]
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  inplace_ids: [0]
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
+
+remainder.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_base_class: RemainderOp
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
+
 resize_:
   custom_output_shape: ResizeOutputShape
   guid: memcpy

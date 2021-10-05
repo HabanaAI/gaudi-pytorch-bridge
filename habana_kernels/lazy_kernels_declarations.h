@@ -892,26 +892,6 @@ at::Tensor cumsum_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor remainder_tensor_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& other);
-at::Tensor& remainder_tensor_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& other);
-at::Tensor remainder_scalar_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& other);
-at::Tensor& remainder_scalar_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& other);
-at::Tensor& remainder_tensor_hpu_lazy_out(
-    const at::Tensor& self,
-    const at::Tensor& other,
-    at::Tensor& result);
-at::Tensor& remainder_scalar_hpu_lazy_out(
-    const at::Tensor& self,
-    const at::Scalar& other,
-    at::Tensor& result);
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims);
 at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal);
 at::Tensor& diag_hpu_lazy_out(

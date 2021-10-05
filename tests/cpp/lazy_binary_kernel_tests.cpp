@@ -572,7 +572,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOutTest) {
   EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
 }
 
-/*TEST_F(LazyBinaryKernelTest, RemainderScalarOutTest) {
+TEST_F(LazyBinaryKernelTest, RemainderScalarOutTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   Scalar B = 2;
   torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
@@ -588,7 +588,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOutTest) {
   double atol = 1e-08; // NOLINT
 
   EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
-}*/
+}
 
 TEST_F(LazyBinaryKernelTest, RemainderTensorOut0dTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));

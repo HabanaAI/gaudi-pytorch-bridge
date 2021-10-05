@@ -1673,40 +1673,4 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::PowOperator>(
                   device_id, node_type);
-            })
-        .add(
-            "aten::remainder.Tensor",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderWrapperOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::remainder_.Tensor",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderInplaceWrapperOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::remainder.Scalar",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderWrapperOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::remainder_.Scalar",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderInplaceWrapperOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::remainder.Tensor_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderOutWrapperOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::remainder.Scalar_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::RemainderOutWrapperOperator>(
-                  device_id, node_type);
             });
