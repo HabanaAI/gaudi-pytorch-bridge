@@ -407,8 +407,6 @@ void InsertPermute_graph(
             (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
             (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
              0) ||
-            (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") ==
-             0) ||
             (strcmp(
                  node->kind().toQualString(), "aten::_softmax_backward_data") ==
              0) ||
@@ -540,7 +538,6 @@ void InsertPermute_graph(
           (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
           (strcmp(
@@ -661,6 +658,26 @@ void InsertPermute_graph(
           }
         }
       } else {
+        if (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") == 0) {
+          auto value_in0 = node->input(0);
+          // PRefix the pad value with 0,0 tuple so that padding of 'C' is
+          // skipped and padding is applied to W, H
+          if (value_to_tensor_layout[value_in0].layout ==
+              habana::LayoutFormat::NHWC) {
+            auto const padIdx = 1;
+            auto pad = toIValue(node->input(padIdx))->toIntList().vec();
+            std::vector<int64_t> pad_including_C(pad.size() + 2);
+            pad_including_C[0] = pad_including_C[1] = 0;
+            for (unsigned int i = 0; i < pad.size(); i++) {
+              pad_including_C[i + 2] = pad[i];
+            }
+            WithInsertPoint insert_point(node);
+            auto value_dim =
+                graph->insertConstant(IValue(at::IntArrayRef(pad_including_C)));
+            node->replaceInputWith(node->input(padIdx), value_dim);
+          }
+        }
+
         // Multi input and single output pass layout info from input to output
         auto node_outs = node->outputs();
         meta_size = habana_kernel_meta_data.output_layout.size();
