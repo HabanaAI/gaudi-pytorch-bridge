@@ -67,14 +67,14 @@ def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, wo
         "augmentation": [augmentation_config],
         "batch_size": batch_size,
         "file_shuffle_seed": 5,
-        "iteration_mode": "ONCE"
+        "iteration_mode": "ONCE",
+        "instance_id": instance_id,
+        "num_instances": num_instances
     }
     if is_train:
         aeon_config["decode_thread_count"] = workers
         aeon_config["fread_thread_count"] = 4
         aeon_config["shuffle_manifest"] = True
-        aeon_config["instance_id"] = instance_id
-        aeon_config["num_instances"] = num_instances
     else:
         aeon_config["decode_thread_count"] = 1
         aeon_config["fread_thread_count"] = 1
