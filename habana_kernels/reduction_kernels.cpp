@@ -623,9 +623,6 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
   bool keepdim = inputs[2].toBool();
 
   auto ndim = self.dim();
-  TORCH_CHECK(
-      keepdim || static_cast<int64_t>(dim.size()) != ndim,
-      "Reduction to 0d tensor not supported yet");
 
   // Remove duplicates in dim list
   ReduceOperator::sort_dims(dim, ndim, dim.size());
