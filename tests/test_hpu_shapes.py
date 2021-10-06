@@ -17,6 +17,8 @@ test_case_list = [
     (8, 28, 28, 3),
 ]
 
+index_put_dtype_list = [torch.float, torch.int8, torch.int32]
+
 broadcast_test_case_list = [
     [torch.randn(8, 3, 28, 28), torch.randn(1), torch.randn(1)],
     [torch.randn(1, 4), torch.randn(3, 1), torch.randn(1)],
@@ -139,23 +141,107 @@ def test_hpu_index_select(N, H, W, C, dim):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
 @pytest.mark.parametrize("acc", [True, False])
-def test_hpu_index_put(N, H, W, C, acc):
+def test_hpu_index_put(N, H, W, C, dtype, acc):
     kernel = torch.index_put
-
     dim_list = [N, C, H, W]
-    dim_list_tensor = [N, C, H, W]
-    dim_list_tensor[0] = 2
+    if dtype == torch.float32:
+        in_t = torch.randn(tuple(dim_list),  dtype=dtype, requires_grad=True)
+        tbool = torch.randint_like(in_t, 0, np.prod(dim_list)) > (np.prod(dim_list) / 2)
+        ti = tbool.nonzero().unbind(1)
+        tv = torch.randn((ti[0].shape[0]))
+    else:
+        in_t = torch.randint(16, tuple(dim_list),  dtype=dtype)
+        tbool = torch.randint_like(in_t, 0, 128) > 8 #keep values small to avoid mismatches due to overflow and acc
+        ti = tbool.nonzero().unbind(1)
+        tv = torch.randint(16, (ti[0].shape[0],),  dtype=dtype)
     kernel_params_fwd = {
-        'input': torch.randn(tuple(dim_list), requires_grad=True),
-        'indices': [torch.tensor([0, 2])],
-        'values': torch.randn(tuple(dim_list_tensor)),
+        #clone required as tensors that are the result of a differentiable operation are not leaf variables
+        'input': in_t.clone(),
+        'indices': ti,
+        'values': tv,
         'accumulate': acc
     }
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+@pytest.mark.parametrize("acc", [True, False])
+def test_hpu_index_put_bool(N, H, W, C, dtype, acc):
+    kernel = torch.index_put
+    dim_list = [N, C, H, W]
+    if dtype == torch.float32:
+        in_t = torch.randn(tuple(dim_list),  dtype=dtype, requires_grad=True)
+        ti = torch.randint_like(in_t, 0, np.prod(dim_list)) > (np.prod(dim_list) / 2)
+        tv = torch.randn(torch.nonzero(ti).shape[0])
+    else:
+        in_t = torch.randint(16, tuple(dim_list),  dtype=dtype)
+        ti = torch.randint_like(in_t, 0, 128) > 8
+        tv = torch.randint(16, (torch.nonzero(ti).shape[0],),  dtype=dtype)
+    kernel_params_fwd = {
+        #clone required as tensors that are the result of a differentiable operation are not leaf variables
+        'input': in_t.clone(),
+        'indices': [ti],
+        'values': tv,
+        'accumulate': acc
+    }
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+@pytest.mark.parametrize("acc", [True, False])
+def test_hpu_index_put_inplace(N, H, W, C, dtype, acc):
+    kernel = torch.index_put_
+    dim_list = [N, C, H, W]
+    if dtype == torch.float32:
+        in_t = torch.randn(tuple(dim_list),  dtype=dtype, requires_grad=True)
+        tbool = torch.randint_like(in_t, 0, np.prod(dim_list)) > (np.prod(dim_list) / 2)
+        ti = tbool.nonzero().unbind(1)
+        tv = torch.randn((ti[0].shape[0]))
+    else:
+        in_t = torch.randint(16, tuple(dim_list),  dtype=dtype)
+        tbool = torch.randint_like(in_t, 0,128) > 8
+        ti = tbool.nonzero().unbind(1)
+        tv = torch.randint(16, (ti[0].shape[0],),  dtype=dtype)
+    kernel_params_fwd = {
+        #clone required as tensors that are the result of a differentiable operation are not leaf variables
+        'input': in_t.clone(),
+        'indices': ti,
+        'values': tv,
+        'accumulate': acc
+    }
     bwd_tensors = [torch.randn(tuple(dim_list))]
-    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+    if dtype == torch.float32:
+        evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+    else:
+        evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+@pytest.mark.parametrize("acc", [True, False])
+def test_hpu_index_put_bool_inplace(N, H, W, C, dtype, acc):
+    kernel = torch.index_put_
+    dim_list = [N, C, H, W]
+    if dtype == torch.float32:
+        in_t = torch.randn(tuple(dim_list),  dtype=dtype, requires_grad=True)
+        ti = torch.randint_like(in_t, 0, np.prod(dim_list)) > (np.prod(dim_list) / 2)
+        tv = torch.randn(torch.nonzero(ti).shape[0])
+    else:
+        in_t = torch.randint(16, tuple(dim_list),  dtype=dtype)
+        ti = torch.randint_like(in_t, 0, 128) > 8
+        tv = torch.randint(16, (torch.nonzero(ti).shape[0],),  dtype=dtype)
+    kernel_params_fwd = {
+        'input': in_t.clone(),
+        'indices': [ti],
+        'values': tv,
+        'accumulate': acc
+    }
+    bwd_tensors = [torch.randn(tuple(dim_list))]
+    if dtype == torch.float32:
+        evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+    else:
+        evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dim", [0, 1, 2, 3])
@@ -280,6 +366,24 @@ def test_hpu_expand(test_dtype):
     thpu_out = tin.to(hpu).expand(3, 4)
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
+@pytest.mark.parametrize("N, C", [(32, 8732),])
+@pytest.mark.parametrize("acc", [False])
+def test_hpu_index_put_ssd(N, C, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randint(low=1, high=C, size=tuple(dim_list), requires_grad=False)
+    label_hpu = label.to(hpu)
+    mask = label > 0
+    mask_hpu = label_hpu > 0
+    value_tensor = torch.tensor(0.)
+    value_tensor_hpu = value_tensor.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.index_put(input=torch.flatten(input_tensor), indices=[torch.flatten(mask)], values=value_tensor, accumulate=acc)
+    out_hpu = torch.index_put(input=torch.flatten(input_tensor_hpu), indices=[torch.flatten(mask_hpu)], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])

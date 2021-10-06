@@ -236,6 +236,46 @@ class SelectOperator : public HabanaOperator {
       int64_t& dim);
 };
 
+// ScatterNdONNX operator
+class ScatterNdONNXOperator : public HabanaOperator {
+ public:
+  ScatterNdONNXOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "scatter_nd_onnx_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+// ScatterND operator
+class ScatterNdOperator : public HabanaOperator {
+ public:
+  ScatterNdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "scatter_nd_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
 // IndexPutOperator
 class IndexPutOperator : public HabanaOperator {
  public:

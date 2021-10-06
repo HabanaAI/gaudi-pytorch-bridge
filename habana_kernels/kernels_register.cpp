@@ -4508,6 +4508,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
   m.def(
       "upsample_nearest2d_backward(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor");
+  m.def(
+      "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> (Tensor)");
+  m.def(
+      "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

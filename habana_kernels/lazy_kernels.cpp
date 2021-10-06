@@ -1965,34 +1965,11 @@ Tensor& _index_put_impl_hpu_lazy_(
     at::TensorList indices,
     const Tensor& value,
     bool accumulate,
-    const bool unsafe) {
+    UNUSED const bool unsafe) {
   PT_LAZY_TRACE;
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
-  if (indices[0].scalar_type() == c10::ScalarType::Int) {
-    c10::List<c10::optional<at::Tensor>> indices_long{};
-    auto tensorlist = indices.vec();
-    indices_long.reserve(tensorlist.size());
-
-    for (size_t i = 0; i < tensorlist.size(); i++) {
-      auto long_tensor =
-          tensorlist[i]
-              .to("cpu")
-              .to(c10::ScalarType::Long)
-              .to(tensorlist[i].device(), c10::attr::non_blocking);
-      indices_long.push_back(c10::make_optional(long_tensor));
-    }
-    return AtenHpuTypeDefault::_index_put_impl_(
-        self, indices_long, value, accumulate, unsafe);
-  }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
-  auto tensorlist = indices.vec();
-  indices_list.reserve(tensorlist.size());
-  for (size_t i = 0; i < tensorlist.size(); i++) {
-    indices_list.push_back(c10::make_optional(tensorlist[i]));
-  }
-  return AtenHpuTypeDefault::_index_put_impl_(
-      self, indices_list, value, accumulate, unsafe);
+  return index_put_hpu_lazy_(self, indices, value, accumulate);
 }
 
 Tensor nonzero_hpu_lazy(const Tensor& self) {
@@ -2123,68 +2100,199 @@ Tensor& index_add_hpu_lazy_(
 
 Tensor index_put_hpu_lazy(
     const Tensor& self,
-    TensorList indices,
-    const Tensor& value,
+    TensorList indices_in,
+    const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
-  // Remove CPU fallback once TPC kernel for index_backward is available
-  // JIRA <https://jira.habana-labs.com/browse/SW-37171>
-
-  if (indices[0].scalar_type() == c10::ScalarType::Int) {
-    c10::List<c10::optional<at::Tensor>> indices_long{};
-    auto tensorlist = indices.vec();
-    indices_long.reserve(tensorlist.size());
-
-    for (size_t i = 0; i < tensorlist.size(); i++) {
-      auto long_tensor =
-          tensorlist[i]
-              .to("cpu")
-              .to(c10::ScalarType::Long)
-              .to(tensorlist[i].device(), c10::attr::non_blocking);
-      indices_long.push_back(c10::make_optional(long_tensor));
+  std::vector<Tensor> indices_vec{indices_in.vec()};
+  std::vector<Tensor> indices_vec_out{};
+  // for case where indices are Boolean tensor(s), convert these to integer
+  // indices using nonzero operator before calling index
+  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
+    // do a mark_step to avoid attaching the select + scatter to a larger
+    // previous graph
+    HbLazyTensor::StepMarker({});
+    for (size_t i = 0; i < indices_vec.size(); i++) {
+      auto list = torch::nonzero_numpy(indices_vec.at(i));
+      indices_vec_out.insert(
+          indices_vec_out.cend(), list.cbegin(), list.cend());
     }
-    return AtenHpuTypeDefault::index_put(self, indices_long, value, accumulate);
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
-  auto tensorlist = indices.vec();
-  indices_list.reserve(tensorlist.size());
-  for (size_t i = 0; i < tensorlist.size(); i++) {
-    indices_list.push_back(c10::make_optional(tensorlist[i]));
+  at::TensorList indices =
+      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
+                                                              : indices_vec;
+
+  // Assuming if 1st indices tensor is ZST then other indices tensors in list
+  // (if any) will be ZST too. For ZST indices tensor broadcast and scatter_nd
+  // operations are throwing GC errors therefore we have this workaround to
+  // return a copy of input tensor.
+  // TBD: Investigate further and raise a JIRA on GC.
+  if (indices[0].numel() == 0) {
+    auto result = self.clone();
+    auto hl_result = GetHbLazyTensor(result);
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
   }
-  return AtenHpuTypeDefault::index_put(self, indices_list, value, accumulate);
+
+  // Broadcast indices
+  auto broadcasted_indices = at::broadcast_tensors(indices);
+  auto shape_broadcasted = broadcasted_indices[0].sizes().vec();
+
+  // Reshape broadcasted indices to [N, 1] for concatenation
+  auto flattened_size = std::accumulate(
+      std::begin(shape_broadcasted),
+      std::end(shape_broadcasted),
+      1,
+      std::multiplies<size_t>());
+  std::vector<at::Tensor> flattened_idx;
+  for (auto b : broadcasted_indices)
+    flattened_idx.push_back(at::reshape(b, {flattened_size, 1}));
+
+  // Create index tensor of shape [num_updates, dimensionality of indices]
+  auto concatenated_indices = at::cat(flattened_idx, -1);
+
+  // additional casts inserted for handling dtypes other than f32/bf16 because
+  // scatter_nd TPC kernels used supports only f32/bf16
+  at::Tensor self_cast = self;
+  at::Tensor value = value_in;
+  if (self.scalar_type() != c10::ScalarType::Double &&
+      self.scalar_type() != c10::ScalarType::Float &&
+      self.scalar_type() != c10::ScalarType::BFloat16) {
+    // i8/i16/i32 -> f32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {self, c10::ScalarType::Float},
+        {self.sizes().vec()},
+        c10::ScalarType::Float};
+    self_cast = k_.call();
+    // i8/i16/i32 -> f32
+    LazyOp<at::Tensor> kv_{
+        "hpu::cast",
+        {value_in, c10::ScalarType::Float},
+        {value_in.sizes().vec()},
+        c10::ScalarType::Float};
+    value = kv_.call();
+  }
+
+  // Calculate the dimensionality of updates for broadcasting
+  auto rank_inp = self.ndimension();
+  auto rank_idx = concatenated_indices.sizes().vec()[1];
+  std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
+  for (int i = rank_idx; i < rank_inp; i++)
+    value_upd_dim.push_back(self.sizes().vec()[i]);
+  auto broadcasted_values = value.broadcast_to(value_upd_dim);
+
+  if (!accumulate) {
+    LazyOp<Tensor> scatter_nd_op(
+        "hpu::scatter_nd_onnx",
+        {self_cast, concatenated_indices, broadcasted_values});
+
+    Tensor scatter_nd_out = scatter_nd_op.call();
+    if (self.scalar_type() != c10::ScalarType::Double &&
+        self.scalar_type() != c10::ScalarType::Float &&
+        self.scalar_type() != c10::ScalarType::BFloat16) {
+      auto out_type = (self.scalar_type() == c10::ScalarType::Long)
+          ? (c10::ScalarType::Int)
+          : self.scalar_type();
+      LazyOp<at::Tensor> k_{
+          "hpu::cast",
+          {scatter_nd_out, out_type},
+          {scatter_nd_out.sizes().vec()},
+          out_type};
+      return k_.call();
+    }
+    return scatter_nd_out;
+  } else {
+    // Convert indices to values (ravelling indices) for sorting
+    std::vector<int64_t> indices_shape;
+    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
+      indices_shape.push_back(self_cast.sizes().vec()[i]);
+
+    // Compute multiplication factor for each dimension
+    std::vector<int> mul_factor_v{1};
+    for (size_t i = 0; i < indices_shape.size() - 1; i++)
+      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+    auto mul_factor = torch::from_blob(
+        mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
+    auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
+    auto ravelled_indices = at::sum(multiplied_indices, 1);
+
+    auto sorted_results = at::sort(ravelled_indices, -1, true);
+    auto permutation = std::get<1>(sorted_results).to(torch::kInt);
+
+    auto grouped_indices =
+        at::index_select(concatenated_indices, 0, permutation);
+    auto update_locs =
+        at::reshape(permutation, {permutation.sizes().vec()[0], 1});
+    LazyOp<Tensor> scatter_nd_onnx_op(
+        "hpu::scatter_nd",
+        {self_cast,
+         concatenated_indices,
+         grouped_indices,
+         update_locs,
+         broadcasted_values});
+    Tensor scatter_nd_onnx_out = scatter_nd_onnx_op.call();
+    auto result = at::add(self_cast, scatter_nd_onnx_out);
+    if (self.scalar_type() != c10::ScalarType::Double &&
+        self.scalar_type() != c10::ScalarType::Float &&
+        self.scalar_type() != c10::ScalarType::BFloat16) {
+      auto out_type = (self.scalar_type() == c10::ScalarType::Long)
+          ? (c10::ScalarType::Int)
+          : self.scalar_type();
+      LazyOp<at::Tensor> k_{
+          "hpu::cast", {result, out_type}, {result.sizes().vec()}, out_type};
+      return k_.call();
+    }
+    return result;
+  }
 }
+
 Tensor& index_put_hpu_lazy_(
     at::Tensor& self,
-    TensorList indices,
+    TensorList indices_in,
     const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
-  // Remove CPU fallback once TPC kernel for index_backward is available
-  // JIRA <https://jira.habana-labs.com/browse/SW-37171>
-  if (indices[0].scalar_type() == c10::ScalarType::Int) {
-    c10::List<c10::optional<at::Tensor>> indices_long{};
-    auto tensorlist = indices.vec();
-    indices_long.reserve(tensorlist.size());
+  std::vector<Tensor> indices_vec{indices_in.vec()};
+  auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
+  auto index_put_result =
+      index_put_hpu_lazy(self, indices_in, value, accumulate);
+  auto hl_self = GetOrCreateHbLazyTensor(self);
+  // add a control edge as we add a loop using d2d copy back to self
+  updateDstDependencies(hl_self, self, true);
 
-    for (size_t i = 0; i < tensorlist.size(); i++) {
-      auto long_tensor =
-          tensorlist[i]
-              .to("cpu")
-              .to(c10::ScalarType::Long)
-              .to(tensorlist[i].device(), c10::attr::non_blocking);
-      indices_long.push_back(c10::make_optional(long_tensor));
-    }
-    return AtenHpuTypeDefault::index_put_(
-        self, indices_long, value, accumulate);
+  // add a control edge as we add a loop using d2d copy back to self
+  updateDstDependencies(hl_self, self, true);
+
+  auto hl_index_put_out = GetHbLazyTensor(index_put_result);
+
+  auto copy_node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_index_put_out.GetIrValue(), hl_self.GetIrValue()});
+
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.SetNode(
+      copy_node,
+      hl_self.GetDevice(),
+      hl_self.GetSizes(),
+      hl_self.dtype_optional());
+
+  if (isIndicesBool) {
+    std::vector<HbLazyTensor> hl_flush_end = {GetHbLazyTensor(self)};
+    HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
+  } else {
+    flush_op(self);
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
-  auto tensorlist = indices.vec();
-  indices_list.reserve(tensorlist.size());
-  for (size_t i = 0; i < tensorlist.size(); i++) {
-    indices_list.push_back(c10::make_optional(tensorlist[i]));
-  }
-  return AtenHpuTypeDefault::index_put_(self, indices_list, value, accumulate);
+  return self;
 }
+
 Tensor index_select_hpu_lazy(
     const Tensor& self,
     int64_t dim,
@@ -4390,6 +4498,21 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
 
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   PT_LAZY_TRACE;
+  // This ZST output tensor should ideally be handled at Synapse level, but
+  // since it is throwing errors in that case we are forced to add this
+  // work-around. E.g. self.sizes() = {1} size_in = {0}
+  // TBD: Investigate and raise a JIRA on GC.
+  auto size_vec = size_in.vec();
+  auto flattened_size = std::accumulate(
+      size_vec.begin(), size_vec.end(), 1, std::multiplies<int64_t>());
+  if (flattened_size == 0) {
+    auto result = empty_hpu_lazy(
+        size_in.vec(), self.options(), self.suggest_memory_format(), true);
+    auto hl_result = GetHbLazyTensor(result);
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
+  }
   auto size = size_in;
   std::vector<int64_t> initvec{1};
   size = (size_in.vec().size() == 0) ? initvec : size_in;
