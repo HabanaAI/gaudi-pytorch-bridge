@@ -169,6 +169,7 @@ synapse_error_o graph::add_node(
   }
   SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
   const auto& node_type{get_value(node_type_or_err)};
+  PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }

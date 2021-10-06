@@ -2744,6 +2744,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         // For Dynamic shapes in case of cash hit, we need to run
         // shape inference for determining the output shape and
         // persistent intermediates
+        PT_BRIDGE_DEBUG("run output shape inference pass");
         run_shape_inference(ShapeInfo::InferencePass::OUTPUT_SHAPE);
       }
 
@@ -2795,8 +2796,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
     // run min shape inference pass
+    PT_BRIDGE_DEBUG("run min shape inference pass");
     run_shape_inference(ShapeInfo::InferencePass::MIN_SHAPE);
     // run max shape inference pass
+    PT_BRIDGE_DEBUG("run max shape inference pass");
     run_shape_inference(ShapeInfo::InferencePass::MAX_SHAPE);
   }
 
@@ -2805,6 +2808,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
   syn_graph.set_dynamic_graph(!ranges.empty());
   AdjustInputLayout();
+  PT_BRIDGE_DEBUG("run CompileAndExecuteHabanaFusedOpKernel");
   CompileAndExecuteHabanaFusedOpKernel(syn_graph);
   clear();
   PT_BRIDGE_END;

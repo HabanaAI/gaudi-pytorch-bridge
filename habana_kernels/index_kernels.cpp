@@ -14,6 +14,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -27,9 +28,11 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
 using namespace habana;
+using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
 void LinspaceOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto result = inputs[3].toTensor();
@@ -1406,6 +1409,12 @@ void SliceOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
   }
 
+  bool needs_params_handling = false;
+  if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
+      end > self.sizes().vec()[dim]) {
+    needs_params_handling = true;
+  }
+
   auto output =
       AllocateOutputTensor(self, dim, start, end, step, is_output_persistent);
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -1421,10 +1430,17 @@ void SliceOperator::AllocateAndAddSynapseNode(
   params.starts[0] = start;
   params.ends[0] = end;
   params.steps[0] = step;
-
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
     AllocateSynapseShapeTensor(graph, output);
+  }
+
+  if (needs_params_handling) {
+    synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
+    std::string tensor_name = syn_input_tensor.name();
+    std::vector<int64_t> min, max;
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    params.ends[0] = static_cast<int>(max[dim]);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);

@@ -9,6 +9,7 @@
  */
 #include "habana_operator.h"
 #include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
@@ -159,7 +160,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
         habana_helpers::create_shape_tensor(input, graph, is_persistent, false);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
-
+  PT_BRIDGE_DEBUG("AllocateSynapseInput ", p_context_->syn_inputs_.back());
   p_context_->pt_inputs_.emplace_back(input);
   return p_context_->syn_inputs_.back();
 }
@@ -182,7 +183,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
   auto syn_shape_input =
       habana_helpers::create_shape_tensor(input, graph, false, false);
   p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
-
+  PT_BRIDGE_DEBUG(
+      "AllocateSynapseShapeTensor ", p_context_->syn_inputs_.back());
   return p_context_->syn_inputs_.back();
 }
 
@@ -198,6 +200,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output, graph, is_persistent, true));
   }
+  PT_BRIDGE_DEBUG("AllocateSynapseOutput ", p_context_->syn_outputs_.back());
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -216,6 +219,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output, graph, is_persistent, true));
   }
+  PT_BRIDGE_DEBUG("AllocateSynapseOutput ", p_context_->syn_outputs_.back());
   p_context_->pt_outputs_.emplace_back(output);
 }
 
