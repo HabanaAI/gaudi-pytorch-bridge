@@ -1801,19 +1801,11 @@ Tensor embedding_hpu_lazy(
       size.push_back(d);
     }
   }
-  auto result = empty_hpu_lazy(
-      size, weight.options(), weight.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
+  LazyOp<at::Tensor, ir::Embedding_forward> op(
       embedding_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-
-  flush_op(result);
-  return result;
+      {weight, indices, padding_idx, scale_grad_by_freq, sparse},
+      {size});
+  return op.call();
 }
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
@@ -1823,24 +1815,12 @@ Tensor embedding_dense_backward_hpu_lazy(
     bool scale_grad_by_freq) {
   ir::NodePtr embedding_bwd_node = std::make_shared<ir::Embedding_backward>(
       grad, indices, num_weights, padding_idx, scale_grad_by_freq);
-
-  // allocate Output storage
-  auto result = empty_hpu_lazy(
-      {num_weights, grad.size(-1)},
-      grad.options(),
-      grad.suggest_memory_format(),
-      false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
+  std::vector<int64_t> sizes{num_weights, grad.size(-1)};
+  LazyOp<at::Tensor, ir::Embedding_backward> op(
       embedding_bwd_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-
-  flush_op(result);
-  return result;
+      {grad, indices, num_weights, padding_idx, scale_grad_by_freq},
+      {sizes});
+  return op.call();
 }
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
@@ -1851,24 +1831,10 @@ Tensor embedding_bag_sum_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::EmbeddingBagSum>(
       input, indices, offsets, valid_count, kernel_mode);
-
-  auto result = empty_hpu_lazy(
-      {offsets.sizes()[0] - 1, input.size(1)},
-      input.options(),
-      input.suggest_memory_format(),
-      false);
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+  std::vector<int64_t> sizes{offsets.sizes()[0] - 1, input.size(1)};
+  LazyOp<at::Tensor, ir::EmbeddingBagSum> op(
+      node, {input, indices, offsets, valid_count, kernel_mode}, {sizes});
+  return op.call();
 }
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
@@ -1881,49 +1847,20 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& grad_weight) {
   PT_LAZY_TRACE;
   static_cast<void>(valid_count_bwd);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::embedding_bag_sum_fwd"), {});
+  std::vector<int64_t> sizes{offsets_fwd.numel() - 1, input.size(1)};
+  LazyOp<at::Tensor> op{
+      "aten::embedding_bag_sum_fwd",
+      {input,
+       indices_fwd,
+       offsets_fwd,
+       valid_count,
+       indices_bwd,
+       offsets_bwd,
+       valid_count_bwd,
+       grad_weight},
+      {sizes}};
 
-  std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_fwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_fwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(grad_weight, c10::kHPU));
-
-  for (auto& i : hl_tensors) {
-    node->AddInput(i.GetIrValue());
-  }
-
-  auto result = empty_hpu_lazy(
-      {offsets_fwd.numel() - 1, input.size(1)},
-      input.options(),
-      input.suggest_memory_format(),
-      false);
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  std::vector<at::Tensor> input_pt_vec{
-      input,
-      indices_fwd,
-      offsets_fwd,
-      valid_count,
-      indices_bwd,
-      offsets_bwd,
-      grad_weight};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  return op.call();
 }
 Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     Tensor& out,
@@ -1932,34 +1869,10 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd) {
   PT_LAZY_TRACE;
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::embedding_bag_sum_bwd.out"), {});
-
-  std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count_bwd, c10::kHPU));
-
-  for (auto& i : hl_tensors) {
-    node->AddInput(i.GetIrValue());
-  }
-
-  auto hlresult = GetHbLazyTensor(out);
-  ir::Value& out_value = hlresult.CurrentIrValue();
-  out_value.m_index = 0;
-  out_value.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{
-      input, indices_bwd, offsets_bwd, valid_count_bwd};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(out);
-  return out;
+  LazyOp<at::Tensor&> op{
+      "aten::embedding_bag_sum_bwd",
+      {out, input, indices_bwd, offsets_bwd, valid_count_bwd}};
+  return op.call(out);
 }
 Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     Tensor& out,
@@ -1971,23 +1884,9 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::EmbeddingBagSumBwd>(
       out, input, indices, offsets, valid_count, kernel_mode);
-
-  auto hlresult = GetHbLazyTensor(out);
-  ir::Value& out_value = hlresult.CurrentIrValue();
-  out_value.m_index = 0;
-  out_value.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(out.device().index());
-  context->MarkTensorRegistered(hlresult.getTensorUniqueId());
-  flush_op(out);
-  return out;
+  LazyOp<at::Tensor&, ir::EmbeddingBagSumBwd> op(
+      node, {out, input, indices, valid_count, kernel_mode});
+  return op.call(out);
 }
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
