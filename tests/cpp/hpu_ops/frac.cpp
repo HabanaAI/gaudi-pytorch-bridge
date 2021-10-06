@@ -12,30 +12,34 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, ne_scalar_out) {
+TEST_F(HpuOpTest, frac) {
   GenerateInputs(1, torch::kFloat);
-  float compVal = 1.1f;
-  torch::ScalarType dtype = torch::kBool;
 
-  auto expected = torch::empty(0, dtype);
-  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+  torch::ScalarType dtype = torch::kFloat;
 
-  torch::ne_outf(GetCpuInput(0), compVal, expected);
-  torch::ne_outf(GetHpuInput(0), compVal, result);
+  auto expected = torch::frac(GetCpuInput(0));
+  auto result = torch::frac(GetHpuInput(0));
 
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, ne_tensor_out) {
-  GenerateInputs(2, torch::kInt32);
+TEST_F(HpuOpTest, frac_) {
+  GenerateInputs(1, torch::kFloat);
 
-  torch::ScalarType dtype = torch::kBool;
+  GetCpuInput(0).frac_();
+  GetHpuInput(0).frac_();
 
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, frac_out) {
+  GenerateInputs(1, torch::kFloat);
+  torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::ne_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::ne_outf(GetHpuInput(0), GetHpuInput(1), result);
+  torch::frac_outf(GetCpuInput(0), expected);
+  torch::frac_outf(GetHpuInput(0), result);
 
   Compare(expected, result);
 }

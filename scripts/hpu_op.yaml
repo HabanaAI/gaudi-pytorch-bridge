@@ -390,6 +390,23 @@ erf.out:
   dtypes: [BFloat16, Float]
   guid: erf_fwd
 
+erfc:
+  custom_fill_params: FillErfcParams
+  dtypes: [BFloat16, Float]
+  op_base_class: Erfc
+  out_ids: [0]
+
+erfc_:
+  custom_fill_params: FillErfcParams
+  dtypes: [BFloat16, Float]
+  op_base_class: Erfc
+  inplace_ids: [0]
+
+erfc.out:
+  custom_fill_params: FillErfcParams
+  dtypes: [BFloat16, Float]
+  op_base_class: Erfc
+
 exp.out:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
@@ -433,6 +450,20 @@ floor_:
   guid: floor_fwd
   inplace_ids: [0]
   legacy_eager: true
+
+frac:
+  dtypes: [BFloat16, Float]
+  op_base_class: Frac
+  out_ids: [0]
+
+frac_:
+  dtypes: [BFloat16, Float]
+  op_base_class: Frac
+  inplace_ids: [0]
+
+frac.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: Frac
 
 fmod.Scalar:
   dtypes: [BFloat16, Float, Int]
@@ -544,6 +575,34 @@ hardsigmoid.out:
   dtypes: [BFloat16, Float]
   guid: hard_sigmoid_fwd
 
+heaviside:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Heaviside
+  out_ids: [0]
+
+heaviside.out:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Heaviside
+
+heaviside_:
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Heaviside
+  inplace_ids: [0]
+
+hypot:
+  dtypes: [BFloat16,Float]
+  op_base_class: Hypot
+  out_ids: [0]
+
+hypot.out:
+  dtypes: [BFloat16,Float]
+  op_base_class: Hypot
+
+hypot_:
+  dtypes: [BFloat16,Float]
+  op_base_class: Hypot
+  inplace_ids: [0]
+
 le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
@@ -575,6 +634,43 @@ leaky_relu.out:
     name: ns_LeakyReluKernel::Params
     params:
     - [1, double]
+
+lerp.Scalar:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+  scalar_ids: [2]
+  out_ids: [0]
+
+lerp.Tensor:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+  out_ids: [0]
+
+lerp.Scalar_out:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+  scalar_ids: [2]
+
+lerp.Tensor_out:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+
+lerp_.Scalar:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+  scalar_ids: [2]
+  inplace_ids: [0]
+
+lerp_.Tensor:
+  custom_output_shape: LerpOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_base_class: Lerp
+  inplace_ids: [0]
 
 log.out:
   dtypes: [BFloat16, Float]
@@ -843,6 +939,10 @@ sign.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
 
+signbit.out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  op_base_class: SignBit
+
 sin:
   dtypes: [BFloat16, Float]
   guid: sin_fwd
@@ -963,3 +1063,4 @@ triu_:
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd
   inplace_ids: [0]
+

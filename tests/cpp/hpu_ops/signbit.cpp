@@ -12,30 +12,14 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, ne_scalar_out) {
+TEST_F(HpuOpTest, signbit_out) {
   GenerateInputs(1, torch::kFloat);
-  float compVal = 1.1f;
   torch::ScalarType dtype = torch::kBool;
-
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::ne_outf(GetCpuInput(0), compVal, expected);
-  torch::ne_outf(GetHpuInput(0), compVal, result);
-
-  Compare(expected, result);
-}
-
-TEST_F(HpuOpTest, ne_tensor_out) {
-  GenerateInputs(2, torch::kInt32);
-
-  torch::ScalarType dtype = torch::kBool;
-
-  auto expected = torch::empty(0, dtype);
-  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
-
-  torch::ne_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::ne_outf(GetHpuInput(0), GetHpuInput(1), result);
+  torch::signbit_outf(GetCpuInput(0), expected);
+  torch::signbit_outf(GetHpuInput(0), result);
 
   Compare(expected, result);
 }
