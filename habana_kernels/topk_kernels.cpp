@@ -122,10 +122,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
   TORCH_CHECK(
-      dim == self.dim() - 1,
-      "topk supports sort along fastest changing dim only")
-  TORCH_CHECK(self.dim() <= 2, "topk supports upto 2D input tensors only")
-  TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
   // TPC doen't support unsorted or ascending order - but that applies only for

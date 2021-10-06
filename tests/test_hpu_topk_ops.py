@@ -12,6 +12,11 @@ test_case_list = [
     (8, 1024)
 ]
 
+test_case_list2 = [
+    #  N, C
+    (10, 10, 10, 10)
+]
+
 topk_op_list = [
     # op
     torch.topk
@@ -45,6 +50,17 @@ def test_hpu_topk_op(N, C, topk_op, k, dim):
     evaluate_fwd_kernel(kernel=topk_op,
                          kernel_params=kernel_params)
 
+@pytest.mark.parametrize("N, C, H, W", test_case_list2)
+@pytest.mark.parametrize("topk_op", topk_op_list)
+@pytest.mark.parametrize("k, dim", topk_values_list)
+def test_hpu_topk_op2(N, C, H, W, topk_op, k, dim):
+    kernel_params = {'input':torch.randn(N, C, H, W),
+                     'k': k,
+                     'dim': dim}
+    evaluate_fwd_kernel(kernel=topk_op,
+                         kernel_params=kernel_params)
+
+
 
 @pytest.mark.parametrize("N, C", test_case_list)
 @pytest.mark.parametrize("topk_op", topk_op_list)
@@ -71,3 +87,4 @@ if __name__ == '__main__':
     test_hpu_topk_op(*test_case_list[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])
     test_hpu_topk_out_op(*test_case_list[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])
     test_hpu_sort_op(*test_case_list[0], sort_op_list[0], sort_values_list[0][0], sort_values_list[0][1])
+    test_hpu_topk_op2(*test_case_list2[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])
