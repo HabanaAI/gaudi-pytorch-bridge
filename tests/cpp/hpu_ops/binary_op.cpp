@@ -20,3 +20,17 @@ TEST_F(HpuOpTest, mvOut) {
 
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, sub_out) {
+  GenerateInputs(2, {{3, 4, 1}, {3, 1, 1}}, {torch::kFloat32, torch::kInt32});
+  float alpha = 0.1;
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::sub_outf(GetCpuInput(0), GetCpuInput(1), alpha, expected);
+  torch::sub_outf(GetHpuInput(0), GetHpuInput(1), alpha, result);
+
+  Compare(expected, result);
+}
