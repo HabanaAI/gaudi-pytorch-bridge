@@ -2621,31 +2621,12 @@ Tensor& arange_hpu_lazy(
 
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(mat1, c10::kHPU);
-  auto hl_other = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::mm"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
-  auto shape_out = MMOperator::compute_output_shape(mat1, mat2);
-  auto result = empty_hpu_lazy(
-      shape_out, mat1.options(), mat1.suggest_memory_format(), false);
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  std::vector<at::Tensor> input_pt_vec{mat1, mat2};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<Tensor> k{
+      "aten::mm",
+      {mat1, mat2},
+      {},
+      {MMOperator::compute_output_shape(mat1, mat2)}};
+  return k.call();
 }
 
 Tensor addmm_hpu_lazy(
@@ -2655,36 +2636,10 @@ Tensor addmm_hpu_lazy(
     const Scalar& beta,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  const auto hl_mat1 = GetOrCreateHbLazyTensor(mat1, c10::kHPU);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
-  const auto hl_beta = GetIrValueForScalar(beta);
-  const auto hl_alpha = GetIrValueForScalar(alpha);
-
-  const auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::addmm"),
-      {hl_self.GetIrValue(),
-       hl_mat1.GetIrValue(),
-       hl_mat2.GetIrValue(),
-       hl_beta,
-       hl_alpha});
   const std::vector<int64_t> shape_out = {mat1.size(0), mat2.size(1)};
-  const auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  const auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies((HbLazyTensor&)hlresult, (Tensor&)result);
-  std::vector<at::Tensor> input_pt_vec{self, mat1, mat2};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<Tensor> k{
+      "aten::addmm", {self, mat1, mat2, beta, alpha}, {}, {shape_out}};
+  return k.call();
 }
 
 Tensor& batch_gemm_out_hpu_lazy(
