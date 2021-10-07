@@ -1433,63 +1433,6 @@ Tensor pow_scalar_tensor_hpu_lazy(const Scalar& other, const Tensor& self) {
   return k.call();
 }
 
-Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::maximum"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // updatet the view if any
-  updateDstDependencies(hlresult, result);
-
-  std::vector<at::Tensor> input_pt_vec{self, other};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
-Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::minimum"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // updatet the view if any
-  updateDstDependencies(hlresult, result);
-
-  std::vector<at::Tensor> input_pt_vec{self, other};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
 Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{

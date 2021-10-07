@@ -133,8 +133,6 @@ at::Tensor& pow_tensor_scalar_hpu_lazy_(
 at::Tensor pow_scalar_tensor_hpu_lazy(
     const at::Scalar& other,
     const at::Tensor& self);
-at::Tensor maximum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor minimum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor gt_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor gt_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor& eq_tensor_out_hpu_lazy(

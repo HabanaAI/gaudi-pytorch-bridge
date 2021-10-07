@@ -519,23 +519,13 @@ Tensor hpu_wrap::pow(const Scalar& other, const Tensor& self) {
 Tensor hpu_wrap::maximum(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("maximum", {self, other}))
     return AtenHpuTypeDefault::maximum(self, other);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return maximum_hpu_lazy(self, other);
-  } else {
-    return maximum_hpu(self, other);
-  }
+  return maximum_hpu(self, other);
 };
 
 Tensor hpu_wrap::minimum(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("minimum", {self, other}))
     return AtenHpuTypeDefault::minimum(self, other);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return minimum_hpu_lazy(self, other);
-  } else {
-    return minimum_hpu(self, other);
-  }
+  return minimum_hpu(self, other);
 };
 
 Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {

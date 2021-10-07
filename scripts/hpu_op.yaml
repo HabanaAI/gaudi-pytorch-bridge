@@ -622,9 +622,23 @@ lt_.Scalar:
   scalar_ids: [1]
   inplace_ids: [0]
 
+maximum:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int]
+  guid: max_fwd
+  out_ids: [0]
+  legacy_eager: true
+
 maximum.out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
+
+minimum:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int]
+  guid: min_fwd
+  out_ids: [0]
+  legacy_eager: true
 
 minimum.out:
   dtypes: [BFloat16, Float, Int]

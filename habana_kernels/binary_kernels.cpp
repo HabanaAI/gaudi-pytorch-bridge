@@ -771,7 +771,7 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
 Tensor div_scalar_hpu(
     const Tensor& self,
     const Scalar& other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+  // at python level
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -1663,18 +1663,6 @@ static auto& KernelRegistry =
             "aten::pow.Scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::PowOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::maximum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::MaximumOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::minimum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::MinimumOperator>(
                   device_id, node_type);
             })
         .add(
