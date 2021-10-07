@@ -21,6 +21,8 @@ class HabanaAeonTransforms:
                 self._handle_to_tensor(t)
             if isinstance(t, transforms.Normalize):
                 self._handle_normalize(t)
+            else:
+                raise ValueError("Unsupported transform: " + str(type(t)))
 
     def _handle_resize_crop(self, t):
         if not isinstance(t, transforms.RandomResizedCrop) and not isinstance(t, transforms.CenterCrop) and not isinstance(t, transforms.Resize):
