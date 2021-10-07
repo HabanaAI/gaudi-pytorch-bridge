@@ -217,6 +217,24 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_fundamental<T>::value, T>::type call() {
+    const auto& node = create_node();
+    const auto& t = get_inputs().at(m_out_index).toTensor();
+    const auto& result =
+        empty_hpu_lazy(1, t.options(), t.suggest_memory_format(), false);
+    auto hl_result = GetHbLazyTensor(result);
+    ir::Value& out = hl_result.CurrentIrValue();
+    out.SetNode(
+        node,
+        hl_result.GetDevice(),
+        hl_result.GetSizes(),
+        hl_result.dtype_optional());
+    updateDstDependencies(hl_result, result, false);
+
+    return result.item().template to<T>();
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     const auto& node = create_node();
     const auto& result = get_result();
@@ -342,7 +360,7 @@ class LazyOp {
     }
 
     if (m_out_meta_tensors.empty()) {
-      auto t = get_inputs().at(m_out_index).toTensor();
+      const auto& t = get_inputs().at(m_out_index).toTensor();
       const auto& out_shape =
           m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
       if (m_scalar_type != c10::ScalarType::Undefined) {
