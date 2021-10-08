@@ -1863,7 +1863,8 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         auto it_dup = duplicate_output_to_outtinfo_map.find(ivpsh);
         it_dup->second.set_output_index(output_idx);
       } else {
-        PT_BRIDGE_FATAL(
+        TORCH_CHECK(
+            0,
             "Unaccounted output %",
             output->debugName(),
             " at index ",
@@ -2209,6 +2210,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
 
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
+
     if (outputPersistent.size() == 1) {
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputPersistent[0]);

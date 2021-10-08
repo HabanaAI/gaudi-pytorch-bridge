@@ -238,3 +238,26 @@ TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
+
+TEST_F(LazyBinaryInplaceKernelTest, DivInplaceIntermediateTest) {
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+
+  exec::HlExec* hlexec = new exec::HlExec();
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+
+  auto C = torch::relu(A);
+
+  C.div_(B);
+  auto D = torch::relu(C);
+  auto exp = D;
+
+  auto hC = torch::relu(hA);
+  hC.div_(hB);
+  auto hD = torch::relu(hC);
+  Tensor out = hD.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}

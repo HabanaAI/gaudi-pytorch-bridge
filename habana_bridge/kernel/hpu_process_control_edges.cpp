@@ -1,21 +1,54 @@
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
+#include <habana_device/hpu_cached_devices.h>
+#include <synapse_helpers/device.h>
+#include "hpu_ops/hpu_op_helper.h"
+
 using namespace torch::jit;
 using namespace habana;
 
-ControlEdgeType nodeRequiresControlEdge(const char* node_name) {
-  if (strcmp(node_name, "hpu::control_edge_") == 0)
-    return ControlEdgeType::kCONTROL_EDGE_INPLACE;
-  else if (strcmp(node_name, "hpu::control_edge_other_") == 0)
+bool HabanaLaunchOpPT::isControlEdge(torch::jit::Node* node) {
+  bool is_controledge = false;
+
+  auto node_str = node->kind().toQualString();
+
+  if ((strcmp(node_str, "hpu::as_strided_lazy_") == 0) ||
+      (strcmp(node_str, "hpu::as_strided_lazy_cl_") == 0) ||
+      (strcmp(node_str, "hpu::control_edge_other_") == 0) ||
+      (strcmp(node_str, "hpu::control_edge_") == 0)) {
+    is_controledge = true;
+  }
+
+  return is_controledge;
+}
+
+bool HabanaLaunchOpPT::isInplace(torch::jit::Node* node) {
+  bool is_inplace = false;
+
+  if (!isControlEdge(node)) {
+    auto node_name = node->kind().toQualString();
+
+    size_t len = strlen(node_name);
+    char endch = node_name[len - 1];
+
+    if (endch == '_') {
+      is_inplace = true;
+    }
+  }
+  return is_inplace;
+}
+
+ControlEdgeType HabanaLaunchOpPT::nodeRequiresControlEdge(
+    torch::jit::Node* node) {
+  if (strcmp(node->kind().toQualString(), "hpu::control_edge_other_") == 0) {
     return ControlEdgeType::kCONTROL_EDGE_OTHER_;
-  else if (strcmp(node_name, "hpu::as_strided_lazy_") == 0)
-    return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
-  else if (strcmp(node_name, "hpu::as_strided_lazy_cl_") == 0)
-    return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
-  else if (strcmp(node_name, "hpu::as_strided_layout_") == 0)
-    return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
-  else
+  } else if (isControlEdge(node)) {
+    return ControlEdgeType::kCONTROL_EDGE_;
+  } else if (isInplace(node)) {
+    return ControlEdgeType::kCONTROL_EDGE_INPLACE;
+  } else {
     return ControlEdgeType::kCONTROL_EDGE_NONE;
+  }
 }
 
 // Checks if it is a valid blocking or blocked node
@@ -25,8 +58,9 @@ bool HabanaLaunchOpPT::IsValidNode(torch::jit::Node* blocking_node) {
 
   // exclude control edges
   auto node_str = blocking_node->kind().toQualString();
-  auto c_edge = nodeRequiresControlEdge(node_str);
-  if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE ||
+  auto c_edge = nodeRequiresControlEdge(blocking_node);
+  if (((c_edge == ControlEdgeType::kCONTROL_EDGE_) ||
+       (c_edge == ControlEdgeType::kCONTROL_EDGE_OTHER_)) ||
       (strcmp(node_str, "prim::Param") == 0) ||
       (strcmp(node_str, "prim::Return") == 0)) {
     is_valid = false;
@@ -82,8 +116,7 @@ void HabanaLaunchOpPT::ProcessCustomOptControlEdges(
           auto list_idx = 0;
           for (auto list_input_val : in_val->node()->inputs()) {
             auto list_input_node = list_input_val->node();
-            auto c_edge =
-                nodeRequiresControlEdge(list_input_node->kind().toQualString());
+            auto c_edge = nodeRequiresControlEdge(list_input_node);
             if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
               // prepare blocking nodes list
               PrepareBlockingNodeList(list_input_node, c_edge);
@@ -135,8 +168,11 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
 
       // exclude current use in control_edge as well as parent node
       if (IsValidNode(blocking_node)) {
-        blocking_nodes_vec.emplace_back(blocking_node);
-        HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
+        // uses() api will include current node as well. Exclude it
+        if (blocking_node != node) {
+          blocking_nodes_vec.emplace_back(blocking_node);
+          HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
+        }
       }
 
     } // for (auto& u : src_node_uses)
@@ -151,10 +187,11 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
   }
 
   // traverse up until a non control edge node is reached
-  auto c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
-  while (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
+  auto c_edge = nodeRequiresControlEdge(parent_node);
+  while ((c_edge == ControlEdgeType::kCONTROL_EDGE_) ||
+         (c_edge == ControlEdgeType::kCONTROL_EDGE_OTHER_)) {
     parent_node = parent_node->input(0)->node();
-    c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
+    c_edge = nodeRequiresControlEdge(parent_node);
   }
 
   // exclude invalid nodes like prim:Param, prim Return
@@ -234,52 +271,57 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
 
   for (auto node : graph_nodes) {
-    auto c_edge = nodeRequiresControlEdge(node->kind().toQualString());
+    auto c_edge = nodeRequiresControlEdge(node);
     if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
       // prepare blocking nodes list
       PrepareBlockingNodeList(node, c_edge);
 
       if (blocking_syn_nodes_vec.size()) {
         // prepare blocked nodes list
-        auto dst_node_uses = node->output(0)->uses();
+        if (c_edge == ControlEdgeType::kCONTROL_EDGE_INPLACE) {
+          // if the current node is an inplace op, it becomes the blocked node
+          HabanaLaunchOpPT::addSynNodes(blocked_syn_nodes_vec, node);
+        } else {
+          auto dst_node_uses = node->output(0)->uses();
 
-        for (auto& u : dst_node_uses) {
-          auto blocked_node = u.user;
+          for (auto& u : dst_node_uses) {
+            auto blocked_node = u.user;
 
-          auto blocked_node_str = blocked_node->kind().toQualString();
+            auto blocked_node_str = blocked_node->kind().toQualString();
 
-          // special handling for listconstruct
-          if (strcmp(blocked_node_str, "prim::ListConstruct") == 0) {
-            auto blocked_node_uses = blocked_node->output(0)->uses();
+            // special handling for listconstruct
+            if (strcmp(blocked_node_str, "prim::ListConstruct") == 0) {
+              auto blocked_node_uses = blocked_node->output(0)->uses();
 
-            for (auto& l_u : blocked_node_uses) {
-              blocked_node = l_u.user;
+              for (auto& l_u : blocked_node_uses) {
+                blocked_node = l_u.user;
 
-              if (IsValidNode(blocked_node)) {
-                blocked_node_str = blocked_node->kind().toQualString();
+                if (IsValidNode(blocked_node)) {
+                  blocked_node_str = blocked_node->kind().toQualString();
 
-                // skip the custom optimizer nodes as they are handled
-                // separately
-                if (strcmp(blocked_node_str, node->kind().toQualString()) &&
-                    (!IsCustomOptimizer(blocked_node_str))) {
-                  if (!IsControlEdgeCycle(blocked_node)) {
-                    HabanaLaunchOpPT::addSynNodes(
-                        blocked_syn_nodes_vec, blocked_node);
+                  // skip the custom optimizer nodes as they are handled
+                  // separately
+                  if (strcmp(blocked_node_str, node->kind().toQualString()) &&
+                      (!IsCustomOptimizer(blocked_node_str))) {
+                    if (!IsControlEdgeCycle(blocked_node)) {
+                      HabanaLaunchOpPT::addSynNodes(
+                          blocked_syn_nodes_vec, blocked_node);
+                    }
                   }
                 }
               }
-            }
-          } else {
-            // exclude current use in control_edge
-            if (strcmp(blocked_node_str, node->kind().toQualString())) {
-              if (IsValidNode(blocked_node) &&
-                  (!IsControlEdgeCycle(blocked_node))) {
-                HabanaLaunchOpPT::addSynNodes(
-                    blocked_syn_nodes_vec, blocked_node);
+            } else {
+              // exclude current use in control_edge
+              if (strcmp(blocked_node_str, node->kind().toQualString())) {
+                if (IsValidNode(blocked_node) &&
+                    (!IsControlEdgeCycle(blocked_node))) {
+                  HabanaLaunchOpPT::addSynNodes(
+                      blocked_syn_nodes_vec, blocked_node);
+                }
               }
             }
-          }
-        } // for (auto& u : dst_node_uses)
+          } // for (auto& u : dst_node_uses)
+        } // if (c_edge == ControlEdgeType::kCONTROL_EDGE_INPLACE)
 
         if (blocked_syn_nodes_vec.size()) {
           syn_graph_ptr->set_synapse_control_edges_pt(
