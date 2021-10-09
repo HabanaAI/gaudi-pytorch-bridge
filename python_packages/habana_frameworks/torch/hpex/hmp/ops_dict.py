@@ -66,6 +66,8 @@ ops_dict = {
     "gelu": [torch.nn.functional],
     "relu": [torch.nn.functional],
     "leaky_relu": [torch.nn.functional],
+    "relu6": [torch.nn.functional],
+    "hardtanh": [torch.nn.functional],
     # Shapes
     "t": [torch, torch.Tensor],
     "flatten": [torch, torch.Tensor],
