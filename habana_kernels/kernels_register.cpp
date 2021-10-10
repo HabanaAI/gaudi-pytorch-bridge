@@ -3136,24 +3136,12 @@ at::Tensor hpu_wrap::leaky_relu(
 Tensor hpu_wrap::sigmoid(const Tensor& input) {
   if (!hpu_check_inputs_impl("sigmoid", {input}))
     return AtenHpuTypeDefault::sigmoid(input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sigmoid_hpu_lazy(input);
-
-  } else {
-    return sigmoid_hpu(input);
-  }
+  return sigmoid_hpu(input);
 };
 Tensor hpu_wrap::sigmoid_backward(const Tensor& grad_in, const Tensor& input) {
   if (!hpu_check_inputs_impl("sigmoid_backward", {grad_in, input}))
     return AtenHpuTypeDefault::sigmoid_backward(grad_in, input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sigmoid_backward_hpu_lazy(grad_in, input);
-
-  } else {
-    return sigmoid_backward_hpu(grad_in, input);
-  }
+  return sigmoid_backward_hpu(grad_in, input);
 };
 
 at::Tensor& hpu_wrap::hardsigmoid_(at::Tensor& self) {

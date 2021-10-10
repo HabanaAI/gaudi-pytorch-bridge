@@ -5302,41 +5302,6 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
   return result;
 }
 
-Tensor sigmoid_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::sigmoid", {input}};
-  return k.call();
-}
-
-Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHPU);
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  hl_grad_in = HandleViewsOrUpdate(grad_in, hl_grad_in);
-  hl_input = HandleViewsOrUpdate(input, hl_input);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::sigmoid_backward"),
-      {hl_grad_in.GetIrValue(), hl_input.GetIrValue()});
-
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{grad_in, input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
 at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::hardsigmoid_", {self}};

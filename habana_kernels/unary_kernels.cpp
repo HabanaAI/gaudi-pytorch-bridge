@@ -2520,17 +2520,6 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "aten::sigmoid",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SigmoidOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::sigmoid_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SigmoidBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::hardsigmoid",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<HardsigmoidOperator>(
