@@ -483,6 +483,28 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for output = torch.sqrt(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor sqrt_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  SqrtOperator Op(device_id, scalar_type);
+
+  auto output = unary_op_hpu(input, node_type, &Op);
+
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for output = torch.tanh(input)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] input - input tensor, 1-4D, BF16/FP32

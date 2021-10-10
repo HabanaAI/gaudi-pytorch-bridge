@@ -671,6 +671,7 @@ struct hpu_wrap {
   static at::Tensor hardsigmoid_backward(
       const at::Tensor& grad_output,
       const at::Tensor& self);
+  static at::Tensor sqrt(const at::Tensor& input);
   static at::Tensor tanh(const at::Tensor& input);
   static at::Tensor& tanh_(at::Tensor& self);
   static at::Tensor& tanh_out(const at::Tensor& self, at::Tensor& out);

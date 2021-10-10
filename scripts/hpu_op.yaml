@@ -834,6 +834,7 @@ sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   out_ids: [0]
+  legacy_eager: true
 
 sqrt.out:
   dtypes: [BFloat16, Float]

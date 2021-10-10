@@ -674,6 +674,7 @@ at::Tensor sigmoid_hpu(const at::Tensor& input);
 at::Tensor sigmoid_backward_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& input);
+at::Tensor sqrt_hpu(const at::Tensor& input);
 at::Tensor tanh_hpu(const at::Tensor& input);
 at::Tensor& tanh_hpu_(at::Tensor& self);
 at::Tensor& tanh_out_hpu(at::Tensor& out, const at::Tensor& self);
