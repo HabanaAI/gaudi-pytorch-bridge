@@ -16,6 +16,7 @@
 #include <pybind11/chrono.h>
 #include "device_context.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 using namespace synapse_helpers;
 namespace c10d {
@@ -498,6 +499,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   std::vector<at::Tensor> outputTensors;
   inputTensors.push_back(inputTensor);
   outputTensors.push_back(outputTensor);
+
+  // This is a workaround to support alltoall using hcclSend and hcclRecv
+  // because HCCL library does support alltoall yet.
+  // hcclSend and hcclRecv works when the ranks are different. In order to
+  // ensure that same rank data is present in output, we are first performing
+  // copy_data_within_device
+  habana_helpers::copy_data_within_device(inputTensor, outputTensor, false);
+
   return collective(
       inputTensors,
       outputTensors,
