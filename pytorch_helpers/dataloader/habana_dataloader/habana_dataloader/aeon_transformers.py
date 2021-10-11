@@ -15,11 +15,11 @@ class HabanaAeonTransforms:
         for t in self.transforms:
             if isinstance(t, transforms.RandomResizedCrop) or isinstance(t, transforms.CenterCrop) or isinstance(t, transforms.Resize):
                 self._handle_resize_crop(t)
-            if isinstance(t, transforms.RandomHorizontalFlip):
+            elif isinstance(t, transforms.RandomHorizontalFlip):
                 self._handle_random_horizontal_flip(t)
-            if isinstance(t, transforms.ToTensor):
+            elif isinstance(t, transforms.ToTensor):
                 self._handle_to_tensor(t)
-            if isinstance(t, transforms.Normalize):
+            elif isinstance(t, transforms.Normalize):
                 self._handle_normalize(t)
             else:
                 raise ValueError("Unsupported transform: " + str(type(t)))
