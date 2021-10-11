@@ -980,6 +980,16 @@ sinh.out:
   dtypes: [Float]
   guid: sinh_fwd
 
+sinh:
+  dtypes: [Float]
+  guid: sinh_fwd
+  out_ids: [0]
+
+sinh_:
+  dtypes: [Float]
+  guid: sinh_fwd
+  inplace_ids: [0]
+
 smooth_l1_loss:
   custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
@@ -1027,6 +1037,16 @@ sub.out:
 tan.out:
   dtypes: [Float]
   guid: tan_fwd
+
+tan:
+  dtypes: [Float]
+  guid: tan_fwd
+  out_ids: [0]
+
+tan_:
+  dtypes: [Float]
+  guid: tan_fwd
+  inplace_ids: [0]
 
 tanh.out:
   dtypes: [BFloat16, Float]
