@@ -15,7 +15,7 @@ class FusedAdamW(Optimizer):
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,
         weight_decay: float = 0.0,
-        correct_bias: bool = True,
+        bias_correction: bool = True,
     ):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
@@ -34,7 +34,7 @@ class FusedAdamW(Optimizer):
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
-            correct_bias=correct_bias,
+            bias_correction=bias_correction,
         )
         super().__init__(params, defaults)
 
@@ -102,7 +102,16 @@ class FusedAdamW(Optimizer):
                 group["step"] += 1
             else:
                 group["step"] = 1
-            bias_correction = 1 if group["correct_bias"] else 0
+
+            bias_correction_key = None
+            if "bias_correction" in group.keys():
+                bias_correction_key = "bias_correction"
+            else:
+                print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
+                print("This might occur when loading old checkpoints.")
+                bias_correction_key = "correct_bias"
+
+            bias_correction = 1 if group[bias_correction_key] else 0
 
             step_size = group["lr"]
             if bias_correction:
