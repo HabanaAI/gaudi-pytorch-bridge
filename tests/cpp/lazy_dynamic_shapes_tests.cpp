@@ -1411,3 +1411,41 @@ TEST_F(LazyDynamicShapesTest, ViewTest) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }
+
+TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int64_t dim = 0;
+  int H = 4;
+  std::vector<int> in_sizes{8000, 9000, 10000};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    int index_size = W;
+    torch::Tensor A = torch::randn({W, H});
+    torch::Tensor B = torch::randn({W});
+    torch::Tensor index =
+        torch::randint(0, (W - 1), {index_size}, torch::dtype(torch::kInt64));
+    // Make list
+    c10::List<c10::optional<at::Tensor>> indices_cpu;
+    c10::List<c10::optional<at::Tensor>> indices_list{};
+    indices_cpu.push_back(
+        c10::make_optional(torch::slice(index, 0, 0, 1000, 1)));
+    indices_list.push_back(
+        c10::make_optional(torch::slice(index.to(torch::kHPU), 0, 0, 1000, 1)));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hOut = torch::index(hA, indices_list);
+    torch::Tensor out = torch::index(A, indices_cpu);
+    torch::Tensor hOut1 = torch::index(hB, indices_list);
+    torch::Tensor out1 = torch::index(B, indices_cpu);
+    HbLazyTensor::StepMarker({});
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}

@@ -842,7 +842,9 @@ synapse_helpers::tensor habana_helpers::
                      .mark_persistence(tensor.is_persistent());
 
   if (tensor.has_dynamic_shape()) {
-    builder.with_dynamic_shape(tensor.dynamic_shape());
+    if (synapse_helpers::to_shape_t(sizes) == tensor.dynamic_shape().min()) {
+      builder.with_dynamic_shape(tensor.dynamic_shape());
+    }
   }
 
   auto maybe_tensor = builder.build(
