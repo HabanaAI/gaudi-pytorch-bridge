@@ -1607,6 +1607,13 @@ tanh_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: tanh_bwd
 
+threshold_backward:
+  dtypes: [BFloat16, Float]
+  guid: relu_bwd
+  out_ids: [1]
+  op_backend: ThresholdBackwardHabanaOperator
+  legacy_eager: true
+
 trace:
   custom_output_shape: TraceOutputShape
   dtypes: [BFloat16,Float]

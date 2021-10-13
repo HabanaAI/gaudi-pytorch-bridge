@@ -2982,13 +2982,7 @@ Tensor hpu_wrap::threshold_backward(
   if (!(hpu_check_inputs_impl("threshold_backward", {grad_output, self}) &&
         check_handle->get_status()))
     return AtenHpuTypeDefault::threshold_backward(grad_output, self, threshold);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return threshold_backward_hpu_lazy(grad_output, self, threshold);
-
-  } else {
-    return threshold_backward_hpu(grad_output, self, threshold);
-  }
+  return threshold_backward_hpu(grad_output, self, threshold);
 };
 std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
     const Tensor& self,

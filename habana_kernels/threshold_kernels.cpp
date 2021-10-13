@@ -91,10 +91,3 @@ Tensor threshold_backward_hpu(
   PT_KERNEL_END;
   return out.at(0);
 }
-
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "aten::threshold_backward",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::ThresholdBackwardOperator>(
-          device_id, node_type);
-    });

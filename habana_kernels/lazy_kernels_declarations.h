@@ -656,10 +656,6 @@ std::vector<at::Tensor> split_with_sizes_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef split_sizes,
     int64_t dim);
-at::Tensor threshold_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& threshold);
 std::tuple<at::Tensor&, at::Tensor&> topk_out_hpu_lazy(
     at::Tensor& values,
     at::Tensor& indices,

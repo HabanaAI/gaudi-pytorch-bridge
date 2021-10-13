@@ -4829,37 +4829,6 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
   return result;
 };
 
-Tensor threshold_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Scalar& threshold) {
-  PT_LAZY_TRACE;
-  auto hl_grad = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
-  hl_grad = HandleViewsOrUpdate(grad_output, hl_grad);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  hl_self = HandleViewsOrUpdate(self, hl_self);
-  auto hl_threshold = GetIrValueForScalar(threshold);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::threshold_backward"),
-      {hl_grad.GetIrValue(), hl_self.GetIrValue(), hl_threshold});
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  std::vector<at::Tensor> input_pt_vec{grad_output, self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
 std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
     Tensor& values,
     Tensor& indices,
