@@ -59,11 +59,11 @@ class ReduceOperator : public HabanaOperator {
   CreateReductionGraph(
       synapse_helpers::graph& graph,
       at::Tensor& pyt_tensor,
+      const at::Tensor& output,
       synapse_helpers::tensor_or_ref syn_tensor_in,
       synapse_helpers::tensor_or_ref syn_tensor_out,
       c10::IntArrayRef in_dim,
-      bool keepdim,
-      c10::ScalarType dtype);
+      bool keepdim);
 };
 
 //

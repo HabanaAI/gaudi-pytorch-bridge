@@ -290,11 +290,11 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     std::tie(std::ignore, p_context_->syn_outputs_[0]) = CreateReductionGraph(
         graph,
         self_reshaped,
+        output,
         std::move(ReshapeOp->GetSynOutputs()[0]),
         std::move(p_context_->syn_outputs_[0]),
         reshaped_in_dim,
-        keepdim,
-        output.scalar_type());
+        keepdim);
   } else {
     int64_t in_dim_copy[in_dim.size()];
     std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
@@ -311,16 +311,15 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         output.scalar_type() == self.scalar_type(),
         "Habana reduction ops don't support casts yet");*/
     AllocateSynapseOutput(graph, output, is_output_persistent);
-
     std::tie(p_context_->syn_inputs_[0], p_context_->syn_outputs_[0]) =
         CreateReductionGraph(
             graph,
             self,
+            output,
             std::move(p_context_->syn_inputs_[0]),
             std::move(p_context_->syn_outputs_[0]),
             in_dim_arr,
-            keepdim,
-            output.scalar_type());
+            keepdim);
   }
 }
 
@@ -328,22 +327,22 @@ std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
 ReduceOperator::CreateReductionGraph(
     synapse_helpers::graph& graph,
     Tensor& pyt_tensor,
+    const at::Tensor& output,
     synapse_helpers::tensor_or_ref syn_tensor_in,
     synapse_helpers::tensor_or_ref syn_tensor_out,
     IntArrayRef in_dim,
-    bool keepdim,
-    ScalarType dtype) {
+    bool keepdim) {
   // In the code below syn_helper_intermediate[0] holds the reshaped/original
   // input, syn_helper_intermediate[<last_index>] holds the final output and
   // all others in between holds intermediate output/net-stage-input in the
   // dim by dim reductions.
-  std::vector<synapse_helpers::tensor> syn_helper_intermediate;
-  std::vector<synTensor> syn_intermediate;
+  std::vector<synapse_helpers::tensor_or_ref> syn_helper_intermediate;
   std::vector<int64_t> pyt_shape = pyt_tensor.sizes().vec();
   auto pyt_stride = pyt_tensor.strides().vec();
+  ScalarType dtype = output.scalar_type();
   // add syn_input tensor
   synapse_helpers::tensor& synInput = syn_tensor_in;
-  syn_intermediate.emplace_back(synInput.get());
+  syn_helper_intermediate.emplace_back(synInput);
   // create syn_intermediate tensors of required shape
   unsigned loopend = keepdim ? in_dim.size() - 1 : in_dim.size();
   for (unsigned i = 0; i < loopend; i++) {
@@ -358,20 +357,18 @@ ReduceOperator::CreateReductionGraph(
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape, pyt_stride, graph, false, pyt_tensor.device().index(), dtype));
-    syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
   }
   // add syn_output tensor
   synapse_helpers::tensor& synOutput = syn_tensor_out;
-  syn_intermediate.emplace_back(synOutput.get());
+  syn_helper_intermediate.emplace_back(synOutput);
 
   // add reduction nodes corresponding to intermediate stages
   for (unsigned i = 0; i < in_dim.size(); i++) {
     std::string node_type = this->guid_;
     ns_Reduction::Params params{};
     params.reductionDimension = pyt_tensor.dim() - in_dim[i] - 1;
-
-    std::vector<synTensor> syn_in{syn_intermediate[i]};
-    std::vector<synTensor> syn_out{syn_intermediate[i + 1]};
+    std::vector<synTensor> syn_in{syn_helper_intermediate[i].ref().get()};
+    std::vector<synTensor> syn_out{syn_helper_intermediate[i + 1].ref().get()};
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -383,8 +380,19 @@ ReduceOperator::CreateReductionGraph(
   // dims
   if (!keepdim) {
     std::string node_type = "reshape";
-    std::vector<synTensor> syn_in{syn_intermediate[in_dim.size()]};
-    std::vector<synTensor> syn_out{syn_intermediate[in_dim.size() + 1]};
+    std::vector<synTensor> syn_in{
+        syn_helper_intermediate[in_dim.size()].ref().get()};
+    std::vector<synTensor> syn_out{
+        syn_helper_intermediate[in_dim.size() + 1].ref().get()};
+
+    auto reshapeOp =
+        make_operator<ReshapeOperator>(p_context_->device_id_, dtype);
+    if (graph.is_dynamic_graph()) {
+      reshapeOp->AllocateSynapseShapeTensor(graph, output);
+      synapse_helpers::tensor& syn_shape = reshapeOp->GetSynInputs().back();
+      syn_in.emplace_back(syn_shape.get());
+    }
+
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),

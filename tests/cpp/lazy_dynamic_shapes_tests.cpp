@@ -758,7 +758,7 @@ TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_ProdTest) {
+TEST_F(LazyDynamicShapesTest, ProdTest) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -1031,6 +1031,33 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
     torch::Tensor Out = A.to(torch::kFloat);
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
   }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  int N = 1;
+  int C = 4;
+  int H = 4;
+  std::vector<int> in_sizes{6, 12, 20, 10};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+
+    torch::Tensor hA = A.to(torch::kHPU);
+
+    torch::Tensor out_hpu = torch::argmax(hA, 2);
+    torch::Tensor out_cpu = torch::argmax(A, 2);
+    auto out = out_hpu.to(torch::kCPU);
+    EXPECT_TRUE(allclose(out, out_cpu.to(torch::kInt), 0.0001, 0.0001));
+  }
+
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
