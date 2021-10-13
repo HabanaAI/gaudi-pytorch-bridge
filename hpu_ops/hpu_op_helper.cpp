@@ -207,6 +207,13 @@ void HabanaOperatorHelper::HandleTypePromotion(
       guid_.substr(0, guid_.find_last_of('_') + 1) +
       habana_helpers::name_suffix_from_type(result_type));
 
+  HABANA_ASSERT(
+      m_inplace_ids.empty() or result_type == m_scalar_type,
+      "result type ",
+      result_type,
+      " can't be casted to the desired output type ",
+      m_scalar_type);
+
   // Update m_scalar_type
   m_scalar_type = result_type;
 }

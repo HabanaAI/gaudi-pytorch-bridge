@@ -11,55 +11,35 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-void CompareHabanaOperator::AddNode(
+template <>
+LazyCmp<at::Tensor>::LazyCmp(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+
+template <>
+at::Tensor LazyCmp<at::Tensor>::get_result_overrideable() {
+  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+  const auto& t = inputs.at(0).toTensor();
+  return habana_lazy::empty_hpu_lazy(
+      t.sizes(),
+      t.options().dtype(at::kBool),
+      t.suggest_memory_format(),
+      false);
+}
+
+void CompareOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  const at::Tensor other = stack_tensor(stack, 1);
-
-  const at::ScalarType& result_dtype = at::result_type(self, other);
-  if (self.scalar_type() == result_dtype and
-      other.scalar_type() == result_dtype) {
-    // return without type promotion as both inputs are of the same dtype
-    return HabanaOperatorHelper::AddNode(
-        graph, stack, is_output_persistent_list);
-  }
-
-  int cast_index =
-      self.scalar_type() == result_dtype and other.scalar_type() != result_dtype
-      ? 1
-      : 0;
-  const std::string& cast_from = habana_helpers::name_suffix_from_type(
-      stack_tensor(stack, cast_index).scalar_type());
-  const std::string& cast_to =
-      habana_helpers::name_suffix_from_type(result_dtype);
-  // Insert cast on the input with lower dtype
-  auto cast = BuildOp(
-      graph,
-      "cast_" + cast_from + "_to_" + cast_to,
-      {syn_in(cast_index)},
-      {{stack_tensor(stack, cast_index).sizes(), result_dtype}});
-  const auto& cast_output = cast.at(0).get();
-
-  // Extract guid without the dtype suffix
-  const std::string& guid = guid_.substr(0, guid_.find_last_of('_') + 1);
   auto outshape = BinaryOutputShape(stack)[0];
-
-  // Construct inputs for compare op considering the cast output
-  std::vector<synTensor> syn_inputs;
-  if (cast_index == 0) {
-    syn_inputs = {cast_output, syn_in(1)};
-  } else {
-    syn_inputs = {syn_in(0), cast_output};
-  }
-  auto op = BuildOp(
+  auto result = BuildOp(
       graph,
-      guid + cast_to,
-      syn_inputs,
-      {{outshape, result_dtype, is_output_persistent_list[0], true}});
+      guid_,
+      {syn_in(0), syn_in(1)},
+      {{outshape, at::kBool, is_output_persistent_list[0], true}});
 
-  syn_out(0) = std::move(op.at(0));
+  syn_out(0) = std::move(result[0]);
 }
-
 } // namespace habana

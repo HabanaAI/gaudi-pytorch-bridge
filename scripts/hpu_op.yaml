@@ -364,24 +364,27 @@ eq.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   scalar_ids: [1]
+  type_promotion: true
 
 eq.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   legacy_eager: true
-  op_base_class: CompareHabanaOperator
+  type_promotion: true
 
 eq_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
+  type_promotion: true
 
 eq_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   inplace_ids: [0]
+  type_promotion: true
 
 erf.out:
   dtypes: [BFloat16, Float]
@@ -457,23 +460,26 @@ fmod_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   op_base_class: Fmod
+  type_promotion: true
 
 fmod_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   inplace_ids: [0]
   op_base_class: Fmod
+  type_promotion: true
 
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   scalar_ids: [1]
+  type_promotion: true
 
 ge.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
-  op_base_class: CompareHabanaOperator
+  type_promotion: true
 
 grid_sampler_2d:
   custom_fill_params: FillGridSamplerParams
@@ -490,33 +496,38 @@ ge_.Scalar:
   guid: greater_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
+  type_promotion: true
 
 ge_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   inplace_ids: [0]
+  type_promotion: true
 
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   scalar_ids: [1]
+  type_promotion: true
 
 gt.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
-  op_base_class: CompareHabanaOperator
+  type_promotion: true
 
 gt_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   scalar_ids: [1]
   inplace_ids: [0]
+  type_promotion: true
 
 gt_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   inplace_ids: [0]
+  type_promotion: true
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
@@ -532,18 +543,20 @@ le.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
-  op_base_class: CompareHabanaOperator
+  type_promotion: true
 
 le_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
+  type_promotion: true
 
 le_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
   inplace_ids: [0]
+  type_promotion: true
 
 leaky_relu.out:
   dtypes: [BFloat16, Float]
@@ -600,27 +613,39 @@ logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_base_class: LogCumsumExp
 
+lt.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+
 lt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
   scalar_ids: [1]
+  type_promotion: true
 
 lt.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
-  op_base_class: CompareHabanaOperator
+  type_promotion: true
 
 lt_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
   inplace_ids: [0]
+  type_promotion: true
 
 lt_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
   scalar_ids: [1]
   inplace_ids: [0]
+  type_promotion: true
 
 maximum:
   broadcast: true
@@ -663,11 +688,11 @@ mv.out:
   op_base_class: MvOpOut
 
 ne.Tensor_out:
-  dtypes: [BFloat16, Float, Int,Byte,Char]
+  dtypes: [BFloat16, Float, Int, Byte, Char]
   op_base_class: NE
 
 ne.Scalar_out:
-  dtypes: [BFloat16, Float, Int,Byte, Char]
+  dtypes: [BFloat16, Float, Int, Byte, Char]
   scalar_ids: [1]
   op_base_class: NE
 

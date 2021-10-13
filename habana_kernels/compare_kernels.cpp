@@ -595,11 +595,6 @@ static auto& KernelRegistry =
               return std::make_shared<LtOperator>(device_id, node_type);
             })
         .add(
-            "aten::lt.Scalar",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LtOperator>(device_id, node_type);
-            })
-        .add(
             "aten::ge.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GeOperator>(device_id, node_type);

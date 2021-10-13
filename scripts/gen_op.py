@@ -197,10 +197,12 @@ class Op(object):
         return self.op.get("op_base_class", "HabanaOperatorHelper")
 
     def get_lazy_class(self):
+        lazy_class = self.op.get("lazy_class", None)
+        if lazy_class:
+            return lazy_class
         if self.supports_type_promotion():
             return "LazyOpWithTypePromotion"
-
-        return self.op.get("lazy_class", "LazyOp")
+        return "LazyOp"
 
     def get_custom_fill_params(self):
         return self.op.get("custom_fill_params", None)
