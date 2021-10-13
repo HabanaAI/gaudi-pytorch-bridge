@@ -338,6 +338,9 @@ uint64_t DynamicBucketInfo::GetBucketId(
   }
 
   for (size_t i = 0; i < buckets_.size(); i++) {
+    if (i > 0 && dims.size() != buckets_[i].ranges().size()) {
+      continue;
+    }
     bool in_range = buckets_[i].IsInRange(dims, skipped_ranges) &&
         IsInRangeStaticDims(dims, buckets_[i].getDynamiDimsCount());
     // Choose a box with lower score meaning narrower ranges
