@@ -3196,13 +3196,7 @@ Tensor hpu_wrap::sqrt(const Tensor& input) {
 Tensor hpu_wrap::tanh(const Tensor& input) {
   if (!hpu_check_inputs_impl("tanh", {input}))
     return AtenHpuTypeDefault::tanh(input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return tanh_hpu_lazy(input);
-
-  } else {
-    return tanh_hpu(input);
-  }
+  return tanh_hpu(input);
 };
 Tensor& hpu_wrap::tanh_(Tensor& self) {
   if (!hpu_check_inputs_impl("tanh_", {self}))
@@ -3229,13 +3223,7 @@ Tensor& hpu_wrap::tanh_out(const Tensor& self, Tensor& out) {
 Tensor hpu_wrap::tanh_backward(const Tensor& grad_in, const Tensor& input) {
   if (!hpu_check_inputs_impl("tanh_backward", {grad_in, input}))
     return AtenHpuTypeDefault::tanh_backward(grad_in, input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return tanh_backward_hpu_lazy(grad_in, input);
-
-  } else {
-    return tanh_backward_hpu(grad_in, input);
-  }
+  return tanh_backward_hpu(grad_in, input);
 };
 Tensor hpu_wrap::gelu(const Tensor& self) {
   if (!hpu_check_inputs_impl("gelu", {self}))

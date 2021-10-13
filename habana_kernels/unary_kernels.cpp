@@ -2570,17 +2570,6 @@ static auto& KernelRegistry =
               return std::make_shared<AbsInplaceOperator>(device_id, node_type);
             })
         .add(
-            "aten::tanh",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<TanhOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::tanh_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<TanhBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::rsqrt",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<RsqrtOperator>(device_id, node_type);

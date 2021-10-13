@@ -1669,6 +1669,12 @@ tan_:
   guid: tan_fwd
   inplace_ids: [0]
 
+tanh:
+  dtypes: [BFloat16, Float]
+  guid: tanh_fwd
+  out_ids: [0]
+  legacy_eager: true
+
 tanh.out:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
@@ -1682,6 +1688,11 @@ tanh_:
 tanh_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: tanh_bwd
+
+tanh_backward:
+  dtypes: [BFloat16, Float]
+  guid: tanh_bwd
+  out_ids: [0]
 
 threshold_backward:
   dtypes: [BFloat16, Float]

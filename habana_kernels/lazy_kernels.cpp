@@ -5421,69 +5421,17 @@ Tensor hardsigmoid_backward_hpu_lazy(
   return k.call();
 }
 
-Tensor tanh_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::tanh"), {hl_input.GetIrValue()});
-  auto shape_out = input.sizes();
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
 Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
 }
 
-Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHPU);
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::tanh_backward"),
-      {hl_grad_in.GetIrValue(), hl_input.GetIrValue()});
-
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format());
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{grad_in, input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
 Tensor gelu_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHPU);
-
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::gelu"), {hl_input.GetIrValue()});
-
   auto result = empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
@@ -5496,7 +5444,6 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
-
   flush_op(result);
   return result;
 }
