@@ -408,6 +408,16 @@ exp2_:
   guid: pow2_fwd
   inplace_ids: [0]
 
+eye.out:
+  custom_output_shape: EyeOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: EyeOpOut
+
+eye.m_out:
+  custom_output_shape: EyeOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: EyeOpOut
+
 floor:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
@@ -621,6 +631,11 @@ lt.Scalar:
   out_ids: [0]
   op_base_class: CompareOp
   type_promotion: true
+
+logspace.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogSpace
+  custom_output_shape: LogspaceOutputShape
 
 lt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -908,6 +923,12 @@ tanh_:
 tanh_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: tanh_bwd
+
+trace:
+  custom_output_shape: TraceOutputShape
+  dtypes: [BFloat16,Float]
+  op_base_class: Trace
+  out_ids: [0]
 
 tril:
   custom_fill_params: FillTrilParams
