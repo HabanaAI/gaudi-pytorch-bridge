@@ -43,6 +43,20 @@ std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
   return metatensors;
 }
 
+static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
+  const auto& ival = stack.at(index);
+  auto type =
+      ival.isTensor() ? ival.toTensor().scalar_type() : ival.toScalar().type();
+  if (type == at::ScalarType::Long) {
+    return at::ScalarType::Int;
+  } else if (type == at::ScalarType::Double) {
+    return at::ScalarType::Float;
+  } else if (type == at::ScalarType::Bool) {
+    return at::ScalarType::Char;
+  }
+  return type;
+}
+
 HabanaOperatorHelper::HabanaOperatorHelper(
     int device_id,
     const std::string& guid,
@@ -70,29 +84,14 @@ void HabanaOperatorHelper::HandleScalarToTensor(
   }
 
   for (int m_scalar_id : m_scalar_ids) {
-    at::Scalar val = stack.at(m_scalar_id).toScalar();
+    const at::Scalar& val = stack.at(m_scalar_id).toScalar();
     m_scalar_inputs.emplace(m_scalar_id, val);
 
-    size_t size = 0;
-    PARAMS_STUB(ns_ConstantKernel::Params);
-    if (m_scalar_type == c10::ScalarType::Int) {
-      get<int>(params->constant) = val.to<int>();
-    } else {
-      get<float>(params->constant) = val.to<float>();
-    }
-
-    auto const_out = BuildOp(
-        graph,
-        "constant_" + habana_helpers::name_suffix_from_type(m_scalar_type),
-        {},
-        {{1, m_scalar_type}},
-        params.get(),
-        size);
+    auto constant = ConstantHelper(graph, val);
 
     // Set output from constant as input to this node at index m_scalar_id
     p_context_->syn_inputs_.emplace(
-        p_context_->syn_inputs_.cbegin() + m_scalar_id,
-        std::move(const_out[0]));
+        p_context_->syn_inputs_.cbegin() + m_scalar_id, std::move(constant));
   }
 }
 
@@ -117,7 +116,9 @@ void HabanaOperatorHelper::HandleFn(
     // Use sizes of tensor at m_out_id if ComputeOutputShapes() is not
     // implemented
     const auto& t = stack.at(m_res_ids.at(i)).toTensor();
-    const auto& dtype = m_promote_type ? ScalarType() : t.scalar_type();
+    const auto& dtype = m_promote_type
+        ? at::promote_types(GetScalarType(stack, 0), GetScalarType(stack, 1))
+        : t.scalar_type();
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
     bool is_output_persistent = is_output_persistent_list[i];
 
@@ -173,21 +174,8 @@ void HabanaOperatorHelper::HandleTypePromotion(
     return;
   }
 
-  auto get_type = [stack](int index) {
-    const auto& ival = stack.at(index);
-    auto type = ival.isTensor() ? ival.toTensor().scalar_type()
-                                : ival.toScalar().type();
-    if (type == at::ScalarType::Long) {
-      return at::ScalarType::Int;
-    } else if (type == at::ScalarType::Double) {
-      return at::ScalarType::Float;
-    } else if (type == at::ScalarType::Bool) {
-      return at::ScalarType::Char;
-    }
-    return type;
-  };
-
-  const std::array<at::ScalarType, 2> input_types{get_type(0), get_type(1)};
+  const std::array<at::ScalarType, 2> input_types{
+      GetScalarType(stack, 0), GetScalarType(stack, 1)};
   const at::ScalarType& result_type =
       at::promote_types(input_types[0], input_types[1]);
 
@@ -202,26 +190,22 @@ void HabanaOperatorHelper::HandleTypePromotion(
   }
 
   std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1)};
-  const std::string& cast_from =
-      habana_helpers::name_suffix_from_type(input_types[cast_index]);
-  const std::string& cast_to =
-      habana_helpers::name_suffix_from_type(result_type);
-
   // Insert cast on the input with lower dtype
-  auto cast = BuildOp(
+  auto cast = CastHelper(
       graph,
-      "cast_" + cast_from + "_to_" + cast_to,
-      {syn_inputs.at(cast_index)},
-      {{stack.at(cast_index).isTensor()
-            ? stack_tensor(stack, cast_index).sizes()
-            : 1,
-        result_type}});
+      syn_inputs.at(cast_index),
+      stack.at(cast_index).isTensor() ? stack_tensor(stack, cast_index).sizes()
+                                      : 1,
+      input_types[cast_index],
+      result_type);
 
   // Replace the input with the casted input
-  p_context_->syn_inputs_.at(cast_index) = std::move(cast[0]);
+  p_context_->syn_inputs_.at(cast_index) = std::move(cast);
 
   // Update the guid to reflect the promoted type
-  SetGuid(guid_.substr(0, guid_.find_last_of('_') + 1) + cast_to);
+  SetGuid(
+      guid_.substr(0, guid_.find_last_of('_') + 1) +
+      habana_helpers::name_suffix_from_type(result_type));
 
   // Update m_scalar_type
   m_scalar_type = result_type;
@@ -242,6 +226,30 @@ synapse_helpers::tensor HabanaOperatorHelper::CastHelper(
   return std::move(cast.at(0));
 }
 
+synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
+    synapse_helpers::graph& graph,
+    const at::Scalar& val,
+    const at::IntArrayRef constant_outshape,
+    bool persistent,
+    bool final_node) {
+  const at::ScalarType& valtype = val.type();
+  PARAMS_STUB_VARS(ns_ConstantKernel::Params, size, params);
+  if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
+    get<int>(params->constant) = val.to<int>();
+  } else {
+    get<float>(params->constant) = val.to<float>();
+  }
+
+  auto constant = BuildOp(
+      graph,
+      "constant_" + habana_helpers::name_suffix_from_type(valtype),
+      {},
+      {{constant_outshape, valtype, persistent, final_node}},
+      params.get(),
+      size);
+  return std::move(constant.at(0));
+}
+
 void HabanaOperatorHelper::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
@@ -256,12 +264,12 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
     at::Stack& stack,
     std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
-  HandleTypePromotion(graph, stack);
-  HandleScalarToTensor(graph, stack);
-
   HandleFn(graph, stack, is_output_persistent_list);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
+
+  HandleScalarToTensor(graph, stack);
+  HandleTypePromotion(graph, stack);
 
   AddNode(graph, stack, is_output_persistent_list);
 }

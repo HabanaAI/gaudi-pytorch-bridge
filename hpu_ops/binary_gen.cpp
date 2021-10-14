@@ -28,65 +28,39 @@ void BinaryOp::AddNode(
   const at::Tensor& other = stack_tensor(stack, 1);
   const at::ScalarType& result_type = at::result_type(self, other);
 
-  bool do_alpha_mul = ScalarInputs().size() and
-      ScalarInputs().at(ScalarId()[0]).toFloat() != 1.;
-  int cast_index = -1;
-  if (self.scalar_type() != result_type and
-      other.scalar_type() == result_type) {
-    cast_index = 0;
-  } else if (
-      self.scalar_type() == result_type and
-      other.scalar_type() != result_type) {
-    cast_index = 1;
-  }
-
   std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
-  std::vector<synapse_helpers::tensor> constant, mul, cast;
+  std::unique_ptr<synapse_helpers::tensor> cast, constant;
+  std::vector<synapse_helpers::tensor> mul;
 
-  if (do_alpha_mul) {
-    size_t size = 0;
-    const at::Scalar& val = ScalarInputs().at(ScalarId()[0]);
-    PARAMS_STUB(ns_ConstantKernel::Params);
-    if (result_type == c10::ScalarType::Int) {
-      get<int>(params->constant) = val.to<int>();
-    } else {
-      get<float>(params->constant) = val.to<float>();
+  for (int i = 0; i < 2; i++) {
+    const auto& t = stack_tensor(stack, i);
+    if (result_type != t.scalar_type()) {
+      cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
+          graph, syn_in(i), t.sizes(), t.scalar_type(), result_type));
+      binaryop_inputs.at(i) = cast->get();
     }
-
-    constant = BuildOp(
-        graph,
-        "constant_" + habana_helpers::name_suffix_from_type(result_type),
-        {},
-        {{1, result_type}},
-        params.get(),
-        size);
-    mul = BuildOp(
-        graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(result_type),
-        {syn_in(1), constant[0].get()},
-        {{stack_tensor(stack, 1).sizes(), result_type}});
-    binaryop_inputs = {syn_in(0), mul[0].get()};
   }
 
-  if (cast_index >= 0) {
-    const std::string& cast_from = habana_helpers::name_suffix_from_type(
-        stack_tensor(stack, cast_index).scalar_type());
-    const std::string& cast_to =
-        habana_helpers::name_suffix_from_type(result_type);
-    // Suffix the promoted type
-    guid_ = guid_.substr(0, guid_.find_last_of('_') + 1) + cast_to;
+  if (ScalarId().size()) {
+    // do alpha mul
+    const auto& alpha = ScalarInputs().at(ScalarId()[0]);
 
-    // Insert cast on the input with lower dtype
-    cast = BuildOp(
-        graph,
-        "cast_" + cast_from + "_to_" + cast_to,
-        {binaryop_inputs.at(cast_index)},
-        {{stack_tensor(stack, cast_index).sizes(), result_type}});
-
-    binaryop_inputs.at(cast_index) = cast.at(0).get();
+    if (ScalarInputs().at(ScalarId()[0]).toFloat() != 1.) {
+      constant = std::make_unique<synapse_helpers::tensor>(
+          ConstantHelper(graph, alpha));
+      mul = BuildOp(
+          graph,
+          "mult_fwd_" + habana_helpers::name_suffix_from_type(result_type),
+          {syn_in(1), constant->get()},
+          {{stack_tensor(stack, 1).sizes(), result_type}});
+      binaryop_inputs = {syn_in(0), mul[0].get()};
+    }
   }
 
   auto outshape = BinaryOutputShape(stack)[0];
+  // Suffix the promoted type
+  guid_ = guid_.substr(0, guid_.find_last_of('_') + 1) +
+      habana_helpers::name_suffix_from_type(result_type);
 
   auto op = BuildOp(
       graph,

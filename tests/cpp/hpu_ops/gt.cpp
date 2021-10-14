@@ -4,9 +4,9 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, gt_scalar) {
   GenerateInputs(1);
-  SetSeed();
-  int other = 1;
+  int other = 0;
 
+  print(GetCpuInput(0));
   GetCpuInput(0).gt_(other);
   GetHpuInput(0).gt_(other);
 
@@ -15,7 +15,6 @@ TEST_F(HpuOpTest, gt_scalar) {
 
 TEST_F(HpuOpTest, gt_tensor) {
   GenerateInputs(2);
-  SetSeed();
   int other = 1;
 
   GetCpuInput(0).gt_(GetCpuInput(1));

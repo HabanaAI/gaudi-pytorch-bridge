@@ -13,9 +13,9 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, lt_scalar) {
+TEST_F(HpuOpTest, lt_scalar_) {
   GenerateInputs(1, torch::kFloat);
-  float compVal = 1.1f;
+  float compVal = 0.1f;
 
   GetCpuInput(0).lt_(compVal);
   GetHpuInput(0).lt_(compVal);
@@ -23,11 +23,21 @@ TEST_F(HpuOpTest, lt_scalar) {
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
-TEST_F(HpuOpTest, lt_tensor) {
+TEST_F(HpuOpTest, lt_tensor_) {
   GenerateInputs(2, torch::kInt32);
 
-  GetCpuInput(0).lt_(GetCpuInput(1));
-  GetHpuInput(0).lt_(GetHpuInput(1));
+  GetCpuInput(0).lt_(GetCpuInput(0.));
+  GetHpuInput(0).lt_(GetHpuInput(0.));
 
   Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, lt_scalar) {
+  GenerateInputs(1, torch::kInt);
+  float compVal = 0;
+
+  auto exp = GetCpuInput(0).lt(compVal);
+  auto res = GetHpuInput(0).lt(compVal);
+
+  Compare(exp, res);
 }

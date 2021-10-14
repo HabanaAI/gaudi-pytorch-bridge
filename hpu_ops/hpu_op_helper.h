@@ -169,6 +169,13 @@ class HabanaOperatorHelper : public HabanaOperator {
       bool persistent = false,
       bool final_node = false);
 
+  synapse_helpers::tensor ConstantHelper(
+      synapse_helpers::graph& graph,
+      const at::Scalar& val,
+      const at::IntArrayRef constant_outshape = 1,
+      bool persistent = false,
+      bool final_node = false);
+
   virtual void AddNode(
       synapse_helpers::graph&,
       at::Stack&,
@@ -191,6 +198,11 @@ class HabanaOperatorHelper : public HabanaOperator {
 
 #define PARAMS_STUB(structname) \
   size = sizeof(structname);    \
+  auto params = std::make_shared<structname>()
+
+// Use when you want to define your own size and param var names
+#define PARAMS_STUB_VARS(structname, params_size, params) \
+  const size_t& params_size = sizeof(structname);         \
   auto params = std::make_shared<structname>()
 
 #define HPU_CUSTOM_HABANA_OP(op)            \

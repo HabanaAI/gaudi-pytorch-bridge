@@ -13,8 +13,8 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, ge_scalar) {
-  GenerateInputs(1, {{2, 3, 4}});
-  float other = 1.1;
+  GenerateInputs(1, torch::kFloat);
+  int other = 0;
 
   GetCpuInput(0).ge_(other);
   GetHpuInput(0).ge_(other);

@@ -28,6 +28,11 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
       double rtol = 1e-03,
       double atol = 1e-03) const {
     EXPECT_TRUE(hpu_result.is_habana());
+
+    EXPECT_EQ(cpu_result.scalar_type(), hpu_result.scalar_type())
+        << "exp dtype=" << cpu_result.scalar_type() << std::endl
+        << "actual dtype=" << hpu_result.scalar_type() << std::endl;
+
     torch::Tensor habana_result_on_cpu = hpu_result.cpu();
 
     if (c10::isIntegralType(cpu_result.scalar_type(), /*includeBool=*/true)) {

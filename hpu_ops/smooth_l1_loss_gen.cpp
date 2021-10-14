@@ -39,13 +39,9 @@ void SmoothL1LossBwdOperator::AddNode(
       beta >= 0,
       "smooth_l1_loss_backward does not support negative values for beta.")
   auto mode = stack.at(3).toInt();
-  float norm_factor;
-
-  if (mode == at::Reduction::Reduction::Mean) {
-    norm_factor = 1 / static_cast<float>(stack_tensor(stack, 1).numel());
-  } else {
-    norm_factor = 1;
-  }
+  float norm_factor = (mode == at::Reduction::Reduction::Mean)
+      ? 1 / static_cast<float>(stack_tensor(stack, 1).numel())
+      : 1;
 
   std::vector<synapse_helpers::tensor> t_l0;
 
@@ -56,20 +52,12 @@ void SmoothL1LossBwdOperator::AddNode(
       {{inputshape, ScalarType()}});
 
   if (mode == at::Reduction::Reduction::Mean) {
-    auto const_params = std::make_shared<ns_ConstantKernel::Params>();
-    get<float>(const_params->constant) = norm_factor;
-    auto t_norm_factor = BuildOp(
-        graph,
-        "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {},
-        {{inputshape, ScalarType()}},
-        const_params.get(),
-        sizeof(ns_ConstantKernel::Params));
+    auto t_norm_factor = ConstantHelper(graph, norm_factor, inputshape);
 
     auto t_mul = BuildOp(
         graph,
         "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0), t_norm_factor.at(0).get()},
+        {syn_in(0), t_norm_factor.get()},
         {{inputshape, ScalarType()}});
 
     auto t_sign = BuildOp(
@@ -78,7 +66,7 @@ void SmoothL1LossBwdOperator::AddNode(
         {t_diff.at(0).get()},
         {{inputshape, ScalarType()}});
 
-    if (!beta) {
+    if (beta == 0) {
       t_l0 = BuildOp(
           graph,
           "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
@@ -102,7 +90,7 @@ void SmoothL1LossBwdOperator::AddNode(
         {t_diff.at(0).get()},
         {{inputshape, ScalarType()}});
 
-    if (!beta) {
+    if (beta == 0) {
       t_l0 = BuildOp(
           graph,
           "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
@@ -120,20 +108,12 @@ void SmoothL1LossBwdOperator::AddNode(
         {{inputshape, ScalarType()}});
   }
 
-  auto const_params = std::make_shared<ns_ConstantKernel::Params>();
-  get<float>(const_params->constant) = norm_factor / beta;
-  auto t_mulfactor = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
-      {{inputshape, ScalarType()}},
-      const_params.get(),
-      sizeof(ns_ConstantKernel::Params));
+  auto t_mulfactor = ConstantHelper(graph, norm_factor / beta, inputshape);
 
   auto t_l2_temp = BuildOp(
       graph,
       "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0), t_mulfactor.at(0).get()},
+      {syn_in(0), t_mulfactor.get()},
       {{inputshape, ScalarType()}});
 
   auto t_l2 = BuildOp(
@@ -142,14 +122,7 @@ void SmoothL1LossBwdOperator::AddNode(
       {t_diff.at(0).get(), t_l2_temp.at(0).get()},
       {{inputshape, ScalarType()}});
 
-  get<float>(const_params->constant) = beta;
-  auto t_mask_const = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
-      {{inputshape, ScalarType()}},
-      const_params.get(),
-      sizeof(ns_ConstantKernel::Params));
+  auto t_mask_const = ConstantHelper(graph, beta, inputshape);
 
   auto t_abs = BuildOp(
       graph,
@@ -160,7 +133,7 @@ void SmoothL1LossBwdOperator::AddNode(
   auto mask = BuildOp(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {t_abs.at(0).get(), t_mask_const.at(0).get()},
+      {t_abs.at(0).get(), t_mask_const.get()},
       {{inputshape, ScalarType()}});
 
   auto grad_in = BuildOp(
@@ -189,7 +162,7 @@ void SmoothL1LossOperator::AddNode(
       {syn_in(0), syn_in(1)},
       {{inputshape, ScalarType()}});
 
-  if (!beta) {
+  if (beta == 0) {
     if (mode == at::Reduction::Reduction::None) {
       auto t_absdiff = BuildOp(
           graph,
@@ -243,20 +216,12 @@ void SmoothL1LossOperator::AddNode(
       {sub.at(0).get()},
       {{inputshape, ScalarType()}});
 
-  auto const_params = std::make_shared<ns_ConstantKernel::Params>();
-  get<float>(const_params->constant) = beta;
-  auto t_beta = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
-      {{inputshape, ScalarType()}},
-      const_params.get(),
-      sizeof(ns_ConstantKernel::Params));
+  auto t_beta = ConstantHelper(graph, beta, inputshape);
 
   auto mask = BuildOp(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {t_absdiff.at(0).get(), t_beta.at(0).get()},
+      {t_absdiff.at(0).get(), t_beta.get()},
       {{inputshape, ScalarType()}});
 
   auto loss_params = std::make_shared<ns_MSELossKernel::Params>();
@@ -269,34 +234,20 @@ void SmoothL1LossOperator::AddNode(
       loss_params.get(),
       sizeof(ns_MSELossKernel::Params));
 
-  get<float>(const_params->constant) = 0.5 / beta;
-  auto t_mse_scale = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
-      {{inputshape, ScalarType()}},
-      const_params.get(),
-      sizeof(ns_ConstantKernel::Params));
+  auto t_mse_scale = ConstantHelper(graph, 0.5 / beta, inputshape);
 
   auto t_l2 = BuildOp(
       graph,
       "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {t_mse.at(0).get(), t_mse_scale.at(0).get()},
+      {t_mse.at(0).get(), t_mse_scale.get()},
       {{inputshape, ScalarType()}});
 
-  get<float>(const_params->constant) = 0.5 * beta;
-  auto t_b = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
-      {{inputshape, ScalarType()}},
-      const_params.get(),
-      sizeof(ns_ConstantKernel::Params));
+  auto t_b = ConstantHelper(graph, 0.5 * beta, inputshape);
 
   auto t_l1 = BuildOp(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {t_absdiff.at(0).get(), t_b.at(0).get()},
+      {t_absdiff.at(0).get(), t_b.get()},
       {{inputshape, ScalarType()}});
 
   if (mode == at::Reduction::Reduction::None) {
