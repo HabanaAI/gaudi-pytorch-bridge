@@ -1491,6 +1491,18 @@ round.out:
   dtypes: [BFloat16, Float]
   guid: round_fwd
 
+rsqrt:
+  dtypes: [BFloat16, Float]
+  guid: rsqrt_fwd
+  out_ids: [0]
+  legacy_eager: true
+
+rsqrt_:
+  dtypes: [BFloat16, Float]
+  guid: rsqrt_fwd
+  inplace_ids: [0]
+  legacy_eager: true
+
 rsqrt.out:
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd

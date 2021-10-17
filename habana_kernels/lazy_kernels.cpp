@@ -5455,56 +5455,6 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   return reciprocal_out_hpu(result, self);
 }
 
-Tensor rsqrt_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::rsqrt"), {hl_input.GetIrValue()});
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
-
-Tensor& rsqrt_hpu_lazy_(Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-  auto hl_result = GetHbLazyTensor(input);
-  updateDstDependencies(hl_result, input, true);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::rsqrt"), {hl_input.GetIrValue()});
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(input.device().index());
-  context->MarkTensorStatus(
-      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-  flush_op(input);
-  return input;
-}
-
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k_{

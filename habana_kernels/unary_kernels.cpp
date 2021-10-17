@@ -2559,17 +2559,6 @@ static auto& KernelRegistry =
               return std::make_shared<AbsInplaceOperator>(device_id, node_type);
             })
         .add(
-            "aten::rsqrt",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<RsqrtOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::rsqrt_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<RsqrtInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::isfinite",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IsfiniteOperator>(device_id, node_type);
