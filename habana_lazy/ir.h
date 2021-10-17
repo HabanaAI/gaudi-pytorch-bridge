@@ -263,9 +263,6 @@ class Node {
   Node() = delete;
   Node(c10::Symbol op, bool _is_input = false)
       : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
-      m_name = getCurrentModuleName() + "/" + op.toQualString();
-    }
   }
 
   const c10::Symbol op() const {
@@ -274,6 +271,10 @@ class Node {
 
   std::string GetName() const {
     return m_name;
+  }
+
+  void SetName(const std::string& name) {
+    m_name = name;
   }
 
   virtual std::string ToString() const;

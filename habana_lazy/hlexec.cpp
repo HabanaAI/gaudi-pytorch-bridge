@@ -350,6 +350,9 @@ void HlExec::Create(
 
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
+      if (!node->GetName().empty()) {
+        jit_node->s_(c10::attr::name, node->GetName());
+      }
       mp_g_->insertNode(jit_node);
 
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||

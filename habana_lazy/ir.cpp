@@ -173,6 +173,11 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    static std::atomic<uint64_t> id(0);
+    node->SetName(absl::StrFormat(
+        "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));
+  }
   for (auto& i : inputs) {
     node->AddInput(i);
   }
