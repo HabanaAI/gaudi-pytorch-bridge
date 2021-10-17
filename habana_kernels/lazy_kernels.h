@@ -521,6 +521,10 @@ class LazyOp {
     std::terminate();
   }
 
+  void set_scalar_type(const c10::ScalarType scalar_type) {
+    m_scalar_type = scalar_type;
+  }
+
  private:
   bool m_convert_wrapped_tensor_to_scalar = false;
   ir::NodePtr m_node = nullptr;

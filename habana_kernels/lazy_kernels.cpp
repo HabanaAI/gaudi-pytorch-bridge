@@ -1380,33 +1380,6 @@ Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
-Tensor all_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::all"), {hl_self.GetIrValue()});
-
-  // Output of torch.all is single dimension
-  std::vector<int64_t> shape_out{1};
-  auto result = empty_hpu_lazy(
-      shape_out,
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
-}
-
 Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);

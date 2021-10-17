@@ -718,12 +718,7 @@ Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
 Tensor hpu_wrap::all(const Tensor& self) {
   if (!hpu_check_inputs_impl("all", {self}))
     return AtenHpuTypeDefault::all(self);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return all_hpu_lazy(self);
-  } else {
-    return all_hpu(self);
-  }
+  return all_hpu(self);
 };
 Tensor hpu_wrap::convolution_overrideable(
     const Tensor& input,
