@@ -3691,10 +3691,31 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
 
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
+  std::vector<at::IValue> vector_of_inputs;
+  std::string op_name;
+  std::set<size_t> metadata_indices;
+
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    auto repeats_shape = empty_hpu_lazy(
+        repeats,
+        self.options(),
+        self.suggest_memory_format(),
+        false,
+        INPUT_DESCRIBING_SHAPE_TENSOR);
+
+    vector_of_inputs = {self, repeats_shape};
+    op_name = "hpu::repeat";
+    metadata_indices = {};
+  } else {
+    vector_of_inputs = {self, repeats};
+    op_name = "aten::repeat";
+    metadata_indices = {1};
+  }
+
   LazyOp<at::Tensor> k{
-      "aten::repeat",
-      {self, repeats},
-      {1},
+      op_name,
+      vector_of_inputs,
+      metadata_indices,
       {RepeatOperator::compute_output_shape(self, repeats)}};
   return k.call();
 }

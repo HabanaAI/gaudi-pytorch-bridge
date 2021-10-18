@@ -30,5 +30,9 @@ struct RepeatOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       at::IntArrayRef repeats);
+
+  static std::vector<int64_t> compute_reshape_output(
+      const at::Tensor& self,
+      at::IntArrayRef repeats);
 };
 } // namespace habana

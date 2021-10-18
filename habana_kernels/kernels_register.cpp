@@ -4528,6 +4528,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("view(Tensor input, Tensor shape) -> (Tensor)");
   m.def(
       "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
+  m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
