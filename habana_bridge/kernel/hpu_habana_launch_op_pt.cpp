@@ -755,17 +755,15 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
   const auto& excluded_out_indices =
       habana_op->GetSynOutputIndicesExcludedInNode();
 
-  if (node->kind().toQualString() != std::string("aten::gelu")) {
-    TORCH_CHECK(
-        output_nodes.size() ==
-            output_tensors_pt.size() - excluded_out_indices.size(),
-        "HabanaFusionOp Lowering of node : ",
-        node->kind().toQualString(),
-        " Number of output nodes ",
-        output_nodes.size(),
-        " doesnt match the generated ",
-        output_tensors_pt.size() - excluded_out_indices.size());
-  }
+  TORCH_CHECK(
+      output_nodes.size() ==
+          output_tensors_pt.size() - excluded_out_indices.size(),
+      "HabanaFusionOp Lowering of node : ",
+      node->kind().toQualString(),
+      " Number of output nodes ",
+      output_nodes.size(),
+      " doesnt match the generated ",
+      output_tensors_pt.size() - excluded_out_indices.size());
 
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
 
