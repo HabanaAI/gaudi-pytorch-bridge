@@ -6880,4 +6880,10 @@ at::Tensor frobenius_norm_hpu_lazy(const Tensor& self) {
   return k.call();
 }
 
+Tensor floor_divide_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  // floor_divide now do truncation:
+  // https://pytorch.org/docs/stable/generated/torch.floor_divide.html
+  return div(self, other, "trunc");
+}
+
 } // namespace habana_lazy

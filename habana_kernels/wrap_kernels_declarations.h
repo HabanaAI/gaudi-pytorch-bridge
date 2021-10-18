@@ -150,6 +150,9 @@ struct hpu_wrap {
   static at::Tensor& div_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor div(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor& div_(at::Tensor& self, const at::Scalar& other);
+  static at::Tensor floor_divide(
+      const at::Tensor& self,
+      const at::Tensor& other);
   static at::Tensor pow(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor& pow_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor pow(const at::Tensor& self, const at::Scalar& other);

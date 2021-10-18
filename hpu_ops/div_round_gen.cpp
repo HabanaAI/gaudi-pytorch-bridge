@@ -14,6 +14,8 @@
 
 // TODO: Need to fetch pytorch default type dynamically
 // pytorch default type and handle other types as default type
+// Default pytorch dtype is assumed to be c10::ScalarType::Float
+// here.
 #define PYTORCH_DEFAULT_TYPE c10::ScalarType::Float
 
 // Except bfloat16, all other types are computed in following type
