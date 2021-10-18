@@ -118,6 +118,7 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 
 } // namespace
 
+const int64_t ProcessGroupHCCL::kWatchdogThreadSleepMillis = 40000;
 void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
   auto hccl_rank = getRank();
   std::string storeKey = std::to_string(hcclCommCounter_++);

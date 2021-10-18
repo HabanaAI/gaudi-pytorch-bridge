@@ -159,7 +159,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   template <typename T>
   using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
 
-  static const int64_t kWatchdogThreadSleepMillis = 40000;
+  static const int64_t kWatchdogThreadSleepMillis;
   static void ProcessGroupHCCLConstructor() __attribute__((constructor)) {
     py::object module = py::module::import("torch.distributed");
     py::object register_backend =
