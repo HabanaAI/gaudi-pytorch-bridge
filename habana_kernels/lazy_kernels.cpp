@@ -2864,23 +2864,10 @@ Tensor binary_cross_entropy_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr bce_loss_node =
       std::make_shared<ir::BceLoss_forward>(self, target, weight, reduction);
-
-  // allocate Output
   auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
-  auto result = empty_hpu_lazy(
-      sizes, self.options(), self.suggest_memory_format(), false);
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      bce_loss_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor, ir::BceLoss_forward> k{
+      bce_loss_node, {self, target, weight, reduction}, {sizes}};
+  return k.call();
 }
 
 Tensor binary_cross_entropy_backward_hpu_lazy(
@@ -2892,22 +2879,11 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr bce_bwd_loss_node = std::make_shared<ir::BceLoss_backward>(
       grad_output, self, target, weight, reduction);
-
-  // allocate Output
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
+  LazyOp<at::Tensor, ir::BceLoss_backward> k{
       bce_bwd_loss_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+      {grad_output, self, target, weight, reduction},
+      {self.sizes().vec()}};
+  return k.call();
 }
 
 Tensor binary_cross_entropy_with_logits_hpu_lazy(
@@ -2919,28 +2895,13 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr bce_loss_node = std::make_shared<ir::BceLogitsLoss_forward>(
       self, target, weight, pos_weight, reduction);
-
-  // allocate Output
-  Tensor result;
+  std::vector<int64_t> sizes = {1};
   if (reduction == at::Reduction::Reduction::None) {
-    result = empty_hpu_lazy(
-        self.sizes(), self.options(), self.suggest_memory_format(), false);
-  } else {
-    result = empty_hpu_lazy(
-        {1}, self.options(), self.suggest_memory_format(), false);
+    sizes = self.sizes().vec();
   }
-
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      bce_loss_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor, ir::BceLogitsLoss_forward> k{
+      bce_loss_node, {self, target, weight, pos_weight, reduction}, {sizes}};
+  return k.call();
 }
 
 Tensor kl_div_hpu_lazy(
