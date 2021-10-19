@@ -363,6 +363,11 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
   auto output = habana_helpers::createPTTensor(
       input, shape_out, input.options(), memory_format, is_output_persistent);
 
+  // Allocate Shape Tensor (only for conv_tranpose2d which uses dedx node)
+  if (graph.is_dynamic_graph() && this->guid_ == "dedx3d") {
+    AllocateSynapseShapeTensor(graph, output);
+  }
+
   synConvolution3DParams params = synapse_conv3d_params_builder(
       weight.sizes(),
       IntArrayRef(stride),
@@ -455,6 +460,11 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
 
   auto output = habana_helpers::createPTTensor(
       input, shape_out, input.options(), memory_format, is_output_persistent);
+
+  // Allocate Shape Tensor (only for conv_tranpose2d which uses dedx node)
+  if (graph.is_dynamic_graph() && this->guid_ == "dedx") {
+    AllocateSynapseShapeTensor(graph, output);
+  }
 
   synConvolutionParams params = synapse_conv_params_builder(
       weight.sizes(),
