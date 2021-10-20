@@ -181,10 +181,8 @@ class PtLogger {
       // Always set the debug logs for lazy and bridge so that
       // we get the detailed info on the graphs etc that was launched
       // when something fails and can be reproduced manually
-      if (const auto envp = std::getenv("PT_HPU_LAZY_MODE")) {
-        if (3 == std::stoul(envp, nullptr, 10)) {
-          type_mask_ += TypeMask::DEBUG;
-        }
+      if (3 == GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
+        type_mask_ += TypeMask::DEBUG;
       }
     }
   }
@@ -370,7 +368,7 @@ class PTFuncLog {
 #define PT_DEVICE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DEVICE)
 #define PT_KERNEL_BEGIN                                           \
   {                                                               \
-    bool lazy_mode = GET_ENV_FLAG(PT_HPU_LAZY_MODE);              \
+    bool lazy_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);          \
     HABANA_ASSERT(                                                \
         !lazy_mode,                                               \
         "Lazy Mode = ",                                           \

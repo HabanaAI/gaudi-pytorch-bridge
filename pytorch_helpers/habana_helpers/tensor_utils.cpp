@@ -97,8 +97,8 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
 
   auto int_tensor = std::make_unique<at::Tensor>();
 
-  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma in case we need backend end tensor in future we
     // can replace createpttensor with empty_hpu_lazy
@@ -127,8 +127,8 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
   // HPU
   auto long_tensor = std::make_unique<at::Tensor>();
 
-  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma
     *long_tensor = habana_helpers::createPTTensor(

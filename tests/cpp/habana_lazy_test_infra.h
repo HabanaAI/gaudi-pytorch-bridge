@@ -29,7 +29,8 @@ void print_tensor_details(torch::Tensor& t, std::string tname);
 namespace habana_lazy_test {
 
 class EnvHelper {
-  char* m_saved = nullptr;
+  bool m_defined = false;
+  unsigned m_saved = 0;
   int m_seed = InitSeed();
 
  private:
@@ -40,32 +41,34 @@ class EnvHelper {
   }
 
  protected:
-  void SetMode(const char* mode = "1", int force = 0) {
-    m_saved = std::getenv("PT_HPU_LAZY_MODE");
-
+  void SetMode(unsigned mode = 1, int force = 0) {
+    m_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
+    if (m_defined) {
+      m_saved = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+    }
     if (mode) {
-      setenv("PT_HPU_LAZY_MODE", mode, force);
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, mode, force);
     } else {
-      unsetenv("PT_HPU_LAZY_MODE");
+      UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
     }
   }
 
   void RestoreMode() {
-    if (m_saved) {
-      setenv("PT_HPU_LAZY_MODE", m_saved, 1);
+    if (m_defined) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, m_saved, 1);
     } else {
-      unsetenv("PT_HPU_LAZY_MODE");
+      UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
     }
   }
 
   // Wrappers with convenient names
-  void SetLazyMode(const char* mode = "1") {
+  void SetLazyMode(unsigned mode = 1) {
     // mode can be 1, 2 or 3
     SetMode(mode);
   }
 
   void SetEagerMode() {
-    SetMode(nullptr);
+    SetMode(0);
   }
 
   int GetSeed() const {
@@ -79,14 +82,18 @@ class EnvHelper {
  public:
   template <typename F>
   void ExecuteEager(F&& fn) {
-    const char* old = std::getenv("PT_HPU_LAZY_MODE");
-    setenv("PT_HPU_LAZY_MODE", "0", 1);
+    unsigned old_mode;
+    bool is_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
+    if (is_defined) {
+      old_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+    }
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 0, 1);
 
     std::forward<F>(fn)();
-    if (old)
-      setenv("PT_HPU_LAZY_MODE", old, 1);
+    if (is_defined)
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, old_mode, 1);
     else
-      unsetenv("PT_HPU_LAZY_MODE");
+      UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   }
 };
 
@@ -108,8 +115,8 @@ class LazyTest : public ::testing::Test, public EnvHelper {
   }
 
  protected:
-  void ForceMode(int mode) {
-    SetMode(std::to_string(mode).c_str(), 1);
+  void ForceMode(unsigned mode) {
+    SetMode(mode, 1);
   }
 };
 

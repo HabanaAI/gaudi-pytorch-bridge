@@ -54,7 +54,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // not do env variable based check anymore
   // We have short-circuited certain utilities in synapse helpers, we need to
   // remove that code
-  setenv("PT_HPU_LAZY_LOWERING", "1", 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
   context->setExecutionMode(kLOWERING);
 
   // save the graph for perf mode
@@ -66,7 +66,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
 
   context->setExecutionMode(kLAZY);
   context->MarkTensorsExecuted();
-  unsetenv("PT_HPU_LAZY_LOWERING");
+  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
 }
 
 /*

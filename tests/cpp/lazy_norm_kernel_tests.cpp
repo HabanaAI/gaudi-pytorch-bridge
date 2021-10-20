@@ -71,8 +71,7 @@ TEST_F(LazyNormKernelTest, InstanceNormChLast) {
 }
 
 TEST_F(LazyNormKernelTest, InstanceNorm3dFwdBwd) {
-  if (std::getenv("PT_HPU_LAZY_MODE") != NULL &&
-      strcmp(std::getenv("PT_HPU_LAZY_MODE"), "0") == 0) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }
   auto batch_dim = 1;
@@ -129,8 +128,7 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dFwdBwd) {
 }
 
 TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
-  if (std::getenv("PT_HPU_LAZY_MODE") != NULL &&
-      strcmp(std::getenv("PT_HPU_LAZY_MODE"), "0") == 0) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }
   auto batch_dim = 1;

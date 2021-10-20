@@ -99,7 +99,7 @@ void InsertWeightPermute_graph(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack) {
   // eager weight permutes
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 1) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) {
     WeightPermutesEagerMode(graph);
     return;
   }

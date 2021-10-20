@@ -23,7 +23,7 @@ TEST(NMSEagerTest, NmsSmall) {
   auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1);
   torch::Tensor hboxes = new_boxes.to(torch::kHPU);
 
-  auto nms_boxid = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+  auto nms_boxid = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? habana_nms_hpu_lazy(hboxes, hscores, 0.2, 0.0)
       : habana_nms_hpu(hboxes, hscores, 0.2, 0.0);
   auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kInt);

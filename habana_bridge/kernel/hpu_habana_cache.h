@@ -305,7 +305,7 @@ class RecipeCacheLRU {
     if (!instance_) {
       instance_ = new RecipeCacheLRU();
       // PT_HPU_LAZY_MODE = 0 is Pure Eager and 2 is Eager through Lazy
-      if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 1)
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)
         max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
       else
         max_size_ = PGM_LRU_MAX_EAGER_NRECIPES;

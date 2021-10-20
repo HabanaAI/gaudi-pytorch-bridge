@@ -122,8 +122,8 @@ void flushWithMarkStep() {
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
 void flush_op(at::TensorList tensors) {
-  const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
-  const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
+  const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
+  const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   DebugHelper::getInstance().incrementAccumulatedOps();
 
   if (m_flush_op) {
@@ -236,7 +236,7 @@ void updateDstDependencies(
     HbLazyTensor& hl_dst,
     const Tensor& dst,
     bool in_place) {
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
     return;
   };
 
@@ -1498,7 +1498,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
   Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass() &&
-      (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 1)) {
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
     auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     auto layout_format = hb_tensor.GetTensorLayout();
     ir::NodePtr node;
@@ -2439,7 +2439,8 @@ Tensor slice_hpu_lazy(
     return result;
   }
 
-  if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) && (start.value() == end.value())) {
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (start.value() == end.value())) {
     TORCH_WARN_ONCE(
         "Slice workaround for zero sized output tensor issue SW-57116");
     result = empty_hpu_lazy(
@@ -5816,7 +5817,7 @@ void optimizer_adamw_hpu_lazy(
         hl_weight.dtype_optional());
   }
 
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
     HbLazyTensor::StepMarker({});
   }
 }
@@ -6066,7 +6067,7 @@ optimizer_lamb_phase1_hpu_lazy(
     context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
   }
 
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
     HbLazyTensor::StepMarker({});
   }
 

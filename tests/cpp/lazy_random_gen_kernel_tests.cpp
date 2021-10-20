@@ -52,7 +52,7 @@ TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
   auto eager = torch::randperm(n, hb_options);
   auto eager_cpu = eager.to(torch::kCPU);
 
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 1, 0);
 
   torch::manual_seed(0);
   auto lazy = torch::randperm(n, hb_options);
@@ -61,5 +61,5 @@ TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
   auto equal = eager_cpu.equal(lazy_cpu);
   EXPECT_EQ(equal, true);
 
-  unsetenv("PT_HPU_LAZY_MODE");
+  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
 }

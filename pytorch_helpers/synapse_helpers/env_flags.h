@@ -1,4 +1,17 @@
-/*
+/******************************************************************************
+ * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+/*******************************************************************************
  * INTEL CONFIDENTIAL
  * Copyright 2018-2020 Intel Corporation.
  *
@@ -11,19 +24,12 @@
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in
  * the License.
- */
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
- * All Rights Reserved.
- *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
- *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
 #include <cstdint>
+
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -47,6 +53,17 @@
 
 // Returns true if environment variable is defined false otherwise
 #define IS_ENV_FLAG_DEFINED(e) (env_flags::is_defined<env_flags::e>(#e))
+
+// ****************************************************************************
+// New style of env var declaration
+
+#define GET_ENV_FLAG_NEW(e) (env_flags::get_env_flag_new<env_flags::e>(#e))
+#define SET_ENV_FLAG_NEW(e, v, o) \
+  (env_flags::set_env_flag_new<env_flags::e>(#e, v, o))
+#define UNSET_ENV_FLAG_NEW(e) (env_flags::unset_env_flag_new<env_flags::e>(#e))
+#define IS_ENV_FLAG_DEFINED_NEW(e) (env_flags::is_defined_new<env_flags::e>(#e))
+
+// ****************************************************************************
 
 namespace env_flags {
 // List of environment flags in the form:
@@ -144,10 +161,6 @@ struct PT_USE_HCL_OPTS {
 
 struct PT_HPU_LOWER_AS_STRIDED {
   static constexpr bool default_value = true;
-};
-
-struct PT_HPU_LAZY_MODE : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 2;
 };
 
 struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
@@ -288,5 +301,102 @@ bool is_defined(const char* name) {
       name, [&ret](decltype(E::default_value)) { ret = true; });
   return ret;
 }
+
+// ****************************************************************************
+// New style of env var declaration
+
+#define ENV_STRUCT_DEFINITION(NAME, TYPE, DEFAULT_VAL) \
+  struct NAME : public std::numeric_limits<TYPE> {     \
+    static bool is_cached;                             \
+    static bool is_defined;                            \
+    static TYPE actual_value;                          \
+    static constexpr TYPE default_value = DEFAULT_VAL; \
+  }
+
+#define ENV_STRUCT_STATIC_DEFINITION(NAME, TYPE) \
+  bool NAME::is_cached{false};                   \
+  bool NAME::is_defined{false};                  \
+  TYPE NAME::actual_value{};
+
+ENV_STRUCT_DEFINITION(PT_HPU_LAZY_MODE, unsigned, 2);
+ENV_STRUCT_DEFINITION(PT_HPU_LAZY_LOWERING, bool, 0);
+
+template <class T>
+T getenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    T& act_val,
+    const T def_val,
+    const T min_val,
+    const T max_val);
+
+template <class T>
+void setenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    T& act_val,
+    const T new_val,
+    int overwrite) {
+  (void)name;
+  if (!is_defined || overwrite) {
+    act_val = new_val;
+    is_cached = true;
+    is_defined = true;
+  }
+}
+
+template <class E>
+typename std::
+    enable_if<has_min_max_methods<E>::value, decltype(E::default_value)>::type
+    getenv_E_new(const char* name) {
+  return getenv_by_type_new(
+      name,
+      E::is_cached,
+      E::is_defined,
+      E::actual_value,
+      E::default_value,
+      E::min(),
+      E::max());
+}
+
+template <class E>
+void setenv_E_new(
+    const char* name,
+    const decltype(E::default_value) new_val,
+    int overwrite) {
+  setenv_by_type_new(
+      name, E::is_cached, E::is_defined, E::actual_value, new_val, overwrite);
+}
+
+template <class E>
+decltype(E::default_value) get_env_flag_new(const char* name) {
+  return getenv_E_new<E>(name);
+}
+
+// setenv mode, If overwrite is 'non zero' value. It overwrites existing env
+// value if defined
+template <class E>
+void set_env_flag_new(
+    const char* name,
+    const decltype(E::default_value) val,
+    int overwrite) {
+  setenv_E_new<E>(name, val, overwrite);
+}
+
+template <class E>
+void unset_env_flag_new(const char* name) {
+  (void)name;
+  E::is_cached = false;
+  E::is_defined = false;
+}
+
+template <class E>
+bool is_defined_new(const char* name) {
+  return E::is_defined;
+}
+
+// ****************************************************************************
 
 } // namespace env_flags

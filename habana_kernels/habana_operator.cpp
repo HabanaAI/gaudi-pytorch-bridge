@@ -52,7 +52,7 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     synapse_helpers::device& device = graph.get_device();
     auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
         (int)(device.id()));

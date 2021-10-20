@@ -530,7 +530,7 @@ def lazyop(
         code += "\n"
 
     if ctxop.is_legacy_reqd():
-        code += "  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 0) return hpu_wrap::{}({});\n".format(
+        code += "  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) return hpu_wrap::{}({});\n".format(
             fname, ", ".join(param_vars)
         )
         code += "\n"

@@ -276,7 +276,8 @@ TEST(EagerKernelTest, MatmulBackwardTest) {
     auto grad_mat2 = mat2.grad();
 
     torch::Tensor grad_mat1_h, grad_mat2_h;
-    std::tie(grad_mat1_h, grad_mat2_h) = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+    std::tie(grad_mat1_h, grad_mat2_h) =
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
         ? matmul_backward_hpu_lazy(grad_out_h, mat1_h, mat2_h)
         : matmul_backward_hpu(grad_out_h, mat1_h, mat2_h);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
@@ -384,7 +385,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
   auto bias_correction = false;
   auto modified_weight_decay = 1.0;
 
-  if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)) {
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)) {
     optimizer_adamw_hpu_lazy(
         gradients,
         weights,
@@ -495,7 +496,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
     auto lr_t = torch::tensor({lr}).to(torch::kHPU);
     auto neg_step_t = torch::tensor({-lr}).to(torch::kHPU);
 
-    if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)) {
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)) {
       optimizer_adamw_hpu_lazy(
           gradients,
           weights,
@@ -616,7 +617,7 @@ TEST(EagerKernelTest, FusedNormTest) {
       torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
   auto max_norm_hpu = max_norm.to(torch::kHPU);
   // do hpu and cpu fused_norm calcs
-  auto total_norm = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+  auto total_norm = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
       : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
@@ -641,7 +642,7 @@ TEST(EagerKernelTest, FusedNormTest) {
   }
 
   // call fused norm kernels again to test caching in hpu
-  total_norm = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+  total_norm = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
       : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
@@ -719,7 +720,7 @@ TEST(EagerKernelTest, LambOptPh1Test) {
   std::vector<torch::Tensor> weight_norm, adam_norm, adam_step;
   if (cache) {
     std::tie(weight_norm, adam_norm, adam_step) =
-        (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
         ? optimizer_lamb_phase1_hpu_lazy(
               grad_vec_1,
               wt_vec_1,
@@ -750,7 +751,7 @@ TEST(EagerKernelTest, LambOptPh1Test) {
               weight_decay);
   }
   std::tie(weight_norm, adam_norm, adam_step) =
-      (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? optimizer_lamb_phase1_hpu_lazy(
             grad_vec,
             wt_vec,
