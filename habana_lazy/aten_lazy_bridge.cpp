@@ -100,6 +100,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
 }
 
 HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {
+  HABANA_ASSERT(tensor.device().type() == at::kHPU, "Got a non HPU tensor");
   auto hb_tensor = TryGetHbLazyTensor(tensor);
   HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
   return *hb_tensor;
