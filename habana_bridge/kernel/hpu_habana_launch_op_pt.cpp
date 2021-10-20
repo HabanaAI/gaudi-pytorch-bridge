@@ -1879,8 +1879,8 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 
   TORCH_CHECK(!has_empty_name, "empty tensor name");
 
-  size_t intermediates_start =
-      rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
+  size_t intermediates_start = rv.num_inputs + rv.num_induplicates +
+      rv.num_dma_inputs + rv.num_shape_tensors;
 
   TORCH_CHECK(
       output_tensorinfo_map.empty(),
