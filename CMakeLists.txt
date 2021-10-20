@@ -194,7 +194,6 @@ option(INSTALL_PKGS "Install python packages" OFF)
 if (BUILD_PKGS)
   find_program(PIP "pip" REQUIRED)
   set(PKGS
-    ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/multithreaded_dataloader
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
     ${CMAKE_SOURCE_DIR}/python_packages
     $ENV{MODEL_GARDEN_PYTORCH_PATH}/../internal/PyTorch/computer_vision/detectron2
