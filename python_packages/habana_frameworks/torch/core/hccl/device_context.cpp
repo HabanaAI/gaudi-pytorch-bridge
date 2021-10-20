@@ -83,7 +83,7 @@ hcclResult_t device_context::acquire_collective_stream(
   }
   synapse_helpers::device_handle dev_handle = device_;
   synapse_helpers::stream& stream_handle =
-      dev_handle->get_network_collective_stream();
+      dev_handle->get_or_create_network_collective_stream();
   HABANA_ASSERT(nullptr != stream_handle);
 
   stream_objects_[stream_handle] = &stream_handle;

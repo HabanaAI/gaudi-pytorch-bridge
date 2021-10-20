@@ -219,7 +219,8 @@ synapse_error_o hcl_communicator::reduce_scatter(
   trace_end("IntermediateBufferAlloc");
 
 #if HCL_STREAM_SUPPORT
-  auto& collective_stream = my_device_->get_network_collective_stream();
+  auto& collective_stream =
+      my_device_->get_or_create_network_collective_stream();
 
   my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
@@ -300,7 +301,8 @@ synapse_error_o hcl_communicator::reduce(
   trace_end("IntermediateBufferAlloc");
 
 #if HCL_STREAM_SUPPORT
-  auto& collective_stream = my_device_->get_network_collective_stream();
+  auto& collective_stream =
+      my_device_->get_or_create_network_collective_stream();
 
   my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
@@ -385,7 +387,8 @@ synapse_error_o hcl_communicator::allreduce(
   trace_end("IntermediateBufferAlloc");
 
 #if HCL_STREAM_SUPPORT
-  auto& collective_stream = my_device_->get_network_collective_stream();
+  auto& collective_stream =
+      my_device_->get_or_create_network_collective_stream();
 
   my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
@@ -440,7 +443,8 @@ synapse_error_o hcl_communicator::broadcast(
     const std::function<void()>& tensor_cleanup_callback) {
   HCLStatus status{eHCLSuccess};
 #if HCL_STREAM_SUPPORT
-  auto& collective_stream = my_device_->get_network_collective_stream();
+  auto& collective_stream =
+      my_device_->get_or_create_network_collective_stream();
 
   // For root (sending) rank address is input - root does not produce output
   if (my_hcl_rank() == root_rank) {
@@ -507,7 +511,8 @@ synapse_error_o hcl_communicator::allgather(
   HCLStatus status{eHCLSuccess};
 
 #if HCL_STREAM_SUPPORT
-  auto& collective_stream = my_device_->get_network_collective_stream();
+  auto& collective_stream =
+      my_device_->get_or_create_network_collective_stream();
   my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
   status = HCL_AllGather(

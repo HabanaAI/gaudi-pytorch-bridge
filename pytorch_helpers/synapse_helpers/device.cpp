@@ -111,7 +111,8 @@ device::device(
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
       stream_comp_{*this, stream_flavor::COMPUTE_0},
-      stream_network_collective_{*this, stream_flavor::COLLECTIVE_0},
+      // Network collective should not be created without hcl
+      stream_network_collective_ptr_{nullptr},
       stream_d2d_{*this, stream_flavor::DMA_D2D},
       stream_h2d_{*this, stream_flavor::DMA_H2D},
       stream_d2h_{*this, stream_flavor::DMA_D2H},
@@ -337,6 +338,10 @@ device::~device() {
 void device::flush_stream_events() {
   for (int id = (int)stream_flavor::_BEGIN; id < (int)stream_flavor::_END;
        id += 1) {
+    // do not flush collective, if it was not created before
+    if (id == (int)stream_flavor::COLLECTIVE_0 &&
+        !stream_network_collective_ptr_)
+      continue;
     get_stream(static_cast<stream_flavor>(id)).flush();
   }
   auto start = std::chrono::steady_clock::now();
@@ -363,7 +368,8 @@ stream& device::get_stream(stream_flavor id) {
     case stream_flavor::DMA_D2H:
       return stream_d2h_;
     case stream_flavor::COLLECTIVE_0:
-      return stream_network_collective_;
+      HABANA_ASSERT(stream_network_collective_ptr_);
+      return *stream_network_collective_ptr_;
     default:
       PT_SYNHELPER_FATAL("Invalid stream id ", id);
       std::terminate();

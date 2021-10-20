@@ -995,7 +995,7 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
 
 inline stream* hcl_communicator::get_collective_stream() const {
   if (using_streams_) {
-    return &my_device_->get_network_collective_stream();
+    return &my_device_->get_or_create_network_collective_stream();
   } else {
     return nullptr;
   }

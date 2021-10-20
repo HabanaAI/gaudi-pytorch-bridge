@@ -184,8 +184,12 @@ class device {
   stream& get_compute_stream() {
     return stream_comp_;
   }
-  stream& get_network_collective_stream() {
-    return stream_network_collective_;
+  stream& get_or_create_network_collective_stream() {
+    if (!stream_network_collective_ptr_) {
+      stream_network_collective_ptr_ =
+          absl::make_unique<stream>(*this, stream_flavor::COLLECTIVE_0);
+    }
+    return *stream_network_collective_ptr_;
   }
   stream& get_host_to_device_stream() {
     return stream_h2d_;
@@ -336,7 +340,7 @@ class device {
   event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
   stream stream_comp_;
-  stream stream_network_collective_;
+  std::unique_ptr<stream> stream_network_collective_ptr_;
   stream stream_d2d_;
   stream stream_h2d_;
   stream stream_d2h_;
