@@ -39,12 +39,20 @@ static std::shared_ptr<void> RandomUniformParams(
     size_t& size) {
   PARAMS_STUB(ns_RandomUniform::Params);
   params->seed = seed;
-
+  /*
+  NOTE: As per PyTorch specification, for floating point types, if unspecified,
+  range will be [0, 2^mantissa] to ensure that every value is representable. For
+  example, torch.tensor(1, dtype=torch.double).random_() will be uniform in [0,
+  2^53].
+  */
   switch (type) {
     case at::ScalarType::Float:
+      params->low = from.has_value() ? *from : 0;
+      params->high = to.has_value() ? *to : 1 << 24;
+      break;
     case at::ScalarType::BFloat16:
       params->low = from.has_value() ? *from : 0;
-      params->high = to.has_value() ? *to : std::numeric_limits<float>::max();
+      params->high = to.has_value() ? *to : 1 << 8;
       break;
     case at::ScalarType::Int:
       params->low = from.has_value() ? *from : 0;
