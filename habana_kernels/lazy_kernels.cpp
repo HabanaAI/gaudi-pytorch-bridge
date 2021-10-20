@@ -1663,6 +1663,23 @@ Tensor convolution_hpu_lazy(
                              ->IsEnabledWeightPermutePass())
       ? false
       : true;
+  if (weight_hwck.device().type() == c10::DeviceType::CPU) {
+    auto is_5d_layout = weight_hwck.dim() == 5;
+    c10::MemoryFormat memory_format = is_5d_layout
+        ? c10::MemoryFormat::ChannelsLast3d
+        : c10::MemoryFormat::ChannelsLast;
+    std::array<int64_t, 4> swapped_dims_4d = {2, 3, 1, 0};
+    std::array<int64_t, 5> swapped_dims_5d = {2, 3, 4, 1, 0};
+    IntArrayRef dims_ = swapped_dims_4d;
+    if (is_5d_layout)
+      dims_ = swapped_dims_5d;
+    std::vector<int64_t> strides(weight_hwck.sizes().size());
+    weight_hwck = weight_hwck.permute(dims_).contiguous(memory_format);
+    habana_helpers::recalc_strides(strides, weight_hwck.sizes().vec());
+    IntArrayRef new_strides = strides;
+    weight_hwck.unsafeGetTensorImpl()->set_sizes_and_strides(
+        weight_hwck.sizes(), new_strides);
+  }
   LazyOp<at::Tensor> k(
       "aten::convolution_overrideable",
       {input,
