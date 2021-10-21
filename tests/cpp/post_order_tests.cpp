@@ -177,3 +177,196 @@ TEST_F(PostOrderTest, poTestReluInplace) {
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.inputs.size() == 1);
 }
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case1) {
+  torch::Tensor c0 = torch::randn({20, 5}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randn({20, 5}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+  torch::Tensor c2 = torch::abs(c0);
+  torch::Tensor c3 = torch::abs(c0);
+
+  h0.add_(h1);
+  torch::Tensor h2 = torch::abs(h0);
+  torch::Tensor h3 = torch::abs(h0);
+
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+  torch::Tensor h2_c = h2.to(torch::kCPU);
+  torch::Tensor h3_c = h3.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(c0, h0_c));
+  EXPECT_TRUE(allclose(c2, h2_c));
+  EXPECT_TRUE(allclose(c3, h3_c));
+}
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case2) {
+  torch::Tensor c0 = torch::randn({20, 5}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randn({20, 5}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+  c0.add_(c1);
+  torch::Tensor c2 = torch::abs(c0);
+  torch::Tensor c3 = torch::abs(c0);
+  c0.add_(c1);
+  c0.add_(c1);
+
+  h0.add_(h1);
+  h0.add_(h1);
+  torch::Tensor h2 = torch::abs(h0);
+  torch::Tensor h3 = torch::abs(h0);
+  h0.add_(h1);
+  h0.add_(h1);
+  HbLazyTensor::StepMarker({});
+
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+  torch::Tensor h2_c = h2.to(torch::kCPU);
+  torch::Tensor h3_c = h3.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(c0, h0_c));
+  EXPECT_TRUE(allclose(c2, h2_c));
+  EXPECT_TRUE(allclose(c3, h3_c));
+}
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case3) {
+  torch::Tensor c0 = torch::randn({20, 5}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randn({20, 5}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+  c0.add_(c1);
+  c0.add_(c1);
+
+  h0.add_(h1);
+
+  h0.add_(h1);
+  h0.add_(h1);
+
+  HbLazyTensor::StepMarker({});
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(c0, h0_c));
+}
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case4) {
+  torch::Tensor c0 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+
+  c0.add_(c1);
+  c0.add_(c1);
+
+  h0.add_(h1);
+  torch::Tensor h0_t = h0.to(torch::kCPU);
+
+  h0.add_(h1);
+  h0.add_(h1);
+
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+  EXPECT_TRUE(allclose(c0, h0_c));
+}
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case5) {
+  torch::Tensor c0 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+
+  torch::Tensor c2 = torch::abs(c0);
+  torch::Tensor c3 = torch::abs(c0);
+  c0.add_(c1);
+
+  h0.add_(h1);
+  torch::Tensor h2 = torch::abs(h0);
+  torch::Tensor h3 = torch::abs(h0);
+
+  torch::Tensor h0_t = h0.to(torch::kCPU);
+
+  h0.add_(h1);
+  HbLazyTensor::StepMarker({});
+
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+  torch::Tensor h2_c = h2.to(torch::kCPU);
+
+  torch::Tensor h3_c = h3.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(c0, h0_c));
+  EXPECT_TRUE(allclose(c2, h2_c));
+  EXPECT_TRUE(allclose(c3, h3_c));
+}
+
+TEST_F(PostOrderTest, TestInplaceAndD2H_case6) {
+  torch::Tensor c0 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randint(5, {1, 2}, torch::requires_grad(false));
+
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+
+  c0.add_(c1);
+
+  c0.add_(c1);
+  c0.add_(c1);
+  torch::Tensor c2 = torch::abs(c0);
+  torch::Tensor c3 = torch::abs(c0);
+
+  h0.add_(h1);
+  torch::Tensor h0_t = h0.to(torch::kCPU);
+
+  h0.add_(h1);
+  h0.add_(h1);
+
+  HbLazyTensor::StepMarker({});
+  torch::Tensor h0_c = h0.to(torch::kCPU);
+  torch::Tensor h2 = torch::abs(h0);
+  torch::Tensor h3 = torch::abs(h0);
+  h0_c = h0.to(torch::kCPU);
+  torch::Tensor h2_c = h2.to(torch::kCPU);
+
+  h0_c = h0.to(torch::kCPU);
+  torch::Tensor h3_c = h3.to(torch::kCPU);
+  EXPECT_TRUE(allclose(c0, h0_c));
+  EXPECT_TRUE(allclose(c2, h2_c));
+  EXPECT_TRUE(allclose(c3, h3_c));
+}
+
+TEST_F(PostOrderTest, D2H_Test) {
+  torch::Tensor c0 = torch::randn({20, 5}, torch::requires_grad(false));
+  torch::Tensor c1 = torch::randn({20, 5}, torch::requires_grad(false));
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
+  auto c2 = c0.add(c1);
+  auto c3 = c0.add(c1);
+
+  auto c4 = torch::relu(c2);
+  auto c5 = torch::relu(c3);
+  auto c6 = torch::relu(c4);
+
+  auto h2 = h0.add(h1);
+  auto h3 = h0.add(h1);
+
+  auto h4 = torch::relu(h2);
+  auto h5 = torch::relu(h3);
+  auto h6 = torch::relu(h4);
+
+  torch::Tensor h4_c = h4.to(torch::kCPU);
+  torch::Tensor h5_c = h5.to(torch::kCPU);
+  torch::Tensor h6_c = h6.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(c4, h4_c));
+  EXPECT_TRUE(allclose(c5, h5_c));
+  EXPECT_TRUE(allclose(c5, h6_c));
+}

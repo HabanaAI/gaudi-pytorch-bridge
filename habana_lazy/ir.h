@@ -265,6 +265,12 @@ class Node {
 
   void AddInput(const Value& value);
 
+  void ReplaceInput(const Value& value, size_t operand_index);
+
+  std::set<Use>& GetUses() {
+    return m_uses;
+  }
+
   const ValueList GetInputs() const {
     return m_inputs;
   }
@@ -274,10 +280,7 @@ class Node {
     return m_outputs[index];
   }
 
-  virtual ~Node() {
-    m_inputs.clear();
-    m_outputs.clear();
-  }
+  virtual ~Node();
 
   static NodePtr Create(c10::Symbol oper, const ValueList& inputs);
 
@@ -335,6 +338,7 @@ class Node {
   ValueList m_inputs;
   OutputList m_outputs;
   std::set<Use> m_uses;
+  NodePtrList m_uses_reverse_nodes;
   MetaData m_meta_data;
   size_t m_node_hash = 0;
   size_t post_order_pos = ULLONG_MAX;

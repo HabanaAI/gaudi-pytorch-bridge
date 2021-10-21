@@ -186,6 +186,10 @@ struct PT_HPU_DISABLE_INSTANCE_NORM {
   static constexpr bool default_value = false;
 };
 
+struct PT_HPU_AVOID_RE_EXECUTE_GRAPHS {
+  static constexpr bool default_value = true;
+};
+
 // Experimental feature for media pipe. Do not document for end customers
 struct PT_HPU_ENABLE_DATAPTR_ACCESS {
   static constexpr bool default_value = false;

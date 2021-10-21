@@ -25,8 +25,8 @@ size_t StdHashCombine(uint64_t a, uint64_t b) {
 std::atomic_uint64_t Value::unique_id_count(0);
 
 bool Use::operator<(const Use& rhs) const {
-  if (mp_node->op() != rhs.mp_node->op()) {
-    return mp_node->op() < rhs.mp_node->op();
+  if (mp_node != rhs.mp_node) {
+    return mp_node < rhs.mp_node;
   }
   if (m_operand_index != rhs.m_operand_index) {
     return m_operand_index < rhs.m_operand_index;
@@ -53,7 +53,48 @@ std::string Node::ToString() const {
 }
 
 void Node::AddInput(const Value& value) {
+  if (GET_ENV_FLAG(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
+    if (value.mp_node) {
+      value.mp_node->m_uses.insert({this, m_inputs.size(), value.m_index});
+      m_uses_reverse_nodes.push_back(value.mp_node);
+    }
+  }
   m_inputs.emplace_back(value);
+}
+
+void Node::ReplaceInput(const Value& value, size_t operand_index) {
+  HABANA_ASSERT(operand_index < m_inputs.size());
+  m_inputs[operand_index] = value;
+}
+
+Node::~Node() {
+  // auto hash1 = this->get_hash();
+  for (auto node_ptr : m_uses_reverse_nodes) {
+    auto node = node_ptr.get();
+    if (node) {
+      auto& uses = node->GetUses();
+      /* Note :
+        Ideally we dont need to clear all uses. But if its cleared individually,
+        i could see use.mp_node is invalid as it was freed as part of
+        postorder/SetNode functions. This 2 cases it will be freed and
+        use.mp_node will be dangling and use.mp_node->get_hash() will create
+        segfault. This scenario happens while running UT cases all together.
+        Probably because the ut teardown is not proper.
+        Individually testcases will run without any issues.
+      */
+      uses.clear();
+      // for (ir::Use use : uses) {
+      //   auto hash2 = use.mp_node->get_hash();
+      //   if (hash2 == hash1) {
+      //     uses.erase(use);
+      //   }
+      // }
+    }
+  }
+  m_uses_reverse_nodes.clear();
+  m_uses.clear();
+  m_inputs.clear();
+  m_outputs.clear();
 }
 
 std::string Value::ToString() const {

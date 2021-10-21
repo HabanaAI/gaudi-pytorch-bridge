@@ -18,6 +18,7 @@
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/ir.h"
+#include "habana_lazy/ops/hpu_input.h"
 #include "hlexec.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -329,6 +330,42 @@ ir::Value HbLazyTensor::GetIrValueForTensor(
   return CreateTensorNode();
 }
 
+void HbLazyTensor::ClearAndAssignNewIrValue() {
+  // Reset the ir_value with the following content -
+  // - The m_data_ptr should continue to point to the
+  //   same lazy tensor data_ptr()
+  // - New hpu::input Tensor node within the ir_value as
+  //   the output tensors are obtained after computing the
+  //   graph associated with it and can be used as an input
+  //   tensor to further ops using this tensor.
+
+  ir::Value val = createIrValueFromData();
+  if (GET_ENV_FLAG(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
+    ir::Value& currentIrVal = CurrentIrValue();
+    // Check if any other node uses this node, if used, then replace its irval
+    // with the new one.
+    if (currentIrVal.mp_node) {
+      auto node = currentIrVal.mp_node.get();
+      auto& uses = node->GetUses();
+      if (uses.size()) {
+        // Set the value ptr as input node, this will make sure the mp_node in
+        // value is proper.
+        ir::NodePtr inp_node = std::make_shared<ir::Input>(*this);
+        val.SetNode(inp_node, GetDevice(), GetSizes(), dtype_optional());
+        for (ir::Use use : uses) {
+          if (use.mp_node) {
+            use.mp_node->ReplaceInput(val, use.m_operand_index);
+          }
+        }
+      }
+    }
+  }
+  // The version of lazy tensors is maintained per graph execution
+  // reset the counter for use in next graph
+  resetVersionCounter();
+  AssignIrValue(val);
+}
+
 HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
     c10::IntArrayRef size,
     at::Scalar fill_value,
@@ -565,18 +602,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {
     auto& i = (*tensors)[idx];
-    // Reset the ir_value with the following content -
-    // - The m_data_ptr should continue to point to the
-    //   same lazy tensor data_ptr()
-    // - New hpu::input Tensor node within the ir_value as
-    //   the output tensors are obtained after computing the
-    //   graph associated with it and can be used as an input
-    //   tensor to further ops using this tensor.
-    ir::Value val = i.createIrValueFromData();
-    // The version of lazy tensors is maintained per graph execution
-    // reset the counter for use in next graph
-    i.resetVersionCounter();
-    i.AssignIrValue(val);
+    i.ClearAndAssignNewIrValue();
   }
 
   // Save po_data input and output to context for perf mode

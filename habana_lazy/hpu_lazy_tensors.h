@@ -230,6 +230,7 @@ class HbLazyTensor {
     return mp_data;
   }
 
+  void ClearAndAssignNewIrValue();
   static void SyncTensorsGraphInternal(std::vector<HbLazyTensor>* tensors);
   static bool switch_dynamic_mode;
 };
