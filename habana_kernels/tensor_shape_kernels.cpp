@@ -771,12 +771,22 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input arguments for Reshape Operator");
+  std::vector<int64_t> inferred_size;
   Tensor self = inputs[0].toTensor();
+  /*
+   * if we have already created shape tensor at the frontend, then
+   * we dont need the below processing at all.
+   */
+  if (inputs[1].isIntList()) {
+    auto shape = inputs[1].toIntList();
+    auto shape_vector = shape.vec();
+    auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
+    inferred_size = at::infer_size(input_shape, self.numel());
+  } else {
+    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    inferred_size = p_context_->syn_inputs_.back().ref().pt_shape();
+  }
 
-  auto shape = inputs[1].toIntList();
-  auto shape_vector = shape.vec();
-  auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
-  auto inferred_size = at::infer_size(input_shape, self.numel());
   auto memory_format = self.suggest_memory_format();
   if (inferred_size.size() < 4) {
     memory_format = at::MemoryFormat::Contiguous;
@@ -784,6 +794,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
 
   auto output = habana_helpers::createPTTensor(
       self, inferred_size, self.options(), memory_format, is_output_persistent);
+
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements: ",
@@ -792,9 +803,11 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       output.sizes());
   p_context_->params_size_ = 0;
 
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, output);
+  if (inputs[1].isIntList()) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
+    }
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -867,18 +880,22 @@ void ViewOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[0].isTensor(), "Input arg 1 for View op needs to be tensor type");
   TORCH_CHECK(
-      inputs[1].isIntList(), "Input arg 2 for View op needs to be Int List");
+      inputs[1].isIntList() || inputs[1].isTensor(),
+      "Input arg 2 for View op needs to be either Int List or Shape Tensor");
 
   auto self = inputs[0].toTensor();
-  auto dims = inputs[1].toIntVector();
-  ;
+  if (inputs[1].isIntList()) {
+    auto dims = inputs[1].toIntVector();
 
-  // Reshape Operator doesnt support -1 argument, remove it if present
-  auto inferred_dims = at::infer_size(dims, self.numel());
-  // remove start_dim & end_dim. we have already used these to compute shape
-  inputs.pop_back();
-  // insert computed shape into inputs stack before calling reshape
-  inputs.push_back(IValue(inferred_dims));
+    // Reshape Operator doesnt support -1 argument, remove it if present
+    auto inferred_dims = at::infer_size(dims, self.numel());
+    // remove start_dim & end_dim. we have already used these to compute shape
+    inputs.pop_back();
+    // insert computed shape into inputs stack before calling reshape
+    inputs.push_back(IValue(inferred_dims));
+  } else {
+    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+  }
 
   ReshapeOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -1373,6 +1390,11 @@ static auto& KernelRegistry =
             })
         .add(
             "aten::view",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ViewOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::view",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ViewOperator>(device_id, node_type);
             })

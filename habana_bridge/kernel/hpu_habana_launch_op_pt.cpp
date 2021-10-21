@@ -36,9 +36,10 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 
 #include "synapse_helpers/env_flags.h"
@@ -56,11 +57,6 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
 
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
-
-habana_lazy::HbLazyTensorImpl* TryGetHbLazyImpl(const at::Tensor& tensor) {
-  return dynamic_cast<habana_lazy::HbLazyTensorImpl*>(
-      tensor.unsafeGetTensorImpl());
-}
 
 void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   auto sizes = tensor->sizes().vec();
@@ -482,7 +478,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     const HabanaOperatorPtr& habana_op,
     at::Tensor& pt_tensor) {
-  auto impl = TryGetHbLazyImpl(pt_tensor);
+  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
     auto& syn_tensor =
@@ -498,7 +494,6 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
       habana_op->set_is_duplicate_input_flag(true);
       habana_op->add_syn_input_tensor_orig(st);
     }
-
     auto& syn_tensor =
         habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true, false);
 
@@ -2554,7 +2549,6 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
   for (size_t i = 0; i < input_refs.size(); i++) {
     auto input = input_refs[i];
     if (input.isTensor()) {
-      input_tensor_indices.push_back(i);
       at::Tensor pt_tensor = input.toTensor();
       habana_helpers::TensorShape shape(
           pt_tensor.sizes(), pt_tensor.scalar_type());
@@ -2577,10 +2571,23 @@ void HabanaLaunchOpPT::AdjustInputLayout() {
       // communicate layour changes PT doesnt allow any stride changes we
       // want, we can review it with PT folks
 
-      auto tensor = at::alias(pt_stack_sh[j]->toTensor());
+      auto impl =
+          habana_lazy::GetHbInternalTensorImpl(pt_stack_sh[j]->toTensor());
+      bool is_shape_tensor = impl && impl->isShapeTensor();
+
+      /*
+       * If we detach from pytorch, we loose the shape tensor related info
+       * For shape tensors, we dont create an alias, since these tensors are
+       * created by the frontend, we dont need tp detach.
+       * Assumption here is that the Frontend will not create a shape tensor
+       * with zero dims
+       */
+      auto tensor = is_shape_tensor ? pt_stack_sh[j]->toTensor()
+                                    : at::alias(pt_stack_sh[j]->toTensor());
 
       // WE dont support 0D tensors internally, so convert to 1D internally
       if (tensor.dim() == 0) {
+        HABANA_ASSERT(is_shape_tensor == false);
         tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
       }
 
@@ -2620,8 +2627,9 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
 
   for (size_t i = 0; i < stack.size(); ++i) {
     if (dynamic_shapes.count(i)) {
-      auto tensor = stack[i].toTensor();
-
+      auto& tensor = stack[i].toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      bool is_shape_tensor = impl && impl->isShapeTensor();
       //
       // TODO: When creating a new stack, we need to look, if this
       // can be done using storage less pytorch tensor, need to fix
@@ -2630,6 +2638,15 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
           dynamic_shapes.at(i).get_dims(),
           tensor.options(),
           tensor.suggest_memory_format());
+
+      /*
+       * Every new tensor is created using Habana Tensor Implementer.
+       * Ensure propogation of shape tensor information for the new
+       * tensor created for the stack.
+       */
+      auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
+      HABANA_ASSERT(new_impl);
+      new_impl->setShapeTensor(is_shape_tensor);
       new_stack.push_back(torch::jit::IValue(new_tensor));
     } else {
       new_stack.push_back(stack[i]);

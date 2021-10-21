@@ -407,7 +407,8 @@ void tensor::cleanup() {
 tensor tensor::create_placeholder(
     synDeviceId syn_device,
     const std::vector<int64_t>& pt_shape,
-    const std::vector<int64_t>& pt_stride) {
+    const std::vector<int64_t>& pt_stride,
+    synTensorType tensor_type) {
   auto name = detail::tensor_name_generator::generate();
   tensor tensor{
       syn_device,
@@ -420,7 +421,7 @@ tensor tensor::create_placeholder(
   tensor.set_placeholder();
   tensor.pt_shape_ = pt_shape;
   tensor.pt_strides_ = pt_stride;
-
+  tensor.tensor_type_ = tensor_type;
   return tensor;
 }
 

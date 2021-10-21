@@ -28,20 +28,48 @@ class View : public ir::Node {
   };
   View() = delete;
   View(const at::Tensor& self, at::IntArrayRef size)
-      : Node(c10::Symbol::fromQualString("aten::view")) {
+      : Node(
+            GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+                ? c10::Symbol::fromQualString("hpu::view")
+                : c10::Symbol::fromQualString("aten::view")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
+    /*
+     * For Dynamic Shape, in case of view tensor the constant is
+     * converted to shape tensor. and added as input & hence we do
+     * not set the meta data here.
+     */
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      auto shape = empty_hpu_lazy(
+          size,
+          self.options(),
+          self.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+      auto hl_shape = GetOrCreateHbLazyTensor(shape, c10::kHPU);
+      AddInput(hl_shape.GetIrValue());
+      input_pt_vec.emplace_back(shape);
+    } else {
+      m_meta_data.set(size, static_cast<size_t>(1));
+    }
     AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(size, static_cast<size_t>(1));
   }
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString()
-       << ", View Size = " << m_meta_data.get(static_cast<size_t>(1));
+    ss << Node::ToString();
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == 0) {
+      ss << ", View Size = " << m_meta_data.get(static_cast<size_t>(1));
+    } else {
+      HABANA_ASSERT(m_inputs.size() == 2);
+      auto& shape = m_inputs[1];
+      if (shape.DataPtrValidAndNotExpired()) {
+        std::shared_ptr<Data> data = shape.m_data_ptr.lock();
+        ss << ", View Size = " << data->sizes;
+      }
+    }
     return ss.str();
   }
 };

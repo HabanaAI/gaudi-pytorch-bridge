@@ -36,6 +36,29 @@
 
 namespace habana {
 
+/*
+ * Overrides Pytorch's Complete Argument Spec
+ */
+class HbCas {
+ public:
+  explicit HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs);
+
+  size_t hashCode() const {
+    return p_cas->hashCode();
+  }
+
+  bool operator==(const HbCas& spec) const {
+    return hashCode() == spec.hashCode();
+  }
+
+  bool operator!=(const HbCas& spec) const {
+    return !(*this == spec);
+  }
+
+ private:
+  std::shared_ptr<torch::jit::CompleteArgumentSpec> p_cas;
+};
+
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
 //   if possible pass the subgraph as argument
@@ -102,7 +125,7 @@ struct RecipeArgumentSpec {
       at::ArrayRef<torch::jit::IValue> input_refs);
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 
-  torch::jit::CompleteArgumentSpec cas;
+  HbCas cas;
   std::string opstrs;
   size_t hash_code{0};
   size_t graph_hash_code{0};

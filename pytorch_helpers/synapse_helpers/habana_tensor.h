@@ -233,7 +233,8 @@ class tensor final {
   static tensor create_placeholder(
       synDeviceId device_id,
       const std::vector<int64_t>& pt_shape,
-      const std::vector<int64_t>& pt_stride);
+      const std::vector<int64_t>& pt_stride,
+      synTensorType tensor_type = DATA_TENSOR);
 
   synTensor& get() {
     return tensor_;

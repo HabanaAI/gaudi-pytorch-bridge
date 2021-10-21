@@ -169,7 +169,6 @@ class HabanaLaunchOpPT {
 
   bool use_persistent_tensors{false};
 
-  std::vector<size_t> input_tensor_indices;
   habana_helpers::DynamicBucketInfo::InpTensorShapes act_input_tshapes;
   habana_helpers::DynamicBucketInfo::InpTensorShapes min_input_tshapes;
   habana_helpers::DynamicBucketInfo::InpTensorShapes max_input_tshapes;

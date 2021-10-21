@@ -24,6 +24,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "synapse_helpers/env_flags.h"
 
 namespace habana {
@@ -42,6 +43,39 @@ size_t RecipeValueSpec::launch_count = 0;
 
 std::mutex DynamicBucketInfoMap::mutex_;
 DynamicBucketInfoMap* DynamicBucketInfoMap::instance_ = nullptr;
+
+HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
+  std::unordered_map<size_t, std::vector<int64_t>> shape_tensor_map;
+  auto num_inputs = inputs.size();
+
+  /*
+   * Here we iterate over each of the input and we need to ignore
+   * shape comparison for shape tensors. In order to do that we
+   * do the below, for each shape tensor
+   * 1. For every shape tensor set the size as {1}
+   * 2. Create the complete argument spec (CAS) with the above change
+   * 3. After the CAS is created, restore the shape tensor to original
+   *    value
+   */
+  for (size_t i = 0; i < num_inputs; i++) {
+    if (!inputs[i].isTensor())
+      continue;
+    auto& tensor = inputs[i].toTensor();
+    auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+
+    if (impl && impl->isShapeTensor()) {
+      shape_tensor_map.insert({i, tensor.sizes().vec()});
+      tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
+    }
+  }
+  p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
+
+  for (auto& s : shape_tensor_map) {
+    HABANA_ASSERT(s.first < inputs.size());
+    inputs[s.first].toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
+        s.second);
+  }
+}
 
 RecipeArgumentSpec::RecipeArgumentSpec(
     const std::shared_ptr<torch::jit::Graph>& irgraph,
@@ -440,13 +474,17 @@ void RecipeValueSpec::update_patching_table(
   // Patch the input buffers
   // Running index on dtensorinfos
   size_t ridx = 0;
-
   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
-      dtensorinfos->at(ridx).patch_exact(input.toTensor());
-      IValPtrShared ivpsh = std::make_shared<IVal>(input);
-      inputIVpshMap.emplace(ridx, ivpsh);
+      auto& tensor = input.toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      bool is_shape_tensor = impl && impl->isShapeTensor();
+      if (false == is_shape_tensor) {
+        dtensorinfos->at(ridx).patch_exact(input.toTensor());
+        IValPtrShared ivpsh = std::make_shared<IVal>(input);
+        inputIVpshMap.emplace(ridx, ivpsh);
+      }
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {

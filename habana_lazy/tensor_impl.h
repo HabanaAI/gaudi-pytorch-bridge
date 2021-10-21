@@ -60,13 +60,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   const at::Storage& storage() const override;
 
   bool has_storage() const override;
-  void setAsShapeTensor() {
-    m_is_shape_tensor = true;
-  }
-
-  bool isShapeTensor() {
-    return m_is_shape_tensor;
-  }
 
  private:
   void SetupSizeProperties();
@@ -74,7 +67,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   std::vector<int64_t> ComputeArrayStrides(absl::Span<const int64_t> sizes);
 
   bool m_size_initialized;
-  bool m_is_shape_tensor;
 
   HbLazyTensor m_tensor;
 
@@ -103,7 +95,16 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     tensor_layout = layout;
   }
 
+  void setShapeTensor(bool valid = true) {
+    m_is_shape_tensor = valid;
+  }
+
+  bool isShapeTensor() {
+    return m_is_shape_tensor;
+  }
+
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
+  bool m_is_shape_tensor = false;
 };
 } // namespace habana_lazy

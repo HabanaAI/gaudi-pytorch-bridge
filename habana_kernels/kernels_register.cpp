@@ -76,6 +76,7 @@ Tensor& hpu_wrap::set_(
     return set_hpu_(self, source, storage_offset, size, stride);
   }
 };
+
 Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
   if (!hpu_check_inputs_impl("view", {self}))
     return AtenHpuTypeDefault::view(self, size);
@@ -87,6 +88,7 @@ Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
     return view_hpu(self, size);
   }
 };
+
 Tensor hpu_wrap::addcmul(
     const Tensor& self,
     const Tensor& tensor1,
@@ -4522,6 +4524,7 @@ TORCH_LIBRARY(hpu, m) {
       "instance_norm(Tensor input, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
       "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
+  m.def("view(Tensor input, Tensor shape) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

@@ -93,6 +93,19 @@ bool to_lower_as_strided() {
   return GET_ENV_FLAG(PT_HPU_LOWER_AS_STRIDED);
 }
 
+inline bool isShapeTensor(synTensorType shape_tensor) {
+  switch (shape_tensor) {
+    case SHAPE_TENSOR:
+    // case OUTPUT_DESCRIBING_SHAPE_TENSOR:
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+    case DEVICE_SHAPE_TENSOR:
+    case HOST_SHAPE_TENSOR:
+      return true;
+    default:
+      return false;
+  };
+}
+
 void flushWithMarkStep() {
   // Generate a random number and invoke the mark_step
   static std::once_flag flag;
@@ -4069,14 +4082,16 @@ Tensor empty_hpu_lazy(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format,
     bool create_storage,
-    habana::ShapeTensorType is_shape_tensor) {
+    synTensorType tensor_type) {
   PT_LAZY_TRACE;
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
       : options.memory_format_opt();
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
+  auto is_shape_tensor = isShapeTensor(tensor_type);
   if (habana_helpers::is_unsupported_type(type)) {
+    HABANA_ASSERT(is_shape_tensor == false);
     auto layout = options.layout();
     auto pinned_mem = options.pinned_memory();
     auto dev = c10::DeviceType::CPU;
@@ -4089,8 +4104,7 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   auto new_dtype = scalarTypeToTypeMeta(type);
 
-  if (create_storage ||
-      is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
+  if (create_storage || is_shape_tensor) {
     c10 ::Allocator* allocator;
     if (options.pinned_memory()) {
       TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
@@ -4100,10 +4114,8 @@ Tensor empty_hpu_lazy(
     int64_t nelements = multiply_integers(size);
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data
-    if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
-      nelements = is_shape_tensor == habana::ShapeTensorType::kDeviceShapeTensor
-          ? SYN_MAX_TENSOR_DIM
-          : 0;
+    if (is_shape_tensor) {
+      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
     }
     int elem_size = new_dtype.itemsize();
     int64_t size_bytes = nelements * elem_size;
@@ -4128,11 +4140,12 @@ Tensor empty_hpu_lazy(
     }
 
     // set metadata that its a shape tensor
-    if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
-      habana_lazy::HbLazyTensorImpl* impl =
-          habana_lazy::GetHbLazyTensorImpl(at_internal_tensor);
-      if (impl)
-        impl->setAsShapeTensor();
+    if (is_shape_tensor) {
+      habana_lazy::HbInternalTensorImpl* impl =
+          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+      if (impl) {
+        impl->setShapeTensor(true);
+      }
     }
 
     Tensor at_tensor;
@@ -4206,6 +4219,7 @@ Tensor empty_hpu_lazy(
     return at_tensor;
   }
 }
+
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,

@@ -639,8 +639,7 @@ at::Tensor empty_hpu_lazy(
     const at::TensorOptions& options,
     c10::optional<at::MemoryFormat> optional_memory_format,
     bool create_storage = true,
-    habana::ShapeTensorType is_shape_tensor =
-        habana::ShapeTensorType::kShapeTensorNone);
+    synTensorType shape_tensor = DATA_TENSOR);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
