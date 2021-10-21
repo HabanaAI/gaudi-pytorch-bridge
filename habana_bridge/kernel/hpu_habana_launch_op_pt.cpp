@@ -199,11 +199,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       enable_caching_ = false;
     }
   }
-  use_persistent_tensors = false;
-
-  if (const auto envp = getenv("HABANA_USE_PERSISTENT_TENSOR")) {
-    use_persistent_tensors = atoi(envp) == 1;
-  }
+  use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
     struct stat st = {};

@@ -360,7 +360,7 @@ synapse_error_o graph::launch(
       synapse_helpers::print_live_allocations(msg.c_str());
     }
 
-    if (false == GET_ENV_FLAG(PT_HPU_USE_SYN_TENSOR_IDS)) {
+    if (false == GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
       PT_SYNHELPER_DEBUG("Launching recipe with tensor names");
       std::vector<synLaunchTensorInfo> old_launch_info;
       old_launch_info.reserve(inputs_and_outputs_info.size());

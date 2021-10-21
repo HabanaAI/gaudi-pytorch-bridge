@@ -257,10 +257,7 @@ bool habana_helpers::alwaysAllocOnDevice() {
   static std::once_flag flag;
   static bool allocOnDevice;
   std::call_once(flag, [&]() {
-    allocOnDevice = false;
-    if (const auto envp = std::getenv("HABANA_USE_PERSISTENT_TENSOR")) {
-      allocOnDevice = atoi(envp) == 1;
-    }
+    allocOnDevice = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
   });
   return allocOnDevice;
 }

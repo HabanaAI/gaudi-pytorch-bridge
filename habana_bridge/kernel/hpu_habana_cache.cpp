@@ -711,7 +711,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
     }
   }
 
-  if (GET_ENV_FLAG(PT_HPU_USE_SYN_TENSOR_IDS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
     if (nullptr == tensor_names) {
       tensor_ids = new uint64_t[num_tensors];
       tensor_names = new const char*[num_tensors];

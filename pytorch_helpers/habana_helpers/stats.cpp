@@ -167,9 +167,9 @@ void StatsBase::outputHeader() {
 // are set, so we call this function to update the enable state after GCFG is
 // set.
 void StatsBase::updateEnable() {
-  bool stats_enabled = GET_ENV_FLAG(PT_HPU_PRINT_STATS);
-  unsigned dump_freq = GET_ENV_FLAG(PT_HPU_PRINT_STATS_DUMP_FREQ);
-  bool table_enabled = GET_ENV_FLAG(PT_HPU_PRINT_STATS_TABLE);
+  bool stats_enabled = GET_ENV_FLAG_NEW(PT_HPU_PRINT_STATS);
+  unsigned dump_freq = GET_ENV_FLAG_NEW(PT_HPU_PRINT_STATS_DUMP_FREQ);
+  bool table_enabled = GET_ENV_FLAG_NEW(PT_HPU_PRINT_STATS_TABLE);
   m_isTbl = table_enabled;
   m_enabled = stats_enabled || table_enabled || (dump_freq > 0);
 }
@@ -177,7 +177,7 @@ void StatsBase::updateEnable() {
 void StatsBase::updateEnableGlbl() {
   updateEnable();
 
-  unsigned stats_dump_freq = GET_ENV_FLAG(PT_HPU_PRINT_STATS_DUMP_FREQ);
+  unsigned stats_dump_freq = GET_ENV_FLAG_NEW(PT_HPU_PRINT_STATS_DUMP_FREQ);
   if (stats_dump_freq > 0) {
     m_dumpFreq = 1;
   }

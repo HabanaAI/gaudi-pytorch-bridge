@@ -175,26 +175,6 @@ struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
   static constexpr bool default_value = true;
 };
 
-struct PT_HPU_PRINT_STATS {
-  static constexpr bool default_value = false;
-};
-
-struct PT_HPU_PRINT_STATS_DUMP_FREQ : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 0;
-};
-
-struct PT_HPU_PRINT_STATS_TABLE {
-  static constexpr bool default_value = false;
-};
-
-struct PT_HPU_USE_SYN_TENSOR_IDS {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_ZERO_STRIDE_SYNTENSOR {
-  static constexpr bool default_value = false;
-};
-
 struct PT_HPU_DUMP_IR_DOT_GRAPH {
   static constexpr bool default_value = false;
 };
@@ -319,7 +299,14 @@ bool is_defined(const char* name) {
   TYPE NAME::actual_value{};
 
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_MODE, unsigned, 2);
-ENV_STRUCT_DEFINITION(PT_HPU_LAZY_LOWERING, bool, 0);
+ENV_STRUCT_DEFINITION(PT_HPU_LAZY_LOWERING, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ZERO_STRIDE_SYNTENSOR, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_USE_SYN_TENSOR_IDS, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_PRINT_STATS, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_PRINT_STATS_DUMP_FREQ, unsigned, 0);
+ENV_STRUCT_DEFINITION(PT_HPU_PRINT_STATS_TABLE, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool, false);
+ENV_STRUCT_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool, false);
 
 template <class T>
 T getenv_by_type_new(

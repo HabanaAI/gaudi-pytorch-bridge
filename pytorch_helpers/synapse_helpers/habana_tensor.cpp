@@ -272,10 +272,8 @@ synapse_error_o tensor::create_old_synapi() {
 }
 
 synapse_error_o tensor::create() {
-  if (const auto envp = std::getenv("PT_HPU_INTERNAL_OLD_SYNAPI")) {
-    if (atoi(envp) == 1) {
-      return create_old_synapi();
-    }
+  if (GET_ENV_FLAG_NEW(PT_HPU_INTERNAL_OLD_SYNAPI)) {
+    return create_old_synapi();
   }
   synStatus status;
   // Create the synTensor handle, with the given tensor type and name
@@ -311,7 +309,7 @@ synapse_error_o tensor::create() {
   synTensorDeviceLayout deviceLayout;
   uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
 
-  if (GET_ENV_FLAG(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
     PT_SYNHELPER_DEBUG("Not passing strides to synapse, all strides will be 0");
   } else {
     std::copy_n(
