@@ -186,4 +186,37 @@ class LazyGraphCache {
   std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>> m_cache_map;
 };
 
+class FastLazyGraphCache {
+ public:
+  static FastLazyGraphCache& GetFastLazyCache() {
+    static FastLazyGraphCache* fast_mp_instance;
+    if (!fast_mp_instance) {
+      fast_mp_instance = new FastLazyGraphCache();
+    }
+    return *fast_mp_instance;
+  }
+
+  FastLazyGraphCache(const FastLazyGraphCache&) = delete;
+  FastLazyGraphCache(FastLazyGraphCache&&) = delete;
+  FastLazyGraphCache& operator=(const FastLazyGraphCache&) = delete;
+  FastLazyGraphCache& operator=(FastLazyGraphCache&&) = delete;
+
+  ~FastLazyGraphCache();
+
+  std::shared_ptr<torch::jit::Graph> GetOptimizedJITGraph(size_t key);
+  void Add(size_t key, std::shared_ptr<torch::jit::Graph> val);
+  void RemoveGraph(size_t key);
+  bool IsCached(size_t key);
+  bool Empty();
+  void Clear();
+
+ private:
+  explicit FastLazyGraphCache();
+
+  std::mutex m_mutex;
+
+  // Cache stores a JIT graph shared_ptr for a given hash key
+  std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>> m_cache_map;
+};
+
 } // namespace habana_lazy

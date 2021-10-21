@@ -20,6 +20,7 @@
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ops/hpu_input.h"
 #include "hlexec.h"
+#include "hpu_lazy_cache.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -479,10 +480,21 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
   return HbContextArena::Get()->GetLiveTensors(device);
 }
 
-void HbLazyTensor::SyncTensorsGraph(std::vector<HbLazyTensor>* tensors) {
+void HbLazyTensor::SyncTensorsGraph(
+    std::vector<HbLazyTensor>* tensors,
+    size_t optimized_lazy_eager_key) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  SyncTensorsGraphInternal(tensors);
+  SyncTensorsGraphInternal(tensors, optimized_lazy_eager_key);
+}
+
+void HbLazyTensor::SyncTensorsGraphFast(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<ir::Value>& input_values,
+    size_t optimized_lazy_eager_key) {
+  PT_LAZY_TRACE;
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  SyncTensorsGraphInternalFast(tensors, input_values, optimized_lazy_eager_key);
 }
 
 void HbLazyTensor::SyncLiveTensorsGraph(
@@ -499,7 +511,8 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
-    std::vector<HbLazyTensor>* tensors) {
+    std::vector<HbLazyTensor>* tensors,
+    size_t optimized_lazy_eager_key) {
   PT_LAZY_TRACE;
   std::vector<int> indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
@@ -547,7 +560,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->MarkTensorExecuting(d->unique_id);
   }
 
-  hlexec.GetOrCreate(po_data, stack);
+  hlexec.GetOrCreate(po_data, stack, optimized_lazy_eager_key);
   // This is the logic to remove outputs of control edges that are dangling from
   // the outputs of JIT graph We dont want to alter graph execution, so removing
   // after graph is already prepared. Also we DO want that the tensors of this
@@ -610,6 +623,99 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
     context->m_is_cached = true;
+  }
+
+  // clear the scalar to tensor cache
+  context->scalar_to_tensor_map.clear();
+
+  // clear retained tensor list
+  context->m_retained_tensor_list.clear();
+}
+
+void HbLazyTensor::SyncTensorsGraphInternalFast(
+    std::vector<HbLazyTensor>* tensors,
+    std::vector<ir::Value>& input_values,
+    size_t optimized_lazy_eager_key) {
+  PT_LAZY_TRACE;
+  std::vector<int> indices;
+  for (size_t i = 0; i < tensors->size(); ++i) {
+    indices.push_back(i);
+  }
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(
+      (*tensors)[0].GetDevice().index());
+
+  torch::jit::Stack stack;
+  stack.reserve(std::max(input_values.size(), indices.size()));
+  for (const auto& in : input_values) {
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    stack.emplace_back(d->tensor_data);
+    // We dont get the correct lazy tensor back from internal tensor
+    // So marking for execution here
+    context->MarkTensorExecuting(d->unique_id);
+  }
+
+  GraphPtr fast_path_jit_ir =
+      habana_lazy::FastLazyGraphCache::GetFastLazyCache().GetOptimizedJITGraph(
+          optimized_lazy_eager_key);
+  PT_LAZY_DEBUG("Fast Path JIT Cache hit :: key ", optimized_lazy_eager_key);
+
+  // Dump the JIT graph with PT_LAZY_DEBUG
+  // PT_LAZY_DEBUG(hlexec.DumpGraph());
+
+  // Remove any tensor_data held at output, this will reduce the memory
+  // pressure
+  for (size_t idx = 0; idx < indices.size();) {
+    auto out_tensor = (*tensors)[indices[idx++]];
+    out_tensor.SetTensorData(at::Tensor());
+  }
+
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto hl_context = habana_lazy_executor.getDeviceExecutionContext(device.id());
+  // TODO : remove this env variable use
+  // This is temporarily done to deactivate code in synapse helpers for lazy
+  // mode kernel registration We will move to using shape utilities instead and
+  // not do env variable based check anymore
+  // We have short-circuited certain utilities in synapse helpers, we need to
+  // remove that code
+  // TODO : Not seting this would cause the synapse graph creation set to
+  // dry run. Hence not setting this would cause synpase graph to be not be
+  // created. This needs to be optimized.
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
+  hl_context->setExecutionMode(kLOWERING);
+
+  habana::HabanaLaunchOpPT launch{fast_path_jit_ir};
+  launch.run(stack);
+
+  hl_context->setExecutionMode(kLAZY);
+  hl_context->MarkTensorsExecuted();
+  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+  HABANA_ASSERT(stack.size() == indices.size());
+
+  size_t i = 0;
+  for (const torch::IValue& v : stack) {
+    auto st = v.toTensor();
+    auto out_tensor = (*tensors)[indices[i++]];
+    context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
+    out_tensor.SetTensorData(st);
+  }
+  context->MarkTensorsExecuted();
+
+  // Graph executed, clear IR values corresponding to sync tensors
+  for (auto idx : indices) {
+    auto& i = (*tensors)[idx];
+    // Reset the ir_value with the following content -
+    // - The m_data_ptr should continue to point to the
+    //   same lazy tensor data_ptr()
+    // - New hpu::input Tensor node within the ir_value as
+    //   the output tensors are obtained after computing the
+    //   graph associated with it and can be used as an input
+    //   tensor to further ops using this tensor.
+    ir::Value val = i.createIrValueFromData();
+    // The version of lazy tensors is maintained per graph execution
+    // reset the counter for use in next graph
+    i.resetVersionCounter();
+    i.AssignIrValue(val);
   }
 
   // clear the scalar to tensor cache

@@ -14,6 +14,7 @@
 
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/lazy_executor.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
@@ -235,7 +236,55 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
+  HandleOptimizedLazyEager() {
+    std::shared_ptr<torch::jit::Graph> fast_path_jit_graph = nullptr;
+    size_t lazy_eager_key = 0;
+    if (!(std::getenv("PT_HPU_LAZY_CACHE_DISABLE"))) {
+      lazy_eager_key = calculate_optimized_lazy_eager_key();
+      PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
+      if (lazy_eager_key != 0) {
+        fast_path_jit_graph =
+            habana_lazy::FastLazyGraphCache::GetFastLazyCache()
+                .GetOptimizedJITGraph(lazy_eager_key);
+      }
+    }
+
+    if (fast_path_jit_graph == nullptr) {
+      const auto& node = create_node();
+      const auto& result = get_result();
+      auto hl_result = GetHbLazyTensor(result);
+      ir::Value& out = hl_result.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional());
+      updateDstDependencies(hl_result, result, false);
+      std::vector<HbLazyTensor> hl_tensors = {hl_result};
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors, lazy_eager_key);
+      return result;
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      const auto& result = get_result();
+      auto hl_result = GetHbLazyTensor(result);
+      std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+      std::vector<HbLazyTensor> hl_tensors = {hl_result};
+      HbLazyTensor::SyncTensorsGraphFast(
+          &hl_tensors, input_values, lazy_eager_key);
+      return result;
+    }
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+    PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+      return (HandleOptimizedLazyEager());
+    }
+
     const auto& node = create_node();
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result);
@@ -553,6 +602,140 @@ class LazyOp {
     m_scalar_type = scalar_type;
   }
 
+  // JIT IR Cache key calculation for optimized lazy eager
+  size_t calculate_optimized_lazy_eager_key() {
+    size_t optimized_key = static_cast<uint32_t>(m_symbol);
+    optimized_key = at::hash_combine(optimized_key, m_out_shapes.size());
+
+    std::unordered_set<size_t> input_hash_values;
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      optimized_key = at::hash_combine(optimized_key, i);
+      const at::IValue& input = m_inputs[i];
+      // Create stack based on input tensors / tensor lists.
+      // Metadata and scalars are part of key calculation, so we skip them.
+      if (m_metadata_indices.count(i)) {
+        if (input.isList()) {
+          for (auto& v : input.toListRef()) {
+            optimized_key =
+                at::hash_combine(optimized_key, at::IValue::hash(v));
+          }
+        } else {
+          optimized_key =
+              at::hash_combine(optimized_key, at::IValue::hash(input));
+        }
+        continue;
+      } else if (input.isScalar()) {
+        optimized_key =
+            at::hash_combine(optimized_key, at::IValue::hash(input.toScalar()));
+        continue;
+      }
+
+      if (input.isTensor()) {
+        // Calculate hash based on unique tensor inputs.
+        size_t input_hash_val = at::IValue::hash(input);
+        if (input_hash_values.count(input_hash_val)) {
+          continue;
+        }
+        input_hash_values.emplace(input_hash_val);
+        const at::Tensor& t = input.toTensor();
+        update_hash_key_for_tensor(t, optimized_key);
+        if (optimized_key == 0) {
+          break;
+        }
+      } else if (input.isTensorList()) {
+        const auto& tensors = input.toTensorVector();
+        for (const auto& t : tensors) {
+          update_hash_key_for_tensor(t, optimized_key);
+          if (optimized_key == 0) {
+            break;
+          }
+        }
+        if (optimized_key == 0) {
+          break;
+        }
+      } else if (isMetadataCandidate(input)) {
+        // Not handled so returning null key
+        optimized_key = 0;
+        break;
+      }
+    }
+
+    return optimized_key;
+  }
+
+  std::vector<ir::Value> prepare_lazy_eager_input_values() {
+    std::vector<ir::Value> input_values;
+    std::vector<ir::Value>::iterator it;
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      const at::IValue& input = m_inputs[i];
+      if (m_metadata_indices.count(i) || input.isScalar()) {
+        continue;
+      } else if (input.isTensor()) {
+        const at::Tensor& t = input.toTensor();
+        if (t.defined()) {
+          if (t.device().type() != c10::DeviceType::HPU) {
+            // DMA is default because aten schema may not be happy for most ops
+            if (m_convert_wrapped_tensor_to_scalar) {
+              continue;
+            } else {
+              at::Tensor tinput;
+              // If the CPU tensor is a wrapped number, then use
+              // get_tensor_for_scalar method to retrieve cached HPU tensors for
+              // the scalar value
+              if ((t.device().type() == c10::DeviceType::CPU)
+                  // is_wrapped_number: True if a tensor was auto-wrapped from a
+                  // C++ or Python number.
+                  && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
+                // Set the dtype for the HPU tensor.
+                //   Double : Float
+                //   Long : Int
+                //   Everything else is passed with the dtype of CPU tensor
+                at::TensorOptions topt = {};
+                auto dtype = t.scalar_type();
+                switch (dtype) {
+                  case at::ScalarType::Double:
+                    topt = at::TensorOptions().dtype(at::ScalarType::Float);
+                    break;
+                  case at::ScalarType::Long:
+                    topt = at::TensorOptions().dtype(at::ScalarType::Int);
+                    break;
+                  default:
+                    topt = at::TensorOptions().dtype(dtype);
+                    break;
+                }
+                tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
+              } else {
+                // Use non_blocking .to()
+                tinput = t.to(c10::kHPU, true);
+              }
+              auto val = GetHbLazyTensor(tinput).GetIrValue();
+              it = find(input_values.begin(), input_values.end(), val);
+              if (it == input_values.end()) {
+                input_values.emplace_back(val);
+              }
+            }
+          } else {
+            auto val = GetHbLazyTensor(t).GetIrValue();
+            it = find(input_values.begin(), input_values.end(), val);
+            if (it == input_values.end()) {
+              input_values.emplace_back(val);
+            }
+          }
+        }
+      } else if (input.isTensorList()) {
+        const auto& tensors = input.toTensorList();
+        for (const auto& t : tensors) {
+          auto val = GetHbLazyTensor(t).GetIrValue();
+          it = find(input_values.begin(), input_values.end(), val);
+          if (it == input_values.end()) {
+            input_values.emplace_back(val);
+          }
+        }
+      }
+    }
+    return input_values;
+  }
+
  private:
   bool m_convert_wrapped_tensor_to_scalar = false;
   ir::NodePtr m_node = nullptr;
@@ -563,6 +746,22 @@ class LazyOp {
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
+  void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
+    optimized_key = at::hash_combine(optimized_key, (size_t)t.dim());
+    optimized_key =
+        at::hash_combine(optimized_key, static_cast<size_t>(t.scalar_type()));
+    optimized_key = at::hash_combine(
+        optimized_key, static_cast<size_t>(t.suggest_memory_format()));
+    auto hl_tensor = TryGetHbLazyTensor(t);
+    if (hl_tensor) {
+      optimized_key =
+          at::hash_combine(optimized_key, (size_t)hl_tensor->GetTensorLayout());
+      auto val = hl_tensor->GetIrValue();
+      if (!(val.mp_node->is_input())) {
+        optimized_key = 0;
+      }
+    }
+  }
 };
 
 template <typename T>

@@ -76,6 +76,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<torch::jit::Graph> graph,
       bool dbg,
       const std::string& name);
+  explicit HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph);
   ~HabanaLaunchOpPT();
   void run(torch::jit::Stack& stack);
 

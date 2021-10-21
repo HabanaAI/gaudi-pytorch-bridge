@@ -201,7 +201,10 @@ class HlExec {
    *   outputs: Lazy value pointers representing output tensors
    *   str: post order graph string
    */
-  void GetOrCreate(const ir::PostOrderData& po_data, torch::jit::Stack& stack);
+  void GetOrCreate(
+      const ir::PostOrderData& po_data,
+      torch::jit::Stack& stack,
+      size_t optimized_lazy_eager_key = 0);
 
   /**
    * This method calls torch::jit optimizer passes.

@@ -161,7 +161,13 @@ class HbLazyTensor {
   // devices will be returned.
   static std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
 
-  static void SyncTensorsGraph(std::vector<HbLazyTensor>* tensors);
+  static void SyncTensorsGraph(
+      std::vector<HbLazyTensor>* tensors,
+      size_t optimized_lazy_eager_key = 0);
+  static void SyncTensorsGraphFast(
+      std::vector<HbLazyTensor>* tensors,
+      std::vector<ir::Value>& input_values,
+      size_t optimized_lazy_eager_key = 0);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
@@ -231,7 +237,13 @@ class HbLazyTensor {
   }
 
   void ClearAndAssignNewIrValue();
-  static void SyncTensorsGraphInternal(std::vector<HbLazyTensor>* tensors);
+  static void SyncTensorsGraphInternal(
+      std::vector<HbLazyTensor>* tensors,
+      size_t optimized_lazy_eager_key = 0);
+  static void SyncTensorsGraphInternalFast(
+      std::vector<HbLazyTensor>* tensors,
+      std::vector<ir::Value>& input_values,
+      size_t optimized_lazy_eager_key = 0);
   static bool switch_dynamic_mode;
 };
 

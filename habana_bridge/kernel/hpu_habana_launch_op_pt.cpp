@@ -250,6 +250,24 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 }
 
+HabanaLaunchOpPT::HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph)
+    : jit_ir_graph{std::move(graph)} {
+  refine_ds_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+
+  PT_BRIDGE_DEBUG("Creating HabanaLaunchOp for Optimized Lazy Eager Path");
+
+  if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
+    HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
+  }
+
+  valptr_to_persistent_map = {};
+  tensor_dump_numel_ = -2;
+  enable_tensor_dump_ = false;
+  enable_caching_ = true;
+  enable_tensor_release_ = true;
+  use_persistent_tensors = false;
+}
+
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", id_str);
 }
