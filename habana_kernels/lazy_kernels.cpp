@@ -4819,15 +4819,6 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
     bool largest,
     bool sorted) {
   PT_LAZY_TRACE;
-  if (false == largest) {
-    auto input = at::neg(self);
-    auto result = topk_hpu_lazy_impl(input, k, dim, true, sorted);
-    auto values = std::get<0>(result);
-    values = at::neg(values);
-    auto indices = std::get<1>(result);
-    std::tuple<Tensor, Tensor> final_result = {values, indices};
-    return final_result;
-  }
   return topk_hpu_lazy_impl(self, k, dim, largest, sorted);
 }
 

@@ -116,11 +116,9 @@ class OpAttributeCheck {
          {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
         // checking for half_to_float = false
         {"_softmax", {{3, {c10::IValue(false)}}}},
-        // checking for descending = true
-        {"sort", {{3, {c10::IValue(true)}}}},
         // checking for thresold = 0
         {"threshold_backward", {{3, {c10::IValue(0), c10::IValue(0.0)}}}},
-        // checking for largest = true, sorted = true
+        // checking for sorted = true
         {"topk", {{5, {c10::IValue(true)}}}},
     };
   }

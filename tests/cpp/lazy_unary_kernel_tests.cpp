@@ -648,6 +648,41 @@ TEST_F(LazyUnaryKernelTest, SortTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
+TEST_F(LazyUnaryKernelTest, SortFwdBwdTest) {
+  auto N = 8;
+  auto C = 1024;
+  auto self =
+      torch::randn({N, C}, torch::dtype(torch::kFloat).requires_grad(true));
+  auto hself = self.to(torch::kHPU).detach();
+  hself.requires_grad_(true);
+
+  auto out_cpu = torch::sort(self, 1, false);
+  auto cout = std::get<0>(out_cpu);
+  auto cout_idx = std::get<1>(out_cpu);
+  auto grad_cout = torch::ones_like(cout);
+  auto hgrad_cout = grad_cout.to(torch::kHPU).detach();
+  hgrad_cout.requires_grad_(true);
+  cout.backward(grad_cout);
+  auto grad_in = self.grad();
+
+  auto out_hpu = torch::sort(hself, 1, false);
+  auto hout = std::get<0>(out_hpu);
+  auto hout_cpu = hout.to(torch::kCPU);
+  auto hout_idx = std::get<1>(out_hpu).to(torch::kCPU).to(torch::kInt64);
+  hout.backward(hgrad_cout);
+  auto hgrad_in = hself.grad();
+  auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
+
+  EXPECT_EQ(cout.sizes().vec() == hout_cpu.sizes().vec(), true);
+  EXPECT_EQ(cout_idx.sizes().vec() == hout_idx.sizes().vec(), true);
+
+  EXPECT_EQ(
+      allclose(cout, hout_cpu, 0.001, 0.001) &&
+          allclose(cout_idx, hout_idx, 0.001, 0.001) &&
+          allclose(grad_in, hgrad_in_cpu, 0.001, 0.001),
+      true);
+}
+
 TEST_F(LazyUnaryKernelTest, LeakyReluAutogradZeroSlope) {
   auto device = "hpu:0";
   auto options = torch::TensorOptions().device(device).requires_grad(true);

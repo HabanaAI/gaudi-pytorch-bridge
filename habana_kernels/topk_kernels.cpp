@@ -127,7 +127,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   // TPC doen't support unsorted or ascending order - but that applies only for
   // tensors with more than 1 element
   if (self.numel() > 1) {
-    TORCH_CHECK(largest == true, "smallest k element not supported")
     TORCH_CHECK(sorted == true, "unsorted output not supported")
   }
 
@@ -141,11 +140,13 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       is_output_persistent[1]);
   indices_persistent = is_output_persistent[0];
   values_persistent = is_output_persistent[1];
-  ns_TopK::Params params{};
-  params.kSize = k;
-  params.axis = self.dim() - dim - 1;
 
-  p_context_->params_.emplace<ns_TopK::Params>(params);
+  synBeamParams params;
+  params.bsw = k;
+  params.axis = self.dim() - dim - 1;
+  params.bottomK = !largest;
+
+  p_context_->params_.emplace<synBeamParams>(params);
   p_context_->params_size_ = sizeof(params);
 
   std::vector<at::Tensor> outputs{values, indices};
@@ -339,12 +340,7 @@ void SortOperator::AllocateAndAddSynapseNode(
 
   Tensor self = inputs[0].toTensor();
   int64_t dim_ = inputs[1].toInt();
-  bool descending = inputs[2].toBool();
   bool sorted = true; // topk supports only sorted output
-
-  TORCH_CHECK(
-      descending == true,
-      "sort in descending order is only supported currently");
 
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
