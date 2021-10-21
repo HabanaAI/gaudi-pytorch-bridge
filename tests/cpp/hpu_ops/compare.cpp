@@ -78,3 +78,5 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 COMPARE_TEST(less)
 COMPARE_TEST(less_equal)
+COMPARE_TEST(greater)
+COMPARE_TEST(greater_equal)
