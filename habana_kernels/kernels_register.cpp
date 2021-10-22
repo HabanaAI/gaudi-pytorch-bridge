@@ -4468,6 +4468,8 @@ TORCH_LIBRARY(hpu, m) {
       "random_.from(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)");
   m.def("random_.to(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)");
   m.def(
+      "multinomial(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor");
+  m.def(
       "bernoulli_float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)");
   m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");

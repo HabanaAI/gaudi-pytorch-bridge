@@ -53,3 +53,23 @@ TEST_F(HpuOpTest, random_to) {
   EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
 }
+
+TEST_F(HpuOpTest, multinomial) {
+  GenerateInputs(1, {{6, 8}}, torch::kFloat);
+  auto c_sample = 2;
+  SetSeed();
+  auto result1 = torch::multinomial(GetHpuInput(0), c_sample);
+  auto result2 = torch::multinomial(GetHpuInput(0), c_sample);
+
+  Compare(result1, result2);
+}
+
+TEST_F(HpuOpTest, multinomial_replacement) {
+  GenerateInputs(1, {{5, 80}}, torch::kFloat);
+  auto c_sample = 4;
+  SetSeed();
+  auto result1 = torch::multinomial(GetHpuInput(0), c_sample, true);
+  auto result2 = torch::multinomial(GetHpuInput(0), c_sample, true);
+
+  Compare(result1, result2);
+}

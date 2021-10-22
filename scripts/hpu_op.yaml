@@ -1192,6 +1192,15 @@ random_.to:
   lazy_class: LazyRandom
   op_base_class: RandomOp
 
+multinomial:
+  custom_fill_params: FillMultinomialParams
+  custom_output_shape: MultinomialOutputShape
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  guid: random_multinomial_fwd
+  out_ids: [0]
+  lazy_class: LazyRandomMulti
+
 reciprocal.out:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
