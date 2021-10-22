@@ -853,13 +853,29 @@ mv.out:
   op_base_class: MvOpOut
 
 ne.Tensor_out:
+  custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Byte, Char]
   op_base_class: NE
+  type_promotion: true
 
 ne.Scalar_out:
   dtypes: [BFloat16, Float, Int, Byte, Char]
   scalar_ids: [1]
   op_base_class: NE
+  type_promotion: true
+
+ne_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  op_base_class: NE
+  scalar_ids: [1]
+  inplace_ids: [0]
+  type_promotion: true
+
+ne_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  op_base_class: NE
+  inplace_ids: [0]
+  type_promotion: true
 
 neg.out:
   dtypes: [BFloat16, Float, Int]
