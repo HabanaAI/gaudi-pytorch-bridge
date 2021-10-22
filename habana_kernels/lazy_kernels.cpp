@@ -1811,7 +1811,6 @@ Tensor gather_src_hpu_lazy(
     const Tensor& index,
     bool sparse_grad) {
   PT_LAZY_TRACE;
-  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
 
   if (self.dim() != index.dim()) {
     auto shape = GatherOperator::compute_output_shape(self, dim_, index);
@@ -1819,80 +1818,24 @@ Tensor gather_src_hpu_lazy(
         "aten::gather", {self, dim_, index, sparse_grad}, {1, 3}, {shape}};
     return k.call();
   }
-  at::Tensor self_cast = self;
 
-  if (self.scalar_type() != c10::ScalarType::Int &&
-      self.scalar_type() != c10::ScalarType::Long) {
-    auto node = std::make_shared<ir::Cast>(self, c10::ScalarType::Int, true);
-    at::TensorOptions hb_options = self.options().dtype(c10::ScalarType::Int);
-    self_cast = empty_hpu_lazy(
-        self.sizes(), hb_options, self.suggest_memory_format(), false);
-    auto hl_cast = GetHbLazyTensor(self_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
-  }
-
-  at::Tensor index_cast = index;
-
-  if (index.scalar_type() != c10::ScalarType::Int &&
-      index.scalar_type() != c10::ScalarType::Long) {
-    auto node = std::make_shared<ir::Cast>(index, c10::ScalarType::Int, true);
-    at::TensorOptions hb_options = index.options().dtype(c10::ScalarType::Int);
-    index_cast = empty_hpu_lazy(
-        index.sizes(), hb_options, index.suggest_memory_format(), false);
-    auto hl_cast = GetHbLazyTensor(index_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
-  }
   Tensor valid_count_tensor;
   c10::optional<at::Tensor> valid_count =
       c10::make_optional(valid_count_tensor);
   // we don't support unsorted as of now. Hence, setting sorted to true
+
+  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
   LazyOp<at::Tensor> k{
       "hpu::gather_elements",
-      {self_cast, index_cast, valid_count, dim_, true},
+      {self, index, valid_count, dim_, true},
       {3, 4},
       {shape}};
   auto result = k.call();
 
-  if (self.scalar_type() != c10::ScalarType::Int &&
-      self.scalar_type() != c10::ScalarType::Long) {
-    at::TensorOptions hb_options = self.options();
-    auto type = self.scalar_type();
-
-    if (self.scalar_type() == c10::ScalarType::Long) {
-      type = c10::ScalarType::Int;
-      hb_options = hb_options.dtype(c10::ScalarType::Int);
-    }
-    auto node = std::make_shared<ir::Cast>(result, type, true);
-    auto result_cast = empty_hpu_lazy(
-        result.sizes(), hb_options, result.suggest_memory_format(), false);
-
-    auto hl_cast = GetHbLazyTensor(result_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
-    updateDstDependencies(hl_cast, result_cast);
-    flush_op(result_cast);
-    return result_cast;
-  }
   flush_op(result);
   return result;
 }
+
 Tensor& scatter_inplace_src_hpu_lazy(
     Tensor& self,
     int64_t dim_,
