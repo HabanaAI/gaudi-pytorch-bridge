@@ -232,31 +232,12 @@ class LazyOp {
     return result;
   }
 
-  bool is_inplace(at::Symbol symbol) {
-    bool is_inplace = false;
-
-    auto node_name = symbol.toQualString();
-
-    size_t len = strlen(node_name);
-    char endch = node_name[len - 1];
-
-    if (endch == '_') {
-      is_inplace = true;
-    }
-    return is_inplace;
-  }
-
   // For inplace/out variants
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     auto hl_self = GetHbLazyTensor(self);
-    // skip ctrl edges for inplace
-    // TODO do the same for out variants
-
-    if (!is_inplace(m_symbol)) {
-      updateDstDependencies(hl_self, self, true);
-    }
+    updateDstDependencies(hl_self, self, true);
     const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(

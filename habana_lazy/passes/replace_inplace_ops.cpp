@@ -91,6 +91,8 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
  * (Handle only single output node)
  * 1. Node output is not part of graph output
  * 2. Node input is not part of graph input
+ * 3. Input to the inplace operator is from
+ *    aten::control_edge
  */
 bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
@@ -100,8 +102,8 @@ bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
 
   auto out = node->output(0);
   auto in = node->input(0);
-  if (!isInplaceOp(node) || isGraphOutput(graph, out) ||
-      isGraphInput(graph, in)) {
+  if (!isInplaceOp(node) || !isControlNode(in->node()) ||
+      isGraphOutput(graph, out) || isGraphInput(graph, in)) {
     return false;
   }
 
@@ -119,9 +121,13 @@ void replace_inplace_ops(
 
     std::string kind = node->kind().toQualString();
     std::string new_kind = inPlaceToOutOfPlace.at(kind);
+    auto control_node = node->input(0)->node();
+    if ((nullptr == control_node) || !isControlNode(control_node)) {
+      continue;
+    }
 
     auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
-    new_node->addInput(node->input(0));
+    new_node->addInput(control_node->input(0));
     for (size_t i = 1; i < node->inputs().size(); ++i) {
       new_node->addInput(node->input(i));
     }

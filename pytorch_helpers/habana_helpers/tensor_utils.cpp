@@ -796,6 +796,10 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
         tensor.device_id(), tensor.pt_shape(), tensor.pt_strides());
   }
 
+  TORCH_CHECK(
+      tensor.is_persistent(),
+      "Why would you like to create another tensor in the same memory section for non persistent tensor?");
+
   auto builder = synapse_helpers::tensor_builder(
                      tensor.shape(), tensor.stride(), tensor.type())
                      .with_memory_section(tensor.memorysection())

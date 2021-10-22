@@ -1083,6 +1083,8 @@ Tensor& addcdiv_hpu_lazy_(
   if (alpha_float == 1.0) {
     auto hl_alpha = GetIrValueForScalar(alpha);
 
+    updateDstDependencies(hl_self, self, true);
+
     auto node = ir::Node::Create(
         Symbol::fromQualString("aten::addcdiv_"),
         {hl_self.GetIrValue(),
