@@ -131,6 +131,17 @@ TEST_F(LazyReductionKernelTest, ArgMaxTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
 }
 
+TEST_F(LazyReductionKernelTest, ArgMaxTestNe1) {
+  int dimReduction = -1;
+  torch::Tensor A = torch::randn({2, 2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+
+  torch::Tensor Out = torch::argmax(A, dimReduction, true);
+  torch::Tensor hOut = torch::argmax(hA, dimReduction, true);
+  auto cOut = Out.to(torch::dtype(torch::kInt));
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+}
+
 TEST_F(LazyReductionKernelTest, AllTensorTest) {
   const std::vector<int64_t> dimensions{5, 3, 4};
 

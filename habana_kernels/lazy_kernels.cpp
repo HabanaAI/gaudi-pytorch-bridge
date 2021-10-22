@@ -3919,12 +3919,8 @@ Tensor argmax_hpu_lazy(
   std::vector<int64_t> shape_out;
 
   if (dim.has_value()) {
-    shape_out = self.sizes().vec();
-    if (keepdim == true) {
-      shape_out[dim.value()] = 1;
-    } else {
-      shape_out.erase(shape_out.begin() + dim.value());
-    }
+    shape_out =
+        ReduceOperator::compute_output_shape(self, dim.value(), keepdim);
   } else {
     shape_out.push_back(1);
   }
@@ -3935,6 +3931,7 @@ Tensor argmax_hpu_lazy(
       self.suggest_memory_format(),
       false);
   auto hl_result = GetHbLazyTensor(result);
+
   ir::Value& out = hl_result.CurrentIrValue();
   out.SetNode(
       node,
