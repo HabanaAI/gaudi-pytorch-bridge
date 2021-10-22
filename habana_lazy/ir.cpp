@@ -67,6 +67,17 @@ std::string Node::ToString() const {
   return ss.str();
 }
 
+std::string Node::ToStringIrGraph() const {
+  std::stringstream ss;
+  ss << m_op.toQualString() << "{";
+  for (auto& v : m_inputs) {
+    ss << v.ToString() << " ";
+  }
+  ss << "}\n";
+  ss << m_meta_data.ToStringIrGraph();
+  return ss.str();
+}
+
 void Node::AddInput(const Value& value) {
   if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
     if (value.mp_node) {
@@ -148,6 +159,25 @@ std::string Value::ToString() const {
     return ss.str();
   }
   return m_name;
+}
+
+std::string Value::ToStringIrGraph() const {
+  std::stringstream ss;
+  if (m_name.empty()) {
+    ss << "id:" << unique_id;
+  } else {
+    ss << m_name;
+  }
+  if (DataPtrValidAndNotExpired()) {
+    std::shared_ptr<Data> d = m_data_ptr.lock();
+    // readding id for graph tool
+    if (!m_name.empty()) {
+      ss << "id:" << unique_id;
+    }
+    ss << " dims: " << d->sizes;
+    ss << " rank: " << d->sizes.size();
+  }
+  return ss.str();
 }
 
 void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {

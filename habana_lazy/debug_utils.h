@@ -32,7 +32,8 @@ class IrGraphDumpUtil {
   static std::string PostOrderToText(
       const std::vector<ir::NodePtr>& post_order,
       const std::vector<ir::NodePtr>& roots,
-      const bool use_ir_names = true);
+      const bool use_ir_names = true,
+      const bool print_ir_graph_info = false);
 };
 
 class DebugHelper {

@@ -237,7 +237,8 @@ std::string IrGraphDumpUtil::ToText(std::vector<ir::NodePtr> nodes) {
 std::string IrGraphDumpUtil::PostOrderToText(
     const std::vector<ir::NodePtr>& post_order,
     const std::vector<ir::NodePtr>& roots,
-    const bool use_ir_names) {
+    const bool use_ir_names,
+    const bool print_ir_graph_info) {
   PT_LAZY_TRACE;
   std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
@@ -257,7 +258,8 @@ std::string IrGraphDumpUtil::PostOrderToText(
         }
       }
       // Replace the \n at the end of node op name with space
-      std::string node_string = node->ToString();
+      std::string node_string =
+          print_ir_graph_info ? node->ToStringIrGraph() : node->ToString();
       std::string::size_type pos = node_string.find("\n");
       node_string[pos] = ' ';
       ss << node_string;

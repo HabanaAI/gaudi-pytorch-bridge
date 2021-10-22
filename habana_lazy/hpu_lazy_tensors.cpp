@@ -457,6 +457,8 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   if (!GET_ENV_FLAG_NEW(PT_HPU_DUMP_IR_DOT_GRAPH)) {
     PT_LAZY_DEBUG(
         IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
+    PT_IRGRAPH_DEBUG(IrGraphDumpUtil::PostOrderToText(
+        po_data.post_order, p_roots, true, true));
   } else {
     PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToDot(po_data.post_order, p_roots));
   }
@@ -466,7 +468,7 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
 c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   // Generate the tensor data if its not been generated yet
-  if (data()->ir_value && !CurrentTensorData()) {
+  if (CurrentIrValue() && !CurrentTensorData()) {
     applyPendingGraph();
   }
   return data()->tensor_data;
@@ -604,8 +606,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     }
   }
 
-  // Dump the JIT graph with PT_LAZY_DEBUG
-  PT_LAZY_DEBUG(hlexec.DumpGraph());
+  // Dump the JIT graph with PT_IRGRAPH_DEBUG
+  PT_IRGRAPH_DEBUG(hlexec.DumpGraph());
 
   // Remove any tensor_data held at output, this will reduce the memory
   // pressure
@@ -833,7 +835,15 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   }
 }
 
+void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
+  PT_LAZY_TRACE;
+  PT_IRGRAPH_DEBUG("step marker due to host step marker");
+  PT_LAZY_DEBUG("step marker due to host step marker");
+  StepMarker(device_str);
+}
+
 void HbLazyTensor::StepMarker(const std::string& device_str) {
+  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
   HbLazyTensor::SyncLiveTensorsGraph(&device, /* is_cached*/ false);

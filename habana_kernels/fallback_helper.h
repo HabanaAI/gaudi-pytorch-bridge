@@ -44,6 +44,7 @@ class HpuFallbackHelper {
   void increment_count(const std::string& op) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_op_count[op]++;
+    PT_IRGRAPH_DEBUG("step marker due to cpu fallback ", op);
   }
 
   void check_fallback_allowed(const std::string& op) const {

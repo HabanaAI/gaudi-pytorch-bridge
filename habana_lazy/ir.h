@@ -216,6 +216,22 @@ class MetaData {
     return ss.str();
   }
 
+  std::string ToStringIrGraph() const {
+    if (m_data.size() == 0) {
+      return {};
+    }
+
+    std::stringstream ss;
+    unsigned i = 0;
+    for (const auto& m : m_data) {
+      ss << "@ " << m.first << '=' << m.second;
+      if (i++ != m_data.size() - 1) {
+        ss << ", ";
+      }
+    }
+    return ss.str();
+  }
+
  protected:
   /* This meta data store mapping of index of jit input
    * to the IValue
@@ -262,8 +278,7 @@ class Node {
  public:
   Node() = delete;
   Node(c10::Symbol op, bool _is_input = false)
-      : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
-  }
+      : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {}
 
   const c10::Symbol op() const {
     return m_op;
@@ -278,6 +293,7 @@ class Node {
   }
 
   virtual std::string ToString() const;
+  virtual std::string ToStringIrGraph() const;
 
   void AddInput(const Value& value);
 
@@ -432,6 +448,8 @@ struct Value {
   }
 
   std::string ToString() const;
+
+  std::string ToStringIrGraph() const;
 
   bool IsHpuInputNode() const;
 

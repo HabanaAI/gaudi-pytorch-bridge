@@ -250,6 +250,7 @@ void HlExec::GetOrCreate(
   // ==========
   if (mp_g_ == nullptr) {
     PT_LAZY_DEBUG("JIT Cache miss :: key ", m_g_hash_);
+    PT_IRGRAPH_DEBUG("JIT Cache miss");
     mp_g_ = std::make_shared<Graph>();
     // Cache miss handling
     // ===================
@@ -260,6 +261,7 @@ void HlExec::GetOrCreate(
     LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit :: key ", m_g_hash_);
+    PT_IRGRAPH_DEBUG("JIT Cache hit");
     visualize::DumpCachedGraph(mp_g_, m_g_hash_);
   }
 

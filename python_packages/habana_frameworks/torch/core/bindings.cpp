@@ -103,7 +103,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "_mark_step",
       [](const std::string& device_str) {
-        habana_lazy::HbLazyTensor::StepMarker(device_str);
+        habana_lazy::HbLazyTensor::StepMarkerBind(device_str);
       },
       py::arg("device_str") = "");
   m.def("set_dynamic_mode", []() {

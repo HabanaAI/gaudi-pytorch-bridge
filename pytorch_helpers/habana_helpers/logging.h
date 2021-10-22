@@ -213,6 +213,7 @@ class PtLogger {
     DYNAMIC_SHAPE = 0x400,
     DEVMEM = 0x800,
     HABHELPER = 0x1000,
+    IRGRAPH = 0x2000,
   };
 };
 
@@ -318,6 +319,9 @@ class PTFuncLog {
 
 #define PT_LAZY_FATAL(...) PT_MOD_FATAL(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 
+#define PT_IRGRAPH_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
+
 #define PT_HABANAHOOKS_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 
@@ -362,6 +366,9 @@ class PTFuncLog {
   PT_MOD_WARN(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 
 #define PT_LAZY_WARN(...) PT_MOD_WARN(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+
+#define PT_IRGRAPH_WARN(...) \
+  PT_MOD_WARN(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
 
 #define PT_HABANAHOOKS_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
@@ -487,6 +494,8 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+#define PT_IRGRAPH_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
 #define PT_HABANAHOOKS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 #define PT_FALLBACK_DEBUG(...) \

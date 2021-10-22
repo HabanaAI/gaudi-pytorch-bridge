@@ -1700,9 +1700,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   cur_ds_token_ = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      jit_ir_graph->toString(),
-      "current bucket id : ",
-      current_bucket_id_);
+      jit_ir_graph->toString(), "current bucket id : ", current_bucket_id_);
 
   auto ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
   if (ranges.empty()) {
@@ -1798,6 +1796,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
           rv.digest_str(),
           "\n",
           "--------------------");
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
 
       Clear();
       PT_BRIDGE_END;
@@ -1805,6 +1804,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     } else {
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
 
@@ -1951,6 +1951,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           rv.header_str(),
           "\n",
           rv.digest_str());
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
           std::make_shared<std::vector<IValPtrShared>>(
@@ -1985,6 +1986,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     } else {
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
     }
   }
   // caching :: end

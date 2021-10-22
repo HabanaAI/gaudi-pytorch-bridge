@@ -2309,6 +2309,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   updateDstDependencies(hl_end, end_tensor);
   std::vector<HbLazyTensor> hl_flush_end = {
       hl_end, GetHbLazyTensor(where_tensor), GetHbLazyTensor(shape_tensor)};
+  PT_IRGRAPH_DEBUG("step marker due to non zero");
   HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   auto cpu_end_tensor = end_tensor.to(c10::kCPU);
   auto end = cpu_end_tensor.item<int64_t>();
@@ -5736,6 +5737,7 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
     hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
     if (self.device().type() == c10::DeviceType::HPU) {
       // Trigger point execution
+      PT_IRGRAPH_DEBUG("step marker due to local scalar");
       HbLazyTensor::StepMarker({});
     }
     // if there is a view, we need to sync before accessing the tensor_data.
@@ -6631,6 +6633,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
 
   // Force an execution here because "unique" is a non shape inferable op.
   std::vector<HbLazyTensor> hl_flush = {hl_feature_map, hl_valid};
+  PT_IRGRAPH_DEBUG("step marker due to unique");
   HbLazyTensor::SyncTensorsGraph(&hl_flush);
   auto end = valid_count.item<int64_t>();
 
@@ -6837,6 +6840,7 @@ Tensor habana_nms_hpu_lazy(
   // Force an execution here to capture valid_box_id_out.
   // This element is required to determine shape of next node's output
   std::vector<HbLazyTensor> hl_flush = {hl_box, hl_valid, hl_shape};
+  PT_IRGRAPH_DEBUG("step marker due to nms");
   HbLazyTensor::SyncTensorsGraph(&hl_flush);
   auto end = valid_box_id_out.item<int64_t>();
 
