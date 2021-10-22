@@ -755,6 +755,17 @@ logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_base_class: LogCumsumExp
 
+logsumexp:
+  custom_output_shape: LogSumExpOutputShape
+  dtypes: [BFloat16,Float]
+  op_base_class: LogSumExp
+  out_ids: [0]
+
+logsumexp.out:
+  dtypes: [BFloat16,Float]
+  op_base_class: LogSumExp
+  custom_output_shape: LogSumExpOutputShape
+
 lt.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
