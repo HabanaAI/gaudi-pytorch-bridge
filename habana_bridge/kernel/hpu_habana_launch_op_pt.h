@@ -247,6 +247,7 @@ class HabanaLaunchOpPT {
       torch::jit::Value* value_out);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void AdjustInputLayout();
+  void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
   bool IsValidNode(torch::jit::Node*);
   void CompileAndExecuteHabanaFusedOpKernel(

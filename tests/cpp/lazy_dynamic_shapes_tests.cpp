@@ -503,29 +503,33 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   std::vector<int> in_sizes{6, 8, 10, 12, 14, 16};
   int num;
 
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int B = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
+  int rounds{10};
+  while (rounds--) {
+    PT_TEST_DEBUG("\nPTI_DBG :: round ", rounds, "  --------\n");
+    for (int i = 0; i < in_sizes.size(); i++) {
+      int B = in_sizes[i];
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------");
+      torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
 
-    torch::Tensor c4 = torch::relu(c0);
+      torch::Tensor c4 = torch::relu(c0);
 
-    PT_TEST_DEBUG(
-        "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
-    PT_TEST_DEBUG(
-        "PTI_DBG :: c1.shape : ", c4.sizes(), " c4.strides : ", c4.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: c1.shape : ", c4.sizes(), " c4.strides : ", c4.strides());
 
-    torch::Tensor h0 = c0.to(torch::kHPU);
-    torch::Tensor h4 = torch::relu(h0);
-    torch::Tensor h4_c = h4.to(torch::kCPU);
+      torch::Tensor h0 = c0.to(torch::kHPU);
+      torch::Tensor h4 = torch::relu(h0);
+      torch::Tensor h4_c = h4.to(torch::kCPU);
 
-    PT_TEST_DEBUG(
-        "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
-    PT_TEST_DEBUG(
-        "PTI_DBG :: h1.shape : ", h4.sizes(), " h4.strides : ", h4.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: h1.shape : ", h4.sizes(), " h4.strides : ", h4.strides());
 
-    EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
-    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
+      EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========");
+    }
   }
 
   if (!refine_enabled) {

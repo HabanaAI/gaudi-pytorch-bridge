@@ -258,6 +258,10 @@ class device {
     return event_handle_cache_;
   }
 
+  event_handle_cache& get_time_event_handle_cache() {
+    return time_event_handle_cache_;
+  }
+
   CachedEventHandle get_cached_time_event_handle() {
     return CachedEventHandle(time_event_handle_cache_);
   }

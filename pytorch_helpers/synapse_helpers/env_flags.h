@@ -213,6 +213,10 @@ struct PT_HPU_GRAPH_DUMP_PREFIX {
   static constexpr const char* default_value = ".";
 };
 
+struct PT_ENABLE_SYNLAUNCH_TIME_CAPTURE {
+  static constexpr bool default_value = false;
+};
+
 // Overloads for different type of default value
 
 template <class T>

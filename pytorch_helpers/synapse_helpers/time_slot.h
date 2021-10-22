@@ -44,9 +44,7 @@ class TimeSlot : public TimeSlotBase {
       : stream_handle_(handle),
         event_start_(std::move(event_start)),
         event_end_(std::move(event_end)) {}
-  ~TimeSlot() {
-    c10::get_backtrace(1, 4);
-  }
+  ~TimeSlot() = default;
 
   TimeSlot(const TimeSlot&) = delete;
   TimeSlot& operator=(const TimeSlot&) = delete;

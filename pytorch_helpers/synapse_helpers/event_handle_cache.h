@@ -32,7 +32,16 @@ class event_handle_cache {
 
   ~event_handle_cache();
   synEventHandle get_free_handle();
+  size_t get_free_events_count() {
+    return free_handles_.size();
+  }
+  size_t get_total_events_count() {
+    return events_count_;
+  }
   void release_handle(synEventHandle handle);
+  static size_t get_num_events_high_watermark() {
+    return NUM_EVENTS_HIGH_WATERMARK;
+  }
 
  private:
   const uint32_t event_flag_ = 0;
@@ -41,8 +50,18 @@ class event_handle_cache {
   std::mutex mutex_;
   std::condition_variable cond_var_;
   device& device_;
-  std::size_t events_count_; // value to control the total number of
-                             // synEventHandles created
+
+  // value to control the total number of synEventHandles created
+  static size_t events_count_;
+
+  // There is a hard limit in Synapse for number of silmuntaneously recorded
+  // events on streams. Since, in TF, each event corresponds to single tensor,
+  // either being transfered or worked on, we can easily reach the point, where
+  // we have too many events used at once, hence the limit. In the future, to be
+  // on a safe side, we might consider creating bundles of tensors for single
+  // event, thus reducing overall number of events in use.
+  static constexpr size_t NUM_EVENTS_MAX = 1000;
+  static constexpr size_t NUM_EVENTS_HIGH_WATERMARK = NUM_EVENTS_MAX - 100;
 };
 
 class CachedEventHandle {

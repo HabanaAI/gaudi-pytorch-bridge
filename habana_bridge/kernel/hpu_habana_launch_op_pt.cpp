@@ -2508,15 +2508,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   rv.populate_syn_tensor_ids();
 
   if (refine_ds_enabled_) {
-    // Initiate recipe run time collection
-    if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-      auto& syn_device = synapse_helpers::HPURegistrar::get_device();
-      rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
-          syn_device.get_cached_time_event_handle(),
-          syn_device.get_cached_time_event_handle(),
-          static_cast<synStreamHandle>(syn_device.get_compute_stream()));
-      current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
-    }
+    // Initiate recipe execution time collection
+    InitiateSynlaunchTimeCapture(rv);
     // Add the jit_ir_graph to current_dbipsh_
     current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph);
     current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
@@ -2651,6 +2644,34 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
   return new_stack;
 }
 
+void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
+  // Initiate recipe execution time collection
+  if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
+    auto& syn_device = synapse_helpers::HPURegistrar::get_device();
+    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      PT_DYNAMIC_SHAPE_DEBUG("synlaunch time capture enabled");
+      auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
+      if (time_event_handle_cache.get_total_events_count() <
+          synapse_helpers::event_handle_cache::
+              get_num_events_high_watermark()) {
+        rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
+            syn_device.get_cached_time_event_handle(),
+            syn_device.get_cached_time_event_handle(),
+            static_cast<synStreamHandle>(syn_device.get_compute_stream()));
+        current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
+      } else {
+        PT_BRIDGE_WARN(
+            "High water mark for synapse events ",
+            synapse_helpers::event_handle_cache::
+                get_num_events_high_watermark(),
+            " reached, will not create any time event");
+        rv.time_slot_ = nullptr;
+      }
+    } else {
+      PT_DYNAMIC_SHAPE_DEBUG("synlaunch time capture disabled");
+    }
+  }
+}
 void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -2723,20 +2744,13 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       rv.update_hit_count();
 
       // Initiate recipe execution time collection
-      if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-        auto& syn_device = synapse_helpers::HPURegistrar::get_device();
-        rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
-            syn_device.get_cached_time_event_handle(),
-            syn_device.get_cached_time_event_handle(),
-            static_cast<synStreamHandle>(syn_device.get_compute_stream()));
-        current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
-      }
+      InitiateSynlaunchTimeCapture(rv);
 
       if (rv.dynamic_graph) {
         // For Dynamic shapes in case of cache hit, we need to run
         // shape inference for determining the output shape and
         // persistent intermediates
-        PT_BRIDGE_DEBUG("run output shape inference pass");
+        PT_DYNAMIC_SHAPE_DEBUG("run output shape inference pass");
         run_shape_inference(ShapeInfo::InferencePass::OUTPUT_SHAPE);
       }
 
