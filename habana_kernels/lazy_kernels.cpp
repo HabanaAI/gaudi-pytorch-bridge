@@ -3540,52 +3540,65 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr maxpool_node = std::make_shared<ir::MaxPool>(
       input, kernel_size, stride, padding, dilation, ceil_mode);
+  using T = std::tuple<Tensor, Tensor>;
+  using U = ir::MaxPool;
+  class Kernel : public LazyOp<T, U> {
+   public:
+    Kernel(
+        ir::NodePtr node,
+        const Tensor& input,
+        IntArrayRef kernel_size,
+        IntArrayRef stride,
+        IntArrayRef padding,
+        IntArrayRef dilation,
+        bool ceil_mode)
+        : LazyOp<T, U>(std::move(node), {}, {}, -1),
+          input{std::move(input)},
+          kernel_size{std::move(kernel_size)},
+          stride{std::move(stride)},
+          padding{std::move(padding)},
+          dilation{std::move(dilation)},
+          ceil_mode{std::move(ceil_mode)} {}
 
-  // shape inferrence
-  auto opsize_nhwc = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, false);
+   private:
+    T get_result_overrideable() override {
+      // shape inferrence
+      auto opsize_nhwc = PoolHelper::compute_output_shape(
+          input, kernel_size, stride, padding, dilation, ceil_mode, false);
 
-  // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+      // return always nhwc. convert to nchw
+      std::vector<long int> shape_out = {
+          opsize_nhwc.at(0),
+          opsize_nhwc.at(3),
+          opsize_nhwc.at(1),
+          opsize_nhwc.at(2)};
+      // allocate Output_0 storage
+      auto result_0 = empty_hpu_lazy(
+          shape_out, input.options(), input.suggest_memory_format(), false);
 
-  // allocate Output_0 storage
-  auto result_0 = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-  auto hlresult_0 = GetHbLazyTensor(result_0);
-  ir::Value& out_0 = hlresult_0.CurrentIrValue();
-  out_0.SetNode(
-      maxpool_node,
-      hlresult_0.GetDevice(),
-      hlresult_0.GetSizes(),
-      hlresult_0.dtype_optional());
-  updateDstDependencies(hlresult_0, result_0);
+      // allocate Output_1 storage
+      auto type = kByte;
+      if (input.scalar_type() == c10::ScalarType::BFloat16) {
+        type = kShort;
+      }
+      auto result_1 = empty_hpu_lazy(
+          shape_out,
+          input.options().dtype(type),
+          input.suggest_memory_format(),
+          false);
+      return {result_0, result_1};
+    }
+    const Tensor& input;
+    IntArrayRef kernel_size;
+    IntArrayRef stride;
+    IntArrayRef padding;
+    IntArrayRef dilation;
+    bool ceil_mode;
+  };
 
-  // allocate Output_1 storage
-  auto type = kByte;
-  if (input.scalar_type() == c10::ScalarType::BFloat16) {
-    type = kShort;
-  }
-  auto result_1 = empty_hpu_lazy(
-      shape_out,
-      input.options().dtype(type),
-      input.suggest_memory_format(),
-      false);
-  auto hlresult_1 = GetHbLazyTensor(result_1);
-  ir::Value& out_1 = hlresult_1.CurrentIrValue();
-  out_1.SetNode(
-      maxpool_node,
-      hlresult_1.GetDevice(),
-      hlresult_1.GetSizes(),
-      hlresult_1.dtype_optional(),
-      1);
-  updateDstDependencies(hlresult_1, result_1);
-
-  flush_op({result_0, result_1});
-  return {result_0, result_1};
+  Kernel k(
+      maxpool_node, input, kernel_size, stride, padding, dilation, ceil_mode);
+  return k.call();
 }
 Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     Tensor& grad_input,
@@ -3646,19 +3659,18 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       (indices.scalar_type() == c10::ScalarType::Byte) ||
       (indices.scalar_type() == c10::ScalarType::Short));
 
-  // allocate storage
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
+  LazyOp<at::Tensor, ir::MaxPoolBackWard> k{
       maxpool_bwd_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+      {grad_output,
+       input,
+       kernel_size,
+       stride,
+       padding,
+       dilation,
+       ceil_mode,
+       indices},
+      {input.sizes().vec()}};
+  return k.call();
 }
 
 Tensor avg_pool2d_hpu_lazy(
@@ -3692,19 +3704,17 @@ Tensor avg_pool2d_hpu_lazy(
       opsize_nhwc.at(1),
       opsize_nhwc.at(2)};
 
-  // allocate Output storage
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
+  LazyOp<at::Tensor, ir::AvgPool> k{
       avgpool_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+      {input,
+       kernel_size,
+       stride,
+       padding,
+       ceil_mode,
+       count_include_pad,
+       divisor_override},
+      {shape_out}};
+  return k.call();
 }
 
 Tensor& avg_pool2d_backward_out_hpu_lazy(
@@ -3763,20 +3773,18 @@ Tensor avg_pool2d_backward_hpu_lazy(
       opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
-
-  // allocate storage
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
+  LazyOp<at::Tensor, ir::AvgPoolBackWard> k{
       avgpool_bwd_node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
-  return result;
+      {grad_output,
+       input,
+       kernel_size,
+       stride,
+       padding,
+       ceil_mode,
+       count_include_pad,
+       divisor_override},
+      {input.sizes().vec()}};
+  return k.call();
 }
 
 Tensor adaptive_avg_pool2d_hpu_lazy(
