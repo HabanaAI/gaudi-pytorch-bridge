@@ -1138,8 +1138,19 @@ Tensor& add_tensor_hpu_lazy_(
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
-  return op.call(self);
+  auto alpha_float = alpha.toFloat();
+  if (alpha_float != 1.0) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_float, other.options());
+
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    return add_tensor_hpu_lazy_(self, mul_out, 1.0);
+  } else {
+    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
+    op.ConvertWrappedTensorToScalar();
+    return op.call(self);
+  }
 }
 
 Tensor sub_tensor_hpu_lazy(
