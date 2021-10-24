@@ -1015,22 +1015,8 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   }
   auto inferred_size = at::infer_size(size, static_cast<int64_t>(sum_elm));
   ir::NodePtr node = std::make_shared<ir::View>(self, inferred_size);
-  // View is internally handled as reshape and we get a new tensor as output
-  auto result = empty_hpu_lazy(
-      inferred_size, self.options(), self.suggest_memory_format(), false);
-
-  auto hl_result = GetOrCreateHbLazyTensor(result, result.device());
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor, ir::View> k{node, {self, size}, {inferred_size}};
+  return k.call();
 }
 Tensor addcmul_hpu_lazy(
     const Tensor& self,
