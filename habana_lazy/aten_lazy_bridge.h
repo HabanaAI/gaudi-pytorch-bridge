@@ -56,6 +56,12 @@ ir::Value GetIrValueForListConstruct(const ir::ValueList values);
 
 std::vector<at::Tensor> HpuGetFallbackTensorList(
     const std::vector<at::Tensor>& tensors);
+void HpuGatherLazyFallbackTensorList(
+    const std::vector<at::Tensor>& tensors,
+    std::vector<HbLazyTensor>& tensors_to_execute);
+void HpuGatherLazyFallbackOptTensorList(
+    const std::vector<c10::optional<at::Tensor>>& tensors,
+    std::vector<HbLazyTensor>& tensors_to_execute);
 const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
     const std::vector<c10::optional<at::Tensor>>& tensors);
 c10::List<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(

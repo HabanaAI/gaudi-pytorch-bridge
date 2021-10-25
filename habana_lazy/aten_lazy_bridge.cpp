@@ -9,9 +9,9 @@
  */
 #include "aten_lazy_bridge.h"
 #include "habana_kernels/resize.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/hpu_input.h"
-
 namespace habana_lazy {
 
 ////////////////////////////Util functions : Move to seperate file if
@@ -161,6 +161,23 @@ std::vector<at::Tensor> HpuGetFallbackTensorList(
     fbtensors.push_back(tensor.to(c10::kCPU));
   }
   return fbtensors;
+}
+
+void HpuGatherLazyFallbackTensorList(
+    const std::vector<at::Tensor>& tensors,
+    std::vector<HbLazyTensor>& tensors_to_execute) {
+  for (const auto& tensor : tensors) {
+    tensors_to_execute.push_back(GetOrCreateHbLazyTensor(tensor));
+  }
+}
+void HpuGatherLazyFallbackOptTensorList(
+    const std::vector<c10::optional<at::Tensor>>& tensors,
+    std::vector<HbLazyTensor>& tensors_to_execute) {
+  for (const auto& tensor : tensors) {
+    if (tensor.has_value() && tensor.value().defined()) {
+      tensors_to_execute.push_back(GetOrCreateHbLazyTensor(tensor.value()));
+    }
+  }
 }
 
 const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
