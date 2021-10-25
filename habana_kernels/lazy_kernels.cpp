@@ -2224,7 +2224,8 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   std::vector<HbLazyTensor> hl_flush_end = {
       hl_end, GetHbLazyTensor(where_tensor), GetHbLazyTensor(shape_tensor)};
   HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
-  auto end = end_tensor.item<int64_t>();
+  auto cpu_end_tensor = end_tensor.to(c10::kCPU);
+  auto end = cpu_end_tensor.item<int64_t>();
 
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
@@ -2252,9 +2253,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
       hl_result.GetSizes(),
       hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
-  // Flushing to match eager mode execution
-  std::vector<HbLazyTensor> hl_flush_result = {hl_result};
-  HbLazyTensor::SyncTensorsGraph(&hl_flush_result);
+  flush_op(result);
   return result;
 }
 Tensor& index_add_hpu_lazy_(
