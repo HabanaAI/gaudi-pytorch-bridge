@@ -410,6 +410,8 @@ class PTFuncLog {
 #define PT_HABHELPER_TRACE \
   PT_MOD_TRACE(            \
       PtLogger::ModuleMask::HABHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_TEST_TRACE \
+  PT_MOD_TRACE(PtLogger::ModuleMask::TEST, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_DYNAMIC_SHAPE_TRACE \
   PT_MOD_TRACE(                \
       PtLogger::ModuleMask::DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)

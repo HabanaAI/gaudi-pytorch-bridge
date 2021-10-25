@@ -8,12 +8,16 @@
  ******************************************************************************
  */
 
+#include <cstdlib>
+
+#include <algorithm>
 #include <iostream>
+#include <random>
 #include <stdexcept>
-#include <unordered_set>
+#include <tuple>
+#include <unordered_map>
 
 #include <gtest/gtest.h>
-#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/torch.h>
 
 #include "habana_lazy_test_infra.h"
@@ -31,16 +35,221 @@ TEST(DS_TensorShapeTest, Simple) {
   c10::ScalarType type(c10::ScalarType::Long);
 
   habana_helpers::TensorShape tshape(shape_0, type), tstrides(strides_0, type);
-  // std::cout << "PTI_DBG ::" << " tshape : " << tshape << " tstrides : " <<
-  // tstrides << '\n'; std::cout << "PTI_DBG ::" << " exp shape : " << shape_0
-  // << " exp strides : " << strides_0 << '\n';
+  PT_TEST_DEBUG("tshape : ", tshape, " tstrides : ", tstrides);
+  PT_TEST_DEBUG("expected shape : ", shape_0, " exp strides : ", strides_0);
 
   auto shape_1(tshape.get_dims()), strides_1(tstrides.get_dims());
-  // std::cout << "PTI_DBG ::" << " act shape : " << at::IntArrayRef(shape_1)
-  //<< " act strides : " << at::IntArrayRef(strides_1) << '\n';
+  PT_TEST_DEBUG(
+      "actual shape : ",
+      at::IntArrayRef(shape_1),
+      " exp strides : ",
+      at::IntArrayRef(strides_1));
 
   EXPECT_EQ(tshape.get_dims(), shape_0);
   EXPECT_EQ(tstrides.get_dims(), strides_0);
+}
+
+class InpShapeGen {
+ public:
+  static inline void print_dbi(
+      const habana_helpers::DynamicBucketInfo& bucket_info,
+      size_t input_idx,
+      habana_helpers::DynamicBucketInfo::InpTensorShapes& input_shapes,
+      size_t bidx) {
+    PT_TEST_DEBUG(
+        "====================\n",
+        bucket_info,
+        "Collect info with input shapes",
+        "[",
+        input_idx,
+        "]:",
+        "\n",
+        input_shapes,
+        "Returned bucket id : ",
+        bidx);
+  }
+  static inline void print_dyn_dimvals(size_t d1, size_t d0) {
+    PT_TEST_DEBUG(
+        "Using min_dim = ", min_dim, ", dyn_dims shape [ ", d1, " ", d0, " ]");
+  }
+  static inline void print_input_shapes(
+      const std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>&
+          input_shapes_vec) {
+    PT_TEST_DEBUG("Will use the following input tensor shapes:");
+    size_t in_idx{0};
+    for (auto a : input_shapes_vec) {
+      PT_TEST_DEBUG("input shape[", in_idx++, "]\n", a);
+    }
+  }
+
+  std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>
+  get_input_shapes_vec(
+      std::vector<std::vector<std::vector<int64_t>>>& dyn_dimvals_arg) {
+    print_dyn_dimvals(dyn_dimvals_arg.size(), dyn_dimvals_arg[0].size());
+
+    c10::ScalarType typ(c10::ScalarType::Long);
+    std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>
+        input_shapes_vec;
+    for (auto inputs : dyn_dimvals_arg) {
+      int64_t input_idx{0};
+      habana_helpers::DynamicBucketInfo::InpTensorShapes input_shapes;
+      for (auto dimvals : inputs) {
+        habana_helpers::TensorShape ts(dimvals, typ);
+        input_shapes.emplace(input_idx, ts);
+        input_idx++;
+      }
+      input_shapes_vec.push_back(input_shapes);
+    }
+
+    print_input_shapes(input_shapes_vec);
+
+    return std::move(input_shapes_vec);
+  }
+
+  static int64_t min_dim;
+
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw57731;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw60162;
+
+  static std::unordered_map<size_t, uint64_t> exp_result_map_c;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_h;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw57731;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw60162;
+};
+
+int64_t InpShapeGen::min_dim =
+    habana_helpers::DynamicBucketInfo::default_min_value();
+
+std::vector<std::vector<std::vector<int64_t>>> InpShapeGen::dyn_dimvals = {
+    {{10}, {20, 30}, {40, 50, 60}},
+    {{10}, {20, 15}, {40, 50, 60}},
+    {{10}, {15, 25}, {35, 50, 60}},
+    {{10}, {15, 12}, {35, 50, 60}},
+    {{10}, {17, 33}, {37, 55, 60}},
+    {{10}, {20, 22}, {40, 50, 60}},
+};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_c =
+    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_h =
+    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 1}};
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw57731 = {
+        {{32768, 1024}},
+        {{1024, 1024}},
+        {{1024, 1024}},
+        {{4096, 1024}},
+        {{1024, 4096}}};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw57731 =
+    {{0, 0}, {1, 1}, {2, 1}, {3, 2}, {4, 3}};
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw60162 = {
+        {{280000}, {85, 5200}},
+        {{280000}, {30, 5200}},
+        {{180000}, {35, 3200}},
+        {{180000}, {25, 3200}},
+        {{220000}, {95, 4800}}};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw60162 =
+    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}};
+
+class DynamicDimsTest : public ::testing::TestWithParam<std::tuple<
+                            std::vector<std::vector<std::vector<int64_t>>>,
+                            std::unordered_map<size_t, uint64_t>,
+                            habana_helpers::DynamicDimsPolicy>>,
+                        public InpShapeGen {};
+
+INSTANTIATE_TEST_SUITE_P(
+    DS_Ranges,
+    DynamicDimsTest,
+    ::testing::Values(
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals,
+            InpShapeGen::exp_result_map_c,
+            habana_helpers::DynamicDimsPolicy::CURRENT),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals,
+            InpShapeGen::exp_result_map_h,
+            habana_helpers::DynamicDimsPolicy::CALCULATED),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw57731,
+            InpShapeGen::exp_result_map_sw57731,
+            habana_helpers::DynamicDimsPolicy::CURRENT),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw57731,
+            InpShapeGen::exp_result_map_sw57731,
+            habana_helpers::DynamicDimsPolicy::CALCULATED),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw60162,
+            InpShapeGen::exp_result_map_sw60162,
+            habana_helpers::DynamicDimsPolicy::CURRENT),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw60162,
+            InpShapeGen::exp_result_map_sw60162,
+            habana_helpers::DynamicDimsPolicy::CALCULATED)));
+
+TEST_P(DynamicDimsTest, BucketingPolicy) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  std::vector<std::vector<std::vector<int64_t>>> input_dimvals;
+  std::unordered_map<size_t, uint64_t> exp_result_map;
+
+  auto min_policy = habana_helpers::DynamicDimsPolicy::HISTORIC;
+  habana_helpers::DynamicDimsPolicy max_policy;
+
+  std::tie(input_dimvals, exp_result_map, max_policy) = GetParam();
+  auto input_shapes_vec(get_input_shapes_vec(input_dimvals));
+
+  PT_TEST_DEBUG(
+      "Running with min policy=", min_policy, ", and max_policy=", max_policy);
+
+  habana_helpers::DynamicBucketInfo bucket_info(min_policy, max_policy);
+
+  auto get_and_check_bucket{[&](size_t ddim_idx) {
+    auto& input_shapes = input_shapes_vec.at(ddim_idx);
+    PT_TEST_DEBUG(
+        "====================\n",
+        "CollectDynamicDims with input shapes",
+        "[",
+        ddim_idx,
+        "]:\n",
+        input_shapes,
+        "--------------------",
+        "\n");
+    bucket_info.CollectDynamicDims(input_shapes);
+    auto bidx = bucket_info.GetBucketId(input_shapes);
+
+    auto ranges = bucket_info.CalculateShapes(bidx);
+    PT_TEST_DEBUG(
+        "--------------------\n",
+        bucket_info,
+        "--------------------\n",
+        "For input shapes",
+        "[",
+        ddim_idx,
+        "]:",
+        "\n",
+        input_shapes,
+        "Returned bucket id : ",
+        bidx,
+        "\nDynamic ranges\n",
+        ranges.DebugString(),
+        "--------------------\n\n");
+    ASSERT_EQ(bidx, exp_result_map.at(ddim_idx));
+  }};
+
+  for (size_t i{}; i < input_dimvals.size(); i++) {
+    // for (size_t i{}; i < 2; i++) {
+    get_and_check_bucket(i);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
 }
 
 habana_helpers::DynamicBucketInfo::InpTensorShapes get_shape(
@@ -64,7 +273,7 @@ struct PrintToStringParamName {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    DSBucket,
+    DS_Bucket,
     DynamicBucketInfoTest,
     ::testing::Values(
         habana_helpers::DynamicDimsPolicy::CALCULATED,
@@ -104,12 +313,14 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
               << "input shape[" << in_idx++ << "]" << '\n'
               << a;
   }
-
+  auto min_policy{GetParam()};
   std::cout << "PTI_DBG :: "
-            << "Running with min policy " << GetParam() << '\n';
+            << "Running with min policy " << min_policy << '\n';
+
   habana_helpers::DynamicBucketInfo bucket_info(
+      min_policy,
       habana_helpers::DynamicDimsPolicy::CALCULATED,
-      habana_helpers::SplitPolicy::DEFAULT);
+      habana_helpers::SplitPolicy::DYNAMIC);
 
   auto get_and_check_bucket{
       [&](size_t ddim_idx, uint64_t exp_bidx, bool dbg_print = true) {
@@ -179,177 +390,6 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
 
   get_and_check_bucket(5, 3);
   get_and_check_bucket(6, 2);
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
-}
-
-TEST(DS_DynamicBucketInfoTest, SplitStatImpl) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
-  int64_t min_dim{habana_helpers::DynamicBucketInfo::default_min_value()};
-
-  std::cout << "PTI_DBG :: "
-            << "Using min_dim = " << min_dim << '\n';
-  std::vector<std::vector<int64_t>> dyn_dims = {
-      {min_dim, min_dim},
-      {min_dim + 3, 30},
-      {min_dim, 10},
-      {50, 100},
-      {60, 150},
-      {70, 130},
-      {45, 90}};
-  std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes> s;
-  s.reserve(dyn_dims.size());
-  for (auto dim : dyn_dims) {
-    s.push_back(get_shape(dim[0], dim[1]));
-  }
-
-  for (auto a : s) {
-    std::cout << "PTI_DBG :: "
-              << "Will use input tensor shapes:" << '\n'
-              << a;
-  }
-
-  size_t bidx_default{}, bidx_dynamic;
-
-  habana_helpers::DynamicBucketInfo binfo_default(
-      habana_helpers::DynamicDimsPolicy::CALCULATED,
-      habana_helpers::SplitPolicy::DEFAULT);
-  binfo_default.CollectDynamicDims(s[0]);
-  bidx_default = binfo_default.GetBucketId(s[0]);
-  ASSERT_EQ(bidx_default, 0);
-
-  habana_helpers::DynamicBucketInfo binfo_dynamic(
-      habana_helpers::DynamicDimsPolicy::CALCULATED,
-      habana_helpers::SplitPolicy::DYNAMIC);
-  binfo_dynamic.CollectDynamicDims(s[0]);
-  bidx_dynamic = binfo_dynamic.GetBucketId(s[0]);
-  ASSERT_EQ(bidx_dynamic, bidx_default);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[0];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default << '\n';
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
-  std::cout << '\n' << binfo_dynamic;
-
-  binfo_default.CollectDynamicDims(s[1]);
-  bidx_default = binfo_default.GetBucketId(s[1]);
-  ASSERT_EQ(bidx_default, 1);
-
-  binfo_dynamic.CollectDynamicDims(s[1]);
-  bidx_dynamic = binfo_dynamic.GetBucketId(s[1]);
-  ASSERT_EQ(bidx_dynamic, bidx_default);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[1];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default << '\n';
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
-  std::cout << '\n' << binfo_dynamic;
-
-  binfo_default.CollectDynamicDims(s[2]);
-  bidx_default = binfo_default.GetBucketId(s[2]);
-  ASSERT_EQ(bidx_default, 1);
-
-  binfo_dynamic.CollectDynamicDims(s[2]);
-  bidx_dynamic = binfo_dynamic.GetBucketId(s[2]);
-  ASSERT_EQ(bidx_dynamic, bidx_default);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[2];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default << '\n';
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
-  std::cout << '\n' << binfo_dynamic;
-
-  binfo_default.CollectDynamicDims(s[3]);
-  bidx_default = binfo_default.GetBucketId(s[3]);
-  ASSERT_EQ(bidx_default, 2);
-
-  binfo_dynamic.CollectDynamicDims(s[3]);
-  bidx_dynamic = binfo_dynamic.GetBucketId(s[3]);
-  ASSERT_EQ(bidx_dynamic, bidx_default);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[3];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default << '\n';
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
-  std::cout << '\n' << binfo_dynamic;
-
-  uint64_t iter_cnt{0};
-  uint64_t max_iter_cnt{
-      habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 2};
-  while (iter_cnt++ < max_iter_cnt) {
-    binfo_default.CollectDynamicDims(s[4]);
-    bidx_default = binfo_default.GetBucketId(s[4]);
-    binfo_dynamic.CollectDynamicDims(s[4]);
-    bidx_dynamic = binfo_dynamic.GetBucketId(s[4]);
-    ASSERT_EQ(bidx_default, 2);
-    ASSERT_EQ(bidx_dynamic, bidx_default);
-  }
-
-  std::cout << "PTI_DBG :: "
-            << "Collected info with the following for " << max_iter_cnt
-            << " times with input tensor shapes ::" << '\n'
-            << s[4];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default << '\n';
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
-  std::cout << '\n' << binfo_dynamic;
-
-  auto new_bucket_default = binfo_default.CheckForSplitBucket();
-  ASSERT_TRUE(new_bucket_default.has_value());
-  ASSERT_EQ(new_bucket_default.value(), 3);
-
-  auto new_bucket_dynamic = binfo_dynamic.CheckForSplitBucket();
-  ASSERT_TRUE(new_bucket_dynamic.has_value());
-  ASSERT_EQ(new_bucket_dynamic.value(), new_bucket_default.value());
-
-  std::cout << "PTI_DBG :: "
-            << "New default bucket id : " << new_bucket_default.value();
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "New dynamic bucket id : " << new_bucket_dynamic.value();
-  std::cout << '\n' << binfo_dynamic;
-
-  binfo_default.CollectDynamicDims(s[5]);
-  bidx_default = binfo_default.GetBucketId(s[5]);
-  ASSERT_EQ(bidx_default, 3);
-
-  binfo_dynamic.CollectDynamicDims(s[5]);
-  bidx_dynamic = binfo_dynamic.GetBucketId(s[5]);
-  ASSERT_EQ(bidx_dynamic, bidx_default);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[5];
-  std::cout << "PTI_DBG :: "
-            << "Returned default bucket id : " << bidx_default;
-  std::cout << '\n' << binfo_default;
-  std::cout << "PTI_DBG :: "
-            << "Returned dynamic bucket id : " << bidx_dynamic;
-  std::cout << '\n' << binfo_dynamic;
 
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");

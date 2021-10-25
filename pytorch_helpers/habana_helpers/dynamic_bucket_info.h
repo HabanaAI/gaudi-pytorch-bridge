@@ -32,7 +32,8 @@
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_helpers {
-enum class SplitPolicy { UNSPECIFIED, DEFAULT, DYNAMIC };
+const size_t max_elements_to_print = 64;
+enum class SplitPolicy { UNSPECIFIED, DYNAMIC };
 
 enum class CompilationPass {
   DYNAMIC_MIN,
@@ -48,18 +49,26 @@ enum class DynamicDimsPolicy {
   CURRENT
 };
 
-const DynamicDimsPolicy default_min_policy_{DynamicDimsPolicy::HISTORIC};
-const DynamicDimsPolicy default_max_policy_{DynamicDimsPolicy::CALCULATED};
+constexpr DynamicDimsPolicy MIN_POLICY_DEFAULT{DynamicDimsPolicy::HISTORIC};
+constexpr DynamicDimsPolicy MAX_POLICY_DEFAULT{DynamicDimsPolicy::CALCULATED};
 
 template <typename T, typename A>
 inline std::ostream& operator<<(std::ostream& O, const std::vector<T, A>& V) {
   if (V.empty()) {
     O << "empty";
   } else {
-    bool is_first(true);
-    for (auto a : V) {
-      O << (is_first ? "" : " ") << a;
-      is_first = false;
+    if (V.size() <= max_elements_to_print) {
+      bool is_first(true);
+      O << '[';
+      for (auto a : V) {
+        O << (is_first ? "" : " ") << a;
+        is_first = false;
+      }
+      O << ']';
+    } else {
+      O << "has " << V.size() << " elements which is greater than"
+        << " max_elements_to_print=" << max_elements_to_print
+        << ", will skip printing";
     }
   }
   return O;
@@ -97,9 +106,6 @@ inline std::ostream& operator<<(std::ostream& O, const SplitPolicy& p) {
     case SplitPolicy::UNSPECIFIED:
       O << "UNSPECIFIED";
       break;
-    case SplitPolicy::DEFAULT:
-      O << "DEFAULT";
-      break;
     case SplitPolicy::DYNAMIC:
       O << "DYNAMIC";
       break;
@@ -127,11 +133,32 @@ inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
   return O << DebugString(d);
 }
 
-using DynamicDims =
-    std::map<int64_t, std::map<int64_t, int64_t>>; // input_idx => {dim_idx =>
-                                                   // range_idx}
+// DynamicRanges: vector of <low, high> representing ranges
+// This is a flat array, containing all ranges.
 using DynamicRanges = std::vector<std::pair<int64_t, int64_t>>;
-using DimsHistory = std::vector<std::vector<int>>;
+// DynamicDims : input_idx => {dim_idx => range_idx in DynamicRanges}
+using DynamicDims = std::map<int64_t, std::map<int64_t, int64_t>>;
+// Example
+// Invocation 1: T0=[10,40, 45], T1=[30,60]
+// Invocation 1: T0=[20,40, 55], T1=[30,80]
+// For the above invocations DynamicRanges: <10,20>, <45,55>, <60,80>
+// DynamicDims : [0->[0->0,
+//                    2->1],
+//                1-[1->2]]
+
+// DimsHistoryElement : input_idx => {dim_idx => dim_val}
+using DimsHistoryElement = std::map<int64_t, std::map<int64_t, int64_t>>;
+
+inline std::string DebugString(const DimsHistoryElement& d) {
+  std::ostringstream O;
+  for (auto tensor_it : d) {
+    O << "  Tensor " << tensor_it.first << ":";
+    for (auto dim_it : tensor_it.second) {
+      O << "[Dim " << dim_it.first << ':' << dim_it.second << "]";
+    }
+  }
+  return O.str();
+}
 
 inline std::ostream& operator<<(std::ostream& O, const DynamicDims& d) {
   O << "dynamic dims ::";
@@ -179,8 +206,14 @@ class TimeStat {
     min_time_ = std::min(min_time_, elapsed_time);
     max_time_ = std::max(max_time_, elapsed_time);
   }
-  uint64_t getTime() const {
+  uint64_t GetAvgTime() const {
     return average_time_;
+  }
+  uint64_t GetMinTime() const {
+    return min_time_;
+  }
+  uint64_t GetMaxTime() const {
+    return max_time_;
   }
 
   friend inline std::ostream& operator<<(std::ostream& O, const TimeStat& t) {
@@ -200,8 +233,7 @@ class TimeStat {
 };
 
 struct SplitStatImplBase {
-  SplitStatImplBase(SplitPolicy sp = SplitPolicy::UNSPECIFIED)
-      : split_policy_(sp) {}
+  SplitStatImplBase(SplitPolicy sp) : split_policy_(sp) {}
   SplitPolicy get_policy() {
     return split_policy_;
   }
@@ -213,24 +245,10 @@ struct SplitStatImplBase {
       const DynamicRanges& ranges,
       DynamicRanges& new_ranges) = 0;
   virtual void Reset() = 0;
+  virtual void ResetMax() = 0;
   virtual ~SplitStatImplBase() = 0;
 
   SplitPolicy split_policy_{SplitPolicy::UNSPECIFIED};
-};
-
-struct SplitStatImplDefault : public SplitStatImplBase {
-  SplitStatImplDefault(size_t m = 0) : SplitStatImplBase(SplitPolicy::DEFAULT) {
-    split_count_.resize(1 << m);
-  }
-  void Increment(const DynamicRanges& ranges, const std::vector<int64_t>& dims)
-      override;
-  void CalculateNewRanges(
-      const DynamicRanges& ranges,
-      DynamicRanges& new_ranges) override;
-  void Reset() override {
-    std::fill(split_count_.begin(), split_count_.end(), 0);
-  }
-  std::vector<int64_t> split_count_;
 };
 
 struct SplitStatImplDynamic : public SplitStatImplBase {
@@ -248,19 +266,22 @@ struct SplitStatImplDynamic : public SplitStatImplBase {
     std::fill(max_pos_.begin(), max_pos_.end(), 0);
     split_stat_impl_.clear();
   }
+  void ResetMax() override {
+    split_stat_impl_.erase(max_pos_);
+    max_count_ = 0;
+    for (auto& a : split_stat_impl_) {
+      if (max_count_ < a.second) {
+        max_count_ = a.second;
+        max_pos_ = a.first;
+      }
+    }
+  }
 
   size_t num_dyn_ranges_{1};
   uint64_t max_count_{0};
   std::vector<bool> max_pos_;
   std::unordered_map<std::vector<bool>, uint64_t> split_stat_impl_;
 };
-
-inline std::ostream& operator<<(
-    std::ostream& O,
-    const std::shared_ptr<SplitStatImplDefault>& s) {
-  O << "split_count [" << s->split_count_ << "]";
-  return O;
-}
 
 inline std::ostream& operator<<(
     std::ostream& O,
@@ -288,11 +309,6 @@ inline std::ostream& operator<<(
       case SplitPolicy::UNSPECIFIED:
         O << " invalid SplitStatImpl used" << '\n';
         break;
-      case SplitPolicy::DEFAULT: {
-        std::shared_ptr<SplitStatImplDefault> spsh =
-            std::dynamic_pointer_cast<SplitStatImplDefault>(s);
-        O << spsh;
-      } break;
       case SplitPolicy::DYNAMIC: {
         std::shared_ptr<SplitStatImplDynamic> spsh =
             std::dynamic_pointer_cast<SplitStatImplDynamic>(s);
@@ -314,6 +330,28 @@ struct InputOutputShapes {
 };
 using PadShapes = std::unordered_map<int64_t, InputOutputShapes>;
 
+inline bool IsInRange(
+    const DynamicRanges& ranges,
+    const std::vector<int64_t>& dims,
+    const std::set<int64_t>& skipped_ranges) {
+  TORCH_CHECK(
+      ranges.size() <= dims.size(),
+      "wrong dynamic dims size ",
+      dims.size(),
+      ", expected greater or equal to ",
+      ranges.size());
+
+  for (size_t i = 0; i < ranges.size(); ++i) {
+    if (skipped_ranges.find(i) != skipped_ranges.end()) {
+      continue;
+    }
+    if (dims[i] < ranges[i].first || ranges[i].second < dims[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class Bucket {
  public:
   Bucket(
@@ -330,7 +368,7 @@ class Bucket {
     idx_ = i;
   }
   Bucket CreateNewBucket(SplitPolicy sp);
-  uint64_t getRunCount() const {
+  uint64_t GetRunCount() const {
     return run_count_;
   }
   void ResetRunCount() {
@@ -373,7 +411,7 @@ class Bucket {
   bool IsStatic() const {
     return (idx_ == 0);
   }
-  bool IsRefineCandidate() const {
+  bool IsRefinementCandidate() const {
     // Bucket with idx_ 0 is always a static bucket
     return (!IsStatic() && refine_candidate_);
   };
@@ -383,8 +421,6 @@ class Bucket {
   void UpdateRunTime(uint64_t t_ns);
   void IncrementHitCount() {
     hit_count_++;
-  }
-  void IncrementCumuHitCount() {
     cumu_hit_count_++;
   }
   void IncrementRunCount() {
@@ -395,25 +431,39 @@ class Bucket {
   inline std::string digest_str() const {
     // Present summary stats
     std::ostringstream O;
-    O << "Bucket " << idx_ << '\n';
+    O << "Bucket " << idx_ << ":" << '\n';
     if (idx_) {
-      O << " " << dynamic_dims_ << " ranges : " << ranges_ << '\n';
+      O << " Dynamic Dims::\n";
+      for (auto& d : dynamic_dims_) {
+        O << "  Tensor " << d.first << ":";
+        for (const auto& a : d.second) {
+          O << " (Dim " << a.first << ":";
+          auto& r{ranges_.at(a.second)};
+          O << '[' << r.first << ',' << r.second << ']' << ')';
+        }
+        O << "\n";
+      }
     } else {
-      O << " static dims" << '\n';
+      O << " Reference bucket" << '\n';
     }
     O << " hit count " << cumu_hit_count_ << ", miss count "
-      << (cumu_run_count_ - cumu_hit_count_) << '\n'
-      << " compile time stat : " << compile_time_ << '\n'
-      << " run time stat     : " << run_time_stat_ << '\n';
+      << (cumu_run_count_ - cumu_hit_count_) << '\n';
+    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      O << " compile time stat : " << compile_time_ << '\n'
+        << " base_time : " << base_time_ << '\n'
+        << " run time stat     : " << run_time_stat_ << '\n';
+    }
+    O << " split stat impl : " << split_stat_impl_;
+    O << "--------------------" << '\n';
 
     return O.str();
   }
 
   friend inline std::ostream& operator<<(std::ostream& O, const Bucket& b) {
-    O << b.digest_str() << " score " << b.score_ << ',' << " recipe key "
-      << b.recipe_key_ << ',' << " base_time " << b.base_time_ << ','
-      << " token " << b.token_ << '\n';
+    O << b.digest_str() << " score " << b.score_ << ", recipe key "
+      << b.recipe_key_ << ", token " << b.token_ << '\n';
     O << " split stat impl : " << b.split_stat_impl_;
+    O << "--------------------" << '\n';
     return O;
   }
 
@@ -423,7 +473,7 @@ class Bucket {
   static constexpr uint64_t max_number_of_dims = 20;
   static constexpr uint64_t max_number_of_dims_fixed = sizeof(uint64_t);
 
-  static constexpr double time_improve_factor_ = 1.0;
+  static constexpr double time_improve_factor_ = 0.90;
   static constexpr double polarization_factor_ = 0.75;
 
   uint64_t score_{0};
@@ -455,11 +505,13 @@ class Bucket {
 class DynamicBucketInfo {
  public:
   DynamicBucketInfo(
-      DynamicDimsPolicy min_policy = default_min_policy_,
-      SplitPolicy sp = SplitPolicy::DYNAMIC);
+      DynamicDimsPolicy min_policy = MIN_POLICY_DEFAULT,
+      DynamicDimsPolicy max_policy = MAX_POLICY_DEFAULT,
+      SplitPolicy sp = SplitPolicy::DYNAMIC)
+      : min_policy_(min_policy), max_policy_(max_policy), split_policy_(sp) {
+    refine_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  };
 
-  // using SynapseShapes = std::unordered_map<int64_t,
-  // synapse_helpers::tensor::dynamic_shape_t>;
   using TensorShapes = std::unordered_map<int64_t, habana_helpers::TensorShape>;
   using InpTensorShapes = std::map<int64_t, habana_helpers::TensorShape>;
   using DimMultipliers =
@@ -473,29 +525,33 @@ class DynamicBucketInfo {
     TensorShapes min_shapes;
     TensorShapes max_shapes;
 
-    bool empty() {
+    bool empty() const {
       return (min_shapes.empty() && max_shapes.empty());
     }
     // SynapseShapes syn_shapes;
     std::string DebugString();
+    // TODO: Change range representation to : [<min, max>, <min, max>]
     friend inline std::ostream& operator<<(
         std::ostream& O,
         const ResultShapes& r) {
-      O << '\n' << "min" << r.min_shapes << "max" << r.max_shapes;
+      if (r.empty()) {
+        O << "Empty range" << '\n';
+      } else {
+        O << "Min shapes ::" << '\n' << r.min_shapes;
+        O << "Max shapes ::" << '\n' << r.max_shapes;
+      }
       return O;
     }
   };
 
   ResultShapes CalculateShapes(uint64_t bucket);
 
-  std::unordered_set<int64_t> GetDynamicInputs() const;
   void CollectDynamicDims(const InpTensorShapes& shapes);
 
   uint64_t GetBucketId(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes = PadShapes{});
   absl::optional<uint64_t> CheckForSplitBucket();
-  bool IsConsistentDynamicDimsCount();
   bool UpdateBucketingPolicy(
       uint64_t bucket_id,
       const InpTensorShapes& shapes,
@@ -530,13 +586,18 @@ class DynamicBucketInfo {
   inline std::string digest_str() const {
     // Present summary stats
     std::ostringstream O;
-    O << "DynamicBucketInfo digest (times are in nano second)::" << '\n'
-      << " [number of run times stats collected can be lesser than the total number of runs]"
-      << '\n'
-      << " hit count " << cumu_hit_count_ << ", miss count "
-      << (cumu_run_count_ - cumu_hit_count_) << '\n'
-      << " compile time stat : " << cumu_compile_time_stat_ << '\n'
-      << " run time stat     : " << cumu_run_time_stat_ << '\n';
+    O << "DynamicBucketInfo digest ::" << '\n';
+    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      O << " [number of run times stats collected can be lesser than the total number of runs]"
+        << '\n'
+        << " [times are in nano seconds]" << '\n';
+    }
+    O << " hit count " << cumu_hit_count_ << ", miss count "
+      << (cumu_run_count_ - cumu_hit_count_) << '\n';
+    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      O << " compile time stat : " << cumu_compile_time_stat_ << '\n'
+        << " run time stat     : " << cumu_run_time_stat_ << '\n';
+    }
     O << "Individual bucket-wise digest ::" << '\n';
     for (const auto& b : buckets_) {
       O << b.digest_str();
@@ -553,17 +614,20 @@ class DynamicBucketInfo {
       << std::noboolalpha << '\n';
     O << " min policy=" << d.min_policy_ << ", max policy=" << d.max_policy_
       << ", split policy=" << d.split_policy_ << '\n';
-    O << "Input tensor shapes ::" << '\n';
+    O << "Initial tensor shapes ::" << '\n';
     for (const auto& a : d.shapes_) {
       O << "  " << a.first << " -> " << a.second << '\n';
     }
+    O << "Reference tensor shapes ::" << '\n';
+    O << d.ref_tensor_shapes_;
+    O << "--------------------" << '\n';
     O << "List of buckets ::" << '\n' << ' ' << d.buckets_;
-    O << "Dim history : len=" << d.dim_history_.size()
+    O << "Dim history : len=" << d.dims_history_.size()
       << ", contents ::" << '\n';
     bool skipped{false};
-    for (size_t i = 0; i < d.dim_history_.size(); i++) {
-      const auto& a = d.dim_history_[i];
-      if (i > 0 && a == d.dim_history_[i - 1]) {
+    for (size_t i = 0; i < d.dims_history_.size(); i++) {
+      const auto& a = d.dims_history_[i];
+      if (i > 0 && a == d.dims_history_[i - 1]) {
         skipped = true;
         continue;
       }
@@ -572,15 +636,15 @@ class DynamicBucketInfo {
         O << "  "
           << "..." << '\n';
       }
-      O << "  " << i << " : " << at::IntArrayRef(a) << '\n';
+      O << "  " << (i + 1) << " : " << DebugString(a) << '\n';
     }
     if (skipped) {
       skipped = false;
       O << "  "
         << "..." << '\n';
     }
-    O << d.dynamic_dims_ << '\n';
-    O << '\n';
+    O << d.dynamic_dims_;
+    O << "--------------------" << '\n';
     return O;
   }
 
@@ -609,8 +673,8 @@ class DynamicBucketInfo {
     max_policy_ = policy;
   }
   void SetDefaultPolicy() {
-    max_policy_ = default_max_policy_;
-    min_policy_ = default_min_policy_;
+    min_policy_ = MIN_POLICY_DEFAULT;
+    max_policy_ = MAX_POLICY_DEFAULT;
   }
   DynamicDimsPolicy GetMinPolicy() {
     return min_policy_;
@@ -624,7 +688,6 @@ class DynamicBucketInfo {
   void IncrementHitCount(size_t bucket_idx) {
     cumu_hit_count_++;
     buckets_.at(bucket_idx).IncrementHitCount();
-    buckets_.at(bucket_idx).IncrementCumuHitCount();
   }
 
   static uint64_t min_iterations_to_split() {
@@ -638,18 +701,18 @@ class DynamicBucketInfo {
   static constexpr int64_t default_max_multiplier_ = 2;
   static constexpr int64_t default_min_value_ = 2;
   static constexpr uint64_t max_buckets_number_ = 20;
-  static constexpr uint64_t min_iterations_to_split_ = 100;
+  static constexpr uint64_t min_iterations_to_split_ = 5;
   static constexpr float density_coefficient_ = 0.75;
 
  private:
-  std::vector<int64_t> ExtractDynamicDimsValue(
-      const InpTensorShapes& shapes) const;
+  void UpdateMFUBucketDetails(uint64_t bucket_id);
+  std::vector<int64_t> ExtractDynamicDimsValue(const InpTensorShapes& shapes);
   bool IsInRangeStaticDims(const std::vector<int64_t>& dims, int64_t num) const;
   int64_t GetMaxMultiplier(const PadShapes& pad_shapes);
   DimMultipliers CalculateFlattenedMultipliers(
       const InpTensorShapes& shapes,
       int64_t max_multiplier);
-  std::vector<int64_t> CalculateHistoricMin(const InpTensorShapes& shapes);
+  size_t CalculateHistoricMin(const InpTensorShapes& shapes);
   DynamicRanges CalculateRanges(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes);
@@ -662,15 +725,19 @@ class DynamicBucketInfo {
   std::queue<
       std::pair<std::shared_ptr<synapse_helpers::TimeSlotBase>, uint64_t>>
       run_time_states;
-  std::pair<uint64_t, uint64_t> bucket_comparison;
+
   uint64_t global_count = 0;
+  uint64_t mfu_bucket_id{0};
+  uint64_t mfu_bucket_run_count{0};
+
   InpTensorShapes shapes_;
+  DimsHistoryElement ref_tensor_shapes_;
   size_t prev_dynamic_dims_{};
-  DynamicDimsPolicy min_policy_{default_min_policy_};
-  DynamicDimsPolicy max_policy_{default_max_policy_};
-  std::vector<std::vector<int64_t>> dim_history_;
+  DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
+  DynamicDimsPolicy max_policy_{MAX_POLICY_DEFAULT};
+  std::vector<DimsHistoryElement> dims_history_;
   bool refine_enabled_ = true;
-  SplitPolicy split_policy_{SplitPolicy::DEFAULT};
+  SplitPolicy split_policy_{SplitPolicy::DYNAMIC};
 
   struct DynamicDimsElement {
     int64_t num;
@@ -696,21 +763,24 @@ class DynamicBucketInfo {
         std::ostream& O,
         const DynamicDimsHelper& d) {
       O << "dd : " << d.dd_;
-      O << "rem_size :" << '\n';
+      O << "rem_size :" << (d.rem_size_.size() ? "" : " empty") << '\n';
       for (const auto& a : d.rem_size_) {
-        O << "   " << '(' << a.first << " -> " << a.second << ')' << '\n';
+        O << "  " << '(' << a.first << " -> " << a.second << ')' << '\n';
       }
-      O << "flat dd :" << '\n';
+      O << "flat dd :" << (d.flat_dd_.size() ? "" : " empty") << '\n';
       for (const auto& a : d.flat_dd_) {
-        O << "   " << a << '\n';
+        O << "  " << a << '\n';
       }
 
       return O;
     }
-  } dynamic_dims_;
+  };
+
+  DynamicDimsHelper dynamic_dims_;
 
   // Corresponding JIT IR graph
   std::weak_ptr<torch::jit::Graph> jit_ir_pwk;
+
   // TimeStat across all buckets
   TimeStat cumu_run_time_stat_;
   TimeStat cumu_compile_time_stat_;

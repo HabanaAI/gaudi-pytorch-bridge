@@ -492,6 +492,50 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, BucketRefinement) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int A = 50;
+  const int C = 30;
+  std::vector<int> input_sizes{14, 16, 24, 16};
+  std::vector<int> rounds{1, 6, 6, 6};
+  int num;
+
+  for (int input_idx = 0; input_idx < input_sizes.size(); input_idx++) {
+    for (int cur_input_round{}; cur_input_round < rounds[input_idx];
+         cur_input_round++) {
+      int B = input_sizes[input_idx];
+      PT_TEST_DEBUG(
+          "\nPTI_DBG :: TEST ",
+          input_idx,
+          ", round ",
+          cur_input_round,
+          "  START");
+
+      torch::Tensor h0 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+      torch::Tensor h1 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+
+      torch::Tensor h4 = torch::add(h0, h1);
+      torch::Tensor h5 = torch::mul(h0, h1);
+      torch::Tensor h6 = torch::mul(h4, h5);
+      torch::Tensor h7 = torch::relu(h6);
+      torch::Tensor h7_c = h7.to(torch::kCPU);
+
+      PT_TEST_DEBUG(
+          "PTI_DBG :: TEST ", input_idx, ", round ", cur_input_round, "  END");
+    }
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {

@@ -2598,7 +2598,18 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
-  PT_BRIDGE_DEBUG(rv.digest_str());
+  if (enable_caching_ && refine_ds_enabled_) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        current_dbipsh_->digest_str(),
+        "Recipe Header::",
+        rv.header_str(),
+        "\n",
+        rv.digest_str(),
+        "\n",
+        "--------------------");
+  } else {
+    PT_BRIDGE_DEBUG(rv.digest_str());
+  }
 
   UpdateOutputs(rv);
 }
@@ -2721,7 +2732,6 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
     auto& syn_device = synapse_helpers::HPURegistrar::get_device();
     if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      PT_DYNAMIC_SHAPE_DEBUG("synlaunch time capture enabled");
       auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
       if (time_event_handle_cache.get_total_events_count() <
           synapse_helpers::event_handle_cache::
@@ -2739,8 +2749,6 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
             " reached, will not create any time event");
         rv.time_slot_ = nullptr;
       }
-    } else {
-      PT_DYNAMIC_SHAPE_DEBUG("synlaunch time capture disabled");
     }
   }
 }
@@ -2751,7 +2759,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   std::shared_ptr<RecipeArgumentSpec> rargpsh =
       std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
   PT_DYNAMIC_SHAPE_DEBUG(
-      "====\n",
+      "====================\n",
       "Processing with dynamic shape enabled\n",
       "JIT IR graph_hash_code : ",
       rargpsh->graphHashCode());
@@ -2766,6 +2774,14 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Input shapes::\n",
+      graph_input_info.act_input_tshapes,
+      "--------------------");
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BUCKET_REFINEMENT)) {
+    current_dbipsh_->CheckForSplitBucket();
+  }
   current_dbipsh_->CollectDynamicDims(graph_input_info.act_input_tshapes);
   current_bucket_id_ =
       current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
@@ -2773,22 +2789,24 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   PT_DYNAMIC_SHAPE_DEBUG(
       jit_ir_graph->toString(),
-      current_dbipsh_->digest_str(),
       "current bucket id : ",
       current_bucket_id_);
 
   auto ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
   if (ranges.empty()) {
     PT_DYNAMIC_SHAPE_DEBUG(
-        "exact graph with token : ", cur_ds_token_, "\n----");
+        "exact graph with token : ",
+        cur_ds_token_,
+        "\n",
+        "--------------------");
   } else {
     PT_DYNAMIC_SHAPE_DEBUG(
         "dynamic graph with token : ",
         cur_ds_token_,
         '\n',
-        "current range ::",
-        ranges,
-        "----");
+        "Input range ::\n",
+        ranges.DebugString(),
+        "--------------------");
 
     graph_input_info.min_input_tshapes.insert(
         ranges.min_shapes.begin(), ranges.min_shapes.end());
@@ -2850,8 +2868,17 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // Update the stack from the recipe itself
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
-      PT_DYNAMIC_SHAPE_DEBUG("HabanaOp recipe cache hit ::", rv.header_str());
-      PT_DYNAMIC_SHAPE_DEBUG(rv.digest_str());
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "HabanaOp recipe cache hit :: key ",
+          spec_key->hashCode(),
+          "\n",
+          current_dbipsh_->digest_str(),
+          "Recipe Header::",
+          rv.header_str(),
+          "\n",
+          rv.digest_str(),
+          "\n",
+          "--------------------");
 
       clear();
       PT_BRIDGE_END;

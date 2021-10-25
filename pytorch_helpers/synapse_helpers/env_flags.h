@@ -352,6 +352,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_PRINT_STATS_TABLE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool, false);
 ENV_STRUCT_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_EAGER_OPTIM_CACHE, unsigned, 1);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_BUCKET_REFINEMENT, bool, false);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes
