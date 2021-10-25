@@ -1,0 +1,486 @@
+/******************************************************************************
+ * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#include "synapse_helpers/memory_defragmentation.h"
+
+namespace synapse_helpers {
+namespace defragment_helpers {
+static std::string MemoryStateToString(MemoryState state) {
+  switch (state) {
+    case MemoryState::FREE:
+      return "Free";
+    case MemoryState::IN_USE:
+      return "In use";
+    case MemoryState::FIXED:
+      return "Fixed";
+    default:
+      HABANA_ASSERT(false);
+      break;
+  }
+
+  return {};
+}
+
+MemoryBlock::MemoryBlock(
+    MemoryState state,
+    synapse_helpers::mem_handle::id_t handle,
+    int8_t* ptr,
+    size_t size,
+    size_t actual_size)
+    : state_(state),
+      handle_(handle),
+      ptr_(ptr),
+      size_(size),
+      actual_size_(actual_size) {}
+
+std::string MemoryBlock::DebugString() const {
+  std::string ret;
+  ret += "Memory block state :" + MemoryStateToString(state_) + "\n";
+  ret += "Start pointer: " +
+      std::to_string(reinterpret_cast<std::uintptr_t>(ptr_)) + "\n";
+  ret += "Requested memory block size: " + std::to_string(size_) + "\n";
+  ret += "Actual memory block size: " + std::to_string(actual_size_) + "\n";
+  return ret;
+}
+
+std::string Region::DebugString() const {
+  std::string ret;
+  ret += "Used memory: " + std::to_string(in_use_memory_) + "\n";
+  ret += "Free memory: " + std::to_string(free_memory_) + "\n";
+  ret += "\n";
+  for (auto it = begin_;; ++it) {
+    ret += it->DebugString();
+    if (it == end_) {
+      break;
+    }
+  }
+  return ret;
+}
+
+MemoryDefragementer::MemoryDefragementer(
+    pool_allocator::SubAllocator& allocator,
+    const handle2pointer_map& handle2pointer,
+    const absl::flat_hash_set<synapse_helpers::mem_handle::id_t>& fixed_handles,
+    size_t alignment)
+    : allocator_(allocator),
+      handle2pointer_(handle2pointer),
+      fixed_handles_(fixed_handles),
+      alignment_(alignment) {
+  auto allocation_regions = allocator_.get_memory_info();
+  if (allocation_regions.size() != 1) {
+    // Expected only 1 memory region, HPU does not allow memory extension.
+    PT_DEVMEM_FATAL(
+        "Defragmentation cannot be started. Only 1 memory region expected, got: ",
+        allocation_regions.size());
+  }
+
+  // Get region information
+  void* region_ptr = nullptr;
+  size_t region_size = 0;
+  auto& region = allocation_regions[0];
+  std::tie(region_ptr, region_size) = region;
+
+  mem_start_ptr_ = static_cast<int8_t*>(region_ptr);
+  mem_end_ptr_ = static_cast<int8_t*>(mem_start_ptr_) + region_size;
+
+  // Workspace is allocated at the end of memory.
+  // So if there is allocation at the end of memory, it is workspace.
+  void* workspace_ptr = nullptr;
+  std::tie(workspace_ptr, workspace_size_) = allocator_.get_tail_chunk_info();
+  workspace_ptr_ = static_cast<int8_t*>(workspace_ptr);
+
+  // There is also reserved region for small allocations.
+  // If an allocation falls into category of small allocations, this region has
+  // to be defragemented separately.
+  void* small_allocs_ptr = nullptr;
+  std::tie(small_allocs_ptr, small_allocs_size_, small_allocs_threshold_) =
+      allocator_.get_small_alloc_info();
+  small_allocs_ptr_ = static_cast<int8_t*>(small_allocs_ptr);
+  if (small_allocs_ptr_ &&
+      (small_allocs_ptr_ < mem_start_ptr_ ||
+       small_allocs_ptr_ + small_allocs_size_ > mem_end_ptr_)) {
+    PT_DEVMEM_FATAL(
+        "Defragmentation cannot be started. Invalid memory information.");
+  }
+}
+
+bool MemoryDefragementer::CollectMemoryInformation(
+    std::vector<MemoryBlock>& result) {
+  std::vector<MemoryBlock> in_use_memory_blocks;
+  CollectResourceInformation(in_use_memory_blocks);
+  CreateMemoryMap(in_use_memory_blocks, result);
+  return ValidateMemoryMap(result);
+}
+
+bool MemoryDefragementer::CollectResourceInformation(
+    std::vector<MemoryBlock>& in_use_memory_blocks) {
+  for (auto const& h2p : handle2pointer_) {
+    if (h2p.second.first == nullptr) {
+      // Deferred allocation case.
+      // alloc() was called, but the actual allocation happens only when a
+      // pointer is obtained for the first time. In such case, allocation list
+      // will have handle reserved, but a pointer is still nullptr.
+      continue;
+    }
+
+    auto fixed_handle = fixed_handles_.find(h2p.first) != fixed_handles_.end();
+    auto mem_state = fixed_handle ? MemoryState::FIXED : MemoryState::IN_USE;
+    auto mem_ptr = static_cast<int8_t*>(h2p.second.first);
+    auto mem_size = h2p.second.second;
+    auto mem_actual_size =
+        (mem_size + alignment_ - 1) / alignment_ * alignment_;
+    if (mem_ptr < small_allocs_ptr_ ||
+        mem_ptr >= small_allocs_ptr_ + small_allocs_size_) {
+      mem_actual_size = allocator_.allocated_size(h2p.second.first);
+    }
+
+    in_use_memory_blocks.emplace_back(
+        mem_state, h2p.first, mem_ptr, mem_size, mem_actual_size);
+  }
+
+  if (workspace_size_ > 0) {
+    // Calculating workspace information.
+    // Workspace is placed at the end of memory.
+    in_use_memory_blocks.emplace_back(
+        MemoryState::FIXED,
+        0,
+        workspace_ptr_,
+        workspace_size_,
+        workspace_size_);
+  }
+
+  std::sort(in_use_memory_blocks.begin(), in_use_memory_blocks.end());
+
+  return true;
+}
+
+bool MemoryDefragementer::CreateMemoryMap(
+    std::vector<MemoryBlock>& in_use_memory_blocks,
+    std::vector<MemoryBlock>& memory_blocks) {
+  // helpers
+  auto ptr_diff = [](int8_t* ptr1, int8_t* ptr2) -> size_t {
+    return reinterpret_cast<std::uintptr_t>(ptr1) -
+        reinterpret_cast<std::uintptr_t>(ptr2);
+  };
+
+  auto ptr_add_offset = [](int8_t* ptr, size_t offset) -> int8_t* {
+    return static_cast<int8_t*>(ptr) + offset;
+  };
+
+  // collect information about free memory blocks
+  memory_blocks.clear();
+
+  if (in_use_memory_blocks.empty()) {
+    auto mem_block_size = ptr_diff(mem_end_ptr_, mem_start_ptr_);
+    memory_blocks.emplace_back(
+        MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+
+    return true;
+  }
+
+  // handling a case of free memory block before first memory block in use
+  auto& first_memory_block = in_use_memory_blocks.front();
+  if (first_memory_block.ptr_ != mem_start_ptr_) {
+    auto mem_block_size = ptr_diff(first_memory_block.ptr_, mem_start_ptr_);
+    memory_blocks.emplace_back(
+        MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+  }
+
+  for (auto it = in_use_memory_blocks.begin(); it != in_use_memory_blocks.end();
+       ++it) {
+    // checking if previous memory block was free
+    auto prev_it = it - 1;
+    auto ptr_next = ptr_add_offset(prev_it->ptr_, prev_it->actual_size_);
+    if (it != in_use_memory_blocks.begin() && it->ptr_ > ptr_next) {
+      auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
+      memory_blocks.emplace_back(
+          MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
+    }
+
+    // adding occupied memory block
+    memory_blocks.emplace_back(
+        it->state_, it->handle_, it->ptr_, it->size_, it->actual_size_);
+  }
+
+  // handling a case of free memory block after last occupied memory block
+  auto& last_memory_block = in_use_memory_blocks.back();
+  auto last_alloc_ptr_end =
+      ptr_add_offset(last_memory_block.ptr_, last_memory_block.actual_size_);
+  if (last_alloc_ptr_end < mem_end_ptr_) {
+    auto mem_block_size = ptr_diff(mem_end_ptr_, last_alloc_ptr_end);
+    memory_blocks.emplace_back(
+        MemoryState::FREE,
+        0,
+        last_alloc_ptr_end,
+        mem_block_size,
+        mem_block_size);
+  }
+
+  return true;
+}
+
+bool MemoryDefragementer::ValidateMemoryMap(
+    std::vector<MemoryBlock>& memory_blocks) {
+  if (memory_blocks.empty()) {
+    return true;
+  }
+
+  auto ptr = static_cast<int8_t*>(memory_blocks.front().ptr_);
+  auto size = memory_blocks.front().actual_size_;
+
+  if (ptr != mem_start_ptr_) {
+    std::string err(
+        "Invalid memory information. Expected pointer: " +
+        std::to_string(reinterpret_cast<std::uintptr_t>(mem_start_ptr_)) +
+        ", got: " + std::to_string(reinterpret_cast<std::uintptr_t>(ptr)));
+    PT_DEVMEM_DEBUG(err);
+    return false;
+  }
+
+  for (auto it = memory_blocks.begin() + 1; it != memory_blocks.end(); ++it) {
+    if (it->ptr_ != ptr + size) {
+      std::string err(
+          "Invalid memory information. Expected pointer: " +
+          std::to_string(reinterpret_cast<std::uintptr_t>(ptr + size)) +
+          ", got: " +
+          std::to_string(reinterpret_cast<std::uintptr_t>(it->ptr_)));
+      PT_DEVMEM_DEBUG(err);
+      return false;
+    }
+
+    ptr = static_cast<int8_t*>(it->ptr_);
+    size = it->actual_size_;
+  }
+
+  if (ptr + size != mem_end_ptr_) {
+    std::string err(
+        "Invalid memory information. Expected pointer: " +
+        std::to_string(reinterpret_cast<std::uintptr_t>(mem_end_ptr_ - size)) +
+        ", got: " + std::to_string(reinterpret_cast<std::uintptr_t>(ptr)));
+    PT_DEVMEM_DEBUG(err);
+    return false;
+  }
+
+  return true;
+}
+
+bool MemoryDefragementer::SelectRegionForResourceAllocation(
+    std::vector<MemoryBlock>& memory_blocks,
+    size_t allocation_size,
+    int8_t* ptr_start,
+    int8_t* ptr_end,
+    std::unique_ptr<Region>& result) {
+  auto reset_region = [](std::vector<MemoryBlock>& memory_blocks, Region& r) {
+    r.begin_ = memory_blocks.end();
+    r.end_ = memory_blocks.begin();
+    r.in_use_memory_ = 0;
+    r.free_memory_ = 0;
+  };
+
+  std::vector<Region> regions;
+
+  Region r;
+  reset_region(memory_blocks, r);
+
+  for (auto it = memory_blocks.begin(); it != memory_blocks.end();) {
+    auto& mem_info = *it;
+    if (mem_info.ptr_ < ptr_start) {
+      ++it;
+      continue;
+    }
+
+    if (mem_info.ptr_ >= ptr_end) {
+      break;
+    }
+
+    // look for the first free memory block
+    if (r.begin_ == memory_blocks.end()) {
+      if (mem_info.state_ != MemoryState::FREE) {
+        ++it;
+        continue;
+      }
+
+      r.begin_ = it;
+    }
+
+    if (mem_info.state_ == MemoryState::FIXED) {
+      // reset statistics if fixed memory region was found
+      reset_region(memory_blocks, r);
+      ++it;
+      continue;
+    }
+
+    // calculate region statistics
+    if (mem_info.state_ == MemoryState::FREE) {
+      r.free_memory_ += mem_info.actual_size_;
+    } else {
+      r.in_use_memory_ += mem_info.actual_size_;
+    }
+    ++it;
+    r.end_ = it;
+
+    // add region to the list when there is enough free memory in the region
+    // to satisfy memory allocation request
+    if (r.free_memory_ >= allocation_size) {
+      regions.push_back(r);
+
+      // set iterator to the next memory block and restart looking for the next
+      // memory region meeting criteria
+      it = r.begin_ + 1;
+
+      // reset region statistics
+      reset_region(memory_blocks, r);
+      continue;
+    }
+  }
+
+  if (regions.empty()) {
+    PT_DEVMEM_DEBUG("No region that can be defragmented was found");
+    return false;
+  }
+
+  std::sort(regions.begin(), regions.end());
+  result = absl::make_unique<Region>(regions.front());
+
+  return true;
+}
+
+bool MemoryDefragementer::SelectRegionForWorkspaceGrow(
+    std::vector<MemoryBlock>& memory_blocks,
+    size_t allocation_size,
+    int8_t* ptr_start,
+    int8_t* ptr_end,
+    std::unique_ptr<Region>& result) {
+  size_t free_memory = 0;
+  for (auto it = memory_blocks.begin(); it != memory_blocks.end(); ++it) {
+    auto& mem_info = *it;
+    if (mem_info.ptr_ < ptr_start) {
+      continue;
+    }
+
+    if (mem_info.ptr_ >= ptr_end) {
+      break;
+    }
+
+    if (mem_info.state_ == MemoryState::FIXED &&
+        it + 1 == memory_blocks.end()) {
+      // Skipping workspace
+      break;
+    }
+
+    if (mem_info.state_ == MemoryState::FIXED) {
+      // Fixed allocation resets statistics
+      free_memory = 0;
+      continue;
+    }
+
+    if (mem_info.state_ != MemoryState::FREE) {
+      continue;
+    }
+
+    free_memory += mem_info.actual_size_;
+  }
+
+  auto requested_mem_extension = allocation_size - workspace_size_;
+  if (free_memory < requested_mem_extension) {
+    PT_DEVMEM_DEBUG("Not enough free space for workspace extension.");
+    return false;
+  }
+
+  // minimize region to move smallest amount of in use memory
+  auto region = absl::make_unique<Region>();
+  region->begin_ = memory_blocks.begin();
+  region->end_ = memory_blocks.end();
+  for (size_t i = memory_blocks.size(); i > 0; --i) {
+    size_t idx = i - 1;
+    auto& mem_info = memory_blocks[idx];
+    if (mem_info.state_ == MemoryState::FIXED && i == memory_blocks.size()) {
+      region->end_ = memory_blocks.begin() + idx;
+      // Skipping workspace
+      continue;
+    }
+
+    if (mem_info.state_ == MemoryState::FIXED) {
+      PT_DEVMEM_FATAL(
+          "Defragmentation algorithm error. Found fixed allocation.");
+    }
+
+    auto mem_block_size = mem_info.actual_size_;
+    if (mem_info.state_ != MemoryState::FREE) {
+      region->in_use_memory_ += mem_block_size;
+      continue;
+    }
+
+    region->begin_ = memory_blocks.begin() + idx;
+    region->free_memory_ += mem_block_size;
+
+    if (region->free_memory_ >= requested_mem_extension) {
+      break;
+    }
+  }
+
+  result.swap(region);
+
+  return true;
+}
+
+bool MemoryDefragementer::Run(
+    std::vector<MemoryBlock>& memory_blocks,
+    bool workspace_grow,
+    size_t allocation_size,
+    std::unique_ptr<Region>& result) {
+  if (workspace_grow) {
+    return SelectRegionForWorkspaceGrow(
+        memory_blocks,
+        allocation_size,
+        small_allocs_ptr_ + small_allocs_size_,
+        mem_end_ptr_,
+        result);
+  }
+
+  if (small_allocs_ptr_ && allocation_size <= small_allocs_threshold_) {
+    PT_DEVMEM_DEBUG("Checking if small allocations region can be defragmented");
+    if (SelectRegionForResourceAllocation(
+            memory_blocks,
+            allocation_size,
+            small_allocs_ptr_,
+            small_allocs_ptr_ + small_allocs_size_,
+            result)) {
+      return true;
+    }
+
+    PT_DEVMEM_WARN("No space in small allocations region.");
+  }
+
+  if (small_allocs_ptr_ == mem_start_ptr_) {
+    return SelectRegionForResourceAllocation(
+        memory_blocks,
+        allocation_size,
+        small_allocs_ptr_ + small_allocs_size_,
+        mem_end_ptr_,
+        result);
+  } else {
+    // Not expected case, but it needs to be handled for completeness
+    return SelectRegionForResourceAllocation(
+        memory_blocks,
+        allocation_size,
+        mem_start_ptr_,
+        small_allocs_ptr_,
+        result);
+  }
+
+  return true;
+}
+
+} // namespace defragment_helpers
+} // namespace synapse_helpers

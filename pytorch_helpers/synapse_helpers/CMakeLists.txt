@@ -23,6 +23,7 @@ foreach (FLAVOR abi11)
     host_memory.cpp
     logger_stub.cpp
     mem_handle.cpp
+    memory_defragmentation.cpp
     memory_mapping.cpp
     pool_allocator/utils.cpp
     pool_allocator/PoolAllocator.cpp
