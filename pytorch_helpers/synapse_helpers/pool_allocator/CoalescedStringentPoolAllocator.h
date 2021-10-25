@@ -84,6 +84,10 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size) const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
+  size_t allocated_size(const void* ptr) const;
+  std::vector<std::pair<void*, size_t>> get_memory_info() const;
+  std::pair<void*, size_t> get_tail_chunk_info() const;
+  std::tuple<void*, size_t, size_t> get_small_alloc_info() const;
 
  private:
   struct chunkcompare {
@@ -147,6 +151,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
     void Deallocate(const void* ptr);
     void Reset();
     size_t UnitsOccupied() const;
+    void* GetChunkPtr();
 
    private:
     void ValidateEmpty() const;

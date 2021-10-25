@@ -197,6 +197,11 @@ std::string habana_helpers::unique_recipe_name_generator(
   static std::unordered_map<std::string, unsigned> map;
   return recipe_name + std::to_string(map[recipe_name]++);
 }
+namespace {
+struct ResourceHolder {
+  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+};
+} // namespace
 
 static void launchRecipe(
     const std::vector<void*>& input_buffers,
@@ -208,17 +213,20 @@ static void launchRecipe(
     std::shared_ptr<synapse_helpers::recipe>& recipe) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto& stream_handle = device.get_compute_stream();
+  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
   if (device.IsStreamASyncEnabled()) {
     // wait for input DMA to complete before launching the compute.
     device.add_wait_events_on_stream(in_event_addr, stream_handle);
 
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
-    bool status = recipe->launch(input_buffers, output_buffers);
+    bool status = recipe->launch(input_buffers, output_buffers, address_lock);
     if (!status) {
       recipe_counter.decrease_and_notify();
       TORCH_CHECK(false, "syn launch failed");
     }
+    auto holder = std::make_shared<ResourceHolder>();
+    holder->address_lock = std::move(address_lock);
     const auto& recipe_ptr = recipe->getRecipeHandle();
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.
@@ -227,12 +235,12 @@ static void launchRecipe(
     device.register_producer_on_stream(
         std::move(out_event_addr),
         stream_handle,
-        [pt_inputs, recipe_ptr, &recipe_counter]() {
+        [pt_inputs, recipe_ptr, &recipe_counter, holder]() {
           recipe_counter.decrease_and_notify();
           return;
         });
   } else {
-    recipe->launch(input_buffers, output_buffers);
+    recipe->launch(input_buffers, output_buffers, address_lock);
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }

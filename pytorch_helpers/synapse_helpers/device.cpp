@@ -173,6 +173,9 @@ device::device(
       GET_ENV_FLAG_NEW(PT_HABANA_DMA_COPY_RETRY_DELAY));
   max_recipe_limit_in_queue_ =
       GET_ENV_FLAG_NEW(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT);
+  enable_memory_defragmentation_ =
+      GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION);
+  enable_memory_defrag_info_ = GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -457,13 +460,15 @@ synapse_error device::copy_data_to_device(
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
 
   unsigned attempt = 0;
+  std::shared_ptr<device_ptr_lock> locked;
   do {
-    auto locked = lock_addresses(destination);
+    locked = std::make_shared<device_ptr_lock>(
+        std::move(lock_addresses(destination)));
     status = synMemCopyAsync(
         stream_h2d_,
         reinterpret_cast<uint64_t>(mapped_cpu_data),
         total_bytes,
-        locked.at(0),
+        locked->at(0),
         synDmaDir::HOST_TO_DRAM);
 
     if (status == synStatus::synSuccess) {
@@ -491,10 +496,13 @@ synapse_error device::copy_data_to_device(
   } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
-      {event_addr}, stream_h2d_, [this, dst_ptr, is_pinned, done_cb]() {
+      {event_addr},
+      stream_h2d_,
+      [this, dst_ptr, is_pinned, done_cb, locked]() mutable {
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
+        locked = nullptr;
       });
 
   return {};
@@ -533,11 +541,13 @@ synapse_error device::copy_data_to_host(
   }
 
   unsigned attempt = 0;
+  std::shared_ptr<device_ptr_lock> locked;
   do {
-    auto locked = lock_addresses(device_data);
+    locked = std::make_shared<device_ptr_lock>(
+        std::move(lock_addresses(device_data)));
     status = synMemCopyAsync(
         stream_d2h_,
-        locked.at(0),
+        locked->at(0),
         total_bytes,
         reinterpret_cast<uint64_t>(mapped_destination),
         synDmaDir::DRAM_TO_HOST);
@@ -568,7 +578,13 @@ synapse_error device::copy_data_to_host(
   sem_.add_producer(
       {},
       stream_d2h_,
-      [this, done_cb, dst_ptr, total_bytes, destination, is_pinned]() {
+      [this,
+       done_cb,
+       dst_ptr,
+       total_bytes,
+       destination,
+       is_pinned,
+       locked]() mutable {
         if (!is_pinned) {
           std::copy(
               dst_ptr,
@@ -577,6 +593,7 @@ synapse_error device::copy_data_to_host(
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();
+        locked = nullptr;
       });
 
   return {};
@@ -592,20 +609,22 @@ synapse_error device::copy_data_within_device(
   synStatus status;
 
   sem_.enqueue_wait_event(src_event_addr, stream_d2d_);
-  {
-    auto locked = lock_addresses(source, destination);
-    status = synMemCopyAsync(
-        stream_d2d_,
-        locked.at(0),
-        total_bytes,
-        locked.at(1),
-        synDmaDir::DRAM_TO_DRAM);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{"DMA inside HPU start failed.", status};
-    }
+  auto locked = std::make_shared<device_ptr_lock>(
+      std::move(lock_addresses(source, destination)));
+  status = synMemCopyAsync(
+      stream_d2d_,
+      locked->at(0),
+      total_bytes,
+      locked->at(1),
+      synDmaDir::DRAM_TO_DRAM);
+  if (synStatus::synSuccess != status) {
+    return synapse_error{"DMA inside HPU start failed.", status};
   }
-
-  sem_.add_producer({dst_event_addr}, stream_d2d_, std::move(unref_cb));
+  auto done_cb = [unref_cb, locked]() mutable {
+    unref_cb();
+    locked = nullptr;
+  };
+  sem_.add_producer({dst_event_addr}, stream_d2d_, std::move(done_cb));
 
   return {};
 }
@@ -629,35 +648,41 @@ synapse_error device::copy_data_within_device(
     dsts_event_addr[i] = transfers[i].dst_event_addr;
   }
 
-  {
-    auto locked = lock_addresses(all_addresses);
-    absl::Span<device_ptr> locked_srcs{locked.data(), transfers.size()};
-    absl::Span<device_ptr> locked_dsts{
-        locked.data() + transfers.size(), transfers.size()};
+  auto locked = std::make_shared<device_ptr_lock>(
+      std::move(lock_addresses(all_addresses)));
+  HABANA_ASSERT(
+      transfers.size() * 2 ==
+      std::size_t(std::distance(locked->begin(), locked->end())));
+  absl::Span<device_ptr> locked_srcs{locked->begin(), transfers.size()};
+  absl::Span<device_ptr> locked_dsts{
+      locked->begin() + transfers.size(), transfers.size()};
 
-    status = synMemCopyAsyncMultiple(
-        stream_d2d_,
-        locked_srcs.data(),
-        lens.data(),
-        locked_dsts.data(),
-        synDmaDir::DRAM_TO_DRAM,
-        transfers.size());
-    if (synStatus::synSuccess != status) {
-      return synapse_error{"dma inside hpu start failed.", status};
-    }
+  status = synMemCopyAsyncMultiple(
+      stream_d2d_,
+      locked_srcs.data(),
+      lens.data(),
+      locked_dsts.data(),
+      synDmaDir::DRAM_TO_DRAM,
+      transfers.size());
+  if (synStatus::synSuccess != status) {
+    return synapse_error{"dma inside hpu start failed.", status};
   }
+  auto done_cb = [unref_cb, locked]() mutable {
+    unref_cb();
+    locked = nullptr;
+  };
 
   if (nullptr == next_operation_stream) {
     sem_.add_producer(
-        std::move(dsts_event_addr), stream_d2d_, std::move(unref_cb));
+        std::move(dsts_event_addr), stream_d2d_, std::move(done_cb));
   } else {
     // If next operation stream is known then user wants us to put event on
     // this stream immediately and not pass it into the SEM.
     record_and_wait_for_event(
-        stream_d2d_, *next_operation_stream, std::move(unref_cb));
+        stream_d2d_, *next_operation_stream, std::move(done_cb));
   }
   return {};
-}
+} // namespace synapse_helpers
 
 device_ptr device::get_workspace_buffer(size_t size) {
   std::unique_lock<std::mutex> lock(ws_mutex_);
@@ -678,6 +703,15 @@ device_ptr device::get_workspace_buffer(size_t size) {
       synapse_helpers::get_mem_str(workspace_size_));
 
   return workspace_buffer_;
+}
+
+void device::cleanup_workspace_buffer() {
+  std::unique_lock<std::mutex> lock(ws_mutex_);
+  if (workspace_size_ == 0)
+    return;
+  allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
+  workspace_buffer_ = 0;
+  workspace_size_ = 0;
 }
 
 void device::add_wait_events_on_stream(

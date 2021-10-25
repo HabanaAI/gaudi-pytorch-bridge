@@ -18,6 +18,7 @@
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_helpers/memory_defragmentation.h"
 
 namespace synapse_helpers {
 device_memory::device_memory(device& device) : device_{device} {
@@ -122,6 +123,10 @@ device_memory::device_memory(device& device) : device_{device} {
 
 device_memory::~device_memory() {
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    if (!threads_in_defragmenter_critical_section_->empty())
+      PT_DEVMEM_DEBUG(
+          "Some allocated buffers are in use during device memory destructor call.",
+          " It may be caused by device memory leak");
     handle2pointer_.clear();
     handle_id_generator_.reset();
   }
@@ -130,6 +135,24 @@ device_memory::~device_memory() {
     delete suballoc_;
   }
   suballoc_ = nullptr;
+}
+
+void device_memory::reset_pool() {
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    if (!threads_in_defragmenter_critical_section_->empty())
+      PT_DEVMEM_DEBUG(
+          "Some allocated buffers are in use during device memory destructor call."
+          "It may be caused by device memory leak");
+    handle2pointer_.clear();
+    handle_id_generator_.reset();
+    fixed_handles_.clear();
+  }
+  if (suballoc_) {
+    suballoc_->pool_destroy();
+  }
+  if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
+    PT_DEVMEM_FATAL("pool creation failed");
+  }
 }
 
 // warapper for malloc/free for pool startegy not equal to 5
@@ -282,15 +305,40 @@ void* device_memory::workspace_alloc(
     ws_size = actual_size;
     return v_ptr;
   } else {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (ws_size < req_size) {
+    if ((ws_size >= req_size) && (ptr != nullptr)) {
+      return ptr;
+    } else {
       void* v_ptr{nullptr};
-      v_ptr = suballoc_->extend_high_memory_allocation(req_size);
+      std::unique_lock<std::mutex> lock(defragmentation_mutex_);
+
+      auto extend_high_memory_alloc = [&](size_t new_workspace_size) -> void* {
+        std::unique_lock<std::mutex> lock(mutex_);
+        void* v_ptr{nullptr};
+        v_ptr = suballoc_->extend_high_memory_allocation(new_workspace_size);
+        MemoryStats stats;
+        get_memory_stats(&stats);
+        PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
+        return v_ptr;
+      };
+
+      v_ptr = extend_high_memory_alloc(req_size);
+
+      bool defragmentation_done = false;
+      if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
+        PT_DEVMEM_WARN(
+            "Workspace extension failed. Attempt to defragment memory.");
+        defragmentation_done = defragment_memory(128, req_size, true);
+      }
+
+      if (defragmentation_done) {
+        v_ptr = extend_high_memory_alloc(req_size);
+      }
+
       workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
       ws_size = req_size;
+
       return v_ptr;
     }
-    return ptr;
   }
 }
 
@@ -308,6 +356,8 @@ void device_memory::fix_address(void* ptr) {
   }
 
   get_pointer(h);
+  std::unique_lock<std::mutex> lock(mutex_);
+  fixed_handles_.insert(h.id());
 }
 
 void device_memory::check_and_limit_recipe_execution() {
@@ -321,6 +371,296 @@ void device_memory::check_and_limit_recipe_execution() {
   }
 }
 
+namespace {
+namespace defragment {
+class Lock : public device_ptr_lock_interface {
+ public:
+  Lock(std::shared_ptr<synchronous_counter> counter, std::vector<device_ptr>&&);
+  ~Lock() override;
+  Lock(Lock&&) = delete;
+  Lock(const Lock&) = delete;
+  Lock& operator=(const Lock&) = delete;
+  Lock& operator=(Lock&&) = delete;
+
+  device_ptr_lock_interface::iterator_t begin() override {
+    return locked_addresses_.data();
+  }
+  device_ptr_lock_interface::iterator_t end() override {
+    return locked_addresses_.data() + locked_addresses_.size();
+  }
+  device_ptr at(size_t position) override {
+    return locked_addresses_.at(position);
+  }
+
+ private:
+  std::shared_ptr<synchronous_counter> counter_;
+  std::vector<device_ptr> locked_addresses_;
+};
+
+Lock::Lock(
+    std::shared_ptr<synchronous_counter> counter,
+    std::vector<device_ptr>&& addresses)
+    : counter_(counter), locked_addresses_(std::move(addresses)) {
+  counter_->increment();
+}
+
+Lock::~Lock() {
+  counter_->decrement();
+}
+
+struct HandleMover {
+  HandleMover() = default;
+
+  HandleMover(mem_handle::id_t handle, void* source_pointer, size_t size)
+      : handle_(handle),
+        source_pointer_(source_pointer),
+        destination_pointer_(nullptr),
+        size_(size) {}
+
+  void* GetDestination() const {
+    return destination_pointer_;
+  }
+
+  bool moveRequired() const {
+    return source_pointer_ != destination_pointer_;
+  }
+
+  bool operator<(const HandleMover& rhs) const {
+    return source_pointer_ < rhs.source_pointer_;
+  }
+
+  void Deallocate(pool_allocator::SubAllocator& allocator) const {
+    if (source_pointer_ == nullptr) {
+      PT_DEVMEM_FATAL("source_pointer_ not set. Deallocation not possible.");
+    }
+    allocator.pool_free_chunk(source_pointer_);
+  }
+
+  void Allocate(
+      pool_allocator::SubAllocator& allocator,
+      device_memory::handle2pointer_map& h2pMap,
+      bool workspace) {
+    destination_pointer_ = allocator.pool_alloc_chunk(size_, workspace);
+    if (destination_pointer_ == nullptr) {
+      PT_DEVMEM_FATAL("destination_pointer_ allocation failed");
+    }
+    h2pMap[handle_] = std::make_pair(destination_pointer_, size_);
+  }
+
+  void MoveData(device& dev) const {
+    if (!moveRequired()) {
+      return;
+    }
+
+    if (destination_pointer_ == nullptr) {
+      PT_DEVMEM_FATAL(
+          "destination_pointer_ not set. Moving data not possible.");
+    }
+
+    uint64_t src_base_addr = reinterpret_cast<uint64_t>(source_pointer_);
+    uint64_t dst_base_addr = reinterpret_cast<uint64_t>(destination_pointer_);
+    uint64_t src_end_addr = src_base_addr + size_;
+    uint64_t dst_end_addr = dst_base_addr + size_;
+
+    if (!(dst_end_addr <= src_base_addr || src_end_addr <= dst_base_addr)) {
+      PT_DEVMEM_DEBUG(
+          "Address overlapping...",
+          "src_base_addr::",
+          src_base_addr,
+          " src_end_addr::",
+          src_end_addr,
+          " dst_base_addr::",
+          dst_base_addr,
+          " dst_end_addr::",
+          dst_end_addr);
+      size_t size_base = dst_end_addr - src_base_addr;
+      src_base_addr = src_base_addr;
+      dst_base_addr = dst_base_addr;
+
+      auto status = synMemCopyAsync(
+          dev.get_device_to_device_stream(),
+          src_base_addr,
+          size_base,
+          dst_base_addr,
+          synDmaDir::DRAM_TO_DRAM);
+      if (synStatus::synSuccess != status) {
+        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
+      }
+
+      size_t remaning_size = size_ - size_base;
+      src_base_addr = src_base_addr + size_base;
+      dst_base_addr = dst_base_addr + size_base;
+      status = synMemCopyAsync(
+          dev.get_device_to_device_stream(),
+          src_base_addr,
+          remaning_size,
+          dst_base_addr,
+          synDmaDir::DRAM_TO_DRAM);
+      if (synStatus::synSuccess != status) {
+        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
+      }
+
+    } else {
+      auto status = synMemCopyAsync(
+          dev.get_device_to_device_stream(),
+          reinterpret_cast<uint64_t>(source_pointer_),
+          size_,
+          reinterpret_cast<uint64_t>(destination_pointer_),
+          synDmaDir::DRAM_TO_DRAM);
+      if (synStatus::synSuccess != status) {
+        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
+      }
+    }
+  }
+
+  mem_handle::id_t handle_;
+  void* source_pointer_;
+  void* destination_pointer_;
+  size_t size_;
+};
+} // namespace defragment
+} // namespace
+
+bool device_memory::defragment_memory(
+    size_t alignment,
+    size_t allocation_size,
+    bool workspace_grow) {
+  using namespace std::chrono_literals;
+  auto timestamp_init = std::chrono::high_resolution_clock::now();
+
+  PT_DEVMEM_DEBUG("Waiting for HPU execution to finish");
+  if (synStatus::synSuccess != synDeviceSynchronize(device_.id())) {
+    PT_DEVMEM_FATAL("Waiting for HPU execution failed");
+  }
+
+  PT_DEVMEM_DEBUG(
+      "Waiting for threads to leave critical section ",
+      std::hex,
+      std::this_thread::get_id());
+  if (!threads_in_defragmenter_critical_section_->wait_for(2s)) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. Some allocated buffers are in use.",
+        "It may be caused by device memory leak");
+    return false;
+  }
+
+  auto timestamp_wait = std::chrono::high_resolution_clock::now();
+
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  PT_DEVMEM_DEBUG("Collecting memory information");
+  defragment_helpers::MemoryDefragementer defragmenter(
+      *suballoc_, handle2pointer_, fixed_handles_, alignment);
+
+  std::vector<defragment_helpers::MemoryBlock> memory_blocks;
+  if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. Invalid memory information.");
+    return false;
+  }
+
+  std::unique_ptr<defragment_helpers::Region> region;
+  PT_DEVMEM_DEBUG("Looking for regions to defragment");
+  if (!defragmenter.Run(
+          memory_blocks, workspace_grow, allocation_size, region)) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. No region that can be defragmented was found.");
+    return false;
+  }
+
+  if (not region) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. There is not enough free memory.");
+    return false;
+  }
+
+  std::vector<defragment::HandleMover> movers;
+  for (auto it = region->begin_; it != region->end_; ++it) {
+    if (it->state_ == defragment_helpers::MemoryState::FIXED) {
+      PT_DEVMEM_FATAL(
+          "Defragmentation algorithm error. Trying to move fixed memory region");
+    }
+
+    if (it->state_ == defragment_helpers::MemoryState::FREE) {
+      continue;
+    }
+
+    movers.emplace_back(it->handle_, it->ptr_, it->size_);
+  }
+
+  if (movers.empty()) {
+    PT_DEVMEM_WARN(
+        "No defragemtantion was done. Waiting for HPU execution to finish and free resources made enough ",
+        "free space for a new allocation");
+  }
+
+  if (not movers.empty()) {
+    PT_DEVMEM_WARN("Starting memory defragmentation");
+
+    PT_DEVMEM_DEBUG("Deallocating resources");
+    for (auto const& mover : movers) {
+      mover.Deallocate(*suballoc_);
+    }
+
+    PT_DEVMEM_DEBUG("Moving resources, number of resources: ", movers.size());
+    void* previous_destination = nullptr;
+    auto counter = 0;
+    for (auto& mover : movers) {
+      PT_DEVMEM_DEBUG("Moving resource ", ++counter, " out of ", movers.size());
+
+      mover.Allocate(*suballoc_, handle2pointer_, workspace_grow);
+      void* destination = mover.GetDestination();
+      // Check if reallocated positions are in the same order as prior to
+      // defragmentation. If that's not the case, data copying could results in
+      // overwrites between chunks.
+      if (previous_destination > destination) {
+        PT_DEVMEM_FATAL(
+            "Unordered destination pointers during defragmentation");
+      }
+      previous_destination = destination;
+
+      mover.MoveData(device_);
+    }
+
+    if (synStatus::synSuccess != synDeviceSynchronize(device_.id())) {
+      PT_DEVMEM_FATAL("Waiting for Move complete failed");
+    }
+
+    PT_DEVMEM_DEBUG("Moving resources finished");
+  }
+
+  if (device_.IsMemorydefragmentationInfoEnabled()) {
+    auto total_duration =
+        std::chrono::high_resolution_clock::now() - timestamp_init;
+    auto total_time =
+        std::chrono::duration_cast<std::chrono::milliseconds>(total_duration)
+            .count();
+
+    auto wait_duration = timestamp_wait - timestamp_init;
+    auto wait_time =
+        std::chrono::duration_cast<std::chrono::milliseconds>(wait_duration)
+            .count();
+
+    auto in_use_memory = region->in_use_memory_;
+    std::string details;
+    details += "Reason: ";
+    if (workspace_grow) {
+      details += "Workspace extension";
+    } else {
+      details += "Resource allocation";
+    }
+    details += ", total duration[ms]: " + std::to_string(total_time);
+    details += ", wait duration in total[ms]: " + std::to_string(wait_time);
+    details +=
+        ", number of moved allocations: " + std::to_string(movers.size());
+    details +=
+        ", amount of moved memory[bytes]: " + std::to_string(in_use_memory);
+    PT_DEVMEM_DEBUG("MemoryDefragmentation details:: ", details);
+  }
+
+  return true;
+}
+
 device_ptr_lock device_memory::lock_addresses(
     const std::vector<device_ptr>& addresses) {
   // no of recipes in queue if it exceeds a limit
@@ -332,16 +672,21 @@ device_ptr_lock device_memory::lock_addresses(
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
-  for (const auto address : addresses) {
-    if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    std::unique_lock<std::mutex> lock(defragmentation_mutex_);
+    for (const auto address : addresses) {
       const auto h = mem_handle::reinterpret_from_pointer(address);
       const auto translated_address = get_pointer(h);
       out.emplace_back(translated_address);
-    } else {
-      out.emplace_back(address);
     }
+    return device_ptr_lock(absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out)));
+  } else {
+    for (const auto address : addresses)
+      out.emplace_back(address);
+    return device_ptr_lock(absl::make_unique<defragment::Lock>(
+        threads_in_defragmenter_critical_section_, std::move(out)));
   }
-  return device_ptr_lock(std::move(out));
 }
 
 device_ptr device_memory::get_pointer(mem_handle h) {
@@ -363,6 +708,9 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     if (ptr == nullptr) {
       alloc(&ptr, size);
       iter->second = ptr_with_size{ptr, size};
+      MemoryStats stats;
+      get_memory_stats(&stats);
+      PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
     }
 
     return {ptr, size};
@@ -399,6 +747,19 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     MemoryStats stats;
     get_memory_stats(&stats);
     PT_DEVMEM_DEBUG("Memory Stats", stats.DebugString());
+    PT_DEVMEM_DEBUG("Allocation failed for size::", size);
+    /* defragment memory now*/
+    bool defragmentation_done = false;
+    if (device_.IsMemorydefragmentationEnabled()) {
+      PT_DEVMEM_WARN("Memory allocation failed. Attempt to defragment memory.");
+      defragmentation_done = defragment_memory(128, size, false);
+    }
+    if (defragmentation_done) {
+      std::tie(ptr, size) = get_and_alloc_mem();
+    }
+  }
+
+  if (ptr == nullptr) {
     PT_DEVMEM_FATAL("Allocation failed for size::", size);
   }
 

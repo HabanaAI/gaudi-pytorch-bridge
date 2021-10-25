@@ -151,6 +151,14 @@ void StaticCoalescedPooling::pool_destroy() const {
     s_pool = nullptr;
     PT_DEVMEM_DEBUG("POOL:: static coalesced pool destroyed");
   }
+  pool_id = 0;
+  chunk_count = 0;
+  allocted_chunk_size = 0;
+  bytes_in_use = 0;
+  free_chunks = 0;
+  free_chunks_size = 0;
+  max_pool_size = DEFAULT_POOL_SIZE;
+  prealloc_pool = nullptr;
 }
 
 static uint64_t pool_available(simple_coalesced_pool_t* p) {

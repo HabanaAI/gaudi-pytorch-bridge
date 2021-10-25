@@ -996,34 +996,56 @@ void RecipeValueSpec::launch(
   std::vector<synLaunchTensorInfoExt> syn_launch_info;
   patch_launch_info(syn_launch_info);
   if (device.IsStreamASyncEnabled()) {
-    synapse_helpers::TimeScope ts(std::move(time_slot_));
     auto& recipe_counter = device.get_active_recipe_counter();
-    recipe_counter.increase();
-    auto&& error_optional{synapse_helpers::graph::launch(
-        device, *recipe, workspace_size, syn_launch_info)};
-    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-      recipe_counter.decrease_and_notify();
-      auto& error = error_optional.value();
-      PT_BRIDGE_FATAL(
-          "syn launch encountered : ", error.error, " ", error.status);
-      TORCH_CHECK(
-          false,
-          std::string("syn launch failed ") + std::string(error.error) +
-              std::string(" ") + std::to_string(error.status));
+    std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+    {
+      synapse_helpers::TimeScope ts(std::move(time_slot_));
+      recipe_counter.increase();
+      auto&& error_optional{synapse_helpers::graph::launch(
+          device, *recipe, workspace_size, syn_launch_info, address_lock)};
+      if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+        recipe_counter.decrease_and_notify();
+        auto& error = error_optional.value();
+        PT_BRIDGE_FATAL(
+            "syn launch encountered : ", error.error, " ", error.status);
+        TORCH_CHECK(
+            false,
+            std::string("syn launch failed ") + std::string(error.error) +
+                std::string(" ") + std::to_string(error.status));
+      }
     }
+
+    // Use wrapper for resources that must survive async part of the compute.
+    struct ResourceHolder {
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+      std::vector<at::Tensor> output_tensors_;
+      std::vector<at::Tensor> input_tensors_;
+      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+    };
+    auto resource_holder = std::make_shared<ResourceHolder>();
+    // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
+    // corresponding recipe is finished on stream
     const auto& recipe_ptr = recipe;
+    resource_holder->recipe_id_ = recipe_ptr;
+    resource_holder->input_tensors_ = std::move(ptRefs);
+    resource_holder->output_tensors_ = std::move(outPtRefs);
+    resource_holder->address_lock = std::move(address_lock);
+    // ResourceHolder could be used directly as callback, if we would only
+    // implement operator(), but copying of ResourceHolder would result in
+    // copying of all shared_ptr stored inside (including std::vector). To make
+    // sharing more lightweight we hide ResourceHolder behind one shared_ptr.
+    // This indirection allows us to maintain only one shared reference.
+    auto cleanup_callback = [resource_holder, &recipe_counter] {
+      recipe_counter.decrease_and_notify();
+    };
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr),
-        stream_handle,
-        [ptRefs, outPtRefs, recipe_ptr, &recipe_counter]() {
-          recipe_counter.decrease_and_notify();
-          return;
-        });
+        std::move(outDevPtr), stream_handle, cleanup_callback);
   } else {
+    std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     synapse_helpers::TimeScope ts(std::move(time_slot_));
     auto&& error_optional{synapse_helpers::graph::launch(
-        device, *recipe, workspace_size, syn_launch_info)};
+        device, *recipe, workspace_size, syn_launch_info, address_lock)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
       auto& error = error_optional.value();
       PT_BRIDGE_FATAL(

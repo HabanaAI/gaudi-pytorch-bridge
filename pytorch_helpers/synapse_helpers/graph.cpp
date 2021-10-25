@@ -291,15 +291,22 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info) {
-  return launch(device, recipe_handle, workspace_size, inputs_and_outputs_info);
+    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
+    std::unique_ptr<device_ptr_lock>& address_lock) {
+  return launch(
+      device,
+      recipe_handle,
+      workspace_size,
+      inputs_and_outputs_info,
+      address_lock);
 }
 
 synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info) {
+    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
+    std::unique_ptr<device_ptr_lock>& address_lock) {
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -342,6 +349,7 @@ synapse_error_o graph::launch(
           table_checker) == inputs_and_outputs_info.end());
   auto& compute_stream = device.get_compute_stream();
 
+  auto workspace_buffer = device.get_workspace_buffer(workspace_size);
   std::vector<device_ptr> addresses(
       inputs_and_outputs_info.size(), device_nullptr);
   std::transform(
@@ -350,9 +358,10 @@ synapse_error_o graph::launch(
       addresses.begin(),
       [](const synLaunchTensorInfoExt& info) { return info.pTensorAddress; });
   {
-    auto locked = device.lock_addresses(addresses);
+    address_lock = std::move(
+        absl::make_unique<device_ptr_lock>(device.lock_addresses(addresses)));
     auto iter = inputs_and_outputs_info.begin();
-    for (auto address : locked) {
+    for (auto address : *address_lock) {
       iter->pTensorAddress = address;
       ++iter;
     }
@@ -380,11 +389,12 @@ synapse_error_o graph::launch(
               info.tensorSize[i] = input.tensorSize[i];
             return info;
           });
+
       status = synLaunch(
           compute_stream,
           old_launch_info.data(),
           old_launch_info.size(),
-          device.get_workspace_buffer(workspace_size),
+          workspace_buffer,
           recipe_handle.syn_recipe_handle_,
           SYN_FLAGS_TENSOR_NAME);
     } else {
@@ -394,7 +404,7 @@ synapse_error_o graph::launch(
           compute_stream,
           inputs_and_outputs_info.data(),
           inputs_and_outputs_info.size(),
-          device.get_workspace_buffer(workspace_size),
+          workspace_buffer,
           recipe_handle.syn_recipe_handle_,
           flags);
     }

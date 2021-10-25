@@ -35,8 +35,7 @@ static constexpr auto device_nullptr = device_ptr{};
 class owned_device_ptr {
  public:
   owned_device_ptr(device_ptr buffer_ptr, size_t size, device& dev)
-      : ptr_{reinterpret_cast<device_ptr*>(buffer_ptr),
-             device_ptr_deleter{dev}},
+      : ptr_{reinterpret_cast<device_ptr*>(buffer_ptr), device_ptr_deleter{dev}},
         size_(size) {}
 
   device_ptr get() const {
@@ -68,7 +67,43 @@ class owned_device_ptr {
   size_t size_;
 };
 
-using device_ptr_lock = std::vector<device_ptr>;
+class device_ptr_lock_interface {
+ public:
+  using iterator_t = device_ptr*;
+  virtual ~device_ptr_lock_interface() = default;
+  virtual iterator_t begin() = 0;
+  virtual iterator_t end() = 0;
+  virtual device_ptr at(size_t) = 0;
+};
+
+class device_ptr_lock {
+ public:
+  using iterator_t = device_ptr_lock_interface::iterator_t;
+  device_ptr_lock(std::unique_ptr<device_ptr_lock_interface>&& impl)
+      : impl_(std::move(impl)) {}
+  device_ptr_lock(device_ptr_lock&& other) noexcept {
+    impl_ = std::move(other.impl_);
+  }
+  device_ptr_lock& operator=(device_ptr_lock&& other) noexcept {
+    impl_ = std::move(other.impl_);
+    return *this;
+  }
+
+  // bool operator==(const device_ptr_lock& other) { return (impl_ ==
+  // other.impl_); }
+  iterator_t begin() {
+    return impl_->begin();
+  }
+  iterator_t end() {
+    return impl_->end();
+  }
+  device_ptr at(size_t position) {
+    return impl_->at(position);
+  }
+
+ private:
+  std::unique_ptr<device_ptr_lock_interface> impl_;
+};
 
 class device_allocator {
  public:

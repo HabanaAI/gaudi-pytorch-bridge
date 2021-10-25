@@ -17,11 +17,13 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/types/optional.h"
 #include "pool_allocator/CoalescedPoolAllocator.h"
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
@@ -30,6 +32,7 @@
 #include "synapse_helpers/id_generator.h"
 #include "synapse_helpers/mem_handle.h"
 #include "synapse_helpers/synapse_error.h"
+#include "synapse_helpers/synchronous_counter.h"
 
 namespace synapse_helpers {
 class device;
@@ -56,6 +59,7 @@ class device_memory {
   pool_allocator::PoolStrategyType get_pool_strategy() {
     return pool_strategy_;
   }
+  void reset_pool();
 
  private:
   device& device_;
@@ -65,6 +69,7 @@ class device_memory {
   bool enable_mem_threshold_check;
 
   std::mutex mutex_;
+  std::mutex defragmentation_mutex_;
   id_generator<mem_handle::id_t> handle_id_generator_;
   handle2pointer_map handle2pointer_;
   device_ptr workspace_allocation_;
@@ -72,5 +77,13 @@ class device_memory {
   synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);
   synStatus deallocate(void* ptr);
   void check_and_limit_recipe_execution(void);
+  bool defragment_memory(
+      size_t alignment,
+      size_t allocation_size,
+      bool workspace_grow);
+  std::shared_ptr<synapse_helpers::synchronous_counter>
+      threads_in_defragmenter_critical_section_ =
+          std::make_shared<synapse_helpers::synchronous_counter>();
+  absl::flat_hash_set<mem_handle::id_t> fixed_handles_;
 };
 } // namespace synapse_helpers

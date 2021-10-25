@@ -10,6 +10,7 @@
 #pragma once
 #include <synapse_api_types.h>
 #include <synapse_helpers/device_mem_stats.h>
+#include <mutex>
 #include "synapse_helpers/util.h"
 
 namespace synapse_helpers {
@@ -45,7 +46,7 @@ class PoolingStrategy {
   virtual void* extend_high_memory_allocation(uint64_t size) const = 0;
   virtual void get_stats(MemoryStats* stats) const = 0;
   virtual void clear_stats() const = 0;
-  virtual size_t allocated_size(UNUSED void* p) const {
+  virtual size_t allocated_size(UNUSED const void* p) const {
     return 0;
   }
   virtual std::vector<std::pair<void*, size_t>> get_memory_info() const {
@@ -107,7 +108,7 @@ class SubAllocator {
     this->strategy_->clear_stats();
   }
 
-  size_t allocated_size(void* p) const {
+  size_t allocated_size(const void* p) const {
     return this->strategy_->allocated_size(p);
   }
 

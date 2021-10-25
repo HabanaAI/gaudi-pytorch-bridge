@@ -18,6 +18,10 @@
 
 namespace synapse_helpers {
 namespace pool_allocator {
+const std::size_t CoalescedStringentPooling::SmallAllocs::kAlignment;
+const std::size_t CoalescedStringentPooling::SmallAllocs::kSize;
+const std::size_t CoalescedStringentPooling::SmallAllocs::kThreshold;
+const std::size_t CoalescedStringentPooling::SmallAllocs::kUnits;
 
 Bin* BinUtils::BinFromIndex(uint64_t index) const {
   Bin* bin = const_cast<Bin*>(
@@ -108,6 +112,8 @@ CoalescedStringentPooling::~CoalescedStringentPooling() {
     small_allocs_->Reset();
     small_allocs_ = nullptr;
   }
+  delete bin_utils;
+  bin_utils = nullptr;
 }
 
 bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
@@ -284,12 +290,19 @@ void CoalescedStringentPooling::pool_destroy() const {
       delete (m.second);
     }
     chunks.clear();
+    chunks_to_merge.clear();
     delete (s_pool);
     s_pool = nullptr;
-    delete bin_utils;
-    bin_utils = nullptr;
     PT_DEVMEM_DEBUG("POOL:: static coalesced pool destroyed");
   }
+  pool_id = 0;
+  chunk_count = 0;
+  allocted_chunk_size = 0;
+  bytes_in_use = 0;
+  free_chunks = 0;
+  free_chunks_size = 0;
+  max_pool_size = DEFAULT_POOL_SIZE;
+  high_memory_allocated_ = false;
 }
 
 bool CoalescedStringentPooling::is_mem_threshold_hit() const {
@@ -668,6 +681,11 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
   }
 
+  if (!chunks_to_merge.empty()) {
+    // Merge chunks whose counts have become safe for general use.
+    defragment_chunks(0);
+  }
+
   PT_DEVMEM_DEBUG(
       "POOL:: pool_alloc_chunk request in pool :: ", p, " for size :: ", size);
   auto old_chunk = reuse_chunks(size);
@@ -694,6 +712,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
     stats.UpdateStats(old_chunk->size, true);
+    print_device_memory_stats(pool_id);
     return (void*)old_chunk->memptr;
   }
 
@@ -1002,6 +1021,48 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   }
 }
 
+std::vector<std::pair<void*, size_t>> CoalescedStringentPooling::
+    get_memory_info() const {
+  std::vector<std::pair<void*, size_t>> regions_info;
+  Chunk* chunk = prealloc_pool->start;
+  regions_info.emplace_back((void*)chunk->memptr, max_pool_size - 0x80);
+
+  return regions_info;
+}
+
+std::pair<void*, size_t> CoalescedStringentPooling::get_tail_chunk_info()
+    const {
+  Chunk* tail_chunk = prealloc_pool->top;
+  if (tail_chunk == nullptr) {
+    return {nullptr, 0};
+  }
+
+  return {(void*)tail_chunk->memptr, tail_chunk->size};
+}
+
+std::tuple<void*, size_t, size_t> CoalescedStringentPooling::
+    get_small_alloc_info() const {
+  if (not small_allocs_) {
+    return {nullptr, 0, 0};
+  }
+
+  return {
+      small_allocs_->GetChunkPtr(),
+      SmallAllocs::kSize,
+      SmallAllocs::kThreshold};
+}
+
+size_t CoalescedStringentPooling::allocated_size(const void* ptr) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
+    return small_allocs_->Size(ptr);
+  }
+  auto it = chunks.find((uint64_t)ptr);
+  HABANA_ASSERT(it != chunks.end());
+  Chunk* chunk = it->second;
+  return chunk->size;
+}
+
 CoalescedStringentPooling::SmallAllocs::SmallAllocs(
     std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr)
     : chunk_ptr_(std::move(chunk_ptr)), map_(kUnits, false), size_{0} {
@@ -1125,6 +1186,9 @@ void CoalescedStringentPooling::SmallAllocs::Deallocate(const void* ptr) {
   std::fill_n(start, size_in_units, false);
 
   size_[offset] = 0;
+}
+void* CoalescedStringentPooling::SmallAllocs::GetChunkPtr() {
+  return chunk_ptr_.get();
 }
 
 void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {

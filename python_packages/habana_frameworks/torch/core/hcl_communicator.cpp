@@ -489,20 +489,25 @@ synapse_error_o hcl_communicator::broadcast(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
   prepare_stream(collective_stream, event_addr);
-  HCL_SYNC() {
-    auto locked = my_device_->lock_addresses(address);
-    status = HCL_Bcast(
-        stream_handle,
-        locked.at(0),
-        locked.at(0),
-        elem_cnt,
-        data_type,
-        root_rank,
-        hcl_comm(),
-        0 /*flags*/);
-  }
+  HCL_SYNC()
+  auto locked =
+      std::make_shared<device_ptr_lock>(my_device_->lock_addresses(address));
+  status = HCL_Bcast(
+      stream_handle,
+      locked->at(0),
+      locked->at(0),
+      elem_cnt,
+      data_type,
+      root_rank,
+      hcl_comm(),
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
-  submit_events(collective_stream, event_addr, done_callback);
+  auto done_cb = [done_callback, locked]() mutable {
+    done_callback();
+    locked = nullptr;
+  };
+
+  submit_events(collective_stream, event_addr, std::move(done_cb));
   PT_DISTRIBUTED_END;
   return {};
 };
@@ -534,19 +539,23 @@ synapse_error_o hcl_communicator::allgather(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, in_event_addr);
-  HCL_SYNC() {
-    auto locked = my_device_->lock_addresses(input_address, output_address);
-    status = HCL_AllGather(
-        stream_handle,
-        locked.at(0),
-        locked.at(1),
-        elem_cnt,
-        data_type,
-        hcl_comm(),
-        0 /*flags*/);
-  }
+  HCL_SYNC()
+  auto locked = std::make_shared<device_ptr_lock>(
+      my_device_->lock_addresses(input_address, output_address));
+  status = HCL_AllGather(
+      stream_handle,
+      locked->at(0),
+      locked->at(1),
+      elem_cnt,
+      data_type,
+      hcl_comm(),
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
-  submit_events(collective_stream, out_event_addr, done_callback);
+  auto done_cb = [done_callback, locked]() mutable {
+    done_callback();
+    locked = nullptr;
+  };
+  submit_events(collective_stream, out_event_addr, std::move(done_cb));
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -615,17 +624,20 @@ synapse_error_o hcl_communicator::send(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, event_addr);
-  {
-    auto locked = my_device_->lock_addresses(send_buffer);
-    if (using_streams_) {
-      status =
-          HCL_Send(stream_handle, locked.at(0), size_in_bytes, remote_rank);
-    } else {
-      status = HCL_Send_Tag(locked.at(0), size_in_bytes, remote_rank, tag);
-    }
+
+  auto locked = std::make_shared<device_ptr_lock>(
+      my_device_->lock_addresses(send_buffer));
+  if (using_streams_) {
+    status = HCL_Send(stream_handle, locked->at(0), size_in_bytes, remote_rank);
+  } else {
+    status = HCL_Send_Tag(locked->at(0), size_in_bytes, remote_rank, tag);
   }
   VERIFY_HCL_STATUS("HCL_Send(...) failed", status);
-  submit_events(collective_stream, event_addr, done_callback);
+  auto done_cb = [done_callback, locked]() mutable {
+    done_callback();
+    locked = nullptr;
+  };
+  submit_events(collective_stream, event_addr, std::move(done_cb));
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -652,17 +664,20 @@ synapse_error_o hcl_communicator::receive(
       tag);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
-  {
-    auto locked = my_device_->lock_addresses(receive_buffer);
-    if (using_streams_) {
-      status =
-          HCL_Receive(stream_handle, locked.at(0), size_in_bytes, remote_rank);
-    } else {
-      status = HCL_Receive_Tag(locked.at(0), size_in_bytes, remote_rank, tag);
-    }
+  auto locked = std::make_shared<device_ptr_lock>(
+      my_device_->lock_addresses(receive_buffer));
+  if (using_streams_) {
+    status =
+        HCL_Receive(stream_handle, locked->at(0), size_in_bytes, remote_rank);
+  } else {
+    status = HCL_Receive_Tag(locked->at(0), size_in_bytes, remote_rank, tag);
   }
   VERIFY_HCL_STATUS("HCL_Receive(...) failed", status);
-  submit_events(collective_stream, event_addr, done_callback);
+  auto done_cb = [done_callback, locked]() mutable {
+    done_callback();
+    locked = nullptr;
+  };
+  submit_events(collective_stream, event_addr, std::move(done_cb));
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -972,21 +987,23 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
       intermediate_buffer_size,
       " flags ::",
       flags);
-  {
-    auto locked =
-        my_device_->lock_addresses(input, output, intermediate_buffer_address);
-    status = collective(
-        get_synapse_stream_handle(collective_stream),
-        locked.at(0),
-        locked.at(1),
-        elem_cnt,
-        data_type,
-        locked.at(2),
-        intermediate_buffer_size,
-        flags);
-  }
+  auto locked = std::make_shared<device_ptr_lock>(
+      my_device_->lock_addresses(input, output, intermediate_buffer_address));
+  status = collective(
+      get_synapse_stream_handle(collective_stream),
+      locked->at(0),
+      locked->at(1),
+      elem_cnt,
+      data_type,
+      locked->at(2),
+      intermediate_buffer_size,
+      flags);
   VERIFY_HCL_STATUS("Collective operation failed", status);
-  submit_events(collective_stream, out_event_addr, new_done_callback);
+  auto done_cb = [new_done_callback, locked]() mutable {
+    new_done_callback();
+    locked = nullptr;
+  };
+  submit_events(collective_stream, out_event_addr, std::move(done_cb));
   if (same_address) {
     memcpy_out_interim_buffer(fused_output_data, input_address, buffer_len);
   }

@@ -92,6 +92,12 @@ MemoryDefragementer::MemoryDefragementer(
 
   mem_start_ptr_ = static_cast<int8_t*>(region_ptr);
   mem_end_ptr_ = static_cast<int8_t*>(mem_start_ptr_) + region_size;
+  PT_DEVMEM_DEBUG("Memory Region size::", region_size);
+  PT_DEVMEM_DEBUG(
+      "Memstart pointer::",
+      (void*)mem_start_ptr_,
+      "MemEnd pointer::",
+      (void*)mem_end_ptr_);
 
   // Workspace is allocated at the end of memory.
   // So if there is allocation at the end of memory, it is workspace.
@@ -132,18 +138,15 @@ bool MemoryDefragementer::CollectResourceInformation(
       // will have handle reserved, but a pointer is still nullptr.
       continue;
     }
-
     auto fixed_handle = fixed_handles_.find(h2p.first) != fixed_handles_.end();
     auto mem_state = fixed_handle ? MemoryState::FIXED : MemoryState::IN_USE;
     auto mem_ptr = static_cast<int8_t*>(h2p.second.first);
     auto mem_size = h2p.second.second;
-    auto mem_actual_size =
-        (mem_size + alignment_ - 1) / alignment_ * alignment_;
+    auto mem_actual_size = allocator_.allocated_size(h2p.second.first);
     if (mem_ptr < small_allocs_ptr_ ||
         mem_ptr >= small_allocs_ptr_ + small_allocs_size_) {
       mem_actual_size = allocator_.allocated_size(h2p.second.first);
     }
-
     in_use_memory_blocks.emplace_back(
         mem_state, h2p.first, mem_ptr, mem_size, mem_actual_size);
   }
@@ -187,24 +190,46 @@ bool MemoryDefragementer::CreateMemoryMap(
 
     return true;
   }
-
   // handling a case of free memory block before first memory block in use
   auto& first_memory_block = in_use_memory_blocks.front();
   if (first_memory_block.ptr_ != mem_start_ptr_) {
-    auto mem_block_size = ptr_diff(first_memory_block.ptr_, mem_start_ptr_);
-    memory_blocks.emplace_back(
-        MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+    auto small_alloc_block = small_allocs_ptr_ + small_allocs_size_;
+    if (first_memory_block.ptr_ >= small_alloc_block) {
+      memory_blocks.emplace_back(
+          MemoryState::FREE,
+          0,
+          mem_start_ptr_,
+          small_allocs_size_,
+          small_allocs_size_);
+      // need to add 2 memory blocks here. small alloc block and remaning from
+      // small alloc
+      auto mem_block_size =
+          ptr_diff(first_memory_block.ptr_, small_alloc_block);
+      memory_blocks.emplace_back(
+          MemoryState::FREE,
+          0,
+          small_alloc_block,
+          mem_block_size,
+          mem_block_size);
+    } else {
+      auto mem_block_size = ptr_diff(first_memory_block.ptr_, mem_start_ptr_);
+      memory_blocks.emplace_back(
+          MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+    }
   }
 
   for (auto it = in_use_memory_blocks.begin(); it != in_use_memory_blocks.end();
        ++it) {
     // checking if previous memory block was free
     auto prev_it = it - 1;
-    auto ptr_next = ptr_add_offset(prev_it->ptr_, prev_it->actual_size_);
-    if (it != in_use_memory_blocks.begin() && it->ptr_ > ptr_next) {
-      auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
-      memory_blocks.emplace_back(
-          MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
+    if (it->ptr_ != mem_start_ptr_ && prev_it->ptr_ != nullptr) {
+      auto ptr_next = ptr_add_offset(prev_it->ptr_, prev_it->actual_size_);
+      if (ptr_next != nullptr)
+        if (it != in_use_memory_blocks.begin() && it->ptr_ > ptr_next) {
+          auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
+          memory_blocks.emplace_back(
+              MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
+        }
     }
 
     // adding occupied memory block
@@ -225,7 +250,6 @@ bool MemoryDefragementer::CreateMemoryMap(
         mem_block_size,
         mem_block_size);
   }
-
   return true;
 }
 
@@ -439,6 +463,8 @@ bool MemoryDefragementer::Run(
     bool workspace_grow,
     size_t allocation_size,
     std::unique_ptr<Region>& result) {
+  // update the allocation size with alignment
+  allocation_size = ((allocation_size + alignment_ - 1) & ~(alignment_ - 1));
   if (workspace_grow) {
     return SelectRegionForWorkspaceGrow(
         memory_blocks,

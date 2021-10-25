@@ -24,6 +24,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
+#include "synapse_helpers/device_types.h"
 #include "synapse_helpers/synapse_error.h"
 
 namespace absl {
@@ -137,13 +138,15 @@ class graph {
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info);
+      std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
+      std::unique_ptr<device_ptr_lock>& address_lock);
 
   static synapse_error_o launch(
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info);
+      std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
+      std::unique_ptr<device_ptr_lock>& address_lock);
 
   const std::string& name() const {
     return name_;

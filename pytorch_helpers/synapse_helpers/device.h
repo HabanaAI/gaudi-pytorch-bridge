@@ -312,9 +312,19 @@ class device {
     return max_recipe_limit_in_queue_;
   }
 
+  bool IsMemorydefragmentationEnabled() {
+    return enable_memory_defragmentation_;
+  }
+
+  bool IsMemorydefragmentationInfoEnabled() {
+    return enable_memory_defrag_info_;
+  }
+
   static std::set<synDeviceType> get_supported_devices();
 
   void synchronize();
+
+  void cleanup_workspace_buffer();
 
  private:
   friend class stream;
@@ -368,6 +378,8 @@ class device {
   std::chrono::milliseconds dma_copy_retry_delay_;
   device_memory device_memory_;
   uint32_t max_recipe_limit_in_queue_;
+  bool enable_memory_defragmentation_;
+  bool enable_memory_defrag_info_;
 
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};

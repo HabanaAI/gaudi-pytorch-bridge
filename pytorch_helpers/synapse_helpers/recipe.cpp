@@ -99,7 +99,8 @@ void recipe::populate_syn_tensor_ids() {
 
 bool recipe::launch(
     const std::vector<void*>& in_buffers,
-    const std::vector<void*>& out_buffers) {
+    const std::vector<void*>& out_buffers,
+    std::unique_ptr<device_ptr_lock>& addr_locked) {
   std::vector<synLaunchTensorInfoExt> syn_info;
   syn_info.reserve(input_names_.size() + output_names_.size());
 
@@ -120,7 +121,7 @@ bool recipe::launch(
         tensor_ids[tensor_idx++]});
 
   auto&& error_optional{synapse_helpers::graph::launch(
-      device_, *recipe_handle_, workspace_size_, syn_info)};
+      device_, *recipe_handle_, workspace_size_, syn_info, addr_locked)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(

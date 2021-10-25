@@ -106,6 +106,14 @@ void StaticPooling::pool_destroy() const {
     PT_DEVMEM_DEBUG("POOL:: cannot destroy pool -- active blocks !!");
     PT_DEVMEM_DEBUG("POOL:: total active blocks :: ", block_count);
   }
+  pool_id = 0;
+  block_count = 0;
+  allocted_block_size = 0;
+  bytes_in_use = 0;
+  free_chunks = 0;
+  free_chunks_size = 0;
+  max_pool_size = DEFAULT_POOL_SIZE;
+  prealloc_pool = nullptr;
 }
 
 static uint64_t pool_available(simple_pool_t* p) {
@@ -434,6 +442,7 @@ bool DynamicPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   size = pool_allocator::block_align(size);
   pool_id = deviceID;
   stats.pool_id = pool_id;
+  top = pool_start;
   pool_allocator::print_device_memory_stats(pool_id);
   return true;
 }
@@ -442,6 +451,9 @@ void DynamicPooling::pool_destroy() const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
   freeBlocks(pool_start);
   pool_start = nullptr;
+  pool_id = 0;
+  top = pool_start;
+  bytes_in_use = 0;
   PT_DEVMEM_DEBUG("POOL:: Dynamic Pool destroyed");
   return;
 }

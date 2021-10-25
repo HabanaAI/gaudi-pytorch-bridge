@@ -127,6 +127,7 @@ hcclResult_t device_context::free(void* address) {
 hcclResult_t device_context::lock_address(
     void* const address,
     void** device_address) {
+  std::lock_guard<std::mutex> guard{access_mutex_};
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::lock_address(address=",
       address,
@@ -159,6 +160,7 @@ hcclResult_t device_context::lock_address(
 }
 
 hcclResult_t device_context::unlock_address(void* const device_address) {
+  std::lock_guard<std::mutex> guard{access_mutex_};
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::unlock_address(device_address=",
       device_address,

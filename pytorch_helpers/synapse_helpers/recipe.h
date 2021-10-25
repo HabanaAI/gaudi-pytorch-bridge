@@ -31,7 +31,8 @@ class recipe {
   void populate_syn_tensor_ids();
   bool launch(
       const std::vector<void*>& in_buffers,
-      const std::vector<void*>& out_buffers);
+      const std::vector<void*>& out_buffers,
+      std::unique_ptr<device_ptr_lock>& addr_locked);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> getRecipeHandle();
   ~recipe();
 

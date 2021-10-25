@@ -266,6 +266,8 @@ ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_IGNORE_VERSION, bool, false);
 // given recipe and can be used i.e. in cases when graphs are expected to
 // produce exactly the same cache entires.
 ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_DUMP_DEBUG, bool, false);
+ENV_STRUCT_DEFINITION(PT_ENABLE_MEMORY_DEFRAGMENTATION, bool, false);
+ENV_STRUCT_DEFINITION(PT_ENABLE_DEFRAGMENTATION_INFO, bool, false);
 
 // Method for string env variables
 const char* getenv_by_type_new(
