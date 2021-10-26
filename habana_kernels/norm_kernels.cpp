@@ -1161,11 +1161,13 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   return std::make_tuple(grad_in_resized, bn_outputs[1], bn_outputs[2]);
 }
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
-LayerNormOperator::getOutputSizes(const at::Tensor& input, int m) {
+std::vector<std::vector<int64_t>> LayerNormOperator::getOutputSizes(
+    const at::Tensor& input,
+    int m) {
   auto output_sizes = input.sizes().vec();
   std::vector<int64_t> shape_mean{1, 1, m, 1};
-  return std::make_tuple(output_sizes, shape_mean, shape_mean);
+  return std::vector<std::vector<int64_t>>{
+      output_sizes, shape_mean, shape_mean};
 }
 std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     const Tensor& input,
@@ -1177,19 +1179,19 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
   auto sizes = LayerNormOperator::getOutputSizes(input, m);
   auto output = habana_helpers::createPTTensor(
       input,
-      std::get<0>(sizes),
+      sizes[0],
       input.options(),
       input.suggest_memory_format(),
       is_persistent[0]);
   auto istd = habana_helpers::createPTTensor(
       bias,
-      std::get<1>(sizes),
+      sizes[1],
       bias.options(),
       bias.suggest_memory_format(),
       is_persistent[1]);
   auto mean = habana_helpers::createPTTensor(
       weight,
-      std::get<2>(sizes),
+      sizes[2],
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent[2]);
@@ -1441,19 +1443,19 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
   auto sizes = LayerNormBackwardOperator::getOutputSizes(input, weight);
   auto output = habana_helpers::createPTTensor(
       input,
-      std::get<0>(sizes),
+      sizes[0],
       input.options(),
       input.suggest_memory_format(),
       is_persistent);
   auto beta = habana_helpers::createPTTensor(
       weight,
-      std::get<1>(sizes),
+      sizes[1],
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent);
   auto gamma = habana_helpers::createPTTensor(
       weight,
-      std::get<2>(sizes),
+      sizes[2],
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent);
@@ -1680,13 +1682,13 @@ void LayerNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
-LayerNormBackwardOperator::getOutputSizes(
+std::vector<std::vector<int64_t>> LayerNormBackwardOperator::getOutputSizes(
     const at::Tensor& input,
     const at::Tensor& gamma) {
   std::vector<int64_t> gamma_size =
       gamma.defined() ? gamma.sizes().vec() : input.sizes().vec();
-  return std::make_tuple(input.sizes().vec(), gamma_size, gamma_size);
+  return std::vector<std::vector<int64_t>>{
+      input.sizes().vec(), gamma_size, gamma_size};
 }
 /** @brief This function implements backward pass for torch.nn.LayerNorm()
  * with grad_on_grad = False

@@ -3445,51 +3445,9 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
       input, normalized_shape, weight_opt, bias_opt, eps);
 
   auto sizes = LayerNormOperator::getOutputSizes(input, m);
-  // Get Output Image
-  auto result_img = empty_hpu_lazy(
-      std::get<0>(sizes),
-      input.options(),
-      input.suggest_memory_format(),
-      false);
-  const auto hlresult = GetHbLazyTensor(result_img);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies((HbLazyTensor&)hlresult, result_img);
-  // Get output mean and var
-  auto result_mean = empty_hpu_lazy(
-      std::get<1>(sizes),
-      input.options(),
-      input.suggest_memory_format(),
-      false);
-  const auto hlresult2 = GetHbLazyTensor(result_mean);
-  ir::Value& out2 = hlresult2.CurrentIrValue();
-  out2.SetNode(
-      node,
-      hlresult2.GetDevice(),
-      hlresult2.GetSizes(),
-      hlresult2.dtype_optional(),
-      1);
-  updateDstDependencies((HbLazyTensor&)hlresult2, result_mean);
-  auto result_var = empty_hpu_lazy(
-      std::get<2>(sizes),
-      input.options(),
-      input.suggest_memory_format(),
-      false);
-  const auto hlresult3 = GetHbLazyTensor(result_var);
-  ir::Value& out3 = hlresult3.CurrentIrValue();
-  out3.SetNode(
-      node,
-      hlresult3.GetDevice(),
-      hlresult3.GetSizes(),
-      hlresult3.dtype_optional(),
-      2);
-  updateDstDependencies((HbLazyTensor&)hlresult3, result_var);
-  flush_op({result_img, result_mean, result_var});
-  return std::make_tuple(result_img, result_mean, result_var);
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
+      node, {input, normalized_shape, weight_opt, bias_opt, eps}, sizes};
+  return k.call();
 }
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& dY,
@@ -3498,11 +3456,9 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& mean,
     const at::Tensor& rstd,
     const c10::optional<Tensor>& weight_opt,
-    UNUSED const c10::optional<Tensor>& bias_opt,
+    const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_LAZY_TRACE;
-  auto gamma = weight_opt.value_or(Tensor());
-
   ir::NodePtr node = std::make_shared<ir::LayerNormBackward>(
       dY,
       X,
@@ -3512,52 +3468,69 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       weight_opt,
       bias_opt,
       grad_input_mask);
-  auto sizes = LayerNormBackwardOperator::getOutputSizes(dY, gamma);
   // Get Output Image
-  auto result_dY = empty_hpu_lazy(
-      std::get<0>(sizes), dY.options(), dY.suggest_memory_format(), false);
-  const auto hlresult = GetHbLazyTensor(result_dY);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  using U = ir::LayerNormBackward;
+  class Kernel : public LazyOp<T, U> {
+   public:
+    Kernel(
+        ir::NodePtr node,
+        const at::Tensor& dY,
+        const at::Tensor& X,
+        IntArrayRef normalized_shape,
+        const at::Tensor& mean,
+        const at::Tensor& rstd,
+        const c10::optional<Tensor>& weight_opt,
+        const c10::optional<Tensor>& bias_opt,
+        std::array<bool, 3> grad_input_mask)
+        : LazyOp<T, U>(std::move(node), {}, {}, -1),
+          dY{std::move(dY)},
+          X{std::move(X)},
+          normalized_shape{std::move(normalized_shape)},
+          mean{std::move(mean)},
+          rstd{std::move(rstd)},
+          weight_opt{std::move(weight_opt)},
+          bias_opt{std::move(bias_opt)},
+          grad_input_mask{std::move(grad_input_mask)} {}
+
+   private:
+    T get_result_overrideable() override {
+      auto gamma = weight_opt.value_or(Tensor());
+      auto sizes = LayerNormBackwardOperator::getOutputSizes(dY, gamma);
+      auto result_dY = empty_hpu_lazy(
+          sizes[0], dY.options(), dY.suggest_memory_format(), false);
+      at::Tensor result2, result3;
+      if (grad_input_mask[1]) {
+        result2 = empty_hpu_lazy(
+            sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
+      }
+      if (grad_input_mask[2]) {
+        result3 = empty_hpu_lazy(
+            sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
+      }
+      return std::make_tuple(result_dY, result2, result3);
+    }
+    const at::Tensor& dY;
+    const at::Tensor& X;
+    IntArrayRef normalized_shape;
+    const at::Tensor& mean;
+    const at::Tensor& rstd;
+    const c10::optional<Tensor>& weight_opt;
+    const c10::optional<Tensor>& bias_opt;
+    std::array<bool, 3> grad_input_mask;
+  };
+
+  Kernel k(
       node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies((HbLazyTensor&)hlresult, result_dY);
-  at::Tensor result2, result3;
-  // Check if to return optional results
-  if (grad_input_mask[1]) {
-    result2 = empty_hpu_lazy(
-        std::get<1>(sizes),
-        gamma.options(),
-        gamma.suggest_memory_format(),
-        false);
-    const auto hlresult2 = GetHbLazyTensor(result2);
-    ir::Value& out2 = hlresult2.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hlresult2.GetDevice(),
-        hlresult2.GetSizes(),
-        hlresult2.dtype_optional(),
-        1);
-  }
-  if (grad_input_mask[2]) {
-    result3 = empty_hpu_lazy(
-        std::get<2>(sizes),
-        gamma.options(),
-        gamma.suggest_memory_format(),
-        false);
-    const auto hlresult3 = GetHbLazyTensor(result3);
-    ir::Value& out2 = hlresult3.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hlresult3.GetDevice(),
-        hlresult3.GetSizes(),
-        hlresult3.dtype_optional(),
-        2);
-  }
-  flush_op({result_dY, result2, result3});
-  return std::make_tuple(result_dY, result2, result3);
+      dY,
+      X,
+      normalized_shape,
+      mean,
+      rstd,
+      weight_opt,
+      bias_opt,
+      grad_input_mask);
+  return k.call();
 }
 
 Tensor norm_scalar_hpu_lazy(const Tensor& self, const Scalar& p) {

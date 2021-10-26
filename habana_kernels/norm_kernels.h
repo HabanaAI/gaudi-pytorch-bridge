@@ -267,9 +267,9 @@ class LayerNormOperator : public habana::HabanaOperator {
       const at::Tensor& weight,
       int64_t m,
       std::array<bool, 3> is_persistent);
-  static std::
-      tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
-      getOutputSizes(const at::Tensor& input, int m);
+  static std::vector<std::vector<int64_t>> getOutputSizes(
+      const at::Tensor& input,
+      int m);
 };
 
 class LayerNormBackwardOperator : public habana::HabanaOperator {
@@ -294,9 +294,9 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
       const at::Tensor& input,
       const at::Tensor& weight,
       bool is_persistent);
-  static std::
-      tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
-      getOutputSizes(const at::Tensor& input, const at::Tensor& gamma);
+  static std::vector<std::vector<int64_t>> getOutputSizes(
+      const at::Tensor& input,
+      const at::Tensor& gamma);
 };
 
 // Norm Operator
