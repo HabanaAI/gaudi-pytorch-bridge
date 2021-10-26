@@ -292,6 +292,7 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
   std::vector<synTensor> node_outputs;
   int available_output_id = 0;
   int persistent_output_id = 0;
+  int final_output_id = 0;
 
   for (const auto& attr : node_output_attrs) {
     if (attr.final_node and IsOutputAvailable()) {
@@ -317,6 +318,8 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
+      } else if (attr.final_node) {
+        p_context_->pt_outputs_.at(final_output_id++) = t;
       }
     }
     node_outputs.emplace_back(outputs.back().get());
