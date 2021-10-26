@@ -57,8 +57,12 @@ def process(args):
 
             head_list = ['Epoch', 'mean_dice','TOP_mean','L1','L2','L3','TOP_L1','TOP_L2','TOP_L3','val_loss','loss']
             head_list2=[]
-            if  b1.get('device') is not None:
-                device_name2 = b1['device'].replace("'","") + "_"
+
+            if  b1.get('gpus') == "0":
+                device_name2 = "hpu_"
+            else:
+                device_name2 = "gpu_"
+
             for i in range(0,len(head_list)):
                 test = device_name2 + head_list[i]
                 head_list2.append(test)
