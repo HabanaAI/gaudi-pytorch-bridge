@@ -96,6 +96,10 @@ struct PT_ENABLE_HCL_STREAM {
   static constexpr bool default_value = true;
 };
 
+struct PT_HCCL_SLICE_SIZE_MB : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 128;
+};
+
 struct PT_HPU_INITIAL_WORKSPACE_SIZE
     : public std::numeric_limits<unsigned long> {
   static constexpr unsigned long default_value = 0;

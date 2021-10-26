@@ -12,6 +12,7 @@
 #include <map>
 #include "hccl.h"
 #include "hccl_types.h"
+#include "synapse_helpers/env_flags.h"
 
 #include <pybind11/chrono.h>
 #include "device_context.h"
@@ -48,6 +49,11 @@ hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
   } catch (std::out_of_range& e) {
     TORCH_CHECK(false, "Unsupported ReduceOp for HCCL process group");
   }
+}
+
+size_t getHCCLSliceSizeMB() {
+  static const size_t slice_size = GET_ENV_FLAG(PT_HCCL_SLICE_SIZE_MB);
+  return slice_size * 1024 * 1024;
 }
 
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
@@ -438,14 +444,28 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
-        return hcclAllReduce(
-            send_buffer,
-            recv_buffer,
-            input.numel(),
-            getHCCLDataType(input.scalar_type()),
-            getHCCLReduceOp(opts.reduceOp),
-            hccl_comm,
-            stream);
+        hcclResult_t hccl_result{hcclSuccess};
+        size_t num_elements = input.numel();
+        size_t chunk_size = getHCCLSliceSizeMB() / input.itemsize();
+        size_t data_offset = 0;
+        while (num_elements > 0) {
+          size_t num_elements_in_current_chunk =
+              (num_elements > chunk_size) ? chunk_size : num_elements;
+
+          hccl_result = hcclAllReduce(
+              send_buffer + data_offset,
+              recv_buffer + data_offset,
+              num_elements_in_current_chunk,
+              getHCCLDataType(input.scalar_type()),
+              getHCCLReduceOp(opts.reduceOp),
+              hccl_comm,
+              stream);
+          TORCH_CHECK(
+              hcclSuccess == hccl_result, "Collective call returned error");
+          data_offset += num_elements_in_current_chunk * input.itemsize();
+          num_elements -= num_elements_in_current_chunk;
+        }
+        return hccl_result;
       });
 
   for (size_t i = 0; i < tensors.size(); i++) {
