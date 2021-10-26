@@ -1152,138 +1152,43 @@ Tensor idop_hpu(const Tensor& self) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for erf_
- * output = x.erf_()
- * erf(x) = tanh((2/sqrt(pi))*(x+0.08943*x^3))
+ * @brief Kernel implementation for output = torch.erf(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor erf_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "erf_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  ErfOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.erf_(input)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& erf_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  Tensor self_copy =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  habana_helpers::copy_data_within_device(self, self_copy, true);
-
-  self.pow_(3.0).mul_(0.08943).add_(self_copy).mul_(M_2_SQRTPI).tanh_();
-
-  PT_KERNEL_END;
-  return self;
-}
-
-void ErfOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 1, "Incorrect size of inputs expected for Erf operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for Erf operator");
-
-  auto self = inputs[0].toTensor();
-  at::ScalarType scalar_type = self.scalar_type();
-
-  // Create Pow operator
-  auto powOp =
-      make_operator<PowOperator>(this->p_context_->device_id_, scalar_type);
-  powOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  // Build Params for the graph
-  Scalar powValue = 3.0;
-  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
-  powOp->AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Mul operator
-  auto mulOp =
-      make_operator<MulOperator>(this->p_context_->device_id_, scalar_type);
-  mulOp->SetSynapseInput(powOp->GetSynOutputs()[0]);
-  // Build Params for the graph
-  Scalar alphaValue = 0.08943;
-  stack.emplace_back(IValue(powOp->GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue));
-  mulOp->AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Add operator
-  auto addOp =
-      make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
-  addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-  // Build Params for the graph
-  Scalar alphaValue_2 = 1.0;
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue_2));
-  addOp->AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Mul operator
-  auto mulOp2 =
-      make_operator<MulOperator>(this->p_context_->device_id_, scalar_type);
-  mulOp2->SetSynapseInput(addOp->GetSynOutputs()[0]);
-  // Build Params for the graph
-  Scalar alphaValue_3 = M_2_SQRTPI;
-  stack.emplace_back(IValue(addOp->GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue_3));
-  mulOp2->AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Tanh operator
-  auto tanhOp =
-      make_operator<TanhOperator>(this->p_context_->device_id_, scalar_type);
-  tanhOp->SetSynapseInput(mulOp2->GetSynOutputs()[0]);
-  tanhOp->SetOutputMetadata(output_metadata_);
-  // Build Params for the graph
-  stack.emplace_back(IValue(mulOp2->GetOutputs()[0]));
-  tanhOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
-  p_context_->syn_outputs_.emplace_back(std::move(tanhOp->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(tanhOp->GetOutputs()[0]));
-}
-
-Tensor erf_hpu(const Tensor& self) {
-  PT_KERNEL_BEGIN;
-
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "erf_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
   size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  // create the operator
-  ErfOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto result =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
-    Op.Execute(key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
-    // compile and execute the graph
-    Op.Compile(graph);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
+  // Create the operator
+  ErfInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
   PT_KERNEL_END;
-  return out.at(0);
+  return self;
 }
 
 /*************************************************************************

@@ -518,20 +518,12 @@ class GeluBackwardOperator : public HabanaOperator {
 
 //
 // Erf Operator
-class ErfOperator : public HabanaOperator {
+class ErfOperator : public UnaryOperator {
  public:
   ErfOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "erf_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      : UnaryOperator(
+            device_id,
+            "erf_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Exp Operator
@@ -543,7 +535,6 @@ class ExpOperator : public UnaryOperator {
             "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-//
 // Erf Inplace Operator
 class ErfInplaceOperator : public UnaryInplaceOperator {
  public:
