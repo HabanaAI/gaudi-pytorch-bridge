@@ -270,14 +270,14 @@ void HlExec::GetOrCreate(
  * Creates the Graph
  */
 void HlExec::Create(
-    const ir::NodePtrList nodes,
-    const ir::ValueList inputs,
-    const ir::ValueList outputs,
+    const ir::NodePtrList& nodes,
+    const ir::ValueList& inputs,
+    const ir::ValueList& outputs,
     torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
   LazyOutputToJitValueMap ir_map;
 
-  for (auto inp : inputs) {
+  for (const auto& inp : inputs) {
     auto t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
     std::shared_ptr<Data> d = inp.m_data_ptr.lock();
@@ -287,7 +287,7 @@ void HlExec::Create(
     ir_map[ir::Output(inp)] = t;
   }
 
-  for (auto node : nodes) {
+  for (const auto& node : nodes) {
     // Is it a scalar node?
     if (c10::Symbol::fromQualString("prim::constant") == node->op()) {
       // add constant
@@ -314,7 +314,7 @@ void HlExec::Create(
           node_input_vals.begin(),
           node_input_vals.end(),
           std::back_inserter(args_vector),
-          [&](HabanaLazyValue inp) -> JitValue* {
+          [&](const HabanaLazyValue& inp) -> JitValue* {
             auto it = ir_map.find(ir::Output(inp));
             HABANA_ASSERT(it != ir_map.end());
             return it->second;
@@ -351,7 +351,13 @@ void HlExec::Create(
 
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||
           node->is_output_tensor_list()) {
-        jit_node->output()->setType(torch::jit::ListType::ofTensors());
+        auto* list_node = dynamic_cast<ir::ListConstruct*>(node.get());
+        if (list_node && list_node->isOptional()) {
+          jit_node->output()->setType(torch::jit::ListType::create(
+              torch::jit::OptionalType::ofTensor()));
+        } else {
+          jit_node->output()->setType(torch::jit::ListType::ofTensors());
+        }
       } else {
         for (size_t idx = 0; idx < jit_node->outputs().size(); idx++) {
           if (jit_node->output(idx)->type()->kind() ==
@@ -375,7 +381,7 @@ void HlExec::Create(
     }
   }
 
-  for (auto output : outputs) {
+  for (const auto& output : outputs) {
     auto out = ir::Output(output);
     mp_g_->registerOutput(ir_map.at(out));
   }

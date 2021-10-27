@@ -244,9 +244,9 @@ class HlExec {
    *   outputs: Lazy value pointers representing output tensors
    */
   void Create(
-      const ir::NodePtrList nodes,
-      const ir::ValueList inputs,
-      const ir::ValueList outputs,
+      const ir::NodePtrList& nodes,
+      const ir::ValueList& inputs,
+      const ir::ValueList& outputs,
       torch::jit::Stack& stack);
 
   GraphPtr mp_g_;

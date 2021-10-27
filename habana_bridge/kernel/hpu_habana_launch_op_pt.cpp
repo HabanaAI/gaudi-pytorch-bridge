@@ -530,12 +530,14 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
   std::vector<at::Tensor> pyTensorList;
-  if (value_to_ivalue[value_in]->isTensor()) {
-    pyTensorList.emplace_back(value_to_ivalue[value_in]->toTensor());
+  const auto& ivalue = value_to_ivalue[value_in];
+  if (ivalue->isTensor()) {
+    pyTensorList.emplace_back(ivalue->toTensor());
   } else {
-    c10::List<at::Tensor> pytList = value_to_ivalue[value_in]->toTensorList();
-    for (at::Tensor pyTensor : pytList) {
-      pyTensorList.emplace_back(pyTensor);
+    const auto& pytList = ivalue->toListRef();
+    for (const auto& pyTensor : pytList) {
+      if (!pyTensor.isNone())
+        pyTensorList.emplace_back(pyTensor.toTensor());
     }
   }
 
@@ -560,15 +562,14 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 
     if (enable_caching_) {
       void* buffp = ti.get_buffer_start();
-      buff_to_input_ivpsh_map.emplace(buffp, value_to_ivalue[value_in]);
+      buff_to_input_ivpsh_map.emplace(buffp, ivalue);
     }
   }
 
   if (!tensorList->empty()) {
-    auto it =
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+    auto it = pt_to_synapse_tensors.emplace(ivalue, tensorList);
     if (it.second == false) {
-      pt_to_synapse_tensors[value_to_ivalue[value_in]] = tensorList;
+      pt_to_synapse_tensors[ivalue] = tensorList;
     }
 
     if (enable_caching_) {
@@ -626,11 +627,12 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         auto prev_node = value_in->node();
         if (prev_node->kind() == torch::jit::prim::ListConstruct) {
           for (auto& value_in : prev_node->inputs()) {
-            SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
-                std::make_shared<SynTensorOrRefList>();
-            HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
-            HandleMappedandUnmappedTensor(
-                value_in, habana_op, tensor_ref_list_ptr_sh);
+            if (value_to_ivalue[value_in]->isTensor()) {
+              SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
+                  std::make_shared<SynTensorOrRefList>();
+              HandleMappedandUnmappedTensor(
+                  value_in, habana_op, tensor_ref_list_ptr_sh);
+            }
           }
         }
       } // else
@@ -1600,23 +1602,39 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
       }
     }
   } else if (node->kind() == torch::jit::prim::ListConstruct) {
-    auto node_ins = node->inputs();
-    std::vector<at::Tensor> tensorVec;
-    for (const auto value_in : node_ins) {
-      auto ivptrsh = value_to_ivalue[value_in];
-      if (ivptrsh->isTensor()) {
-        tensorVec.push_back(ivptrsh->toTensor());
+    const auto& node_ins = node->inputs();
+    IValPtrShared ivptrsh_list;
+
+    // ListConstruct can have optional and non-optional tensors as item types
+    if (node->output()->type()->containedTypes()[0]->kind() ==
+        OptionalType::Kind) {
+      c10::List<c10::optional<at::Tensor>> opttensorList;
+      for (const auto& value_in : node_ins) {
+        auto ivptrsh = value_to_ivalue[value_in];
+        if (ivptrsh->isTensor()) {
+          opttensorList.emplace_back(ivptrsh->toTensor());
+        } else {
+          opttensorList.emplace_back(c10::nullopt);
+        }
       }
+
+      // convert opttensorList to Ivalue and update the stack
+      ivptrsh_list = std::make_shared<IVal>(opttensorList);
+    } else {
+      c10::List<at::Tensor> tensorList;
+      for (const auto& value_in : node_ins) {
+        auto ivptrsh = value_to_ivalue[value_in];
+        if (ivptrsh->isTensor()) {
+          tensorList.emplace_back(ivptrsh->toTensor());
+        }
+      }
+
+      // convert tensorList to Ivalue and update the stack
+      ivptrsh_list = std::make_shared<IVal>(tensorList);
     }
-
-    // construct tensorList from tensorVec
-    at::TensorList tensorList(tensorVec);
-
-    // convert tensorList to Ivalue and update the stack
-    IValPtrShared ivptrsh_tensor_list = std::make_shared<IVal>(tensorList);
     auto node_vals = node->outputs();
     HABANA_ASSERT(node_vals.size() == 1);
-    value_to_ivalue[node_vals[0]] = ivptrsh_tensor_list;
+    value_to_ivalue[node_vals[0]] = ivptrsh_list;
   } else if (node->kind() == torch::jit::prim::ListUnpack) {
     // currently lowering code supports only TensorList+Unpack combination
     // [ToDo] Standalone ListUnpack support is not added here
@@ -1633,10 +1651,11 @@ torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
   auto node_inputs = node->inputs();
 
   for (auto input : node_inputs) {
-    if (value_to_ivalue.count(input))
+    if (value_to_ivalue.count(input)) {
       stack_in.insert(stack_in.end(), *value_to_ivalue[input]);
-    else
+    } else {
       stack_in.insert(stack_in.end(), IValue());
+    }
   }
   return stack_in;
 }

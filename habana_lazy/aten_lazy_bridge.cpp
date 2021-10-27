@@ -120,6 +120,10 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
   return GetHbLazyTensorImpl(tensor) != nullptr;
 }
 
+ir::Value GetIrValueForNone() {
+  return ir::Value(std::make_shared<ir::ScalarConstant>());
+}
+
 ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
   return ir::Value(std::make_shared<ir::ScalarConstant>(scalar));
 }
@@ -149,8 +153,10 @@ c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor) {
   return hb_tensor->GetDevice();
 }
 
-ir::Value GetIrValueForListConstruct(const ir::ValueList values) {
-  return ir::Value(std::make_shared<ir::ListConstruct>(values));
+ir::Value GetIrValueForListConstruct(
+    const ir::ValueList& values,
+    bool optional) {
+  return ir::Value(std::make_shared<ir::ListConstruct>(values, optional));
 }
 
 std::vector<at::Tensor> HpuGetFallbackTensorList(

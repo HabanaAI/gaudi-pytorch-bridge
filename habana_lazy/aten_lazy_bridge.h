@@ -46,13 +46,17 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
 
+ir::Value GetIrValueForNone();
+
 ir::Value GetIrValueForScalar(const c10::Scalar& scalar);
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
     const c10::optional<at::Device>& device);
 c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor);
 
-ir::Value GetIrValueForListConstruct(const ir::ValueList values);
+ir::Value GetIrValueForListConstruct(
+    const ir::ValueList& values,
+    bool optional = false);
 
 std::vector<at::Tensor> HpuGetFallbackTensorList(
     const std::vector<at::Tensor>& tensors);

@@ -27,7 +27,11 @@ namespace ir {
 template <typename T>
 class Constant : public Node {
  public:
-  Constant() = delete;
+  // For value = None
+  Constant() : Node(c10::Symbol::fromQualString("prim::constant")) {
+    m_meta_data.set(at::IValue(), 0);
+  }
+
   Constant(T s) : Node(c10::Symbol::fromQualString("prim::constant")) {
     m_meta_data.set(s, 0);
   }
@@ -46,13 +50,20 @@ class Constant : public Node {
 using ScalarConstant = Constant<c10::Scalar>;
 
 class ListConstruct : public Node {
+  bool m_is_optional;
+
  public:
   ListConstruct() = delete;
-  ListConstruct(const ir::ValueList values)
-      : Node(c10::Symbol::fromQualString("prim::ListConstruct")) {
+  ListConstruct(const ir::ValueList& values, bool optional)
+      : Node(c10::Symbol::fromQualString("prim::ListConstruct")),
+        m_is_optional{optional} {
     for (auto& v : values) {
       AddInput(v);
     }
+  }
+
+  bool isOptional() const {
+    return m_is_optional;
   }
 };
 

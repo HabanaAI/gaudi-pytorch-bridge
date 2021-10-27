@@ -486,6 +486,8 @@ class LazyOp {
       if (input.isScalar()) {
         auto val = GetIrValueForScalar(input.toScalar());
         values.emplace_back(val);
+      } else if (isMetadataCandidate(input)) {
+        metadata.set(input, i);
       } else if (input.isTensor()) {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
@@ -537,21 +539,36 @@ class LazyOp {
         } else {
           metadata.set(torch::jit::IValue(), i);
         }
-      } else if (input.isTensorList()) {
-        const auto& tensors = input.toTensorList();
-        ir::ValueList hl_tensors;
+      } else if (input.isList()) {
+        const auto& list = input.toListRef();
+        ir::ValueList opt_tensors;
         std::vector<at::Tensor> list_input_pt_vec;
-        for (const auto& t : tensors) {
-          auto val = GetHbLazyTensor(t).GetIrValue();
-          hl_tensors.emplace_back(val);
-          list_input_pt_vec.emplace_back(t);
+        bool is_optional = false;
+
+        for (const auto& li : list) {
+          TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+              li.isNone() or li.isTensor(),
+              "Got unhandled list item type: ",
+              li.tagKind(),
+              " for ",
+              m_symbol.toQualString(),
+              " at index ",
+              i,
+              ".");
+          if (li.isNone()) {
+            opt_tensors.emplace_back(GetIrValueForNone());
+            is_optional |= true;
+          } else {
+            const auto& t = li.toTensor();
+            opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
+            list_input_pt_vec.emplace_back(t);
+          }
         }
 
-        auto list_input = GetIrValueForListConstruct(hl_tensors);
+        const auto& list_input =
+            GetIrValueForListConstruct(opt_tensors, is_optional);
         list_input.mp_node->AddInputPtTensors(list_input_pt_vec);
         values.emplace_back(list_input);
-      } else if (isMetadataCandidate(input)) {
-        metadata.set(input, i);
       } else {
         PT_BRIDGE_FATAL(
             "Got unhandled type: ",
