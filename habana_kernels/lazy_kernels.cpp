@@ -911,7 +911,10 @@ void AddMemcpy(Tensor& src, Tensor& dst) {
       hl_dst.GetDevice(),
       hl_dst.GetSizes(),
       hl_dst.dtype_optional());
-
+  std::vector<at::Tensor> input_pt_vec;
+  input_pt_vec.push_back(src);
+  input_pt_vec.push_back(dst);
+  copy_node->AddInputPtTensors(input_pt_vec);
   flush_op(dst);
 }
 
@@ -1823,43 +1826,14 @@ Tensor& scatter_inplace_src_hpu_lazy(
     const Tensor& index,
     const Tensor& src) {
   PT_LAZY_TRACE;
-
-  auto hl_self = habana_lazy::GetHbLazyTensor(self);
   auto node =
       std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim_, index, src);
-
-  // Create result tensor to store output of scatter node
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHPU);
-  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
-  res.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  flush_op(result);
-
-  // Add a control_edge node
+  LazyOp<at::Tensor, ir::ScatterSrc> k{node, {self, dim_, index, src}};
+  auto result = k.call();
+  auto hl_self = GetOrCreateHbLazyTensor(self);
   updateDstDependencies(hl_self, self, true);
-
   // Create MemCopy operator to copy value into self
-  std::vector<at::Tensor> input_pt_vec;
-  auto node2 = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_result.GetIrValue(), hl_self.GetIrValue()});
-  input_pt_vec.push_back(result);
-  input_pt_vec.push_back(self);
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.SetNode(
-      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
-  node2->AddInputPtTensors(input_pt_vec);
-
-  flush_op(self);
+  AddMemcpy(result, self);
   return self;
 }
 
@@ -1869,42 +1843,13 @@ Tensor& scatter_inplace_value_hpu_lazy(
     const Tensor& index,
     const Scalar& value) {
   PT_LAZY_TRACE;
-
-  auto hl_self = GetHbLazyTensor(self);
   auto node = std::make_shared<ir::ScatterValue>(self, dim_, index, value);
-
-  // Create result tensor to store output of scatter node
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
-  ir::Value& res = hl_result.CurrentIrValue();
-  res.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  flush_op(result);
-
-  // Add a control_edge node
+  LazyOp<at::Tensor, ir::ScatterValue> k{node, {self, dim_, index, value}};
+  auto result = k.call();
+  auto hl_self = GetOrCreateHbLazyTensor(self);
   updateDstDependencies(hl_self, self, true);
-
   // Create MemCopy operator to copy value into self
-  std::vector<at::Tensor> input_pt_vec;
-  auto node2 = ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_result.GetIrValue(), hl_self.GetIrValue()});
-  input_pt_vec.push_back(result);
-  input_pt_vec.push_back(self);
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  ir::Value& out = hl_self.CurrentIrValue();
-  out.SetNode(
-      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
-  node2->AddInputPtTensors(input_pt_vec);
-
-  flush_op(self);
+  AddMemcpy(result, self);
   return self;
 }
 
@@ -1916,25 +1861,11 @@ Tensor scatter_src_hpu_lazy(
   PT_LAZY_TRACE;
   auto node =
       std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim, index, src);
-
-  auto result = empty_hpu_lazy(
-      ScatterWrapperOperator::compute_output_shape(self),
-      self.options(),
-      self.suggest_memory_format(),
-      false);
-  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result);
-  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
-  res.SetNode(
+  LazyOp<at::Tensor, ir::ScatterSrc> k{
       node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-
-  std::vector<at::Tensor> input_pt_vec{self, index, src};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+      {self, dim, index, src},
+      {ScatterWrapperOperator::compute_output_shape(self)}};
+  return k.call();
 };
 
 Tensor scatter_add_src_hpu_lazy(
@@ -1956,43 +1887,14 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     const Tensor& index,
     const Tensor& src) {
   PT_LAZY_TRACE;
-
-  auto hl_self = habana_lazy::GetHbLazyTensor(self);
   auto node =
       std::make_shared<habana_lazy::ir::ScatterAdd>(self, dim_, index, src);
-
-  // Create result tensor to store output of scatter node
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHPU);
-  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
-  res.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  flush_op(result);
-
-  // Add a control_edge node
+  LazyOp<at::Tensor, ir::ScatterAdd> k{node, {self, dim_, index, src}};
+  auto result = k.call();
+  auto hl_self = GetOrCreateHbLazyTensor(self);
   updateDstDependencies(hl_self, self, true);
-
   // Create MemCopy operator to copy value into self
-  std::vector<at::Tensor> input_pt_vec;
-  auto node2 = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_result.GetIrValue(), hl_self.GetIrValue()});
-  input_pt_vec.push_back(result);
-  input_pt_vec.push_back(self);
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.SetNode(
-      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
-  node2->AddInputPtTensors(input_pt_vec);
-
-  flush_op(self);
+  AddMemcpy(result, self);
   return self;
 }
 
