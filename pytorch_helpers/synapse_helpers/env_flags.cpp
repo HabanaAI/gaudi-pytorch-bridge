@@ -189,6 +189,8 @@ INST_GETENV_BY_TYPE(unsigned long long, strtoull)
 // ****************************************************************************
 // New style of env var declaration
 
+namespace new_style {
+
 template <class T, class F>
 T getenv_numeric_new(
     const char* name,
@@ -298,6 +300,8 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_PRINT_STATS_DUMP_FREQ, unsigned);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_PRINT_STATS_TABLE, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool);
 ENV_STRUCT_STATIC_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool);
+
+} // namespace new_style
 
 // ****************************************************************************
 

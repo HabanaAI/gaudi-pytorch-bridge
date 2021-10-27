@@ -57,11 +57,14 @@
 // ****************************************************************************
 // New style of env var declaration
 
-#define GET_ENV_FLAG_NEW(e) (env_flags::get_env_flag_new<env_flags::e>(#e))
+#define GET_ENV_FLAG_NEW(e) \
+  (env_flags::new_style::get_env_flag_new<env_flags::new_style::e>(#e))
 #define SET_ENV_FLAG_NEW(e, v, o) \
-  (env_flags::set_env_flag_new<env_flags::e>(#e, v, o))
-#define UNSET_ENV_FLAG_NEW(e) (env_flags::unset_env_flag_new<env_flags::e>(#e))
-#define IS_ENV_FLAG_DEFINED_NEW(e) (env_flags::is_defined_new<env_flags::e>(#e))
+  (env_flags::new_style::set_env_flag_new<env_flags::new_style::e>(#e, v, o))
+#define UNSET_ENV_FLAG_NEW(e) \
+  (env_flags::new_style::unset_env_flag_new<env_flags::new_style::e>(#e))
+#define IS_ENV_FLAG_DEFINED_NEW(e) \
+  (env_flags::new_style::is_defined_new<env_flags::new_style::e>())
 
 // ****************************************************************************
 
@@ -285,6 +288,8 @@ bool is_defined(const char* name) {
 // ****************************************************************************
 // New style of env var declaration
 
+namespace new_style {
+
 #define ENV_STRUCT_DEFINITION(NAME, TYPE, DEFAULT_VAL) \
   struct NAME : public std::numeric_limits<TYPE> {     \
     static bool is_cached;                             \
@@ -380,9 +385,11 @@ void unset_env_flag_new(const char* name) {
 }
 
 template <class E>
-bool is_defined_new(const char* name) {
+bool is_defined_new() {
   return E::is_defined;
 }
+
+} // namespace new_style
 
 // ****************************************************************************
 

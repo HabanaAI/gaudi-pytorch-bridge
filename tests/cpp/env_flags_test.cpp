@@ -23,6 +23,9 @@ TEST(EnvFlagsTest, GetEnv) {
       "PT_HPU_LAZY_MODE ",
       (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE) ? "defined" : "not defined"));
 
+  // auto env_val_old = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  // PT_TEST_DEBUG("OLD PT_HPU_LAZY_MODE=", env_val);
+
   auto env_val = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   PT_TEST_DEBUG("PT_HPU_LAZY_MODE=", env_val);
   EXPECT_EQ(env_val, 2);
