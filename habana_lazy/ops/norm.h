@@ -133,9 +133,10 @@ class BatchNormForward : public ir::Node {
   enum class BatchNormForwardMeta {
     WEIGHT_INDEX = 1,
     BIAS_INDEX,
+    RESIDUAL_ADD_INDEX,
     RUNNING_MEAN_INDEX,
     RUNNING_VAR_INDEX,
-    TRAINING_INDEX = 5,
+    TRAINING_INDEX = 6,
     MOMENTUM_INDEX,
     EPS_INDEX
   };
@@ -144,6 +145,7 @@ class BatchNormForward : public ir::Node {
       const at::Tensor& input,
       const at::Tensor& weight,
       const at::Tensor& bias,
+      const at::Tensor& residual_add,
       const at::Tensor& running_mean,
       const at::Tensor& running_var,
       bool training,
@@ -171,6 +173,10 @@ class BatchNormForward : public ir::Node {
           torch::jit::IValue(),
           static_cast<size_t>(BatchNormForwardMeta::BIAS_INDEX));
     }
+
+    auto hl_residual_add = GetOrCreateHbLazyTensor(residual_add, c10::kHPU);
+    AddInput(hl_residual_add.GetIrValue());
+    input_pt_vec.emplace_back(residual_add);
 
     auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
     AddInput(hl_running_mean.GetIrValue());

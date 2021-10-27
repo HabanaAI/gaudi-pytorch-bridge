@@ -2849,7 +2849,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   PT_LAZY_TRACE;
   ir::NodePtr node;
 
-  Tensor running_mean, running_var;
+  Tensor running_mean, running_var, residual_add;
   // if RMV are undefined, create zero mean and unit variance tensors for
   // numerical stability of BN. Note that they should have same
   // dtype as weight
@@ -2890,10 +2890,13 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   }
 
   if (training) {
+    residual_add = empty_hpu_lazy(
+        {1}, input.options(), input.suggest_memory_format(), true);
     node = std::make_shared<ir::BatchNormForward>(
         input,
         weight,
         bias,
+        residual_add,
         running_mean,
         running_var,
         training,

@@ -107,6 +107,7 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
         {habana::LayoutFormat::NHWC,
