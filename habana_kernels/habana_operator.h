@@ -13,6 +13,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_shape.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_lazy/habana_lazy_custom.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/habana_tensor.h"
@@ -55,6 +56,8 @@ using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
 using RegisterFunc =
     std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
+using RegisterCustomFunc =
+    std::function<HabanaOperatorPtr(const int, std::string)>;
 
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
@@ -340,16 +343,28 @@ class RegisterKernel {
  public:
   RegisterKernel& add(const std::string& op, RegisterFunc func) {
     // Construct OperatorName from op
-    std::istringstream iss{op};
-    std::string name, overload_name;
-    std::getline(iss, name, '.');
-    std::getline(iss, overload_name);
-
-    c10::OperatorName opname{name, overload_name};
+    c10::OperatorName opname = getOperatorName(op);
 
     TORCH_CHECK(!kernels_.count(opname), opname, " is already registered!");
     kernels_.emplace(opname, func);
     return *this;
+  }
+
+  RegisterKernel& add_custom_op(
+      const std::string& op,
+      RegisterCustomFunc func,
+      habana::custom_op::HabanaCustomOpDescriptor desc) {
+    c10::OperatorName opname = getOperatorName(op);
+    user_cutom_ops_.emplace(opname, func);
+    user_cutom_desc_.emplace(opname, desc);
+    return *this;
+  }
+
+  // Getting user's custom op descriptor from custom op map.
+  habana::custom_op::HabanaCustomOpDescriptor& get_custom_op_desc(
+      const std::string& op) {
+    c10::OperatorName opname = getOperatorName(op);
+    return user_cutom_desc_[opname];
   }
 
   HabanaOperatorPtr get(
@@ -357,7 +372,9 @@ class RegisterKernel {
       const at::OperatorName& opname,
       c10::ScalarType node_type) {
     return kernels_.count(opname) ? kernels_[opname](device_id, node_type)
-                                  : nullptr;
+                                  : user_cutom_ops_.count(opname)
+            ? user_cutom_ops_[opname](device_id, opname.name)
+            : nullptr;
   }
 
   RegisterKernel() = default;
@@ -365,7 +382,23 @@ class RegisterKernel {
   RegisterKernel& operator=(const RegisterKernel&) = delete;
 
  private:
+  c10::OperatorName getOperatorName(const std::string& op) {
+    std::istringstream iss{op};
+    std::string name, overload_name;
+    std::getline(iss, name, '.');
+    std::getline(iss, overload_name);
+
+    c10::OperatorName opname{name, overload_name};
+    return opname;
+  }
+
+ private:
   std::unordered_map<c10::OperatorName, RegisterFunc> kernels_;
+  std::unordered_map<c10::OperatorName, RegisterCustomFunc> user_cutom_ops_;
+  std::unordered_map<
+      c10::OperatorName,
+      habana::custom_op::HabanaCustomOpDescriptor>
+      user_cutom_desc_;
 };
 
 RegisterKernel& KernelRegistry();

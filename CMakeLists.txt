@@ -113,6 +113,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/unary_kernels.cpp
   habana_kernels/upsample_kernels.cpp
   habana_kernels/where_kernels.cpp
+  habana_kernels/custom_op_kernel.cpp
   habana_lazy/aten_lazy_bridge.cpp
   habana_lazy/debug_utils.cpp
   habana_lazy/hpu_lazy_tensors.cpp
@@ -120,7 +121,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/ir_utils.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
-
+  habana_lazy/habana_lazy_custom.cpp
   habana_lazy/passes/pass_utils.cpp
   habana_lazy/passes/fuse_mm_transpose.cpp
   habana_lazy/passes/fuse_bn_relu_residual_add.cpp
