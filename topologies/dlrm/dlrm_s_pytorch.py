@@ -966,7 +966,7 @@ if __name__ == "__main__":
     print('skip_upto_epoch=',skip_upto_epoch)
     print('skip_upto_batch=',skip_upto_batch)
     training_resumed = False
-    with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
+    with torch.autograd.profiler.profile(args.enable_profiling, use_cuda=use_gpu, record_shapes=True) as prof:
         while k < args.nepochs:
             trainMetaData.set_current_epoch_no(k)
             print('k={} skip_upto_epoch={}'.format(k,skip_upto_epoch))

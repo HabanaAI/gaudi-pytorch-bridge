@@ -439,6 +439,10 @@ class DLRM_Net_Habana(nn.Module):
         '''
 
         ly = self.exchange_emb(ly, batch_size, valid_device_emb_table)
+
+        if args.run_lazy_mode:
+            htcore.mark_step()
+
         z0 = self.interact_features(x, ly)
         p0 = self.apply_mlp(z0, self.top_l)
 
@@ -1135,6 +1139,8 @@ if __name__ == "__main__":
                         torch.distributed.all_reduce(distloss_hpu)
                         distloss_cpu = distloss_hpu.to("cpu")
                         e_result = distloss_cpu/args.world_size
+                        if isinstance(e_result, torch.Tensor):
+                            e_result = e_result.item()
                         print(" Distributed Loss :: {:.6f}".format(e_result))
 
                     if not args.inference_only:

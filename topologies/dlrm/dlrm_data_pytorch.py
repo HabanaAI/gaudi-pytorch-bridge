@@ -516,7 +516,7 @@ def make_criteo_data_and_loaders(args):
             collate_fn_train = CustomPreProcessor(train_data.counts, train_data.m_den, args,is_train=True).collate_wrapper_criteo
             collate_fn_test  = CustomPreProcessor(train_data.counts, train_data.m_den, args,is_train=False).collate_wrapper_criteo
         else:
-            collate_fn = collate_wrapper_criteo
+            collate_fn_train = collate_fn_test = collate_wrapper_criteo
 
 
         train_loader = torch.utils.data.DataLoader(
