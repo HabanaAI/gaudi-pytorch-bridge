@@ -443,6 +443,20 @@ exp2_:
   guid: pow2_fwd
   inplace_ids: [0]
 
+expm1:
+  dtypes: [Float]
+  guid: expm1_fwd
+  out_ids: [0]
+
+expm1.out:
+  dtypes: [Float]
+  guid: expm1_fwd
+
+expm1_:
+  dtypes: [Float]
+  guid: expm1_fwd
+  inplace_ids: [0]
+
 eye.out:
   custom_output_shape: EyeOutputShape
   dtypes: [BFloat16, Float]
