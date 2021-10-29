@@ -56,7 +56,14 @@ size_t getHCCLSliceSizeMB() {
   return slice_size * 1024 * 1024;
 }
 
+at::ScalarType getInternalScalarType(at::ScalarType type) {
+  type = (type == c10::ScalarType::Long) ? c10::ScalarType::Int : type;
+  type = (type == c10::ScalarType::Double) ? c10::ScalarType::Float : type;
+  return type;
+}
+
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
+  type = getInternalScalarType(type);
   auto it = hcclDataType.find(type);
   TORCH_CHECK(
       it != hcclDataType.end(),
@@ -408,10 +415,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           hcclStream_t stream) {
         auto tensor_data_type = getHCCLDataType(input.scalar_type());
         auto numel = input.numel();
-        if (!is_valid_broadcast_dtype(tensor_data_type)) {
-          tensor_data_type = getHCCLDataType(at::kByte);
-          numel = numel * sizeof(input.scalar_type()) / sizeof(at::kByte);
-        }
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
@@ -446,7 +449,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           hcclStream_t stream) {
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
-        size_t chunk_size = getHCCLSliceSizeMB() / input.itemsize();
+        size_t element_size =
+            c10::elementSize(getInternalScalarType(input.scalar_type()));
+        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -462,7 +467,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
               stream);
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset += num_elements_in_current_chunk * input.itemsize();
+          data_offset += num_elements_in_current_chunk * element_size;
           num_elements -= num_elements_in_current_chunk;
         }
         return hccl_result;
@@ -540,7 +545,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
         int numRanks = getSize();
         int rank = getRank();
         size_t count = input.numel() / numRanks;
-        size_t rank_offset = input.nbytes() / numRanks;
+        size_t rank_offset = count *
+            c10::elementSize(getInternalScalarType(input.scalar_type()));
         auto type = getHCCLDataType(input.scalar_type());
 
         hcclGroupStart();
