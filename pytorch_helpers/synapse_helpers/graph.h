@@ -88,10 +88,9 @@ class graph {
     std::string recipe_name_{""};
     bool graph_is_empty_{false};
     bool in_execution_phase_{false};
-    device& device_;
     uint64_t get_recipe_host_mem_size();
 
-    explicit recipe_handle(device& device) : device_{device} {};
+    explicit recipe_handle(){};
     ~recipe_handle();
 
     recipe_handle(const recipe_handle&) = delete;

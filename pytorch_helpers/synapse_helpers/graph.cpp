@@ -237,7 +237,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
 
   TIME_MEASURE_VARS;
   START_TIME_MEASURE;
-  auto recipe_handle{absl::make_unique<graph::recipe_handle>(device_)};
+  auto recipe_handle{absl::make_unique<graph::recipe_handle>()};
 
   auto name = get_unique_recipe_name(name_);
   status = synGraphCompile(
@@ -381,7 +381,7 @@ synapse_error_o graph::launch(
           compute_stream,
           old_launch_info.data(),
           old_launch_info.size(),
-          recipe_handle.device_.get_workspace_buffer(workspace_size),
+          device.get_workspace_buffer(workspace_size),
           recipe_handle.syn_recipe_handle_);
     } else {
       PT_SYNHELPER_DEBUG("Launching recipe with tensor ids");
@@ -390,7 +390,7 @@ synapse_error_o graph::launch(
           compute_stream,
           inputs_and_outputs_info.data(),
           inputs_and_outputs_info.size(),
-          recipe_handle.device_.get_workspace_buffer(workspace_size),
+          device.get_workspace_buffer(workspace_size),
           recipe_handle.syn_recipe_handle_,
           flags);
     }
