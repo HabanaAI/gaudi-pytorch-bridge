@@ -34,6 +34,15 @@ namespace hccl_integration {
 
 using event_done_callback = std::function<void()>;
 
+typedef enum {
+  deviceCtxtMemcpyHostToHost = 0,
+  deviceCtxtMemcpyHostToDevice = 1,
+  deviceCtxtMemcpyDeviceToHost = 2,
+  deviceCtxtMemcpyDeviceToDevice = 3,
+  deviceCtxtMemcpyDefault = 4,
+  deviceCtxtNumMemcpyKindTypes
+} deviceCtxtMemcpyKind_t;
+
 class device_context : std::enable_shared_from_this<device_context> {
   const size_t MAX_SUPPORTED_MODULE_ID = 1;
 
@@ -50,7 +59,7 @@ class device_context : std::enable_shared_from_this<device_context> {
 
   hcclResult_t acquire_copy_stream(
       synStreamHandle* stream_handle_ptr,
-      hcclMemcpyKind_t kind);
+      deviceCtxtMemcpyKind_t kind);
 
   hcclResult_t copy_data_within_device(
       synapse_helpers::device_ptr input_address,

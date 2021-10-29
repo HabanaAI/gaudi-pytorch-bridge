@@ -177,7 +177,7 @@ hcclResult_t device_context::unlock_address(void* const device_address) {
 
 hcclResult_t device_context::acquire_copy_stream(
     synStreamHandle* stream_handle_ptr,
-    hcclMemcpyKind_t kind) {
+    deviceCtxtMemcpyKind_t kind) {
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::acquire_copy_stream(stream_handle_ptr=",
       stream_handle_ptr,
@@ -192,15 +192,15 @@ hcclResult_t device_context::acquire_copy_stream(
   synapse_helpers::stream* stream_handle{nullptr};
 
   switch (kind) {
-    case hcclMemcpyHostToDevice: {
+    case deviceCtxtMemcpyHostToDevice: {
       stream_handle = &dev_handle->get_host_to_device_stream();
       break;
     }
-    case hcclMemcpyDeviceToHost: {
+    case deviceCtxtMemcpyDeviceToHost: {
       stream_handle = &dev_handle->get_device_to_host_stream();
       break;
     }
-    case hcclMemcpyDeviceToDevice: {
+    case deviceCtxtMemcpyDeviceToDevice: {
       stream_handle = &dev_handle->get_device_to_device_stream();
       break;
     }
