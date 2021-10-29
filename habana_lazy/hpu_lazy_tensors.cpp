@@ -691,6 +691,13 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   habana_lazy::ir::Value val{dest->GetIrValue().m_data_ptr.lock()};
   val.SetNodeForShallowCopy(GetIrValue().mp_node);
   dest->AssignIrValue(val);
+  // If the src tensor has an evaluated tensor internally on the device, then
+  // the lazy tensor shallow copy needs to ensure the desc lazy tensor also
+  // points to the same internal device tensor.
+  auto data_tensor = CurrentTensorData();
+  if (data_tensor.has_value()) {
+    dest->SetTensorData(*data_tensor);
+  }
 }
 
 void HbLazyTensor::StepMarker(const std::string& device_str) {

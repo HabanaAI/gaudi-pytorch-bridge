@@ -4473,6 +4473,7 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
       hl_result.GetSizes(),
       hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
