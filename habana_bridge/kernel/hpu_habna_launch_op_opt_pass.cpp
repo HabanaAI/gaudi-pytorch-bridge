@@ -119,6 +119,22 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
   }
 }
 
+void HabanaLaunchOpPT::set_persistence_input(torch::jit::Node* node) {
+  auto val = node->input(0);
+
+  if (val->type()->kind() == c10::TypeKind::TensorType) {
+    valptr_to_persistent_map[val] = true;
+  }
+}
+
+void HabanaLaunchOpPT::set_persistence_output(torch::jit::Node* node) {
+  auto val = node->output(0);
+
+  if (val->type()->kind() == c10::TypeKind::TensorType) {
+    valptr_to_persistent_map[val] = true;
+  }
+}
+
 void HabanaLaunchOpPT::persistenceMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
@@ -131,34 +147,19 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
         0, node->schema().operator_name(), getNodeScalarType(node));
     if (HabanaKernel == nullptr)
       continue;
-    size_t len = strlen(node->kind().toQualString());
-    char endch = node->kind().toQualString()[len - 1];
-    bool force_persistent = (endch == '_');
-    auto node_ins = node->inputs();
-    size_t tensor_idx = 0;
+
     // override the persistence logic if any kernel sets it as persistent
     // We assume that first index for input and output will be the persistent
-    // tensor
-    for (const auto value_in : node_ins) {
-      if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-        if (tensor_idx == 0 && force_persistent) {
-          valptr_to_persistent_map[value_in] = true;
-        }
-        tensor_idx++;
-      }
+    // GC doesnt recommend using workspace tensors for intermediate inplace ops.
+    // Inplace -> out of place replacement pass will remove  intermediate
+    // inplace ops anyway Remaining inplace ops at graph outputs will be set
+    // with persistent i/o
+    if (isControlEdge(node) || isInplace(node)) {
+      set_persistence_input(node);
+      set_persistence_output(node);
     }
-    auto node_outs = node->outputs();
-    tensor_idx = 0;
-    for (const auto value_out : node_outs) {
-      if (value_out->type()->kind() == c10::TypeKind::TensorType) {
-        if (tensor_idx == 0 && force_persistent) {
-          valptr_to_persistent_map[value_out] = true;
-        }
-        tensor_idx++;
-      }
-    }
-  }
-}
+  } // for (auto* node : graph_nodes)
+} // function end
 
 void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
     torch::jit::graph_node_list graph_nodes) {
@@ -175,6 +176,7 @@ void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
   // mark all tensors before we start lowering, so that such cases can be
   // avoided
   weightLayoutMarkingPass(graph_nodes);
+
   // This pass marks tensors persistent if they are nt persistent from graph
   // but are made persistent due to synapse limitations
   persistenceMarkingPass(graph_nodes);

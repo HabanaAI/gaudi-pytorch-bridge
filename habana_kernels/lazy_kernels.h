@@ -250,12 +250,40 @@ class LazyOp {
     return result;
   }
 
+  bool is_inplace(at::Symbol symbol) {
+    bool is_inplace = false;
+
+    auto node_name = symbol.toQualString();
+    /*
+  Since as_strided_lazy is now out of place op, we need a control edge to create
+  new tensor for fill to avoid GC error
+  %5 : Float(*, requires_grad=0,
+  device=hpu:0) = hpu::as_strided_lazy(%id:3, %2, %3, %4)
+  %6 : Float(*, requires_grad=0, device=hpu:0) = aten::fill_(%5, %1)
+  */
+
+    if (strcmp(node_name, "aten::fill_")) {
+      size_t len = strlen(node_name);
+      char endch = node_name[len - 1];
+
+      if (endch == '_') {
+        is_inplace = true;
+      }
+    }
+    return is_inplace;
+  }
+
   // For inplace/out variants
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     auto hl_self = GetHbLazyTensor(self);
-    updateDstDependencies(hl_self, self, true);
+    // skip ctrl edges for inplace
+    // TODO do the same for out variants
+
+    if (!is_inplace(m_symbol)) {
+      updateDstDependencies(hl_self, self, true);
+    }
     const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(

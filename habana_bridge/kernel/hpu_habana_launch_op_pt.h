@@ -55,9 +55,9 @@ struct habanaTensorLayoutInfo {
 
 enum ControlEdgeType {
   kCONTROL_EDGE_NONE = 0,
-  kCONTROL_EDGE_INPLACE,
+  kCONTROL_EDGE_,
   kCONTROL_EDGE_OTHER_,
-  kCONTROL_EDGE_AS_STRIDED
+  kCONTROL_EDGE_INPLACE
 };
 
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
@@ -224,6 +224,8 @@ class HabanaLaunchOpPT {
   LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
+  void set_persistence_input(torch::jit::Node*);
+  void set_persistence_output(torch::jit::Node*);
   void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
@@ -245,6 +247,8 @@ class HabanaLaunchOpPT {
       torch::jit::Node* node,
       torch::jit::Value* value_out);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
+  bool isInplace(torch::jit::Node* node);
+  bool isControlEdge(torch::jit::Node* node);
   void AdjustInputLayout();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
@@ -254,6 +258,7 @@ class HabanaLaunchOpPT {
       bool is_shape_inference = false);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
+  ControlEdgeType nodeRequiresControlEdge(torch::jit::Node* node);
   void PrepareBlockingNodeList(torch::jit::Node*, ControlEdgeType control_type);
   void ProcessCustomOptControlEdges(torch::jit::graph_node_list);
   void Dfs(torch::jit::Node*);
