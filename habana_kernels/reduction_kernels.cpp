@@ -22,6 +22,7 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/lowering_util.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -31,29 +32,8 @@
 
 using namespace torch;
 using namespace habana;
-// TODO: DimMask = TensorIterator::DimMask
-using DimMask = std::bitset<64>;
 
-// Copy paste from PT
 namespace {
-inline int64_t maybe_wrap_dim(
-    int64_t dim,
-    int64_t dim_post_expr,
-    bool wrap_scalar = true) {
-  return c10::maybe_wrap_dim(dim, dim_post_expr, wrap_scalar);
-}
-
-DimMask make_dim_mask(IntArrayRef dims, int64_t ndim) {
-  auto mask = DimMask();
-  if (dims.empty()) {
-    mask.flip();
-  } else {
-    for (int64_t dim : dims) {
-      mask.set(maybe_wrap_dim(dim, ndim));
-    }
-  }
-  return mask;
-}
 
 void allocate_reduction_result(
     Tensor& result,
@@ -97,42 +77,13 @@ void allocate_reduction_result(
   }
 }
 
-ScalarType get_dtype(
-    Tensor& result,
-    const Tensor& self,
-    optional<ScalarType> dtype,
-    bool promote_integers = false) {
-  if (dtype.has_value()) {
-    return dtype.value();
-
-  } else if (result.defined()) {
-    return result.scalar_type();
-  }
-  ScalarType src_type = self.scalar_type();
-  if (promote_integers && at::isIntegralType(src_type, /*includeBool=*/true)) {
-    return kLong;
-  }
-  return src_type;
-}
 } // namespace
 
 std::vector<int64_t> ReduceOperator::compute_output_shape(
     const at::Tensor& self,
     const IntArrayRef dim,
     const bool keepdim) {
-  DimMask dim_mask = make_dim_mask(dim, self.dim());
-
-  std::vector<int64_t> shape = self.sizes().vec();
-  for (int64_t dimIndex = shape.size() - 1; dimIndex >= 0; dimIndex--) {
-    if (dim_mask[dimIndex]) {
-      if (keepdim) {
-        shape[dimIndex] = 1;
-      } else {
-        shape.erase(shape.begin() + dimIndex);
-      } // if (keepdim)
-    }
-  } // for (int64_t
-  return shape;
+  return LoweringUtil::ComputeOutputShape(self, dim, keepdim);
 }
 
 void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -146,27 +97,20 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   std::copy(dim.begin(), dim.end(), data);
   IntArrayRef dim_arr(data, dim.size());
   auto ndim = self.dim();
-  auto mask = make_dim_mask(dim_arr, ndim);
+  auto mask = LoweringUtil::MakeDimMask(dim_arr, ndim);
 
   allocate_reduction_result(
-      output, self, mask, keepdim, get_dtype(output, self, dtype, false), true);
+      output,
+      self,
+      mask,
+      keepdim,
+      LoweringUtil::GetDtype(output, self, dtype, false),
+      true);
   /*TORCH_CHECK(
       output.scalar_type() == self.scalar_type(),
       "Habana reduction ops don't support casts yet");*/
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
-}
-
-void ReduceOperator::sort_dims(
-    std::vector<int64_t>& in_dim,
-    int64_t dim,
-    int64_t dims_to_reduce) {
-  for (int64_t i = 0; i < dims_to_reduce; i++) {
-    in_dim[i] = c10::maybe_wrap_dim(in_dim[i], dim, true);
-  }
-  std::sort(in_dim.begin(), in_dim.end());
-  auto last = std::unique(in_dim.begin(), in_dim.end());
-  in_dim.erase(last, in_dim.end());
 }
 
 void ReduceOperator::AllocateAndAddSynapseNode(
@@ -196,7 +140,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
   auto dtype = inputs[4].toOptional<ScalarType>();
   auto num_dims_to_reduce = in_dim.size();
   // wrap dims to positive values, sort dim list and remove any duplicates
-  sort_dims(in_dim, self.dim(), num_dims_to_reduce);
+  LoweringUtil::SortAndRemoveDuplicateDims(in_dim, self.dim());
 
   // check whether all dims in list are the higher "continuous" dimensions
   // if yes, "flatten" higher dims to a single unrolled-size dim.
@@ -274,13 +218,13 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     }
 
     IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
-    auto mask = make_dim_mask(reshaped_in_dim, self_reshaped.dim());
+    auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
     allocate_reduction_result(
         output,
         self_reshaped,
         mask,
         keepdim,
-        get_dtype(output, self_reshaped, dtype, false),
+        LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
         is_output_persistent);
     /*TORCH_CHECK(
         output.scalar_type() == self_reshaped.scalar_type(),
@@ -299,13 +243,13 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     int64_t in_dim_copy[in_dim.size()];
     std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
     IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
-    auto mask = make_dim_mask(in_dim_arr, self.dim());
+    auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
     allocate_reduction_result(
         output,
         self,
         mask,
         keepdim,
-        get_dtype(output, self, dtype, false),
+        LoweringUtil::GetDtype(output, self, dtype, false),
         is_output_persistent);
     /*TORCH_CHECK(
         output.scalar_type() == self.scalar_type(),
@@ -425,7 +369,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   bool keepdim = inputs[2].toBool();
 
   // Remove duplicates in dim list
-  ReduceOperator::sort_dims(dim, self.dim(), dim.size());
+  LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
   // compute number of output dims
   auto output_dims = self.dim() - (!(keepdim)*dim.size());
   // output follows input memory_format for all cases
@@ -625,7 +569,7 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
   auto ndim = self.dim();
 
   // Remove duplicates in dim list
-  ReduceOperator::sort_dims(dim, ndim, dim.size());
+  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndim);
   // compute number of output dims
   auto output_dims = ndim - (!(keepdim)*dim.size());
   // output follows input memory_format for all cases
