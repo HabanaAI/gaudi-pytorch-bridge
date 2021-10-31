@@ -4529,6 +4529,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
+  m.def(
+      "upsample_nearest2d_backward(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

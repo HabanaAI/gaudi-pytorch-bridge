@@ -67,23 +67,42 @@ class UpsampleNearest2dBackward : public Node {
       c10::optional<at::IntArrayRef> output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors)
-      : Node(c10::Symbol::fromQualString("aten::upsample_nearest2d_backward")) {
+      : Node(
+            GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+                ? c10::Symbol::fromQualString(
+                      "hpu::upsample_nearest2d_backward")
+                : c10::Symbol::fromQualString(
+                      "aten::upsample_nearest2d_backward")) {
     auto hl_input = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
     auto ir_value = hl_input.GetIrValue();
     AddInput(ir_value);
-
     std::vector<at::Tensor> input_pt_vec{grad_output};
-    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(
         output_size,
         static_cast<size_t>(UpsampleNearest2dBackwardIndex::OUTPUT_SIZE_INDEX));
     m_meta_data.set(
-        input_size,
-        static_cast<size_t>(UpsampleNearest2dBackwardIndex::INPUT_SIZE_INDEX));
-    m_meta_data.set(
         scale_factors,
         static_cast<size_t>(UpsampleNearest2dBackwardIndex::SCALE_INDEX));
+
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      auto input_shape = empty_hpu_lazy(
+          input_size,
+          grad_output.options(),
+          grad_output.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+      auto hl_input_shape = GetOrCreateHbLazyTensor(input_shape, c10::kHPU);
+      AddInput(hl_input_shape.GetIrValue());
+      input_pt_vec.emplace_back(input_shape);
+    } else {
+      m_meta_data.set(
+          input_size,
+          static_cast<size_t>(
+              UpsampleNearest2dBackwardIndex::INPUT_SIZE_INDEX));
+    }
+
+    AddInputPtTensors(input_pt_vec);
   }
 
   std::string ToString() const override {
@@ -91,12 +110,22 @@ class UpsampleNearest2dBackward : public Node {
     ss << Node::ToString() << ", output_size="
        << m_meta_data.get(static_cast<size_t>(
               UpsampleNearest2dBackwardIndex::OUTPUT_SIZE_INDEX))
-       << ", input_size="
-       << m_meta_data.get(static_cast<size_t>(
-              UpsampleNearest2dBackwardIndex::INPUT_SIZE_INDEX))
        << ", scale_factor="
        << m_meta_data.get(
               static_cast<size_t>(UpsampleNearest2dBackwardIndex::SCALE_INDEX));
+
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      HABANA_ASSERT(m_inputs.size() == 2);
+      auto& input_shape = m_inputs[1];
+      if (input_shape.DataPtrValidAndNotExpired()) {
+        std::shared_ptr<Data> data = input_shape.m_data_ptr.lock();
+        ss << ", input_size=" << data->sizes;
+      }
+    } else {
+      ss << ", input_size="
+         << m_meta_data.get(static_cast<size_t>(
+                UpsampleNearest2dBackwardIndex::INPUT_SIZE_INDEX));
+    }
     return ss.str();
   }
 };

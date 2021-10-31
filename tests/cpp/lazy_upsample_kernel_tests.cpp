@@ -64,3 +64,39 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
   };
   upsample_test({1, 1, 4, 7});
 }
+
+TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
+  torch::manual_seed(0);
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  auto upsample_test = [](c10::IntArrayRef size1) {
+    auto mat1 = torch::randn(size1);
+    auto mat1_h = mat1.to(torch::kHPU);
+    mat1.set_requires_grad(true);
+    std::array<double, 2> scales = {2.0, 3.0};
+    c10::optional<c10::ArrayRef<double>> scale_factors = scales;
+    std::array<int64_t, 2> out_sizes = {8, 21};
+    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+
+    auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
+    auto grad_out = torch::ones_like(out);
+    auto grad_out_h = grad_out.to(torch::kHPU);
+    out.backward(grad_out);
+    auto grad_mat1 = mat1.grad();
+
+    torch::Tensor grad_mat1_h;
+
+    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+        grad_out_h, out_size, size1, scale_factors);
+    bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
+    EXPECT_EQ(equal1, true);
+  };
+  upsample_test({1, 1, 2, 3});
+  upsample_test({1, 1, 4, 7});
+  upsample_test({1, 1, 6, 12});
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}

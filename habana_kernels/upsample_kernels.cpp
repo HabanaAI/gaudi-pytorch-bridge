@@ -218,7 +218,16 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   auto grad_output = inputs[0].toTensor();
-  auto grad_size = inputs[2].toIntList();
+  TORCH_CHECK(
+      inputs[2].isIntList() || inputs[2].isTensor(),
+      "Input 2 can be either int list or shape tensor");
+  std::vector<int64_t> grad_out_shape;
+  if (inputs[2].isTensor()) {
+    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    grad_out_shape = inputs[2].toTensor().sizes().vec();
+  } else {
+    grad_out_shape = inputs[2].toIntVector();
+  }
 
   TORCH_CHECK(
       grad_output.ndimension() == 4 || grad_output.ndimension() == 5,
@@ -227,7 +236,6 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
 
   c10::optional<IntArrayRef> output_size;
   c10::optional<at::ArrayRef<double>> scales;
-  std::vector<int64_t> grad_out_shape = grad_size.vec();
 
   auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
   if (output_size1.has_value()) {
@@ -271,7 +279,7 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(syn_resize_params);
 
   // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
+  if (graph.is_dynamic_graph() && (false == inputs[2].isTensor())) {
     AllocateSynapseShapeTensor(graph, output);
   }
 
@@ -556,6 +564,12 @@ static auto& KernelRegistry =
             })
         .add(
             "aten::upsample_nearest2d_backward.vec",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<UpsampleNearest2dBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::upsample_nearest2d_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<UpsampleNearest2dBackwardOperator>(
                   device_id, node_type);

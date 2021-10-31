@@ -39,7 +39,12 @@ class UpsampleBackwardOperator : public HabanaOperator {
   UpsampleBackwardOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
+    //
+    // The 2nd input to the upsample backward can be shape tensor and
+    // we need not permute this, so in order to disable the permute on
+    // shape tensor, we set the layout as NCHW for the 2nd input
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
   }
 
