@@ -1,3 +1,16 @@
+###############################################################################
+# Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+################################################################################
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+
 include(ExternalProject)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -27,19 +40,20 @@ target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_B
 #message("Pytorch Python Path: ${PTPY_LIB}")
 
 file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
+
 execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
-target_link_libraries(
-  test_pt_integration
+target_link_libraries(test_pt_integration PRIVATE
   "${TORCH_LIBRARIES}"
-# "${PTPY_LIB}"
   habana_pytorch_plugin
+  habana_serialization
   pytorch_synapse_helpers_abi11
   gtest
   gtest_main
   util
   pthread
   stdc++
+  stdc++fs
   dl)
 
 add_custom_command(TARGET test_pt_integration POST_BUILD COMMAND

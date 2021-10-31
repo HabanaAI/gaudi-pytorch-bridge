@@ -66,6 +66,15 @@ inline bool is_status_success(synStatus status) {
     }                                              \
   } while (0)
 
+#define CHECK_TRUE(x)                                                    \
+  do {                                                                   \
+    if (!x) {                                                            \
+      SLOG(S_ERROR) << "ERROR: pid = " << getpid() << " at " << __FILE__ \
+                    << ":" << __LINE__ << " (" << dlerror() << ")\n";    \
+      std::terminate();                                                  \
+    }                                                                    \
+  } while (0)
+
 inline unsigned count_prod(const unsigned* dims, unsigned len) {
   unsigned result = 1;
   for (unsigned p = 0; p < len; ++p) {
@@ -235,6 +244,10 @@ class SynapseLogger {
     return use_null_backend_;
   }
 
+  std::string getSynapseLibPath() const {
+    return synapse_lib_path_;
+  }
+
  private:
   // std::chrono::time_point<std::chrono::high_resolution_clock>
   // log_start_time_;
@@ -242,6 +255,7 @@ class SynapseLogger {
   struct timespec log_start_time_;
   std::string log_file_name_;
   std::string data_file_name_;
+  std::string synapse_lib_path_;
   std::ofstream fout_;
   std::ofstream data_fout_;
   std::mutex log_lock_{};
@@ -304,5 +318,7 @@ void dump_reference(
     float* vec,
     int n);
 void command(const std::string& x);
+
+std::string getSynapseLibPath();
 
 } // namespace synapse_logger

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2020 HabanaLabs, Ltd.
+# Copyright (C) 2021 HabanaLabs, Ltd.
 # All Rights Reserved.
 #
 # Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -140,8 +140,15 @@ target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_D
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11 json)
-target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(habana_pytorch_plugin
+  PRIVATE
+    habana_serialization
+    "${TORCH_LIBRARIES}"
+    pytorch_synapse_helpers_abi11
+    json
+)
+
+  target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.cpp
                      ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.h

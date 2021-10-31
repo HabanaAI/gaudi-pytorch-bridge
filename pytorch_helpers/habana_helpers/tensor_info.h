@@ -55,6 +55,7 @@ class PtTensorInfo {
       const synTensorType stt = DATA_TENSOR,
       const getDMAInputTensorCBType dma_cb = nullptr);
 
+  PtTensorInfo(std::istream& is);
   // access functions for read write data members
   void* get_buffer() const {
     return buffer_;
@@ -214,6 +215,8 @@ class PtTensorInfo {
   habana_lazy::LayoutFormat getHbInternalLayoutFormat() const {
     return hb_internal_lf_;
   }
+
+  void Serialize(std::ostream& os) const;
 
  private:
   bool is_tensor_{true};

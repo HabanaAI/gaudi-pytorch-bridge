@@ -25,8 +25,8 @@
 #include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+#include "habana_serialization/recipe_cache.h"
 #include "synapse_helpers/env_flags.h"
-
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/time_slot.h"
 
@@ -83,7 +83,7 @@ struct RecipeArgumentSpec {
       bool with_grad,
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const std::string &id);
+      const std::string& id);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (opstrs == arg.opstrs);
@@ -171,12 +171,12 @@ struct RecipeArgumentSpecEqual {
 struct RecipeValueSpec {
   RecipeValueSpec(
       std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
-      : recipe(r),
-        dtensorinfos(nullptr),
-        aten_outputs(nullptr) {
+      : recipe(r), dtensorinfos(nullptr), aten_outputs(nullptr) {
     count++;
     id = count;
   }
+
+  RecipeValueSpec(std::istream& is);
 
   ~RecipeValueSpec();
 
@@ -205,6 +205,7 @@ struct RecipeValueSpec {
   void d2h_dbuff(size_t buf_idx);
 
   std::string header_str();
+  std::string build_header_str() const;
   std::string digest_str();
   int update_hit_count();
   void update_patching_table(
@@ -268,6 +269,8 @@ struct RecipeValueSpec {
     }
   }
 
+  void Serialize(std::ostream& os) const;
+
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
@@ -322,7 +325,22 @@ struct RecipeValueSpec {
   static size_t launch_count;
 
  private:
-  std::atomic<bool> in_use {false};
+  std::atomic<bool> in_use{false};
+};
+
+class DiskCache {
+ public:
+  DiskCache(std::string cache_path);
+  void Add(const RecipeValueSpec& recipe, const RecipeArgumentSpec& spec);
+  std::shared_ptr<RecipeValueSpec> Find(const RecipeArgumentSpec& spec);
+  // in case RecipeValueSpec creation failed, DiskCache is leaving lock files on
+  // disk. This ensures a cleanup.
+
+ private:
+  serialization::RecipeCache recipe_cache_;
+  // library specific suffix to determine for what TF, Synapse, etc. the cache
+  // entry was produced
+  std::string cache_id_suffix_;
 };
 
 class RecipeCacheLRU {
@@ -356,26 +374,37 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
-  void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
-  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key);
+  void add(
+      std::shared_ptr<RecipeArgumentSpec>& key,
+      std::shared_ptr<RecipeValueSpec>& val);
+  std::shared_ptr<RecipeValueSpec> get(
+      std::shared_ptr<RecipeArgumentSpec>& key);
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
+  void ResetDiskCache();
 
-  //friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
+  // friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
 
  private:
-  RecipeCacheLRU() = default;
+  RecipeCacheLRU();
   ~RecipeCacheLRU() = default;
   RecipeCacheLRU(const RecipeCacheLRU&) = delete;
   RecipeCacheLRU& operator=(const RecipeCacheLRU&) = delete;
-  bool drop_lru_impl(size_t &recipe_count, bool mem_exhausted = false);
+  bool drop_lru_impl(size_t& recipe_count, bool mem_exhausted = false);
+  void insert(
+      std::shared_ptr<RecipeArgumentSpec>& key,
+      std::shared_ptr<RecipeValueSpec>& val);
+  void InitDiskCache();
 
   static std::mutex mutex_;
   static RecipeCacheLRU* instance_;
   static size_t max_size_;
+  std::unique_ptr<DiskCache> disk_cache_;
 
-  std::list<std::pair<std::shared_ptr<RecipeArgumentSpec>,
-      std::shared_ptr<RecipeValueSpec>>> list_;
+  std::list<std::pair<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::shared_ptr<RecipeValueSpec>>>
+      list_;
 
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,

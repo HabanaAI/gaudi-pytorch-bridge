@@ -205,6 +205,7 @@ class PtLogger {
     TEST = 0x200,
     DYNAMIC_SHAPE = 0x400,
     DEVMEM = 0x800,
+    HABHELPER = 0x1000,
   };
 };
 
@@ -267,6 +268,9 @@ class PTFuncLog {
 #define PT_SYNHELPER_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
 
+#define PT_HABHELPER_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
+
 #define PT_DEVMEM_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
 
@@ -308,6 +312,9 @@ class PTFuncLog {
 
 #define PT_SYNHELPER_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
+
+#define PT_HABHELPER_WARN(...) \
+  PT_MOD_WARN(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
 
 #define PT_DEVMEM_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
@@ -357,6 +364,7 @@ class PTFuncLog {
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::SYNHELPER)
+#define PT_HABHELPER_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::HABHELPER)
 #define PT_DEVMEM_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DEVMEM)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::LAZY)
@@ -373,6 +381,7 @@ class PTFuncLog {
 #define PT_KERNEL_END PT_MOD_END(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_END PT_MOD_END(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PtLogger::ModuleMask::SYNHELPER)
+#define PT_HABHELPER_END PT_MOD_END(PtLogger::ModuleMask::HABHELPER)
 #define PT_DEVMEM_END PT_MOD_END(PtLogger::ModuleMask::DEVMEM)
 #define PT_DISTRIBUTED_END PT_MOD_END(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_END PT_MOD_END(PtLogger::ModuleMask::LAZY)
@@ -390,13 +399,17 @@ class PTFuncLog {
 
 #define PT_LAZY_TRACE \
   PT_MOD_TRACE(PtLogger::ModuleMask::LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
-
+#define PT_BRIDGE_TRACE \
+  PT_MOD_TRACE(PtLogger::ModuleMask::BRIDGE, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_FALLBACK_TRACE \
   PT_MOD_TRACE(           \
       PtLogger::ModuleMask::FALLBACK, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_SYNHELPER_TRACE \
   PT_MOD_TRACE(            \
       PtLogger::ModuleMask::SYNHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_HABHELPER_TRACE \
+  PT_MOD_TRACE(            \
+      PtLogger::ModuleMask::HABHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_DYNAMIC_SHAPE_TRACE \
   PT_MOD_TRACE(                \
       PtLogger::ModuleMask::DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
@@ -427,6 +440,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
 #define PT_SYNHELPER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
+#define PT_HABHELPER_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
 #define PT_DEVMEM_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) \

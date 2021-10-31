@@ -28,6 +28,8 @@ if (BUILD_DIST)
 
 
  add_subdirectory(synapse_helpers)
+ add_subdirectory(habana_helpers)
+
  find_package(NumPy)
 
  add_subdirectory(synapse_logger)
@@ -38,6 +40,7 @@ else ()
  add_subdirectory(cmake/absl_abi98)
  add_subdirectory(cmake/absl_abi11)
  add_subdirectory(synapse_helpers)
+ add_subdirectory(habana_helpers)
 
  find_package(PythonLibs REQUIRED)
  find_package(NumPy)

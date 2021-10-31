@@ -23,6 +23,9 @@
 #include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_serialization/cache_version.h"
+#include "habana_serialization/deserializers.h"
+#include "habana_serialization/serializers.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "synapse_helpers/env_flags.h"
@@ -236,8 +239,10 @@ RecipeValueSpec::~RecipeValueSpec() {
   }
 
   if (nullptr != tensor_names) {
-    delete[] tensor_ids;
     delete[] tensor_names;
+  }
+  if (nullptr != tensor_ids) {
+    delete[] tensor_ids;
   }
 }
 
@@ -386,21 +391,23 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
 
 std::string RecipeValueSpec::header_str() {
   if (header.empty()) {
-    std::ostringstream O;
-    O << "\n key " << key << "\n num_inputs " << num_inputs
-      << "\n num_induplicates " << num_induplicates << "\n num_dma_inputs "
-      << num_dma_inputs << "\n num_intermediates " << num_intermediates
-      << "\n num_outputs " << num_outputs << "\n num_outduplicates "
-      << num_outduplicates << "\n num_input_to_outduplicates "
-      << num_input_to_outduplicates << "\n num_intermediate_to_outduplicates "
-      << num_intermediate_to_outduplicates << "\n size "
-      << synapse_helpers::get_mem_str(ntensorbytes);
-    O << "\n " << (dynamic_graph ? "dynamic graph" : "static graph");
-
-    header = O.str();
+    header = build_header_str();
   }
-
   return header;
+}
+
+std::string RecipeValueSpec::build_header_str() const {
+  std::ostringstream O;
+  O << "\n key " << key << "\n num_inputs " << num_inputs
+    << "\n num_induplicates " << num_induplicates << "\n num_dma_inputs "
+    << num_dma_inputs << "\n num_intermediates " << num_intermediates
+    << "\n num_outputs " << num_outputs << "\n num_outduplicates "
+    << num_outduplicates << "\n num_input_to_outduplicates "
+    << num_input_to_outduplicates << "\n num_intermediate_to_outduplicates "
+    << num_intermediate_to_outduplicates << "\n size "
+    << synapse_helpers::get_mem_str(ntensorbytes);
+  O << "\n " << (dynamic_graph ? "dynamic graph" : "static graph");
+  return O.str();
 }
 
 std::string RecipeValueSpec::digest_str() {
@@ -438,6 +445,105 @@ int RecipeValueSpec::update_hit_count() {
     device.get_recipe_handle_cache().clearHitCount();
   }
   return rv_hit_count;
+}
+
+RecipeValueSpec::RecipeValueSpec(std::istream& is) {
+  using namespace serialization;
+  bool valid_recipe_handle = false;
+  deserialize(is, valid_recipe_handle);
+
+  if (valid_recipe_handle) {
+    recipe = std::make_shared<synapse_helpers::graph::recipe_handle>();
+    deserialize(is, recipe->recipe_name_);
+    deserialize(is, recipe->graph_is_empty_);
+    recipe->in_execution_phase_ = false;
+  }
+
+  int info_size = 0;
+  deserialize(is, info_size);
+  dtensorinfos = std::make_shared<std::vector<PtTensorInfo>>();
+  dtensorinfos->reserve(info_size);
+  for (int i = 0; i < info_size; ++i) {
+    dtensorinfos->emplace_back(PtTensorInfo(is));
+  }
+
+  deserialize(is, workspace_size);
+  deserialize(is, htensor_wbuff);
+  deserialize(is, htensor_wbuff_size);
+  deserialize(is, id);
+  deserialize(is, iter_idx);
+  deserialize(is, num_tinfos);
+  deserialize(is, num_inputs);
+  deserialize(is, num_induplicates);
+  deserialize(is, num_dma_inputs);
+  deserialize(is, num_shape_tensors);
+  deserialize(is, num_intermediates);
+  deserialize(is, num_outputs);
+  deserialize(is, num_outduplicates);
+  deserialize(is, num_input_to_outduplicates);
+  deserialize(is, num_intermediate_to_outduplicates);
+  deserialize(is, num_output_to_outduplicates);
+  deserialize(is, ntensorbytes);
+  deserialize(is, key);
+  deserialize(is, header);
+  deserialize(is, num_tensors);
+  tensor_ids = new uint64_t[num_tensors];
+  for (size_t i = 0; i < num_tensors; i++) {
+    deserialize(is, tensor_ids[i]);
+  }
+  tensor_names = new const char*[num_tensors];
+  for (size_t i = 0; i < num_tensors; i++) {
+    char* tmp;
+    deserialize(is, tmp);
+    tensor_names[i] = tmp;
+  }
+  deserialize(is, dynamic_graph);
+  deserialize(is, count);
+  deserialize(is, total_recipe_ntbytes);
+  // deserialize(is, get_use_flag());
+}
+
+void RecipeValueSpec::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, recipe != nullptr);
+  if (recipe) {
+    serialize(os, recipe->recipe_name_);
+    serialize(os, recipe->graph_is_empty_);
+  }
+  serialize(os, static_cast<int>(dtensorinfos.get()->size()));
+  for (PtTensorInfo& tInfo : *dtensorinfos) {
+    tInfo.Serialize(os);
+  }
+  serialize(os, workspace_size);
+  serialize(os, htensor_wbuff);
+  serialize(os, htensor_wbuff_size);
+  serialize(os, id);
+  serialize(os, iter_idx);
+  serialize(os, num_tinfos);
+  serialize(os, num_inputs);
+  serialize(os, num_induplicates);
+  serialize(os, num_dma_inputs);
+  serialize(os, num_shape_tensors);
+  serialize(os, num_intermediates);
+  serialize(os, num_outputs);
+  serialize(os, num_outduplicates);
+  serialize(os, num_input_to_outduplicates);
+  serialize(os, num_intermediate_to_outduplicates);
+  serialize(os, num_output_to_outduplicates);
+  serialize(os, ntensorbytes);
+  serialize(os, key);
+  serialize(os, header);
+  serialize(os, num_tensors);
+  for (size_t i = 0; i < num_tensors; i++) {
+    serialize(os, tensor_ids[i]);
+  }
+  for (size_t i = 0; i < num_tensors; i++) {
+    serialize(os, tensor_names[i]);
+  }
+
+  serialize(os, dynamic_graph);
+  serialize(os, count);
+  serialize(os, total_recipe_ntbytes);
 }
 
 void RecipeValueSpec::update_patching_table(
@@ -963,6 +1069,16 @@ void RecipeCacheLRU::add(
     std::shared_ptr<RecipeValueSpec>& val) {
   std::lock_guard<std::mutex> lg(mutex_);
 
+  insert(key, val);
+
+  if (disk_cache_) {
+    disk_cache_->Add(*val, *key);
+  }
+}
+
+void RecipeCacheLRU::insert(
+    std::shared_ptr<RecipeArgumentSpec>& key,
+    std::shared_ptr<RecipeValueSpec>& val) {
   TORCH_CHECK(
       map_.size() == list_.size(),
       "lru cache corruption, map size ",
@@ -1031,8 +1147,16 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
     list_.front().second->set_use_flag(true);
 
     return list_.front().second;
+  } else if (disk_cache_) {
+    auto val = disk_cache_->Find(*key);
+    if (val) {
+      PT_BRIDGE_DEBUG(
+          "recipe was not found in LRU cache, but was found on disk, key:",
+          key->hashCode());
+      insert(key, val);
+      return val;
+    }
   }
-
   return {nullptr};
 }
 
@@ -1104,6 +1228,27 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
   return dropped;
 }
 
+RecipeCacheLRU::RecipeCacheLRU() {
+  InitDiskCache();
+}
+
+void RecipeCacheLRU::InitDiskCache() {
+  ENV_FLAG_OVERRIDE_CUSTOM(
+      PT_RECIPE_CACHE_PATH, [this](const char* recipe_cache_path) {
+        disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+      });
+}
+
+void RecipeCacheLRU::ResetDiskCache() {
+  ENV_FLAG_OVERRIDE_CUSTOM(
+      PT_RECIPE_CACHE_PATH, [this](const char* recipe_cache_path) {
+        if (disk_cache_) {
+          disk_cache_.reset();
+        }
+        disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+      });
+}
+
 std::shared_ptr<habana_helpers::DynamicBucketInfo> DynamicBucketInfoMap::get(
     std::shared_ptr<RecipeArgumentSpec>& key) {
   std::lock_guard<std::mutex> lg(mutex_);
@@ -1118,6 +1263,75 @@ void DynamicBucketInfoMap::add(
     std::shared_ptr<habana_helpers::DynamicBucketInfo>& val) {
   std::lock_guard<std::mutex> lg(mutex_);
   map_.emplace(key, val);
+}
+
+DiskCache::DiskCache(std::string cache_path)
+    : recipe_cache_(std::move(cache_path)),
+      // TODO: add pytorch version, TICKET SW-62210
+      cache_id_suffix_(absl::StrCat(
+          "_",
+          CacheVersion::libs_env_hash(),
+          "_syn",
+          synGetVersion())) {
+  if (GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_IGNORE_VERSION)) {
+    cache_id_suffix_ = "";
+  }
+}
+
+void DiskCache::Add(
+    const RecipeValueSpec& valSpec,
+    const RecipeArgumentSpec& argSpec) // NOLINT
+{
+  std::stringstream ss;
+  valSpec.Serialize(ss);
+  auto hashCode = std::to_string(argSpec.hashCode());
+  recipe_cache_.store(
+      hashCode + cache_id_suffix_, valSpec.recipe, std::move(ss));
+  if (valSpec.recipe && !valSpec.recipe->recipe_name_.empty()) {
+    PT_BRIDGE_DEBUG(
+        "Storing in disc cache: recipe:key: ",
+        valSpec.recipe->recipe_name_,
+        ":",
+        hashCode);
+  } else {
+    PT_BRIDGE_DEBUG("Storing only metadata in disc cache, key: ", hashCode);
+  }
+
+  static const auto dump_debug_info =
+      GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_DUMP_DEBUG);
+  if (dump_debug_info) {
+    std::string hash_content_filepath = recipe_cache_.get_cache_path() + "/" +
+        hashCode + cache_id_suffix_ + "_" + valSpec.recipe->recipe_name_ +
+        ".hash_content";
+    std::ofstream hash_content_file(hash_content_filepath.c_str());
+    if (!hash_content_file.is_open()) {
+      LOG(FATAL) << "Failed to open hash content file for writing...";
+    }
+    hash_content_file << argSpec;
+    hash_content_file.close();
+  }
+}
+
+std::shared_ptr<RecipeValueSpec> DiskCache::Find(
+    const RecipeArgumentSpec& spec) {
+  std::stringstream ss;
+  auto res = recipe_cache_.lookup(
+      std::to_string(spec.hashCode()) + cache_id_suffix_, ss);
+  if (res) {
+    auto recipeValueSpec = std::make_shared<RecipeValueSpec>(ss);
+    if (*res != nullptr) {
+      if (!recipeValueSpec->recipe) {
+        PT_BRIDGE_WARN(
+            "Unexpected nullptr recipe came from cache entry for hash ",
+            std::to_string(spec.hashCode()));
+        return nullptr;
+      }
+      recipeValueSpec->recipe->syn_recipe_handle_ = *res;
+      recipeValueSpec->recipe->in_execution_phase_ = true;
+    }
+    return recipeValueSpec;
+  }
+  return nullptr;
 }
 
 } // namespace habana

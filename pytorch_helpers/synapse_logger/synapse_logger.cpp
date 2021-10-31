@@ -10,6 +10,7 @@
 #include "synapse_logger.h"
 
 #include <dlfcn.h>
+#include <link.h>
 #include <sys/time.h>
 #include <syscall.h>
 #include <unistd.h>
@@ -85,6 +86,10 @@ SynapseLogger::SynapseLogger()
   std::signal(SIGUSR1, SynapseLogger::command_signal_handler);
   lib_synapse::LoadSymbols(synapse_lib_handle_.get());
   lib_hcl::LoadSymbols(synapse_lib_handle_.get());
+  link_map* l_map = nullptr;
+  CHECK_TRUE(dlinfo(synapse_lib_handle_.get(), RTLD_DI_LINKMAP, &l_map) == 0);
+  synapse_lib_path_ = l_map->l_name;
+
   const char* c_commands = std::getenv("HBN_SYNAPSE_LOGGER_COMMANDS");
   if (c_commands != nullptr) {
     absl::string_view sv{c_commands};
@@ -385,5 +390,9 @@ bool logger_is_enabled(data_dump_category cat) {
 
 void log(absl::string_view payload) {
   logger.log(payload);
+}
+
+std::string getSynapseLibPath() {
+  return logger.getSynapseLibPath();
 }
 } // namespace synapse_logger

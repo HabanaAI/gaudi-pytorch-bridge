@@ -1,5 +1,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_serialization/deserializers.h"
+#include "habana_serialization/serializers.h"
 
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
@@ -101,6 +103,53 @@ void PtTensorInfo::update_shape_syn() {
     default:
       TORCH_CHECK(false, "Unreachable condition.");
   }
+}
+
+PtTensorInfo::PtTensorInfo(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, is_tensor_);
+  deserialize(is, is_view_tensor_);
+  deserialize(is, is_restrided_);
+  deserialize(is, offset_);
+  deserialize(is, ir_name_);
+  deserialize(is, syn_name_);
+  deserialize(is, numel_);
+  deserialize(is, size_);
+  deserialize(is, is_duplicate_);
+  deserialize(is, parent_index_);
+  deserialize(is, output_index_);
+  deserialize(is, watch_);
+  deserialize(is, shape_);
+  deserialize(is, strides_);
+  deserialize(is, mf_);
+  deserialize(is, topts_);
+  deserialize(is, tensor_type_);
+  deserialize(is, dma_tensor_idx_);
+
+  update_shape_syn(); // constructs syn_shape_ according to shape_ and
+                      // tensor_type_
+}
+
+void PtTensorInfo::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, is_tensor_);
+  serialize(os, is_view_tensor_);
+  serialize(os, is_restrided_);
+  serialize(os, offset_);
+  serialize(os, ir_name_);
+  serialize(os, syn_name_);
+  serialize(os, numel_);
+  serialize(os, size_);
+  serialize(os, is_duplicate_);
+  serialize(os, parent_index_);
+  serialize(os, output_index_);
+  serialize(os, watch_);
+  serialize(os, shape_);
+  serialize(os, strides_);
+  serialize(os, mf_);
+  serialize(os, topts_);
+  serialize(os, tensor_type_);
+  serialize(os, dma_tensor_idx_);
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {

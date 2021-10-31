@@ -110,6 +110,12 @@ struct PT_HABANA_MAX_DMA_COPY_RETRY_COUNT
   static constexpr unsigned default_value = 1000;
 };
 
+// Synapse-specific env var.
+// Colon-separated list of tpc kernel libs to be loaded for GC
+struct GC_KERNEL_PATH {
+  static constexpr const char* default_value = "";
+};
+
 struct PT_HABANA_DMA_COPY_RETRY_DELAY : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 10;
 };
@@ -240,6 +246,12 @@ struct PT_HPU_ENABLE_DEBUG_NAMES {
   static constexpr bool default_value = true;
 };
 
+// Option to save compiled recipes to disk.
+// If proper path is set, disk cache is enabled for all compiled recipes.
+struct PT_RECIPE_CACHE_PATH {
+  static constexpr const char* default_value = "";
+};
+
 // Overloads for different type of default value
 
 template <class T>
@@ -340,6 +352,19 @@ ENV_STRUCT_DEFINITION(PT_HPU_PRINT_STATS_TABLE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool, false);
 ENV_STRUCT_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_EAGER_OPTIM_CACHE, unsigned, 1);
+
+// Option to skip cache versioning mechanism.
+// This will skip the check of Libs and Env compatibility of serialized recipes
+// read from disk.
+ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_IGNORE_VERSION, bool, false);
+
+// Option to dump additional debug information to disk cache directory.
+// This works only with PT_RECIPE_CACHE_PATH set.
+// In the disk cache folder for every recipe, '<hash>.hash_content' files are
+// dumped. These files contain all the information that contribute to hash of a
+// given recipe and can be used i.e. in cases when graphs are expected to
+// produce exactly the same cache entires.
+ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_DUMP_DEBUG, bool, false);
 
 template <class T>
 T getenv_by_type_new(
