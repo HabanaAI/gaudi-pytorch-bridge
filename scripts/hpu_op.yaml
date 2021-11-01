@@ -59,6 +59,29 @@ all:
   lazy_class: LazyAll
   legacy_eager: true
 
+argmax.out:
+  custom_output_shape: ArgMinMaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16]
+  guid: argmax_fwd
+  op_base_class: ArgMinMax
+
+argmin:
+  custom_output_shape: ArgMinMaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16]
+  op_base_class: ArgMinMax
+  guid: argmin_fwd
+  lazy_class: LazyArgmin
+  out_ids: [0]
+
+argmin.out:
+  custom_output_shape: ArgMinMaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16]
+  guid: argmin_fwd
+  op_base_class: ArgMinMax
+
 asin:
   dtypes: [Float]
   guid: asin_fwd
