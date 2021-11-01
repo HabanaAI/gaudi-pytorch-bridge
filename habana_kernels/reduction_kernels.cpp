@@ -763,7 +763,6 @@ Tensor& mean_dim_out_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor output;
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
@@ -1065,7 +1064,6 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor output;
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
@@ -1164,7 +1162,6 @@ Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor output;
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
@@ -1840,7 +1837,6 @@ Tensor argmax_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor output;
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
