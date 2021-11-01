@@ -170,7 +170,10 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
         input, graph, is_persistent, shape_tensor_type);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
-  PT_BRIDGE_DEBUG("AllocateSynapseInput ", p_context_->syn_inputs_.back());
+  if (!graph.is_dry_run()) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "AllocateSynapseInput ", p_context_->syn_inputs_.back());
+  }
   p_context_->pt_inputs_.emplace_back(input);
   return p_context_->syn_inputs_.back();
 }
@@ -222,7 +225,10 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output, graph, is_persistent, DEVICE_SHAPE_TENSOR, synName));
   }
-  PT_BRIDGE_DEBUG("AllocateSynapseOutput ", p_context_->syn_outputs_.back());
+  if (!graph.is_dry_run()) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "AllocateSynapseOutput ", p_context_->syn_outputs_.back());
+  }
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -246,7 +252,10 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output, graph, is_persistent, DEVICE_SHAPE_TENSOR, synName));
   }
-  PT_BRIDGE_DEBUG("AllocateSynapseOutput ", p_context_->syn_outputs_.back());
+  if (!graph.is_dry_run()) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "AllocateSynapseOutput ", p_context_->syn_outputs_.back());
+  }
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -269,7 +278,10 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[0], graph));
-
+  if (!graph.is_dry_run()) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "AllocateSynapseInplaceOutput ", p_context_->syn_outputs_.back());
+  }
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
 }
 

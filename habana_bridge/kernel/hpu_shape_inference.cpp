@@ -25,6 +25,18 @@ void ShapeInference::Reset() {
   m_shape_info = nullptr;
 }
 
+void ShapeInference::ResetMin() {
+  m_shape_info->m_min_shapes.clear();
+}
+
+void ShapeInference::ResetMax() {
+  m_shape_info->m_max_shapes.clear();
+}
+
+void ShapeInference::ResetActual() {
+  m_shape_info->m_actual_shapes.clear();
+}
+
 std::string ShapeInference::UpdateShapeInfo(
     synapse_helpers::graph& graph,
     const std::vector<int64_t>& sizes,

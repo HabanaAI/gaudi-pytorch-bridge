@@ -62,6 +62,37 @@ enum ControlEdgeType {
 
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 
+struct DynamicShapeInfo {
+  habana_helpers::DynamicBucketInfo::InpTensorShapes act_input_tshapes;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes min_input_tshapes;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes max_input_tshapes;
+  habana_helpers::DynamicDimsPolicy min_policy;
+  habana_helpers::DynamicDimsPolicy max_policy;
+  uint64_t current_bucket_id;
+};
+
+class PassException : public std::exception {
+ public:
+  explicit PassException(
+      habana::ShapeInfo::InferencePass pass,
+      std::string message)
+      : m_pass(pass), m_message(message) {}
+
+  virtual ~PassException() = default;
+
+  const char* what() const noexcept override {
+    return m_message.c_str();
+  }
+  habana::ShapeInfo::InferencePass Pass() const {
+    return m_pass;
+  }
+
+ private:
+  habana::ShapeInfo::InferencePass m_pass =
+      habana::ShapeInfo::InferencePass::INVALID;
+  std::string m_message;
+};
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg);
@@ -169,10 +200,6 @@ class HabanaLaunchOpPT {
   size_t num_tensor_inputs{0};
 
   bool use_persistent_tensors{false};
-
-  habana_helpers::DynamicBucketInfo::InpTensorShapes act_input_tshapes;
-  habana_helpers::DynamicBucketInfo::InpTensorShapes min_input_tshapes;
-  habana_helpers::DynamicBucketInfo::InpTensorShapes max_input_tshapes;
 
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
@@ -385,8 +412,13 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       at::Tensor& pt_tensor);
   habana::ShapeInfo m_map_shape;
-  void run_shape_inference(const ShapeInfo::InferencePass& pass);
+  void run_shape_inference(
+      const ShapeInfo::InferencePass& pass,
+      DynamicShapeInfo& graph_input_info);
   void run_pass();
+  void handle_pass_exception(
+      DynamicShapeInfo& graph_input_info,
+      const PassException& e);
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,
       habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes);

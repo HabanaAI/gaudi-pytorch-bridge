@@ -48,6 +48,15 @@ using namespace torch::jit;
 
 namespace habana {
 
+#define TRY_RUN_SHAPE_INFERENCE(pass, graph_input_info) \
+  do {                                                  \
+    try {                                               \
+      run_shape_inference(pass, graph_input_info);      \
+    } catch (const PassException& e) {                  \
+      handle_pass_exception(graph_input_info, e);       \
+    }                                                   \
+  } while (0);
+
 // static initializations
 const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     // Add aten string here for ops to support
@@ -2755,10 +2764,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     DynamicBucketInfoMap::get_instance().add(rargpsh, current_dbipsh_);
   }
 
-  CreateDynamicBucketInputShapes(act_input_tshapes);
-
-  current_dbipsh_->CollectDynamicDims(act_input_tshapes);
-  current_bucket_id_ = current_dbipsh_->GetBucketId(act_input_tshapes);
+  DynamicShapeInfo graph_input_info;
+  CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
+  current_dbipsh_->CollectDynamicDims(graph_input_info.act_input_tshapes);
+  current_bucket_id_ =
+      current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
   cur_ds_token_ = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
 
   PT_DYNAMIC_SHAPE_DEBUG(
@@ -2780,10 +2790,13 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         ranges,
         "----");
 
-    min_input_tshapes.insert(
+    graph_input_info.min_input_tshapes.insert(
         ranges.min_shapes.begin(), ranges.min_shapes.end());
-    max_input_tshapes.insert(
+    graph_input_info.max_input_tshapes.insert(
         ranges.max_shapes.begin(), ranges.max_shapes.end());
+    graph_input_info.current_bucket_id = current_bucket_id_;
+    graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
+    graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
   }
 
   // Check for cached recipe
@@ -2813,10 +2826,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         // For Dynamic shapes in case of cache hit, we need to run
         // shape inference for determining the output shape and
         // persistent intermediates
-        PT_DYNAMIC_SHAPE_DEBUG("run output shape inference pass");
-        run_shape_inference(ShapeInfo::InferencePass::OUTPUT_SHAPE);
+        PT_DYNAMIC_SHAPE_DEBUG("Running output shape inference pass");
+        TRY_RUN_SHAPE_INFERENCE(
+            ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
       }
-
 
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
           std::make_shared<std::vector<IValPtrShared>>(
@@ -2855,19 +2868,43 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
     // run min shape inference pass
-    PT_BRIDGE_DEBUG("run min shape inference pass");
-    run_shape_inference(ShapeInfo::InferencePass::MIN_SHAPE);
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Running min shape inference pass with policy=",
+        graph_input_info.min_policy);
+    TRY_RUN_SHAPE_INFERENCE(
+        ShapeInfo::InferencePass::MIN_SHAPE, graph_input_info);
     // run max shape inference pass
-    PT_BRIDGE_DEBUG("run max shape inference pass");
-    run_shape_inference(ShapeInfo::InferencePass::MAX_SHAPE);
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Running max shape inference pass with policy=",
+        graph_input_info.max_policy);
+    TRY_RUN_SHAPE_INFERENCE(
+        ShapeInfo::InferencePass::MAX_SHAPE, graph_input_info);
   }
 
-  auto syn_graph =
-      habana_helpers::create_graph(device.id(), GetSynapseGraphName());
-  syn_graph.set_dynamic_graph(!ranges.empty());
   AdjustInputLayout();
-  PT_BRIDGE_DEBUG("run CompileAndExecuteHabanaFusedOpKernel");
-  CompileAndExecuteHabanaFusedOpKernel(syn_graph);
+
+  // If both min and max exists then the graph is dynamic
+  bool is_dynamic_graph = (!graph_input_info.min_input_tshapes.empty()) &&
+      (!graph_input_info.max_input_tshapes.empty());
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Running CompileAndExecuteHabanaFusedOpKernel with min{",
+      graph_input_info.min_policy,
+      "}:max{",
+      graph_input_info.max_policy,
+      "}");
+  try {
+    auto syn_graph =
+        habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+    syn_graph.set_dynamic_graph(is_dynamic_graph);
+    CompileAndExecuteHabanaFusedOpKernel(syn_graph);
+  } catch (std::exception& e) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Exception in CompileAndExecuteHabanaFusedOpKernel Details:\n",
+        e.what());
+    clear(true);
+    throw e;
+  }
+
   clear();
   PT_BRIDGE_END;
 }
@@ -3088,8 +3125,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       "JIT IR Graph ----\n");
 
   if (refine_ds_enabled_) {
-    ProcessHabanaFusedOpWithDS();
-    return;
+    try {
+      ProcessHabanaFusedOpWithDS();
+      return;
+    } catch (std::exception& e) {
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Exception in ProcessHabanaFusedOpWithDS, proceeding with static"
+          "graph compile and execution");
+    }
   }
 
   // caching :: begin
@@ -3185,7 +3228,8 @@ void HabanaLaunchOpPT::run_pass() {
 }
 
 void HabanaLaunchOpPT::run_shape_inference(
-    const ShapeInfo::InferencePass& pass) {
+    const ShapeInfo::InferencePass& pass,
+    DynamicShapeInfo& graph_input_info) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
@@ -3196,9 +3240,9 @@ void HabanaLaunchOpPT::run_shape_inference(
     old_pt_stack_sh = pt_stack_sh;
     pt_stack_sh.clear();
     if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-      new_stack = CreateStack(*pt_stack, min_input_tshapes);
+      new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
     } else {
-      new_stack = CreateStack(*pt_stack, max_input_tshapes);
+      new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
     }
     pt_stack = &new_stack;
 
@@ -3209,12 +3253,116 @@ void HabanaLaunchOpPT::run_shape_inference(
     }
   }
   m_map_shape.m_pass = pass;
-  run_pass();
+  bool throw_exception = false;
+  std::string error;
+  try {
+    run_pass();
+  } catch (std::exception& e) {
+    PT_DYNAMIC_SHAPE_DEBUG("Exception occured Details :\n", error);
+    throw_exception = true;
+    error = e.what();
+  }
 
   if (old_stack) {
     pt_stack_sh.clear();
     pt_stack = old_stack;
     pt_stack_sh = old_pt_stack_sh;
+  }
+  if (throw_exception == true) {
+    throw PassException(m_map_shape.m_pass, error);
+  }
+  PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::handle_pass_exception(
+    DynamicShapeInfo& graph_input_info,
+    const PassException& e) {
+  PT_BRIDGE_BEGIN;
+  PT_DYNAMIC_SHAPE_WARN("Exception Occured Handling .. ");
+  switch (e.Pass()) {
+    case ShapeInfo::InferencePass::MIN_SHAPE:
+      switch (graph_input_info.min_policy) {
+        case habana_helpers::DynamicDimsPolicy::HISTORIC:
+          graph_input_info.min_policy =
+              habana_helpers::DynamicDimsPolicy::CURRENT;
+          break;
+        default:
+          PT_DYNAMIC_SHAPE_WARN(
+              "Unhandled Min Policy exiting .. ", graph_input_info.min_policy);
+          throw e;
+          break;
+      }
+      break;
+    case ShapeInfo::InferencePass::MAX_SHAPE:
+      switch (graph_input_info.max_policy) {
+        case habana_helpers::DynamicDimsPolicy::CALCULATED:
+          graph_input_info.max_policy =
+              habana_helpers::DynamicDimsPolicy::CURRENT;
+          break;
+        default:
+          PT_DYNAMIC_SHAPE_WARN(
+              "Unhandled Max Policy exiting .. ", graph_input_info.max_policy);
+          throw e;
+          break;
+      }
+      break;
+    default:
+      PT_DYNAMIC_SHAPE_WARN(
+          "Output Shape exception is critical error exiting ..");
+      throw e;
+  }
+
+  // In case of both policies are Current clear ranges so that graph becomes
+  // static
+  if (graph_input_info.min_policy ==
+          habana_helpers::DynamicDimsPolicy::CURRENT &&
+      graph_input_info.max_policy ==
+          habana_helpers::DynamicDimsPolicy::CURRENT) {
+    graph_input_info.min_input_tshapes.clear();
+    graph_input_info.max_input_tshapes.clear();
+    habana::ShapeInference::Reset();
+    return;
+  }
+
+  // In case of policy changes update and get new ranges
+  current_dbipsh_->UpdateBucketingPolicy(
+      graph_input_info.current_bucket_id,
+      graph_input_info.act_input_tshapes,
+      graph_input_info.min_policy,
+      graph_input_info.max_policy);
+  auto fallback_ranges =
+      current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
+
+  // After calculating ranges reset bucket_info policy to default
+  current_dbipsh_->SetDefaultPolicy();
+
+  switch (e.Pass()) {
+    case ShapeInfo::InferencePass::MIN_SHAPE:
+      graph_input_info.min_input_tshapes.clear();
+      graph_input_info.min_input_tshapes.insert(
+          fallback_ranges.min_shapes.begin(), fallback_ranges.min_shapes.end());
+      habana::ShapeInference::ResetMin();
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Rerun min shape inference pass with policy ",
+          graph_input_info.min_policy);
+      TRY_RUN_SHAPE_INFERENCE(
+          ShapeInfo::InferencePass::MIN_SHAPE, graph_input_info);
+      break;
+    case ShapeInfo::InferencePass::MAX_SHAPE:
+      graph_input_info.max_input_tshapes.clear();
+      graph_input_info.max_input_tshapes.insert(
+          fallback_ranges.max_shapes.begin(), fallback_ranges.max_shapes.end());
+      habana::ShapeInference::ResetMax();
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Rerun max shape inference pass with policy ",
+          graph_input_info.max_policy);
+      TRY_RUN_SHAPE_INFERENCE(
+          ShapeInfo::InferencePass::MAX_SHAPE, graph_input_info);
+      break;
+    default:
+      PT_DYNAMIC_SHAPE_WARN(
+          "Output Pass exception cannot be handled exiting .. ");
+      throw e;
   }
   PT_BRIDGE_END;
 }

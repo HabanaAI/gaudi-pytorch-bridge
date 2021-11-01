@@ -424,18 +424,16 @@ bool DynamicBucketInfo::IsConsistentDynamicDimsCount() {
 bool DynamicBucketInfo::UpdateBucketingPolicy(
     uint64_t bucket_id,
     const InpTensorShapes& shapes,
-    const PadShapes& pad_shapes,
     DynamicDimsPolicy min_policy,
     DynamicDimsPolicy max_policy) {
   if (min_policy == min_policy_ && max_policy == max_policy_) {
     return false;
   } else {
-    min_policy_ =
-        min_policy == DynamicDimsPolicy::DEFAULT ? min_policy_ : min_policy;
-    max_policy_ =
-        max_policy == DynamicDimsPolicy::DEFAULT ? max_policy_ : max_policy;
+    min_policy_ = min_policy;
+    max_policy_ = max_policy;
     if (min_policy != DynamicDimsPolicy::DEFAULT ||
         max_policy != DynamicDimsPolicy::DEFAULT) {
+      const PadShapes& pad_shapes = PadShapes{};
       buckets_[bucket_id].ranges() = CalculateRanges(shapes, pad_shapes);
     }
     return true;

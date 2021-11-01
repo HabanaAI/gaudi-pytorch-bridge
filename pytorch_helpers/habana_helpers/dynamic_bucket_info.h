@@ -48,6 +48,9 @@ enum class DynamicDimsPolicy {
   CURRENT
 };
 
+const DynamicDimsPolicy default_min_policy_{DynamicDimsPolicy::HISTORIC};
+const DynamicDimsPolicy default_max_policy_{DynamicDimsPolicy::CALCULATED};
+
 template <typename T, typename A>
 inline std::ostream& operator<<(std::ostream& O, const std::vector<T, A>& V) {
   if (V.empty()) {
@@ -352,7 +355,6 @@ class Bucket {
   const DynamicDims& getDynamicDims() const {
     return dynamic_dims_;
   }
-
   // Stats related functions
   bool GetKeepRunTime() const {
     return keep_time_;
@@ -435,7 +437,6 @@ class Bucket {
 
   DynamicRanges ranges_;
   DynamicDims dynamic_dims_;
-
   std::shared_ptr<SplitStatImplBase> split_stat_impl_{nullptr};
 
   void CreateSplitStatImpl(SplitPolicy sp);
@@ -454,7 +455,7 @@ class Bucket {
 class DynamicBucketInfo {
  public:
   DynamicBucketInfo(
-      DynamicDimsPolicy min_policy = DynamicDimsPolicy::HISTORIC,
+      DynamicDimsPolicy min_policy = default_min_policy_,
       SplitPolicy sp = SplitPolicy::DYNAMIC);
 
   // using SynapseShapes = std::unordered_map<int64_t,
@@ -498,7 +499,6 @@ class DynamicBucketInfo {
   bool UpdateBucketingPolicy(
       uint64_t bucket_id,
       const InpTensorShapes& shapes,
-      const PadShapes& pad_shapes,
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy);
 
@@ -602,6 +602,22 @@ class DynamicBucketInfo {
   void SetRecipeKeyForBucket(size_t bucket_idx, size_t key) {
     buckets_.at(bucket_idx).SetRecipeKey(key);
   };
+  void SetMinPolicy(DynamicDimsPolicy policy) {
+    min_policy_ = policy;
+  }
+  void SetMaxPolicy(DynamicDimsPolicy policy) {
+    max_policy_ = policy;
+  }
+  void SetDefaultPolicy() {
+    max_policy_ = default_max_policy_;
+    min_policy_ = default_min_policy_;
+  }
+  DynamicDimsPolicy GetMinPolicy() {
+    return min_policy_;
+  }
+  DynamicDimsPolicy GetMaxPolicy() {
+    return max_policy_;
+  }
   void SetJitIRGraphPtr(std::shared_ptr<torch::jit::Graph> jirpsh) {
     jit_ir_pwk = jirpsh;
   }
@@ -650,8 +666,8 @@ class DynamicBucketInfo {
   uint64_t global_count = 0;
   InpTensorShapes shapes_;
   size_t prev_dynamic_dims_{};
-  DynamicDimsPolicy min_policy_{DynamicDimsPolicy::HISTORIC};
-  DynamicDimsPolicy max_policy_{DynamicDimsPolicy::CALCULATED};
+  DynamicDimsPolicy min_policy_{default_min_policy_};
+  DynamicDimsPolicy max_policy_{default_max_policy_};
   std::vector<std::vector<int64_t>> dim_history_;
   bool refine_enabled_ = true;
   SplitPolicy split_policy_{SplitPolicy::DEFAULT};

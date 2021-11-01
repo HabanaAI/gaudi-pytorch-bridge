@@ -53,6 +53,20 @@ class ShapeInference {
   static void Reset();
 
   /*
+   * Reset the m_shape_info->m_min_shapes structure
+   */
+  static void ResetMin();
+
+  /*
+   * Reset the m_shape_info->m_max_shapes structure
+   */
+  static void ResetMax();
+
+  /*
+   * Reset the m_shape_info->m_actual_shapes structure
+   */
+  static void ResetActual();
+  /*
    * Method to update and store the shape information for
    * specified tensor
    */
