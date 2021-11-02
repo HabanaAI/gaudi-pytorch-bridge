@@ -270,7 +270,17 @@ Tensor& set_hpu_(
     TORCH_CHECK(self_storage, "Invalid null storage");
     if (self_storage) {
       c10::raw::intrusive_ptr::incref(source_storage);
-      THTensor_stealAndSetStoragePtr(self_, source_storage);
+      AT_ASSERT(source_storage);
+
+      TORCH_CHECK(
+          self_->storage().device() == source_storage->device(),
+          "Attempted to set the storage of a tensor on device \"",
+          self_->storage().device(),
+          "\" to a storage on different device \"",
+          source_storage->device(),
+          "\".  This is no longer allowed; the devices must match.");
+      self_->set_storage_keep_dtype(
+          at::Storage(c10::intrusive_ptr<THStorage>::reclaim(source_storage)));
     } else {
       auto THHStorage_new = []() -> THStorage* {
         THStorage* storage = c10::make_intrusive<at::StorageImpl>(
@@ -281,7 +291,17 @@ Tensor& set_hpu_(
                                  .release();
         return storage;
       };
-      THTensor_stealAndSetStoragePtr(self_, THHStorage_new());
+      AT_ASSERT(THHStorage_new());
+
+      TORCH_CHECK(
+          self_->storage().device() == THHStorage_new()->device(),
+          "Attempted to set the storage of a tensor on device \"",
+          self_->storage().device(),
+          "\" to a storage on different device \"",
+          THHStorage_new()->device(),
+          "\".  This is no longer allowed; the devices must match.");
+      self_->set_storage_keep_dtype(at::Storage(
+          c10::intrusive_ptr<THStorage>::reclaim(THHStorage_new())));
     }
   }
 
