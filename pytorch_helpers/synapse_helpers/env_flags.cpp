@@ -208,7 +208,7 @@ INST_GETENV_BY_TYPE(unsigned long long, strtoull)
 namespace new_style {
 
 template <class T, class F>
-T getenv_numeric_new(
+static T getenv_numeric_new(
     const char* name,
     bool& is_cached,
     bool& is_defined,
