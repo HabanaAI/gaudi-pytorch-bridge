@@ -26,7 +26,7 @@ std::string GraphToProtoString(const GraphPtr& graph) {
       {},
       kONNXOpsetVersion,
       true,
-      ::torch::onnx::OperatorExportTypes::RAW,
+      ::torch::onnx::OperatorExportTypes::ONNX_ATEN_FALLBACK,
       true,
       true,
       {},
