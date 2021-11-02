@@ -214,7 +214,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0, 0}, {1}, 1);
   auto exp = torch::relu(exp1);
 
   auto h_in = in.to(torch::kHPU);
@@ -223,7 +223,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
 
-  auto result1 =torch::conv2d(h_in_cl, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result1 =
+      torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
 
   Tensor out = result.to(kCPU);
@@ -236,7 +237,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto exp = torch::relu(exp1);
 
   auto h_in = in.to(torch::kHPU);
@@ -247,7 +248,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
 
-  auto result1 = torch::conv2d(h_in1, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result1 =
+      torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
 
   Tensor out = result.to(kCPU);
@@ -264,11 +266,11 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW) {
   auto h_in = in.to(torch::kHPU);
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
-  auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
   Tensor out = result.to(kCPU);
   // CPU graph
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto exp = torch::relu(exp1);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -284,11 +286,11 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
   auto h_in = in.to(torch::kHPU);
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
-  auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
   // CPU graph
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -309,11 +311,11 @@ TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL) {
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
 
-  auto result = torch::conv2d(h_in1, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result = torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
   // CPU graph
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -331,11 +333,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
   auto h_in = in.to(torch::kHPU);
   // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
   auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
-  auto result = torch::conv2d(h_in_cl, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result =
+      torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
 
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -351,12 +354,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace) {
   auto h_wt = wt_hwck.to(torch::kHPU);
   auto h_in = in.to(torch::kHPU);
   // HPU graph
-  auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   torch::abs_(result);
   Tensor out = result.to(kCPU);
   // CPU graph
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
   torch::abs_(exp);
 
@@ -377,12 +380,12 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
   auto h_in1 = in1.to(torch::kHPU);
   // HPU graph
   h_in = torch::add(h_in, h_in1, 1.0);
-  auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
   // CPU graph
   in = torch::add(in, in1, 1.0);
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
   torch::abs_(exp);
 
@@ -406,7 +409,7 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF) {
   auto h_in2 = in2.to(torch::kHPU);
   // HPU graph
   // h_in = torch::add(h_in, h_in2, 1.0);
-  auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
   // CPU graph
@@ -417,7 +420,7 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF) {
       false,
       c10::MemoryFormat::ChannelsLast);
   in = torch::add(in, in2, 1.0);
-  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
   torch::abs_(exp);
 
@@ -443,14 +446,14 @@ TEST_F(GraphOptimizeTest, PermutePassTestInplace_Debug) {
 #else
   // Input permute taken care by permute pass (PASS scenerio)
   torch::leaky_relu_(h_in);
-  auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+  auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
   Tensor out = result.to(kCPU);
 #endif
 
   // CPU graph
   torch::leaky_relu_(in);
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto exp = torch::relu(exp1);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -465,7 +468,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
     auto wt = torch::randn(
         {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto exp = torch::relu(exp1);
 
     auto h_in = in.to(torch::kHPU);
@@ -474,7 +477,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     auto h_wt = wt_hwck.to(torch::kHPU);
 
-    auto result1 = torch::conv2d(h_in_cl, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result1 =
+        torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto result = torch::relu(result1);
 
     Tensor out = result.to(kCPU);
@@ -489,7 +493,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
     auto wt = torch::randn(
         {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto exp = torch::relu(exp1);
 
     auto h_in = in.to(torch::kHPU);
@@ -500,7 +504,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     auto h_wt = wt_hwck.to(torch::kHPU);
 
-    auto result1 = torch::conv2d(h_in1, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result1 =
+        torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto result = torch::relu(result1);
 
     Tensor out = result.to(kCPU);
@@ -519,11 +524,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_cache) {
     auto h_in = in.to(torch::kHPU);
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     auto h_wt = wt_hwck.to(torch::kHPU);
-    auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result1 =
+        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto result = torch::relu(result1);
     Tensor out = result.to(kCPU);
     // CPU graph
-    auto exp1 = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto exp = torch::relu(exp1);
 
     EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -541,11 +547,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky_cache) {
     auto h_in = in.to(torch::kHPU);
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     auto h_wt = wt_hwck.to(torch::kHPU);
-    auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     Tensor out = result.to(kCPU);
     // CPU graph
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
 
     EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -568,11 +575,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL_cache) {
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     auto h_wt = wt_hwck.to(torch::kHPU);
 
-    auto result = torch::conv2d(h_in1, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     Tensor out = result.to(kCPU);
     // CPU graph
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
 
     EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -592,11 +600,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace_cache) {
     auto h_in = in.to(torch::kHPU);
     // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
     auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
-    auto result = torch::conv2d(h_in_cl, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     Tensor out = result.to(kCPU);
 
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
 
     EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
@@ -614,12 +623,13 @@ TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace_cache) {
     auto h_wt = wt_hwck.to(torch::kHPU);
     auto h_in = in.to(torch::kHPU);
     // HPU graph
-    auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     torch::abs_(result);
     Tensor out = result.to(kCPU);
     // CPU graph
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
     torch::abs_(exp);
 
@@ -642,12 +652,13 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
     auto h_in1 = in1.to(torch::kHPU);
     // HPU graph
     h_in = torch::add(h_in, h_in1, 1.0);
-    auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     Tensor out = result.to(kCPU);
     // CPU graph
     in = torch::add(in, in1, 1.0);
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
     torch::abs_(exp);
 
@@ -673,7 +684,8 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF_cache) {
     auto h_in2 = in2.to(torch::kHPU);
     // HPU graph
     // h_in = torch::add(h_in, h_in2, 1.0);
-    auto result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
+    auto result =
+        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
     Tensor out = result.to(kCPU);
     // CPU graph
@@ -684,7 +696,7 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF_cache) {
         false,
         c10::MemoryFormat::ChannelsLast);
     in = torch::add(in, in2, 1.0);
-    auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
+    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
     torch::abs_(exp);
 
@@ -797,7 +809,7 @@ TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {
   auto hB = B.to(torch::kHPU);
   auto hwt = wt.to(torch::kHPU);
   auto hC = hA.reshape({1, -1, 1, 1});
-  auto hConv = torch::conv2d(hB, hwt, {}, {1}, {0}, {1}, 1);
+  auto hConv = torch::conv2d(hB, hwt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto hRelu = hConv.relu();
   auto hOut = hC * hRelu;
   auto out = hOut.to(torch::kCPU);
@@ -812,7 +824,7 @@ TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
   auto hwt = wt.to(torch::kHPU);
-  auto hConv = torch::conv2d(hB, hwt, {}, {1}, {0}, {1}, 1);
+  auto hConv = torch::conv2d(hB, hwt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto hRelu = hConv.relu();
   auto hIndex = torch::index(hRelu, {indices1, indices2});
   auto hOut = hA + hIndex;
@@ -836,8 +848,10 @@ TEST_F(GraphOptimizeTest, ConvCatConv) {
           .reshape({1, 3, 6, 5}); // nchw
   torch::Tensor tHabanaX2 = input_tensor2.to(torch::kHPU);
 
-  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, {1}, {0}, {1}, 1);
-  torch::Tensor outConv2 = torch::conv2d(tHabanaX2, tHabanaW, {}, {1}, {0}, {1}, 1);
+  torch::Tensor outConv =
+      torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+  torch::Tensor outConv2 =
+      torch::conv2d(tHabanaX2, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::Tensor catOut = torch::cat({outConv, outConv2}, 1);
 
   auto weight_tensor2 =
@@ -846,7 +860,8 @@ TEST_F(GraphOptimizeTest, ConvCatConv) {
   auto wt_hwck2 = weight_tensor2.permute({2, 3, 1, 0}).contiguous();
   torch::Tensor tHabanaW2 = wt_hwck2.to(torch::kHPU);
 
-  torch::Tensor outConv3 = torch::conv2d(catOut, tHabanaW2, {}, {1}, {0}, {1}, 1);
+  torch::Tensor outConv3 =
+      torch::conv2d(catOut, tHabanaW2, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto out = outConv3.to(torch::kCPU);
 }
 

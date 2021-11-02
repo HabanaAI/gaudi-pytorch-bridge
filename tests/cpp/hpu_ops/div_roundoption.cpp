@@ -21,7 +21,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, divroundTrueDouble) {
   GenerateInputs(2, torch::kDouble);
-  c10::optional<std::string> mode = c10::nullopt;
+  c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
   auto result = torch::div(GetHpuInput(0), GetCpuInput(1), mode);
 
@@ -30,7 +30,7 @@ TEST_F(HpuOpTest, divroundTrueDouble) {
 
 TEST_F(HpuOpTest, divroundTrueBFloat16) {
   GenerateInputs(2, torch::kBFloat16);
-  c10::optional<std::string> mode = c10::nullopt;
+  c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
   auto result = torch::div(GetHpuInput(0), GetCpuInput(1), mode);
   // TPC Kernel's precision, slightly differs fro CPU version for bfloat16
@@ -56,7 +56,7 @@ TEST_F(HpuOpTest, divroundTrueBroadcast) {
   auto B = torch::randn({1, 3});
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
-  c10::optional<std::string> mode = c10::nullopt;
+  c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
   Compare(expected, result);
@@ -72,7 +72,7 @@ TEST_F(HpuOpTest, divroundTrueTypePromoIntFloat) {
   auto B = torch::randn(tensor_size);
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
-  c10::optional<std::string> mode = c10::nullopt;
+  c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
   Compare(expected, result);

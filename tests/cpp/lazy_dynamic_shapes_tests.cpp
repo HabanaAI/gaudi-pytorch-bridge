@@ -73,10 +73,10 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
-    torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -172,10 +172,10 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
-    torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, {1});
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, {1});
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -270,11 +270,17 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
         h_weight_tensor_hwck,
         {},
         {1},
-        {0},
+        at::IntArrayRef{0},
         {1},
         1);
     torch::Tensor out_conv = torch::conv2d(
-        in_tensor.reshape({N, C, H, W}), weight_tensor, {}, {1}, {0}, {1}, 1);
+        in_tensor.reshape({N, C, H, W}),
+        weight_tensor,
+        {},
+        {1},
+        at::IntArrayRef{0},
+        {1},
+        1);
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -378,10 +384,10 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest4) {
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
-    torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -782,8 +788,8 @@ TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
         torch::randn({C, C, kW, kH}, torch::requires_grad(true));
     auto in_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
     // cpu
-    torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto cpu_out = torch::relu(out_conv);
 
     // fwd propgation
@@ -791,8 +797,8 @@ TEST_F(LazyDynamicShapesTest, DynamicConvBkwdTest) {
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor hpu_out = torch::relu(h_out_conv);
 
     // bwd propgation with dummy grad tensor
