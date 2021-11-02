@@ -27,7 +27,7 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
       const torch::Tensor& hpu_result,
       double rtol = 1e-03,
       double atol = 1e-03) const {
-    EXPECT_TRUE(hpu_result.is_habana());
+    EXPECT_TRUE(hpu_result.is_hpu());
 
     EXPECT_EQ(cpu_result.scalar_type(), hpu_result.scalar_type())
         << "exp dtype=" << cpu_result.scalar_type() << std::endl
