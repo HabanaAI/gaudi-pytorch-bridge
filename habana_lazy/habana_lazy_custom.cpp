@@ -3,20 +3,33 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/custom_op_kernel.h"
 #include "habana_kernels/lazy_kernels.h"
+#include "habana_lazy/ops/custom_op.h"
 
 namespace habana {
 namespace custom_op {
 
-at::Tensor HabanaCustomOpDescriptor::execute(
+std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
     const std::vector<c10::IValue>& inputs) {
-  // Currently supported for only single output [SW-60948]
-  if (outputs_.size() == 1) {
-    habana_lazy::LazyOp<at::Tensor> k{getSchemaName(), inputs};
-    return k.call();
-  } else {
-    HABANA_ASSERT(0 && "Custom op with multiple outputs not implemented");
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::CustomOp>(getSchemaName(), inputs);
+
+  std::vector<at::Tensor> results;
+  for (const auto& o : outputs_) {
+    // TODO: handle output size
+    auto t = inputs.at(0).toTensor();
+    auto result = habana_lazy::empty_hpu_lazy(
+        t.sizes(), t.options(), t.suggest_memory_format(), false);
+    const auto hlresult = habana_lazy::GetHbLazyTensor(result);
+    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+    out.SetNode(
+        node,
+        hlresult.GetDevice(),
+        hlresult.GetSizes(),
+        hlresult.dtype_optional(),
+        o.index);
+    results.emplace_back(result);
   }
-  return at::empty({});
+  return results;
 }
 
 std::string HabanaCustomOpDescriptor::getSchemaName() const {
@@ -33,6 +46,10 @@ unsigned HabanaCustomOpDescriptor::getInputsSize() const {
 
 unsigned HabanaCustomOpDescriptor::getOutputsSize() const {
   return outputs_.size();
+}
+
+const std::vector<OutputDesc>& HabanaCustomOpDescriptor::getOutputs() const {
+  return outputs_;
 }
 
 void registerKernel(HabanaCustomOpDescriptor& new_desc) {

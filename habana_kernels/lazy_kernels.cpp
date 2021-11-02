@@ -47,6 +47,7 @@
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/custom_op.h"
 #include "habana_lazy/ops/embedding.h"
 #include "habana_lazy/ops/embedding_bag.h"
 #include "habana_lazy/ops/hpu_input.h"

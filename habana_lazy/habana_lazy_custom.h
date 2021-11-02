@@ -45,12 +45,13 @@ class HabanaCustomOpDescriptor {
       : node_desc_(node_desc), inputs_(inputs), outputs_(outputs) {}
   HabanaCustomOpDescriptor() {}
 
-  at::Tensor execute(const std::vector<c10::IValue>& inputs);
+  std::vector<at::Tensor> execute(const std::vector<c10::IValue>& inputs);
 
   std::string getSchemaName() const;
   std::string getGuid() const;
   unsigned getInputsSize() const;
   unsigned getOutputsSize() const;
+  const std::vector<OutputDesc>& getOutputs() const;
 
  private:
   NodeDesc node_desc_;
