@@ -32,7 +32,7 @@ at::Tensor get_tensor_for_scalar(
     float alpha,
     const at::TensorOptions& options = {});
 
-void flush_op(at::TensorList tensors);
+void flush_op(at::TensorList tensors, size_t lazy_eager_key = 0);
 
 template <class F, class... Ts, std::size_t... Is>
 void for_each_in_tuple(
@@ -237,33 +237,30 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  HandleOptimizedLazyEager() {
-    std::shared_ptr<torch::jit::Graph> fast_path_jit_graph = nullptr;
-    size_t lazy_eager_key = 0;
-    if (!(std::getenv("PT_HPU_LAZY_CACHE_DISABLE"))) {
-      lazy_eager_key = calculate_optimized_lazy_eager_key();
-      PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
-      if (lazy_eager_key != 0) {
-        fast_path_jit_graph =
-            habana_lazy::FastLazyGraphCache::GetFastLazyCache()
-                .GetOptimizedJITGraph(lazy_eager_key);
-      }
-    }
+  HandleLazy(size_t lazy_eager_key = 0) {
+    const auto& node = create_node();
+    const auto& result = get_result();
+    auto hl_result = GetHbLazyTensor(result);
+    ir::Value& out = hl_result.CurrentIrValue();
+    out.SetNode(
+        node,
+        hl_result.GetDevice(),
+        hl_result.GetSizes(),
+        hl_result.dtype_optional());
+    updateDstDependencies(hl_result, result, false);
+    flush_op(result, lazy_eager_key);
+    return result;
+  }
 
-    if (fast_path_jit_graph == nullptr) {
-      const auto& node = create_node();
-      const auto& result = get_result();
-      auto hl_result = GetHbLazyTensor(result);
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
-      updateDstDependencies(hl_result, result, false);
-      std::vector<HbLazyTensor> hl_tensors = {hl_result};
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors, lazy_eager_key);
-      return result;
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
+  HandleOptimizedLazyEager() {
+    size_t lazy_eager_key = 0;
+    bool IsOptimizedLazyEagerCached =
+        calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
+
+    if (IsOptimizedLazyEagerCached == false) {
+      return HandleLazy(lazy_eager_key);
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       const auto& result = get_result();
@@ -285,18 +282,7 @@ class LazyOp {
       return (HandleOptimizedLazyEager());
     }
 
-    const auto& node = create_node();
-    const auto& result = get_result();
-    auto hl_result = GetHbLazyTensor(result);
-    ir::Value& out = hl_result.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_result.GetDevice(),
-        hl_result.GetSizes(),
-        hl_result.dtype_optional());
-    updateDstDependencies(hl_result, result, false);
-    flush_op(result);
-    return result;
+    return HandleLazy();
   }
 
   bool is_inplace(at::Symbol symbol) {
@@ -324,8 +310,8 @@ class LazyOp {
 
   // For inplace/out variants
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
-      at::Tensor& self) {
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
+  HandleLazy(at::Tensor& self, size_t lazy_eager_key = 0) {
     auto hl_self = GetHbLazyTensor(self);
     // skip ctrl edges for inplace
     // TODO do the same for out variants
@@ -356,8 +342,58 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-    flush_op(self);
+    flush_op(self, lazy_eager_key);
     return self;
+  }
+
+  // For inplace/out variants
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
+  HandleOptimizedLazyEager(at::Tensor& self) {
+    size_t lazy_eager_key = 0;
+    bool IsOptimizedLazyEagerCached =
+        calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
+
+    if (IsOptimizedLazyEagerCached == false) {
+      return HandleLazy(self, lazy_eager_key);
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      auto hl_self = GetHbLazyTensor(self);
+      // numel == 0 is the correct check, need the size check until pytorch
+      // fixes
+      // it properly
+      // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
+      auto out_shape = m_out_shapes.empty()
+          ? get_inputs().at(m_out_index).toTensor().sizes().vec()
+          : m_out_shapes[0];
+      if (self.sizes() != out_shape) {
+        auto impl = hl_self.getAttachedTensorImpl();
+        THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
+        self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+      }
+      auto context = habana_lazy_executor.getDeviceExecutionContext();
+      context->MarkTensorStatus(
+          hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+      std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+      std::vector<HbLazyTensor> hl_tensors = {hl_self};
+      HbLazyTensor::SyncTensorsGraphFast(
+          &hl_tensors, input_values, lazy_eager_key);
+      return self;
+    }
+  }
+
+  // For inplace/out variants
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
+      at::Tensor& self) {
+    PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+      return (HandleOptimizedLazyEager(self));
+    }
+
+    return HandleLazy(self);
   }
 
   template <typename T = ReturnType>
@@ -678,6 +714,21 @@ class LazyOp {
     }
 
     return optimized_key;
+  }
+
+  bool calculate_key_and_check_optimized_lazy_eager_cache(
+      size_t& lazy_eager_key) {
+    bool IsCached = false;
+    if (!(std::getenv("PT_HPU_LAZY_CACHE_DISABLE"))) {
+      lazy_eager_key = calculate_optimized_lazy_eager_key();
+      PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
+      if (lazy_eager_key != 0) {
+        IsCached = habana_lazy::FastLazyGraphCache::GetFastLazyCache().IsCached(
+            lazy_eager_key);
+      }
+    }
+
+    return IsCached;
   }
 
   std::vector<ir::Value> prepare_lazy_eager_input_values() {

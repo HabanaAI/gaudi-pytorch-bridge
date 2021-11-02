@@ -257,10 +257,10 @@ void HlExec::GetOrCreate(
   }
 
   if (optimized_lazy_eager_key != 0) {
-    std::shared_ptr<torch::jit::Graph> fast_path_jit_graph =
-        habana_lazy::FastLazyGraphCache::GetFastLazyCache()
-            .GetOptimizedJITGraph(optimized_lazy_eager_key);
-    if (fast_path_jit_graph == nullptr) {
+    bool IsOptimizedLazyEagerCached =
+        habana_lazy::FastLazyGraphCache::GetFastLazyCache().IsCached(
+            optimized_lazy_eager_key);
+    if (IsOptimizedLazyEagerCached == false) {
       FastLazyGraphCache::GetFastLazyCache().Add(
           optimized_lazy_eager_key, mp_g_);
       PT_LAZY_DEBUG(

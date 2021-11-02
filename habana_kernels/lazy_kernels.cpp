@@ -123,7 +123,7 @@ void flushWithMarkStep() {
 
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
-void flush_op(at::TensorList tensors) {
+void flush_op(at::TensorList tensors, size_t lazy_eager_key) {
   const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   DebugHelper::getInstance().incrementAccumulatedOps();
@@ -134,7 +134,7 @@ void flush_op(at::TensorList tensors) {
     for (const auto& t : tensors) {
       hl_tensors.push_back(GetHbLazyTensor(t));
     }
-    HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    HbLazyTensor::SyncTensorsGraph(&hl_tensors, lazy_eager_key);
   } else if (m_random_flush) {
     flushWithMarkStep();
   } else if (DebugHelper::getInstance().isExceededMaxAccumlatedSize()) {
@@ -1756,7 +1756,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   ir::NodePtr node = std::make_shared<ir::EmbeddingBagSumBwd>(
       out, input, indices, offsets, valid_count, kernel_mode);
   LazyOp<at::Tensor&, ir::EmbeddingBagSumBwd> op(
-      node, {out, input, indices, valid_count, kernel_mode});
+      node, {out, input, indices, offsets, valid_count, kernel_mode});
   return op.call(out);
 }
 
