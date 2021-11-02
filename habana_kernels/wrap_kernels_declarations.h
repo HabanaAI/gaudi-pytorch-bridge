@@ -51,6 +51,14 @@ struct hpu_wrap {
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory);
   static at::Tensor& fill_(at::Tensor& self, const at::Scalar& value);
+  static at::Tensor _to_copy(
+      const at::Tensor& self,
+      c10::optional<at::ScalarType> dtype,
+      c10::optional<at::Layout> layout,
+      c10::optional<at::Device> device,
+      c10::optional<bool> pin_memory,
+      bool non_blocking,
+      c10::optional<at::MemoryFormat> memory_format);
   static at::Tensor& copy_(
       at::Tensor& self,
       const at::Tensor& src,
