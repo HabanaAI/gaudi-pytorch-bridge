@@ -1738,7 +1738,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   }
   torch::jit::Operator jit_op = node->getOperator();
   // auto offset =
-  jit_op.getOperation()(&stack);
+  jit_op.getOperation()(stack);
 
   // TORCH_CHECK(offset == 0);
 
