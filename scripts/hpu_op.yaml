@@ -1,25 +1,3 @@
-_cumprod:
-  custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
-  guid: cumprod_fwd
-  out_ids: [0]
-
-_cumprod.out:
-  custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
-  guid: cumprod_fwd
-
-_cumsum:
-  custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
-  guid: cumsum_fwd
-  out_ids: [0]
-
-_cumsum.out:
-  custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
-  guid: cumsum_fwd
-
 abs.out:
   dtypes: [BFloat16, Float]
   guid: abs_fwd

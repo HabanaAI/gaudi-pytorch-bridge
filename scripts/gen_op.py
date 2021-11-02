@@ -750,7 +750,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     lazyop_call_args = ""
     if len(call_args):
         lazyop_call_args = "{}".format(", ".join(call_args))
-        if type_core(tree.children[0]) == "std::tuple":
+        if type_core(tree.children[0]) == "::std::tuple":
             lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
 
     lazy_code += lazyop(

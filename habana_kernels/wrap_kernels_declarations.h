@@ -67,7 +67,7 @@ struct hpu_wrap {
       at::IntArrayRef size,
       at::IntArrayRef stride);
   static at::Tensor& zero_(at::Tensor& self);
-  static std::tuple<at::Tensor, at::Tensor> sort(
+  static ::std::tuple<at::Tensor, at::Tensor> sort(
       const at::Tensor& self,
       int64_t dim,
       bool descending);
@@ -194,7 +194,7 @@ struct hpu_wrap {
       bool transposed,
       at::IntArrayRef output_padding,
       int64_t groups);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor>
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
   convolution_backward_overrideable(
       const at::Tensor& grad_output,
       const at::Tensor& input,
@@ -205,7 +205,7 @@ struct hpu_wrap {
       bool transposed,
       at::IntArrayRef output_padding,
       int64_t groups,
-      std::array<bool, 3> output_mask);
+      ::std::array<bool, 3> output_mask);
   static at::Tensor constant_pad_nd(
       const at::Tensor& self,
       at::IntArrayRef pad,
@@ -347,7 +347,7 @@ struct hpu_wrap {
       const at::Tensor& condition,
       const at::Tensor& self,
       const at::Tensor& other);
-  static std::tuple<at::Tensor, at::Tensor> nll_loss_forward(
+  static ::std::tuple<at::Tensor, at::Tensor> nll_loss_forward(
       const at::Tensor& self,
       const at::Tensor& target,
       const c10::optional<at::Tensor>& weight_opt,
@@ -361,7 +361,7 @@ struct hpu_wrap {
       int64_t reduction,
       int64_t ignore_index,
       const at::Tensor& total_weight);
-  static std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward(
+  static ::std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward(
       const at::Tensor& self,
       const at::Tensor& target,
       const c10::optional<at::Tensor>& weight_opt,
@@ -412,7 +412,7 @@ struct hpu_wrap {
       const c10::optional<at::Tensor>& weight,
       const c10::optional<at::Tensor>& pos_weight,
       int64_t reduction);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor> native_batch_norm(
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> native_batch_norm(
       const at::Tensor& input,
       const c10::optional<at::Tensor>& weight_opt,
       const c10::optional<at::Tensor>& bias_opt,
@@ -421,7 +421,7 @@ struct hpu_wrap {
       bool training,
       double momentum,
       double eps);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor>
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
   native_batch_norm_backward(
       const at::Tensor& grad_out,
       const at::Tensor& input,
@@ -432,14 +432,14 @@ struct hpu_wrap {
       const c10::optional<at::Tensor>& save_invstd_opt,
       bool train,
       double eps,
-      std::array<bool, 3> output_mask);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor> native_layer_norm(
+      ::std::array<bool, 3> output_mask);
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> native_layer_norm(
       const at::Tensor& input,
       at::IntArrayRef normalized_shape,
       const c10::optional<at::Tensor>& weight,
       const c10::optional<at::Tensor>& bias,
       double eps);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor>
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
   native_layer_norm_backward(
       const at::Tensor& grad_out,
       const at::Tensor& input,
@@ -448,7 +448,7 @@ struct hpu_wrap {
       const at::Tensor& rstd,
       const c10::optional<at::Tensor>& weight,
       const c10::optional<at::Tensor>& bias,
-      std::array<bool, 3> output_mask);
+      ::std::array<bool, 3> output_mask);
   static at::Tensor norm(const at::Tensor& self, const at::Scalar& p = 2);
   static at::Tensor norm(
       const at::Tensor& self,
@@ -471,7 +471,7 @@ struct hpu_wrap {
       double momentum,
       double eps,
       bool cudnn_enabled);
-  static std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
+  static ::std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
       const at::Tensor& input,
       at::IntArrayRef kernel_size,
       at::IntArrayRef stride,
@@ -544,7 +544,7 @@ struct hpu_wrap {
       at::Tensor& self,
       double p,
       c10::optional<at::Generator> gen);
-  static std::tuple<at::Tensor, at::Tensor> _fused_dropout(
+  static ::std::tuple<at::Tensor, at::Tensor> _fused_dropout(
       const at::Tensor& self,
       double p,
       c10::optional<at::Generator> gen);
@@ -594,12 +594,12 @@ struct hpu_wrap {
       const at::Tensor& self,
       c10::optional<int64_t> dim,
       bool keepdim);
-  static std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2(
+  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2(
       const at::Tensor& self,
       bool sorted,
       bool return_inverse,
       bool return_counts);
-  static std::tuple<at::Tensor, at::Tensor> max(
+  static ::std::tuple<at::Tensor, at::Tensor> max(
       const at::Tensor& self,
       int64_t dim,
       bool keepdim);
@@ -632,7 +632,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef size,
       bool implicit);
-  static std::vector<at::Tensor> split_with_sizes(
+  static ::std::vector<at::Tensor> split_with_sizes(
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
       int64_t dim);
@@ -640,7 +640,7 @@ struct hpu_wrap {
       const at::Tensor& grad_output,
       const at::Tensor& self,
       const at::Scalar& threshold);
-  static std::tuple<at::Tensor&, at::Tensor&> topk_out(
+  static ::std::tuple<at::Tensor&, at::Tensor&> topk_out(
       const at::Tensor& self,
       int64_t k,
       int64_t dim_,
@@ -648,7 +648,7 @@ struct hpu_wrap {
       bool sorted,
       at::Tensor& values,
       at::Tensor& indices);
-  static std::tuple<at::Tensor, at::Tensor> topk(
+  static ::std::tuple<at::Tensor, at::Tensor> topk(
       const at::Tensor& self,
       int64_t k,
       int64_t dim,
@@ -767,7 +767,7 @@ struct hpu_wrap {
   static at::Tensor& log_(at::Tensor& self);
   static at::Tensor log2(const at::Tensor& self);
   static at::Tensor& log2_(at::Tensor& self);
-  static std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
+  static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
   static at::Tensor stack(at::TensorList tensors, int64_t dim);
   static at::Tensor alias(const at::Tensor& self);
   static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
@@ -783,7 +783,7 @@ struct hpu_wrap {
       at::IntArrayRef stride,
       c10::optional<int64_t> storage_offset);
 
-  static std::vector<at::Tensor> split(
+  static ::std::vector<at::Tensor> split(
       const at::Tensor& self,
       int64_t split_size,
       int64_t dim);

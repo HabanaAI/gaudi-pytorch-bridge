@@ -426,8 +426,6 @@ TEST_F(GenOps, Fns) {
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t, torch::optional<torch::ScalarType>)>(torch::cumprod));
   TestFn(torch::ceil);
   TestFn(torch::cos);
-  TestFn(torch::_cumprod);
-  TestFn(torch::_cumsum);
   TestFn(torch::exp2);
   TestInplace(torch::asin_);
   TestInplace(torch::ceil_);
@@ -465,8 +463,6 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::ceil_outf);
   TestOut(torch::cosh_outf);
   TestOut(torch::cos_outf);
-  TestOut(torch::_cumprod_outf);
-  TestOut(torch::_cumsum_outf);
   TestOut(torch::elu_outf, /*alpha*/0.001, /*scale*/1, /*input_scale*/1);
   TestOut(torch::erf_outf);
   TestOut(torch::exp2_outf);
