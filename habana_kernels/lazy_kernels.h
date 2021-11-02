@@ -491,51 +491,10 @@ class LazyOp {
       } else if (input.isTensor()) {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
-          if (t.device().type() != c10::DeviceType::HPU) {
-            // DMA is default because aten schema may not be happy for most ops
-            if (m_convert_wrapped_tensor_to_scalar) {
-              auto val = GetIrValueForScalar(t.item());
-              values.emplace_back(val);
-            } else {
-              at::Tensor tinput;
-              // If the CPU tensor is a wrapped number, then use
-              // get_tensor_for_scalar method to retrieve cached HPU tensors for
-              // the scalar value
-              if ((t.device().type() == c10::DeviceType::CPU)
-                  // is_wrapped_number: True if a tensor was auto-wrapped from a
-                  // C++ or Python number.
-                  && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
-                // Set the dtype for the HPU tensor.
-                //   Double : Float
-                //   Long : Int
-                //   Everything else is passed with the dtype of CPU tensor
-                at::TensorOptions topt = {};
-                auto dtype = t.scalar_type();
-                switch (dtype) {
-                  case at::ScalarType::Double:
-                    topt = at::TensorOptions().dtype(at::ScalarType::Float);
-                    break;
-                  case at::ScalarType::Long:
-                    topt = at::TensorOptions().dtype(at::ScalarType::Int);
-                    break;
-                  default:
-                    topt = at::TensorOptions().dtype(dtype);
-                    break;
-                }
-                tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
-              } else {
-                // Use non_blocking .to()
-                tinput = t.to(c10::kHPU, true);
-              }
-              auto val = GetHbLazyTensor(tinput).GetIrValue();
-              values.emplace_back(val);
-              input_pt_vec.emplace_back(tinput);
-            }
-          } else {
-            auto val = GetHbLazyTensor(t).GetIrValue();
-            values.emplace_back(val);
-            input_pt_vec.emplace_back(t);
-          }
+          HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+          auto val = GetHbLazyTensor(t).GetIrValue();
+          values.emplace_back(val);
+          input_pt_vec.emplace_back(t);
         } else {
           metadata.set(torch::jit::IValue(), i);
         }
@@ -598,7 +557,45 @@ class LazyOp {
   }
 
   void set_inputs(const std::vector<at::IValue>& inputs) {
-    m_inputs = inputs;
+    auto inputsHpu = inputs;
+    for (auto& t : inputsHpu) { // Any tensor on CPU needs to be moved to HPU
+      if (t.isTensor() && t.toTensor().defined() &&
+          t.toTensor().device().type() != c10::DeviceType::HPU) {
+        const at::Tensor& tensor = t.toTensor();
+        at::Tensor tinput;
+        // If the CPU tensor is a wrapped number, then use
+        // get_tensor_for_scalar method to retrieve cached HPU tensors for
+        // the scalar value
+        if (!IsConvertWrappedTensorToScalar() &&
+            tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+          // is_wrapped_number: True if a tensor was auto-wrapped from a
+          // C++ or Python number.
+          // Set the dtype for the HPU tensor.
+          //   Double : Float
+          //   Long : Int
+          //   Everything else is passed with the dtype of CPU tensor
+          at::TensorOptions topt = {};
+          auto dtype = tensor.scalar_type();
+          switch (dtype) {
+            case at::ScalarType::Double:
+              topt = at::TensorOptions().dtype(at::ScalarType::Float);
+              break;
+            case at::ScalarType::Long:
+              topt = at::TensorOptions().dtype(at::ScalarType::Int);
+              break;
+            default:
+              topt = at::TensorOptions().dtype(dtype);
+              break;
+          }
+          tinput = get_tensor_for_scalar(tensor.item().toFloat(), topt);
+        } else {
+          // Use non_blocking .to()
+          tinput = tensor.to(c10::kHPU, true);
+        }
+        t = c10::IValue(tinput);
+      }
+    }
+    m_inputs = inputsHpu;
   }
 
   const std::vector<std::vector<int64_t>>& get_out_shapes() const {
@@ -817,16 +814,6 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     auto inputs = LazyOp<T>::get_inputs();
 
-    if (!LazyOp<T>::IsConvertWrappedTensorToScalar()) {
-      for (auto& t : inputs) { // Any tensor on CPU needs to be moved to HPU
-                               // for type promotion to work
-        if (t.isTensor() &&
-            t.toTensor().device().type() != c10::DeviceType::HPU) {
-          auto h_tensor = t.toTensor().to(c10::kHPU);
-          t = c10::IValue(h_tensor);
-        }
-      }
-    }
     int pos = -1;
     c10::ScalarType dst_dtype = c10::ScalarType::Float;
     habana_helpers::type_promotion_for_two_tensor_inputs(
