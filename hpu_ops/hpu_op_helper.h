@@ -174,7 +174,8 @@ class HabanaOperatorHelper : public HabanaOperator {
       const at::Scalar& val,
       const at::IntArrayRef constant_outshape = 1,
       bool persistent = false,
-      bool final_node = false);
+      bool final_node = false,
+      c10::optional<at::ScalarType> force_type = c10::nullopt);
 
   virtual void AddNode(
       synapse_helpers::graph&,

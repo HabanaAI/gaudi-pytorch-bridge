@@ -238,9 +238,19 @@ synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
     const at::Scalar& val,
     const at::IntArrayRef constant_outshape,
     bool persistent,
-    bool final_node) {
-  const at::ScalarType& valtype = val.type();
+    bool final_node,
+    c10::optional<at::ScalarType> force_type) {
+  const at::ScalarType& valtype =
+      force_type.has_value() ? force_type.value() : val.type();
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+      at::canCast(val.type(), valtype),
+      "ConstantHelper cannot cast ",
+      val.type(),
+      " to ",
+      valtype);
+
   PARAMS_STUB_VARS(ns_ConstantKernel::Params, size, params);
+
   if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
     get<int>(params->constant) = val.to<int>();
   } else {
