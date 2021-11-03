@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <perf_lib_layer_params.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
@@ -19,6 +20,7 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
   LazyCustomKernelKernelTest() {
     register_custom_add();
     register_custom_gelu();
+    register_custom_topk();
   }
 
  private:
@@ -36,7 +38,11 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
     std::vector<habana::custom_op::OutputDesc> outputs_desc{output_desc};
     // acctual register
     REGISTER_CUSTOM_OP_ATTRIBUTES(
-        "custom_op::custom_add", "add_fwd_f32", inputs_desc, outputs_desc);
+        "custom_op::custom_add",
+        "add_fwd_f32",
+        inputs_desc,
+        outputs_desc,
+        nullptr);
   }
 
   void register_custom_gelu() {
@@ -52,36 +58,107 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
         output_desc, output_desc_2};
     // acctual register
     REGISTER_CUSTOM_OP_ATTRIBUTES(
-        "custom_op::custom_gelu", "gelu_fwd_f32", inputs_desc, outputs_desc);
+        "custom_op::custom_gelu",
+        "gelu_fwd_f32",
+        inputs_desc,
+        outputs_desc,
+        nullptr);
+  }
+
+  void register_custom_topk() {
+    // Registering ustom_op::custom_add
+    // inputs desc
+    habana::custom_op::InputDesc input_a_desc{
+        habana::custom_op::input_type::TENSOR, 0};
+    habana::custom_op::InputDesc input_b_desc{
+        habana::custom_op::input_type::USER_PARAMS, 1};
+    habana::custom_op::InputDesc input_c_desc{
+        habana::custom_op::input_type::USER_PARAMS, 2};
+    habana::custom_op::InputDesc input_d_desc{
+        habana::custom_op::input_type::USER_PARAMS, 3};
+    std::vector<habana::custom_op::InputDesc> inputs_desc{
+        input_a_desc, input_b_desc, input_c_desc, input_d_desc};
+
+    // output desc
+    // output shape callback
+    auto output_size_lambda =
+        [](const at::Stack& inputs) -> std::vector<int64_t> {
+      auto self = inputs[0].toTensor(); // input
+      auto k = inputs[1].toInt(); // k
+      auto dim = inputs[2].toInt(); // dim
+      std::vector<int64_t> result_sizes = self.sizes().vec();
+      if (result_sizes.size() > 0) {
+        result_sizes[dim] = k;
+      }
+      return result_sizes;
+    };
+    habana::custom_op::OutputDesc output_desc{
+        0, c10::ScalarType::Float, output_size_lambda};
+    habana::custom_op::OutputDesc output_desc_2{
+        1, c10::ScalarType::Long, output_size_lambda};
+    std::vector<habana::custom_op::OutputDesc> outputs_desc{
+        output_desc, output_desc_2};
+
+    // user param callback
+    auto user_params_lambda = [](const at::Stack& inputs, size_t& size) {
+      HPU_PARAMS_STUB(synBeamParams);
+      auto self = inputs[0].toTensor(); // input
+      params->bsw = inputs[1].toInt(); // k
+      auto dim = inputs[2].toInt(); // axis
+      params->axis = self.dim() - dim - 1;
+      params->bottomK = inputs[3].toBool(); // bottom
+      return params;
+    };
+
+    // acctual register
+    REGISTER_CUSTOM_OP_ATTRIBUTES(
+        "custom_op::custom_topk",
+        "topk",
+        inputs_desc,
+        outputs_desc,
+        user_params_lambda);
   }
 };
 
-std::vector<at::Tensor> custom_add_execute(
-    torch::Tensor input_a,
-    torch::Tensor input_b) {
+at::Tensor custom_add_execute(torch::Tensor input_a, torch::Tensor input_b) {
   std::vector<c10::IValue> inputs{input_a, input_b};
   auto op_desc =
       habana::KernelRegistry().get_custom_op_desc("custom_op::custom_add");
   std::vector<at::Tensor> output = op_desc.execute(inputs);
-  return output;
+  return output[0];
 }
 
-std::vector<at::Tensor> custom_gelu_execute(torch::Tensor input_a) {
+at::Tensor custom_gelu_execute(torch::Tensor input_a) {
   std::vector<c10::IValue> inputs{input_a};
   auto op_desc =
       habana::KernelRegistry().get_custom_op_desc("custom_op::custom_gelu");
   std::vector<at::Tensor> output = op_desc.execute(inputs);
-  return output;
+  return output[0];
+}
+
+std::tuple<at::Tensor, at::Tensor> custom_topk_execute(
+    torch::Tensor input_a,
+    at::Scalar k,
+    at::Scalar axis,
+    bool bottom) {
+  std::vector<c10::IValue> inputs{input_a, k, axis, bottom};
+  auto op_desc =
+      habana::KernelRegistry().get_custom_op_desc("custom_op::custom_topk");
+  std::vector<at::Tensor> output = op_desc.execute(inputs);
+  return {output[0], output[1]};
 }
 
 TORCH_LIBRARY(custom_op, m) {
-  m.def("custom_add(Tensor self, Tensor other) -> Tensor[]");
-  m.def("custom_gelu(Tensor self) -> Tensor[]");
+  m.def("custom_add(Tensor self, Tensor other) -> Tensor");
+  m.def("custom_gelu(Tensor self) -> Tensor");
+  m.def(
+      "custom_topk(Tensor self, Scalar k, Scalar axis, bool bottom) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(custom_op, HPU, m) {
   m.impl("custom_add", custom_add_execute);
   m.impl("custom_gelu", custom_gelu_execute);
+  m.impl("custom_topk", custom_topk_execute);
 }
 
 TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
@@ -94,8 +171,8 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
   torch::Tensor input_a = input_a_cpu.to(torch::kHPU);
   torch::Tensor input_b = input_b_cpu.to(torch::kHPU);
 
-  std::vector<at::Tensor> result = custom_add_execute(input_a, input_b);
-  auto hl_result = GetHbLazyTensor(result.at(0));
+  at::Tensor result = custom_add_execute(input_a, input_b);
+  auto hl_result = GetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -114,8 +191,8 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
       .check("custom_op::custom_add")
       ->run(*hlexec->get_graph());
 
-  bool equal = results_cpu.allclose(result.at(0).to(torch::kCPU), 0, 0);
-  EXPECT_EQ(equal, true);
+  bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
+  EXPECT_TRUE(equal);
 }
 
 TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
@@ -125,8 +202,8 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
 
   torch::Tensor results_cpu = torch::nn::functional::gelu(input_a);
 
-  std::vector<at::Tensor> result = custom_gelu_execute(input_a);
-  auto hl_result = GetHbLazyTensor(result.at(0));
+  at::Tensor result = custom_gelu_execute(input_a);
+  auto hl_result = GetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -145,6 +222,23 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
       .check("custom_op::custom_gelu")
       ->run(*hlexec->get_graph());
 
-  bool equal = results_cpu.allclose(result.at(0).to(torch::kCPU), 0, 0);
-  EXPECT_EQ(equal, true);
+  bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
+  EXPECT_TRUE(equal);
+}
+
+TEST_F(LazyCustomKernelKernelTest, ShapeInference) {
+  torch::Tensor input_cpu = torch::randn({6, 6}, torch::dtype(torch::kFloat));
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  int k = 3;
+  auto results_cpu = input_cpu.topk(k);
+  auto results_habana = custom_topk_execute(input_hpu, k, 1, false);
+
+  bool equal = std::get<0>(results_cpu)
+                   .allclose(std::get<0>(results_habana).to(torch::kCPU), 0, 0);
+  bool equal_indices =
+      std::get<1>(results_cpu)
+          .allclose(std::get<1>(results_habana).to(torch::kCPU), 0, 0);
+  EXPECT_TRUE(equal);
+  EXPECT_TRUE(equal_indices);
 }

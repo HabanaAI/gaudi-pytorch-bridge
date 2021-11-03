@@ -30,8 +30,10 @@ class CustomOp : public ir::Node {
         auto lazy_input = habana_lazy::GetHbLazyTensor(input.toTensor());
         AddInput(lazy_input.GetIrValue());
         input_pt_vec.emplace_back(input.toTensor());
+      } else if (input.isScalar()) {
+        AddInput(GetIrValueForScalar(input.toScalar()));
       } else {
-        TORCH_CHECK(false, "Custom op supports only Tensor inputs");
+        TORCH_CHECK(false, "Custom op supports only tensor & scalars inputs");
       }
     }
     AddInputPtTensors(input_pt_vec);

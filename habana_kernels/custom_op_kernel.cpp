@@ -38,22 +38,32 @@ void CustomOperator::AllocateAndAddSynapseNode(
       "AllocateAndAddSynapseNode for multiple outputs count doesn't match, CustomOperator: ",
       op_desc_.getSchemaName());
 
-  // TODO: calculate output shape [SW-60955]
   auto self = inputs[0].toTensor();
 
   auto outputs_desc = op_desc_.getOutputs();
   for (unsigned i = 0; i < op_desc_.getOutputsSize(); ++i) {
+    std::vector<int64_t> result_sizes = self.sizes().vec();
+    if (op_desc_.hasOutputShapeFunc(i)) {
+      custom_op::compute_output_shape_function output_shape_func =
+          op_desc_.getOutputShapeFunc(i);
+      result_sizes = output_shape_func(inputs);
+    }
     auto output = habana_helpers::createPTTensor(
         self,
-        self.sizes(),
-        self.options(),
+        result_sizes,
+        self.options().dtype(outputs_desc[i].dtype),
         self.suggest_memory_format(),
         is_output_persistent[i]);
     AllocateSynapseOutput(graph, output, is_output_persistent[i]);
   }
 
-  // TODO: handle user params [SW-61272]
-  AddNodeToSynapseGraph(graph, nullptr, 0);
+  std::shared_ptr<void> params = nullptr;
+  size_t params_size = 0;
+  if (op_desc_.hasUserParamsFunc()) {
+    auto params_alloc_func = op_desc_.getUserParamsAllocFunc();
+    params = params_alloc_func(inputs, params_size);
+  }
+  AddNodeToSynapseGraph(graph, params.get(), params_size);
 }
 
 } // namespace habana
