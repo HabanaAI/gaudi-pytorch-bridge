@@ -874,6 +874,23 @@ mv.out:
   guid: mv
   op_base_class: MvOpOut
 
+nansum:
+  custom_output_shape: NanSumOutputShape
+  dtypes: [Float]
+  op_base_class: Nansum
+  out_ids: [0]
+
+nansum.dim_IntList:
+  custom_output_shape: NanSumIntListOutputShape
+  dtypes: [Float]
+  op_base_class: NansumList
+  out_ids: [0]
+
+nansum.IntList_out:
+  custom_output_shape: NanSumIntListOutputShape
+  dtypes: [Float]
+  op_base_class: NansumList
+
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Byte, Char]
