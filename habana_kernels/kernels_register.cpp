@@ -4526,6 +4526,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
   m.def("view(Tensor input, Tensor shape) -> (Tensor)");
+  m.def(
+      "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

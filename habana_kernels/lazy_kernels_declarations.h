@@ -639,12 +639,13 @@ at::Tensor empty_hpu_lazy(
     const at::TensorOptions& options,
     c10::optional<at::MemoryFormat> optional_memory_format,
     bool create_storage = true,
-    synTensorType shape_tensor = DATA_TENSOR);
+    synTensorType tensor_type = DATA_TENSOR);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     const at::TensorOptions& options,
-    bool create_storage = true);
+    bool create_storage = true,
+    synTensorType tensor_type = DATA_TENSOR);
 
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,

@@ -4225,10 +4225,11 @@ Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options,
-    bool create_storage) {
+    bool create_storage,
+    synTensorType tensor_type) {
   PT_LAZY_TRACE;
   at::Tensor empty_tensor =
-      empty_hpu_lazy(size, options, c10::nullopt, create_storage);
+      empty_hpu_lazy(size, options, c10::nullopt, create_storage, tensor_type);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
   if (empty_tensor.device().type() != c10::DeviceType::HPU)
@@ -4476,7 +4477,6 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   auto size = size_in;
   std::vector<int64_t> initvec{1};
   size = (size_in.vec().size() == 0) ? initvec : size_in;
-  ir::NodePtr node = std::make_shared<ir::Expand>(self, size, implicit);
 
   std::vector<int64_t> expandedSizes;
   std::vector<int64_t> expandedStrides;
@@ -4487,6 +4487,15 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   // Since we give back a contiguous tensor, we will set strides
   // to proper values.
   habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+  ir::NodePtr node;
+
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    auto expand_shape_tensor = empty_strided_hpu_lazy(
+        expandedSizes, expandedStrides, self.options(), false, SHAPE_TENSOR);
+    node = std::make_shared<ir::Expand>(self, expand_shape_tensor, implicit);
+  } else {
+    node = std::make_shared<ir::Expand>(self, size, implicit);
+  }
 
   auto result = empty_strided_hpu_lazy(
       expandedSizes, expandedStrides, self.options(), false);

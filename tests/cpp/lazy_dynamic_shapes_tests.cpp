@@ -849,6 +849,64 @@ TEST_F(LazyDynamicShapesTest, SliceTest2) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, ExpandTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  std::vector<int> W_in_sizes{1, 482, 1, 482, 1, 482};
+  std::vector<int> H_in_sizes{200, 1, 200, 1, 1, 200};
+  for (int i = 0; i < W_in_sizes.size(); i++) {
+    int W = W_in_sizes[i];
+    int H = H_in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+
+    torch::Tensor h_out = hA.expand({482, 200});
+
+    auto h_cout = h_out.to(torch::kCPU);
+    auto cout = A.expand({482, 200});
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, ExpandTest2) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  std::vector<int> W_in_sizes{754, 350, 664, 1};
+  std::vector<int> H_in_sizes{2, 2, 2, 2};
+  std::vector<int> W_expand_sizes{754, 350, 664, 500};
+  for (int i = 0; i < W_in_sizes.size(); i++) {
+    int W = W_in_sizes[i];
+    int H = H_in_sizes[i];
+    int W_expand = W_expand_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+
+    torch::Tensor h_out = hA.expand({W_expand, 2});
+
+    auto h_cout = h_out.to(torch::kCPU);
+    auto cout = A.expand({W_expand, 2});
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {

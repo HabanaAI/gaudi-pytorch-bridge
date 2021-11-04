@@ -908,10 +908,12 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input arguments for Broadcast Operator");
+  TORCH_CHECK(
+      inputs[1].isIntList() || inputs[1].isTensor(),
+      "Input 1 can be either int list or shape tensor");
   auto self = inputs[0].toTensor();
-  auto size = inputs[1].toIntList();
   auto implicit = inputs[2].toBool();
-
+  at::Tensor result;
   // [expand implicit]
   // The implicit flag is set to true for any expand calls inserted by broadcast
   // operators in ExpandUtils.h This flag is recorded by the tracer to
@@ -919,37 +921,37 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   // requested by the user, because it is legal to remove implicit expands
   // from the graph, but not legal to remove the explicit ones.
   // implicit is not used in this kernel.
-  auto sizeI = IntArrayRef(size.vec());
-  TORCH_CHECK(
-      sizeI.size() >= (size_t)self.dim(),
-      "expand(",
-      self.toString(),
-      "{",
-      self.sizes(),
-      "}, size=",
-      sizeI,
-      "): the number of sizes provided (",
-      sizeI.size(),
-      ") ",
-      "must be greater or equal to the number of dimensions in the tensor (",
-      self.dim(),
-      ")",
-      "implicit = ",
-      implicit);
 
-  std::vector<int64_t> expandedSizes;
-  std::vector<int64_t> expandedStrides;
-  std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(
-      self.sizes(), self.strides(), IntArrayRef(size.vec()));
+  if (inputs[1].isIntList()) {
+    auto size = inputs[1].toIntList();
+    auto sizeI = IntArrayRef(size.vec());
+    TORCH_CHECK(
+        sizeI.size() >= (size_t)self.dim(),
+        "expand(",
+        self.toString(),
+        "{",
+        self.sizes(),
+        "}, size=",
+        sizeI,
+        "): the number of sizes provided (",
+        sizeI.size(),
+        ") ",
+        "must be greater or equal to the number of dimensions in the tensor (",
+        self.dim(),
+        ")",
+        "implicit = ",
+        implicit);
 
-  // expandedStrides will be set to 0 by inferExpandGeometry.
-  // Since we give back a contiguous tensor, we will set strides
-  // to proper values.
-  habana_helpers::recalc_strides(expandedStrides, expandedSizes);
-  Tensor result;
-  // remove if part causing issue, if broadcast is used as intermediate node
-  // let gc handle the optimizatin if sizes equal
-  {
+    std::vector<int64_t> expandedSizes;
+    std::vector<int64_t> expandedStrides;
+    std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(
+        self.sizes(), self.strides(), IntArrayRef(size.vec()));
+
+    // expandedStrides will be set to 0 by inferExpandGeometry.
+    // Since we give back a contiguous tensor, we will set strides
+    // to proper values.
+    habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+
     result = habana_helpers::createPTTensor(
         self,
         expandedSizes,
@@ -957,35 +959,23 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
         self.options(),
         self.suggest_memory_format(),
         is_output_persistent);
-    auto expanded_self_view_sizes =
-        std::vector<int64_t>(expandedSizes.size(), 1);
-    for (unsigned i = 0; i < self.dim(); i++) {
-      expanded_self_view_sizes[expandedSizes.size() - self.dim() + i] =
-          self.sizes()[i];
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, result);
     }
-
-    // Add Reshape node to graph
-    auto reshape_op = make_operator<ReshapeOperator>(
-        self.device().index(), self.scalar_type());
-    reshape_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    torch::jit::Stack stack = {
-        c10::IValue(self), c10::IValue(expanded_self_view_sizes)};
-    reshape_op->AllocateAndAddSynapseNode(graph, stack, false);
-
-    // Add broadcast node to graph
-    AllocateSynapseOutput(graph, result, is_output_persistent);
-    synapse_helpers::tensor& syn_in_broadcast = reshape_op->GetSynOutputs()[0];
-    std::vector<synTensor> syn_inputs{syn_in_broadcast.get()};
-    synapse_helpers::tensor& syn_out_broadcast = p_context_->syn_outputs_[0];
-    std::vector<synTensor> syn_outputs{syn_out_broadcast.get()};
-    std::string guid_ = "broadcast";
-    graph.add_node(
-        std::move(syn_inputs),
-        std::move(syn_outputs),
-        nullptr,
-        0,
-        std::move(guid_));
+  } else {
+    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    auto expand_shape = p_context_->syn_inputs_.back().ref().pt_shape();
+    result = habana_helpers::createPTTensor(
+        self,
+        expand_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        is_output_persistent);
   }
+
+  AllocateSynapseOutput(graph, result, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************
@@ -1387,6 +1377,11 @@ static auto& KernelRegistry =
             })
         .add(
             "aten::expand",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BroadcastOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::expand",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BroadcastOperator>(device_id, node_type);
             })
