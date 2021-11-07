@@ -41,8 +41,10 @@ ops_dict = {
     "log_softmax": [torch.nn.functional],
     "softmax": [torch.nn.functional],
     "topk": [torch, torch.Tensor],
+    "sort": [torch, torch.Tensor],
     "nll_loss": [torch.nn.functional],
     "mse_loss": [torch.nn.functional],
+    "smooth_l1_loss": [torch.nn.functional],
     # Binary
     "add": [torch, torch.Tensor],
     "addcmul": [torch, torch.Tensor],
@@ -73,4 +75,7 @@ ops_dict = {
     "flatten": [torch, torch.Tensor],
     "view": [torch.Tensor],
     "cat": [torch],
+    "index_put": [torch, torch.Tensor],
+    "index_fill": [torch, torch.Tensor],
+    "nonzero": [torch, torch.Tensor],
 }
