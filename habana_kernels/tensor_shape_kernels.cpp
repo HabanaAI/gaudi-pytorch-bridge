@@ -264,7 +264,10 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   }
 
   p_context_->syn_outputs_.emplace_back(
-      std::move(p_context_->syn_inputs_[numTensors - 1]));
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[numTensors - 1],
+          graph,
+          output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(out);
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cend());
   p_context_->pt_inputs_.erase(p_context_->pt_inputs_.cend());
@@ -1242,6 +1245,7 @@ synapse_helpers::tensor_or_ref FlipOperator::CreateFlipGraph(
         shape,
         pyt_tensor.strides(),
         graph,
+        false,
         false,
         pyt_tensor.device().index(),
         dtype));

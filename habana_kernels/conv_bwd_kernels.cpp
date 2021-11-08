@@ -359,6 +359,7 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
         grad_bias,
         graph,
         out_2_metadata.at(0).persistent,
+        out_2_metadata.at(0).external,
         c10::nullopt,
         out_2_metadata.at(0).name));
     p_context_->pt_outputs_.emplace_back(grad_bias);
@@ -416,6 +417,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
         grad_bias,
         graph,
         out_2_metadata.at(0).persistent,
+        out_2_metadata.at(0).external,
         c10::nullopt,
         out_2_metadata.at(0).name));
     p_context_->pt_outputs_.emplace_back(grad_bias);
@@ -535,6 +537,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           grad_input_nhwc,
           graph,
           output_metadata.at(0).persistent,
+          output_metadata.at(0).external,
           c10::nullopt,
           output_metadata.at(0).name));
       p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
@@ -591,7 +594,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       }
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_weight, graph, output_metadata.at(1).persistent, c10::nullopt));
+          grad_weight,
+          graph,
+          output_metadata.at(1).persistent,
+          output_metadata.at(1).external,
+          c10::nullopt));
       p_context_->pt_outputs_.emplace_back(grad_weight);
     }
 
@@ -664,6 +671,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                 grad_input_nhwc,
                 graph,
                 output_metadata.at(0).persistent,
+                output_metadata.at(0).external,
                 c10::nullopt));
             p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
           }
@@ -681,6 +689,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                 grad_weight,
                 graph,
                 output_metadata.at(1).persistent,
+                output_metadata.at(1).external,
                 c10::nullopt));
             p_context_->pt_outputs_.emplace_back(grad_weight);
           }

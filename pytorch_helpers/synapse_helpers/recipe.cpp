@@ -120,8 +120,14 @@ bool recipe::launch(
         {0},
         tensor_ids[tensor_idx++]});
 
+  std::vector<shared_event> ext_events;
   auto&& error_optional{synapse_helpers::graph::launch(
-      device_, *recipe_handle_, workspace_size_, syn_info, addr_locked)};
+      device_,
+      *recipe_handle_,
+      workspace_size_,
+      syn_info,
+      addr_locked,
+      ext_events)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(

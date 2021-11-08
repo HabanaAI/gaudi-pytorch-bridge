@@ -74,6 +74,7 @@ void habana::HabanaLaunchOpPT::Clear(bool is_shape_inference) {
   output_tensorinfo_map.clear();
 
   valptr_to_persistent_map.clear();
+  valptr_to_external_map.clear();
 
   pt_to_synapse_tensors.clear();
   meta_syn_tensors.clear();
@@ -93,6 +94,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   if (syn_graph_ptr->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
+    cur_rvalpsh = std::make_shared<RecipeValueSpec>(nullptr, jit_ir_graph);
     return;
   }
 
@@ -139,14 +141,13 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
 
 void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
-  if (syn_graph_ptr->is_empty()) {
+  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
+  RecipeValueSpec& rv = *cur_rvalpsh;
+  if (syn_graph_ptr->is_empty() && collective_kernels_info.empty()) {
     PT_BRIDGE_DEBUG(
         "Empty synapse graph. No need to construct the patching table.");
     return;
   }
-
-  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
-  RecipeValueSpec& rv = *cur_rvalpsh;
 
   // input_tivs need to be reordered for patching
   OrderInputs();
@@ -303,7 +304,9 @@ void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
 
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
-  if (syn_graph_ptr->is_empty()) {
+  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
+  RecipeValueSpec& rv = *cur_rvalpsh;
+  if (syn_graph_ptr->is_empty() && rv.collective_kernels_info.empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Will update outputs directly.");
     UpdateOutputs();
     return;
@@ -311,9 +314,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-
-  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
-  RecipeValueSpec& rv = *cur_rvalpsh;
 
   if (enable_tensor_dump_) {
     if (0 == htensor_wbuff_size) {

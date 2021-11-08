@@ -33,8 +33,9 @@ void BitwiseOutOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(inputs);
-  static_cast<void>(output_metadata);
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cbegin());
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

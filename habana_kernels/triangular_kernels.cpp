@@ -58,8 +58,9 @@ void DiagOutOperator::AllocateAndAddSynapseNode(
   }
   guid += habana_helpers::name_suffix_from_type(self.scalar_type());
   SetGuid(guid);
-
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[1]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 
   std::vector<synTensor> syn_in;

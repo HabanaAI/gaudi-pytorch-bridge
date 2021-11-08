@@ -112,6 +112,24 @@ void stream_event_manager::add_producer(
   }
   stream.register_pending_event(eref);
 }
+void stream_event_manager::add_producer(stream& stream, shared_event event) {
+  const auto& device_addresses = event->get_device_ptrs();
+  for (auto& address : device_addresses) {
+    auto found = events_by_addr_.find(address);
+    if (found == events_by_addr_.end()) {
+      PT_SYNHELPER_FATAL(
+          "Cannot find event registed for address: 0x",
+          std::hex,
+          address,
+          std::dec);
+    }
+    if (found->second != event) {
+      PT_SYNHELPER_FATAL(
+          "Event does not match for address: 0x", std::hex, address, std::dec);
+    }
+  }
+  stream.register_pending_event(event, false);
+}
 
 void stream_event_manager::add_event_id(
     const std::string& event_id,
@@ -124,6 +142,41 @@ void stream_event_manager::add_event_id(
   PT_SYNHELPER_DEBUG("Found event ", it->second, " for id ", event_id);
   it->second->push_id(new_id);
   events_by_str_.insert(std::make_pair(new_id, it->second));
+}
+
+shared_event stream_event_manager::map_event_to_tensor(
+    stream& stream,
+    const synRecipeHandle recipe_handle,
+    synLaunchTensorInfo* tensor_info,
+    event_done_callback done_cb) {
+  std::lock_guard<std::mutex> lock(mut_);
+  auto& device_address = tensor_info->pTensorAddress;
+  auto found = events_by_addr_.find(device_address);
+  if (found != events_by_addr_.end()) {
+    // Address collision on this point actually means that we already scheduled
+    // work that will override data associated with old event. This should only
+    // happen in case when output and input buffers of operation are the same,
+    // and there is noone else waiting for previous event. In that case we do
+    // not want to wait for event to synchronize as this will postpone launching
+    // next ops in graph.
+    PT_SYNHELPER_DEBUG(
+        "Event collision on address: 0x", std::hex, device_address, std::dec);
+
+    auto found_event = found->second;
+    found_event->remove_device_ptr(device_address);
+    events_by_addr_.erase(device_address);
+  }
+
+  auto shared_event = std::make_shared<event>(
+      stream.get_device().get_event_handle_cache(),
+      stream,
+      std::vector<device_ptr>{device_address},
+      std::string{},
+      std::move(done_cb));
+  shared_event->map_event_to_tensor(recipe_handle, tensor_info);
+  events_by_addr_.emplace(device_address, shared_event);
+
+  return shared_event;
 }
 
 void stream_event_manager::enqueue_wait_event(

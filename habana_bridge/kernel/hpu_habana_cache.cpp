@@ -29,6 +29,7 @@
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_helpers/event.h"
 
 #include "habana_kernels/hccl_kernels.h"
 
@@ -773,6 +774,10 @@ void RecipeValueSpec::update_patching_table(
 }
 
 void RecipeValueSpec::populate_syn_tensor_ids() {
+  if (!recipe) {
+    PT_BRIDGE_DEBUG("Empty recipie. No need to retrive tensor ids.");
+    return;
+  }
   for (size_t i = 0; i < num_tinfos; ++i) {
     num_tensors++;
   }
@@ -799,7 +804,8 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 }
 
 void RecipeValueSpec::patch_launch_info(
-    std::vector<synLaunchTensorInfo>& syn_launch_info_vec) {
+    std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
+    std::vector<size_t>& external_tensor_info_indexes) {
   TORCH_CHECK(
       (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
       "syn tensor ids are not populated");
@@ -821,6 +827,9 @@ void RecipeValueSpec::patch_launch_info(
       }
       case DATA_TENSOR:
       case DATA_TENSOR_DYNAMIC: {
+        if (ti.get_external()) {
+          external_tensor_info_indexes.push_back(tensor_idx);
+        }
         const auto& tsv = ti.syn_shape();
         syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),
@@ -913,6 +922,14 @@ void RecipeValueSpec::launch(
   std::vector<at::Tensor> outPtRefs;
   std::vector<synapse_helpers::device_ptr> outDevPtr;
 
+  std::vector<synLaunchTensorInfo> syn_launch_info;
+  std::vector<size_t> external_tensor_info_indexes;
+  if (recipe) {
+    patch_launch_info(syn_launch_info, external_tensor_info_indexes);
+  } else {
+    PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
+  }
+
   if (device.IsStreamASyncEnabled()) {
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.
@@ -960,27 +977,64 @@ void RecipeValueSpec::launch(
         outPtRefs.push_back(std::move(tensor));
       }
     }
-  }
 
-  std::vector<synLaunchTensorInfo> syn_launch_info;
-  patch_launch_info(syn_launch_info);
-  if (device.IsStreamASyncEnabled()) {
+    // Remove collective kernels ouptut from outDevPtr since collective will be
+    // the producer of these tensors, don't register them on compute event
+    for (const auto& collective : collective_kernels_info) {
+      for (const auto& output : collective->output_tensor_infos) {
+        outDevPtr.erase(
+            std::remove(
+                outDevPtr.begin(), outDevPtr.end(), output->get_buffer_syn()),
+            outDevPtr.end());
+      }
+    }
+
+    std::vector<synapse_helpers::shared_event> ext_events;
+    for (auto external_idx : external_tensor_info_indexes) {
+      synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
+      PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
+      ext_events.emplace_back(device.map_event_to_tensor(
+          device.get_compute_stream(), recipe->syn_recipe_handle_, &ti, []() {
+          }));
+
+      // Remove collective kenrel inputs from outDevPtr since they will be
+      // signaled from the graph (if they are external)
+      PT_BRIDGE_DEBUG(
+          "Remove tensor ",
+          ti.tensorName,
+          " address ",
+          ti.pTensorAddress,
+          " from outDevPtr since it is an external tensor");
+      outDevPtr.erase(
+          std::remove(outDevPtr.begin(), outDevPtr.end(), ti.pTensorAddress),
+          outDevPtr.end());
+    }
+
     auto& recipe_counter = device.get_active_recipe_counter();
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     {
       synapse_helpers::TimeScope ts(std::move(time_slot_));
       recipe_counter.increase();
-      auto&& error_optional{synapse_helpers::graph::launch(
-          device, *recipe, workspace_size, syn_launch_info, address_lock)};
-      if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-        recipe_counter.decrease_and_notify();
-        auto& error = error_optional.value();
-        PT_BRIDGE_FATAL(
-            "syn launch encountered : ", error.error, " ", error.status);
-        TORCH_CHECK(
-            false,
-            std::string("syn launch failed ") + std::string(error.error) +
-                std::string(" ") + std::to_string(error.status));
+      if (recipe) {
+        auto&& error_optional{synapse_helpers::graph::launch(
+            device,
+            *recipe,
+            workspace_size,
+            syn_launch_info,
+            address_lock,
+            ext_events)};
+        if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+          recipe_counter.decrease_and_notify();
+          auto& error = error_optional.value();
+          PT_BRIDGE_FATAL(
+              "syn launch encountered : ", error.error, " ", error.status);
+          TORCH_CHECK(
+              false,
+              std::string("syn launch failed ") + std::string(error.error) +
+                  std::string(" ") + std::to_string(error.status));
+        }
+      } else {
+        PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");
       }
     }
 
@@ -991,6 +1045,13 @@ void RecipeValueSpec::launch(
       std::vector<at::Tensor> input_tensors_;
       std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     };
+
+    // register events for external tensors on compute
+    for (size_t i = 0; i < ext_events.size(); ++i) {
+      device.register_producer_on_stream(
+          device.get_compute_stream(), ext_events.at(i));
+    }
+
     auto resource_holder = std::make_shared<ResourceHolder>();
     // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
     // corresponding recipe is finished on stream
@@ -1004,41 +1065,66 @@ void RecipeValueSpec::launch(
     // copying of all shared_ptr stored inside (including std::vector). To make
     // sharing more lightweight we hide ResourceHolder behind one shared_ptr.
     // This indirection allows us to maintain only one shared reference.
-    auto cleanup_callback = [resource_holder, &recipe_counter]() mutable {
+    auto collective_cleanup_callback = [resource_holder]() mutable {
       resource_holder.reset();
-      recipe_counter.decrease_and_notify();
     };
-    // regsiter an event on the compute
-    device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, cleanup_callback);
-  } else {
-    std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    synapse_helpers::TimeScope ts(std::move(time_slot_));
-    auto&& error_optional{synapse_helpers::graph::launch(
-        device, *recipe, workspace_size, syn_launch_info, address_lock)};
-    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-      auto& error = error_optional.value();
-      PT_BRIDGE_FATAL(
-          "syn launch encountered : ", error.error, " ", error.status);
-      TORCH_CHECK(
-          false,
-          std::string("syn launch failed ") + std::string(error.error) +
-              std::string(" ") + std::to_string(error.status));
-    }
-    TORCH_HABANA_CHECK(
-        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
-  }
-
-  // Launch collective ops on collective stream
-  // TODO: SW-68571 move stream synchonization from hccl kernels collective call
-  // to here, skip if not stream async
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES)) {
-    HABANA_ASSERT(device.IsStreamASyncEnabled())
+    // Launch collective ops
+    HABANA_ASSERT(
+        collective_kernels_info.empty() ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
     for (auto kernel_info : collective_kernels_info) {
       CollectiveOperator* collective =
           dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
       HABANA_ASSERT(collective);
-      collective->RunCollective(kernel_info->input_tensor_infos);
+      PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
+      collective->RunCollective(
+          kernel_info->input_tensor_infos, true, collective_cleanup_callback);
+    }
+
+    auto cleanup_callback = [resource_holder, &recipe_counter]() mutable {
+      resource_holder.reset();
+      recipe_counter.decrease_and_notify();
+    };
+
+    // regsiter an event on the compute
+    device.register_producer_on_stream(
+        std::move(outDevPtr), stream_handle, cleanup_callback);
+
+  } else {
+    std::vector<synapse_helpers::shared_event> ext_events;
+    std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+    synapse_helpers::TimeScope ts(std::move(time_slot_));
+    if (recipe) {
+      auto&& error_optional{synapse_helpers::graph::launch(
+          device,
+          *recipe,
+          workspace_size,
+          syn_launch_info,
+          address_lock,
+          ext_events)};
+      if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+        auto& error = error_optional.value();
+        PT_BRIDGE_FATAL(
+            "syn launch encountered : ", error.error, " ", error.status);
+        TORCH_CHECK(
+            false,
+            std::string("syn launch failed ") + std::string(error.error) +
+                std::string(" ") + std::to_string(error.status));
+      }
+    }
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+
+    // Launch collective ops
+    HABANA_ASSERT(
+        collective_kernels_info.empty() ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
+    for (auto kernel_info : collective_kernels_info) {
+      CollectiveOperator* collective =
+          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
+      HABANA_ASSERT(collective);
+      PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
+      collective->RunCollective(kernel_info->input_tensor_infos, false, [] {});
     }
   }
 

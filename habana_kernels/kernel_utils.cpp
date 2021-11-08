@@ -385,7 +385,9 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   ns_CastKernel::Params params = synapse_cast_params_builder();
   p_context_->params_.emplace<ns_CastKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[1]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
   // Cast requires only 1 input popping second as it is output
   p_context_->syn_inputs_.pop_back();
@@ -424,12 +426,11 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
     output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  // Note that Constant TPC kernel does not need any tensor inputs
-  // therefore we can move the input tensor(s) to corresponding
-  // output tensors without any problems.
   HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
   synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
-  p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          input_tensor, graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
   // Adding a clear for inputs as constant kernel expects no inputs
   // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway

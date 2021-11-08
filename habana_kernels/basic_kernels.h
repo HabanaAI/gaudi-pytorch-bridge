@@ -171,7 +171,8 @@ class StridedInsertOperator : public habana::HabanaOperator {
   void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) override;
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+      const habana::OutputMetaDataVector& output_metadata) override;
   void compute_params(
       synStridedOpParams&,
       torch::jit::Stack& inputs,

@@ -126,6 +126,7 @@ class OutputMetaData {
  public:
   std::string name;
   bool persistent{false};
+  bool external{false};
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(){};
 };
@@ -142,6 +143,7 @@ std::vector<T> SelectVectorIndices(
     if (index >= 0 && index < src.size())
       result.push_back(src.at(index));
   }
+  HABANA_ASSERT(result.size() == indices.size());
   return result;
 }
 
@@ -262,7 +264,9 @@ class HabanaOperator {
       bool is_shape_tensor = false);
 
   // Method to add output tensors to graph builder context
-  virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);
+  virtual void AllocateSynapseInplaceOutput(
+      synapse_helpers::graph& graph,
+      bool external);
 
   //
   // Method to add muliple output tensors to graph builder context
@@ -279,7 +283,8 @@ class HabanaOperator {
   virtual void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec);
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+      const OutputMetaDataVector& output_metadata);
 
   //
   // destructor

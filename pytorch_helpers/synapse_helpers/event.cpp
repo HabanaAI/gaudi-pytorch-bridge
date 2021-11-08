@@ -41,7 +41,9 @@ void event::synchronize() const {
   PT_SYNHELPER_DEBUG("synchronizing event ", handle_);
   if (done_)
     PT_SYNHELPER_FATAL("Event ", this, " already done");
-  auto status = synEventSynchronize(handle_);
+  auto status{synStatus::synSuccess};
+  if (!is_partial())
+    status = synEventSynchronize(handle_);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("Event synchronization failed with: ", status);
   }
@@ -76,10 +78,25 @@ void event::stream_wait_event(stream& stream, const uint32_t flags) {
   }
 }
 
+void event::map_event_to_tensor(
+    const synRecipeHandle recipe_handle,
+    synLaunchTensorInfo* tensor_info) {
+  auto status = synEventMapTensorBase(&handle_, 1, tensor_info, recipe_handle);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL("synEventMapTensorBase failed with: ", status);
+  }
+  is_partial_ = true;
+}
+
 event::~event() {
   if (!done_) {
-    PT_SYNHELPER_FATAL(
-        "Destroying event ", this, " that is not synchronized yet");
+    if (is_partial_) {
+      PT_SYNHELPER_DEBUG(
+          "Destroying partial event ", this, "that is not synchronized yet");
+    } else {
+      PT_SYNHELPER_FATAL(
+          "Destroying event ", this, " that is not synchronized yet");
+    }
   }
   if (handle_) {
     event_handle_cache_.release_handle(handle_);

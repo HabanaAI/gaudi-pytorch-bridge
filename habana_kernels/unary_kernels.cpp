@@ -55,7 +55,7 @@ void UnaryInplaceOperator::AllocateAndAddSynapseNode(
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0], graph));
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -67,7 +67,7 @@ void UnaryLikeOperator::AllocateAndAddSynapseNode(
   if (m_inplace) {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[0], graph));
+            p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   } else {
     auto output = habana_helpers::createPTTensor(
@@ -1690,7 +1690,6 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for Clamp operator");
@@ -1709,7 +1708,7 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
                                        : -std::numeric_limits<float>::max();
   if (p_context_->pt_inputs_.size() == 0)
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
-  AllocateSynapseInplaceOutput(graph);
+  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 

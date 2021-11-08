@@ -220,10 +220,19 @@ class PtTensorInfo {
     return tensor_id_;
   }
 
+  void set_external(bool external) {
+    is_external_ = external;
+  }
+
+  bool get_external() const {
+    return is_external_;
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};
   bool is_restrided_{false};
+  bool is_external_{false};
 
   void* buffer_{nullptr};
   void* buffer_start_{nullptr};

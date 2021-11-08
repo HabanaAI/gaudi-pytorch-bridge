@@ -10,12 +10,23 @@
 #pragma once
 #include "habana_kernels/habana_operator.h"
 
+namespace synapse_helpers {
+using event_done_callback = std::function<void()>;
+}
+
 namespace habana {
+
 class CollectiveOperator : public habana::HabanaOperator {
  public:
   CollectiveOperator() = delete;
   CollectiveOperator(const std::string guid) : HabanaOperator(guid){};
-  virtual void RunCollective(std::vector<PtTensorInfoShared>& inputs) = 0;
+  virtual void RunCollective(
+      std::vector<PtTensorInfoShared>& inputs,
+      bool async,
+      synapse_helpers::event_done_callback done_cb) = 0;
+  const std::string& GetGuid() {
+    return guid_;
+  }
 };
 
 class HcclBroadcastOperator : public CollectiveOperator {
@@ -32,8 +43,10 @@ class HcclBroadcastOperator : public CollectiveOperator {
 
   // TODO: SW-68563 add patching function to be called when the recipe is
   // desiralized update internal mebers e.g device_, root_rank
-
-  virtual void RunCollective(std::vector<PtTensorInfoShared>& inputs);
+  virtual void RunCollective(
+      std::vector<PtTensorInfoShared>& inputs,
+      bool async,
+      synapse_helpers::event_done_callback done_cb);
 
  private:
   int64_t device_;
@@ -54,7 +67,10 @@ class HcclAllreduceOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual void RunCollective(std::vector<PtTensorInfoShared>& inputs);
+  virtual void RunCollective(
+      std::vector<PtTensorInfoShared>& inputs,
+      bool async,
+      synapse_helpers::event_done_callback done_cb);
   int64_t device_;
   int64_t reduce_op_;
   int64_t comm_id_;

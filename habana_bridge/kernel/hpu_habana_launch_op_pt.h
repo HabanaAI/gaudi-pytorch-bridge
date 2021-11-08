@@ -197,6 +197,8 @@ class HabanaLaunchOpPT {
 
   // A map for value to persistent flag
   std::unordered_map<CValPtr, bool> valptr_to_persistent_map;
+  // A map for value to external flag
+  std::unordered_map<CValPtr, bool> valptr_to_external_map;
 
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
@@ -322,15 +324,19 @@ class HabanaLaunchOpPT {
   void set_persistence_input(torch::jit::Node*);
   void set_persistence_output(torch::jit::Node*);
   void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
+  void set_external_input(torch::jit::Node*);
+  void MarkProducerExternal(torch::jit::Value* val);
+  void externalMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   int64_t isInGraphInputs(torch::jit::Value* value);
-  bool isInGraphOutputs(torch::jit::Value* value);
-  bool isInGraphOutputs(torch::jit::Node* node, size_t index);
+  bool isInGraphOutputs(const torch::jit::Value* value);
+  bool isInGraphOutputs(const torch::jit::Node* node, size_t index);
   bool nodeOutputPersistencePerValue(
       torch::jit::Node* node,
       torch::jit::Value* value_out);
+  bool IsValueExternal(torch::jit::Value* value);
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   bool isInplace(torch::jit::Node* node);
   bool isControlEdge(torch::jit::Node* node);
@@ -395,8 +401,8 @@ class HabanaLaunchOpPT {
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 
-  bool IsOutputToRestride(torch::jit::Value* val);
-  torch::jit::Value* GetRestridedOutvalue(torch::jit::Value* val);
+  bool IsOutputToRestride(const torch::jit::Value* val);
+  torch::jit::Value* GetRestridedOutvalue(const torch::jit::Value* val);
 
   bool isPermuteInGraphOutputs(torch::jit::Value* value);
   bool IsOutputToPermute(torch::jit::Value* value);

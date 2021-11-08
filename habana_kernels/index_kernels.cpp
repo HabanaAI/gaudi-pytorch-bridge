@@ -459,7 +459,7 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
   } else {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[0], graph));
+            p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(self);
   }
 
@@ -2388,7 +2388,8 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     HABANA_ASSERT(result.scalar_type() == ScalarType::Int);
 
     p_context_->syn_outputs_.emplace_back(
-        std::move(p_context_->syn_inputs_[1]));
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
     p_context_->syn_inputs_.pop_back();
     p_context_->pt_outputs_.emplace_back(result);
     // Since this case handles specific to IDST which requires
@@ -2415,8 +2416,18 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     auto end = inputs[1].toScalar();
     auto step = inputs[2].toScalar();
 
-    p_context_->syn_outputs_.emplace_back(
-        std::move(p_context_->syn_inputs_[0]));
+    // save to be used as input to cast operator if required
+    synapse_helpers::tensor& range_syn_input =
+        std::move(p_context_->syn_inputs_.at(0));
+    bool cast_required =
+        !(result.scalar_type() == ScalarType::Int ||
+          result.scalar_type() == ScalarType::Float ||
+          result.scalar_type() == ScalarType::BFloat16);
+    if (!cast_required) {
+      p_context_->syn_outputs_.emplace_back(
+          habana_helpers::duplicate_tensor_in_memory_section(
+              range_syn_input, graph, output_metadata.at(0).external));
+    }
     p_context_->pt_outputs_.emplace_back(result);
 
     // Adding a clear for inputs as arange TPC kernel expects no inputs
@@ -2454,9 +2465,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     }
 
     // If datatype is int/bf16/fp32 , no cast node is required
-    if (result.scalar_type() == ScalarType::Int ||
-        result.scalar_type() == ScalarType::Float ||
-        result.scalar_type() == ScalarType::BFloat16) {
+    if (!cast_required) {
       AddNodeToSynapseGraph(graph, &param, sizeof(param));
     } else {
       // For datatypes Char, Bool one additional cast node is
@@ -2472,10 +2481,11 @@ void ArangeOperator::AllocateAndAddSynapseNode(
           false);
 
       AllocateSynapseOutput(graph, output_range, OutputMetaData());
-      synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
+      // syn_output_[0] is the output of range node
+      synapse_helpers::tensor& range_syn_output = p_context_->syn_outputs_[0];
 
       std::vector<synTensor> syn_in{};
-      std::vector<synTensor> syn_out{synOutput.get()};
+      std::vector<synTensor> syn_out{range_syn_output.get()};
 
       // range_i32
       graph.add_node(
@@ -2494,13 +2504,16 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
       // Build Params for the graph
       torch::jit::Stack stack = {IValue(output_range), IValue(result)};
-      // syn_output_[1] is the output of range node
-      castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
-      // syn_output_[0] is the original Out result tensor
-      castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
-      castOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-      // There are 2 outputs {result, rangeOut}, we need only one {result}
+
+      castOp->SetSynapseInput(range_syn_output);
+      // range_syn_input is the original Out result tensor
+      castOp->SetSynapseInput(range_syn_input);
+      castOp->AllocateAndAddSynapseNode(
+          graph, stack, SelectVectorIndices(output_metadata, {0}));
+      // replace arange syn output with cast op syn output
       p_context_->syn_outputs_.pop_back();
+      p_context_->syn_outputs_.emplace_back(
+          std::move(castOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.pop_back();
       p_context_->pt_outputs_[0] = std::move(castOp->GetOutputs()[0]);
     }

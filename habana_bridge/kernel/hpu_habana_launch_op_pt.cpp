@@ -130,6 +130,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   valptr_to_persistent_map = {};
+  valptr_to_external_map = {};
 
   tensor_dump_numel_ = -2;
 
@@ -243,7 +244,7 @@ LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
   }
 }
 
-bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
+bool HabanaLaunchOpPT::IsOutputToRestride(const torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
     auto restride_node = u.user;
@@ -257,7 +258,7 @@ bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
 }
 
 torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
-    torch::jit::Value* val) {
+    const torch::jit::Value* val) {
   for (auto u : val->uses()) {
     auto restride_node = u.user;
     if ((strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") ==
@@ -321,7 +322,7 @@ torch::jit::Node* HabanaLaunchOpPT::GetUnpackNodeFromTensorList(
   return nullptr;
 }
 
-bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
+bool HabanaLaunchOpPT::isInGraphOutputs(const torch::jit::Value* value) {
   auto graph_outs = jit_ir_graph->outputs();
   for (auto value_out : graph_outs) {
     if (value->unique() == value_out->unique()) {
@@ -342,7 +343,9 @@ bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
   return false;
 }
 
-bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Node* node, size_t index) {
+bool HabanaLaunchOpPT::isInGraphOutputs(
+    const torch::jit::Node* node,
+    size_t index) {
   auto node_outs = node->outputs();
   TORCH_CHECK(index <= node_outs.size());
 
@@ -387,6 +390,15 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
   return is_persistent;
 }
 
+bool HabanaLaunchOpPT::IsValueExternal(torch::jit::Value* value) {
+  bool is_external = false;
+  auto is_external_iter = valptr_to_external_map.find(value);
+  if (is_external_iter != valptr_to_external_map.end()) {
+    is_external = is_external_iter->second;
+  }
+  return is_external;
+}
+
 OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
     torch::jit::Node* node) {
   auto node_outs = node->outputs();
@@ -396,20 +408,25 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
-    if (unpack_node != nullptr) {
-      for (auto value_out : unpack_node->outputs()) {
-        OutputMetaData md(*value_out);
-        md.persistent = nodeOutputPersistencePerValue(unpack_node, value_out);
-        output_metadata.emplace_back(md);
+    HABANA_ASSERT(
+        unpack_node != nullptr,
+        "TensorList is not input to ListUnpack node. Node: ",
+        node->kind().toQualString());
+    for (auto value_out : unpack_node->outputs()) {
+      OutputMetaData md(*value_out);
+      md.persistent = nodeOutputPersistencePerValue(unpack_node, value_out);
+      if (md.persistent) {
+        md.external = IsValueExternal(value_out);
       }
-    } else {
-      PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
-      HABANA_ASSERT(0);
+      output_metadata.emplace_back(md);
     }
   } else {
     for (auto value_out : node_outs) {
       OutputMetaData md(*value_out);
       md.persistent = nodeOutputPersistencePerValue(node, value_out);
+      if (md.persistent) {
+        md.external = IsValueExternal(value_out);
+      }
       output_metadata.emplace_back(md);
     }
   }
@@ -693,6 +710,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       watch_tensor_flag_,
       out_syntensor.id(),
       out_syntensor.tensor_type());
+  ti->set_external(out_syntensor.is_external());
   ivalue_to_tensor_info_map[ivpsh] = ti;
   void* buffp = ti->get_buffer_start();
 
@@ -761,12 +779,11 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
-    if (unpack_node != nullptr) {
-      output_nodes = unpack_node->outputs();
-    } else {
-      PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
-      HABANA_ASSERT(0);
-    }
+    HABANA_ASSERT(
+        unpack_node != nullptr,
+        "TensorList is not input to ListUnpack node. Node: ",
+        node->kind().toQualString());
+    output_nodes = unpack_node->outputs();
   }
 
   const auto& output_tensors_pt = habana_op->GetOutputs();
@@ -805,6 +822,19 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
       tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
+
+      // Validate external flag was set correctly
+      const auto& value = output_nodes.at(output_tensor_idx);
+      auto required_external = valptr_to_external_map.find(value);
+      if (required_external != valptr_to_external_map.end()) {
+        HABANA_ASSERT(
+            out_tensor_syn.is_external() == required_external->second,
+            "Output ",
+            output_tensor_idx,
+            " of node ",
+            node->kind().toQualString(),
+            " is not external");
+      }
 
       output_nodes_idx++;
     }
@@ -953,8 +983,8 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     }
   } else {
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    auto variant =
-        habana_helpers::create_tensor(*tensor, *syn_graph_ptr, persistence);
+    auto variant = habana_helpers::create_tensor(
+        *tensor, *syn_graph_ptr, persistence, false);
     meta_syn_tensors.push_back((std::move(variant)));
   }
 
@@ -1205,7 +1235,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
 
         auto tensor = ivptrsh_updated->toTensor();
         meta_syn_tensors.push_back(habana_helpers::create_tensor(
-            tensor, *syn_graph_ptr, true, tensor.scalar_type()));
+            tensor, *syn_graph_ptr, true, false, tensor.scalar_type()));
         SharedSynTensorOrRefListPtr tensorList =
             std::make_shared<SynTensorOrRefList>();
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
@@ -1477,7 +1507,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // clear the accumulated synapse node indices corresponding to permute.
     // Otherwise this results in spurious control edges
     syn_graph_ptr->clear_node_indices();
-
     // set op name in synapse graph
     std::unique_ptr<synapse_helpers::graph::OpNameContext> op_name_context;
     if (node->hasAttribute(c10::attr::debug_name)) {
@@ -2519,7 +2548,10 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
 
     input_stack.insert(input_stack.end(), *ivalue);
     HabanaKernel->ReuseMemoryAndAddSynapseNode(
-        syn_graph, input_stack, *pt_to_synapse_tensors[ivalue]);
+        syn_graph,
+        input_stack,
+        *pt_to_synapse_tensors[ivalue],
+        outputs_metadata);
 
     /* Since memory is reused we need control edges between the consumers of the
     graph input (prim:param) and the strided insert at the graph output. Refer

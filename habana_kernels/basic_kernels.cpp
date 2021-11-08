@@ -581,7 +581,9 @@ void DummyOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = 0;
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[out_index], graph));
+          p_context_->syn_inputs_[out_index],
+          graph,
+          output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -655,7 +657,8 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
           graph,
           size,
           strides,
-          offset * self.itemsize()));
+          offset * self.itemsize(),
+          output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -712,7 +715,8 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
           graph,
           swapped_sizes,
           new_strides,
-          offset * self.itemsize()));
+          offset * self.itemsize(),
+          output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 }
 
@@ -838,7 +842,8 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
 void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) {
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect number of arguments for strided insert op");
@@ -850,7 +855,8 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   compute_params(params, inputs, graph);
 
   p_context_->syn_outputs_.emplace_back(
-      habana_helpers::duplicate_tensor_in_memory_section(syn_t_vec[0], graph));
+      habana_helpers::duplicate_tensor_in_memory_section(
+          syn_t_vec[0], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(graph_input);
 
   bool have_shape_tensors = inputs[2].isTensor();

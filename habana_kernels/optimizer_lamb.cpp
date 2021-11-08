@@ -109,7 +109,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     // therefore 3rd synapse tensor will be unused. We can give
     // a dummy tensor
     auto syn_in_34 = habana_helpers::create_tensor(
-        div_grad->GetOutputs()[0], graph, true, c10::nullopt);
+        div_grad->GetOutputs()[0], graph, true, false, c10::nullopt);
     addcmul_exp_avg_sq->SetSynapseInput(syn_in_34);
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));

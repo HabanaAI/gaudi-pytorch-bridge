@@ -263,11 +263,31 @@ class device {
       const std::string& event_id,
       stream& stream,
       event_done_callback done_cb);
+  /** \brief Adds specified Event and bounds it with event's mapped address on a
+   * given stream. It forwards the call to internal stream_event_manager object.
+   *  \param stream Stream for signaling wait for recorded event
+   *  \param event Partial event assossiated with address
+   *  \see stream_event_manager::add_producer
+   */
+  void register_producer_on_stream(stream& stream, shared_event event);
 
   void add_event_id(const std::string& event_id, const std::string& new_id);
   void wait_until_address_ready(device_ptr address);
   void wait_until_event_ready(const std::string& event_id);
   void wait_for_event(shared_event& event);
+
+  /** \brief Function creates an event and maps it with specified tensor
+   *  \param stream Stream for signaling wait for recorded event
+   *  \param recipe_handle Recipe from which the event will be signaled
+   *  \param tensor_info External tensor information
+   *  \param done_cb function to be invoked, once the event is synchronized.
+   * Used for releasing ownership of Input Tensors dependant on this event
+   */
+  shared_event map_event_to_tensor(
+      stream& stream,
+      const synRecipeHandle recipe_handle,
+      synLaunchTensorInfo* tensor_info,
+      event_done_callback done_cb);
 
   const absl::optional<owned_device_ptr>& reduction_buffer() {
     return preallocated_reduction_buffer_;

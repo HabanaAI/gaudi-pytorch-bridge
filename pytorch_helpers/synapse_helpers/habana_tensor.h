@@ -276,6 +276,9 @@ class tensor final {
   bool is_persistent() const {
     return is_persistent_;
   }
+  bool is_external() const {
+    return is_external_;
+  }
   bool is_const() const {
     return is_const_;
   }
@@ -336,6 +339,7 @@ class tensor final {
         tensor_,
         (is_persistent() ? ", persistent" : ", non-persistent"),
         (is_placeholder() ? ", placeholder" : ""),
+        (is_external() ? ", external" : ", non-external"),
         offset_,
         total_size_bytes_);
   }
@@ -359,6 +363,7 @@ class tensor final {
       uint64_t tensor_id,
       synGraphHandle graph,
       bool is_persistent = false,
+      bool is_external = false,
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
       void* host_ptr = nullptr,
@@ -376,6 +381,7 @@ class tensor final {
       uint64_t tensor_id,
       synGraphHandle graph,
       bool is_persistent = false,
+      bool is_external = false,
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
       void* host_ptr = nullptr,
@@ -401,6 +407,7 @@ class tensor final {
   synTensor tensor_{nullptr};
   bool placeholder_{false};
   bool is_persistent_{false};
+  bool is_external_{false};
 
   shared_memory_section memory_section_{nullptr};
   synGraphHandle graph_{nullptr};
@@ -455,6 +462,7 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
              << (tensor.is_persistent() ? ", persistent, "
                                         : ", non-persistent, ")
              << (tensor.is_placeholder() ? "placeholder, " : "")
+             << (tensor.is_external() ? ", external" : ", non-external")
              << ", tensor type=" << tensor.tensor_type_
              << ", offset=" << tensor.offset_
              << ", size=" << tensor.total_size_bytes_ << '\n'

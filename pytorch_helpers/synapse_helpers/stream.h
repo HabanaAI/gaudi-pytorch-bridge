@@ -68,9 +68,12 @@ class stream {
 
   /*! \brief Pushes newely created event to the std::deque, registers it on its
    * stream handle and notifies garbage collector thread \param event to be
+   *  \param record_event indicates whether event should be recorded
    * pushed to the queue
    */
-  void register_pending_event(const shared_event& event);
+  void register_pending_event(
+      const shared_event& event,
+      bool record_event = true);
 
   /*! \brief Synchronizes stream. This is blocking call that will return only
    * when on computation is done on device side.

@@ -96,6 +96,7 @@ tensor::tensor(
     uint64_t tensor_id,
     synGraphHandle graph,
     bool is_persistent,
+    bool is_external,
     shared_memory_section section,
     bool is_const,
     void* host_ptr,
@@ -111,6 +112,7 @@ tensor::tensor(
       stride_{stride},
       tensor_{},
       is_persistent_{is_persistent},
+      is_external_{is_external},
       memory_section_{std::move(section)},
       graph_{graph},
       is_const_{is_const},
@@ -129,6 +131,7 @@ tensor::tensor(
     uint64_t tensor_id,
     synGraphHandle graph,
     bool is_persistent,
+    bool is_external,
     shared_memory_section section,
     bool is_const,
     void* host_ptr,
@@ -144,6 +147,7 @@ tensor::tensor(
       stride_{stride},
       tensor_{},
       is_persistent_{is_persistent},
+      is_external_{is_external},
       memory_section_{std::move(section)},
       graph_{graph},
       is_const_{is_const},
@@ -163,6 +167,7 @@ tensor::tensor(tensor&& other) noexcept
       tensor_{other.tensor_},
       placeholder_{other.placeholder_},
       is_persistent_{other.is_persistent_},
+      is_external_{other.is_external_},
       memory_section_{std::move(other.memory_section_)},
       graph_{other.graph_},
       is_const_{other.is_const_},
@@ -190,6 +195,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   tensor_ = other.tensor_;
   placeholder_ = other.placeholder_;
   is_persistent_ = other.is_persistent_;
+  is_external_ = other.is_external_;
   memory_section_ = std::move(other.memory_section_);
   graph_ = other.graph_;
   is_const_ = other.is_const_;
@@ -272,6 +278,13 @@ synapse_error_o tensor::create_old_synapi() {
   }
 
   SYNAPSE_SUCCESS_CHECK_WITH_OP("Tensor create failed.", status, cleanup());
+
+  if (is_external_) {
+    HABANA_ASSERT(is_persistent_);
+    status = synTensorSetExternal(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor external.", status, cleanup());
+  }
 
   PT_SYNHELPER_DEBUG("created ", *this);
   return {};
@@ -389,6 +402,14 @@ synapse_error_o tensor::create() {
   }
 
   SYNAPSE_SUCCESS_CHECK_WITH_OP("Tensor create failed.", status, cleanup());
+  PT_LAZY_DEBUG(
+      "creating tensor ", tensor_name_, " is external = ", is_external_);
+  if (is_external_) {
+    HABANA_ASSERT(is_persistent_);
+    status = synTensorSetExternal(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor external.", status, cleanup());
+  }
 
   PT_SYNHELPER_DEBUG("created ", *this);
   return {};

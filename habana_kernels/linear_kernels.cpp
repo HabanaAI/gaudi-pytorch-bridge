@@ -109,17 +109,17 @@ void synapse_matmul(
       std::vector<synTensor> syn_inputs, syn_outputs;
 
       syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat1, graph, true));
+          habana_helpers::create_tensor(mat1, graph, true, false));
       syn_inputs.push_back(
           syn_helper_inputs[syn_helper_inputs.size() - 1].get());
       syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat2, graph, true));
+          habana_helpers::create_tensor(mat2, graph, true, false));
       syn_inputs.push_back(
           syn_helper_inputs[syn_helper_inputs.size() - 1].get());
 
       std::tie(syn_helper_outputs, syn_outputs) =
           habana_helpers::create_tensors(
-              std::vector<at::Tensor>{output}, graph, true);
+              std::vector<at::Tensor>{output}, graph, true, false);
 
       { // add node
         synGEMMParams params{0, 0};

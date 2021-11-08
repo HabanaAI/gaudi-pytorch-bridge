@@ -810,7 +810,7 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
   static_cast<void>(shape_tensor_type);
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph, is_persistent, c10::nullopt);
+        input, graph, is_persistent, false, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(syn_tensor_input);
 
@@ -954,7 +954,7 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
   static_cast<void>(shape_tensor_type);
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph, is_persistent, c10::nullopt);
+        input, graph, is_persistent, false, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(syn_tensor_input);
 
@@ -1098,7 +1098,9 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(valid_count_bwd.numel() == 2);
   HABANA_ASSERT((kernel_mode >= 0) && (kernel_mode < 3));
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin());
 
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);

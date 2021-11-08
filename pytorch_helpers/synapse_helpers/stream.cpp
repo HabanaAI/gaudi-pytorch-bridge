@@ -74,13 +74,20 @@ stream::stream(class device& device, stream_flavor flavor)
     PT_SYNHELPER_FATAL("Stream creation failed with status: ", status);
 }
 
-void stream::register_pending_event(const shared_event& event) {
+void stream::register_pending_event(
+    const shared_event& event,
+    bool record_event) {
   {
     std::lock_guard<std::mutex> lock_guard(mut_);
-    auto status = synEventRecord(*event, handle_);
-    if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_FATAL(
-          "Event record failed on stream ", handle_, " with status: ", status);
+    if (record_event) {
+      auto status = synEventRecord(*event, handle_);
+      if (synStatus::synSuccess != status) {
+        PT_SYNHELPER_FATAL(
+            "Event record failed on stream ",
+            handle_,
+            " with status: ",
+            status);
+      }
     }
     pending_cleanups_.push(event);
   }
@@ -88,6 +95,7 @@ void stream::register_pending_event(const shared_event& event) {
 }
 
 void stream::gc_thread_proc() {
+  std::queue<shared_event> partial_events{};
   while (true) {
     std::unique_lock<std::mutex> lock(mut_);
 
@@ -102,7 +110,20 @@ void stream::gc_thread_proc() {
       break;
     }
     lock.unlock();
-    device_.synchronize_event(event_to_clean);
+    // Delay synchronizing partial events until the next real event. a real can
+    // only be enqueued after recipe execution. Once it is triggered we know all
+    // preceeding partial event must be triggered.
+    if (event_to_clean->is_partial()) {
+      partial_events.push(std::move(event_to_clean));
+    } else {
+      device_.synchronize_event(event_to_clean);
+      // Call synchronize_event on all preceeding partial events to trigger
+      // event done callback
+      while (!partial_events.empty()) {
+        device_.synchronize_event(partial_events.front());
+        partial_events.pop();
+      }
+    }
   }
 }
 

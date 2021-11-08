@@ -40,7 +40,6 @@ void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  static_cast<void>(output_metadata);
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,
@@ -61,7 +60,9 @@ void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[1];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[2];
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
 
   std::vector<synTensor> syn_inputs;
   syn_inputs.push_back(arg1_syn_tensor.get());

@@ -115,9 +115,10 @@ static std::vector<synapse_helpers::tensor> NllLoss(
 static void DummyOutput(
     synapse_helpers::graph& graph,
     PytorchKernelContextPtr& p_context_,
-    bool persistent) {
+    bool persistent,
+    bool external) {
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      p_context_->pt_outputs_.at(1), graph, persistent));
+      p_context_->pt_outputs_.at(1), graph, persistent, external));
 }
 
 void NllLossFwd::AddNode(
@@ -130,7 +131,11 @@ void NllLossFwd::AddNode(
 
   OpBackend::AddNode(graph, stack);
   // dummy output in place of total_weight
-  DummyOutput(graph, p_context_, IsOutputPersistent(1));
+  DummyOutput(
+      graph,
+      p_context_,
+      IsOutputPersistent(1),
+      m_output_metadata.at(1).external);
 }
 
 void NllLoss2DFwd::AddNode(
@@ -141,7 +146,11 @@ void NllLoss2DFwd::AddNode(
   // remove total_weight from output as it is unsupported
   p_context_->syn_outputs_.pop_back();
   // dummy output in place of total_weight
-  DummyOutput(graph, p_context_, IsOutputPersistent(1));
+  DummyOutput(
+      graph,
+      p_context_,
+      IsOutputPersistent(1),
+      m_output_metadata.at(1).external);
 
   auto input_shape = stack_tensor(stack, 0).sizes();
   size_t size = 0;

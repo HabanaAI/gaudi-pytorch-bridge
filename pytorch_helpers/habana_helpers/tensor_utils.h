@@ -140,6 +140,7 @@ synapse_helpers::tensor create_tensor(
     const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     int devid,
     const c10::ScalarType dtype,
     const std::string& name = std::string());
@@ -148,6 +149,7 @@ synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     const c10::optional<c10::ScalarType> dtype = c10::nullopt,
     const std::string& name = std::string());
 
@@ -167,6 +169,7 @@ synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     const synDataType dtype,
     const std::string& name = std::string());
 
@@ -174,25 +177,29 @@ std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<at::Tensor>& tensors,
     synapse_helpers::graph& graph,
-    const std::vector<bool> persistents,
+    const std::vector<bool>& persistents,
+    const std::vector<bool>& externals,
     const std::vector<c10::optional<c10::ScalarType>> dtypes);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<at::Tensor>& tensors,
     synapse_helpers::graph& graph,
-    bool persistent);
+    bool persistent,
+    bool external);
 
 synapse_helpers::tensor duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor,
-    synapse_helpers::graph& graph);
+    synapse_helpers::graph& graph,
+    bool external);
 
 synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     const synapse_helpers::tensor& tensor,
     synapse_helpers::graph& graph,
     std::vector<int64_t>& sizes,
     std::vector<int64_t>& strides,
-    const uint64_t offset);
+    const uint64_t offset,
+    bool external);
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(

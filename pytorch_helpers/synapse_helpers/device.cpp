@@ -768,6 +768,14 @@ void device::register_producer_on_stream(
       std::move(bound_addresses), event_id, stream, std::move(done_cb));
 }
 
+void device::register_producer_on_stream(stream& stream, shared_event event) {
+  if (!event->is_partial()) {
+    PT_SYNHELPER_FATAL(
+        "Only mapped partial events can be registered without address");
+  }
+  sem_.add_producer(stream, event);
+}
+
 void device::add_event_id(
     const std::string& event_id,
     const std::string& new_id) {
@@ -784,6 +792,15 @@ void device::wait_until_address_ready(device_ptr address) {
 
 void device::wait_for_event(shared_event& event) {
   sem_.wait_until_done(event);
+}
+
+shared_event device::map_event_to_tensor(
+    stream& stream,
+    const synRecipeHandle recipe_handle,
+    synLaunchTensorInfo* tensor_info,
+    event_done_callback done_cb) {
+  return sem_.map_event_to_tensor(
+      stream, recipe_handle, tensor_info, std::move(done_cb));
 }
 
 void device::record_and_wait_for_event(

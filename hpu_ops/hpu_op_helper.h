@@ -290,8 +290,10 @@ class OpBackend : public HabanaOperator {
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
-  OutputMetaDataVector m_output_metadata;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
+
+ protected:
+  OutputMetaDataVector m_output_metadata;
 };
 
 #define PARAMS_STUB(structname) \

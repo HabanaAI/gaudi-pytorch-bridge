@@ -40,9 +40,9 @@ void synapse_simple_generic_kernel(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph, true);
+        habana_helpers::create_tensors(pt_inputs, graph, true, false);
     std::tie(syn_helper_outputs, syn_outputs) =
-        habana_helpers::create_tensors(pt_outputs, graph, true);
+        habana_helpers::create_tensors(pt_outputs, graph, true, false);
     {
       graph.add_node(
           std::move(syn_inputs),
@@ -83,9 +83,9 @@ void synapse_simple_generic_inplace_kernel(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph, true);
+        habana_helpers::create_tensors(pt_inputs, graph, true, false);
     auto syn_helper_output = habana_helpers::duplicate_tensor_in_memory_section(
-        syn_helper_inputs[0], graph);
+        syn_helper_inputs[0], graph, false);
     syn_outputs.push_back(syn_helper_output.get());
     {
       graph.add_node(
@@ -124,9 +124,9 @@ void synapse_execute_kernel(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph, true);
+        habana_helpers::create_tensors(pt_inputs, graph, true, false);
     std::tie(syn_helper_outputs, syn_outputs) =
-        habana_helpers::create_tensors(pt_outputs, graph, true);
+        habana_helpers::create_tensors(pt_outputs, graph, true, false);
     graph.add_node(
         std::move(syn_inputs),
         std::move(syn_outputs),
@@ -176,9 +176,9 @@ void synapse_execute_inplace_kernel(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph, true);
+        habana_helpers::create_tensors(pt_inputs, graph, true, false);
     auto syn_helper_output = habana_helpers::duplicate_tensor_in_memory_section(
-        syn_helper_inputs[0], graph);
+        syn_helper_inputs[0], graph, false);
     syn_outputs.push_back(syn_helper_output.get());
     {
       graph.add_node(

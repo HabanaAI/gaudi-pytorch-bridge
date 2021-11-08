@@ -239,7 +239,9 @@ void OpBackend::HandleOutFn(
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_.at(syn_inputs_size - i), graph));
+            p_context_->syn_inputs_.at(syn_inputs_size - i),
+            graph,
+            m_output_metadata.at(m_num_out_tensors - i).external));
   }
 
   // Remove the out tensors from syn inputs
@@ -259,7 +261,9 @@ void OpBackend::HandleInplaceFn(
     // Index can vary in syn_inputs_ and in stack
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[inplace_id], graph));
+            p_context_->syn_inputs_[inplace_id],
+            graph,
+            m_output_metadata.at(inplace_id).external));
     p_context_->pt_outputs_.emplace_back(stack[inplace_id].toTensor());
   }
 }
@@ -432,13 +436,14 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       bool is_persistent = attr.final_result_index.has_value() and
           op->m_output_metadata[attr.final_result_index.value()].persistent;
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
-
+      bool is_external = attr.final_result_index.has_value() and
+          op->m_output_metadata.at(attr.final_result_index.value()).external;
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
               ? habana_helpers::create_shape_tensor(
                     t, graph, is_persistent, attr.tensor_type)
               : habana_helpers::create_tensor(
-                    t, graph, is_persistent, attr.dtype));
+                    t, graph, is_persistent, is_external, attr.dtype));
 
       if (is_persistent) {
         const auto& impl =

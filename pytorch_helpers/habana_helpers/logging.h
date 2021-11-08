@@ -222,6 +222,7 @@ class PtLogger {
   };
 };
 
+namespace Logger {
 inline std::string DebugString(const PtLogger::ModuleMask& mod) {
   switch (mod) {
     case PtLogger::ModuleMask::DEVICE:
@@ -254,6 +255,7 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("UNDEFINED");
   }
 }
+} // namespace Logger
 
 class PTFuncLog {
  private:
@@ -298,14 +300,15 @@ class PTOpTrace {
   }
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                                                 \
-  {                                                                            \
-    Logger::habana_assert(                                                     \
-        __func__,                                                              \
-        __FILE__,                                                              \
-        static_cast<uint32_t>(__LINE__),                                       \
-        Logger::str(                                                           \
-            "FATAL ERROR :: MODULE:" + DebugString(MOD) + " " + __VA_ARGS__)); \
+#define PT_MOD_FATAL(MOD, ...)                                          \
+  {                                                                     \
+    Logger::habana_assert(                                              \
+        __func__,                                                       \
+        __FILE__,                                                       \
+        static_cast<uint32_t>(__LINE__),                                \
+        Logger::str(                                                    \
+            "FATAL ERROR :: MODULE:" + Logger::DebugString(MOD) + " " + \
+            __VA_ARGS__));                                              \
   }
 
 #define PT_DEVICE_FATAL(...) \

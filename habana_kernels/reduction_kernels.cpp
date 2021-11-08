@@ -313,13 +313,20 @@ ReduceOperator::CreateReductionGraph(
 
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
-        shape, pyt_stride, graph, false, pyt_tensor.device().index(), dtype));
+        shape,
+        pyt_stride,
+        graph,
+        false,
+        false,
+        pyt_tensor.device().index(),
+        dtype));
     if (num_tpc_outputs != 1) {
       // create second tensor for index
       syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
           shape,
           pyt_stride,
           graph,
+          false,
           false,
           pyt_tensor.device().index(),
           c10::ScalarType::Int));
@@ -334,6 +341,7 @@ ReduceOperator::CreateReductionGraph(
         output.sizes(),
         output.strides(),
         graph,
+        false,
         false,
         pyt_tensor.device().index(),
         c10::ScalarType::Int));
@@ -1712,7 +1720,6 @@ void AllOutOperator::AllocateAndAddSynapseNode(
       inputs[1].isInt(), "Input arg3 expected to be Int for AllOut operator");
   TORCH_CHECK(
       inputs[2].isBool(), "Input arg4 expected to be Bool for AllOut operator");
-  static_cast<void>(output_metadata);
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   bool keepdim = inputs[2].toBool();
@@ -1752,7 +1759,9 @@ void AllOutOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_inputs;
   syn_inputs.push_back(arg1_syn_tensor.get());
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[1]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];

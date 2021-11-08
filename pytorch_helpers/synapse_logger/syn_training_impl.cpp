@@ -52,11 +52,13 @@ SYN_API_PTR(synStreamSynchronize);
 SYN_API_PTR(synStreamQuery);
 SYN_API_PTR(synEventCreate);
 SYN_API_PTR(synEventDestroy);
+SYN_API_PTR(synEventMapTensorBase);
 SYN_API_PTR(synEventRecord);
 SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunch);
+SYN_API_PTR(synLaunchWithExternalEventsBase);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -100,6 +102,7 @@ SYN_API_PTR(synSectionCreate);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorHandleCreate);
+SYN_API_PTR(synTensorSetExternal);
 SYN_API_PTR(synTensorSetGeometry);
 SYN_API_PTR(synTensorSetDeviceLayout);
 SYN_API_PTR(synTensorSetHostPtr);
@@ -115,11 +118,13 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synStreamQuery);
   SYN_API_INIT_PTR(synEventCreate);
   SYN_API_INIT_PTR(synEventDestroy);
+  SYN_API_INIT_PTR(synEventMapTensorBase);
   SYN_API_INIT_PTR(synEventRecord);
   SYN_API_INIT_PTR(synEventQuery);
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
   SYN_API_INIT_PTR(synLaunch);
+  SYN_API_INIT_PTR(synLaunchWithExternalEventsBase);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -163,6 +168,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorHandleCreate);
+  SYN_API_INIT_PTR(synTensorSetExternal);
   SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceLayout);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
@@ -278,6 +284,28 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
   return status;
 }
 
+synStatus SYN_API_CALL synEventMapTensorBase(
+    synEventHandle* eventHandle,
+    size_t numOfEvents,
+    const synLaunchTensorInfo* launchTensorsInfo,
+    const synRecipeHandle recipeHandle) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG_X(eventHandle),
+      ARG(numOfEvents),
+      ARG_X(launchTensorsInfo),
+      ARG(recipeHandle));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synEventMapTensorBase,
+      eventHandle,
+      numOfEvents,
+      launchTensorsInfo,
+      recipeHandle)
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL
 synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
@@ -355,6 +383,40 @@ synStatus SYN_API_CALL synLaunch(
       numberTensors,
       pWorkspace,
       pRecipeHandle,
+      flags)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synLaunchWithExternalEventsBase(
+    const synStreamHandle streamHandle,
+    const synLaunchTensorInfo* launchTensorsInfo,
+    uint32_t numberOfTensors,
+    uint64_t pWorkspace,
+    const synRecipeHandle pRecipeHandle,
+    synEventHandle* eventHandleList,
+    const uint32_t numberOfEvents,
+    uint32_t flags) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(streamHandle),
+      M_ARG_X(launchTensorsInfo, numberOfTensors),
+      ARG(numberOfTensors),
+      ARG_X(pWorkspace),
+      ARG(pRecipeHandle),
+      M_ARG_X(eventHandleList, numberOfEvents),
+      ARG(numberOfEvents),
+      ARG(flags));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synLaunchWithExternalEventsBase,
+      streamHandle,
+      launchTensorsInfo,
+      numberOfTensors,
+      pWorkspace,
+      pRecipeHandle,
+      eventHandleList,
+      numberOfEvents,
       flags)
   API_LOG_RESULT();
   return status;
@@ -1101,6 +1163,15 @@ synStatus SYN_API_CALL synTensorHandleCreate(
   CALL_SYN_FUNC(
       lib_synapse::synTensorHandleCreate, pTensor, graph, type, tensorName);
   API_LOG_RESULT(S_ARG(pTensor));
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetExternal(synTensor tensor, bool isExternal) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(isExternal));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorSetExternal, tensor, isExternal);
+  API_LOG_RESULT();
   return status;
 }
 

@@ -49,6 +49,7 @@ class event {
   std::vector<std::string> event_ids_{};
   stream& stream_recorded_; // used to avoid waiting on the same stream which is
                             // forbidden by synapse
+  bool is_partial_{};
 
  public:
   /*! \brief Constructor        Requests event from event handle cache
@@ -72,6 +73,12 @@ class event {
   event& operator=(event&&) = delete;
   event& operator=(const event&) = delete;
 
+  /*! \brief Tells if event is partial (has been used for intra-op signalization
+   */
+  bool is_partial() const {
+    return is_partial_;
+  }
+
   /*! \brief Invokes synStreamWaitEvent with its synEventHandle on a given
    * stream \param stream on which WaitEvent is recorded \param flags -
    * currently not used
@@ -81,6 +88,14 @@ class event {
   void push_id(std::string event_id) {
     event_ids_.emplace_back(std::move(event_id));
   }
+
+  /*! \brief Invokes synEventMapTensorBase with its synEventHandle, recipe and
+   * tensor \param recipe_handle recipe from which the event will be signaled
+   *  \param tensor_info External tensor information
+   */
+  void map_event_to_tensor(
+      const synRecipeHandle recipe_handle,
+      synLaunchTensorInfo* tensor_info);
 
   /*! \return true if synEventHandle already happened, false otherwise
    */

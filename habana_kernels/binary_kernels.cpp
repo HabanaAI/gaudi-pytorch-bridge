@@ -1213,7 +1213,7 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
   // Note here we are using input[0] to store output[1]
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0], graph));
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(self);
 
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
@@ -1455,7 +1455,6 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for topk operator");
@@ -1477,7 +1476,9 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[2]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(remainder);
 
   std::vector<synTensor> syn_inputs;

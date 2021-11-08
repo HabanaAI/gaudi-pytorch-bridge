@@ -148,11 +148,12 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
               graph,
               sizes,
               strides,
-              syn_offset);
+              syn_offset,
+              false);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
       auto syn_tensor_input = habana_helpers::create_tensor(
-          input, graph, is_persistent, c10::nullopt);
+          input, graph, is_persistent, false, c10::nullopt);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     }
   } else {
@@ -207,6 +208,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         output,
         graph,
         output_metadata.persistent,
+        output_metadata.external,
         c10::nullopt,
         output_metadata.name));
   } else {
@@ -236,6 +238,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         output,
         graph,
         output_metadata.persistent,
+        output_metadata.external,
         synType,
         output_metadata.name));
   } else {
@@ -264,14 +267,15 @@ std::vector<std::tuple<std::string, at::Tensor, uint64_t>> habana::
 }
 
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
-    synapse_helpers::graph& graph) {
+    synapse_helpers::graph& graph,
+    bool external) {
   static_cast<void>(graph);
   HABANA_ASSERT(p_context_->syn_inputs_.size() > 0);
   HABANA_ASSERT(p_context_->pt_inputs_.size() > 0);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0], graph));
+          p_context_->syn_inputs_[0], graph, external));
   if (!graph.is_dry_run()) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "AllocateSynapseInplaceOutput ", p_context_->syn_outputs_.back());
@@ -307,10 +311,12 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
 void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) {
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+    const OutputMetaDataVector& output_metadata) {
   static_cast<void>(graph);
   static_cast<void>(inputs);
   static_cast<void>(syn_t_vec);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
 };

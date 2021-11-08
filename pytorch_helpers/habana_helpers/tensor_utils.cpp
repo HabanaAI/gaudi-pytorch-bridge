@@ -561,6 +561,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     UNUSED const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     int devid,
     const c10::ScalarType dtype,
     const std::string& name) {
@@ -592,6 +593,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     auto variant = synapse_helpers::tensor_builder(
                        max, max_stride, pytorch_to_synapse_type(dtype))
                        .mark_persistence(persistent)
+                       .mark_external(external)
                        .with_dynamic_shape(dynamic_shape)
                        .build(
                            synapse_helpers::HPURegistrar::get_device(devid),
@@ -602,7 +604,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto builder =
       synapse_helpers::tensor_builder(
           shape, calculate_strides(shape.vec()), pytorch_to_synapse_type(dtype))
-          .mark_persistence(persistent);
+          .mark_persistence(persistent)
+          .mark_external(external);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -616,6 +619,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     const c10::optional<c10::ScalarType> dtype,
     const std::string& name) {
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
@@ -656,6 +660,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             max_stride,
             pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
             .mark_persistence(persistent)
+            .mark_external(external)
             .with_dynamic_shape(dynamic_shape);
     if (!name.empty()) {
       builder.use_suffix(name);
@@ -674,7 +679,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           calculate_strides(tensor.sizes().vec()),
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
           .set_offset(syn_offset)
-          .mark_persistence(persistent);
+          .mark_persistence(persistent)
+          .mark_external(external);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -693,6 +699,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
+    bool external,
     const synDataType synType,
     const std::string& name) {
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
@@ -727,6 +734,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     }
     auto builder = synapse_helpers::tensor_builder(max, max_stride, synType)
                        .mark_persistence(persistent)
+                       .mark_external(external)
                        .with_dynamic_shape(dynamic_shape);
     if (!name.empty()) {
       builder.use_suffix(name);
@@ -740,7 +748,9 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(), calculate_strides(tensor.sizes().vec()), synType)
-          .mark_persistence(persistent);
+          .mark_persistence(persistent)
+          .mark_external(external);
+
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -848,11 +858,13 @@ std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
     const std::vector<at::Tensor>& tensors,
     synapse_helpers::graph& graph,
-    bool persistent) {
+    bool persistent,
+    bool external) {
   return habana_helpers::create_tensors(
       tensors,
       graph,
       std::vector<bool>(tensors.size(), persistent),
+      std::vector<bool>(tensors.size(), external),
       std::vector<c10::optional<c10::ScalarType>>(
           tensors.size(), c10::nullopt));
 }
@@ -861,10 +873,12 @@ std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
     const std::vector<at::Tensor>& tensors,
     synapse_helpers::graph& graph,
-    const std::vector<bool> persistents,
+    const std::vector<bool>& persistents,
+    const std::vector<bool>& externals,
     const std::vector<c10::optional<c10::ScalarType>> dtypes) {
   const auto num_tensors = tensors.size();
   TORCH_CHECK(persistents.size() == num_tensors);
+  TORCH_CHECK(externals.size() == num_tensors);
   TORCH_CHECK(dtypes.size() == num_tensors);
 
   // tensor_helpers are used for tenor lifetime managment
@@ -880,6 +894,7 @@ habana_helpers::create_tensors(
         tensors[i],
         graph,
         persistents[i],
+        externals[i],
         dtypes[i].value_or(tensors[i].scalar_type())));
     syn_tensors.push_back(tensor_helpers[i].get());
   }
@@ -889,7 +904,8 @@ habana_helpers::create_tensors(
 
 synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor,
-    synapse_helpers::graph& graph) {
+    synapse_helpers::graph& graph,
+    bool external) {
   if (graph.is_dynamic_graph()) {
     habana::ShapeInference::UpdateShapeInfo(graph, tensor.pt_shape());
   }
@@ -900,10 +916,16 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
         tensor.device_id(), tensor.pt_shape(), tensor.pt_strides());
   }
 
+  if (external) {
+    TORCH_CHECK(
+        tensor.is_persistent(), "Cannot create non persistent external tensor");
+  }
+
   auto builder = synapse_helpers::tensor_builder(
                      tensor.shape(), tensor.stride(), tensor.type())
                      .with_memory_section(tensor.memorysection())
                      .mark_persistence(tensor.is_persistent())
+                     .mark_external(external)
                      .set_offset(tensor.get_offset());
 
   if (tensor.has_dynamic_shape()) {
@@ -922,7 +944,8 @@ synapse_helpers::tensor habana_helpers::
         synapse_helpers::graph& graph,
         std::vector<int64_t>& sizes,
         std::vector<int64_t>& strides,
-        const uint64_t offset) {
+        const uint64_t offset,
+        bool external) {
   if (graph.is_dynamic_graph()) {
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);
   }
@@ -940,7 +963,8 @@ synapse_helpers::tensor habana_helpers::
   auto builder = synapse_helpers::tensor_builder(sizes, strides, tensor.type())
                      .with_memory_section(tensor.memorysection())
                      .set_offset(offset)
-                     .mark_persistence(tensor.is_persistent());
+                     .mark_persistence(tensor.is_persistent())
+                     .mark_external(external);
 
   if (tensor.has_dynamic_shape()) {
     if (synapse_helpers::to_shape_t(sizes) == tensor.dynamic_shape().min()) {

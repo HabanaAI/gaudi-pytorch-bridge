@@ -159,7 +159,11 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       at::MemoryFormat::Contiguous,
       output_metadata.at(1).persistent);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output2, graph, output_metadata.at(1).persistent, c10::nullopt));
+      output2,
+      graph,
+      output_metadata.at(1).persistent,
+      output_metadata.at(1).external,
+      c10::nullopt));
   p_context_->pt_outputs_.emplace_back(output2);
 }
 
@@ -232,7 +236,11 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
       at::MemoryFormat::Contiguous,
       output_metadata.at(1).persistent);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output2, graph, output_metadata.at(1).persistent, c10::nullopt));
+      output2,
+      graph,
+      output_metadata.at(1).persistent,
+      output_metadata.at(1).external,
+      c10::nullopt));
   p_context_->pt_outputs_.emplace_back(output2);
 }
 

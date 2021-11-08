@@ -48,6 +48,7 @@ class stream_event_manager {
       std::string event_id,
       stream& stream,
       event_done_callback done_cb);
+  void add_producer(stream& stream, shared_event event);
 
   void add_event_id(const std::string& event_id, const std::string& new_id);
 
@@ -67,6 +68,12 @@ class stream_event_manager {
   void wait_until_done(device_ptr device_address);
   void wait_until_done(shared_event& event);
   void wait_until_done(const std::string& event);
+
+  shared_event map_event_to_tensor(
+      stream& stream,
+      const synRecipeHandle recipe_handle,
+      synLaunchTensorInfo* tensor_info,
+      event_done_callback done_cb);
 
   /*! \brief Returns reference to Event, if exists
    *  \param device_address identifier of Event - tensor pointer in device

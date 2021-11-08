@@ -93,28 +93,57 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
   } // for (auto* node : graph_nodes)
 } // function end
 
-// TODO: SW-68565 SFG step 2
-// void HabanaLaunchOpPT::externalMarkingPass(
-//    torch::jit::graph_node_list graph_nodes) {
-//  for (auto* node : graph_nodes) {
-//    if (node->kind().is_prim()) {
-//      continue;
-//    }
-//
-//    // Get kernel context
-//    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-//        0, node->schema().operator_name(), getNodeScalarType(node));
-//    if (HabanaKernel == nullptr)
-//      continue;
-//
-//    // collective inputs must be set external in order to
-//    // trigger before graph execution ends
-//    if (isCollective(node)) {
-//      set_external_input(node);
-//    }
-//
-//  } // for (auto* node : graph_nodes)
-//} // function end
+void HabanaLaunchOpPT::set_external_input(torch::jit::Node* node) {
+  for (auto& val : node->inputs()) {
+    if (val->type()->kind() == c10::TypeKind::TensorType) {
+      MarkProducerExternal(val);
+    } else if (val->type()->kind() == c10::TypeKind::ListType) {
+      auto list_in_vals = val->node()->inputs();
+      for (auto in_val : list_in_vals) {
+        if (in_val->type()->kind() == c10::TypeKind::TensorType) {
+          MarkProducerExternal(val);
+        }
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::MarkProducerExternal(torch::jit::Value* val) {
+  while (isControlEdge(val->node())) {
+    val = val->node()->inputs().at(0);
+  }
+  if (isInGraphInputs(val) != -1) {
+    PT_LAZY_DEBUG(
+        "Not adding ",
+        val->debugName(),
+        " to extenal map since it is an input to the graph")
+  } else {
+    PT_LAZY_DEBUG("Adding ", val->debugName(), " to extenal map")
+    valptr_to_external_map[val] = true;
+  }
+}
+
+void HabanaLaunchOpPT::externalMarkingPass(
+    torch::jit::graph_node_list graph_nodes) {
+  for (auto* node : graph_nodes) {
+    if (node->kind().is_prim()) {
+      continue;
+    }
+
+    // Get kernel context
+    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+        0, node->schema().operator_name(), getNodeScalarType(node));
+    if (HabanaKernel == nullptr)
+      continue;
+
+    // collective inputs must be set external in order to
+    // trigger before graph execution ends
+    if (isCollective(node)) {
+      set_external_input(node);
+    }
+
+  } // for (auto* node : graph_nodes)
+} // function end
 
 void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
     torch::jit::graph_node_list graph_nodes) {
@@ -122,6 +151,8 @@ void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
   // but are made persistent due to synapse limitations
   persistenceMarkingPass(graph_nodes);
 
-  // TODO: SW-68565 SFG step 2
-  // externalMarkingPass(graph_nodes);
+  // This pass marks tensors external if they are used as input tensors for
+  // collective ops. Used for Signal From Graph to signal the tensor data is
+  // ready prior to recipe completion
+  externalMarkingPass(graph_nodes);
 }

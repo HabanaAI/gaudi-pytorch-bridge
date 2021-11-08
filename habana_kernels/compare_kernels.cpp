@@ -176,7 +176,7 @@ std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
 void GeOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    UNUSED const OutputMetaDataVector& output_metadata) {
+    const OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,
@@ -191,7 +191,9 @@ void GeOutOperator::AllocateAndAddSynapseNode(
 
   Tensor output = inputs[2].toTensor();
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[2]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 
   std::vector<synTensor> syn_in;

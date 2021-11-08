@@ -187,10 +187,11 @@ struct RecipeValueSpec {
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
   void SelfCheck() {
-    TORCH_CHECK(recipe != nullptr)
-    TORCH_CHECK(dtensorinfos != nullptr);
-    TORCH_CHECK(dtensorinfos->size() == num_tinfos);
-    TORCH_CHECK(!aten_outputs->empty());
+    if (recipe != nullptr || !collective_kernels_info.empty()) {
+      TORCH_CHECK(dtensorinfos != nullptr);
+      TORCH_CHECK(dtensorinfos->size() == num_tinfos);
+      TORCH_CHECK(!aten_outputs->empty());
+    }
   }
 
   bool get_use_flag() {
@@ -218,7 +219,9 @@ struct RecipeValueSpec {
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
       const habana::IdShapeMap& m_actual_shapes);
   void populate_syn_tensor_ids();
-  void patch_launch_info(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
+  void patch_launch_info(
+      std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
+      std::vector<size_t>& external_tensor_info_indexes);
   void PrintDebugInfo(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr);

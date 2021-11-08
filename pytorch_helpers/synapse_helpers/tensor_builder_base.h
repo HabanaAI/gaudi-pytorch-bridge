@@ -183,6 +183,12 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& mark_external(const bool is_external = true) {
+    PT_LAZY_DEBUG("tensor builder mark_external ", is_external);
+    is_external_ = is_external;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& set_offset(const uint64_t offset = 0) {
     offset_ = offset;
     return static_cast<ConcreteBuilder&>(*this);
@@ -265,6 +271,7 @@ class tensor_builder_base {
         tensor_id,
         graph,
         is_persistent_,
+        is_external_,
         memory_section_,
         is_const_,
         host_ptr_,
@@ -296,6 +303,7 @@ class tensor_builder_base {
   synDataType data_type_{};
   std::string suffix_ = "";
   bool is_persistent_{false};
+  bool is_external_{false};
   bool is_const_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};

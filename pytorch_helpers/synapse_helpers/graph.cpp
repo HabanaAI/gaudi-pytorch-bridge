@@ -295,13 +295,15 @@ synapse_error_o graph::launch(
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
     std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
-    std::unique_ptr<device_ptr_lock>& address_lock) {
+    std::unique_ptr<device_ptr_lock>& address_lock,
+    std::vector<shared_event>& ext_events) {
   return launch(
       device,
       recipe_handle,
       workspace_size,
       inputs_and_outputs_info,
-      address_lock);
+      address_lock,
+      ext_events);
 }
 
 synapse_error_o graph::launch(
@@ -309,7 +311,8 @@ synapse_error_o graph::launch(
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
     std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
-    std::unique_ptr<device_ptr_lock>& address_lock) {
+    std::unique_ptr<device_ptr_lock>& address_lock,
+    std::vector<shared_event>& ext_events) {
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -375,42 +378,24 @@ synapse_error_o graph::launch(
       synapse_helpers::print_live_allocations(msg.c_str());
     }
 
-    if (false == GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
-      PT_SYNHELPER_DEBUG("Launching recipe with tensor names");
-      std::vector<synLaunchTensorInfo> old_launch_info;
-      old_launch_info.reserve(inputs_and_outputs_info.size());
-      std::transform(
-          inputs_and_outputs_info.begin(),
-          inputs_and_outputs_info.end(),
-          std::back_inserter(old_launch_info),
-          [](const synLaunchTensorInfo& input) {
-            synLaunchTensorInfo info;
-            info.tensorName = input.tensorName;
-            info.pTensorAddress = input.pTensorAddress;
-            info.tensorType = input.tensorType;
-            for (int i = 0; i < SYN_MAX_TENSOR_DIM; ++i) // should be removed
-              info.tensorSize[i] = input.tensorSize[i];
-            return info;
-          });
+    uint32_t flags{0};
+    std::vector<synEventHandle> event_handles;
+    event_handles.reserve(ext_events.size());
+    std::transform(
+        ext_events.begin(),
+        ext_events.end(),
+        std::back_inserter(event_handles),
+        [](shared_event& event) -> synEventHandle { return *event; });
 
-      status = synLaunch(
-          compute_stream,
-          old_launch_info.data(),
-          old_launch_info.size(),
-          workspace_buffer,
-          recipe_handle.syn_recipe_handle_,
-          SYN_FLAGS_TENSOR_NAME);
-    } else {
-      PT_SYNHELPER_DEBUG("Launching recipe with tensor ids");
-      uint32_t flags{0};
-      status = synLaunch(
-          compute_stream,
-          inputs_and_outputs_info.data(),
-          inputs_and_outputs_info.size(),
-          workspace_buffer,
-          recipe_handle.syn_recipe_handle_,
-          flags);
-    }
+    status = synLaunchWithExternalEventsBase(
+        compute_stream,
+        inputs_and_outputs_info.data(),
+        inputs_and_outputs_info.size(),
+        workspace_buffer,
+        recipe_handle.syn_recipe_handle_,
+        event_handles.data(),
+        event_handles.size(),
+        flags);
   }
 
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)

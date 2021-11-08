@@ -56,7 +56,7 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[0], graph));
+            p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(arg1);
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
@@ -78,7 +78,7 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[0], graph));
+            p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(arg1);
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
     synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
@@ -175,7 +175,7 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   // Note here we are using input[0] to store output[0]
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0], graph));
+          p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(arg1);
 
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
