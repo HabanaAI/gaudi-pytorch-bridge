@@ -1111,6 +1111,7 @@ Tensor add_scalar_hpu_lazy(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
+  PT_LAZY_TRACE;
   LazyOp<at::Tensor> op{
       "aten::add", {self, other, alpha}, {}, {self.sizes().vec()}};
   return op.call();
@@ -1173,6 +1174,7 @@ Tensor sub_scalar_hpu_lazy(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
+  PT_LAZY_TRACE;
   LazyOp<at::Tensor> op{
       "aten::sub", {self, other, alpha}, {}, {self.sizes().vec()}};
   return op.call();
@@ -1349,6 +1351,7 @@ Tensor& eq_tensor_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return eq_tensor_out_hpu(output, self, other);
 }
@@ -1639,6 +1642,7 @@ Tensor embedding_hpu_lazy(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
+  PT_LAZY_TRACE;
   ir::NodePtr embedding_node = std::make_shared<ir::Embedding_forward>(
       weight, indices, padding_idx, scale_grad_by_freq, sparse);
 
@@ -1665,6 +1669,7 @@ Tensor embedding_dense_backward_hpu_lazy(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
+  PT_LAZY_TRACE;
   ir::NodePtr embedding_bwd_node = std::make_shared<ir::Embedding_backward>(
       grad, indices, num_weights, padding_idx, scale_grad_by_freq);
   std::vector<int64_t> sizes{num_weights, grad.size(-1)};
@@ -2306,6 +2311,7 @@ Tensor gather2d_hpu_lazy(
     const Tensor& input,
     const Tensor& indices,
     int64_t validCount) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return gather2d_hpu(input, indices, validCount);
 }
@@ -3384,6 +3390,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
+  PT_LAZY_TRACE;
   return AtenHpuTypeDefault::max_pool2d_with_indices_backward_out(
       grad_output,
       input,
@@ -3503,6 +3510,7 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
+  PT_LAZY_TRACE;
   return AtenHpuTypeDefault::avg_pool2d_backward_out(
       grad_output,
       input,
@@ -3636,6 +3644,7 @@ Tensor& randperm_hpu_lazy(
   return op.call(output);
 }
 Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
+  PT_LAZY_TRACE;
   LazyOp<Tensor> op{
       "aten::bernoulli", {self, std::move(gen)}, {1}, {self.sizes().vec()}};
   return op.call();
@@ -3644,6 +3653,7 @@ Tensor& bernoulli_scalar_hpu_lazy(
     Tensor& self,
     double p,
     c10::optional<Generator> gen) {
+  PT_LAZY_TRACE;
   LazyOp<Tensor&> op{"hpu::bernoulli_float", {self, p, std::move(gen)}, {1, 2}};
   return op.call(self);
 }
@@ -3772,6 +3782,7 @@ Tensor& mean_dim_out_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
   return AtenHpuTypeDefault::mean_out(self, dim, keepdim, dtype, output);
 }
 
@@ -4274,6 +4285,7 @@ Tensor clone_hpu_lazy(
   return result;
 }
 Tensor& zero_hpu_lazy(Tensor& self) {
+  PT_LAZY_TRACE;
   return fill_hpu_lazy_(self, 0);
 }
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
@@ -4333,6 +4345,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 }
 
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
+  PT_LAZY_TRACE;
   return AtenHpuTypeDefault::transpose_(self, dim0_, dim1_);
 }
 
@@ -4364,6 +4377,7 @@ Tensor t_hpu_lazy(const Tensor& self) {
 
 Tensor& t_hpu_lazy_(Tensor& self) {
   // return t_hpu_(self);
+  PT_LAZY_TRACE;
   return AtenHpuTypeDefault::t_(self);
 }
 
@@ -4577,6 +4591,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
     int64_t dim_,
     bool largest,
     bool sorted) {
+  PT_LAZY_TRACE;
   if (indices[0].scalar_type() == c10::ScalarType::Int) {
     auto indices_long = habana_helpers::cast_tensor_to_long(indices);
     return AtenHpuTypeDefault::topk_out(
@@ -5197,6 +5212,7 @@ Tensor tanh_hpu_lazy(const Tensor& input) {
 }
 
 Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
 }
@@ -5228,6 +5244,7 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
 }
 
 Tensor gelu_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
   auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHPU);
 
   auto node = ir::Node::Create(
@@ -5251,6 +5268,7 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
 }
 
 Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
+  PT_LAZY_TRACE;
   auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
 
@@ -5297,6 +5315,7 @@ Tensor exp_hpu_lazy(const Tensor& self) {
 }
 
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return neg_out_hpu(result, input);
 }
@@ -5314,6 +5333,7 @@ Tensor reciprocal_hpu_lazy(const Tensor& self) {
 }
 
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(0);
   return reciprocal_out_hpu(result, self);
 }
@@ -6135,6 +6155,7 @@ Tensor& bitwise_and_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,
     Scalar other) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(false && "Not implemented yet");
   static_cast<void>(out);
   static_cast<void>(self);
