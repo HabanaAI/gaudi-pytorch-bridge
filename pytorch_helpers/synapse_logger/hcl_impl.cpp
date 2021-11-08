@@ -133,6 +133,26 @@ HCLStatus (*HCL_IAllGather)(
     synDataType dataType,
     HCL_Comm communicator,
     const uint32_t flags);
+HCLStatus (*HCL_AlltoAll)(
+    synStreamHandle streamHandle,
+    uint64_t sendBuffAddr,
+    uint64_t receiveBuffAddr,
+    uint64_t count,
+    synDataType dataType,
+    uint64_t intermediateBufferAddr,
+    uint64_t intermediateSize,
+    HCL_Comm communicator,
+    const uint32_t flags);
+HCLStatus (*HCL_IAlltoAll)(
+    HCL_Request* phRequest,
+    uint64_t sendBufAddr,
+    uint64_t receiveBuffAddr,
+    uint64_t count,
+    synDataType dataType,
+    uint64_t intermediateBufferAddr,
+    uint64_t intermediateSize,
+    HCL_Comm communicator,
+    const uint32_t flags);
 HCLStatus (
     *HCL_NetworkFlush)(HCL_Request* phRequest, synStreamHandle streamHandle);
 HCLStatus (*HCL_Sync)(HCL_Comm comm, uint32_t tag);
@@ -157,6 +177,11 @@ void LoadSymbols(void* lib_handle) {
   CHECK_NULL(
       HCL_IAllreduce =
           (decltype(HCL_IAllreduce))dlsym(lib_handle, "HCL_IAllreduce"));
+  CHECK_NULL(
+      HCL_AlltoAll = (decltype(HCL_AlltoAll))dlsym(lib_handle, "HCL_AlltoAll"));
+  CHECK_NULL(
+      HCL_IAlltoAll =
+          (decltype(HCL_IAlltoAll))dlsym(lib_handle, "HCL_IAlltoAll"));
   CHECK_NULL(
       HCL_Get_Intermediate_Buffer_size =
           (decltype(HCL_Get_Intermediate_Buffer_size))dlsym(
@@ -305,6 +330,74 @@ HCLStatus HCL_IAllreduce(
       intermediateBufferAddr,
       intermediateSize,
       op,
+      communicator,
+      flags);
+  API_LOG_RESULT(S_ARG_X(phRequest));
+  return status;
+}
+
+HCLStatus HCL_AlltoAll(
+    synStreamHandle streamHandle,
+    uint64_t sendBuffAddr,
+    uint64_t receiveBuffAddr,
+    uint64_t count,
+    synDataType dataType,
+    uint64_t intermediateBufferAddr,
+    uint64_t intermediateSize,
+    HCL_Comm communicator,
+    const uint32_t flags) {
+  API_LOG_CALL(
+      ARG(streamHandle),
+      ARG_X(sendBuffAddr),
+      ARG_X(receiveBuffAddr),
+      ARG_X(count),
+      ARG_X(dataType),
+      ARG_X(intermediateBufferAddr),
+      ARG_X(intermediateSize),
+      ARG_Q(communicator),
+      ARG_X(flags));
+  HCLStatus status = lib_hcl::HCL_AlltoAll(
+      streamHandle,
+      sendBuffAddr,
+      receiveBuffAddr,
+      count,
+      dataType,
+      intermediateBufferAddr,
+      intermediateSize,
+      communicator,
+      flags);
+  API_LOG_RESULT();
+  return status;
+}
+
+HCLStatus HCL_IAlltoAll(
+    HCL_Request* phRequest,
+    uint64_t sendBufAddr,
+    uint64_t receiveBuffAddr,
+    uint64_t count,
+    synDataType dataType,
+    uint64_t intermediateBufferAddr,
+    uint64_t intermediateSize,
+    HCL_Comm communicator,
+    const uint32_t flags) {
+  API_LOG_CALL(
+      ARG(phRequest),
+      ARG_X(sendBufAddr),
+      ARG_X(receiveBuffAddr),
+      ARG_X(count),
+      ARG_X(dataType),
+      ARG_X(intermediateBufferAddr),
+      ARG_X(intermediateSize),
+      ARG_Q(communicator),
+      ARG_X(flags));
+  HCLStatus status = lib_hcl::HCL_IAlltoAll(
+      phRequest,
+      sendBufAddr,
+      receiveBuffAddr,
+      count,
+      dataType,
+      intermediateBufferAddr,
+      intermediateSize,
       communicator,
       flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
