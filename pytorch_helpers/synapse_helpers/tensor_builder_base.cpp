@@ -63,14 +63,12 @@ tensor::shape_t to_stride_t(
   if (stride.size() == 0) {
     dimensions[0] = size;
   } else if (stride[stride.size() - 1] != 1) {
-    PT_SYNHELPER_WARN(
+    PT_SYNHELPER_FATAL(
         "FCD stride for tensor is ",
         stride[stride.size() - 1],
-        " Non 1 FCD is unsupported in Synapse, hence setting all strides to 0.");
-    for (size_t dim_to_fill = 0; dim_to_fill < SYN_GAUDI_MAX_TENSOR_DIM - 1;
-         ++dim_to_fill) {
-      dimensions[dim_to_fill] = 0;
-    }
+        ". FCD stride > 1 is not supported in the PT HPU bridge.");
+    // asserting explicitly incase the user turned off fatal logging
+    HABANA_ASSERT(false);
   } else {
     // The way to add strides to synapse tensor is described below -
     //
