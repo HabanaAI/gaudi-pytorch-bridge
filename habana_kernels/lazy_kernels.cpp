@@ -1903,6 +1903,11 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
   PT_LAZY_TRACE;
   std::vector<Tensor> indices_vec{indices_in.vec()};
   std::vector<Tensor> indices_vec_out{};
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
+      indices_vec[i] = indices_vec[i].to(c10::kHPU);
+    }
+  }
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
@@ -2107,6 +2112,11 @@ Tensor index_put_hpu_lazy(
   PT_LAZY_TRACE;
   std::vector<Tensor> indices_vec{indices_in.vec()};
   std::vector<Tensor> indices_vec_out{};
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
+      indices_vec[i] = indices_vec[i].to(c10::kHPU);
+    }
+  }
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
