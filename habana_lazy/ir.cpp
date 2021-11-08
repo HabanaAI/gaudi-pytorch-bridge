@@ -127,11 +127,12 @@ void Value::SetNode(
   this->scalar_type = scalar_type;
   mp_node = std::move(node);
 
-  this->m_name = absl::StrFormat(
-      "t%d_%s_%d", unique_id, mp_node->GetName().c_str(), m_index);
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    this->m_name = absl::StrFormat(
+        "t%d_%s_%d", unique_id, mp_node->GetName().c_str(), m_index);
+  }
 
   mp_node->m_outputs.emplace_back(Output(*this));
-  mp_node->m_outputs.back().SetName(this->m_name);
 }
 
 std::string Value::ToString() const {

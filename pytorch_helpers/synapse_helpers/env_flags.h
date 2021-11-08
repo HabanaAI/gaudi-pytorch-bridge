@@ -236,6 +236,9 @@ struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
 struct PT_HPU_LOG_NODE_MASK : public std::numeric_limits<unsigned long> {
   static constexpr unsigned long default_value = 0;
 };
+struct PT_HPU_ENABLE_DEBUG_NAMES {
+  static constexpr bool default_value = true;
+};
 
 // Overloads for different type of default value
 

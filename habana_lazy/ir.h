@@ -262,14 +262,11 @@ class Node {
  public:
   Node() = delete;
   Node(c10::Symbol op, bool _is_input = false)
-      : m_op(op),
-        m_is_input(_is_input),
-        m_is_control_edge(false),
-        m_name(
-            getCurrentModuleName() + "/" +
-            op.toQualString()) // TODO: [SW-60361] move out of constructor and
-                               // put in factory Node::create
-  {}
+      : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+      m_name = getCurrentModuleName() + "/" + op.toQualString();
+    }
+  }
 
   const c10::Symbol op() const {
     return m_op;
