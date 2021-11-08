@@ -38,8 +38,7 @@ PtTensorInfo::PtTensorInfo(
     const std::string& irn) {
   ir_name_ = irn;
   syn_name_ = st.name();
-  tensor_type_ = SHAPE_TENSOR;
-
+  tensor_type_ = st.tensor_type();
   // Populate the synapse shapes directly from the input syn tensor.
   numel_ = st.num_elements();
   size_ = st.size_bytes();
@@ -79,7 +78,8 @@ void PtTensorInfo::update_shape_syn() {
   switch (tensor_type_) {
     case DATA_TENSOR:
     case SHAPE_TENSOR:
-    case DATA_TENSOR_DYNAMIC: {
+    case DATA_TENSOR_DYNAMIC:
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
       HABANA_ASSERT(SYN_GAUDI_MAX_TENSOR_DIM >= shape_.size());
       for (size_t i = 0; i < shape_.size(); ++i) {
         // Reverse PyTorch shapes for synapse tensor shape patching
@@ -87,19 +87,7 @@ void PtTensorInfo::update_shape_syn() {
           syn_shape_[i] = shape_[shape_.size() - 1 - i];
         }
       }
-    } break;
-    // TODO: Fix handling for shape tensors
-    // case INPUT_DESCRIBING_SHAPE_TENSOR: {
-    //  shape_ndim_ = pt_tensor.numel();
-    //  at::Tensor pt_tensor_cpu =
-    //      (pt_tensor.device().type() == at::kHPU ? pt_tensor.to(at::kCPU)
-    //                                                : pt_tensor);
-    //  for (uint64_t i = 0; i < shape_ndim_; i++) {
-    //    // Reverse PyTorch shapes for synapse tensor shape patching
-    //    auto val = pt_tensor_cpu[shape_ndim_ - 1 - i].item<int>();
-    //    syn_shape_[i] = val;
-    //  }
-    //} break;
+      break;
     case DEVICE_SHAPE_TENSOR:
       syn_shape_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
       break;

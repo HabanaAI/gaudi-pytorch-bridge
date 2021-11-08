@@ -499,8 +499,8 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
-    auto& syn_tensor =
-        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true, true);
+    auto& syn_tensor = habana_op->AllocateSynapseInput(
+        *syn_graph_ptr, pt_tensor, true, impl->getTensorType());
     return syn_tensor;
   } else {
     habana_helpers::TensorShape min_shape, max_shape;
@@ -513,7 +513,7 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
       habana_op->add_syn_input_tensor_orig(st);
     }
     auto& syn_tensor =
-        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true, false);
+        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
 
     if (syn_tensor_it != buff_to_syn_tensor_map.end()) {
       habana_op->set_is_duplicate_input_flag(false);
@@ -897,7 +897,8 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
     torch::jit::Node* node) {
   for (synapse_helpers::tensor& maybe_syn_shape_tensor :
        habanaOp->GetSynInputs()) {
-    if (maybe_syn_shape_tensor.is_shape_tensor()) {
+    if (maybe_syn_shape_tensor.is_shape_tensor() ||
+        maybe_syn_shape_tensor.is_input_shape_tensor()) {
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
@@ -2678,7 +2679,6 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
     if (dynamic_shapes.count(i)) {
       auto& tensor = stack[i].toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      bool is_shape_tensor = impl && impl->isShapeTensor();
       //
       // TODO: When creating a new stack, we need to look, if this
       // can be done using storage less pytorch tensor, need to fix
@@ -2695,7 +2695,9 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
        */
       auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
       HABANA_ASSERT(new_impl);
-      new_impl->setShapeTensor(is_shape_tensor);
+      if (impl) {
+        new_impl->setTensorType(impl->getTensorType());
+      }
       new_stack.push_back(torch::jit::IValue(new_tensor));
     } else {
       new_stack.push_back(stack[i]);

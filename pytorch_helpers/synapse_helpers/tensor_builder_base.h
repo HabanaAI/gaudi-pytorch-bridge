@@ -205,7 +205,6 @@ class tensor_builder_base {
 
   ConcreteBuilder& mark_input_describing_shape_tensor() {
     tensor_type_ = INPUT_DESCRIBING_SHAPE_TENSOR;
-    is_persistent_ = true;
     data_type_ = syn_type_uint32;
     return static_cast<ConcreteBuilder&>(*this);
   }

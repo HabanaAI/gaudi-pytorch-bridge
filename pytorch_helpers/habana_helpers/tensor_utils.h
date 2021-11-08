@@ -132,7 +132,7 @@ synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    bool is_device_shape_tensor,
+    synTensorType shape_tensor_type,
     const std::string& name = std::string());
 
 /**
@@ -237,4 +237,5 @@ void recalc_strides(
 
 bool is_unsupported_type(c10::ScalarType type);
 c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
+bool is_shape_tensor(synTensorType shape_tensor);
 } // namespace habana_helpers

@@ -1718,103 +1718,137 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 4,
+      inputs.size() == 4 || inputs.size() == 2,
       "Incorrect size of inputs expected for Arange operator");
-  TORCH_CHECK(
-      inputs[3].isTensor(),
-      "Input arg0 expected to be tensor for Arange operator");
-  TORCH_CHECK(
-      inputs[0].isScalar(),
-      "Input arg1 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
-      inputs[1].isScalar(),
-      "Input arg2 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
-      inputs[2].isScalar(),
-      "Input arg3 expected to be Scalar for Arange operator");
+  // inputs size == 2 when the idst tensor is added from frontend.
+  if (inputs.size() == 2) {
+    TORCH_CHECK(
+        inputs[0].isTensor(),
+        "Input arg0 expected to be tensor for Arange operator");
+    TORCH_CHECK(
+        inputs[1].isTensor(),
+        "Input arg1 expected to be tensor for Arange operator");
 
-  auto result = inputs[3].toTensor();
-  auto start = inputs[0].toScalar();
-  auto end = inputs[1].toScalar();
-  auto step = inputs[2].toScalar();
+    TORCH_CHECK(p_context_->syn_inputs_[0].ref().is_input_shape_tensor());
 
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
-  p_context_->pt_outputs_.emplace_back(result);
-  // Adding a clear for inputs as arange TPC kernel expects no inputs
-  // but graph mode call creates a syn tensor anyway, which causes a
-  // synapse graph compilation failure
-  p_context_->syn_inputs_.clear();
+    auto result = inputs[1].toTensor();
+    HABANA_ASSERT(result.scalar_type() == ScalarType::Int);
 
-  ns_RangeKernel::Params param;
-  param.start.f = static_cast<float>(start.to<double>());
-  param.limit.f = static_cast<float>(end.to<double>());
-  param.delta.f = static_cast<float>(step.to<double>());
+    p_context_->syn_outputs_.emplace_back(
+        std::move(p_context_->syn_inputs_[1]));
 
-  // Set Guid here again because in graph mode we may have set guid to
-  // range_i32 which is not supported by TPC kernel
-  if (result.scalar_type() == ScalarType::BFloat16) {
-    SetGuid("range_bf16");
+    p_context_->syn_inputs_.pop_back();
+    p_context_->pt_outputs_.emplace_back(result);
+
+    AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
-    SetGuid("range_f32");
-  }
+    TORCH_CHECK(
+        inputs[3].isTensor(),
+        "Input arg0 expected to be tensor for Arange operator");
+    TORCH_CHECK(
+        inputs[0].isScalar(),
+        "Input arg1 expected to be Scalar for Arange operator");
+    TORCH_CHECK(
+        inputs[1].isScalar(),
+        "Input arg2 expected to be Scalar for Arange operator");
+    TORCH_CHECK(
+        inputs[2].isScalar(),
+        "Input arg3 expected to be Scalar for Arange operator");
 
-  // TPC kernel support only bf16/f32,
-  // If datatype is bf16/fp32 , no cast node is required
-  if (result.scalar_type() == ScalarType::Float ||
-      result.scalar_type() == ScalarType::BFloat16) {
-    AddNodeToSynapseGraph(graph, &param, sizeof(param));
-  } else {
-    // For datatypes Int, Long, Char, Bool one additional cast node is required.
-    // Arange kernel return f32 output node
-    // Cast kernel will convert f32 -> (i32/i8)
+    auto result = inputs[3].toTensor();
+    auto start = inputs[0].toScalar();
+    auto end = inputs[1].toScalar();
+    auto step = inputs[2].toScalar();
 
-    auto output_range = habana_helpers::createPTTensor(
-        result,
-        result.sizes(),
-        result.options(),
-        result.suggest_memory_format(),
-        c10::ScalarType::Float,
-        false);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(p_context_->syn_inputs_[0]));
+    p_context_->pt_outputs_.emplace_back(result);
 
-    AllocateSynapseOutput(graph, output_range, false, false, false);
-    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
+    // Adding a clear for inputs as arange TPC kernel expects no inputs
+    // but graph mode call creates a syn tensor anyway, which causes a
+    // synapse graph compilation failure
+    p_context_->syn_inputs_.clear();
 
-    std::vector<synTensor> syn_in{};
-    std::vector<synTensor> syn_out{synOutput.get()};
-
-    // range_f32
-    graph.add_node(
-        std::move(syn_in),
-        std::move(syn_out),
-        &param,
-        sizeof(param),
-        std::move(guid_));
-
-    // respective cast node
-    std::string node_type;
-    if (start.type() == ScalarType::Bool || start.type() == ScalarType::Char) {
-      node_type = "cast_f32_to_i8";
+    ns_RangeKernel::Params param;
+    if (result.scalar_type() == ScalarType::Float ||
+        result.scalar_type() == ScalarType::BFloat16) {
+      param.start.f = static_cast<float>(start.to<double>());
+      param.limit.f = static_cast<float>(end.to<double>());
+      param.delta.f = static_cast<float>(step.to<double>());
     } else {
-      node_type = "cast_f32_to_i32";
+      param.start.i = static_cast<int>(start.to<int>());
+      param.limit.i = static_cast<int>(end.to<int>());
+      param.delta.i = static_cast<int>(step.to<int>());
+      SetGuid("range_i32");
+
+      // Allocate idst if its not added from frontend.
+      if (graph.is_dynamic_graph()) {
+        IntArrayRef idst_sizes = {step.toInt(), end.toInt(), start.toInt()};
+        auto idst_tensor = habana_helpers::createPTTensor(
+            result,
+            idst_sizes,
+            result.options(),
+            result.suggest_memory_format(),
+            c10::ScalarType::Int,
+            false);
+        AllocateSynapseShapeTensor(
+            graph, idst_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
+      }
     }
 
-    // Create cast operator
-    auto castOp =
-        make_operator<CastOutOperator>(this->p_context_->device_id_, node_type);
+    // If datatype is int/bf16/fp32 , no cast node is required
+    if (result.scalar_type() == ScalarType::Int ||
+        result.scalar_type() == ScalarType::Float ||
+        result.scalar_type() == ScalarType::BFloat16) {
+      AddNodeToSynapseGraph(graph, &param, sizeof(param));
+    } else {
+      // For datatypes Char, Bool one additional cast node is
+      // required. Arange kernel return i32 output node Cast kernel will convert
+      // i32 -> (i8)
 
-    // Build Params for the graph
-    torch::jit::Stack stack = {IValue(output_range), IValue(result)};
-    // syn_output_[1] is the output of range node
-    castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
-    // syn_output_[0] is the original Out result tensor
-    castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
-    castOp->SetOutputMetadata(output_metadata_);
+      auto output_range = habana_helpers::createPTTensor(
+          result,
+          result.sizes(),
+          result.options(),
+          result.suggest_memory_format(),
+          c10::ScalarType::Int,
+          false);
 
-    castOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    // There are 2 outputs {result, rangeOut}, we need only one {result}
-    p_context_->syn_outputs_.pop_back();
-    p_context_->pt_outputs_.pop_back();
-    p_context_->pt_outputs_[0] = std::move(castOp->GetOutputs()[0]);
+      AllocateSynapseOutput(graph, output_range, false);
+      synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
+
+      std::vector<synTensor> syn_in{};
+      std::vector<synTensor> syn_out{synOutput.get()};
+
+      // range_i32
+      graph.add_node(
+          std::move(syn_in),
+          std::move(syn_out),
+          &param,
+          sizeof(param),
+          std::move(guid_));
+
+      // respective cast node
+      std::string node_type = "cast_i32_to_i8";
+
+      // Create cast operator
+      auto castOp = make_operator<CastOutOperator>(
+          this->p_context_->device_id_, node_type);
+
+      // Build Params for the graph
+      torch::jit::Stack stack = {IValue(output_range), IValue(result)};
+      // syn_output_[1] is the output of range node
+      castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
+      // syn_output_[0] is the original Out result tensor
+      castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+      castOp->SetOutputMetadata(output_metadata_);
+
+      castOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      // There are 2 outputs {result, rangeOut}, we need only one {result}
+      p_context_->syn_outputs_.pop_back();
+      p_context_->pt_outputs_.pop_back();
+      p_context_->pt_outputs_[0] = std::move(castOp->GetOutputs()[0]);
+    }
   }
 }
 
@@ -2368,6 +2402,11 @@ static auto& KernelRegistry =
             })
         .add(
             "hpu::arange_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ArangeOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::arange_out_ds",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArangeOperator>(device_id, node_type);
             })

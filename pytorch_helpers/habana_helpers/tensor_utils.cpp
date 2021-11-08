@@ -681,7 +681,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    bool is_device_shape_tensor,
+    synTensorType shape_tensor_type,
     const std::string& name) {
   std::string syn_tensor_name;
   // In case of dynamic graph update the name shape map
@@ -696,7 +696,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         tensor.strides().vec(),
-        SHAPE_TENSOR);
+        shape_tensor_type);
   }
 
   std::vector<int64_t> min, max;
@@ -718,11 +718,20 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         synapse_helpers::tensor_builder(
             tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
             .with_dynamic_shape(dynamic_shape);
-    if (!is_device_shape_tensor) {
-      builder.mark_shape_tensor();
-    } else {
-      builder.mark_device_shape_tensor();
-      builder.mark_persistence(persistent);
+    switch (shape_tensor_type) {
+      case SHAPE_TENSOR:
+        builder.mark_shape_tensor();
+        break;
+      case DEVICE_SHAPE_TENSOR:
+        builder.mark_device_shape_tensor();
+        builder.mark_persistence(persistent);
+        break;
+      case INPUT_DESCRIBING_SHAPE_TENSOR:
+        builder.mark_input_describing_shape_tensor();
+        break;
+      default:
+        HABANA_ASSERT(0 && "Invalid shape_tensor_type");
+        break;
     }
     auto variant = builder.build(
         synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
@@ -738,12 +747,21 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
       synapse_helpers::tensor_builder(
           tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
           .set_offset(syn_offset);
-  if (!is_device_shape_tensor) {
-    builder.mark_shape_tensor();
-    builder.mark_persistence(false);
-  } else {
-    builder.mark_device_shape_tensor();
-    builder.mark_persistence(persistent);
+  switch (shape_tensor_type) {
+    case SHAPE_TENSOR:
+      builder.mark_shape_tensor();
+      builder.mark_persistence(false);
+      break;
+    case DEVICE_SHAPE_TENSOR:
+      builder.mark_device_shape_tensor();
+      builder.mark_persistence(persistent);
+      break;
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+      builder.mark_input_describing_shape_tensor();
+      break;
+    default:
+      HABANA_ASSERT(0 && "Invalid shape_tensor_type");
+      break;
   }
   if (!name.empty()) {
     builder.use_suffix(name);
@@ -1315,4 +1333,17 @@ c10::Scalar habana_helpers::_local_scalar_dense_internal(
         r = Scalar(val);
       });
   return r;
+}
+
+bool habana_helpers::is_shape_tensor(synTensorType shape_tensor) {
+  switch (shape_tensor) {
+    case SHAPE_TENSOR:
+    // case OUTPUT_DESCRIBING_SHAPE_TENSOR:
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+    case DEVICE_SHAPE_TENSOR:
+    case HOST_SHAPE_TENSOR:
+      return true;
+    default:
+      return false;
+  };
 }

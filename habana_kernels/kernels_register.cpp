@@ -4459,6 +4459,7 @@ TORCH_LIBRARY(hpu, m) {
       "scatter_value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor(a!)");
   m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
+  m.def("arange_out_ds(Tensor shape, Tensor result) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");

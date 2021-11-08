@@ -16,6 +16,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/macros/Macros.h>
 #include <c10/util/Optional.h>
+#include "habana_helpers/tensor_utils.h"
 #include "hpu_lazy_tensors.h"
 
 namespace habana_lazy {
@@ -95,16 +96,21 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     tensor_layout = layout;
   }
 
-  void setShapeTensor(bool valid = true) {
-    m_is_shape_tensor = valid;
+  void setTensorType(synTensorType tensor_type) {
+    m_tensor_type = tensor_type;
   }
 
   bool isShapeTensor() {
-    return m_is_shape_tensor;
+    return habana_helpers::is_shape_tensor(m_tensor_type);
+  }
+
+  synTensorType getTensorType() {
+    return m_tensor_type;
   }
 
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
-  bool m_is_shape_tensor = false;
+  synTensorType m_tensor_type = DATA_TENSOR;
 };
+
 } // namespace habana_lazy

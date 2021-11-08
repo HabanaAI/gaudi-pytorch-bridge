@@ -173,6 +173,29 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
+TEST_F(LazyIndexKernelTest, ArangeCharOutTest) {
+  torch::Tensor tStart = torch::tensor(0);
+  torch::Tensor tEnd = torch::tensor(10);
+  torch::Tensor tStep = torch::tensor(1);
+  torch::Scalar start = tStart.item();
+  torch::Scalar end = tEnd.item();
+  torch::Scalar step = tStep.item();
+
+  c10::optional<at::ScalarType> dtype = c10::ScalarType::Char;
+
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  at::TensorOptions hb_options =
+      at::TensorOptions().dtype(dtype).device(hb_device);
+  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  at::TensorOptions cpu_options =
+      at::TensorOptions().dtype(dtype).device(cpu_device);
+
+  auto h_a = torch::arange(start, end, step, hb_options);
+  auto h_cout = h_a.to(torch::kCPU);
+  auto a = torch::arange(start, end, step, cpu_options);
+  EXPECT_EQ(allclose(h_cout, a), true);
+}
+
 TEST_F(LazyIndexKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(9).reshape({3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);

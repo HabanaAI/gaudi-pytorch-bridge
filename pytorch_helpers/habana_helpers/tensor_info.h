@@ -168,7 +168,8 @@ class PtTensorInfo {
 
   void set_shape(const std::vector<int64_t>& shape) {
     shape_ = shape;
-    auto itemsize = size_ / numel_;
+    // For IDST the size/numel_ can be zero, avoid division by zero
+    auto itemsize = (numel_) ? size_ / numel_ : 0;
     numel_ = 1;
     for (const auto& i : shape) {
       numel_ *= i;

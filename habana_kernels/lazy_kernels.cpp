@@ -94,19 +94,6 @@ bool to_lower_as_strided() {
   return GET_ENV_FLAG(PT_HPU_LOWER_AS_STRIDED);
 }
 
-inline bool isShapeTensor(synTensorType shape_tensor) {
-  switch (shape_tensor) {
-    case SHAPE_TENSOR:
-    // case OUTPUT_DESCRIBING_SHAPE_TENSOR:
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
-    case DEVICE_SHAPE_TENSOR:
-    case HOST_SHAPE_TENSOR:
-      return true;
-    default:
-      return false;
-  };
-}
-
 void flushWithMarkStep() {
   // Generate a random number and invoke the mark_step
   static std::once_flag flag;
@@ -2506,9 +2493,6 @@ Tensor& arange_hpu_lazy(
     const Scalar& step) {
   PT_LAZY_TRACE;
   auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
-  auto hl_start = GetIrValueForScalar(start);
-  auto hl_end = GetIrValueForScalar(end);
-  auto hl_step = GetIrValueForScalar(step);
 
   // resizing the output as it is coming as empty from model
   int out_depth = ArangeOperator::GetOutputSize(start, end, step);
@@ -2517,9 +2501,34 @@ Tensor& arange_hpu_lazy(
   THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
   output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
 
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("hpu::arange_out"),
-      {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
+  ir::NodePtr node;
+  std::vector<at::Tensor> input_pt_vec{output};
+
+  // Currently synapse support dynamic shape arange only for int datatypes.
+  // For any other output datatype, will fallback to normal flow.
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      (output.scalar_type() == c10::ScalarType::Int)) {
+    std::vector<int64_t> params_vec{step.toInt(), end.toInt(), start.toInt()};
+    auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
+    auto params_shape = empty_hpu_lazy(
+        input_size,
+        output.options(),
+        output.suggest_memory_format(),
+        false,
+        INPUT_DESCRIBING_SHAPE_TENSOR);
+    auto hl_params_shape = GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
+    node = ir::Node::Create(
+        Symbol::fromQualString("hpu::arange_out_ds"),
+        {hl_params_shape.GetIrValue(), hl_result.GetIrValue()});
+    input_pt_vec.emplace_back(params_shape);
+  } else {
+    auto hl_start = GetIrValueForScalar(start);
+    auto hl_end = GetIrValueForScalar(end);
+    auto hl_step = GetIrValueForScalar(step);
+    node = ir::Node::Create(
+        Symbol::fromQualString("hpu::arange_out"),
+        {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
+  }
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.SetNode(
@@ -2529,7 +2538,7 @@ Tensor& arange_hpu_lazy(
       hl_result.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hl_result, output);
-  std::vector<at::Tensor> input_pt_vec{output};
+
   node->AddInputPtTensors(input_pt_vec);
   flush_op(output);
   return output;
@@ -4067,9 +4076,9 @@ Tensor empty_hpu_lazy(
       : options.memory_format_opt();
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
-  auto is_shape_tensor = isShapeTensor(tensor_type);
+  auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
   if (habana_helpers::is_unsupported_type(type)) {
-    HABANA_ASSERT(is_shape_tensor == false);
+    HABANA_ASSERT(shape_tensor == false);
     auto layout = options.layout();
     auto pinned_mem = options.pinned_memory();
     auto dev = c10::DeviceType::CPU;
@@ -4082,7 +4091,7 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   auto new_dtype = scalarTypeToTypeMeta(type);
 
-  if (create_storage || is_shape_tensor) {
+  if (create_storage || shape_tensor) {
     c10 ::Allocator* allocator;
     if (options.pinned_memory()) {
       TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
@@ -4092,8 +4101,11 @@ Tensor empty_hpu_lazy(
     int64_t nelements = multiply_integers(size);
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data
-    if (is_shape_tensor) {
-      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
+    if (shape_tensor) {
+      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ||
+              (tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR)
+          ? SYN_MAX_TENSOR_DIM
+          : 0;
     }
     int elem_size = new_dtype.itemsize();
     int64_t size_bytes = nelements * elem_size;
@@ -4118,11 +4130,11 @@ Tensor empty_hpu_lazy(
     }
 
     // set metadata that its a shape tensor
-    if (is_shape_tensor) {
+    if (shape_tensor) {
       habana_lazy::HbInternalTensorImpl* impl =
           habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
       if (impl) {
-        impl->setShapeTensor(true);
+        impl->setTensorType(tensor_type);
       }
     }
 
