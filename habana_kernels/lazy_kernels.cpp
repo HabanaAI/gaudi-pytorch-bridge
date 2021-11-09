@@ -522,7 +522,7 @@ at::Tensor get_tensor_for_scalar(
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   auto is_5d_tensor = self.dim() == 5;
-  if (habana_helpers::is_unsupported_type(self.scalar_type())) {
+  if (!habana_helpers::is_supported_type(self.scalar_type())) {
     // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
     // would fallback to cpu for unsupported dtypes
     // also note that since the dst is an unsupported dtype, we will move
@@ -748,8 +748,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
     // executed
     auto isStorageAttached = self_hb_tensor.isStorageAttached();
     if (!isStorageAttached) {
-      if (habana_helpers::is_unsupported_type(src.scalar_type()) or
-          habana_helpers::is_unsupported_type(self.scalar_type())) {
+      if (!habana_helpers::is_supported_type(src.scalar_type()) or
+          !habana_helpers::is_supported_type(self.scalar_type())) {
         PT_LAZY_WARN(
             "Falling back to CPU - Unsupported src or dst types in H2D copy: src: ",
             src.scalar_type(),
@@ -4284,7 +4284,7 @@ Tensor empty_hpu_lazy(
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
   auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
-  if (habana_helpers::is_unsupported_type(type)) {
+  if (!habana_helpers::is_supported_type(type)) {
     HABANA_ASSERT(shape_tensor == false);
     auto layout = options.layout();
     auto pinned_mem = options.pinned_memory();

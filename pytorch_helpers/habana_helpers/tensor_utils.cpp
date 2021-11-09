@@ -1336,9 +1336,20 @@ void habana_helpers::recalc_strides(
   return;
 }
 
-bool habana_helpers::is_unsupported_type(c10::ScalarType type) {
-  if (at::isComplexType(type)) {
-    return true;
+bool habana_helpers::is_supported_type(c10::ScalarType type) {
+  switch (type) {
+    case c10::ScalarType::Byte:
+    case c10::ScalarType::Char:
+    case c10::ScalarType::Short:
+    case c10::ScalarType::Int:
+    case c10::ScalarType::Long:
+    case c10::ScalarType::Float:
+    case c10::ScalarType::Double:
+    case c10::ScalarType::Bool:
+    case c10::ScalarType::BFloat16:
+      return true;
+    default:
+      return false;
   }
   return false;
 }
