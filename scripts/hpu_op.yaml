@@ -1106,6 +1106,11 @@ signbit.out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_base_class: SignBit
 
+silu_:
+  dtypes: [BFloat16, Float]
+  op_base_class: Silu
+  inplace_ids: [0]
+
 sin:
   dtypes: [BFloat16, Float]
   guid: sin_fwd
