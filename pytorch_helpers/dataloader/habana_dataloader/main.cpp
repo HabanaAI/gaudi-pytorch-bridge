@@ -106,11 +106,8 @@ class HabanaAcceleratedPytorchDL {
   }
 
   std::pair<torch::Tensor, torch::Tensor> getTensorTuple(bool is_last_batch) {
-    auto image_options = torch::TensorOptions()
-                             .dtype(torch::kFloat32)
-                             .pinned_memory(m_pin_memory);
-    auto target_options =
-        torch::TensorOptions().dtype(torch::kInt32).pinned_memory(m_pin_memory);
+    auto image_options = torch::TensorOptions().dtype(torch::kFloat32);
+    auto target_options = torch::TensorOptions().dtype(torch::kInt32);
 
     int step_batch_size;
     if (is_last_batch) {
@@ -125,7 +122,13 @@ class HabanaAcceleratedPytorchDL {
 
     auto image = torch::empty(
         {step_batch_size, m_img_height, m_img_width, 3}, image_options);
+    if (m_pin_memory) {
+      image = at::native::pin_memory(image, torch::kHPU);
+    }
     auto target = torch::empty({step_batch_size}, target_options);
+    if (m_pin_memory) {
+      target = at::native::pin_memory(target, torch::kHPU);
+    }
 
     const int image_size =
         m_img_height * m_img_width * 3 * step_batch_size * sizeof(float);
@@ -149,7 +152,6 @@ class HabanaAcceleratedPytorchDL {
       /* Converting Image from NHWC -> NCHW */
       image = image.permute({0, 3, 1, 2});
     }
-
     return std::make_pair(image, target);
   }
 
