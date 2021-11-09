@@ -1027,6 +1027,15 @@ hypot_:
   op_backend: Hypot
   inplace_ids: [0]
 
+index.Tensor:
+  custom_output_shape: IndexOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: index
+  op_backend: IndexHabanaOperator
+  op_frontend: LazyIndex
+  func_ns_hpu: true
+  out_ids: [0]
+
 le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd

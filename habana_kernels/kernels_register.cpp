@@ -982,7 +982,7 @@ Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
       converted_inds.push_back(std::move(idx[i]));
     }
   }
-  return hpu_wrap::index(self, converted_inds);
+  return torch::index(self, converted_inds);
 };
 Tensor hpu_wrap::gather(
     const Tensor& self,
@@ -4396,6 +4396,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
+  m.def("hpu::index.Tensor(Tensor self, Tensor[] indices) -> Tensor");
   m.def("arange_out_ds(Tensor shape, Tensor result) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(

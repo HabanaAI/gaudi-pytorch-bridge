@@ -221,7 +221,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
   for (auto t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
-  auto out_cpu = at::index(input_cpu, indices_cpu).to(torch::kInt32);
+  auto out_cpu = at::index(input_cpu, indices_cpu);
   auto out_hpu = at::index(input_hpu, indices_list);
 
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);

@@ -2581,5 +2581,4 @@ static auto& KernelRegistry =
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
-        .add("aten::index.Tensor_hacked_twin", KERNEL_FN(IndexOperator))
         .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator));
