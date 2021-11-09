@@ -47,7 +47,7 @@ void BinaryOp::AddNode(
 
     if (ScalarInputs().at(ScalarId()[0]).toFloat() != 1.) {
       constant = std::make_unique<synapse_helpers::tensor>(
-          ConstantHelper(graph, alpha));
+          ConstantHelper(graph, alpha, 1, false, false, result_type));
       mul = BuildOp(
           graph,
           "mult_fwd_" + habana_helpers::name_suffix_from_type(result_type),

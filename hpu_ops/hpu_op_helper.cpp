@@ -239,7 +239,9 @@ synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
       at::canCast(val.type(), valtype),
       "ConstantHelper cannot cast ",
       val.type(),
-      " to ",
+      " (",
+      val.isFloatingPoint() ? val.toFloat() : val.toInt(),
+      ") to ",
       valtype);
 
   PARAMS_STUB_VARS(ns_ConstantKernel::Params, size, params);
