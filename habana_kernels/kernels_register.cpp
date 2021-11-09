@@ -4439,6 +4439,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
+  m.def("geometric_(Tensor(a!) self, float p, int seed) -> Tensor(a!)");
   m.def("random_(Tensor(a!) self, int seed) -> Tensor(a!)");
   m.def(
       "random_.from(Tensor(a!) self, int from, int? to, int seed) -> Tensor(a!)");

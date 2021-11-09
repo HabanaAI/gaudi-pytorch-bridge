@@ -563,6 +563,14 @@ ge_.Tensor:
   inplace_ids: [0]
   type_promotion: true
 
+geometric_:
+  custom_fill_params: FillRandomNegativeBinomialParams
+  dtypes: [BFloat16, Float]
+  inplace_ids: [0]
+  func_ns_hpu: true
+  lazy_class: LazyGeometric
+  op_base_class: Geometric
+
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
