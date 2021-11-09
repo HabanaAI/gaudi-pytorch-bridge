@@ -531,7 +531,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   // hcclSend and hcclRecv works when the ranks are different. In order to
   // ensure that same rank data is present in output, we are first performing
   // copy_data_within_device
-  habana_helpers::copy_data_within_device(inputTensor, outputTensor, false);
+  outputTensor.copy_(inputTensor);
 
   return collective(
       inputTensors,
