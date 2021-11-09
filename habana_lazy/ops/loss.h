@@ -109,8 +109,7 @@ class NllLoss_backward : public ir::Node {
     }
 
     if (total_weight.defined()) {
-      auto hl_total_weight =
-          GetOrCreateHbLazyTensor(total_weight, c10::kHPU);
+      auto hl_total_weight = GetOrCreateHbLazyTensor(total_weight, c10::kHPU);
       hl_total_weight = HandleViewsOrUpdate(total_weight, hl_total_weight);
       AddInput(hl_total_weight.GetIrValue());
       input_pt_vec.emplace_back(total_weight);
@@ -216,67 +215,6 @@ class BceLoss_backward : public ir::Node {
       m_meta_data.set(
           torch::jit::IValue(),
           static_cast<size_t>(BceLossParams::WEIGHT_INDEX));
-    }
-
-    AddInputPtTensors(input_pt_vec);
-    m_meta_data.set(
-        reduction, static_cast<size_t>(BceLossParams::REDUCTION_INDEX));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", reduction="
-       << m_meta_data.get(static_cast<size_t>(BceLossParams::REDUCTION_INDEX));
-    return ss.str();
-  }
-};
-
-class BceLogitsLoss_forward : public ir::Node {
- public:
-  enum class BceLossParams {
-    WEIGHT_INDEX = 2,
-    POS_WEIGHT_INDEX,
-    REDUCTION_INDEX
-  };
-  BceLogitsLoss_forward() = delete;
-  BceLogitsLoss_forward(
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight,
-      const c10::optional<at::Tensor>& pos_weight,
-      int64_t reduction)
-      : Node(c10::Symbol::fromQualString(
-            "aten::binary_cross_entropy_with_logits")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    AddInput(hl_self.GetIrValue());
-
-    auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
-    hl_target = HandleViewsOrUpdate(target, hl_target);
-    AddInput(hl_target.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self, target};
-
-    if (weight.has_value()) {
-      auto hl_weight = GetOrCreateHbLazyTensor(weight.value(), c10::kHPU);
-      hl_weight = HandleViewsOrUpdate(weight.value(), hl_weight);
-      AddInput(hl_weight.GetIrValue());
-      input_pt_vec.emplace_back(weight.value());
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BceLossParams::WEIGHT_INDEX));
-    }
-    if (pos_weight.has_value()) {
-      auto hl_weight =
-          GetOrCreateHbLazyTensor(pos_weight.value(), c10::kHPU);
-      hl_weight = HandleViewsOrUpdate(pos_weight.value(), hl_weight);
-      AddInput(hl_weight.GetIrValue());
-      input_pt_vec.emplace_back(pos_weight.value());
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BceLossParams::POS_WEIGHT_INDEX));
     }
 
     AddInputPtTensors(input_pt_vec);

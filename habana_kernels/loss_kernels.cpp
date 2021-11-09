@@ -59,10 +59,12 @@ static ns_BinaryCrossEntropy::ParamsOptionalSigmoid synapse_bce_params_builder(
   return param;
 }
 
-static ns_BinaryCrossEntropy::Params synapse_bce_logits_params_builder(
+static ns_BinaryCrossEntropy::ParamsOptionalPosWeight
+synapse_bce_logits_params_builder(
     int64_t reduction,
+    bool posWeightsDefined,
     bool weightsDefined) {
-  auto param = ns_BinaryCrossEntropy::Params{};
+  auto param = ns_BinaryCrossEntropy::ParamsOptionalPosWeight{};
   if (reduction == at::Reduction::Reduction::Mean) {
     param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_MEAN;
   } else if (reduction == at::Reduction::Reduction::Sum) {
@@ -71,6 +73,7 @@ static ns_BinaryCrossEntropy::Params synapse_bce_logits_params_builder(
     HABANA_ASSERT(0 && "https://jira.habana-labs.com/browse/SW-36304")
     param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_NO_REDUCTION;
   }
+  param.posMode = posWeightsDefined ? POS_WEIGHT_ENABLE : POS_WEIGHT_DISABLE;
   param.isWeightsUsed = weightsDefined;
   return param;
 }
@@ -1535,19 +1538,17 @@ void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
   auto target = inputs[1].toTensor();
-  auto weight = inputs[2].toOptional<Tensor>();
-  auto pos_weight = inputs[3].toOptional<Tensor>();
+  auto pos_weight = inputs[2].isTensor() ? inputs[2].toTensor()
+                                         : inputs[2].toOptional<Tensor>();
+  auto weight = inputs[3].isTensor() ? inputs[3].toTensor()
+                                     : inputs[3].toOptional<Tensor>();
   auto reduction = inputs[4].toInt();
 
-  TORCH_CHECK(
-      !weight.has_value(), "BCELogits kernel does not support weight for now");
-  TORCH_CHECK(
-      !pos_weight.has_value(),
-      "BCELogits kernel does not support pos_weight for now");
-
-  ns_BinaryCrossEntropy::Params param =
-      synapse_bce_logits_params_builder(reduction, false);
-  p_context_->params_.emplace<ns_BinaryCrossEntropy::Params>(param);
+  ns_BinaryCrossEntropy::ParamsOptionalPosWeight param =
+      synapse_bce_logits_params_builder(
+          reduction, inputs[2].isTensor(), inputs[3].isTensor());
+  p_context_->params_.emplace<ns_BinaryCrossEntropy::ParamsOptionalPosWeight>(
+      param);
   p_context_->params_size_ = sizeof(param);
 
   Tensor output;

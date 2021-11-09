@@ -15,6 +15,55 @@ using namespace habana_lazy;
 using namespace at;
 class LazyLossKernelTest : public habana_lazy_test::LazyTest {};
 
+class LazyLossKernelWithParamsTest
+    : public habana_lazy_test::LazyTest,
+      public ::testing::WithParamInterface<
+          std::tuple<bool, bool, at::Reduction::Reduction>> {
+ protected:
+  void TestBCELossLogits(
+      bool testWeight,
+      bool testPosWeight,
+      at::Reduction::Reduction reductionType) {
+    auto input = torch::randn({5, 2, 4, 3});
+    auto target = torch::randn({5, 2, 4, 3});
+    auto grad_output = torch::randn({1});
+    // weight (Tensor, optional) – a manual rescaling weight if provided it’s
+    // repeated to match input tensor shape
+    c10::optional<Tensor> weight =
+        testWeight ? torch::randn({3}) : c10::optional<Tensor>();
+    // pos_weight (Tensor, optional) – a weight of positive examples. Must be a
+    // vector with length equal to the number of classes.
+    c10::optional<Tensor> pos_weight =
+        testPosWeight ? torch::rand({3}) : c10::optional<Tensor>();
+
+    torch::Tensor hinput = input.to(torch::kHPU);
+    torch::Tensor htarget = target.to(torch::kHPU);
+    torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
+    c10::optional<Tensor> hweight =
+        testWeight ? weight.value().to(torch::kHPU) : c10::optional<Tensor>();
+    c10::optional<Tensor> hpos_weight = testPosWeight
+        ? pos_weight.value().to(torch::kHPU)
+        : c10::optional<Tensor>();
+
+    auto houtput = torch::binary_cross_entropy_with_logits(
+        hinput, htarget, hweight, hpos_weight, reductionType);
+    auto hboutput = torch::binary_cross_entropy_with_logits_backward(
+        hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
+
+    auto houtfwd = houtput.to(torch::kCPU);
+    auto houtbwd = hboutput.to(torch::kCPU);
+
+    // reference output
+    auto expfwd = torch::binary_cross_entropy_with_logits(
+        input, target, weight, pos_weight, reductionType);
+    auto expbwd = torch::binary_cross_entropy_with_logits_backward(
+        grad_output, input, target, weight, pos_weight, reductionType);
+
+    EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
+    EXPECT_EQ(allclose(houtbwd, expbwd, 0.001, 0.001), true);
+  }
+};
+
 TEST_F(LazyLossKernelTest, MseLossTest) {
   torch::Tensor input = torch::randn({3, 5});
   torch::Tensor target = torch::randn({3, 5});
@@ -277,29 +326,30 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
 }
 
-TEST_F(LazyLossKernelTest, BCELogitsLossTest) {
-  auto input = torch::randn({5, 2, 4, 3});
-  auto target = torch::randn({5, 2, 4, 3});
-  auto grad_output = torch::randn({1});
-
-  torch::Tensor hinput = input.to(torch::kHPU);
-  torch::Tensor htarget = target.to(torch::kHPU);
-  torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
-
-  auto houtput = torch::binary_cross_entropy_with_logits(
-      hinput, htarget, {}, {}, at::Reduction::Sum);
-  auto hboutput = torch::binary_cross_entropy_with_logits_backward(
-      hgrad_out, hinput, htarget, {}, {}, at::Reduction::Sum);
-
-  auto houtfwd = houtput.to(torch::kCPU);
-  auto houtbwd = hboutput.to(torch::kCPU);
-
-  // reference output
-  auto expfwd = torch::binary_cross_entropy_with_logits(
-      input, target, {}, {}, at::Reduction::Sum);
-  auto expbwd = torch::binary_cross_entropy_with_logits_backward(
-      grad_output, input, target, {}, {}, at::Reduction::Sum);
-
-  EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
-  EXPECT_EQ(allclose(houtbwd, expbwd, 0.001, 0.001), true);
+TEST_P(LazyLossKernelWithParamsTest, BCELogitsLossTest) {
+  bool testWeight = std::get<0>(GetParam());
+  bool testPosWeight = std::get<1>(GetParam());
+  at::Reduction::Reduction reductionType = std::get<2>(GetParam());
+  std::cout << "testWeight: " << testWeight
+            << " testPosWeight: " << testPosWeight
+            << " reductionType: " << reductionType << std::endl;
+  // TODO: Remove when this is resolved:
+  // https://jira.habana-labs.com/browse/SW-67715
+  setenv("PT_HPU_LAZY_CACHE_DISABLE", "true", 1);
+  TestBCELossLogits(testWeight, testPosWeight, reductionType);
+  // TODO: Remove when this is resolved:
+  // https://jira.habana-labs.com/browse/SW-67715
+  unsetenv("PT_HPU_LAZY_CACHE_DISABLE");
 }
+
+const auto testWeights = testing::Values(false, true);
+
+const auto testPosWeights = testing::Values(false, true);
+
+const auto reductionTypesToTest =
+    testing::Values(at::Reduction::Sum, at::Reduction::Mean);
+
+INSTANTIATE_TEST_CASE_P(
+    BCELogitsLossTest,
+    LazyLossKernelWithParamsTest,
+    ::testing::Combine(testWeights, testPosWeights, reductionTypesToTest));

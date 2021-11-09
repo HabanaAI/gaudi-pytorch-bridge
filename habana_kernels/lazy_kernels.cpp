@@ -3258,14 +3258,16 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
     const c10::optional<Tensor>& pos_weight,
     int64_t reduction) {
   PT_LAZY_TRACE;
-  ir::NodePtr bce_loss_node = std::make_shared<ir::BceLogitsLoss_forward>(
-      self, target, weight, pos_weight, reduction);
   std::vector<int64_t> sizes = {1};
   if (reduction == at::Reduction::Reduction::None) {
     sizes = self.sizes().vec();
   }
-  LazyOp<at::Tensor, ir::BceLogitsLoss_forward> k{
-      bce_loss_node, {self, target, weight, pos_weight, reduction}, {sizes}};
+
+  LazyOp<at::Tensor> k(
+      "aten::binary_cross_entropy_with_logits",
+      {self, target, pos_weight, weight, reduction},
+      {4},
+      {sizes});
   return k.call();
 }
 

@@ -1722,18 +1722,6 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
       IValue(weight),
       IValue(pos_weight),
       IValue(reduction)};
-  // PyTorch or user may send a "undefined" tensor, since there is no way of
-  // comparing "undefined" tensors for equality, therefore evaluate for defined
-  // and send bool to attribute based cpu fallback logic.
-  if (weight.has_value()) {
-    op_stack.erase(op_stack.cbegin() + 2);
-    op_stack.insert(op_stack.cbegin() + 2, IValue(weight.value().defined()));
-  }
-  if (pos_weight.has_value()) {
-    op_stack.erase(op_stack.cbegin() + 3);
-    op_stack.insert(
-        op_stack.cbegin() + 3, IValue(pos_weight.value().defined()));
-  }
   check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
   if (!(hpu_check_inputs_impl(
             "binary_cross_entropy_with_logits",
