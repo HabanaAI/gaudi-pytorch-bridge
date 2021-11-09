@@ -644,6 +644,10 @@ synapse_error device::copy_data_within_device(
 
 device_ptr device::get_workspace_buffer(size_t size) {
   std::unique_lock<std::mutex> lock(ws_mutex_);
+  if (size == 0) {
+    PT_SYNHELPER_DEBUG("workspace Allocation of size is zero");
+    return 0;
+  }
   void* buffer = device_memory_.workspace_alloc(
       (void*)workspace_buffer_, workspace_size_, size);
   if (buffer == nullptr) {
