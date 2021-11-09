@@ -53,27 +53,51 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
     }
   }
 
-  void GenerateInputs(int num_inputs, torch::ScalarType dtype = torch::kFloat) {
-    SetSeed();
-    m_cpu_inputs.resize(num_inputs);
-    m_hpu_inputs.resize(num_inputs);
-    for (int i = 0; i < num_inputs; ++i) {
-      m_cpu_inputs[i] = dtype == torch::kBool ? torch::randn(m_dims) > 0
-                                              : torch::randn(m_dims).to(dtype);
-      m_hpu_inputs[i] = m_cpu_inputs[i].to("hpu");
-    }
+  void GenerateInputs(int num_inputs) {
+    GenerateInputs(num_inputs, {}, {});
+  }
+
+  // Generate inputs with different dtypes per input
+  void GenerateInputs(
+      int num_inputs,
+      torch::ArrayRef<torch::ScalarType> dtypes) {
+    GenerateInputs(num_inputs, {}, dtypes);
+  }
+
+  // Generate inputs with different sizes per input
+  void GenerateInputs(
+      int num_inputs,
+      torch::ArrayRef<torch::IntArrayRef> sizes) {
+    GenerateInputs(num_inputs, sizes, {});
   }
 
   // Generate inputs with different dtypes/sizes per input
   void GenerateInputs(
       int num_inputs,
-      torch::ArrayRef<torch::IntArrayRef> sizes,
-      std::vector<torch::ScalarType> dtypes = {}) {
+      torch::ArrayRef<torch::IntArrayRef> sizes_,
+      torch::ArrayRef<torch::ScalarType> dtypes_) {
     SetSeed();
-    ASSERT_EQ(num_inputs, sizes.size());
+
+    std::vector<at::IntArrayRef> sizes = sizes_.vec();
+    if (sizes.empty()) {
+      sizes.resize(num_inputs, m_dims);
+    } else if (sizes.size() == 1) {
+      sizes.resize(num_inputs, sizes_[0]);
+    }
+
+    std::vector<torch::ScalarType> dtypes = dtypes_.vec();
     if (dtypes.empty()) {
       dtypes.resize(num_inputs, torch::kFloat);
+    } else if (dtypes.size() == 1) {
+      dtypes.resize(num_inputs, dtypes_[0]);
     }
+
+    ASSERT_EQ(num_inputs, sizes.size())
+        << "num_inputs(" << num_inputs << ") != num sizes(" << sizes.size()
+        << ")";
+    ASSERT_EQ(num_inputs, dtypes.size())
+        << "num_inputs(" << num_inputs << ") != num dtypes(" << dtypes.size()
+        << ")";
 
     m_cpu_inputs.resize(num_inputs);
     m_hpu_inputs.resize(num_inputs);
@@ -104,7 +128,7 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
   }
 
  private:
-  const torch::IntArrayRef m_dims = torch::IntArrayRef({2, 3, 2});
+  const std::vector<int64_t> m_dims = {4, 5, 6};
   std::vector<torch::Tensor> m_cpu_inputs;
   std::vector<torch::Tensor> m_hpu_inputs;
 };

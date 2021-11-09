@@ -13,14 +13,10 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, tanh_backward_out) {
-  GenerateInputs(1);
-  torch::ScalarType dtype = torch::kFloat;
-  torch::Tensor grad_out = torch::ones({2, 3, 2});
-  grad_out = grad_out.to(dtype);
-  auto hgrad_out = grad_out.to(torch::kHPU, dtype);
-  auto expected = torch::empty(0, dtype);
-  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
-  torch::tanh_backward_outf(grad_out, GetCpuInput(0), expected);
-  torch::tanh_backward_outf(hgrad_out, GetHpuInput(0), result);
+  GenerateInputs(2);
+  auto expected = torch::empty(0);
+  auto result = torch::empty(0, "hpu");
+  torch::tanh_backward_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  torch::tanh_backward_outf(GetHpuInput(0), GetHpuInput(1), result);
   Compare(expected, result);
 }

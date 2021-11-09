@@ -6,7 +6,6 @@ TEST_F(HpuOpTest, gt_scalar) {
   GenerateInputs(1);
   int other = 0;
 
-  print(GetCpuInput(0));
   GetCpuInput(0).gt_(other);
   GetHpuInput(0).gt_(other);
 
