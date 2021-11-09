@@ -14,7 +14,7 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, pow_tensor_tensor_out) {
-  GenerateInputs(2);
+  GenerateInputs(2, {torch::kBFloat16, torch::kF32});
   torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::empty(0, dtype);
