@@ -143,6 +143,22 @@ class LazyOp {
   }
 
   explicit LazyOp(
+      ir::NodePtr node,
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices,
+      std::vector<std::vector<int64_t>> out_shapes = {},
+      int out_index = 0)
+      : m_node{std::move(node)},
+        m_metadata_indices{std::move(metadata_indices)},
+        m_out_shapes{std::move(out_shapes)},
+        m_out_index{out_index} {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::is_class<NodeConstruct>::value,
+        "This constructor is valid only when NodeConstruct is a class.");
+    set_inputs(inputs);
+  }
+
+  explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       const at::TensorList& output_meta_tensors) noexcept
@@ -172,7 +188,8 @@ class LazyOp {
   virtual ~LazyOp() = default;
 
   template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
+  HandleLazy(size_t lazy_eager_key = 0) {
     auto node = create_node();
     auto results = get_result();
     int i = 0;
@@ -190,8 +207,46 @@ class LazyOp {
           i++);
       updateDstDependencies(hl_result, result, false);
     });
-    flush_op(tensors);
+    flush_op(tensors, lazy_eager_key);
     return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
+  HandleOptimizedLazyEager() {
+    size_t lazy_eager_key = 0;
+    bool IsOptimizedLazyEagerCached =
+        calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
+
+    if (IsOptimizedLazyEagerCached == false) {
+      return HandleLazy(lazy_eager_key);
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      auto results = get_result();
+      int i = 0;
+      std::vector<HbLazyTensor> hl_tensors;
+      for_each_in_tuple(results, [&i, &hl_tensors](const auto& result) {
+        auto hl_result = GetHbLazyTensor(result);
+        hl_tensors.push_back(hl_result);
+        i++;
+      });
+      std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+      HbLazyTensor::SyncTensorsGraphFast(
+          &hl_tensors, input_values, lazy_eager_key);
+      return results;
+    }
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
+    PT_LAZY_DEBUG("Lazy Call not_Tuple_Of_Tensor :: ", m_symbol.toQualString());
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+      return (HandleOptimizedLazyEager());
+    }
+
+    return HandleLazy();
   }
 
   template <typename T = ReturnType>

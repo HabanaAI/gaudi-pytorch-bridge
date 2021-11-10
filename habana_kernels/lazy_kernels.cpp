@@ -1830,8 +1830,29 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
         ir::NodePtr node,
         at::Tensor grad_output,
         at::Tensor input,
-        at::Tensor weight)
-        : LazyOp<T, U>(std::move(node), {}, {}, -1),
+        at::Tensor weight,
+        IntArrayRef stride,
+        IntArrayRef padding,
+        IntArrayRef dilation,
+        bool transposed,
+        IntArrayRef output_padding,
+        int64_t groups,
+        std::array<bool, 3> output_mask)
+        : LazyOp<T, U>(
+              std::move(node),
+              {grad_output,
+               input,
+               weight,
+               stride,
+               padding,
+               dilation,
+               transposed,
+               output_padding,
+               groups,
+               output_mask},
+              {3, 4, 5, 6, 7, 8, 9},
+              {},
+              -1),
           grad_output{std::move(grad_output)},
           input{std::move(input)},
           weight{std::move(weight)} {}
@@ -1854,7 +1875,18 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     Tensor weight;
   };
 
-  Kernel k(node, grad_output, input, weight);
+  Kernel k(
+      node,
+      grad_output,
+      input,
+      weight,
+      stride,
+      padding,
+      dilation,
+      transposed,
+      output_padding,
+      groups,
+      output_mask);
   return k.call();
 }
 
