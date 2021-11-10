@@ -521,7 +521,9 @@ def lazyop(
 
     if ctxop.get_dtypes():
         input_tensors = (
-            tfetcher.get_tensors()[:-1] if is_out_fn(fname) else tfetcher.get_tensors()
+            tfetcher.get_tensors()[:-1]
+            if is_out_fn(fname) and len(tfetcher.get_tensors()) > 1
+            else tfetcher.get_tensors()
         )
         for t in input_tensors:
             code += "  FALLBACK_IF_UNSUPPORTED_DTYPE({}, {}, {})\n".format(
