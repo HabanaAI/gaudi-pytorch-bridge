@@ -93,6 +93,33 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   }
 };
 
+Tensor hpu_wrap::_reshape_alias(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride) {
+  if (!hpu_check_inputs_impl("_reshape_alias", {self}))
+    return AtenHpuTypeDefault::_reshape_alias(self, size, stride);
+  //TODO: In order to align the changes of bert with Pytorchv1.9 we used
+  //view inplace of as_strided implementation for the reshape of tensor
+  //with no-change.
+  //We need to revert existing change and use only as_strided once we
+  //establish the convergence with below changes.
+  //Pytorch change: https://github.com/pytorch/pytorch/pull/61466
+  //Below is the proposed change:
+  //if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+  //  return as_strided_hpu_lazy(self, size, stride, c10::nullopt);
+  //
+  //} else {
+  //  return as_strided_hpu(self, size, stride, c10::nullopt);
+  //}
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return view_hpu_lazy(self, size);
+
+  } else {
+    return view_hpu(self, size);
+  }
+};
+
 Tensor hpu_wrap::as_strided(
     const Tensor& self,
     IntArrayRef size,

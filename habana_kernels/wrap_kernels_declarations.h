@@ -63,6 +63,10 @@ struct hpu_wrap {
       at::Tensor& self,
       const at::Tensor& src,
       bool non_blocking);
+  static at::Tensor _reshape_alias(
+      const at::Tensor& self,
+      at::IntArrayRef size,
+      at::IntArrayRef stride);
   static at::Tensor as_strided(
       const at::Tensor& self,
       at::IntArrayRef size,

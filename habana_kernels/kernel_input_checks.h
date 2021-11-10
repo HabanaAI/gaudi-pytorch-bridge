@@ -173,6 +173,18 @@ static const std::
     unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         op_info = {
             {
+                "_reshape_alias",
+                {{at::ScalarType::Float,
+                  at::ScalarType::Short,
+                  at::ScalarType::Char,
+                  at::ScalarType::Double,
+                  at::ScalarType::Int,
+                  at::ScalarType::Bool,
+                  at::ScalarType::Long,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Byte}},
+            },
+            {
                 "as_strided",
                 {{at::ScalarType::Float,
                   at::ScalarType::Short,
