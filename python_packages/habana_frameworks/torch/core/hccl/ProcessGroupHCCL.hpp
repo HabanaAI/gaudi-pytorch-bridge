@@ -52,6 +52,8 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
 
     void synchronize() override;
 
+    c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
+
    protected:
     // HCCL runs on a different stream. Hold tensor references which is used
     // to query completion of execution
@@ -64,6 +66,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
 
    private:
     c10::intrusive_ptr<Store> store_;
+    c10::intrusive_ptr<at::ivalue::Future> future_;
 
     friend class ProcessGroupHCCL;
   };

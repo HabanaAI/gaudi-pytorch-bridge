@@ -186,7 +186,10 @@ ProcessGroupHCL::WorkHCL::WorkHCL(
     : outputs_(outputs),
       devices_(devices),
       hcl_comms_(hcl_comms),
-      workStartTime_(std::chrono::steady_clock::now()) {}
+      workStartTime_(std::chrono::steady_clock::now()),
+      future_(c10::make_intrusive<at::ivalue::Future>(
+          c10::ListType::create(c10::TensorType::get()))) {}
+
 ProcessGroupHCL::WorkHCL::~WorkHCL() {}
 
 bool ProcessGroupHCL::WorkHCL::isCompleted() {
@@ -219,6 +222,10 @@ void ProcessGroupHCL::WorkHCL::synchronize() {
 
 void ProcessGroupHCL::WorkHCL::abort() {
   TORCH_CHECK(false, "ProcessGroupHCL::WorkHCL::abort not implemented.");
+}
+
+c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupHCL::WorkHCL::getFuture() {
+  return future_;
 }
 
 c10::intrusive_ptr<ProcessGroupHCL::WorkHCL> ProcessGroupHCL::initWork(

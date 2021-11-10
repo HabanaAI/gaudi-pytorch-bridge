@@ -215,7 +215,10 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
       devices_(devices),
       hccl_comms_(hccl_comms),
       deviceCtxts_(deviceCtxts),
-      workStartTime_(std::chrono::steady_clock::now()) {}
+      workStartTime_(std::chrono::steady_clock::now()),
+      future_(c10::make_intrusive<at::ivalue::Future>(
+          c10::ListType::create(c10::TensorType::get()))) {}
+
 ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
 
 bool ProcessGroupHCCL::WorkHCCL::isCompleted() {
@@ -244,6 +247,11 @@ void ProcessGroupHCCL::WorkHCCL::synchronize() {
     deviceCtxts_[i]->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
   }
+}
+
+c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupHCCL::WorkHCCL::
+    getFuture() {
+  return future_;
 }
 
 void ProcessGroupHCCL::WorkHCCL::abort() {

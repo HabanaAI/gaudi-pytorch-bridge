@@ -47,6 +47,8 @@ class ProcessGroupHCL : public ProcessGroup {
 
     void synchronize() override;
 
+    c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
+
    protected:
     // HCL runs on a different stream. Hold tensor references which is used
     // to query completion of execution
@@ -57,6 +59,7 @@ class ProcessGroupHCL : public ProcessGroup {
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
 
    private:
+    c10::intrusive_ptr<at::ivalue::Future> future_;
     friend class ProcessGroupHCL;
   };
 
