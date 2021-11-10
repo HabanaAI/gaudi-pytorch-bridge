@@ -13,6 +13,8 @@
 
 #include <torch/csrc/api/include/torch/jit.h>
 
+#include "habana_lazy/aten_lazy_bridge.h"
+
 namespace habana_lazy {
 
 std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
@@ -141,19 +143,27 @@ void LazyArgumentSpec::GetArgSpecKey(
 
   // Incorporate the memory format of the inputs within hash
   i = 0;
-  std::ostringstream oss;
-  oss << '(';
+  std::ostringstream O;
+  O << '(';
   for (auto const& input_ival : input_refs) {
     if (input_ival.isTensor()) {
-      oss << (i ? "," : "") << i << '_'
-          << input_ival.toTensor().suggest_memory_format();
+      auto in_tensor = input_ival.toTensor();
+      O << (i ? "," : "") << i << '_' << in_tensor.suggest_memory_format();
+      if (in_tensor.has_storage()) {
+        auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
+        if (hb_tensor) {
+          auto lazy_layout_format = hb_tensor->GetTensorLayout();
+          O << '_' << lazy_layout_format;
+        }
+      }
     }
     i++;
   }
-  oss << ')';
-  std::string mf_str{oss.str()};
+  O << ')';
+  std::string mf_str{O.str()};
   std::hash<std::string> str_hash;
-  m_hash_code = at::hash_combine(m_hash_code, str_hash(mf_str));
+  auto mf_hash_code = str_hash(mf_str);
+  m_hash_code = at::hash_combine(m_hash_code, mf_hash_code);
 }
 
 // LazyGraphCache Functions

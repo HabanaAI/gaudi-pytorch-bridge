@@ -17,6 +17,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "synapse_helpers/habana_tensor.h"
 
 #include "synapse_helpers/device_types.h"
@@ -191,7 +192,7 @@ class PtTensorInfo {
   const c10::TensorOptions& get_topts() const {
     return topts_;
   }
-  const c10::MemoryFormat& get_mf() {
+  const c10::MemoryFormat& get_mf() const {
     return mf_;
   }
   synTensorType tensor_type() {
@@ -209,6 +210,9 @@ class PtTensorInfo {
   }
   getDMAInputTensorCBType get_dma_cb() const {
     return dma_cb_;
+  }
+  habana_lazy::LayoutFormat getHbInternalLayoutFormat() const {
+    return hb_internal_lf_;
   }
 
  private:
@@ -238,6 +242,8 @@ class PtTensorInfo {
 
   c10::MemoryFormat mf_;
   c10::TensorOptions topts_;
+
+  habana_lazy::LayoutFormat hb_internal_lf_{habana_lazy::LayoutFormat::kNCHW};
 
   synTensorType tensor_type_{DATA_TENSOR};
   std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};

@@ -39,3 +39,29 @@ inline int64_t mod_exp(bool w, int64_t x = 997) {
 }
 
 } // namespace habana
+
+namespace habana_lazy {
+
+enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
+
+inline std::string DebugString(const LayoutFormat& l) {
+  switch (l) {
+    case LayoutFormat::kNHWC:
+      return std::string("NHWC");
+    case LayoutFormat::kNCHW:
+      return std::string("NCHW");
+    case LayoutFormat::kHWCK:
+      return std::string("HWCK");
+    case LayoutFormat::kANY:
+      return std::string("kANY");
+    default:
+      return std::string("kINVALID");
+  }
+  return std::string();
+}
+
+inline std::ostream& operator<<(std::ostream& O, const LayoutFormat& l) {
+  return O << DebugString(l);
+}
+
+} // namespace habana_lazy

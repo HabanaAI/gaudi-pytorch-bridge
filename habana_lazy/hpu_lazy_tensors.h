@@ -14,6 +14,7 @@
 #include <habana_device/hpu_cached_devices.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <unordered_set>
+#include "habana_helpers/misc_utils.h"
 #include "ir.h"
 #include "ir_utils.h"
 #include "view.h"
@@ -29,9 +30,8 @@ enum LazyTensorExecutionStatus {
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
 // file
 // namespace habana_lazy
-namespace habana_lazy {
-enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
 
+namespace habana_lazy {
 struct Data {
   Data(at::Tensor tensor_data, const c10::Device& device)
       : data_ptr(nullptr),

@@ -1,4 +1,5 @@
 #include "habana_helpers/tensor_info.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
@@ -20,6 +21,11 @@ void PtTensorInfo::populate_tinfo(
 
   mf_ = pt_tensor.suggest_memory_format();
   topts_ = pt_tensor.options();
+
+  auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+  if (hb_internal_tensor != nullptr) {
+    hb_internal_lf_ = hb_internal_tensor->GetTensorLayout();
+  }
 
   offset_ = (get_buffer_syn() - get_buffer_start_syn());
   is_view_tensor_ = (offset_ != 0);
@@ -100,8 +106,9 @@ void PtTensorInfo::update_shape_syn() {
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   O << '<' << t.get_ir_name();
   if (t.is_tensor()) {
-    O << ":[" << t.get_shape() << "]:[" << t.get_strides()
-      << "]:" << t.get_numel() << ':' << '(' << t.get_size() << " b)"
+    O << ":[" << t.get_shape() << "]:[" << t.get_strides() << "]:#"
+      << t.get_numel() << ':' << '(' << t.get_size() << " b):["
+      << t.getHbInternalLayoutFormat() << "]"
       << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>'
       << " tensor type:" << t.tensor_type_;
 

@@ -471,6 +471,29 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
+  auto create_empty_tensor{[](const PtTensorInfo& ti) -> at::Tensor {
+    auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+    auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+    TORCH_CHECK(
+        hb_internal_tensor != nullptr,
+        "Tensor for ",
+        ti.get_ir_name(),
+        " does not have HbInternalTensor");
+    auto internal_lf = hb_internal_tensor->GetTensorLayout();
+    auto internal_lf_new = ti.getHbInternalLayoutFormat();
+    if (internal_lf != internal_lf_new) {
+      PT_BRIDGE_DEBUG(
+          "For ",
+          ti.get_ir_name(),
+          " updating HbInternalTensorImpl layout from ",
+          internal_lf,
+          " to ",
+          internal_lf_new);
+      hb_internal_tensor->SetTensorLayout(internal_lf_new);
+    }
+    return pt_tensor;
+  }};
+
   // Patch the input buffers
   // Running index on dtensorinfos
   size_t ridx = 0;
@@ -600,7 +623,7 @@ void RecipeValueSpec::update_patching_table(
 
         aten_intermediates.push_back(pt_intermediate);
       } else {
-        auto pt_intermediate = at::empty(tshape, ti.get_topts(), ti.get_mf());
+        auto pt_intermediate = create_empty_tensor(ti);
         PT_BRIDGE_DEBUG(
             "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
             tshape);
@@ -650,7 +673,7 @@ void RecipeValueSpec::update_patching_table(
           aten_output_num);
       if (ti.is_tensor()) {
         auto tshape{ti.get_shape()};
-        auto pt_output = at::empty(tshape, ti.get_topts(), ti.get_mf());
+        auto pt_output = create_empty_tensor(ti);
         PT_BRIDGE_DEBUG(
             "HabanaOp recipe cache hit :: Creating new output with shape : ",
             pt_output.sizes());
