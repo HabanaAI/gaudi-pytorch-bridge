@@ -280,7 +280,10 @@ class Node {
 
   void AddInput(const Value& value);
 
-  void ReplaceInput(const Value& value, size_t operand_index);
+  void ReplaceInput(
+      const Value& value,
+      size_t operand_index,
+      const at::Tensor& tensor);
 
   std::set<Use>& GetUses() {
     return m_uses;

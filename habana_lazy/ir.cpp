@@ -77,9 +77,15 @@ void Node::AddInput(const Value& value) {
   m_inputs.emplace_back(value);
 }
 
-void Node::ReplaceInput(const Value& value, size_t operand_index) {
+void Node::ReplaceInput(
+    const Value& value,
+    size_t operand_index,
+    const at::Tensor& tensor) {
   HABANA_ASSERT(operand_index < m_inputs.size());
-  m_inputs[operand_index] = value;
+  if (m_inputs[operand_index].DataPtrValidAndNotExpired()) {
+    m_inputs[operand_index] = value;
+    m_input_pt_tensors.emplace_back(tensor);
+  }
 }
 
 Node::~Node() {
