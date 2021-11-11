@@ -1019,7 +1019,9 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   for (auto& i : self.sizes()) {
     sum_elm *= i;
   }
-  auto inferred_size = at::infer_size(size, static_cast<int64_t>(sum_elm));
+  auto inferred_size =
+      habana_helpers::infer_size(size, static_cast<int64_t>(sum_elm));
+
   ir::NodePtr node = std::make_shared<ir::View>(self, inferred_size);
   LazyOp<at::Tensor, ir::View> k{node, {self, size}, {inferred_size}};
   return k.call();
@@ -2325,10 +2327,16 @@ Tensor slice_hpu_lazy(
   if (self_in.dim() <= 1) {
     return at::native::slice(self_in, dim, start, end, step);
   }
+  // check if output tensor will be ZST
+  auto sum_elm = habana_helpers::tensor_numel(self_in);
+  auto out_zst = (!sum_elm) ||
+      ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+       (start.value() == end.value()));
+
   // WA for https://jira.habana-labs.com/browse/SW-37197
   auto self = self_in;
   auto dim_orig = dim;
-  if ((dim == self_in.dim() - 1) && (step > 1)) {
+  if ((dim == self_in.dim() - 1) && (step > 1) && !out_zst) {
     self = transpose_hpu_lazy(self_in, self_in.dim() - 1, self_in.dim() - 2);
     dim = self.dim() - 2;
   }
@@ -2337,30 +2345,23 @@ Tensor slice_hpu_lazy(
 
   auto shape = SliceOperator::compute_output_shape(
       self, dim, start.value(), end.value(), step);
+
+  // This ZST output tensor should ideally be handled at Synapse level, but
+  // since it is throwing errors in that case we are forced to add this
+  // work-around.
+  // TBD: Investigate and raise a JIRA on GC. SW-57116 already raised in context
+  // of transformer.
+  if (out_zst) {
+    auto result = empty_hpu_lazy(
+        shape, self.options(), self.suggest_memory_format(), true);
+    auto hl_result = GetHbLazyTensor(result);
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
+  }
   auto result = empty_hpu_lazy(
       shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
-
-  // Handling the case for empty self tensor
-  // slice_hpu returns correct tensor shape of NULL result
-  // so, don't add the node, just return the empty result
-  if (self.numel() == 0) {
-    updateDstDependencies(hl_result, result);
-    flush_op(result);
-    return result;
-  }
-
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (start.value() == end.value())) {
-    TORCH_WARN_ONCE(
-        "Slice workaround for zero sized output tensor issue SW-57116");
-    result = empty_hpu_lazy(
-        shape, self.options(), self.suggest_memory_format(), true);
-    hl_result = GetHbLazyTensor(result);
-    updateDstDependencies(hl_result, result);
-    flush_op(result);
-    return result;
-  }
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.SetNode(
@@ -2473,14 +2474,6 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
       shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
 
-  // Handling the case for empty self tensor
-  // select_hpu returns correct tensor shape of NULL result
-  // so, don't add the node, just return the empty result
-  if (self.numel() == 0) {
-    updateDstDependencies(hl_result, result);
-    flush_op(result);
-    return result;
-  }
   ir::Value& out = hl_result.CurrentIrValue();
   out.SetNode(
       node,
@@ -4544,6 +4537,31 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
 
   int64_t i = 0;
   std::vector<at::Tensor> result(shapes.size());
+
+  // This ZST output tensor should ideally be handled at Synapse level, but
+  // since it is throwing errors in that case we are forced to add this
+  // work-around.
+  // TBD: Investigate and raise a JIRA on GC.
+  auto sum_elm = habana_helpers::tensor_numel(self);
+  if (!sum_elm) {
+    for (const auto& shape : shapes) {
+      result[i++] = empty_hpu_lazy(
+          shape, self.options(), self.suggest_memory_format(), true);
+    }
+    std::vector<habana_lazy::HbLazyTensor> hlresult;
+    hlresult.reserve(result.size());
+
+    for (const auto& pt : result) {
+      hlresult.push_back(habana_lazy::GetHbLazyTensor(pt));
+    }
+    size_t m_index = 0;
+    for (auto ht : hlresult) {
+      updateDstDependencies(hlresult[m_index], result[m_index]);
+    }
+    flush_op(result);
+    return result;
+  }
+
   for (const auto& shape : shapes) {
     result[i++] = empty_hpu_lazy(
         shape, self.options(), self.suggest_memory_format(), false);

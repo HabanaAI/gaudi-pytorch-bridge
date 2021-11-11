@@ -93,7 +93,7 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    HABANA_ASSERT(input.isTensor());
+    TORCH_CHECK(input.isTensor());
     if (!input.toTensor().has_storage()) {
       return;
     }
@@ -101,10 +101,13 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    HABANA_ASSERT(input.isTensor());
+    TORCH_CHECK(input.isTensor());
     auto input_addr = (uint64_t)(input.toTensor().data_ptr());
 
-    if (input_addr_map.count(input_addr) != 0) {
+    // input_addr == 0 not considered for duplicate removal since this address
+    // is used for ZST tensors. 2 different ZST tensors can both have addr = 0
+    // and removing one of them results in cycles in synapse graph in some cases
+    if (input_addr_map.count(input_addr) != 0 && input_addr != 0) {
       auto pidx = input_addr_map.at(input_addr);
       auto parent_tensor = stack[pidx].toTensor();
       auto input_tensor = input.toTensor();

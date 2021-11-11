@@ -781,7 +781,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     auto shape = inputs[1].toIntList();
     auto shape_vector = shape.vec();
     auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
-    inferred_size = at::infer_size(input_shape, self.numel());
+    inferred_size = habana_helpers::infer_size(input_shape, self.numel());
   } else {
     TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
     inferred_size = p_context_->syn_inputs_.back().ref().pt_shape();
@@ -888,7 +888,7 @@ void ViewOperator::AllocateAndAddSynapseNode(
     auto dims = inputs[1].toIntVector();
 
     // Reshape Operator doesnt support -1 argument, remove it if present
-    auto inferred_dims = at::infer_size(dims, self.numel());
+    auto inferred_dims = habana_helpers::infer_size(dims, self.numel());
     // remove start_dim & end_dim. we have already used these to compute shape
     inputs.pop_back();
     // insert computed shape into inputs stack before calling reshape

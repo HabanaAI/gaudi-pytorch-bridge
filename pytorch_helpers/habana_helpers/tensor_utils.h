@@ -44,6 +44,10 @@ struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
   }
 };
 
+int64_t tensor_numel(const at::Tensor& self);
+
+std::vector<int64_t> infer_size(c10::IntArrayRef shape, int64_t numel);
+
 at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
 
 at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);

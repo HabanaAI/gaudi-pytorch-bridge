@@ -29,6 +29,33 @@
 using namespace torch;
 
 /*************************************************************************
+ * @brief compute number of elements in a tensor
+ ************************************************************************/
+int64_t habana_helpers::tensor_numel(const at::Tensor& self) {
+  auto shape_vec = self.sizes().vec();
+  return std::accumulate(
+      shape_vec.cbegin(), shape_vec.cend(), 1, std::multiplies<int64_t>());
+}
+
+/*************************************************************************
+ * @brief Infers the size of a dim with size -1, if it exists.
+ ************************************************************************/
+std::vector<int64_t> habana_helpers::infer_size(
+    IntArrayRef shape,
+    int64_t numel) {
+  // call infer_size only if 1 one of the dims is "-1" because there can be
+  // cases where a dim is of size "< -1" and there infer_size throws an assert.
+  // E.g. if conv2d is called with input which has dim0 of size 0, output
+  // computed in at::native::_convolution has a dim with negative size, this
+  // causes problem if infer_size is called from subsequent view call on output.
+  auto shape_vec = shape.vec();
+  auto cond = std::any_of(
+      shape_vec.cbegin(), shape_vec.cend(), [](int64_t x) { return x == -1; });
+  auto inferred_size = cond ? at::infer_size(shape, numel) : shape_vec;
+  return inferred_size;
+}
+
+/*************************************************************************
  * @brief Generic helper function to cast tensors on HPU
  ************************************************************************/
 at::Tensor habana_helpers::hpu_cast_tensor(
