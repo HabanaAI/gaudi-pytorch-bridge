@@ -52,6 +52,24 @@ test_case_nonzero = [
     (2, 3, 2, 4, 5, False),
 ]
 
+gather_test_case_list = [
+    # N, C
+    (4, 2, torch.gather),
+]
+
+gather_data_type_list = [
+    torch.float,
+    torch.int32,
+    torch.int16,
+    torch.int8,
+    torch.uint8,
+    torch.bool,
+    #torch.bfloat16,#RuntimeError: "scatter_gather_tensor_cpu" not implemented for 'BFloat16'
+    torch.int64,
+    torch.float64
+]
+
+
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_view(N, H, W, C):
@@ -384,6 +402,21 @@ def test_hpu_index_put_ssd(N, C, acc):
     out_cpu = torch.index_put(input=torch.flatten(input_tensor), indices=[torch.flatten(mask)], values=value_tensor, accumulate=acc)
     out_hpu = torch.index_put(input=torch.flatten(input_tensor_hpu), indices=[torch.flatten(mask_hpu)], values=value_tensor_hpu, accumulate=acc)
     np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, C, gather_op", gather_test_case_list)
+@pytest.mark.parametrize("dtype", gather_data_type_list)
+def test_hpu_gather_op(N, C, gather_op, dtype):
+    kernel_params_fwd = {}
+    if dtype is torch.bool:
+        kernel_params_fwd["input"] = torch.randint(N*C,(N,C)) > N*C/2
+    elif dtype is torch.bfloat16:
+        kernel_params_fwd["input"] = torch.randn(N, C,dtype=dtype)
+    else:
+        kernel_params_fwd["input"] = torch.arange(0,N*C,1,dtype=dtype).reshape(N,C)
+    kernel_params_fwd["dim"] = 0
+    kernel_params_fwd["index"] = torch.randint(N,[C,C])
+    evaluate_fwd_kernel(kernel=gather_op, kernel_params=kernel_params_fwd)
+
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])

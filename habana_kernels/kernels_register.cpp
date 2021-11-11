@@ -969,8 +969,8 @@ Tensor hpu_wrap::gather(
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim_), IValue(index), IValue(sparse_grad)};
-  check_handle->hpu_check_ivalues("gather", op_stack);
-  if (!(hpu_check_inputs_impl("gather", {self, index}) &&
+  check_handle->hpu_check_ivalues("gather_elements", op_stack);
+  if (!(hpu_check_inputs_impl("gather_elements", {self, index}) &&
         check_handle->get_status()))
     return AtenHpuTypeDefault::gather(self, dim_, index, sparse_grad);
 
