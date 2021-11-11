@@ -1515,11 +1515,12 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto reshape_op_x =
       make_operator<ReshapeOperator>(X.device().index(), X.scalar_type());
   reshape_op_x->SetSynapseInput(p_context_->syn_inputs_[1]);
-  int64_t modified_x_sizes[] = {m, n};
-  c10::IntArrayRef modified_x_shape(modified_x_sizes, 2);
+  // TPC Kernel needs 4D inputs
+  std::array<int64_t, 4> modified_x_sizes = {1, 1, m, n};
+  c10::IntArrayRef modified_x_shape(
+      modified_x_sizes.data(), modified_x_sizes.size());
   torch::jit::Stack stack = {c10::IValue(X), c10::IValue(modified_x_shape)};
   reshape_op_x->AllocateAndAddSynapseNode(graph, stack, false);
-  auto x_reshaped = reshape_op_x->GetOutputs()[0];
   synapse_helpers::tensor& syn_x = reshape_op_x->GetSynOutputs()[0];
   stack.clear();
 
@@ -1527,31 +1528,67 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto reshape_op_dy =
       make_operator<ReshapeOperator>(dY.device().index(), dY.scalar_type());
   reshape_op_dy->SetSynapseInput(p_context_->syn_inputs_[0]);
-  int64_t modified_dy_sizes[] = {m, n};
-  c10::IntArrayRef modified_dy_shape(modified_dy_sizes, 2);
+  // TPC Kernel needs 4D inputs
+  std::array<int64_t, 4> modified_dy_sizes = {1, 1, m, n};
+  c10::IntArrayRef modified_dy_shape(
+      modified_dy_sizes.data(), modified_dy_sizes.size());
   stack = {c10::IValue(dY), c10::IValue(modified_dy_shape)};
   reshape_op_dy->AllocateAndAddSynapseNode(graph, stack, false);
   auto dy_reshaped = reshape_op_dy->GetOutputs()[0];
   synapse_helpers::tensor& syn_dy = reshape_op_dy->GetSynOutputs()[0];
+  stack.clear();
 
   // Add Reshape node for weight to graph for weight.view(-1)
   auto reshape_op_gamma = make_operator<ReshapeOperator>(
       gamma.device().index(), gamma.scalar_type());
   reshape_op_gamma->SetSynapseInput(p_context_->syn_inputs_[4]);
-  int64_t sizes[1];
+  std::array<int64_t, 1> sizes;
   sizes[0] = gamma.numel();
-  c10::IntArrayRef modified_gamma_shape(sizes, 1);
+  c10::IntArrayRef modified_gamma_shape(sizes.data(), sizes.size());
   stack = {c10::IValue(gamma), c10::IValue(modified_gamma_shape)};
   reshape_op_gamma->AllocateAndAddSynapseNode(graph, stack, false);
   auto gamma_reshaped = reshape_op_gamma->GetOutputs()[0];
   synapse_helpers::tensor& syn_gamma = reshape_op_gamma->GetSynOutputs()[0];
+  stack.clear();
+
+  // Add reshape node for mean
+  auto reshape_op_mean =
+      make_operator<ReshapeOperator>(mean.device().index(), mean.scalar_type());
+  reshape_op_mean->SetSynapseInput(p_context_->syn_inputs_[2]);
+  // TPC Kernel needs 4D inputs - Reshape if needed.
+  TORCH_CHECK(
+      mean.sizes().size() <= 4,
+      "Input mean for LayerNormBackward is over 4 dims - unsupported!");
+
+  std::array<int64_t, 4> modified_mean_sizes = {1, 1, m, 1};
+  c10::IntArrayRef modified_mean_shape(
+      modified_mean_sizes.data(), modified_mean_sizes.size());
+  stack = {c10::IValue(mean), c10::IValue(modified_mean_shape)};
+  reshape_op_mean->AllocateAndAddSynapseNode(graph, stack, false);
+  synapse_helpers::tensor& syn_mean = reshape_op_mean->GetSynOutputs()[0];
+  stack.clear();
+
+  // Add reshape node for rstd
+  auto reshape_op_rstd =
+      make_operator<ReshapeOperator>(rstd.device().index(), rstd.scalar_type());
+  reshape_op_rstd->SetSynapseInput(p_context_->syn_inputs_[3]);
+  // TPC Kernel needs 4D inputs - Reshape if needed.
+  TORCH_CHECK(
+      rstd.sizes().size() <= 4,
+      "Input rstd for LayerNormBackward is over 4 dims - unsupported!");
+
+  std::array<int64_t, 4> modified_rstd_sizes = {1, 1, m, 1};
+  c10::IntArrayRef modified_rstd_shape(
+      modified_rstd_sizes.data(), modified_rstd_sizes.size());
+  stack = {c10::IValue(rstd), c10::IValue(modified_rstd_shape)};
+  reshape_op_rstd->AllocateAndAddSynapseNode(graph, stack, false);
+  synapse_helpers::tensor& syn_rstd = reshape_op_rstd->GetSynOutputs()[0];
+  stack.clear();
 
   // Add layer_norm_bwd node to graph
   std::vector<synTensor> syn_inputs{syn_x.get(), syn_dy.get()};
-  synapse_helpers::tensor& syn_mean = p_context_->syn_inputs_[2];
   syn_inputs.push_back(syn_mean.get());
-  synapse_helpers::tensor& syn_lstd = p_context_->syn_inputs_[3];
-  syn_inputs.push_back(syn_lstd.get());
+  syn_inputs.push_back(syn_rstd.get());
   syn_inputs.push_back(syn_gamma.get());
   // output syn tensors are non-persistent since these will be reshaped to
   // input sizes which will be marked as persistent

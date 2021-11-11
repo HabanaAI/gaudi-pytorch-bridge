@@ -214,7 +214,7 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   auto results = torch::native_layer_norm_backward(
       tHabanaGrad,
       tHabanaIn,
-      {3, 4, 4},
+      {1, 3, 4, 4},
       tHabanaMean,
       tHabanaVar,
       tGamma,
@@ -233,6 +233,59 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
 
   at::Tensor result_cpu = std::get<0>(results_cpu);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+}
+
+TEST_F(LazyNormKernelTest, LayerNormBackwardExecute_gal) {
+  auto input_grad =
+      torch::ones({24}, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({2, 3, 4}); // nchw
+  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
+  auto input =
+      torch::arange(24, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({2, 3, 4}); // nchw
+  torch::Tensor tHabanaIn = input.to(torch::kHPU);
+  auto mean = torch::ones({6}, torch::dtype(torch::kFloat).requires_grad(false))
+                  .reshape({2, 3});
+  auto var = torch::ones({6}, torch::dtype(torch::kFloat).requires_grad(false))
+                 .reshape({2, 3});
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
+
+  auto gamma =
+      torch::ones({4}, torch::dtype(torch::kFloat).requires_grad(false));
+  // .reshape({4});
+  torch::Tensor tGamma = gamma.to(torch::kHPU);
+  auto bias =
+      torch::ones({4}, torch::dtype(torch::kFloat).requires_grad(false));
+  // .reshape({4});
+  torch::Tensor tBias = bias.to(torch::kHPU);
+
+  auto results_cpu = torch::native_layer_norm_backward(
+      input_grad, input, 4, mean, var, gamma, bias, {true, true, true});
+
+  auto results = torch::native_layer_norm_backward(
+      tHabanaGrad,
+      tHabanaIn,
+      4,
+      tHabanaMean,
+      tHabanaVar,
+      tGamma,
+      tBias,
+      {true, true, true});
+
+  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+
+  // Print Both Tensor contents:
+  std::clog << "\n\n\n\nLazy Result: " << std::endl;
+  PrintATenTensor(result_lazy);
+  std::clog << result_lazy << std::endl;
+  std::clog << "\n\n\n\nCPU Result: " << std::endl;
+  PrintATenTensor(result_cpu);
+  std::clog << result_cpu << std::endl;
+
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
