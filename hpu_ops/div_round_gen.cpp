@@ -138,9 +138,13 @@ void DivRoundModeOperator::AddNode(
         graph,
         strNode_type,
         {syn_in(i)},
-        {{stack_tensor(stack, 1).sizes(), computation_type}});
+        // Sizes of "self" and "other" tensors may differ, so
+        // use own size as output size for cast op
+        {{stack_tensor(stack, i).sizes(), computation_type}});
     binaryop_inputs.at(i) = cast[i].at(0).get();
   }
+
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
 
   // Check if mode is other than default "true", i.e. "floor" or "trunc"
   bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);
@@ -152,7 +156,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       "div" + opStringSuffix,
       binaryop_inputs,
-      {{stack_tensor(stack, 0).sizes(),
+      {{shape_out,
         computation_type,
         bOtherThanTrueMode ? false : is_output_persistent_list[0],
         not bOtherThanTrueMode}});
@@ -166,7 +170,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       rounding_mode + opStringSuffix,
       {divOp.at(0).get()},
-      {{stack_tensor(stack, 0).sizes(),
+      {{shape_out,
         computation_type,
         bNeedToCastFinalResult ? false : is_output_persistent_list[0],
         not bNeedToCastFinalResult}});
@@ -182,10 +186,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       strNode_type,
       {makeIntegerOp.at(0).get()},
-      {{stack_tensor(stack, 1).sizes(),
-        computation_type,
-        is_output_persistent_list[0],
-        true}});
+      {{shape_out, computation_type, is_output_persistent_list[0], true}});
   syn_out(0) = std::move(castToReturnTypeOp[0]);
 }
 
