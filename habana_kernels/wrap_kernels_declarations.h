@@ -311,6 +311,11 @@ struct hpu_wrap {
       c10::optional<int64_t> end,
       int64_t step);
   static at::Tensor select(const at::Tensor& self, int64_t dim, int64_t index);
+  static at::Tensor select_backward(
+      const at::Tensor& grad,
+      at::IntArrayRef input_sizes,
+      int64_t dim,
+      int64_t index);
   static at::Tensor& arange_out(
       const at::Scalar& start,
       const at::Scalar& end,

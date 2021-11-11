@@ -3008,6 +3008,37 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   return result;
 }
 
+Tensor select_backward_hpu_lazy(
+    const Tensor& grad,
+    at::IntArrayRef input_sizes,
+    int64_t dim,
+    int64_t index) {
+  PT_LAZY_TRACE;
+
+  dim = at::maybe_wrap_dim(dim, input_sizes.vec().size(), /*wrap_scalar=*/true);
+
+  auto size = input_sizes[dim];
+
+  HABANA_ASSERT(
+      std::abs(index) < size,
+      "The index value cannot be greater than the dimension size.");
+
+  auto grad_input = at::empty(
+      input_sizes,
+      c10::optTypeMetaToScalarType(grad.options().dtype_opt()),
+      grad.options().layout_opt(),
+      grad.options().device_opt(),
+      grad.options().pinned_memory_opt(),
+      grad.suggest_memory_format());
+
+  if (index < 0) {
+    index += size;
+  }
+
+  return slice_backward_hpu_lazy(
+      grad_input, grad.unsqueeze_(dim), dim, index, index + 1, 1);
+}
+
 Tensor& arange_hpu_lazy(
     Tensor& output,
     const Scalar& start,

@@ -1189,6 +1189,16 @@ Tensor hpu_wrap::select(const Tensor& self, int64_t dim, int64_t index) {
     return select_hpu(self, dim, index);
   }
 };
+Tensor hpu_wrap::select_backward(
+    const at::Tensor& grad,
+    at::IntArrayRef input_sizes,
+    int64_t dim,
+    int64_t index) {
+  if (!hpu_check_inputs_impl("select_backward", {grad}))
+    return AtenHpuTypeDefault::select_backward(grad, input_sizes, dim, index);
+
+  return select_backward_hpu_lazy(grad, input_sizes, dim, index);
+};
 Tensor& hpu_wrap::arange_out(
     const Scalar& start,
     const Scalar& end,

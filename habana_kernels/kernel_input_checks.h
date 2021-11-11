@@ -510,6 +510,18 @@ static const std::
                   at::ScalarType::Int}},
             },
             {
+                "select_backward",
+                {{at::ScalarType::Bool,
+                  at::ScalarType::Double,
+                  at::ScalarType::Long,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Byte,
+                  at::ScalarType::Short,
+                  at::ScalarType::Char,
+                  at::ScalarType::Float,
+                  at::ScalarType::Int}},
+            },
+            {
                 "arange_out",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

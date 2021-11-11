@@ -164,6 +164,22 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, SelectBackwardTest) {
+  std::array<int64_t, 4> input_sizes = {8, 3, 28, 28};
+  torch::Tensor a = torch::randn({8, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+
+  int64_t dim = 1;
+  int64_t index = 0;
+
+  Tensor h_out = torch::select_backward(h_a, input_sizes, dim, index);
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::select_backward(a, input_sizes, dim, index);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
