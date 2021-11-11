@@ -987,7 +987,7 @@ void RecipeCacheLRU::add(
   TORCH_CHECK(
       mit == map_.end(),
       "problematic key ",
-      key,
+      key->hashCode(),
       " another recipe already exists in cache");
 
   list_.push_front(std::pair<

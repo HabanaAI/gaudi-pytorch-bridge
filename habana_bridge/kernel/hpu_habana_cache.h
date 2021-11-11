@@ -48,11 +48,15 @@ class HbCas {
   }
 
   bool operator==(const HbCas& spec) const {
-    return hashCode() == spec.hashCode();
+    return *p_cas == *spec.Cas();
   }
 
   bool operator!=(const HbCas& spec) const {
     return !(*this == spec);
+  }
+
+  std::shared_ptr<torch::jit::CompleteArgumentSpec> Cas() const {
+    return p_cas;
   }
 
  private:
