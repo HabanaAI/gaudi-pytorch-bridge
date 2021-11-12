@@ -39,7 +39,7 @@ class ReduceOperator : public HabanaOperator {
    * ascending order.
    */
   void sort_dims(
-      c10::List<int64_t>& in_dim,
+      std::vector<int64_t>& in_dim,
       int64_t dim,
       int64_t dims_to_reduce);
   static std::vector<int64_t> compute_output_shape(

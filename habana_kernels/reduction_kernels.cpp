@@ -158,7 +158,7 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 }
 
 void ReduceOperator::sort_dims(
-    c10::List<int64_t>& in_dim,
+    std::vector<int64_t>& in_dim,
     int64_t dim,
     int64_t dims_to_reduce) {
   for (int64_t i = 0; i < dims_to_reduce; i++) {
@@ -191,7 +191,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
 
   Tensor output = inputs[0].toTensor();
   Tensor self = inputs[1].toTensor();
-  auto in_dim = inputs[2].toIntList();
+  auto in_dim = inputs[2].toIntVector();
   bool keepdim = inputs[3].toBool();
   auto dtype = inputs[4].toOptional<ScalarType>();
   auto num_dims_to_reduce = in_dim.size();
@@ -421,7 +421,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
 
   auto self = inputs[0].toTensor();
-  auto dim = inputs[1].toIntList();
+  auto dim = inputs[1].toIntVector();
   bool keepdim = inputs[2].toBool();
 
   // Remove duplicates in dim list
@@ -619,7 +619,7 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
       "Input arg4 expected to be Bool for MeanDim operator");
 
   Tensor self = inputs[0].toTensor();
-  auto dim = inputs[1].toIntList();
+  auto dim = inputs[1].toIntVector();
   bool keepdim = inputs[2].toBool();
 
   auto ndim = self.dim();
