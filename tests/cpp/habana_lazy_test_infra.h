@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 
@@ -27,6 +28,8 @@ void print_tensor_details(torch::Tensor& t, std::string tname);
   habana_lazy_test::print_tensor_details(T, std::string(#T))
 
 namespace habana_lazy_test {
+
+const char* const place_on_cpu_env = getenv("PT_HPU_PLACE_ON_CPU");
 
 class EnvHelper {
   bool m_defined = false;
@@ -53,12 +56,33 @@ class EnvHelper {
     }
   }
 
+  void DisableCpuFallback() {
+    if (!place_on_cpu_env) {
+      setenv("PT_HPU_PLACE_ON_CPU", "none", 0);
+      habana::HpuFallbackHelper::get()->enumerate_fallback();
+    }
+  }
+
+  void EnableCpuFallback() {
+    if (!place_on_cpu_env) {
+      unsetenv("PT_HPU_PLACE_ON_CPU");
+      habana::HpuFallbackHelper::get()->enumerate_fallback();
+    }
+  }
+
   void RestoreMode() {
     if (m_defined) {
       SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, m_saved, 1);
     } else {
       UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
     }
+
+    if (place_on_cpu_env) {
+      setenv("PT_HPU_PLACE_ON_CPU", place_on_cpu_env, 1);
+    } else {
+      unsetenv("PT_HPU_PLACE_ON_CPU");
+    }
+    habana::HpuFallbackHelper::get()->enumerate_fallback();
   }
 
   // Wrappers with convenient names
@@ -103,6 +127,8 @@ class LazyTest : public ::testing::Test, public EnvHelper {
     SetLazyMode();
 
     SetSeed();
+
+    DisableCpuFallback();
 
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
   }

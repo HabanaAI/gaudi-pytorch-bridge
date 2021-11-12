@@ -27,6 +27,8 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest) {
   EXPECT_EQ(equal, true);
 }
 
+/*
+   This test uses cpu fallback
 TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
@@ -38,6 +40,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
+*/
 
 TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
   torch::manual_seed(0);

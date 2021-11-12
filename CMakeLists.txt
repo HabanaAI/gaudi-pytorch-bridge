@@ -82,6 +82,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/conv_bwd_kernels.cpp
   habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
+  habana_kernels/fallback_helper.cpp
   habana_kernels/fill_kernels.cpp
   habana_kernels/habana_operator.cpp
   habana_kernels/index_kernels.cpp

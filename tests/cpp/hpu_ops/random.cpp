@@ -49,7 +49,7 @@ TEST_F(HpuOpTest, random_to) {
   SetSeed();
   auto result2 = GetHpuInput(0).random_(1000);
 
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
   EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
 }

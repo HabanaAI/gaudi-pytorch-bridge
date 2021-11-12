@@ -11,8 +11,22 @@
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
+#include "habana_kernels/fallback_helper.h"
 
-class FallbackTest : public habana_lazy_test::LazyTest {};
+class FallbackTest : public ::testing::Test,
+                     public habana_lazy_test::EnvHelper {
+  void SetUp() override {
+    SetLazyMode();
+    SetSeed();
+    EnableCpuFallback();
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+  }
+
+  void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+    RestoreMode();
+  }
+};
 
 TEST_F(FallbackTest, Simple) {
   auto ones = torch::ones(10, "hpu");

@@ -77,6 +77,8 @@ TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
+/*
+   This op uses cpu fallback
 TEST_F(LazyIndexKernelTest, ScatterValueTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
@@ -91,6 +93,7 @@ TEST_F(LazyIndexKernelTest, ScatterValueTest) {
 
   EXPECT_EQ(allclose(h_cout, out), true);
 }
+*/
 
 // This test is failing randomly.
 // https://jira.habana-labs.com/browse/SW-44742
@@ -350,6 +353,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
   EXPECT_EQ(allclose(hOut, a), true);
 }
 
+/* This test uses CPU fallback
 TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
   torch::Tensor input_cpu = torch::arange(48).reshape({8, 6});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
@@ -368,6 +372,7 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
+*/
 
 TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   const int64_t constStepsValue = 45;

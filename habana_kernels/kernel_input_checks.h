@@ -4381,13 +4381,12 @@ void hpu_check_inputs(
     i++;
   }
 }
-habana::HpuFallbackHelper stat;
 bool hpu_check_inputs_impl(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {
   const auto& supported_types = op_info.at(op);
   size_t i = 0;
-  if (stat.is_placed_on_cpu(op))
+  if (habana::HpuFallbackHelper::get()->is_placed_on_cpu(op))
     return false;
   for (const auto& tensor : tensors) {
     if (!tensor.defined()) {
