@@ -6529,6 +6529,11 @@ Tensor habana_nms_hpu_lazy(
   std::vector<HbLazyTensor> hl_flush = {hl_box, hl_valid, hl_shape};
   HbLazyTensor::SyncTensorsGraph(&hl_flush);
   auto end = valid_box_id_out.item<int64_t>();
+
+  if (end == 0) {
+    return box_id_out;
+  }
+
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements
   auto sliced_shape = DimVector{end};
