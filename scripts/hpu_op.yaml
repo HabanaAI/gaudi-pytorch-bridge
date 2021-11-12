@@ -1456,6 +1456,52 @@ trunc_:
   guid: trunc_fwd
   inplace_ids: [0]
 
+upsample_linear1d:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_base_class: UpsampleLinear1DOperator
+  out_ids: [0]
+
+upsample_linear1d.out:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_base_class: UpsampleLinear1DOperator
+
+upsample_linear1d.vec:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_base_class: UpsampleLinear1DOperator
+  out_ids: [0]
+
+upsample_linear1d_backward:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_base_class: UpsampleLinear1DOperator
+  out_ids: [0]
+
+upsample_linear1d_backward.grad_input:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_base_class: UpsampleLinear1DOperator
+
+upsample_linear1d_backward.vec:
+  custom_fill_params: FillUpsampleLinear1DParams
+  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_base_class: UpsampleLinear1DOperator
+  out_ids: [0]
+
 upsample_nearest1d:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
