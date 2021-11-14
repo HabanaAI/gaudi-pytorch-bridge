@@ -1992,7 +1992,9 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
       // Allocate idst if its not added from frontend.
       if (graph.is_dynamic_graph()) {
-        IntArrayRef idst_sizes = {step.toInt(), end.toInt(), start.toInt()};
+        std::vector<int64_t> sizes_vec{
+            step.toInt(), end.toInt(), start.toInt()};
+        IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
         auto idst_tensor = habana_helpers::createPTTensor(
             result,
             idst_sizes,

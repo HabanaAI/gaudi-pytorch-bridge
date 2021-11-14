@@ -4683,6 +4683,22 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
     bool sorted) {
   PT_LAZY_TRACE;
 
+  std::vector<at::IValue> vector_of_inputs;
+  std::string op_name;
+  std::set<size_t> metadata_indices;
+
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    op_name = "hpu::topk";
+    auto k_tensor = empty_hpu_lazy(
+        k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
+    vector_of_inputs = {self, k_tensor, dim, largest, sorted};
+    metadata_indices = {2, 3, 4};
+  } else {
+    op_name = "aten::topk";
+    vector_of_inputs = {self, k, dim, largest, sorted};
+    metadata_indices = {1, 2, 3, 4};
+  }
+
   using T = std::tuple<at::Tensor, at::Tensor>;
   class Kernel : public LazyOp<T> {
    public:
@@ -4690,14 +4706,10 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
         const Tensor& self,
         int64_t k,
         int64_t dim,
-        bool largest,
-        bool sorted)
-        : LazyOp<T>(
-              "aten::topk",
-              {self, k, dim, largest, sorted},
-              {1, 2, 3, 4},
-              {},
-              -1),
+        const std::string& op_name,
+        const std::vector<at::IValue>& vector_of_inputs,
+        std::set<size_t> metadata_indices)
+        : LazyOp<T>(op_name, vector_of_inputs, metadata_indices, {}, -1),
           self(self),
           k(k),
           dim(dim) {}
@@ -4724,7 +4736,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
     int64_t dim;
   };
 
-  Kernel kernel{self, k, dim, largest, sorted};
+  Kernel kernel{self, k, dim, op_name, vector_of_inputs, metadata_indices};
   return kernel.call();
 }
 

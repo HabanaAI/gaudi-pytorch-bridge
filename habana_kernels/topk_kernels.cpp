@@ -15,9 +15,12 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
 #include "synapse_helpers/recipe.h"
 
@@ -88,8 +91,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       inputs[2].isTensor(),
       "Input arg3 expected to be tensor for topk operator");
   TORCH_CHECK(
-      inputs[3].isInt(),
-      "Input arg4 expected to be of type Int for topk operator");
+      inputs[3].isTensor() || inputs[3].isInt(),
+      "Input arg4 expected to be of type Int or Tensor for topk operator");
   TORCH_CHECK(
       inputs[4].isInt(),
       "Input arg5 expected to be of type Int for topk operator");
@@ -106,8 +109,92 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   auto values = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
   auto self = inputs[2].toTensor();
-  int64_t k = inputs[3].toInt();
   int64_t dim_ = inputs[4].toInt();
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  int64_t k;
+  // Get k value
+  if (inputs[3].isTensor()) {
+    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    TORCH_CHECK(p_context_->syn_inputs_.size() == 2);
+    Tensor k_tensor = inputs[3].toTensor();
+    k = k_tensor.sizes().vec().at(
+        0); // Get the first element which holds the dynamic value of k
+  } else {
+    k = inputs[3].toInt();
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      Tensor k_tensor = habana_helpers::createPTTensor(
+          self, k, self.options(), self.suggest_memory_format(), false);
+      AllocateSynapseShapeTensor(graph, k_tensor);
+    }
+  }
+
+  /*
+     To support dynamic shape, the TPC kernel inputs needs to be {values_tensor,
+     indices_tensor, null, k_tensor}. The following code create 3 additional ops
+     to create the indices tensor: arrnage op -> reshape op -> repeat op
+  */
+  synapse_helpers::tensor& syn_in_self = p_context_->syn_inputs_[0];
+  std::vector<synTensor> syn_inputs{syn_in_self.get()};
+
+  if (inputs[3].isTensor() || graph.is_dynamic_graph()) {
+    torch::jit::Stack temp_stack;
+    const auto input_shape = self.sizes();
+    const int start = 0;
+    const int limit = input_shape[dim];
+    const int step = 1;
+
+    // Add arange op - the input tensor for the arange op is also the output
+    // tensor
+    auto arange_input_output_scalar_type = c10::ScalarType::Int;
+    int input_output_depth = ArangeOperator::GetOutputSize(start, limit, step);
+    std::vector<int64_t> input_output_sizes_vec{input_output_depth};
+    IntArrayRef input_output_shape(
+        input_output_sizes_vec.data(), input_output_sizes_vec.size());
+    auto arangeInputOutput = habana_helpers::createPTTensor(
+        self,
+        input_output_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        arange_input_output_scalar_type,
+        false);
+    auto arangeOp = make_operator<ArangeOperator>(
+        this->p_context_->device_id_, arange_input_output_scalar_type);
+    arangeOp->AllocateSynapseInput(graph, arangeInputOutput, false);
+    temp_stack = {
+        IValue(start), IValue(limit), IValue(step), IValue(arangeInputOutput)};
+    arangeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    temp_stack.clear();
+
+    // Add reshape op
+    auto reshaped_shape = std::vector<int64_t>(self.ndimension(), 1);
+    reshaped_shape[dim] = limit;
+    auto reshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, arange_input_output_scalar_type);
+    temp_stack = {IValue(arangeOp->GetOutputs()[0]), IValue(reshaped_shape)};
+    reshapeOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
+    reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    temp_stack.clear();
+
+    // Add repeat op
+    auto repeatOp = make_operator<RepeatOperator>(
+        this->p_context_->device_id_, arange_input_output_scalar_type);
+    std::vector<int64_t> repeats = input_shape.vec();
+    repeats[dim] = 1;
+    temp_stack = {IValue(reshapeOp->GetOutputs()[0]), IValue(repeats)};
+    repeatOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
+    repeatOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    temp_stack.clear();
+
+    // Add relevant syn inputs to support dynamic shape
+    synapse_helpers::tensor& syn_in_tensor_k = p_context_->syn_inputs_[1];
+    synapse_helpers::tensor& syn_in_indices = repeatOp->GetSynOutputs()[0];
+    syn_inputs.emplace_back(syn_in_indices.get());
+    syn_inputs.emplace_back(nullptr);
+    syn_inputs.emplace_back(syn_in_tensor_k.get());
+  }
+
   bool largest = inputs[5].toBool();
   bool sorted = inputs[6].toBool();
 
@@ -118,8 +205,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       !(self.dtype() == c10::ScalarType::BFloat16),
       "BFloat16 is not supported");
-
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
@@ -146,12 +231,20 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   params.axis = self.dim() - dim - 1;
   params.bottomK = !largest;
 
-  p_context_->params_.emplace<synBeamParams>(params);
-  p_context_->params_size_ = sizeof(params);
-
   std::vector<at::Tensor> outputs{values, indices};
   AllocateSynapseOutputs(graph, outputs, is_output_persistent, {true, true});
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+
+  synapse_helpers::tensor& syn_out0 = p_context_->syn_outputs_[0];
+  synapse_helpers::tensor& syn_out1 = p_context_->syn_outputs_[1];
+  std::vector<synTensor> syn_outputs{syn_out0.get(), syn_out1.get()};
+
+  // add topk node
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &params,
+      sizeof(params),
+      std::move(guid_));
 }
 
 void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -439,9 +532,15 @@ std::tuple<Tensor, Tensor> sort_hpu(
   return std::forward_as_tuple(out.at(0), out.at(1));
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "aten::topk",
-    [](const int device_id, c10::ScalarType node_type) {
-      static_cast<void>(node_type);
-      return std::make_shared<habana::TopkOperator>(device_id, "topk");
-    });
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::topk",
+            [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
+              return std::make_shared<habana::TopkOperator>(device_id, "topk");
+            })
+        .add("hpu::topk", [](const int device_id, c10::ScalarType node_type) {
+          static_cast<void>(node_type);
+          return std::make_shared<habana::TopkOperator>(device_id, "topk");
+        });

@@ -1644,3 +1644,54 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }
+
+void runTopkDynamicTest(
+    std::vector<int> K_values,
+    std::vector<int> changing_dim_values,
+    int dim) {
+  int N = 1;
+  int C = 16;
+  int H = 20;
+  int W = 20;
+  c10::ScalarType dtype{torch::kInt32};
+  std::vector<int64_t> dimentions = {N, C, H, W};
+  for (int i = 0; i < K_values.size(); i++) {
+    int change_dim_value = changing_dim_values[i];
+    int k = K_values[i];
+    dimentions[dim] = change_dim_value;
+    PT_TEST_DEBUG("\nPTI_DBG :: TopKTest TEST ", i, "  --------\n");
+
+    torch::Tensor input_cpu =
+        torch::randn(dimentions, torch::requires_grad(false));
+    PRINT_TENSOR_DETAILS(input_cpu);
+
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+    std::tuple<at::Tensor, at::Tensor> out_hpu = torch::topk(input_hpu, k);
+    std::tuple<at::Tensor, at::Tensor> out_cpu = torch::topk(input_cpu, k);
+
+    auto hpu_values = std::get<0>(out_hpu);
+    auto cpu_values = std::get<0>(out_cpu);
+    auto hpu_values_to_cpu = hpu_values.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(cpu_values, hpu_values_to_cpu, 0, 0), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, TopKTest1) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  // Changing K valuse
+  runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {30, 30, 30, 30, 30, 30}, 3);
+  // Changing W valuse
+  runTopkDynamicTest({5, 5, 5, 5, 5, 5}, {20, 33, 40, 35, 25, 28}, 3);
+  // Changing K and W values
+  runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
