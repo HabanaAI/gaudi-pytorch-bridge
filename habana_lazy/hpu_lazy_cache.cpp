@@ -121,27 +121,27 @@ void LazyArgumentSpec::GetArgSpecKey(
   m_hash_code = at::hash_combine(m_hash_code, input_hash);
 
   // Incorporate the memory format of the inputs within hash
-  unsigned i = 0;
-  std::ostringstream O;
-  O << '(';
+  int64_t mf_hash_code{};
   for (auto const& input_ival : input_refs) {
     if (input_ival.isTensor()) {
       auto in_tensor = input_ival.toTensor();
-      O << (i ? "," : "") << i << '_' << in_tensor.suggest_memory_format();
+      auto m = in_tensor.suggest_memory_format();
+      int64_t m_int =
+          static_cast<std::underlying_type<c10::MemoryFormat>::type>(m);
+      mf_hash_code =
+          at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
       if (in_tensor.has_storage()) {
         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
         if (hb_tensor) {
-          auto lazy_layout_format = hb_tensor->GetTensorLayout();
-          O << '_' << lazy_layout_format;
+          auto m_lazy = hb_tensor->GetTensorLayout();
+          int64_t m_lazy_int = static_cast<
+              std::underlying_type<habana_lazy::LayoutFormat>::type>(m_lazy);
+          mf_hash_code = at::hash_combine(
+              mf_hash_code, at::get_hash(habana::mod_exp(m_lazy_int)));
         }
       }
     }
-    i++;
   }
-  O << ')';
-  std::string mf_str{O.str()};
-  std::hash<std::string> str_hash;
-  auto mf_hash_code = str_hash(mf_str);
   m_hash_code = at::hash_combine(m_hash_code, mf_hash_code);
 }
 
