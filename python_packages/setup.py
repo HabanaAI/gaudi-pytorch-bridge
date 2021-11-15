@@ -88,6 +88,14 @@ class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=Tr
         for lib in libs:
             copy_file(lib, libs_path)
 
+        # copying exposed header files into package
+        build_root = os.path.join(os.environ["PYTORCH_MODULES_ROOT_PATH"], "include", "habanalabs")
+        include_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "include")
+        os.makedirs(include_path, exist_ok=True)
+        headerfiles = (filename for filename in os.listdir(build_root) if filename.endswith(".h"))
+        for header in headerfiles:
+            copy_file(os.path.join(build_root, header), include_path)
+
 
 setup(
     name="habana-torch",

@@ -10,7 +10,7 @@
 
 #pragma once
 #include "habana_kernels/habana_operator.h"
-#include "habana_lazy/habana_lazy_custom.h"
+#include "include/habanalabs/hpu_custom_op.h"
 
 namespace habana {
 

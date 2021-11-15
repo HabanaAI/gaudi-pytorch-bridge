@@ -1,9 +1,9 @@
-#include "habana_lazy/habana_lazy_custom.h"
 #include <iostream>
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/custom_op_kernel.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/ops/custom_op.h"
+#include "include/habanalabs/hpu_custom_op.h"
 
 namespace habana {
 namespace custom_op {
@@ -38,6 +38,11 @@ std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
     results.emplace_back(result);
   }
   return results;
+}
+
+const HabanaCustomOpDescriptor HabanaCustomOpDescriptor::getCustomOpDescriptor(
+    std::string op) {
+  return habana::KernelRegistry().get_custom_op_desc(op);
 }
 
 std::string HabanaCustomOpDescriptor::getSchemaName() const {

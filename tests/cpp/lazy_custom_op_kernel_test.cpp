@@ -6,11 +6,11 @@
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/habana_lazy_custom.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
+#include "include/habanalabs/hpu_custom_op.h"
 
 using namespace habana_lazy;
 using namespace at;

@@ -15,6 +15,7 @@
 namespace habana {
 namespace custom_op {
 
+//! callback function for calculating output shape
 using output_shape = std::vector<int64_t>;
 using compute_output_shape_function =
     std::function<output_shape(const at::Stack& stack)>;
@@ -23,28 +24,45 @@ using user_param = std::shared_ptr<void>;
 using allocate_user_params_func =
     std::function<user_param(const at::Stack& stack, size_t& size)>;
 
+//! helper struct to represent TPC kernel details
 struct NodeDesc {
-  // Unique TPC kernel guid
+  //! Unique TPC kernel guid
   std::string tpc_guid;
-  // jit name as used in TORCH_LIBRARY
+  //! schema name as used in TORCH_LIBRARY
   std::string schema_name;
-  // TPC kernel params
+  //! TPC kernel params callback function
   allocate_user_params_func user_param_func = nullptr;
 };
 
 enum class input_type { TENSOR, SCALAR, USER_PARAMS };
 
+//! helper struct for input to op
 struct InputDesc {
+  //! input type, e.g: Tensor, Scalar..
   input_type type;
+  //! input index
   unsigned index;
 };
 
+//! helper struct for output of op
 struct OutputDesc {
+  //! output index
   unsigned index;
+  //! Tensor output type, default is float
   c10::ScalarType dtype = c10::ScalarType::Float;
+  //! output shape calculation callback function
   compute_output_shape_function compute_output_shape_func = nullptr;
 };
 
+/**
+ * @brief Descriptor for custom op containing all necessary information to
+ * define user HPU TPC kernel.
+ *
+ * User is responsible to define all node TPC info within NodeDesc, all
+ * inputs/outputs info within vectors of InputDesc/OutputDesc. User needs
+ * to register descriptor with the macro REGISTER_CUSTOM_OP_ATTRIBUTES. User
+ * will retrieve his descriptor from registry, and call execute with inputs.
+ */
 class HabanaCustomOpDescriptor {
  public:
   HabanaCustomOpDescriptor(
@@ -54,7 +72,23 @@ class HabanaCustomOpDescriptor {
       : node_desc_(node_desc), inputs_(inputs), outputs_(outputs) {}
   HabanaCustomOpDescriptor() {}
 
+  /**
+   * @brief Actual call by user C++ to op
+   *
+   * @param inputs all values by order to op execution
+   * @return std::vector<at::Tensor> vector of op results. If single output
+   * vector with size()==1.
+   */
   std::vector<at::Tensor> execute(const std::vector<c10::IValue>& inputs);
+
+  /**
+   * @brief Get the Custom Op Descriptor object
+   *
+   * @param op schema registration name which used in
+   * REGISTER_CUSTOM_OP_ATTRIBUTES
+   * @return const HabanaCustomOpDescriptor
+   */
+  static const HabanaCustomOpDescriptor getCustomOpDescriptor(std::string op);
 
   std::string getSchemaName() const;
   std::string getGuid() const;
@@ -75,6 +109,9 @@ class HabanaCustomOpDescriptor {
 
 void registerKernel(habana::custom_op::HabanaCustomOpDescriptor& new_desc);
 
+/**
+ * @brief main macro for user to register his op into HPU.
+ */
 #define REGISTER_CUSTOM_OP_ATTRIBUTES(                                    \
     schema_name, guid, input_desc, output_desc, param_func)               \
   {                                                                       \

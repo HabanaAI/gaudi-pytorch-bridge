@@ -13,7 +13,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_shape.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_lazy/habana_lazy_custom.h"
+#include "include/habanalabs/hpu_custom_op.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/habana_tensor.h"
