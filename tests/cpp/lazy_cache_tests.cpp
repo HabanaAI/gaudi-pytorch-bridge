@@ -373,3 +373,40 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   // End the test by clearing the cache for later tests
   habana_lazy::LazyGraphCache::GetLazyCache().Clear();
 }
+
+TEST(LazyCacheTest, PadOpCacheTest) {
+  torch::Tensor tensor = torch::randn({9, 9, 13, 11});
+  torch::Tensor tensorHabana = tensor.to(torch::kHPU);
+
+  namespace F = torch::nn::functional;
+  auto outHabana = F::pad(
+      tensorHabana, F::PadFuncOptions({-1, -1, -1, -1}).mode(torch::kConstant));
+  auto out = F::pad(
+      tensor, F::PadFuncOptions({-1, -1, -1, -1}).mode(torch::kConstant));
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+
+  auto outHabana2 = F::pad(
+      tensorHabana, F::PadFuncOptions({-2, -2, -2, -2}).mode(torch::kConstant));
+  auto out2 = F::pad(
+      tensor, F::PadFuncOptions({-2, -2, -2, -2}).mode(torch::kConstant));
+  equal = out2.allclose(outHabana2.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(LazyCacheTest, CumsumOpCacheTest) {
+  torch::Tensor tensor = torch::randn({9, 9, 13, 11});
+  torch::Tensor tensorHabana = tensor.to(torch::kHPU);
+
+  int64_t dim1 = 1;
+  auto outHabana = torch::cumsum(tensorHabana, dim1);
+  auto out = torch::cumsum(tensor, dim1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+
+  int64_t dim2 = -1;
+  auto outHabana2 = torch::cumsum(tensorHabana, dim2);
+  auto out2 = torch::cumsum(tensor, dim2);
+  equal = out2.allclose(outHabana2.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}
