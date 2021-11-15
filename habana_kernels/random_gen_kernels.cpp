@@ -37,6 +37,12 @@ uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
   std::lock_guard<std::mutex> lock(generator->mutex_);
   return generator->random();
 }
+
+at::Tensor get_seed_tensor_hpu(const c10::optional<Generator>& gen) {
+  return at::tensor(
+      static_cast<int>(get_seed_hpu(gen)),
+      at::device(c10::kHPU).dtype(at::kInt));
+}
 } // namespace habana
 
 using namespace habana;

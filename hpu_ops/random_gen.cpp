@@ -22,8 +22,8 @@ LazyRandom<at::Tensor&>::LazyRandom(
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
   // Seed is always at the end for all variants
-  get_inputs().back() = static_cast<int64_t>(
-      get_seed_hpu(inputs.back().toOptional<at::Generator>()));
+  get_inputs().back() =
+      get_seed_tensor_hpu(inputs.back().toOptional<at::Generator>());
 }
 
 template <>
@@ -35,10 +35,8 @@ static std::shared_ptr<void> RandomUniformParams(
     at::ScalarType type,
     at::optional<float> from,
     at::optional<float> to,
-    int seed,
     size_t& size) {
   PARAMS_STUB(ns_RandomUniform::Params);
-  params->seed = seed;
   /*
   NOTE: As per PyTorch specification, for floating point types, if unspecified,
   range will be [0, 2^mantissa] to ensure that every value is representable. For
@@ -65,25 +63,14 @@ static std::shared_ptr<void> RandomUniformParams(
       break;
   }
 
-  PT_KERNEL_DEBUG(
-      __func__,
-      " low: ",
-      params->low,
-      " high: ",
-      params->high,
-      " seed: ",
-      params->seed);
+  PT_KERNEL_DEBUG(__func__, " low: ", params->low, " high: ", params->high);
 
   return params;
 }
 
 std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
-      stack_tensor(stack, 0).scalar_type(),
-      c10::nullopt,
-      c10::nullopt,
-      stack.at(1).toInt(),
-      size);
+      stack_tensor(stack, 0).scalar_type(), c10::nullopt, c10::nullopt, size);
 }
 
 std::shared_ptr<void> FillRandomFromParams(
@@ -94,7 +81,6 @@ std::shared_ptr<void> FillRandomFromParams(
       stack.at(1).isNone() ? c10::nullopt
                            : c10::make_optional<float>(stack.at(1).toInt()),
       c10::make_optional<float>(stack.at(2).toInt()),
-      stack.at(3).toInt(),
       size);
 }
 
@@ -103,7 +89,6 @@ std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
       stack_tensor(stack, 0).scalar_type(),
       c10::nullopt,
       c10::make_optional<float>(stack.at(1).toInt()),
-      stack.at(2).toInt(),
       size);
 }
 
@@ -111,13 +96,16 @@ void RandomOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
+  // Discard self tensor
+  p_context_->syn_inputs_.pop_front();
+
   if (ScalarType() == c10::ScalarType::Int) {
     size_t size = 0;
     auto rand_params = FillParams(stack, size);
     auto rand = BuildOp(
         graph,
         "random_uniform_fwd_f32",
-        {},
+        {syn_in(0)},
         {{stack_tensor(stack, 0).sizes()}},
         rand_params.get(),
         size);
@@ -138,7 +126,6 @@ void RandomOp::AddNode(
     return;
   }
 
-  kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent_list);
 }
 } // namespace habana
