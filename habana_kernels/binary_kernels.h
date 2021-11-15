@@ -37,6 +37,11 @@ class BinaryOperator : public habana::HabanaOperator {
 
  protected:
   c10::ScalarType scalarType_;
+
+  bool MaybeMultiplyWithBool(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent);
 };
 
 class BinaryWrapperOperator : public habana::HabanaOperator {

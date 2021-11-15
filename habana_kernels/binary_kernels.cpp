@@ -16,6 +16,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
@@ -49,6 +50,144 @@ std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
   return out_size;
 }
 
+bool habana::BinaryOperator::MaybeMultiplyWithBool(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  bool is_arg1_integral = isIntegralType(arg1.scalar_type(), false);
+  // habana_helpers::is_integral_tensor(arg1);
+  bool is_arg2_integral = isIntegralType(arg2.scalar_type(), false);
+  // habana_helpers::is_integral_tensor(arg2);
+
+  // This if block is introduced to support bool tensors for mult
+  // TPC does not support bool for mult operation
+  // cast node is added before and after the tpc call to support bool
+  // This change is done as an WA to avoid any script change
+  // as a part of <https://jira.habana-labs.com/browse/SW-48605>
+  HABANA_ASSERT(
+      guid_.substr(0, 4) == "mult",
+      "MaybeMultiplyWithBool supports only mult op");
+  if ((arg1.scalar_type() == c10::ScalarType::Bool || is_arg1_integral) &&
+      (arg2.scalar_type() == c10::ScalarType::Bool || is_arg2_integral) &&
+      !(is_arg1_integral && is_arg2_integral)) {
+    // NOTE: TO DO: if integral type is U8 we will fail in cast
+    c10::ScalarType final_out_dtype = c10::ScalarType::Int;
+
+    if (arg1.scalar_type() == arg2.scalar_type()) {
+      final_out_dtype = arg1.scalar_type();
+    } else {
+      // Generate key using input dtype(s)
+      std::pair<ScalarType, ScalarType> type{
+          arg1.scalar_type(), arg2.scalar_type()};
+      // Check if we have this key to find the dtype to which smaller dtype
+      // tensor should be promoted to
+      auto iter = habana_helpers::promote_dtype.find(type);
+      if (iter != habana_helpers::promote_dtype.end()) {
+        final_out_dtype = iter->second;
+      }
+    }
+    // Cast Input tensor to Int tensor
+    std::string node1_type = (arg1.scalar_type() == c10::ScalarType::Int)
+        ? "cast_identity"
+        : (arg1.scalar_type() == c10::ScalarType::Short) ? "cast_i16_to_i32"
+                                                         : "cast_i8_to_i32";
+    // Create the operator
+    // Build Params for the graph
+    std::shared_ptr<HabanaOperator> castOp1;
+    std::vector<c10::IValue> stack;
+    if (arg1.scalar_type() != c10::ScalarType::Int) {
+      castOp1 =
+          make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+      castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+      stack = {arg1, c10::ScalarType::Int};
+      castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+    } else {
+      castOp1 = make_operator<IdentityOperator>(
+          this->p_context_->device_id_, c10::ScalarType::Int);
+      castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+      // castOp1->SetOutputMetadata(output_metadata_);
+      stack = {arg1};
+      castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+    }
+    std::string node2_type = (arg2.scalar_type() == c10::ScalarType::Int)
+        ? "cast_identity"
+        : (arg2.scalar_type() == c10::ScalarType::Short) ? "cast_i16_to_i32"
+                                                         : "cast_i8_to_i32";
+    // Create the operator
+    std::shared_ptr<HabanaOperator> castOp2;
+    // Build Params for the graph
+    if (arg2.scalar_type() != c10::ScalarType::Int) {
+      castOp2 =
+          make_operator<CastOperator>(this->p_context_->device_id_, node2_type);
+      castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
+      stack = {arg2, c10::ScalarType::Int};
+      castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    } else {
+      castOp2 = make_operator<IdentityOperator>(
+          this->p_context_->device_id_, c10::ScalarType::Int);
+      castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
+      // castOp2->SetOutputMetadata(output_metadata_);
+      stack = {arg2};
+      castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    }
+
+    // Add the Mult node
+    // NOTE: TO DO: Using arg1 is not entirely correct in createPTTensor
+    // need to consider between arg1 and arg2
+    auto output_mult = habana_helpers::createPTTensor(
+        arg1,
+        arg1.sizes(),
+        arg1.options(),
+        arg1.suggest_memory_format(),
+        c10::ScalarType::Int,
+        (final_out_dtype == c10::ScalarType::Int) ? is_output_persistent
+                                                  : false);
+
+    AllocateSynapseOutput(
+        graph,
+        output_mult,
+        (final_out_dtype == c10::ScalarType::Int) ? is_output_persistent
+                                                  : false,
+        false,
+        -1);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+    synapse_helpers::tensor& synInput1 = castOp1->GetSynOutputs()[0];
+    synapse_helpers::tensor& synInput2 = castOp2->GetSynOutputs()[0];
+
+    std::vector<synTensor> syn_in{synInput1.get(), synInput2.get()};
+    std::vector<synTensor> syn_out{synOutput.get()};
+    guid_ =
+        "mult_" + habana_helpers::name_suffix_from_type(c10::ScalarType::Int);
+    graph.add_node(
+        std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
+    if (final_out_dtype != c10::ScalarType::Int) {
+      // NOTE: TO DO: need to handle integral type U8
+      // Cast Int tensor to Bool tensor
+      auto node_type = (final_out_dtype == c10::ScalarType::Short)
+          ? "cast_i32_to_i16"
+          : "cast_i32_to_i8";
+      // Create the operator
+      auto finalCastOp =
+          make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+      finalCastOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+      // finalCastOp->SetOutputMetadata(output_metadata_);
+      // Build Params for the graph
+      stack = {output_mult, final_out_dtype};
+      finalCastOp->AllocateAndAddSynapseNode(
+          graph, stack, is_output_persistent);
+      p_context_->syn_outputs_.pop_back();
+      p_context_->pt_outputs_.pop_back();
+
+      p_context_->syn_outputs_.emplace_back(
+          std::move(finalCastOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(finalCastOp->GetOutputs()[0]);
+    }
+    return true;
+  }
+  return false;
+}
 /************************************************************************
  * @brief This function implements synapse node addition for
  * binary operators where both inputs are tensors. Mismatch in input
@@ -67,82 +206,12 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
-  // This if block is introduced to support bool tensors for mult
-  // TPC does not support bool for mult operation
-  // cast node is added before and after the tpc call to support bool
-  // This change is done as an WA to avoid any script change
-  // as a part of <https://jira.habana-labs.com/browse/SW-48605>
-  if (guid_.substr(0, 4) == "mult" &&
-      arg1.scalar_type() == c10::ScalarType::Bool &&
-      arg2.scalar_type() == c10::ScalarType::Bool) {
-    // Cast Input tensor to Int tensor
-    std::string node_type = "cast_i8_to_i32";
-
-    // Create the operator
-    auto boolToIntOp1 =
-        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    boolToIntOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
-
-    // Build Params for the graph
-    std::vector<c10::IValue> stack{IValue(arg1), IValue(c10::ScalarType::Int)};
-    boolToIntOp1->AllocateAndAddSynapseNode(graph, stack, false);
-    stack.clear();
-
-    // Create the operator
-    auto boolToIntOp2 =
-        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    boolToIntOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
-
-    // Build Params for the graph
-    stack.emplace_back(IValue(arg2));
-    stack.emplace_back(IValue(c10::ScalarType::Int));
-    boolToIntOp2->AllocateAndAddSynapseNode(graph, stack, false);
-    stack.clear();
-
-    // Add the Mult node
-    auto output_mult = habana_helpers::createPTTensor(
-        arg1,
-        arg1.sizes(),
-        arg1.options(),
-        arg1.suggest_memory_format(),
-        c10::ScalarType::Int,
-        false);
-
-    AllocateSynapseOutput(graph, output_mult, false, false, -1);
-    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
-    synapse_helpers::tensor& synInput1 = boolToIntOp1->GetSynOutputs()[0];
-    synapse_helpers::tensor& synInput2 = boolToIntOp2->GetSynOutputs()[0];
-
-    std::vector<synTensor> syn_in{synInput1.get(), synInput2.get()};
-    std::vector<synTensor> syn_out{synOutput.get()};
-
-    guid_ = "mult_fwd_" +
-        habana_helpers::name_suffix_from_type(c10::ScalarType::Int);
-    graph.add_node(
-        std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
-
-    // Cast Int tensor to Bool tensor
-    node_type = "cast_i32_to_i8";
-
-    // Create the operator
-    auto intToBoolOp =
-        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    intToBoolOp->SetSynapseInput(p_context_->syn_outputs_[0]);
-    intToBoolOp->SetOutputMetadata(output_metadata_);
-
-    // Build Params for the graph
-    stack.emplace_back(IValue(output_mult));
-    stack.emplace_back(IValue(c10::ScalarType::Bool));
-    intToBoolOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    p_context_->syn_outputs_.pop_back();
-    p_context_->pt_outputs_.pop_back();
-
-    p_context_->syn_outputs_.emplace_back(
-        std::move(intToBoolOp->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(intToBoolOp->GetOutputs()[0]);
-    return;
+  if (guid_.substr(0, 4) == "mult") {
+    auto was_bool_mult =
+        MaybeMultiplyWithBool(graph, inputs, is_output_persistent);
+    if (was_bool_mult)
+      return;
   }
-
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
@@ -224,7 +293,6 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
-
   auto binaryOp = make_operator<BinaryOperator>(
       this->p_context_->device_id_, guid_, this->scalarType_);
   binaryOp->SetOutputMetadata(output_metadata_);
@@ -310,7 +378,6 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Input 1 type expected to be tensor");
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
-
   auto memory_format = at::MemoryFormat::Contiguous;
   if ((arg1.suggest_memory_format() == at::MemoryFormat::ChannelsLast) ||
       (arg2.suggest_memory_format() == at::MemoryFormat::ChannelsLast)) {
@@ -401,7 +468,6 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
   TORCH_CHECK(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
-
   auto binaryOp = make_operator<BinaryOperatorWithAlpha>(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
@@ -547,7 +613,10 @@ Tensor process_generic_tensor_binary_op(
  * @param alpha - optional input
  * out = self + alpha * other
  ************************************************************************/
-Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, const Scalar& alpha) {
+Tensor add_tensor_hpu(
+    const Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
   Tensor output;
   if (self.dim() == 0) {
@@ -573,7 +642,10 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, const Scalar& alp
  * @param alpha - optional input
  * out = self + alpha * other
  ************************************************************************/
-Tensor add_scalar_hpu(const Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor add_scalar_hpu(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -596,7 +668,10 @@ Tensor add_scalar_hpu(const Tensor& self, const Scalar& other, const Scalar& alp
  * @param alpha - optional input
  * out = self - alpha * other
  ************************************************************************/
-Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, const Scalar& alpha) {
+Tensor sub_tensor_hpu(
+    const Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -669,7 +744,10 @@ void habana::RsubOperator::AllocateAndAddSynapseNode(
  * @param alpha - optional input Scalar, default = 1
  * output = other - self * alpha
  ************************************************************************/
-Tensor rsub_scalar_hpu(const Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor rsub_scalar_hpu(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -773,7 +851,8 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor div_scalar_hpu(
     const Tensor& self,
-    const Scalar& other) { // TODO: Add test by using an extension module for new op
+    const Scalar&
+        other) { // TODO: Add test by using an extension module for new op
   // at python level
   PT_KERNEL_BEGIN;
 
@@ -868,7 +947,8 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
 Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
   PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
                       // within Lazy kernel tests
-  // scale changed to support dropout backward based on what we pass for dropout
+  // scale changed to support dropout backward based on what we pass for
+  // dropout
   scale = 1.0 / (1.0 - 1.0 / scale);
   auto tt_mul_out = at::mul(
       self,
