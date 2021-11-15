@@ -1428,7 +1428,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_NmsSmall) {
+TEST_F(LazyDynamicShapesTest, NmsSmall) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);

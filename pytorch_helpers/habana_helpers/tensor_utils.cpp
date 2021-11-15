@@ -533,7 +533,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        devid, shape.vec(), stride.vec());
+        devid, shape.vec(), stride.vec(), name);
   }
 
   std::vector<int64_t> min, max;
@@ -589,7 +589,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device().index(), tensor.sizes().vec(), tensor.strides().vec());
+        tensor.device().index(),
+        tensor.sizes().vec(),
+        tensor.strides().vec(),
+        name);
   }
 
   std::vector<int64_t> min, max;
@@ -662,7 +665,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device().index(), tensor.sizes().vec(), tensor.strides().vec());
+        tensor.device().index(),
+        tensor.sizes().vec(),
+        tensor.strides().vec(),
+        name);
   }
 
   std::vector<int64_t> min, max;
@@ -723,6 +729,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         tensor.strides().vec(),
+        name,
         shape_tensor_type);
   }
 

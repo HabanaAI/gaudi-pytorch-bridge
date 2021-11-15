@@ -114,16 +114,6 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   auto box_ids = inputs[0].toTensor();
   auto valid_box_ids = inputs[1].toTensor();
 
-  ns_PostNms::Params params;
-  if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
-    std::string tensor_name = tensor_name_generator::get_next_tensor_name();
-    std::vector<int64_t> min, max;
-    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
-    params.max_output_size = static_cast<int>(max[0]);
-  } else {
-    params.max_output_size = static_cast<int>(box_ids.sizes()[2]);
-  }
-
   auto box_id_out = habana_helpers::createPTTensor(
       box_ids,
       {static_cast<int>(box_ids.sizes()[2])},
@@ -131,11 +121,32 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
       is_output_persistent[0]);
   auto valid_box_id_out = habana_helpers::createPTTensor(
       valid_box_ids, {1}, valid_box_ids.options(), is_output_persistent[1]);
-  AllocateSynapseOutputs(
+  AllocateSynapseOutput(
       graph,
-      {box_id_out, valid_box_id_out},
-      {is_output_persistent[0], is_output_persistent[1]},
-      {true, true});
+      box_id_out,
+      is_output_persistent[0],
+      false, // is_shape_tensor
+      true); // use_metadata
+
+  // For dynamic case the max_output_size in params is equal to
+  // max value of output size
+  ns_PostNms::Params params;
+  if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
+    synapse_helpers::tensor& syn_tensor = p_context_->syn_outputs_.back();
+    std::string tensor_name = syn_tensor.name();
+    std::vector<int64_t> min, max;
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    params.max_output_size = static_cast<int>(max[0]);
+  } else {
+    params.max_output_size = static_cast<int>(box_ids.sizes()[2]);
+  }
+
+  AllocateSynapseOutput(
+      graph,
+      valid_box_id_out,
+      is_output_persistent[1],
+      false, // is_shape_tensor
+      true); // use_metadata
 
   auto shape_tensor = habana_helpers::createPTTensor(
       valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent[2]);

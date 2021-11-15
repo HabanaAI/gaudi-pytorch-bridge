@@ -408,8 +408,9 @@ tensor tensor::create_placeholder(
     synDeviceId syn_device,
     const std::vector<int64_t>& pt_shape,
     const std::vector<int64_t>& pt_stride,
+    const std::string& suffix,
     synTensorType tensor_type) {
-  auto name = detail::tensor_name_generator::generate();
+  auto name = detail::tensor_name_generator::generate(suffix);
   tensor tensor{
       syn_device,
       synDataType::syn_type_na,
