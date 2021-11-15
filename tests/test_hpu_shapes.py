@@ -17,7 +17,7 @@ test_case_list = [
     (8, 28, 28, 3),
 ]
 
-index_put_dtype_list = [torch.float, torch.int8, torch.int32]
+index_put_dtype_list = [torch.float, torch.bfloat16, torch.int32, torch.int8]
 
 broadcast_test_case_list = [
     [torch.randn(8, 3, 28, 28), torch.randn(1), torch.randn(1)],
@@ -240,9 +240,9 @@ def test_hpu_index_select(N, H, W, C, dim):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("dtype", index_put_dtype_list)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int32])
 @pytest.mark.parametrize("acc", [True, False])
-def test_hpu_index_put(N, H, W, C, dtype, acc):
+def test_hpu_index_put_simple(N, H, W, C, dtype, acc):
     kernel = torch.index_put
     dim_list = [N, C, H, W]
     if dtype == torch.float32:
@@ -265,19 +265,31 @@ def test_hpu_index_put(N, H, W, C, dtype, acc):
     evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("acc", [False])
+def test_hpu_index_put_new(N, H, W, C, acc):
+    kernel = torch.index_put
+    dim_list = [N, C, H, W]
+    kernel_params_fwd = {
+        'input': torch.randn(tuple(dim_list), requires_grad=True),
+        'indices': [torch.tensor([0, 2]), torch.tensor([1, 1])],
+        'values': torch.randn(tuple([2, H, W])),
+        'accumulate': acc
+    }
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dtype", index_put_dtype_list)
-@pytest.mark.parametrize("acc", [True, False])
+@pytest.mark.parametrize("acc", [False])
 def test_hpu_index_put_bool(N, H, W, C, dtype, acc):
     kernel = torch.index_put
     dim_list = [N, C, H, W]
     if dtype == torch.float32:
         in_t = torch.randn(tuple(dim_list),  dtype=dtype, requires_grad=True)
         ti = torch.randint_like(in_t, 0, np.prod(dim_list)) > (np.prod(dim_list) / 2)
-        tv = torch.randn(torch.nonzero(ti).shape[0])
+        tv = torch.tensor(2.0)
     else:
         in_t = torch.randint(16, tuple(dim_list),  dtype=dtype)
         ti = torch.randint_like(in_t, 0, 128) > 8
-        tv = torch.randint(16, (torch.nonzero(ti).shape[0],),  dtype=dtype)
+        tv = torch.tensor(2,dtype=dtype)
     kernel_params_fwd = {
         #clone required as tensors that are the result of a differentiable operation are not leaf variables
         'input': in_t.clone(),
@@ -288,8 +300,37 @@ def test_hpu_index_put_bool(N, H, W, C, dtype, acc):
     evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("acc", [False])
+
+def test_hpu_index_put_new(N, H, W, C, acc):
+
+    kernel = torch.index_put
+
+    dim_list = [N, C, H, W]
+
+    kernel_params_fwd = {
+
+        'input': torch.randn(tuple(dim_list), requires_grad=True),
+
+        'indices': [torch.tensor([0, 2]), torch.tensor([1, 1])],
+
+        'values': torch.randn(tuple([2, H, W])),
+
+        'accumulate': acc
+
+    }
+
+
+
+    bwd_tensors = [torch.randn(tuple(dim_list))]
+
+    #evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dtype", index_put_dtype_list)
-@pytest.mark.parametrize("acc", [True, False])
+@pytest.mark.parametrize("acc", [False])
 def test_hpu_index_put_inplace(N, H, W, C, dtype, acc):
     kernel = torch.index_put_
     dim_list = [N, C, H, W]
@@ -527,6 +568,69 @@ def test_hpu_gather_op(N, C, gather_op, dtype):
     kernel_params_fwd["index"] = torch.randint(N,[C,C])
     evaluate_fwd_kernel(kernel=gather_op, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, C", [(2, 262194),])
+@pytest.mark.parametrize("acc", [True])
+def test_hpu_index_put_mrcnn(N, C, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randint(low=1, high=C, size=tuple(dim_list), requires_grad=False)
+    label_hpu = label.to(hpu)
+    mask = label > 0
+
+    for i in range(512):
+        mask[0][i] = True
+        mask[1][i] = False
+
+    for i in range(512, 262194):
+        mask[0][i] = False
+        mask[1][i] = False
+
+    print(mask.shape)
+    print(torch.nonzero(mask).shape)
+    mask_hpu = mask.to(hpu)
+    value_tensor = torch.randn(262194*2)
+    value_tensor_cpu = value_tensor[0:512]
+    value_tensor_hpu = value_tensor_cpu.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc)
+    out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, C", [(2, 161145),])
+@pytest.mark.parametrize("acc", [True])
+def test_hpu_index_put_mrcnn3(N, C, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C, 4]
+    label = torch.randint(low=1, high=C, size=tuple([N, C]), requires_grad=False)
+    label_hpu = label.to(hpu)
+    mask = label > 0
+
+    for i in range(47):
+        mask[0][i] = True
+        mask[1][i] = False
+
+    for i in range(47, C):
+        mask[0][i] = False
+        mask[1][i] = False
+
+    print(mask.shape)
+    print(torch.nonzero(mask).shape)
+    mask_hpu = mask.to(hpu)
+
+    value_tensor = torch.randn(161145*2, 4)
+    value_tensor_cpu = value_tensor[0:47]
+    value_tensor_hpu = value_tensor_cpu.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    print("value_tensor shape '{}'".format(value_tensor_cpu.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc)
+    out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])

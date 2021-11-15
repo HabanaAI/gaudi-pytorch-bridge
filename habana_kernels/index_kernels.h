@@ -343,6 +343,17 @@ class IndexPutOperator : public HabanaOperator {
 
  protected:
   c10::ScalarType scalarType_;
+  std::vector<int64_t> broadcast_size(at::TensorList indices);
+
+ private:
+  void AllocateAndAddSynapseNodeBoolIndices(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+  void AllocateAndAddSynapseNodeNonBoolIndices(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
 };
 
 // IndexAddOperator

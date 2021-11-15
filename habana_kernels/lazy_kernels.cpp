@@ -2835,7 +2835,7 @@ Tensor& index_add_hpu_lazy_(
   return self;
 }
 
-Tensor index_put_hpu_lazy(
+Tensor index_put_frontend_impl_hpu_lazy(
     const Tensor& self,
     TensorList indices_in,
     const Tensor& value_in,
@@ -2848,18 +2848,15 @@ Tensor index_put_hpu_lazy(
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
-
   // handle views for tensorlist indices
   TensorList indices_in_list(indices_vec);
   indices_vec = HandleViewsTensorList(indices_in_list);
-
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
     // do a mark_step to avoid attaching the select + scatter to a larger
     // previous graph
     HbLazyTensor::StepMarker({});
-
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
       indices_vec_out.insert(
@@ -2869,10 +2866,8 @@ Tensor index_put_hpu_lazy(
   at::TensorList indices =
       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
                                                               : indices_vec;
-
   auto indices_out_vec = HandleViewsTensorList(indices);
   TensorList indices_out_list(indices_out_vec);
-
   // Assuming if 1st indices tensor is ZST then other indices tensors in list
   // (if any) will be ZST too. For ZST indices tensor broadcast and scatter_nd
   // operations are throwing GC errors therefore we have this workaround to
@@ -2885,11 +2880,9 @@ Tensor index_put_hpu_lazy(
     flush_op(result);
     return result;
   }
-
   // Broadcast indices
   auto broadcasted_indices = at::broadcast_tensors(indices_out_list);
   auto shape_broadcasted = broadcasted_indices[0].sizes().vec();
-
   // Reshape broadcasted indices to [N, 1] for concatenation
   auto flattened_size = std::accumulate(
       std::begin(shape_broadcasted),
@@ -2899,30 +2892,31 @@ Tensor index_put_hpu_lazy(
   std::vector<at::Tensor> flattened_idx;
   for (auto b : broadcasted_indices)
     flattened_idx.push_back(at::reshape(b, {flattened_size, 1}));
-
   // Create index tensor of shape [num_updates, dimensionality of indices]
   auto concatenated_indices = at::cat(flattened_idx, -1);
-
   // additional casts inserted for handling dtypes other than f32/bf16 because
   // scatter_nd TPC kernels used supports only f32/bf16
   at::Tensor self_cast = self;
   at::Tensor value = value_in;
+
   if (self.scalar_type() != c10::ScalarType::Double &&
       self.scalar_type() != c10::ScalarType::Float &&
-      self.scalar_type() != c10::ScalarType::BFloat16) {
+      self.scalar_type() != c10::ScalarType::BFloat16 &&
+      self.scalar_type() != c10::ScalarType::Long &&
+      self.scalar_type() != c10::ScalarType::Int) {
     // i8/i16/i32 -> f32
     LazyOp<at::Tensor> k_{
         "hpu::cast",
-        {self, c10::ScalarType::Float},
+        {self, c10::ScalarType::Int},
         {self.sizes().vec()},
-        c10::ScalarType::Float};
+        c10::ScalarType::Int};
     self_cast = k_.call();
     // i8/i16/i32 -> f32
     LazyOp<at::Tensor> kv_{
         "hpu::cast",
-        {value_in, c10::ScalarType::Float},
+        {value_in, c10::ScalarType::Int},
         {value_in.sizes().vec()},
-        c10::ScalarType::Float};
+        c10::ScalarType::Int};
     value = kv_.call();
   }
 
@@ -2938,11 +2932,12 @@ Tensor index_put_hpu_lazy(
     LazyOp<Tensor> scatter_nd_op(
         "hpu::scatter_nd_onnx",
         {self_cast, concatenated_indices, broadcasted_values});
-
     Tensor scatter_nd_out = scatter_nd_op.call();
     if (self.scalar_type() != c10::ScalarType::Double &&
         self.scalar_type() != c10::ScalarType::Float &&
-        self.scalar_type() != c10::ScalarType::BFloat16) {
+        self.scalar_type() != c10::ScalarType::BFloat16 &&
+        self.scalar_type() != c10::ScalarType::Long &&
+        self.scalar_type() != c10::ScalarType::Int) {
       auto out_type = (self.scalar_type() == c10::ScalarType::Long)
           ? (c10::ScalarType::Int)
           : self.scalar_type();
@@ -2959,21 +2954,19 @@ Tensor index_put_hpu_lazy(
     std::vector<int64_t> indices_shape;
     for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
       indices_shape.push_back(self_cast.sizes().vec()[i]);
-
     // Compute multiplication factor for each dimension
     std::vector<int> mul_factor_v{1};
-    for (size_t i = 0; i < indices_shape.size() - 1; i++)
+    for (size_t i = 0; i < indices_shape.size() - 1; i++) {
       mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+    }
     auto mul_factor =
         torch::from_blob(
             mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt)
             .to(c10::kHPU, true);
     auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
     auto ravelled_indices = at::sum(multiplied_indices, 1);
-
     auto sorted_results = at::sort(ravelled_indices, -1, true);
     auto permutation = std::get<1>(sorted_results).to(torch::kInt);
-
     auto grouped_indices =
         at::index_select(concatenated_indices, 0, permutation);
     auto update_locs =
@@ -2987,9 +2980,12 @@ Tensor index_put_hpu_lazy(
          broadcasted_values});
     Tensor scatter_nd_onnx_out = scatter_nd_onnx_op.call();
     auto result = at::add(self_cast, scatter_nd_onnx_out);
+
     if (self.scalar_type() != c10::ScalarType::Double &&
         self.scalar_type() != c10::ScalarType::Float &&
-        self.scalar_type() != c10::ScalarType::BFloat16) {
+        self.scalar_type() != c10::ScalarType::BFloat16 &&
+        self.scalar_type() != c10::ScalarType::Long &&
+        self.scalar_type() != c10::ScalarType::Int) {
       auto out_type = (self.scalar_type() == c10::ScalarType::Long)
           ? (c10::ScalarType::Int)
           : self.scalar_type();
@@ -3001,12 +2997,57 @@ Tensor index_put_hpu_lazy(
   }
 }
 
+Tensor index_put_hpu_lazy(
+    const Tensor& self,
+    TensorList indices_in,
+    const Tensor& value_in,
+    bool accumulate) {
+  PT_LAZY_TRACE;
+
+  std::vector<Tensor> indices_vec{indices_in.vec()};
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
+      indices_vec[i] = indices_vec[i].to(c10::kHPU);
+    }
+  }
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
+      (indices_in[0].scalar_type() == c10::ScalarType::Bool &&
+       value_in.dim() > 1)) {
+    return index_put_frontend_impl_hpu_lazy(
+        self, indices_in, value_in, accumulate);
+  }
+
+  // handle views for tensorlist indices
+  TensorList indices_in_list(indices_vec);
+  indices_vec = HandleViewsTensorList(indices_in_list);
+  at::TensorList indices = indices_vec;
+  // For ZST indices tensor scatter_nd
+  // operation is throwing GC error therefore we have this workaround to
+  // return a copy of input tensor.
+  // GC Jira - SW-73941
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].numel() == 0) {
+      auto result = self.clone();
+      auto hl_result = GetHbLazyTensor(result);
+      updateDstDependencies(hl_result, result);
+      flush_op(result);
+      return result;
+    }
+  }
+
+  LazyOp<at::Tensor> index_put_op{
+      "aten::index_put", {self, indices, value_in, accumulate}};
+  return index_put_op.call();
+}
+
 Tensor& index_put_hpu_lazy_(
     at::Tensor& self,
     TensorList indices_in,
     const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
+
   std::vector<Tensor> indices_vec{indices_in.vec()};
   auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
   auto index_put_result =
@@ -3036,7 +3077,9 @@ Tensor& index_put_hpu_lazy_(
 
   HandleViewsD2D(index_put_result, self);
 
-  if (isIndicesBool) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
+      (isIndicesBool && (accumulate || value.dim()))) {
     std::vector<HbLazyTensor> hl_flush_end = {GetHbLazyTensor(self)};
     HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   } else {

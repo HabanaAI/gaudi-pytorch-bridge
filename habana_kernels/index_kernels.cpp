@@ -25,9 +25,12 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/nonzero_kernel.h"
+#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/topk_kernels.h"
 #include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
@@ -905,12 +908,430 @@ Tensor& index_add_hpu_(
   return self;
 }
 
+// brodcast index tensor shape and get the correct shape and size
+std::vector<int64_t> IndexPutOperator::broadcast_size(at::TensorList indices) {
+  auto size = indices[0].sizes().vec();
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = infer_size(size, indices[i].sizes());
+  }
+  return size;
+}
+
+void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  auto indices = inputs[1].toTensorList().vec();
+  auto values = inputs[2].toTensor();
+  auto accumulate = inputs[3].toBool();
+
+  auto max_size = broadcast_size(indices);
+  auto device_id = this->p_context_->device_id_;
+  Stack stack;
+
+  auto non_zero_op =
+      make_operator<NonZeroOperator>(device_id, c10::ScalarType::Bool);
+  stack = {IValue(indices[0])};
+  non_zero_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+
+  non_zero_op->AllocateAndAddSynapseNode(graph, stack, {false, false});
+  stack.clear();
+
+  // Calculate the dimensionality of updates for broadcasting
+  auto rank_inp = self.ndimension();
+  auto rank_idx = non_zero_op->GetOutputs()[0].sizes().vec()[1];
+  std::vector<int64_t> value_upd_dim;
+
+  if (accumulate ||
+      (values.numel() >
+       1)) { // if values has more than 1 elem, we have to assume the valid
+             // count in indices will match values numel
+    for (int i = 0; i < values.dim(); i++)
+      value_upd_dim.push_back(values.sizes().vec()[i]);
+  } else { // We are assuming uses passes value shapes correctly for scatter
+    value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
+    for (int i = rank_idx; i < rank_inp; i++)
+      value_upd_dim.push_back(self.sizes().vec()[i]);
+  }
+
+  auto values_scalar_type = values.scalar_type();
+  auto bcastOp =
+      make_operator<BroadcastOperator>(device_id, values_scalar_type);
+  stack = {IValue(values), IValue(value_upd_dim), IValue(false)};
+  bcastOp->SetSynapseInput(p_context_->syn_inputs_[indices.size() + 1]);
+
+  bcastOp->AllocateAndAddSynapseNode(graph, stack, false);
+
+  auto broadcasted_values = bcastOp->GetOutputs()[0];
+  stack.clear();
+
+  std::shared_ptr<HabanaOperator> scatter_op;
+  auto self_scalar_type = self.scalar_type();
+  scatter_op =
+      make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+
+  if (!accumulate) {
+    stack = {
+        IValue(self),
+        IValue(non_zero_op->GetOutputs()[0]),
+        IValue(bcastOp->GetOutputs()[0]),
+        IValue(non_zero_op->GetOutputs()[1])};
+
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[1]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(scatter_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(scatter_op->GetOutputs()[0]));
+  } else if (
+      self.scalar_type() == c10::ScalarType::Bool ||
+      self.scalar_type() == c10::ScalarType::Char) {
+    std::shared_ptr<HabanaOperator> castOp1;
+    std::shared_ptr<HabanaOperator> castOp2;
+    std::string node1_type = "cast_i8_to_i16";
+    self_scalar_type = c10::ScalarType::Short;
+
+    castOp1 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    node1_type = "cast_i8_to_i16";
+    castOp2 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(broadcasted_values));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
+    auto zero_t = habana_helpers::createPTTensor(
+        self,
+        self.sizes().vec(),
+        self.options(),
+        at::MemoryFormat::Contiguous,
+        false);
+
+    stack = {IValue(zero_t), IValue(0)};
+    zero_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    stack = {
+        IValue(zero_t),
+        IValue(non_zero_op->GetOutputs()[0]),
+        IValue(broadcasted_values),
+        IValue(non_zero_op->GetOutputs()[1])};
+
+    scatter_op->SetSynapseInput(zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[1]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
+    stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1.0)};
+    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    add_op->SetSynapseInput(scatter_op->GetSynOutputs()[0]);
+
+    add_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto out_type = self.scalar_type();
+    node1_type = "cast_i16_to_i8";
+    std::shared_ptr<HabanaOperator> castOpOut =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOpOut->SetSynapseInput(add_op->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(add_op->GetOutputs()[0]));
+    stack.emplace_back(IValue(out_type));
+    castOpOut->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(castOpOut->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(castOpOut->GetOutputs()[0]));
+  } else {
+    auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
+    auto zero_t = habana_helpers::createPTTensor(
+        self,
+        self.sizes().vec(),
+        self.options(),
+        at::MemoryFormat::Contiguous,
+        false);
+
+    stack = {IValue(zero_t), IValue(0)};
+    zero_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    scatter_op =
+        make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+    stack = {
+        IValue(zero_t),
+        IValue(non_zero_op->GetOutputs()[0]),
+        IValue(broadcasted_values),
+        IValue(non_zero_op->GetOutputs()[1])};
+
+    scatter_op->SetSynapseInput(zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(non_zero_op->GetSynOutputs()[1]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
+    stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1)};
+    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    add_op->SetSynapseInput(scatter_op->GetSynOutputs()[0]);
+
+    add_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(add_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
+  }
+  return;
+}
+
+void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  auto indices = inputs[1].toTensorList().vec();
+  auto values = inputs[2].toTensor();
+  auto accumulate = inputs[3].toBool();
+
+  auto max_size = broadcast_size(indices);
+  auto device_id = this->p_context_->device_id_;
+  auto indices_scalar_type = indices[0].scalar_type();
+  std::vector<Tensor> cat_input;
+  auto cat_op = make_operator<CatOperator>(device_id, indices_scalar_type);
+
+  Stack stack;
+  for (size_t i = 0; i < indices.size(); i++) {
+    // broadcast index tensor to largest index tensor size
+    auto bcastOp =
+        make_operator<BroadcastOperator>(device_id, indices_scalar_type);
+    stack = {IValue(indices[i]), IValue(max_size), IValue(false)};
+    bcastOp->SetSynapseInput(p_context_->syn_inputs_[i + 1]);
+    bcastOp->AllocateAndAddSynapseNode(graph, stack, false);
+
+    stack.clear();
+
+    // auto shape_broadcasted = bcastOp->GetOuptuts()[0].sizes().vec();
+    // Reshape broadcasted indices to [N, 1] for concatenation
+    auto flattened_size = std::accumulate(
+        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+
+    std::vector<int64_t> expanded_size = {flattened_size, 1};
+    stack.clear();
+
+    auto ReshapeOp =
+        make_operator<ReshapeOperator>(device_id, indices_scalar_type);
+    stack = {IValue(bcastOp->GetOutputs()[0]), IValue(expanded_size)};
+    ReshapeOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
+
+    cat_input.emplace_back(std::move(ReshapeOp->GetOutputs()[0]));
+    cat_op->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
+  }
+
+  // Create index tensor of shape [num_updates, dimensionality of indices]
+  stack = {IValue(cat_input), IValue(-1)};
+  cat_op->AllocateAndAddSynapseNode(graph, stack, false);
+
+  auto concatenated_indices = cat_op->GetOutputs()[0];
+  stack.clear();
+
+  // Calculate the dimensionality of updates for broadcasting
+  auto rank_inp = self.ndimension();
+  auto rank_idx = concatenated_indices.sizes().vec()[1];
+  std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
+  for (int i = rank_idx; i < rank_inp; i++)
+    value_upd_dim.push_back(self.sizes().vec()[i]);
+
+  auto values_scalar_type = values.scalar_type();
+  auto bcastOp =
+      make_operator<BroadcastOperator>(device_id, values_scalar_type);
+  stack = {IValue(values), IValue(value_upd_dim), IValue(false)};
+  bcastOp->SetSynapseInput(p_context_->syn_inputs_[indices.size() + 1]);
+  bcastOp->AllocateAndAddSynapseNode(graph, stack, false);
+  auto broadcasted_values = bcastOp->GetOutputs()[0];
+  stack.clear();
+
+  std::shared_ptr<HabanaOperator> scatter_op;
+  auto self_scalar_type = self.scalar_type();
+
+  if (!accumulate) {
+    scatter_op =
+        make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+    stack = {
+        IValue(self), IValue(concatenated_indices), IValue(broadcasted_values)};
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(scatter_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(scatter_op->GetOutputs()[0]));
+  } else {
+    // Convert indices to values (ravelling indices) for sorting
+    std::vector<int64_t> indices_shape;
+    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
+      indices_shape.push_back(self.sizes().vec()[i]);
+
+    // Compute multiplication factor for each dimension
+    std::vector<int> mul_factor_v{1};
+    for (size_t i = 0; i < indices_shape.size() - 1; i++)
+      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
+
+    // auto mul_factor = torch::from_blob(
+    //     mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
+    // auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
+    std::vector<Tensor> cat_input2;
+    auto cat_op2 = make_operator<CatOperator>(device_id, indices_scalar_type);
+
+    for (size_t i = 0; i < mul_factor_v.size(); i++) {
+      auto constOp =
+          make_operator<ConstantOperator>(device_id, indices_scalar_type);
+      auto const_shape_tensor = habana_helpers::createPTTensor(
+          indices[0],
+          {1},
+          indices[0].options(),
+          at::MemoryFormat::Contiguous,
+          false);
+      Stack stack = {IValue(const_shape_tensor), IValue(mul_factor_v[i])};
+      constOp->AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
+      cat_input2.emplace_back(std::move(constOp->GetOutputs()[0]));
+      cat_op2->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    }
+
+    stack = {IValue(cat_input2), IValue(-1)};
+    cat_op2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    std::vector<int64_t> reshape_size({1, (int64_t)mul_factor_v.size()});
+
+    auto ReshapeOp2 =
+        make_operator<ReshapeOperator>(device_id, indices_scalar_type);
+    stack = {IValue(cat_op2->GetOutputs()[0]), IValue(reshape_size)};
+    ReshapeOp2->SetSynapseInput(cat_op2->GetSynOutputs()[0]);
+    ReshapeOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    auto mul_factor_const_t = ReshapeOp2->GetOutputs()[0];
+
+    auto mul_op = make_operator<MulOperator>(device_id, indices_scalar_type);
+    stack = {IValue(cat_op->GetOutputs()[0]), IValue(mul_factor_const_t)};
+
+    mul_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    mul_op->SetSynapseInput(
+        ReshapeOp2->GetSynOutputs()[0]); // const_tensor for mul_factor
+
+    mul_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    std::vector<int64_t> dim_arr({1});
+    auto dtype = mul_op->GetOutputs()[0].scalar_type();
+    auto sum_op = make_operator<SumDimOperator>(device_id, dtype);
+    stack = {
+        IValue(mul_op->GetOutputs()[0]),
+        IValue(dim_arr),
+        IValue(false),
+        IValue(dtype)};
+    sum_op->SetSynapseInput(mul_op->GetSynOutputs()[0]);
+    sum_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto ravelled_indices = sum_op->GetOutputs()[0];
+
+    auto sort_op = make_operator<TopkOperator>(device_id, "topk");
+    sort_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
+    stack = {
+        IValue(ravelled_indices),
+        IValue(ravelled_indices.sizes()[0]),
+        IValue(ravelled_indices.dim() - 1),
+        IValue(true),
+        IValue(true)};
+    sort_op->AllocateAndAddSynapseNode(graph, stack, {false, false});
+    stack.clear();
+
+    auto sorted_results = sort_op->GetOutputs()[0];
+    auto permutation = sort_op->GetOutputs()[1].to(torch::kInt);
+
+    auto index_select_op =
+        make_operator<IndexSelectOperator>(device_id, indices_scalar_type);
+    //  auto grouped_indices =
+    //     at::index_select(concatenated_indices, 0, permutation);
+    stack = {IValue(concatenated_indices), IValue(0), IValue(permutation)};
+    index_select_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    index_select_op->SetSynapseInput(sort_op->GetSynOutputs()[1]);
+    index_select_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    std::vector<int64_t> reshape_size2({permutation.sizes().vec()[0], 1});
+    // auto update_locs =
+    //     at::reshape(permutation, {permutation.sizes().vec()[0], 1});
+    auto reshape_op =
+        make_operator<ReshapeOperator>(device_id, indices_scalar_type);
+    stack = {IValue(sort_op->GetOutputs()[1]), IValue(reshape_size2)};
+
+    reshape_op->SetSynapseInput(sort_op->GetSynOutputs()[1]);
+    reshape_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // auto permutation = Reshape_op->GetOutputs()[0];
+    scatter_op = make_operator<ScatterNdOperator>(device_id, self_scalar_type);
+
+    stack = {
+        IValue(self),
+        IValue(concatenated_indices),
+        IValue(index_select_op->GetOutputs()[0]),
+        IValue(reshape_op->GetOutputs()[0]),
+        IValue(broadcasted_values)};
+
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(index_select_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(reshape_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
+    stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1)};
+    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    add_op->SetSynapseInput(scatter_op->GetSynOutputs()[0]);
+
+    add_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(add_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
+  }
+  return;
+}
+
 void IndexPutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 4, "Incorrect size of inputs for index_put operator");
+      (inputs.size() == 4 || inputs.size() == 5),
+      "Incorrect size of inputs for index_put operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input 0 type expected to be Tensor for index_put operator");
@@ -923,93 +1344,14 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[3].isBool(),
       "Input 3 type expected to be Bool for index_put operator");
-  TORCH_CHECK(
-      inputs[1].toTensorList().get(0).dim() == 1,
-      "index tensor should be 1D for index_put operator");
-  TORCH_CHECK(
-      inputs[1].toTensorList().size() == 1,
-      "Input 1 is expected to be a TensorList having only 1 member");
 
-  auto self = inputs[0].toTensor();
-  auto index = inputs[1].toTensorList().get(0);
-  auto value = inputs[2].toTensor();
-  auto accumulate = inputs[3].toBool();
-  int64_t dim = 0;
-  // Following last_index is calculated in case inputs[1] has more than
-  // one members - note that we are interested only in the first member
-  int64_t last_index = inputs[1].toTensorList().size() + 1;
-  std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
-  torch::jit::Stack temp_stack;
-
-  if (accumulate) {
-    ////auto slice = at::index_select(self, 0, indices[0]);
-    auto index_selectOp = make_operator<IndexSelectOperator>(
-        this->p_context_->device_id_, self.scalar_type());
-    temp_stack = {IValue(self), IValue(dim), IValue(index)};
-    index_selectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    index_selectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    index_selectOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-    temp_stack.clear();
-
-    ////value_acc += slice;
-    auto addOp = make_operator<AddOperator>(
-        this->p_context_->device_id_, value.scalar_type());
-    temp_stack = {
-        IValue(value),
-        IValue(index_selectOp->GetOutputs()[0]),
-        IValue(Scalar(1.0))};
-    addOp->SetSynapseInput(p_context_->syn_inputs_[last_index]);
-    addOp->SetSynapseInput(index_selectOp->GetSynOutputs()[0]);
-    addOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-    addSynOutput.push_back(std::move(addOp->GetSynOutputs()[0]));
-    temp_stack.clear();
+  auto indices = inputs[1].toTensorList().vec();
+  if (indices[0].scalar_type() == c10::ScalarType::Bool) {
+    AllocateAndAddSynapseNodeBoolIndices(graph, inputs, is_output_persistent);
+  } else {
+    AllocateAndAddSynapseNodeNonBoolIndices(
+        graph, inputs, is_output_persistent);
   }
-
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[0] = index.sizes()[0];
-
-  ////auto index_expanded = index.view(expanded_sizes)
-  auto reshapeOp = make_operator<ReshapeOperator>(
-      this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(index), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-  temp_stack.clear();
-
-  // Broadcast index tensor to same shape as value tensor
-  bool implicit =
-      false; // The value of implicit is currently ignored in broadcast kernel
-  auto bcastOp = make_operator<BroadcastOperator>(
-      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
-  temp_stack = {
-      IValue(reshapeOp->GetOutputs()[0]),
-      IValue(value.sizes()),
-      IValue(implicit)};
-  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-  bcastOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
-  temp_stack.clear();
-
-  ////auto temp  = scatter_src_hpu(self, dim, index_broadcast, value_acc);
-  auto scatterOp = make_operator<ScatterHelperOperator>(
-      this->p_context_->device_id_, self.scalar_type());
-  temp_stack = {
-      IValue(self),
-      IValue(dim),
-      IValue(bcastOp->GetOutputs()[0]),
-      IValue(value)};
-
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-  accumulate ? scatterOp->SetSynapseInput(addSynOutput[0])
-             : scatterOp->SetSynapseInput(p_context_->syn_inputs_[last_index]);
-  scatterOp->SetOutputMetadata(output_metadata_);
-
-  scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
-
-  p_context_->syn_outputs_.emplace_back(
-      std::move(scatterOp->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
 }
 
 void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
@@ -1017,7 +1359,7 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 3,
+      inputs.size() >= 3,
       "Incorrect number of inputs passed to ScatterNdONNXOperator");
 
   auto inp = inputs[0].toTensor();
@@ -1110,168 +1452,38 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
  * @param value - Tensor with values to be updated (of same type as self)
  * @param accumulate - Flag to indicate whether to accumulate into self
  ************************************************************************/
+
 Tensor index_put_hpu(
     const Tensor& self,
     TensorList indices,
     const Tensor& value,
     bool accumulate) {
-  // Convert indices to int tensor
-  std::vector<at::Tensor> int_indices;
-  for (auto idx : indices)
-    int_indices.push_back(habana_helpers::cast_tensor_to_integer(idx));
-  TensorList int_indices_tl(int_indices);
+  std::vector<at::Tensor> pt_inputs{self};
 
-  // Broadcast indices
-  auto broadcasted_indices = at::broadcast_tensors(int_indices_tl);
-  auto shape_broadcasted = broadcasted_indices[0].sizes().vec();
+  std::vector<at::Tensor> indices_cast;
 
-  // Reshape broadcasted indices to [N, 1] for concatenation
-  auto flattened_size = std::accumulate(
-      std::begin(shape_broadcasted),
-      std::end(shape_broadcasted),
-      1,
-      std::multiplies<size_t>());
-  std::vector<at::Tensor> flattened_idx;
-  for (auto b : broadcasted_indices)
-    flattened_idx.push_back(at::reshape(b, {flattened_size, 1}));
+  for (const auto& t : indices) {
+    if (t.scalar_type() == c10::ScalarType::Long) {
+      indices_cast.emplace_back(habana_helpers::cast_tensor_to_integer(t));
+    } else {
+      indices_cast.emplace_back(t);
+    }
+  }
 
-  // Create index tensor of shape [num_updates, dimensionality of indices]
-  auto concatenated_indices = at::cat(flattened_idx, -1);
+  pt_inputs.insert(pt_inputs.end(), indices_cast.begin(), indices_cast.end());
+  pt_inputs.emplace_back(value);
+  TensorList indices_list{indices_cast};
 
-  // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = concatenated_indices.sizes().vec()[1];
-  std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
-  for (int i = rank_idx; i < rank_inp; i++)
-    value_upd_dim.push_back(self.sizes().vec()[i]);
-  auto broadcasted_values = value.broadcast_to(value_upd_dim);
-
-  size_t device_id = self.device().index();
   at::ScalarType scalar_type = self.scalar_type();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  if (!accumulate) {
-    ScatterNdONNXOperator Op(device_id, scalar_type);
-    std::vector<at::Tensor> pt_inputs{
-        self, concatenated_indices, broadcasted_values};
-    torch::jit::Stack stack = {
-        IValue(self), IValue(concatenated_indices), IValue(broadcasted_values)};
-    std::string node_type = "scatter_nd_onnx_fwd_" +
-        habana_helpers::name_suffix_from_type(scalar_type);
-
-    size_t key = Op.GetRecipeKey(node_type, stack);
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      auto output = at::empty_like(self);
-      Op.SetPTInputs(pt_inputs);
-      std::vector<at::Tensor> v{output};
-      Op.SetPTOutputs(v);
-      Op.Execute(key);
-    } else {
-      PT_KERNEL_DEBUG("key:", key);
-
-      // create graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
-      Op.AllocateSynapseInputs(graph, pt_inputs, true);
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-      // compile and execute the graph
-      Op.Compile(graph);
-    }
-    std::vector<at::Tensor> out = Op.GetOutputs();
-    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-    return out.at(0);
-  } else {
-    // Convert indices to values (ravelling indices) for sorting
-    std::vector<int64_t> indices_shape;
-    for (int i = 0; i < concatenated_indices.sizes().vec()[1]; i++)
-      indices_shape.push_back(self.sizes().vec()[i]);
-
-    // Compute multiplication factor for each dimension
-    std::vector<int> mul_factor_v{1};
-    for (size_t i = 0; i < indices_shape.size() - 1; i++)
-      mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
-    auto mul_factor = torch::from_blob(
-        mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
-    auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
-    auto ravelled_indices = at::sum(multiplied_indices, 1);
-
-    // Sort on CPU - needs to be stable sort
-    auto sorted_results = at::sort(ravelled_indices, -1, true);
-    auto permutation = std::get<1>(sorted_results).to(torch::kInt);
-
-    auto grouped_indices =
-        at::index_select(concatenated_indices, 0, permutation);
-    auto update_locs =
-        at::reshape(permutation, {permutation.sizes().vec()[0], 1});
-
-    ScatterNdOperator Op(device_id, scalar_type);
-    std::vector<at::Tensor> pt_inputs{
-        self,
-        concatenated_indices,
-        grouped_indices,
-        update_locs,
-        broadcasted_values};
-    torch::jit::Stack stack = {
-        IValue(self),
-        IValue(concatenated_indices),
-        IValue(grouped_indices),
-        IValue(update_locs),
-        IValue(broadcasted_values)};
-    std::string node_type =
-        "scatter_nd_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-    size_t key = Op.GetRecipeKey(node_type, stack);
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      auto output = at::empty_like(self);
-      Op.SetPTInputs(pt_inputs);
-      std::vector<at::Tensor> v{output};
-      Op.SetPTOutputs(v);
-      Op.Execute(key);
-    } else {
-      PT_KERNEL_DEBUG("key:", key);
-
-      // create graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
-      Op.AllocateSynapseInputs(graph, pt_inputs, true);
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-      // compile and execute the graph
-      Op.Compile(graph);
-    }
-    std::vector<at::Tensor> out = Op.GetOutputs();
-    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-    auto result = at::add(self, out.at(0));
-    return result;
-  }
-#if 0
-  PT_KERNEL_BEGIN;
-
-  // Convert index tensor from 0D to 1D if required
-  if (indices[0].dim() == 0) {
-    indices[0].unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-  }
-  // For index_put kernel, indices is expected to have a single member
-  auto index_int = habana_helpers::cast_tensor_to_integer(indices[0]);
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = self.scalar_type();
+
+  IndexPutOperator Op(device_id, scalar_type);
+  torch::jit::Stack stack = {
+      IValue(self), IValue(indices_list), IValue(value), IValue(accumulate)};
   std::string node_type =
       "index_put_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // create the operator
-  IndexPutOperator Op(device_id, scalar_type);
-
-  // Assign inputs for the Operator
-  // Note that although indices is passed as TensorList in stack,
-  // it's unrolled to individual Tensors for pt_inputs
-  std::vector<at::Tensor> pt_inputs{self, index_int, value};
-  torch::jit::Stack stack = {
-      IValue(self), IValue(indices), IValue(value), IValue(accumulate)};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1292,13 +1504,10 @@ Tensor index_put_hpu(
     // compile and execute the graph
     Op.Compile(graph);
   }
-
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
 
   return out.at(0);
-#endif
 }
 
 /*************************************************************************
@@ -2610,6 +2819,7 @@ static auto& KernelRegistry =
         .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
         .add("aten::select.int", KERNEL_FN(SelectOperator))
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))
+        .add("aten::index_put.hacked_twin", KERNEL_FN(IndexPutOperator))
         .add("aten::arange", KERNEL_FN(ArangeOperator))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))

@@ -261,6 +261,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_SCALAR_MAP_MAXSIZE, unsigned long, 500);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_LAZY_COLLECTIVES, bool, false);
 ENV_STRUCT_DEFINITION(PT_SBS, unsigned, 0);
+ENV_STRUCT_DEFINITION(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK, bool, false);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes
