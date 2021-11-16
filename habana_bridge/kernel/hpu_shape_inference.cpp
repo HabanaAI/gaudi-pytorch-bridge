@@ -82,22 +82,3 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> ShapeInference::
   }
   return std::make_tuple(min, max);
 }
-
-std::ostream& operator<<(
-    std::ostream& stream,
-    const ShapeInfo::InferencePass& value) {
-  switch (value) {
-    case ShapeInfo::InferencePass::OUTPUT_SHAPE:
-      stream << "OUTPUT_SHAPE";
-      return stream;
-    case ShapeInfo::InferencePass::MIN_SHAPE:
-      stream << "MIN_SHAPE";
-      return stream;
-    case ShapeInfo::InferencePass::MAX_SHAPE:
-      stream << "MAX_SHAPE";
-      return stream;
-    default:
-      stream << "INVALID";
-      return stream;
-  }
-}

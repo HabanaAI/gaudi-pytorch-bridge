@@ -355,7 +355,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   return new_bucket_id;
 }
 
-bool DynamicBucketInfo::UpdateBucketingPolicy(
+bool DynamicBucketInfo::UpdateBucketWithPolicy(
     uint64_t bucket_id,
     const InpTensorShapes& shapes,
     DynamicDimsPolicy min_policy,

@@ -419,9 +419,19 @@ class HabanaLaunchOpPT {
   void handle_pass_exception(
       DynamicShapeInfo& graph_input_info,
       const PassException& e);
+  void CompileAndRunDynamicGraph(DynamicShapeInfo& graph_input_info);
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,
       habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes);
+  inline void try_run_shape_inference(
+      const ShapeInfo::InferencePass& pass,
+      DynamicShapeInfo& graph_input_info) {
+    try {
+      run_shape_inference(pass, graph_input_info);
+    } catch (const PassException& e) {
+      handle_pass_exception(graph_input_info, e);
+    }
+  }
 };
 
 } // namespace habana
