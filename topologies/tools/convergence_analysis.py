@@ -66,6 +66,10 @@ def ca_get_header_keys(dev1,dev2, b_key_list):
 #returns id(0, 1 or 2) of tensor to permute; 0 - no permute; 1 - dev1 tensor to permute; 2 - dev2 tensor to permute
 def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology):
     tid = 0
+    permute_required = True
+    if ('unet3d' in topology or 'unet2d' in topology) and t_dev1_torch.size() == t_dev2_torch.size() and 'bkwd' in tensor_name:
+        print(f"not permuting as same shape - {tensor_name}")
+        permute_required = False
     if ('resnet' in topology or 'mobilenetv2' in topology) and same_device is False and t_dev1_torch.ndim == 4:
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
@@ -77,7 +81,7 @@ def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_
     if same_device is False and (('unet2d' in topology and t_dev1_torch.ndim == 4) or ('unet3d' in topology and t_dev1_torch.ndim == 5)):
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
-            if (tail != "target.pt")  and (tail != "input.pt") and (tail != "output.pt"):
+            if (tail != "target.pt")  and (tail != "input.pt") and (tail != "output.pt") and not 'frwd' in head and permute_required:
                 if 'hpu' in dev1:
                     tid = 1
                 elif 'hpu' in dev2:
@@ -93,7 +97,7 @@ def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
 
     if tensor_to_perm is not None:
         if tensor_to_perm.ndim == 4:
-            tensor_to_perm = tensor_to_perm.permute((3,2,0,1)) # permute RSCK to KCRS
+            tensor_to_perm = tensor_to_perm.permute((3, 2, 0, 1)) # permute RSCK to KCRS
         elif tensor_to_perm.ndim == 5:
             tensor_to_perm = tensor_to_perm.permute((4, 3, 0, 1, 2)) # permute RSTCK to KCRST
         if tid == 1:
@@ -212,6 +216,21 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
         if tid != 0 : # Need permute
             t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
+            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology) and 'bkwd' in tensor_info:
+                print(f"because of view, after permute also shape didn't match.. {t_dev1.size()}, {t_dev2.size()} ....\n permute back and do reshape with cpu size")
+                tensor_to_perm = None
+                if tid == 1:
+                    tensor_to_perm = t_dev1
+                elif tid == 2:
+                    tensor_to_perm = t_dev2
+                if tensor_to_perm.ndim == 4:
+                    tensor_to_perm = tensor_to_perm.permute((2, 3, 1, 0)) # permute KCRS to RSCK
+                elif tensor_to_perm.ndim == 5:
+                    tensor_to_perm = tensor_to_perm.permute((2, 3, 4, 1, 0)) # permute KCRST to RSTCK
+                if tid == 1:
+                    t_dev1 = tensor_to_perm.reshape(t_dev2.size())
+                else:
+                    t_dev2 = tensor_to_perm.reshape(t_dev1.size())
 
         tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2)
         max_angle = max(tensor_cmp_stat_dict['angle'], max_angle)
