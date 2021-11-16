@@ -14,8 +14,31 @@ if not os.environ.get("THIRD_PARTIES_ROOT"):
       print("Expected 'THIRD_PARTIES_ROOT' to be set")
       sys.exit(1)
 
-setup(name='habana_dataloader',
-      version='1.0',
+def get_version():
+    HABANA_DEFAULT_VERSION = "0.0.0.0"
+    version = os.getenv('RELEASE_VERSION')
+    if version:
+        build_number = os.getenv('RELEASE_BUILD_NUMBER')
+        if build_number:
+            return version + '.' + build_number
+        else:
+            return version + '.0'
+    else:
+        try:
+            import subprocess
+            import re
+            describe = (
+                subprocess.check_output(
+                    ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])
+                .decode("ascii").strip())
+            sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
+            return HABANA_DEFAULT_VERSION + "+" + sha
+        except Exception as e:
+            print("Error getting version: {}".format(e), file=sys.stderr)
+            return f"{HABANA_DEFAULT_VERSION}+unknown"
+
+setup(name='habana-torch-aeon-dataloader',
+      version=get_version(),
       description="Habana's Pytorch-specific dataloader based on Aeon dataloader",
       packages=["habana_dataloader"],
       ext_modules=[cpp_extension.CppExtension(  'habana_dataloader.habana_dl_app',

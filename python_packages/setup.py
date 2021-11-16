@@ -47,23 +47,27 @@ else:
 
 
 def get_version():
-    try:
-        import subprocess
-        import re
-
-        describe = (
-            subprocess.check_output(
-                ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"]
-            )
-            .decode("ascii")
-            .strip()
-        )
-        version = re.search(r"\d+(\.\d+)*", describe).group(0)
-        sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
-        return version + "+" + sha
-    except Exception as e:
-        print("Error getting version: {}".format(e), file=sys.stderr)
-        return "0.0.0+unknown"
+    HABANA_DEFAULT_VERSION = "0.0.0.0"
+    version = os.getenv('RELEASE_VERSION')
+    if version:
+        build_number = os.getenv('RELEASE_BUILD_NUMBER')
+        if build_number:
+            return version + '.' + build_number
+        else:
+            return version + '.0'
+    else:
+        try:
+            import subprocess
+            import re
+            describe = (
+                subprocess.check_output(
+                    ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])
+                .decode("ascii").strip())
+            sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
+            return HABANA_DEFAULT_VERSION + "+" + sha
+        except Exception as e:
+            print("Error getting version: {}".format(e), file=sys.stderr)
+            return f"{HABANA_DEFAULT_VERSION}+unknown"
 
 
 core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
@@ -99,7 +103,7 @@ class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=Tr
 
 
 setup(
-    name="habana-torch",
+    name="habana-torch-plugin",
     description="This package provides PyTorch bridge interfaces and DL training support modules like optimizers, mixed precision configuration, fused kernels etc on Habana® Gaudi®",
     url="https://habana.ai/",
     license="See LICENSE.txt",
