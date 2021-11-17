@@ -149,6 +149,7 @@ void synapse_matmul(
           key);
     }
   }
+  PT_OTHER_OPS_END;
 }
 
 std::vector<int64_t> habana::MMOperator::compute_output_shape(

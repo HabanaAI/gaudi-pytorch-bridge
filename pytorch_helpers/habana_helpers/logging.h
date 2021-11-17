@@ -378,6 +378,7 @@ class PTFuncLog {
 
 #define PT_DEVICE_END PT_MOD_END(PtLogger::ModuleMask::DEVICE)
 #define PT_KERNEL_END PT_MOD_END(PtLogger::ModuleMask::KERNEL)
+#define PT_OTHER_OPS_END PT_MOD_END(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_END PT_MOD_END(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PtLogger::ModuleMask::SYNHELPER)
 #define PT_HABHELPER_END PT_MOD_END(PtLogger::ModuleMask::HABHELPER)
@@ -385,16 +386,14 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_END PT_MOD_END(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_END PT_MOD_END(PtLogger::ModuleMask::LAZY)
 
-#define PT_MOD_TRACE(MOD, PNAME, NAME)                       \
-  {                                                          \
-    bool isDebug = false;                                    \
-    if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
-         (PtLogger::getLogger()->getTypeMask() &             \
-          (PtLogger::TypeMask::TRACE)))) {                   \
-      isDebug = true;                                        \
-    };                                                       \
-    PTFuncLog ptFuncLogger(PNAME, NAME, isDebug);            \
-  }
+#define PT_MOD_TRACE(MOD, PNAME, NAME)                     \
+  bool isDebug = false;                                    \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
+       (PtLogger::getLogger()->getTypeMask() &             \
+        (PtLogger::TypeMask::TRACE)))) {                   \
+    isDebug = true;                                        \
+  };                                                       \
+  PTFuncLog ptFuncLogger(PNAME, NAME, isDebug);
 
 #define PT_LAZY_TRACE \
   PT_MOD_TRACE(PtLogger::ModuleMask::LAZY, __PRETTY_FUNCTION__, __FUNCTION__)

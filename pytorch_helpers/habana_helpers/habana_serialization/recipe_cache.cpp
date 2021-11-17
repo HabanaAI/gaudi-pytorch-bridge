@@ -131,7 +131,7 @@ void RecipeCache::store(
   if (!is_cache_valid_)
     return;
 
-  PT_HABHELPER_TRACE("Serializing recipe and metadata for cache_id ", cache_id);
+  PT_HABHELPER_DEBUG("Serializing recipe and metadata for cache_id ", cache_id);
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
@@ -162,7 +162,7 @@ void RecipeCache::store(
   metadata_file << metadata.rdbuf();
   metadata_file.close();
 
-  PT_HABHELPER_TRACE("Serialization successful for cache_id ", cache_id);
+  PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
   unlock_file(metadata_path, meta_fd_to_unlock);
 }
 
@@ -172,7 +172,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
   if (!is_cache_valid_)
     return {};
 
-  PT_HABHELPER_TRACE("Trying to find recipe and metadata for id ", cache_id);
+  PT_HABHELPER_DEBUG("Trying to find recipe and metadata for id ", cache_id);
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
@@ -192,24 +192,24 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
     bool isMetaEmpty = lseek(fd, (size_t)0, SEEK_END) == 0;
     lseek(fd, currentPos, SEEK_SET); // seek back to the beginning of file
     if (isMetaEmpty) {
-      PT_HABHELPER_TRACE(
+      PT_HABHELPER_DEBUG(
           "Metadata is empty. This process can compile recipe. Saving fd for metadata file ",
           metadata_path);
       std::unique_lock<std::mutex> lock(mut_);
       meta2fd_map_.emplace(metadata_path, fd);
       return {};
     } else {
-      PT_HABHELPER_TRACE(
+      PT_HABHELPER_DEBUG(
           "Metadata file ",
           metadata_path,
           " is not empty. Found valid cache entry.");
       unlock_file(metadata_path, fd);
-      PT_HABHELPER_TRACE("Deserializing cache entry for id ", cache_id);
+      PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
       return get_recipe_handle(metadata_path, metadata, recipe_path);
     }
   };
 
-  PT_HABHELPER_TRACE(
+  PT_HABHELPER_DEBUG(
       "Trying to exclusively create or open metadata file ", metadata_path);
   auto fd = open(
       metadata_path.c_str(), O_CREAT | O_EXCL, S_IRWXU | S_IRWXG | S_IRWXO);

@@ -29,13 +29,6 @@
 
 using namespace torch;
 
-#ifdef PT_KERNEL_END
-#undef PT_KERNEL_BEGIN
-#define PT_KERNEL_BEGIN (void)(0)
-#undef PT_KERNEL_END
-#define PT_KERNEL_END (void)(0)
-#endif
-
 static void print_stride_warning(const Tensor& src, const Tensor& dst) {
   if (src.strides() != dst.strides())
     PT_KERNEL_DEBUG(
@@ -234,7 +227,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         "copy_hpu_ doesn't support ", src_device, " to ", dst_device, "copy");
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return dst;
 }
 
@@ -244,7 +237,7 @@ Tensor& set_hpu_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
   if (stride.data()) {
     TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
   }
@@ -317,7 +310,7 @@ Tensor& set_hpu_(
   /* size and stride */
   THHTensor_resizeNd(self_, stride.size(), size.data(), stride.data());
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return self;
 }
 

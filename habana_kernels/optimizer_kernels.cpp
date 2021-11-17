@@ -138,7 +138,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return std::tie(weights_in, moments_in);
 }
 #else
@@ -241,7 +241,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return std::tie(weights_in, moments_in);
 }
 
@@ -533,7 +533,7 @@ void optimizer_adamw_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return;
 }
 
@@ -734,7 +734,7 @@ Tensor& optimizer_adagrad_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return lr;
 }
 
@@ -775,7 +775,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(weights_in);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
 }
 
 void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
@@ -830,7 +830,7 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(op->GetOutputs()[0]);
 
   } // for (auto i = 0;i < num_params;i++)
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
 }
 
 /*************************************************************************************
@@ -911,7 +911,7 @@ Tensor& optimizer_sgd_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return lr;
 }
 
@@ -962,7 +962,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(momentum_in);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
 }
 
 void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
@@ -1031,7 +1031,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(op->GetOutputs()[1]);
   } // for (auto i = 0;i < num_params;i++)
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
 }
 
 /*************************************************************************************
@@ -1123,7 +1123,7 @@ Tensor& optimizer_sgd_momentum_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return lr;
 }
 

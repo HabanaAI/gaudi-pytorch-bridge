@@ -18,13 +18,6 @@
 
 using namespace torch;
 
-#ifdef PT_KERNEL_END
-#undef PT_KERNEL_BEGIN
-#define PT_KERNEL_BEGIN (void)(0)
-#undef PT_KERNEL_END
-#define PT_KERNEL_END (void)(0)
-#endif
-
 // static inline void check_size_nonnegative(IntArrayRef size) {
 //   for (auto x : size) {
 //     TORCH_CHECK(
@@ -72,8 +65,7 @@ Tensor empty_hpu(
 
   auto tensor = at::detail::make_tensor<TensorImpl>(
       std::move(storage_impl),
-      c10::DispatchKeySet{
-          at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
+      c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
       dtype);
   // Default TensorImpl has size [0]
   if (size.size() != 1 || size[0] != 0) {
@@ -84,7 +76,7 @@ Tensor empty_hpu(
       ? optional_memory_format.value_or(MemoryFormat::Contiguous)
       : options.memory_format_opt().value_or(MemoryFormat::Contiguous);
   tensor.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return tensor;
 }
 
@@ -97,7 +89,7 @@ Tensor empty_strided_hpu(
   at::check_size_nonnegative(size);
   auto t = empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return t;
 }
 

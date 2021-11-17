@@ -400,7 +400,7 @@ optimizer_lamb_phase1_hpu(
     weight_norm.push_back(out[7 * j + 2]);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return std::tie(weight_norm, adam_norm, adam_step);
 }
 
@@ -642,7 +642,7 @@ void optimizer_lamb_phase2_hpu(
     Op.Compile(graph);
   }
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
 }
 
 void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
@@ -838,7 +838,7 @@ Tensor optimizer_lamb_fused_norm_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  PT_KERNEL_END;
+  PT_OTHER_OPS_END;
   return out[0];
 }
 

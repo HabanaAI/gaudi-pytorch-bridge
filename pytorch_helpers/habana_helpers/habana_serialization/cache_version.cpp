@@ -125,17 +125,17 @@ std::string CacheVersion::libs_env_hash() {
     // single path
     hash = at::hash_combine(hash, hash64_file_content(gc_kernel_path));
   }
-  PT_HABHELPER_TRACE("Combined hash for all important libs: ", std::hex, hash);
+  PT_HABHELPER_DEBUG("Combined hash for all important libs: ", std::hex, hash);
 
   char** s = environ;
   for (; *s; s++) {
     std::string env_var(*s);
     if (check_env_fo_hashing(env_var)) {
-      PT_HABHELPER_TRACE("Combining hash for: ", env_var);
+      PT_HABHELPER_DEBUG("Combining hash for: ", env_var);
       hash = at::hash_combine(hash, c10::hash<std::string>()(env_var));
     }
   }
-  PT_HABHELPER_TRACE(
+  PT_HABHELPER_DEBUG(
       "Combined hash for all important libs and envs: ", std::hex, hash);
   std::stringstream stream;
   stream << std::hex << hash;
