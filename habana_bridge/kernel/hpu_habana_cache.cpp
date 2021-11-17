@@ -542,14 +542,14 @@ void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
-    const habana::NameShapeMap& m_actual_shapes) {
+    const habana::IdShapeMap& m_actual_shapes) {
   PT_BRIDGE_BEGIN;
   if (dynamic_graph) {
     for (size_t i = 0; i < dtensorinfos->size(); ++i) {
       auto& ti = dtensorinfos->at(i);
-      auto syn_name = ti.get_syn_name();
-      HABANA_ASSERT(m_actual_shapes.count(syn_name));
-      auto dims = m_actual_shapes.at(syn_name).get_dims();
+      auto tensor_id = ti.get_tensor_id();
+      HABANA_ASSERT(m_actual_shapes.count(tensor_id));
+      auto dims = m_actual_shapes.at(tensor_id).get_dims();
       auto syn_shape = ti.get_shape();
 
       // If there is no change in the new shape values, then

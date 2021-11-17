@@ -249,6 +249,7 @@ class tensor_builder_base {
       return {
           synapse_error{"Unsupported tensor dtype", synStatus::synUnsupported}};
     }
+    auto tensor_id = detail::tensor_name_generator::get_tensor_id();
     std::string tensor_name = generate_name();
     auto t = tensor(
         syn_device.id(),
@@ -257,6 +258,7 @@ class tensor_builder_base {
         shape_,
         stride_,
         tensor_name,
+        tensor_id,
         graph,
         is_persistent_,
         memory_section_,

@@ -361,18 +361,20 @@ class HabanaLaunchOpPT {
   void AddAtenIntermediate(
       const IValPtrShared& ivpsh,
       const std::string& syntensor_name,
-      const std::string& ir_name) {
+      const std::string& ir_name,
+      const uint64_t tensor_id) {
     const auto& pttensor = ivpsh->toTensor();
-    auto ti =
-        PtTensorInfo(pttensor, syntensor_name, ir_name, watch_tensor_flag_);
+    auto ti = PtTensorInfo(
+        pttensor, syntensor_name, ir_name, watch_tensor_flag_, tensor_id);
     AddAtenIntermediate(ivpsh, ti);
   }
   void AddAtenIntermediate(
       const IValPtrShared& ivpsh,
       const std::string& syntensor_name,
-      const ValPtr& vp) {
+      const ValPtr& vp,
+      const uint64_t tensor_id) {
     std::string ir_name = "%" + vp->debugName();
-    AddAtenIntermediate(ivpsh, syntensor_name, ir_name);
+    AddAtenIntermediate(ivpsh, syntensor_name, ir_name, tensor_id);
   }
   void UpdateOutputPatching(
       const IValPtrShared& ivpsh,
@@ -381,7 +383,11 @@ class HabanaLaunchOpPT {
     if (enable_caching_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
       auto a = output_tensorinfo_map.find(ivpsh);
       auto ti = PtTensorInfo(
-          ivpsh_updated, a->second.get_syn_name(), vp, watch_tensor_flag_);
+          ivpsh_updated,
+          a->second.get_syn_name(),
+          vp,
+          watch_tensor_flag_,
+          a->second.get_tensor_id());
       output_tensorinfo_map.erase(ivpsh);
       output_tensorinfo_map.emplace(ivpsh_updated, ti);
     }

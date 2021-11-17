@@ -52,6 +52,8 @@ inline std::ostream& operator<<(std::ostream& out, const synTensorType& t) {
 
 namespace synapse_helpers {
 
+const uint64_t INVALID_SYN_TENSOR_ID = std::numeric_limits<uint64_t>::max();
+
 class memory_section {
  public:
   // explicit c'tor that holds valid synSectionHandle
@@ -313,6 +315,10 @@ class tensor final {
     return pt_strides_;
   }
 
+  uint64_t id() const {
+    return tensor_id_;
+  }
+
   void set_pt_info(
       const std::vector<int64_t>& pt_shape,
       const std::vector<int64_t>& pt_stride) {
@@ -350,6 +356,7 @@ class tensor final {
       shape_t shape,
       shape_t stride,
       std::string tensor_name,
+      uint64_t tensor_id,
       synGraphHandle graph,
       bool is_persistent = false,
       shared_memory_section memory_section = nullptr,
@@ -366,6 +373,7 @@ class tensor final {
       const dynamic_shape_t& shape,
       const dynamic_shape_t& stride,
       std::string tensor_name,
+      uint64_t tensor_id,
       synGraphHandle graph,
       bool is_persistent = false,
       shared_memory_section memory_section = nullptr,
@@ -383,6 +391,7 @@ class tensor final {
   void cleanup();
 
   std::string tensor_name_;
+  uint64_t tensor_id_{INVALID_SYN_TENSOR_ID};
   synDeviceId device_id_;
   synDataType data_type_;
   // TODO: total size can be counted basing on type and dimensions

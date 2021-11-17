@@ -8,10 +8,12 @@ void PtTensorInfo::populate_tinfo(
     const std::string& sn,
     const std::string& irn,
     const bool wflag,
+    const uint64_t tensor_id,
     const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
   ir_name_ = irn;
   syn_name_ = sn;
+  tensor_id_ = tensor_id;
 
   is_ZST_ = habana::is_ZST(pt_tensor);
 
@@ -54,6 +56,7 @@ PtTensorInfo::PtTensorInfo(
   size_ = st.size_bytes();
   shape_ = st.pt_shape();
   strides_ = st.pt_strides();
+  tensor_id_ = st.id();
 
   update_shape_syn();
 }
@@ -63,9 +66,10 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const std::string& irn,
     const bool wflag,
+    const uint64_t tensor_id,
     const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
-  populate_tinfo(pt_tensor, sn, irn, wflag, stt, dma_cb);
+  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_cb);
 }
 
 PtTensorInfo::PtTensorInfo(
@@ -73,12 +77,13 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const ValPtr& vp,
     const bool wflag,
+    const uint64_t tensor_id,
     const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
-  populate_tinfo(pt_tensor, sn, irn, wflag, stt, dma_cb);
+  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_cb);
 }
 
 void PtTensorInfo::update_shape_syn() {
@@ -124,6 +129,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, topts_);
   deserialize(is, tensor_type_);
   deserialize(is, dma_tensor_idx_);
+  deserialize(is, tensor_id_);
 
   update_shape_syn(); // constructs syn_shape_ according to shape_ and
                       // tensor_type_
@@ -149,16 +155,16 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, topts_);
   serialize(os, tensor_type_);
   serialize(os, dma_tensor_idx_);
+  serialize(os, tensor_id_);
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   O << '<' << t.get_ir_name();
-
   O << ":[" << t.get_shape() << "]:[" << t.get_strides() << "]:#"
     << t.get_numel() << ':' << '(' << t.get_size() << " b):["
     << t.getHbInternalLayoutFormat() << "]"
     << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>'
-    << " tensor type:" << t.tensor_type_;
+    << " tensor type:" << t.tensor_type_ << " tensor id: " << t.tensor_id_;
 
   if (t.get_dma_cb() != nullptr) {
     O << " dma_cb : " << (void*)t.get_dma_cb();

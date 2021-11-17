@@ -524,11 +524,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     int devid,
     const c10::ScalarType dtype,
     const std::string& name) {
-  std::string syn_tensor_name;
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, shape.vec(), name);
+    tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, shape.vec());
   }
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
@@ -538,8 +537,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
-    std::tie(min, max) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
   if (min.size() && max.size() && (min != max)) {
@@ -579,11 +577,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     const c10::optional<c10::ScalarType> dtype,
     const std::string& name) {
-  std::string syn_tensor_name;
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
-        graph, tensor.sizes().vec(), name);
+    tensor_id =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
   }
 
   if (graph.is_dry_run()) {
@@ -599,8 +597,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
-    std::tie(min, max) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
   if (min.size() && max.size() && (min != max)) {
@@ -657,11 +654,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     const synDataType synType,
     const std::string& name) {
-  std::string syn_tensor_name;
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
-        graph, tensor.sizes().vec(), name);
+    tensor_id =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
   }
 
   if (graph.is_dry_run()) {
@@ -675,8 +672,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
-    std::tie(min, max) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
   if (min.size() && max.size() && (min != max)) {
@@ -718,11 +714,11 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     bool persistent,
     synTensorType shape_tensor_type,
     const std::string& name) {
-  std::string syn_tensor_name;
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    syn_tensor_name = habana::ShapeInference::UpdateShapeInfo(
-        graph, tensor.sizes().vec(), name);
+    tensor_id =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
   }
 
   if (graph.is_dry_run()) {
@@ -737,8 +733,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
 
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
-    std::tie(min, max) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
   }
 
   if (min.size() && max.size() && (min != max)) {

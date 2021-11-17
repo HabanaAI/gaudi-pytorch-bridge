@@ -309,7 +309,7 @@ class HabanaOperator {
   virtual getDMAInputTensorCBType getDMAInputTensorCB();
 
   // To communicate patching info for tensors which are not part of graph
-  virtual std::vector<std::pair<std::string, at::Tensor>>
+  virtual std::vector<std::tuple<std::string, at::Tensor, uint64_t>>
   getAppendedTensorInfos();
 
   virtual const std::vector<std::pair<at::Tensor, at::Tensor>>
@@ -351,7 +351,8 @@ class HabanaOperator {
   // Store the info on intermediate tensors inserted(not part of graph)
   // THis needs to be communicated to lowering kernel as these additions
   // are invisible there(only graph mappings are queried)
-  std::vector<std::pair<std::string, at::Tensor>> appended_tensor_infos;
+  std::vector<std::tuple<std::string, at::Tensor, uint64_t>>
+      appended_tensor_infos;
 
   //
   std::vector<HabanaOperatorPtr> kernels_;

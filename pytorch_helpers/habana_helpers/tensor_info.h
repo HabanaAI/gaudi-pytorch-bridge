@@ -45,6 +45,7 @@ class PtTensorInfo {
       const std::string& sn,
       const ValPtr& vp,
       const bool wflag,
+      const uint64_t tensor_id,
       const synTensorType stt = DATA_TENSOR,
       const getDMAInputTensorCBType dma_cb = nullptr);
   PtTensorInfo(
@@ -52,6 +53,7 @@ class PtTensorInfo {
       const std::string& sn,
       const std::string& irn,
       const bool wflag,
+      const uint64_t tensor_id,
       const synTensorType stt = DATA_TENSOR,
       const getDMAInputTensorCBType dma_cb = nullptr);
 
@@ -216,6 +218,10 @@ class PtTensorInfo {
 
   void Serialize(std::ostream& os) const;
 
+  uint64_t get_tensor_id() const {
+    return tensor_id_;
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};
@@ -251,12 +257,14 @@ class PtTensorInfo {
 
   size_t dma_tensor_idx_{ULONG_MAX};
   getDMAInputTensorCBType dma_cb_{nullptr};
+  uint64_t tensor_id_{synapse_helpers::INVALID_SYN_TENSOR_ID};
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,
       const std::string& irn,
       const std::string& sn,
       const bool wflag,
+      const uint64_t tensor_id,
       const synTensorType stt,
       const getDMAInputTensorCBType dma_cb);
   void update_shape_syn();

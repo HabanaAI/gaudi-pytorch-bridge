@@ -93,6 +93,7 @@ tensor::tensor(
     const shape_t shape,
     const shape_t stride,
     std::string tensor_name,
+    uint64_t tensor_id,
     synGraphHandle graph,
     bool is_persistent,
     shared_memory_section section,
@@ -102,6 +103,7 @@ tensor::tensor(
     const uint64_t offset,
     synTensorType tensor_type)
     : tensor_name_{tensor_name},
+      tensor_id_{tensor_id},
       device_id_{device_id},
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
@@ -124,6 +126,7 @@ tensor::tensor(
     const dynamic_shape_t& shape,
     const dynamic_shape_t& stride,
     std::string tensor_name,
+    uint64_t tensor_id,
     synGraphHandle graph,
     bool is_persistent,
     shared_memory_section section,
@@ -133,6 +136,7 @@ tensor::tensor(
     const uint64_t offset,
     synTensorType tensor_type)
     : tensor_name_{tensor_name},
+      tensor_id_{tensor_id},
       device_id_{device_id},
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
@@ -150,6 +154,7 @@ tensor::tensor(
 
 tensor::tensor(tensor&& other) noexcept
     : tensor_name_{other.name()},
+      tensor_id_{other.id()},
       device_id_{other.device_id_},
       data_type_{other.data_type_},
       total_size_bytes_{other.total_size_bytes_},
@@ -176,6 +181,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
     return *this;
   cleanup();
   tensor_name_ = other.name();
+  tensor_id_ = other.id();
   device_id_ = other.device_id_;
   data_type_ = other.data_type_;
   total_size_bytes_ = other.total_size_bytes_;
@@ -411,6 +417,7 @@ tensor tensor::create_placeholder(
     const std::string& suffix,
     synTensorType tensor_type,
     bool persistent) {
+  auto tensor_id = detail::tensor_name_generator::get_tensor_id();
   auto name = detail::tensor_name_generator::generate(suffix);
   tensor tensor{
       syn_device,
@@ -419,6 +426,7 @@ tensor tensor::create_placeholder(
       shape_t{0_D},
       shape_t{0_D},
       name,
+      tensor_id,
       nullptr,
       persistent};
   tensor.set_placeholder();

@@ -14,8 +14,7 @@
 
 namespace habana {
 
-using NameShapeMap =
-    std::unordered_map<std::string, habana_helpers::TensorShape>;
+using IdShapeMap = std::unordered_map<uint64_t, habana_helpers::TensorShape>;
 
 class ShapeInfo {
  public:
@@ -34,9 +33,9 @@ class ShapeInfo {
   }
 
   InferencePass m_pass;
-  NameShapeMap m_min_shapes;
-  NameShapeMap m_max_shapes;
-  NameShapeMap m_actual_shapes;
+  IdShapeMap m_min_shapes;
+  IdShapeMap m_max_shapes;
+  IdShapeMap m_actual_shapes;
 };
 
 class ShapeInference {
@@ -70,16 +69,15 @@ class ShapeInference {
    * Method to update and store the shape information for
    * specified tensor
    */
-  static std::string UpdateShapeInfo(
+  static uint64_t UpdateShapeInfo(
       synapse_helpers::graph& graph,
-      const std::vector<int64_t>& sizes,
-      const std::string& tensor_name_suffix = std::string());
+      const std::vector<int64_t>& sizes);
   /*
    * Get the shape of the Min & Max tensor values for the specified
    * tensor name
    */
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
-      const std::string& syn_tensor_name);
+      const uint64_t tensor_id);
 
  private:
   /*

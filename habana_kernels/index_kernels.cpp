@@ -1082,9 +1082,9 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   // For Dynamic case fill index params with max size
   if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
     synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[1];
-    std::string tensor_name = syn_input_tensor.name();
     std::vector<int64_t> min, max;
-    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(syn_input_tensor.id());
     indices_shape = max;
   }
   // Dims reversed between PT and synapse
@@ -1668,9 +1668,9 @@ void SliceOperator::AllocateAndAddSynapseNode(
 
   if (needs_params_handling) {
     synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
-    std::string tensor_name = syn_input_tensor.name();
+    auto tensor_id = syn_input_tensor.id();
     std::vector<int64_t> min, max;
-    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
     params.ends[0] = static_cast<int>(max[dim]);
   }
 

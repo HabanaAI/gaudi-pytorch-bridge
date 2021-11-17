@@ -264,8 +264,8 @@ getDMAInputTensorCBType habana::HabanaOperator::getDMAInputTensorCB() {
   return {};
 }
 
-std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::
-    getAppendedTensorInfos() {
+std::vector<std::tuple<std::string, at::Tensor, uint64_t>> habana::
+    HabanaOperator::getAppendedTensorInfos() {
   return appended_tensor_infos;
 }
 

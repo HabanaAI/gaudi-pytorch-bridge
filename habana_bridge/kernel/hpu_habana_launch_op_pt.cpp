@@ -540,6 +540,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         syn_tensor.name(),
         irn,
         watch_tensor_flag_,
+        syn_tensor.id(),
         syn_tensor.tensor_type());
     tiv.push_back(ti);
 
@@ -654,6 +655,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           syn_tensor.name(),
           irn,
           watch_tensor_flag_,
+          syn_tensor.id(),
           DATA_TENSOR,
           dma_cb);
       auto dma_tensor_idx = aten_dma_inputs.size();
@@ -719,6 +721,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       out_syntensor.name(),
       vp,
       watch_tensor_flag_,
+      out_syntensor.id(),
       out_syntensor.tensor_type());
   void* buffp = ti.get_buffer_start();
 
@@ -958,6 +961,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
         meta_syn_tensors.back().name(),
         value_in,
         watch_tensor_flag_,
+        meta_syn_tensors.back().id(),
         meta_syn_tensors.back().tensor_type());
     if (!isInGraphOutputs(value_in)) {
       duplicate_input_tivs.emplace_back(ti);
@@ -1088,7 +1092,11 @@ void HabanaLaunchOpPT::handleRestrideNode(
     auto& syn_tensor_vec = pt_to_synapse_tensors[ivpsh];
     synapse_helpers::tensor& syn_tensor = syn_tensor_vec->at(0);
     auto ti = PtTensorInfo(
-        ivpsh_restrided, syn_tensor.name(), value_in, watch_tensor_flag_);
+        ivpsh_restrided,
+        syn_tensor.name(),
+        value_in,
+        watch_tensor_flag_,
+        syn_tensor.id());
 
     value_to_ivalue.erase(value_in);
 
@@ -1224,6 +1232,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
             meta_syn_tensors.back().name(),
             irn,
             watch_tensor_flag_,
+            meta_syn_tensors.back().id(),
             meta_syn_tensors.back().tensor_type()));
         aten_intermediates.push_back(tensor);
       } else {
@@ -1917,7 +1926,10 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     auto patch_info = HabanaKernel->getAppendedTensorInfos();
     if (!patch_info.empty() && !is_shape_inference) {
       for (const auto& p : patch_info) {
-        void* buffp = p.second.data_ptr();
+        auto tensor_name = std::get<0>(p);
+        auto tensor = std::get<1>(p);
+        auto tensor_id = std::get<2>(p);
+        void* buffp = tensor.data_ptr();
 
         // Check whether it is an alias of any input
         auto it = buff_to_input_ivpsh_map.find(buffp);
@@ -1926,7 +1938,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
           irn += std::to_string(appended_index);
           appended_index++;
 
-          PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
+          PtTensorInfo ti(
+              tensor, tensor_name, irn, watch_tensor_flag_, tensor_id);
           auto& ivpsh = it->second;
 
           if (enable_caching_) {
@@ -1942,8 +1955,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
           irn += std::to_string(intermediate_index);
           intermediate_index++;
 
-          IValPtrShared ivpsh = std::make_shared<IVal>(p.second);
-          AddAtenIntermediate(ivpsh, p.first, irn);
+          IValPtrShared ivpsh = std::make_shared<IVal>(tensor);
+          AddAtenIntermediate(ivpsh, tensor_name, irn, tensor_id);
           PT_BRIDGE_DEBUG(
               "Added appended tensor for ",
               node->kind().toQualString(),
@@ -2838,7 +2851,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack_sh = old_pt_stack_sh;
   }
   if (throw_exception == true) {
-    throw PassException(m_map_shape.m_pass, error_str);
+    throw PassException(pass, error_str);
   }
   PT_BRIDGE_END;
 }

@@ -191,7 +191,8 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
-    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
+    appended_tensor_infos.emplace_back(
+        std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
     return ret_tensor;
   } else {
     return input;
@@ -368,7 +369,8 @@ void BatchNormForwardOperator::preProcessInputs(
 
     // This is to communicate to graph lowering that a new tensor was
     // added by the kernel and it can add to patching in lowering
-    appended_tensor_infos.emplace_back((syn_tensor_add).name(), residualAdd);
+    appended_tensor_infos.emplace_back(std::make_tuple(
+        syn_tensor_add.name(), residualAdd, syn_tensor_add.id()));
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor_add));
 
     pre_inputs = {
@@ -465,12 +467,12 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
           mean_var_temp[1], graph);
 
-      appended_tensor_infos.emplace_back(
-          (syn_tensor_mean).name(), pre_inputs[4]);
+      appended_tensor_infos.emplace_back(std::make_tuple(
+          syn_tensor_mean.name(), pre_inputs[4], syn_tensor_mean.id()));
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
-      appended_tensor_infos.emplace_back(
-          (syn_tensor_var).name(), pre_inputs[5]);
+      appended_tensor_infos.emplace_back(std::make_tuple(
+          syn_tensor_var.name(), pre_inputs[5], syn_tensor_var.id()));
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     } else {
       // As the tensors are used as IO and are persistent
@@ -480,12 +482,12 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[4], graph);
 
-      appended_tensor_infos.emplace_back(
-          (syn_tensor_mean).name(), pre_inputs[4]);
+      appended_tensor_infos.emplace_back(std::make_tuple(
+          syn_tensor_mean.name(), pre_inputs[4], syn_tensor_mean.id()));
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
-      appended_tensor_infos.emplace_back(
-          (syn_tensor_var).name(), pre_inputs[5]);
+      appended_tensor_infos.emplace_back(std::make_tuple(
+          syn_tensor_var.name(), pre_inputs[5], syn_tensor_var.id()));
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     }
 
@@ -695,7 +697,8 @@ at::Tensor BatchNormForwardRmvOperator::create_or_return_tensor_bn(
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
-    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
+    appended_tensor_infos.emplace_back(
+        std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
   } else if (input.defined() && input.device() != DeviceType::HPU) {
     ret_tensor = input.to(DeviceType::HPU);
   } else {
@@ -880,7 +883,8 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
     ret_tensor = at::empty({size}, device);
     auto syn_tensor =
         habana_helpers::create_tensor(ret_tensor, graph, true, c10::nullopt);
-    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
+    appended_tensor_infos.emplace_back(
+        std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
     // if input is not defined, we get dummy tensor from wrapper
     // create new one and place it to the original position
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor));

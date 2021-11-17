@@ -212,7 +212,7 @@ struct RecipeValueSpec {
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
-      const habana::NameShapeMap& m_actual_shapes);
+      const habana::IdShapeMap& m_actual_shapes);
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec);
