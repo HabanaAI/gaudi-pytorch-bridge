@@ -105,44 +105,23 @@ void LazyArgumentSpec::GetArgSpecKey(
   // passed, where the JIT graph inputs are the only
   // content used.
   PT_LAZY_TRACE;
-  std::string jit_graph_inp_str;
-  auto num_inputs = input_refs.size();
-  unsigned i = 0;
-  for (; i < num_inputs - 1; ++i) {
-    jit_graph_inp_str.append("n" + std::to_string(i) + ",");
-  }
-  if (i < num_inputs) {
-    jit_graph_inp_str.append("n" + std::to_string(i));
-  }
-  std::string jit_graph_str = "def fn(" + jit_graph_inp_str +
-      "):"
-      "  return " +
-      jit_graph_inp_str + "\n";
-
-  // Create a JIT graph with dummy inputs for
-  // ArgumentSpecCreator.
-  std::shared_ptr<torch::jit::Graph> graph;
-  m_hash_code = at::hash_combine(m_hash_code, at::get_hash(jit_graph_str));
   m_hash_code = at::hash_combine(
       m_hash_code, GetInputHash(inputs, value_input_nodes_map));
-
   m_hash_code = at::hash_combine(m_hash_code, GetOutputHash(outputs));
 
-  if (0 == LazyArgumentSpec::m_compiled_graph.count(m_hash_code)) {
-    graph = torch::jit::compile(jit_graph_str)->get_function("fn").graph();
-    LazyArgumentSpec::m_compiled_graph.insert({m_hash_code, graph});
-  } else {
-    graph = LazyArgumentSpec::m_compiled_graph.at(m_hash_code);
-  }
-  torch::jit::ArgumentSpecCreator arg_spec_creator_(*graph);
+  auto num_inputs = input_refs.size();
 
-  // arg_spec_creator_.create takes into account the input tensors.
-  torch::jit::ArgumentSpec as =
-      arg_spec_creator_.create(with_grad, CreateStack(input_refs));
-  m_hash_code = at::hash_combine(m_hash_code, as.hashCode());
+  uint64_t input_hash{};
+
+  torch::jit::ArgumentSpec as(num_inputs, 0);
+  for (auto& input : input_refs) {
+    as.addTensor(input, with_grad);
+  }
+  input_hash = as.hashCode();
+  m_hash_code = at::hash_combine(m_hash_code, input_hash);
 
   // Incorporate the memory format of the inputs within hash
-  i = 0;
+  unsigned i = 0;
   std::ostringstream O;
   O << '(';
   for (auto const& input_ival : input_refs) {

@@ -19,6 +19,7 @@
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy_test_infra.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 TEST(DS_CacheTest, UniqueTokenGenTest) {
   auto t0 = habana_helpers::UniqueTokenGenerator::get_gen().token();
@@ -87,4 +88,37 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh2->graphHashCode());
   EXPECT_NE(rargpsh2->graphHashCode(), rargpsh2->hashCode());
+}
+
+TEST(DS_CacheTest, ArgumentSpec) {
+  torch::Tensor x = torch::randn({5, 5}, torch::requires_grad());
+  torch::Tensor y = torch::randn({5, 5}, torch::requires_grad());
+
+  torch::Tensor hx = x.to(torch::kHPU);
+  torch::Tensor hy = x.to(torch::kHPU);
+  auto inputs = habana_lazy_test::createStack({hx, hy});
+
+  std::cout.setf(std::ios::unitbuf);
+  std::string jit_instr{"a, b"};
+  std::string jit_grstr =
+      "def fn(" + jit_instr + "):  return " + jit_instr + "\n";
+  std::shared_ptr<torch::jit::Graph> gr =
+      torch::jit::compile(jit_grstr)->get_function("fn").graph();
+
+  torch::jit::ArgumentSpecCreator as_creator(*gr);
+  bool with_grad{true};
+  torch::jit::ArgumentSpec as_regular = as_creator.create(with_grad, inputs);
+
+  torch::jit::ArgumentSpec as_direct(2, 0);
+  as_direct.addTensor(inputs[0], with_grad);
+  as_direct.addTensor(inputs[1], with_grad);
+
+  PT_TEST_DEBUG(
+      "PTI_DBG :: ",
+      " as_regular.hashCode()=",
+      as_regular.hashCode(),
+      " as_direct.hashCode()=",
+      as_direct.hashCode());
+
+  EXPECT_EQ(as_regular.hashCode(), as_direct.hashCode());
 }
