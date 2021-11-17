@@ -134,6 +134,19 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, Permute6DTest) {
+  torch::Tensor A =
+      torch::randn({2, 3, 4, 3, 2, 6}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = hA.permute({1, 0, 2, 5, 3, 4});
+  torch::Tensor Out = A.permute({1, 0, 2, 5, 3, 4});
+
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, TTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);

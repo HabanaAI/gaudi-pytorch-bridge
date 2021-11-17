@@ -419,17 +419,17 @@ void TransposeOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       is_output_persistent);
-  synTransposeParams params;
+  synTransposeParamsNDims params;
   params.tensorDim = self.dim();
   int i;
-  for (i = 0; i < MAX_DIMENSIONS_NUM; i++) {
+  for (i = 0; i < HABANA_DIM_MAX; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
   std::swap(
       params.permutation[self.dim() - 1 - dim0],
       params.permutation[self.dim() - 1 - dim1]);
 
-  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_.emplace<synTransposeParamsNDims>(params);
   p_context_->params_size_ = sizeof(params);
   AllocateSynapseOutput(graph, out, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -631,7 +631,8 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       dims.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
   TORCH_CHECK(
-      (self.dim() <= 5) && is_hpu_supported_transpose_type(self.scalar_type()),
+      (self.dim() <= HABANA_DIM_MAX) &&
+          is_hpu_supported_transpose_type(self.scalar_type()),
       "Unsupported permute operation on Habana device");
 
   std::vector<int64_t> new_sizes, new_strides;
@@ -646,18 +647,18 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       is_output_persistent);
 
-  synTransposeParams params;
+  synTransposeParamsNDims params;
   params.tensorDim = self.dim();
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
   for (int i = 0; i < self.dim(); i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(
         self.dim() - dims[dims.size() - i - 1] - 1);
   }
-  for (int i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
+  for (int i = self.dim(); i < HABANA_DIM_MAX; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
 
-  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_.emplace<synTransposeParamsNDims>(params);
   p_context_->params_size_ = sizeof(params);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
