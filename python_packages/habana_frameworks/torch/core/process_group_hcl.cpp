@@ -26,7 +26,7 @@ std::map<at::ScalarType, synDataType> hclDataType = {
     {at::kFloat, syn_type_float},
     {at::kHalf, syn_type_bf16},
     {at::kInt, syn_type_int32},
-    {at::kLong, syn_type_na},
+    {at::kLong, syn_type_int32},
     {at::kShort, syn_type_int16},
     {at::kBFloat16, syn_type_bf16},
 };
@@ -301,7 +301,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     if (getHCLDataType(in_view_vec[i].scalar_type()) != syn_type_na) {
       fn(in_view_vec[i], out_view_vec[i], *(comms[i]));
     } else {
-      LOG(INFO) << "HCL called on unsupported data type\n";
+      throw std::runtime_error(
+          c10::str("Unsupported Torch scalar type: ", inputs[i].scalar_type()));
     }
   }
 
