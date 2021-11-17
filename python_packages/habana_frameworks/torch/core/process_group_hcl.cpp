@@ -188,7 +188,9 @@ ProcessGroupHCL::WorkHCL::WorkHCL(
       hcl_comms_(hcl_comms),
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {}
+          c10::ListType::create(c10::TensorType::get()))) {
+  future_->markCompleted(at::IValue(outputs_));
+      }
 
 ProcessGroupHCL::WorkHCL::~WorkHCL() {}
 
@@ -358,7 +360,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
       tensors[i].copy_(tmp_tensors[i].to(tensors[i].scalar_type()));
     }
   }
-
   return work;
 }
 

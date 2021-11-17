@@ -217,7 +217,10 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
       deviceCtxts_(deviceCtxts),
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))) {}
+          c10::ListType::create(c10::TensorType::get()))) {
+       future_->markCompleted(at::IValue(outputs_));
+
+      }
 
 ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
 
