@@ -308,14 +308,6 @@ LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(torch::jit::Value* val) {
   return value_to_tensor_layout[val].layout;
 }
 
-// See if we are in any leagally accepted channel orders
-bool HabanaLaunchOpPT::isChannelOrderSupported(
-    torch::jit::Value* val,
-    const LayoutFormat& supported_channel_order) {
-  return (supported_channel_order == LayoutFormat::ANY) ||
-      (supported_channel_order == getTensorChannelOrder(val));
-}
-
 bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
@@ -968,175 +960,6 @@ at::IntArrayRef getDimsForLayout(
   return dims;
 }
 
-// For now, we permute tensors at graph leaves once
-// THis function permutes a given tensor to desired layout and modifies
-// input_tensor list to have the new tensor
-
-at::Tensor HabanaLaunchOpPT::permuteTensor(
-    torch::jit::Value* value_in,
-    const at::Tensor& input,
-    LayoutFormat permute_order) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  synDeviceId device_id = device.id();
-  HabanaOperatorPtr permute_kernel = KernelRegistry().get(
-      device_id, {"aten::permute", ""}, input.scalar_type());
-  TORCH_CHECK(
-      permute_kernel != nullptr,
-      " \n Permute kernel isnt supported in graph mode ");
-
-  TORCH_CHECK(
-      value_to_ivalue[value_in]->isTensor(), "non tensor input for permute");
-
-  habana_kernels.push_back(permute_kernel);
-  // set input synapse tensors
-  auto is_already_mapped =
-      pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
-      std::end(pt_to_synapse_tensors);
-
-  SharedSynTensorOrRefListPtr tensorList =
-      std::make_shared<SynTensorOrRefList>();
-  bool is_permin_interim_persistant = false;
-  std::string permute_input_synname;
-  if (is_already_mapped) {
-    // value_in is not an input to the jit_ir_graph
-    auto syn_tensor_input =
-        pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-
-    for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
-      synapse_helpers::tensor& syn_tensor =
-          permute_kernel->SetSynapseInput(tensor);
-      is_permin_interim_persistant = syn_tensor.is_persistent();
-      permute_input_synname = std::string(syn_tensor.name());
-      tensorList->emplace_back(tensor_or_ref(syn_tensor));
-    }
-    pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
-  } else {
-    // value_in is an input to the jit_ir_graph
-    auto pt_tensor = value_to_ivalue[value_in]->toTensor();
-
-    auto& syn_tensor =
-        permute_kernel->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
-    tensorList->emplace_back(tensor_or_ref(syn_tensor));
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
-
-    PtTensorInfo ti(
-        value_to_ivalue[value_in],
-        syn_tensor.name(),
-        value_in,
-        watch_tensor_flag_,
-        syn_tensor.tensor_type());
-    if (enable_caching_) {
-      input_tiv_map.emplace(value_to_ivalue[value_in], ti);
-      buff_to_input_ivpsh_map.emplace(
-          pt_tensor.data_ptr(), value_to_ivalue[value_in]);
-    } else {
-      input_tivs.emplace_back(ti);
-    }
-  }
-
-  auto dims =
-      getDimsForLayout(permute_order, value_to_tensor_layout[value_in].layout);
-
-  torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
-
-  // setup the config params for the kernels
-  bool is_perminput_persistent =
-      isInGraphOutputs(value_in) || is_permin_interim_persistant;
-  permute_kernel->AllocateAndAddSynapseNode(
-      *syn_graph_ptr, input_stack, is_perminput_persistent);
-
-  auto& ivpsh_in = value_to_ivalue[value_in];
-  auto outputs_permute = permute_kernel->GetOutputs();
-
-  // set output synapse tensor
-  synapse_helpers::tensor& out_tensor_syn =
-      permute_kernel->GetSynOutputs().at(0);
-  {
-    // make the output of permute the input for next synapse kernel
-    // permute has a single output
-    SharedSynTensorOrRefListPtr tensorList =
-        std::make_shared<SynTensorOrRefList>();
-    tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
-    if (is_perminput_persistent) {
-      // The value_in can represent either of the following
-      // A: persistent intermediate
-      // B: a subgraph output
-      // C: duplicate of an input
-      // After adding the permute node, the pt_tensor corresponding to the
-      // input of the permute needs to be added to aten_intermediates
-      // if A or B is true.
-      std::string perminput_type;
-      if (!isInGraphOutputs(value_in)) {
-        // Case A: The corresponding tinfo needs to be retained within
-        // intermediate_tinfos.
-        perminput_type = "persistent intermediate";
-      } else {
-        if (enable_tensor_release_) {
-          if (output_tensorinfo_map.count(ivpsh_in)) {
-            // Case B: ivpsh_in should be present in output_tensorinfo_map.
-            // This used to be a graph output which has become an interim.
-            // The corresponding tinfo needs to be moved from
-            // output_tensorinfo_map to aten_intermediates.
-            // Remove the corresponding tinfo from output_tensorinfo_map,
-            output_tensorinfo_map.erase(ivpsh_in);
-            perminput_type = "previous graph output";
-          } else {
-            perminput_type = "possible input duplicate";
-          }
-        } else {
-          // Caching without tensor release will be depricated. Adding the
-          // following code for keeping the flow consistent.
-          void* buffp = ivpsh_in->toTensor().data_ptr();
-          auto tinfo_it = std::find_if(
-              output_tensorinfos.begin(),
-              output_tensorinfos.end(),
-              [&buffp](const PtTensorInfo& arg) {
-                return (arg.get_buffer() == buffp);
-              });
-          if (tinfo_it != output_tensorinfos.end()) {
-            output_tensorinfos.erase(tinfo_it);
-            perminput_type = "previous graph output";
-          } else {
-            perminput_type = "possible input duplicate";
-          }
-        }
-      }
-
-      // Add the tinfo and pt_tensor for permute input as persistent
-      // intermediate.
-      AddAtenIntermediate(ivpsh_in, permute_input_synname, value_in);
-      PT_BRIDGE_DEBUG(
-          "Permute input is ",
-          perminput_type,
-          ". After adding tinfo ",
-          intermediate_tinfos.back(),
-          " to intermediate_tinfos #intermediates ",
-          intermediate_tinfos.size());
-    }
-
-    value_to_ivalue[value_in] = std::make_shared<IVal>(outputs_permute[0]);
-    value_to_tensor_layout[value_in].layout = permute_order;
-    pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
-
-    if (is_perminput_persistent) {
-      auto ti = PtTensorInfo(
-          value_to_ivalue[value_in],
-          out_tensor_syn.name(),
-          value_in,
-          watch_tensor_flag_,
-          out_tensor_syn.tensor_type());
-      if (!enable_tensor_release_) {
-        output_tensorinfos.emplace_back(ti);
-      } else {
-        output_tensorinfo_map.emplace(value_to_ivalue[value_in], ti);
-      }
-    }
-  }
-  return outputs_permute[0];
-}
-
 int64_t HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
   auto graph_ins = jit_ir_graph->inputs();
   auto it = std::find_if(
@@ -1240,165 +1063,6 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
       swapped_sizes, swapped_strides);
 }
 
-void HabanaLaunchOpPT::processInputs(
-    torch::jit::Node* node,
-    const HabanaOperatorPtr& habana_kernel) {
-  // Get the metadata for all inputs, used for preprocessing inputs
-  auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
-  // Check if its ok to change the input tensor in the graph attached to value
-  auto node_ins = node->inputs();
-
-  size_t tensor_idx = 0;
-  LayoutFormat in_layout, prev_layout = LayoutFormat::ANY;
-  size_t meta_size = habana_kernel_meta_data.input_layout.size();
-  for (const auto value_in : node_ins) {
-    if (value_to_ivalue[value_in] &&
-        value_in->type()->kind() == c10::TypeKind::TensorType) {
-      in_layout = tensor_idx >= meta_size
-          ? LayoutFormat::ANY
-          : habana_kernel_meta_data.input_layout.at(tensor_idx);
-
-      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-        // For weight tensors we update the map before execution starts
-        // through a pass If its marked HWCK in the map, we can override with
-        // it
-        auto tensor_layout = getTensorChannelOrder(value_in);
-        if (tensor_layout == LayoutFormat::HWCK) {
-          TORCH_CHECK(
-              in_layout == LayoutFormat::HWCK || in_layout == LayoutFormat::ANY,
-              "HabanaOp, got contradicting layout info from meta data and opt pass");
-          in_layout = LayoutFormat::HWCK;
-        }
-      }
-      if (in_layout == LayoutFormat::ANY && tensor_idx > 0) {
-        // ATTENTION : We will support only homogeneous layouts for kernels
-        // which dont pass meta data requirements for inputs
-        // We make inputs homogeneous layouts in case kernel doesnt specify
-        // any layout
-        // TODO : Add a debug log heres
-        in_layout = prev_layout;
-      }
-
-      auto tensor = value_to_ivalue[value_in]->toTensor();
-
-      if (in_layout == LayoutFormat::HWCK) {
-        in_layout = LayoutFormat::ANY;
-        value_to_tensor_layout[value_in].layout = LayoutFormat::HWCK;
-      }
-
-      bool permute_required = !(isChannelOrderSupported(value_in, in_layout));
-      LayoutFormat perm_layout = in_layout;
-      // If the kernel changes dims of tensor, get it to original PT format
-      // This is done as we cannot pass layout info for 4D tensors and it will
-      // get lost in translation.
-      if (habana_kernel_meta_data.changes_dims &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-        if (getTensorChannelOrder(value_in) !=
-                value_to_tensor_layout[value_in].layout_at_graph_entry &&
-            getTensorChannelOrder(value_in) != LayoutFormat::HWCK) {
-          permute_required = true;
-          perm_layout = value_to_tensor_layout[value_in].layout_at_graph_entry;
-        }
-      }
-
-      if (permute_required) {
-        // We only support 4D tensors
-        TORCH_CHECK(
-            tensor.dim() <= 4,
-            "WARNING: Kernel wants permute on non 4D tensor, not supproted");
-        // permute
-        if (tensor.dim() == 4) {
-          permuteTensor(value_in, tensor, perm_layout);
-        }
-      }
-      prev_layout =
-          tensor_idx == 0 ? getTensorChannelOrder(value_in) : prev_layout;
-      tensor_idx++;
-    }
-  }
-  // TODO : add checks for doing flattening/slicing anything that is
-  // required.
-}
-
-void HabanaLaunchOpPT::postProcessOutputs() {
-  // Do we need a optimization pass here? What should we look for?
-  for (auto node : jit_ir_graph->nodes()) {
-    auto node_outs = node->outputs();
-    for (const auto value_out : node_outs) {
-      IValPtrShared ival = value_to_ivalue[value_out];
-      if (!ival)
-        continue;
-      if (!(ival->isTensor()))
-        continue;
-
-      if (ival && value_out->type()->kind() == c10::TypeKind::TensorType &&
-          isInGraphOutputs(value_out)) {
-        auto tensor = ival->toTensor();
-        // Add permutes only for 4D non weight tensors
-        if (tensor.dim() == 4) {
-          auto pre_layout =
-              value_to_tensor_layout[value_out].layout_at_graph_entry;
-          if (getTensorChannelOrder(value_out) == LayoutFormat::HWCK) {
-            // Do Nothing
-          } else if (getTensorChannelOrder(value_out) != pre_layout) {
-            permuteTensor(value_out, tensor, pre_layout);
-            if (pre_layout == LayoutFormat::NHWC) {
-              // Make the shape according to NCHW again as PT maintains that
-              // even for NHWC tensors Whereas we process internally as NHWC
-              // shape only
-              adjustSizesforPT(&tensor, true);
-              auto ivpsh =
-                  (value_to_ivalue.count(value_out) ? value_to_ivalue[value_out]
-                                                    : nullptr);
-              value_to_ivalue.erase(value_out);
-              auto ivptrsh_updated = std::make_shared<IVal>(tensor);
-              if (enable_tensor_release_ && ivpsh &&
-                  output_tensorinfo_map.count(ivpsh)) {
-                auto a = output_tensorinfo_map.find(ivpsh);
-                auto ti = PtTensorInfo(
-                    ivptrsh_updated,
-                    a->second.get_syn_name(),
-                    value_out,
-                    watch_tensor_flag_,
-                    a->second.tensor_type());
-                output_tensorinfo_map.erase(ivpsh);
-                output_tensorinfo_map.emplace(ivptrsh_updated, ti);
-              }
-              value_to_ivalue[value_out] = ivptrsh_updated;
-            }
-          } else {
-            if (getTensorChannelOrder(value_out) == LayoutFormat::NHWC) {
-              // Make the shape according to NCHW again as PT maintains that
-              // even for NHWC tensors Whereas we process internally as NHWC
-              // shape only
-              adjustSizesforPT(&tensor, true);
-              auto ivpsh =
-                  (value_to_ivalue.count(value_out) ? value_to_ivalue[value_out]
-                                                    : nullptr);
-              value_to_ivalue.erase(value_out);
-              auto ivptrsh_updated = std::make_shared<IVal>(tensor);
-              if (enable_tensor_release_ && ivpsh &&
-                  output_tensorinfo_map.count(ivpsh)) {
-                auto a = output_tensorinfo_map.find(ivpsh);
-                auto ti = PtTensorInfo(
-                    ivptrsh_updated,
-                    a->second.get_syn_name(),
-                    value_out,
-                    watch_tensor_flag_,
-                    a->second.tensor_type());
-                output_tensorinfo_map.erase(ivpsh);
-                output_tensorinfo_map.emplace(ivptrsh_updated, ti);
-              }
-              value_to_ivalue[value_out] = ivptrsh_updated;
-            }
-          }
-        }
-      }
-      // TODO : add checks for doing flattening/slicing anything that is
-      // required.
-    }
-  }
-}
 IValPtrShared castConstantTensor(IValPtrShared ival) {
   auto tensor = ival->toTensor();
   auto dtype = tensor.scalar_type();
@@ -2253,7 +1917,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
       continue;
     }
 
-    if (habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
       if ((strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::restride") == 0)) {
         bool is_restride_cl =
@@ -2263,7 +1926,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
         handleRestrideNode(node, is_restride_cl);
         continue;
       }
-    }
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =
@@ -2272,9 +1934,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
     PT_BRIDGE_DEBUG("Going to add ", *node);
-    // See if we need to modify/permute tesnors
-    if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())
-      processInputs(node, HabanaKernel);
 
     // clear the accumulated synapse node indices corresponding to permute.
     // Otherwise this results in spurious control edges
@@ -2375,9 +2034,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
 
   // Process control edges
   HabanaLaunchOpPT::ProcessControlEdges();
-
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())
-    postProcessOutputs();
 
   if (syn_graph.is_empty()) {
     UpdateOutputs();
@@ -2687,10 +2343,7 @@ void HabanaLaunchOpPT::AdjustInputLayout() {
 
       if (getPTTensorLayout(tensor) == LayoutFormat::NHWC) {
         // Make the sizes according to NCHW as PT maintains
-        // NCHW shapes even for NHWC tensors(It doesnt change shape)
-        if (!habana_lazy::exec::OptPassCfg::GetInstance()
-                 ->IsEnabledPermutePass())
-          adjustSizesforPT(&tensor, false);
+        // NCHW shapes even for NHWC tensors(It doesnt change shape)s
         IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
         value_to_ivalue[value_input] = ivptrsh;
         pt_stack_sh[j] = ivptrsh;

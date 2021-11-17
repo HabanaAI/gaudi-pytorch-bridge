@@ -257,14 +257,6 @@ class HabanaLaunchOpPT {
   void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
-  void processInputs(
-      torch::jit::Node* node,
-      const HabanaOperatorPtr& habana_kernel);
-  void postProcessOutputs();
-  at::Tensor permuteTensor(
-      torch::jit::Value* value_in,
-      const at::Tensor& input,
-      LayoutFormat permute_order);
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
   void clear(bool is_shape_inference = false);
@@ -320,9 +312,6 @@ class HabanaLaunchOpPT {
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
-  bool isChannelOrderSupported(
-      torch::jit::Value* val,
-      const LayoutFormat& supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
