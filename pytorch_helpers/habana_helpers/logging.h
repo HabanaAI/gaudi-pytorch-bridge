@@ -144,7 +144,6 @@ class PtLogger {
         }
       }
     } else {
-      type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
       // Always set the debug logs for lazy and bridge so that
       // we get the detailed info on the graphs etc that was launched
       // when something fails and can be reproduced manually
