@@ -68,7 +68,7 @@ inline bool is_status_success(synStatus status) {
 
 #define CHECK_TRUE(x)                                                    \
   do {                                                                   \
-    if (!x) {                                                            \
+    if (!(x)) {                                                          \
       SLOG(S_ERROR) << "ERROR: pid = " << getpid() << " at " << __FILE__ \
                     << ":" << __LINE__ << " (" << dlerror() << ")\n";    \
       std::terminate();                                                  \
