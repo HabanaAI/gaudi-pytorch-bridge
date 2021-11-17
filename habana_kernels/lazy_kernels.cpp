@@ -2213,8 +2213,10 @@ Tensor index_put_hpu_lazy(
     std::vector<int> mul_factor_v{1};
     for (size_t i = 0; i < indices_shape.size() - 1; i++)
       mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
-    auto mul_factor = torch::from_blob(
-        mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt);
+    auto mul_factor =
+        torch::from_blob(
+            mul_factor_v.data(), {1, int64_t(mul_factor_v.size())}, torch::kInt)
+            .to(c10::kHPU, true);
     auto multiplied_indices = at::mul(concatenated_indices, mul_factor);
     auto ravelled_indices = at::sum(multiplied_indices, 1);
 

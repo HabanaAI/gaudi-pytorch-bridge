@@ -649,6 +649,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   torch::jit::Stack stack;
   stack.reserve(std::max(input_values.size(), indices.size()));
   for (const auto& in : input_values) {
+    HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     stack.emplace_back(d->tensor_data);
     // We dont get the correct lazy tensor back from internal tensor
