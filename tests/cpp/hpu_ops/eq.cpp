@@ -30,3 +30,35 @@ TEST_F(HpuOpTest, eq_tensor) {
 
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
+
+TEST_F(HpuOpTest, equal_f32) {
+  auto ones = torch::ones({12}, "hpu");
+  auto zeros = torch::zeros({12}, "hpu");
+  EXPECT_FALSE(torch::equal(ones, zeros));
+}
+
+TEST_F(HpuOpTest, equal_bf16) {
+  auto ones = torch::ones(
+      {2, 3, 4}, torch::TensorOptions(torch::kBFloat16).device("hpu"));
+  EXPECT_TRUE(torch::equal(ones, ones));
+}
+
+TEST_F(HpuOpTest, equal_i32) {
+  auto ones =
+      torch::ones({2, 3, 4}, torch::TensorOptions(torch::kInt32).device("hpu"));
+  EXPECT_TRUE(torch::equal(ones, ones));
+}
+
+TEST_F(HpuOpTest, equal_i8) {
+  auto ones =
+      torch::ones({8, 4, 4}, torch::TensorOptions(torch::kInt8).device("hpu"));
+  auto zeros =
+      torch::zeros({8, 4, 4}, torch::TensorOptions(torch::kInt8).device("hpu"));
+  EXPECT_FALSE(torch::equal(ones, zeros));
+}
+
+TEST_F(HpuOpTest, equal_u8) {
+  auto ones = torch::ones(
+      {8, 4, 4, 3}, torch::TensorOptions(torch::kUInt8).device("hpu"));
+  EXPECT_TRUE(torch::equal(ones, ones));
+}

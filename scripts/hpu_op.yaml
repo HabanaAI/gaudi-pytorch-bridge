@@ -378,6 +378,11 @@ elu_backward:
   guid: elu_bwd
   out_ids: [0]
 
+equal:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  out_ids: [0]
+
 eq.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
