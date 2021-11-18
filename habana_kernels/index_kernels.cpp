@@ -1064,12 +1064,27 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   syn_inputs.emplace_back(arg2_syn_tensor.get());
   syn_inputs.emplace_back(arg3_syn_tensor.get());
 
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+    synapse_helpers::tensor& shape_syn_tensor = p_context_->syn_inputs_.back();
+    syn_inputs.emplace_back(shape_syn_tensor.get());
+  }
+
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
   ns_ScatterNDKernel::Params params{int(indices.ndimension()), {0}};
-  // Dims reversed between PT and synapse
   auto indices_shape = indices.sizes().vec();
+  // For Dynamic case fill index params with max size
+  if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
+    synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[1];
+    std::string tensor_name = syn_input_tensor.name();
+    std::vector<int64_t> min, max;
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    indices_shape = max;
+  }
+  // Dims reversed between PT and synapse
   for (int i = indices_shape.size() - 1, j = 0; i >= 0; --i, ++j) {
     params.origIndicesShape[j] = indices_shape[i];
   }
