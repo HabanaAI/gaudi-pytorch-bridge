@@ -1255,6 +1255,48 @@ smooth_l1_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   op_base_class: SmoothL1LossBwdOperator
 
+special_xlog1py:
+  dtypes: [BFloat16, Float]
+  guid: log1p_fwd
+  op_base_class: XlogYOperator
+  out_ids: [0]
+
+special_xlog1py.other_scalar:
+  custom_output_shape: XlogYOutputShape
+  guid: log1p_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  out_ids: [0]
+  scalar_ids: [1]
+
+special_xlog1py.other_scalar_out:
+  custom_output_shape: XlogYOutputShape
+  guid: log1p_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  scalar_ids: [1]
+
+special_xlog1py.out:
+  dtypes: [BFloat16, Float]
+  guid: log1p_fwd
+  op_base_class: XlogYOperator
+
+special_xlog1py.self_scalar_out:
+  guid: log1p_fwd
+  custom_output_shape: XlogYOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  scalar_ids: [0]
+
+special_xlog1py.self_scalar:
+  guid: log1p_fwd
+  custom_output_shape: XlogYOutputShape
+  dtypes: [BFloat16, Float]
+  lazy_class: LazyXlogY
+  op_base_class: XlogYOperator
+  out_ids: [1]
+  scalar_ids: [0]
+
 sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
@@ -1358,3 +1400,62 @@ trunc_:
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
   inplace_ids: [0]
+
+xlogy.Scalar_Other:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  out_ids: [0]
+  scalar_ids: [1]
+
+xlogy.Tensor:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  out_ids: [0]
+
+xlogy.OutScalar_Self:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  scalar_ids: [0]
+
+xlogy.OutScalar_Other:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  scalar_ids: [1]
+
+xlogy.OutTensor:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+
+xlogy_.Scalar_Other:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  scalar_ids: [1]
+  inplace_ids: [0]
+
+xlogy_.Tensor:
+  custom_output_shape: XlogYOutputShape
+  guid: log_fwd
+  dtypes: [BFloat16, Float]
+  op_base_class: XlogYOperator
+  inplace_ids: [0]
+
+xlogy.Scalar_Self:
+  op_base_class: XlogYOperator
+  guid: log_fwd
+  custom_output_shape: XlogYOutputShape
+  dtypes: [BFloat16, Float]
+  lazy_class: LazyXlogY
+  out_ids: [1]
+  scalar_ids: [0]

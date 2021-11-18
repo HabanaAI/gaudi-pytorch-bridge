@@ -312,12 +312,8 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
       outputs.emplace_back(
           habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
       if (attr.persistent) {
-        HABANA_ASSERT(
-            m_res_ids.at(persistent_output_id) >= 0,
-            "Out id cannot be negative for persistent output");
-        const auto& impl =
-            p_context_->pt_outputs_.at(m_res_ids.at(persistent_output_id++))
-                .unsafeGetTensorImpl();
+        const auto& impl = p_context_->pt_outputs_.at(persistent_output_id++)
+                               .unsafeGetTensorImpl();
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
