@@ -767,13 +767,19 @@ class LazyOp {
     optimized_key = at::hash_combine(optimized_key, (size_t)t.dim());
     optimized_key =
         at::hash_combine(optimized_key, static_cast<size_t>(t.scalar_type()));
-    optimized_key = at::hash_combine(
-        optimized_key, static_cast<size_t>(t.suggest_memory_format()));
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {
+      auto val = hl_tensor->GetIrValue();
+      std::shared_ptr<Data> d = val.m_data_ptr.lock();
+      torch::jit::IValue hl_tensor_ivalue = d->tensor_data;
+      if (hl_tensor_ivalue.isTensor()) {
+        auto hb_internal_tensor = hl_tensor_ivalue.toTensor();
+        optimized_key = at::hash_combine(
+            optimized_key,
+            static_cast<size_t>(hb_internal_tensor.suggest_memory_format()));
+      }
       optimized_key =
           at::hash_combine(optimized_key, (size_t)hl_tensor->GetTensorLayout());
-      auto val = hl_tensor->GetIrValue();
       if (!(val.mp_node->is_input())) {
         optimized_key = 0;
       }
