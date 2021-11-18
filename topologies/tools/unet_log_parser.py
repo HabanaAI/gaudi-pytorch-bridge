@@ -12,7 +12,7 @@ def process(args):
     dflist = []
     b1 = {}
     device_name2='cuda_'
-    data_type=" FP32 "
+    data_type="fp32_"
     tta_type=""
     deep_s=""
     for file in args.files:
@@ -59,9 +59,13 @@ def process(args):
             head_list2=[]
 
             if  b1.get('gpus') == "0":
-                device_name2 = "hpu_"
+                if b1.get('is_hmp'):
+                    data_type = 'bf16_'
+                device_name2 = "hpu_" + data_type
             else:
-                device_name2 = "gpu_"
+                if b1.get('dtype'):
+                    data_type = b1.get('dtype').strip("'") + "_"
+                device_name2 = "gpu_" + data_type
 
             for i in range(0,len(head_list)):
                 test = device_name2 + head_list[i]
@@ -74,8 +78,6 @@ def process(args):
     fig, axs = plt.subplots(figsize=(10, 10))
     plt.legend(bbox_to_anchor=(1.0, 1.0))
 
-    if b1.get('is_hmp') == 'True':
-        data_type = ' BF16 '
 
     if b1['tta'] == 'True':
         tta_type = " tta "
@@ -84,9 +86,9 @@ def process(args):
         deep_s = " deep_supervision "
 
     fold = b1.get("fold")
-    title = tta_type + data_type + deep_s + "BS_" + b1['batch_size'] + " FOLD_" + fold
+    title = tta_type + deep_s + "BS_" + b1['batch_size'] + " FOLD_" + fold
     y = None
-    color_list=['red', 'green']
+    color_list=['red', 'green','blue','black']
     j=0
     for frame in dflist:
         if y is None:
