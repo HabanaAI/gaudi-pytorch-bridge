@@ -70,7 +70,7 @@ def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_
     if ('unet3d' in topology or 'unet2d' in topology) and t_dev1_torch.size() == t_dev2_torch.size() and 'bkwd' in tensor_name:
         print(f"not permuting as same shape - {tensor_name}")
         permute_required = False
-    if ('resnet' in topology or 'mobilenetv2' in topology) and same_device is False and t_dev1_torch.ndim == 4:
+    if ('resnet' in topology or 'mobilenetv2' in topology or 'googlenet' in topology) and same_device is False and t_dev1_torch.ndim == 4:
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
             if not (tail == "input.pt"):
