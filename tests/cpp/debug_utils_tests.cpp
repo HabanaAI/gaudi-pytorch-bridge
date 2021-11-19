@@ -16,7 +16,7 @@ class DebugUtilsTest : public habana_lazy_test::LazyTest {
   }
 };
 
-TEST_F(DebugUtilsTest, GraphTextDump1) {
+TEST_F(DebugUtilsTest, DISABLED_GraphTextDump1) {
   auto A = torch::randn({2, 2}, torch::requires_grad(false));
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
   auto hA = A.to(torch::kHPU);
