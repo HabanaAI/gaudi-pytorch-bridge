@@ -39,7 +39,6 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
     get<float>(params->limit) = end;
   get<float>(params->delta) = step;
 
-  size = sizeof(params);
   return params;
 }
 

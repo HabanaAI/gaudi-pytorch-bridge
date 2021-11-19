@@ -32,7 +32,6 @@ std::shared_ptr<void> LogSumExpParams(
   auto ndim = static_cast<int>(stack.at(0).toTensor().dim());
   auto reduction_dim = ndim - 1 - index;
   params->reductionDimension = reduction_dim;
-  size = sizeof(params);
   return params;
 }
 
@@ -53,8 +52,9 @@ void LogSumExp::AddNode(
   auto mask = std::bitset<64>();
   auto self_shape = self.sizes().vec();
 
-  for (int64_t i = 0; i < static_cast<int64_t>(dim.size()); i++)
-    mask.set(c10::maybe_wrap_dim(dim[i], ndim, true));
+  for (const auto& i : dim) {
+    mask.set(c10::maybe_wrap_dim(i, ndim, true));
+  }
 
   auto new_shape = LogSumExpOutputShape(stack)[0];
 

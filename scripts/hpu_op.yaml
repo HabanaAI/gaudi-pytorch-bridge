@@ -392,19 +392,16 @@ erf.out:
   guid: erf_fwd
 
 erfc:
-  custom_fill_params: FillErfcParams
   dtypes: [BFloat16, Float]
   op_base_class: Erfc
   out_ids: [0]
 
 erfc_:
-  custom_fill_params: FillErfcParams
   dtypes: [BFloat16, Float]
   op_base_class: Erfc
   inplace_ids: [0]
 
 erfc.out:
-  custom_fill_params: FillErfcParams
   dtypes: [BFloat16, Float]
   op_base_class: Erfc
 

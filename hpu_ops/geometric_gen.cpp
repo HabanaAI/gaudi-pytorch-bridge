@@ -41,7 +41,6 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   params->p = p;
   params->k = 1.0;
   params->seed = seed;
-  size = sizeof(params);
   return params;
 }
 
