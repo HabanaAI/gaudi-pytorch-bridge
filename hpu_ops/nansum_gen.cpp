@@ -39,7 +39,6 @@ std::shared_ptr<void> NanSumParams(
   auto ndim = static_cast<int>(stack.at(0).toTensor().dim());
   auto reduction_dim = ndim - 1 - index;
   params->reductionDimension = reduction_dim;
-  size = sizeof(params);
   return params;
 }
 
