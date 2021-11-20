@@ -1684,7 +1684,7 @@ void runTopkDynamicTest(
   }
 }
 
-TEST_F(LazyDynamicShapesTest, TopKTest1) {
+TEST_F(LazyDynamicShapesTest, DISABLED_TopKTest1) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
