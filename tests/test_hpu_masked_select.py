@@ -9,7 +9,7 @@ def test_hpu_masked_select():
     X = torch.randn(5,4)
     Xh = X.to(device_hpu)
 
-    mask = X.ge(0.5)
+    mask = X.ge(0.6)
     maskh = mask.to(device_hpu)
 
     B= torch.masked_select(X, mask)

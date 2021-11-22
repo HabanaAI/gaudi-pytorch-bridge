@@ -2337,6 +2337,32 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   flush_op(result);
   return result;
 }
+
+Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
+  PT_LAZY_TRACE;
+  Tensor unsqueeze_mask = mask;
+  if (mask.dim() == 0) {
+    unsqueeze_mask = mask.unsqueeze(0);
+  }
+  auto result = nonzero_hpu_lazy(unsqueeze_mask);
+
+  std::vector<Tensor> idx = result.unbind(1);
+  // after unbind indices might be on cpu.
+  // Before passing it to index operator all indices must be on hpu
+  // This is done as an alternative of typeConvertIndices
+  c10::List<c10::optional<Tensor>> converted_inds;
+  converted_inds.reserve(idx.size());
+  for (size_t i = 0; i < idx.size(); ++i) {
+    const auto& ind = idx[i];
+    if (ind.defined()) {
+      converted_inds.push_back(ind);
+    } else {
+      converted_inds.push_back(std::move(idx[i]));
+    }
+  }
+  return index(self, converted_inds);
+}
+
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim,

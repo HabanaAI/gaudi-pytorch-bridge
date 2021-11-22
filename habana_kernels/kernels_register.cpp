@@ -947,26 +947,12 @@ Tensor& hpu_wrap::masked_fill_(
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
   if (!hpu_check_inputs_impl("masked_select", {self, mask}))
     return AtenHpuTypeDefault::masked_select(self, mask);
-
-  std::vector<Tensor> idx;
-
-  if (mask.dim() == 0) {
-    idx = mask.unsqueeze(0).nonzero().unbind(1);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return masked_select_hpu_lazy(self, mask);
   } else {
-    idx = mask.nonzero().unbind(1);
+    HABANA_ASSERT(0 && "masked_select not implemented for eager mode");
+    return masked_select_hpu_lazy(self, mask);
   }
-
-  c10::List<c10::optional<Tensor>> converted_inds;
-  converted_inds.reserve(idx.size());
-  for (size_t i = 0; i < idx.size(); ++i) {
-    const auto& ind = idx[i];
-    if (ind.defined()) {
-      converted_inds.push_back(ind.to(ind.options().device("hpu")));
-    } else {
-      converted_inds.push_back(std::move(idx[i]));
-    }
-  }
-  return torch::index(self, converted_inds);
 };
 Tensor hpu_wrap::gather(
     const Tensor& self,

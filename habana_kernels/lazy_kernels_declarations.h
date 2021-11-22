@@ -290,6 +290,9 @@ at::Tensor& arange_hpu_lazy(
     const at::Scalar& start,
     const at::Scalar& end,
     const at::Scalar& step);
+at::Tensor masked_select_hpu_lazy(
+    const at::Tensor& self,
+    const at::Tensor& mask);
 at::Tensor nonzero_hpu_lazy(const at::Tensor& self);
 at::Tensor slice_backward_hpu_lazy(
     const at::Tensor& self,
