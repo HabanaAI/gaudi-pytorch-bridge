@@ -111,7 +111,7 @@ hcl_communicator::hcl_communicator(
     }
   }
 
-  using_streams_ = GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
+  using_streams_ = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
 
   PT_DISTRIBUTED_DEBUG(
       "[PYT-DIST] Opening communication. device_id:", device_id, ".");

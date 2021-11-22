@@ -76,64 +76,10 @@ namespace env_flags {
 // - default value is assigned in case environment variable is undefined
 // - min(), max() methods may be defined for range check
 
-struct PT_ENABLE_HABANA_CACHING {
-  static constexpr bool default_value = true;
-};
-
-struct PT_ENABLE_HABANA_STREAMASYNC {
-  static constexpr bool default_value = true;
-};
-
-struct PT_ENABLE_HOST_MEMORY_CACHE {
-  static constexpr bool default_value = true;
-};
-
-struct PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION {
-  static constexpr bool default_value = false;
-};
-
-struct PT_ENABLE_HCL_STREAM {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HCCL_SLICE_SIZE_MB : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 128;
-};
-
-struct PT_HPU_INITIAL_WORKSPACE_SIZE
-    : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 0;
-};
-
-struct PT_HABANA_MAX_DMA_COPY_RETRY_COUNT
-    : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 1000;
-};
-
 // Synapse-specific env var.
 // Colon-separated list of tpc kernel libs to be loaded for GC
 struct GC_KERNEL_PATH {
   static constexpr const char* default_value = "";
-};
-
-struct PT_HABANA_DMA_COPY_RETRY_DELAY : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 10;
-};
-
-struct PT_HABANA_POOL_SIZE : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 24;
-};
-
-struct PT_HPU_POOL_STRATEGY : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 5;
-};
-
-struct PT_HPU_POOL_MAX_MERGE_COUNT : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 5;
-};
-
-struct PT_HPU_POOL_ENABLE_LFU_MERGE {
-  static constexpr bool default_value = true;
 };
 
 struct PT_HABANA_MEM_LOG_LEVEL : public std::numeric_limits<unsigned> {
@@ -203,11 +149,6 @@ struct PT_HPU_AVOID_RE_EXECUTE_GRAPHS {
 // Experimental feature for media pipe. Do not document for end customers
 struct PT_HPU_ENABLE_DATAPTR_ACCESS {
   static constexpr bool default_value = false;
-};
-
-struct PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT
-    : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 0;
 };
 
 struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
@@ -353,6 +294,20 @@ ENV_STRUCT_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool, false);
 ENV_STRUCT_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_EAGER_OPTIM_CACHE, unsigned, 0);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_BUCKET_REFINEMENT, bool, false);
+ENV_STRUCT_DEFINITION(PT_ENABLE_HABANA_CACHING, bool, true);
+ENV_STRUCT_DEFINITION(PT_ENABLE_HABANA_STREAMASYNC, bool, true);
+ENV_STRUCT_DEFINITION(PT_ENABLE_HOST_MEMORY_CACHE, bool, true);
+ENV_STRUCT_DEFINITION(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION, bool, false);
+ENV_STRUCT_DEFINITION(PT_ENABLE_HCL_STREAM, bool, true);
+ENV_STRUCT_DEFINITION(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT, unsigned, 1000);
+ENV_STRUCT_DEFINITION(PT_HABANA_DMA_COPY_RETRY_DELAY, unsigned, 10);
+ENV_STRUCT_DEFINITION(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT, unsigned long, 0);
+ENV_STRUCT_DEFINITION(PT_HCCL_SLICE_SIZE_MB, unsigned, 128);
+ENV_STRUCT_DEFINITION(PT_HPU_INITIAL_WORKSPACE_SIZE, unsigned long, 0);
+ENV_STRUCT_DEFINITION(PT_HABANA_POOL_SIZE, unsigned long, 24);
+ENV_STRUCT_DEFINITION(PT_HPU_POOL_STRATEGY, unsigned, 5);
+ENV_STRUCT_DEFINITION(PT_HPU_POOL_MAX_MERGE_COUNT, unsigned, 5);
+ENV_STRUCT_DEFINITION(PT_HPU_POOL_ENABLE_LFU_MERGE, bool, true);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes

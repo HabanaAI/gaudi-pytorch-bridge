@@ -123,8 +123,8 @@ device::device(
   allocator_ = create_allocator(id_);
 
   is_hcl_same_addr_enabled_ =
-      GET_ENV_FLAG(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
-      GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
+      GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
+      GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
 
   // use the first allocated buffer always for same_address functionality
   // if each rank uses the same address for the recv/intermediate addresses;
@@ -141,7 +141,7 @@ device::device(
         prealloc_addr, prealloc_size, *this);
   }
 
-  if (GET_ENV_FLAG(PT_HPU_INITIAL_WORKSPACE_SIZE) > 0) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) > 0) {
     uint64_t total_memory, free_memory;
     auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
     if (synStatus::synSuccess != status) {
@@ -164,13 +164,15 @@ device::device(
         synapse_helpers::get_mem_str(workspace_size_));
   }
 
-  is_caching_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_CACHING);
-  is_stream_async_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_STREAMASYNC);
-  host_memory_cache_enabled_ = GET_ENV_FLAG(PT_ENABLE_HOST_MEMORY_CACHE);
-  max_dma_copy_retry_count_ = GET_ENV_FLAG(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
-  dma_copy_retry_delay_ =
-      std::chrono::milliseconds(GET_ENV_FLAG(PT_HABANA_DMA_COPY_RETRY_DELAY));
-  max_recipe_limit_in_queue_ = GET_ENV_FLAG(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT);
+  is_caching_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_CACHING);
+  is_stream_async_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC);
+  host_memory_cache_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HOST_MEMORY_CACHE);
+  max_dma_copy_retry_count_ =
+      GET_ENV_FLAG_NEW(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
+  dma_copy_retry_delay_ = std::chrono::milliseconds(
+      GET_ENV_FLAG_NEW(PT_HABANA_DMA_COPY_RETRY_DELAY));
+  max_recipe_limit_in_queue_ =
+      GET_ENV_FLAG_NEW(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -292,7 +294,7 @@ int device::get_count() {
 // GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
 uint64_t device::get_workspace_size() {
   uint64_t workspaceSize = GLOBAL_WORKSPACE_SIZE;
-  auto init_size = GET_ENV_FLAG(PT_HPU_INITIAL_WORKSPACE_SIZE);
+  auto init_size = GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE);
   if (init_size > 0) {
     workspaceSize = init_size * 1024 * 1024 * 1024;
     if (workspaceSize == 0) {

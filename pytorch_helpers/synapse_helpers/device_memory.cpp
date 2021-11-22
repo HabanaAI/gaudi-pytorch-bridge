@@ -21,9 +21,9 @@
 
 namespace synapse_helpers {
 device_memory::device_memory(device& device) : device_{device} {
-  pool_size_ = GET_ENV_FLAG(PT_HABANA_POOL_SIZE) * 1024 * 1024 * 1024;
+  pool_size_ = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE) * 1024 * 1024 * 1024;
   pool_strategy_ =
-      (pool_allocator::PoolStrategyType)GET_ENV_FLAG(PT_HPU_POOL_STRATEGY);
+      (pool_allocator::PoolStrategyType)GET_ENV_FLAG_NEW(PT_HPU_POOL_STRATEGY);
   enable_mem_threshold_check = false;
   switch (pool_strategy_) {
     case pool_allocator::strategy_bump:
@@ -80,8 +80,10 @@ device_memory::device_memory(device& device) : device_{device} {
     case pool_allocator::startegy_coalesce_stringent:
       try {
         PT_DEVMEM_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
-        uint64_t max_merge_count = GET_ENV_FLAG(PT_HPU_POOL_MAX_MERGE_COUNT);
-        bool enable_lfu_merging = GET_ENV_FLAG(PT_HPU_POOL_ENABLE_LFU_MERGE);
+        uint64_t max_merge_count =
+            GET_ENV_FLAG_NEW(PT_HPU_POOL_MAX_MERGE_COUNT);
+        bool enable_lfu_merging =
+            GET_ENV_FLAG_NEW(PT_HPU_POOL_ENABLE_LFU_MERGE);
         suballoc_ = new pool_allocator::SubAllocator(
             new pool_allocator::CoalescedStringentPooling(
                 max_merge_count, enable_lfu_merging));

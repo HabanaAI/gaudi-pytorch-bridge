@@ -52,7 +52,7 @@ hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
 }
 
 size_t getHCCLSliceSizeMB() {
-  static const size_t slice_size = GET_ENV_FLAG(PT_HCCL_SLICE_SIZE_MB);
+  static const size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
   return slice_size * 1024 * 1024;
 }
 
