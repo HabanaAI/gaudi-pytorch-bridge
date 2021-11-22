@@ -201,16 +201,12 @@ void InsertWeightPermute_graph(
           auto value_dims1 = graph->insertConstant(IValue(dims1));
           auto permute_node =
               graph->create(op_permute, {value_in, value_dims1}, 1);
-          permute_node->s_(c10::attr::name, "permute_node");
-          permute_node->outputs()[0]->setDebugName(
-              value_in->debugName() + "/premute");
           permute_node->insertAfter(value_in->node());
 
           auto op_control_edge1 =
               c10::Symbol::fromQualString("hpu::control_edge_");
           auto control_edge_node1 =
               graph->create(op_control_edge1, {value_in}, 1);
-          control_edge_node1->s_(c10::attr::name, "control_edge_node1");
           control_edge_node1->insertAfter(value_in->node());
 
           auto op_as_strided1 =
@@ -219,14 +215,12 @@ void InsertWeightPermute_graph(
           auto value_dims2 = graph->insertConstant(IValue(dims2));
           auto as_strided_node1 = graph->create(
               op_as_strided1, {control_edge_node1->output(0), value_dims2}, 1);
-          as_strided_node1->s_(c10::attr::name, "as_strided_node1");
           as_strided_node1->insertAfter(control_edge_node1);
 
           auto op_control_edge2 =
               c10::Symbol::fromQualString("hpu::control_edge_");
           auto control_edge_node2 =
               graph->create(op_control_edge2, {as_strided_node1->output(0)}, 1);
-          control_edge_node2->s_(c10::attr::name, "control_edge_node2");
           control_edge_node2->insertAfter(as_strided_node1);
 
           auto op_d2d_copy =
@@ -235,14 +229,12 @@ void InsertWeightPermute_graph(
               op_d2d_copy,
               {permute_node->output(0), control_edge_node2->output(0)},
               1);
-          d2d_copy_node->s_(c10::attr::name, "d2d_copy_node");
           d2d_copy_node->insertAfter(permute_node);
 
           auto op_control_edge3 =
               c10::Symbol::fromQualString("hpu::control_edge_");
           auto control_edge_node3 =
               graph->create(op_control_edge3, {d2d_copy_node->output(0)}, 1);
-          control_edge_node3->s_(c10::attr::name, "control_edge_node3");
           control_edge_node3->insertAfter(d2d_copy_node);
 
           auto op_as_strided2 =
@@ -251,7 +243,6 @@ void InsertWeightPermute_graph(
           auto value_dims3 = graph->insertConstant(IValue(dims3));
           auto as_strided_node2 = graph->create(
               op_as_strided2, {control_edge_node3->output(0), value_dims3}, 1);
-          as_strided_node2->s_(c10::attr::name, "as_strided_node2");
           as_strided_node2->insertAfter(control_edge_node3);
 
           value_in->replaceAllUsesAfterNodeWith(
@@ -324,7 +315,6 @@ void InsertWeightPermute_graph(
             c10::Symbol::fromQualString("hpu::control_edge_");
         auto control_edge_node10 =
             graph->create(op_control_edge10, {value_in}, 1);
-        control_edge_node10->s_(c10::attr::name, "control_edge10");
         graph->insertNode(control_edge_node10);
 
         auto op_as_strided =
@@ -334,7 +324,6 @@ void InsertWeightPermute_graph(
         auto value_dims = graph->insertConstant(IValue(dims));
         permute_strided = graph->create(
             op_as_strided, {control_edge_node10->output(0), value_dims}, 1);
-        permute_strided->s_(c10::attr::name, "permute_strided");
         graph->insertNode(permute_strided);
         conv_node->replaceInputWith(value_in, permute_strided->output(0));
       } else {
@@ -363,7 +352,6 @@ void InsertWeightPermute_graph(
       auto value_dims_out = graph->insertConstant(IValue(dims_out));
       auto as_strided_node_out =
           graph->create(op_as_strided_out, {value_out, value_dims_out}, 1);
-      as_strided_node_out->s_(c10::attr::name, "as_strided_node_out");
       graph->insertNode(as_strided_node_out);
       value_out->replaceAllUsesAfterNodeWith(
           as_strided_node_out, as_strided_node_out->output(0));

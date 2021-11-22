@@ -52,7 +52,7 @@ def test_maxpool_2d(D1, D2, D3, D4):
         model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t)
         print("Fused graph on HPU: ")
         print(model_trace_hpu_graph)
-        FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
+        FileCheck().check_count("prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
         hpu_result = model_trace_hpu(hpu_t).to(cpu)
         # Backward test is disabled as permute() of byte type in forward is not supported
         # in graph mode yet

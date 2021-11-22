@@ -82,8 +82,8 @@ TEST_F(PostOrderTest, poTestFill) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("= prim::Constant[value=1.]", 1)
-      ->check("= aten::fill_")
+      .check_count("prim::Constant[value=1.]", 1)
+      ->check("aten::fill_")
       ->run(*hlexec->get_graph());
 }
 

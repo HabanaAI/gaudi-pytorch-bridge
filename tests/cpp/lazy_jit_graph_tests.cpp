@@ -54,8 +54,8 @@ TEST_F(LazyJITTest, CreateGraph) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check("= prim::Constant[value=1.]")
-      ->check_count("= aten::add", 2)
+      .check("prim::Constant[value=1.]")
+      ->check_count("aten::add", 2)
       ->run(*hlexec->get_graph());
 
   auto result2_cpu = result2.to(torch::kCPU);
