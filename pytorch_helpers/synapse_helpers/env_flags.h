@@ -79,6 +79,10 @@ namespace env_flags {
 // Synapse-specific env var.
 // Colon-separated list of tpc kernel libs to be loaded for GC
 
+struct PT_HCCL_MEMORY_ALLOWANCE_MB : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 200;
+};
+
 // Overloads for different type of default value
 
 template <class T>

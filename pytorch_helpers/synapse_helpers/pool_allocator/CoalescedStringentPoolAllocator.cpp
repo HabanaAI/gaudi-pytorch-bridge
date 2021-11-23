@@ -125,11 +125,23 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   // try to take max free memory when not set by user
   if ((size > free_mem) || (size == DEFAULT_POOL_SIZE)) {
-    // setting the pool size to 99% of available memory in case of failure
-    size = 0.99 * free_mem;
+    // leave small factor of memory for synapse to use, so set acquire 99% of
+    // free memory
+    // Some memory needs to be left for intermediate buffer for collective
+    // inside HCCL.
+    std::size_t hccl_allowance_bytes = 0;
+    if (std::getenv("ID") != nullptr) {
+      const std::size_t HCCL_MEMORY_ALLOWANCE_MB{
+          GET_ENV_FLAG(PT_HCCL_MEMORY_ALLOWANCE_MB)};
+      hccl_allowance_bytes = 1048576 * HCCL_MEMORY_ALLOWANCE_MB;
+    }
+    size = (0.99 * free_mem) - hccl_allowance_bytes;
+
     PT_DEVMEM_DEBUG(
         "POOL:: use 99% of freepool size, free mem :: ",
         free_mem,
+        "hccl allowance bytes",
+        hccl_allowance_bytes,
         " size used for pool :: ",
         size);
   }
