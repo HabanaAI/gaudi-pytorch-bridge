@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, geometric_f32) {
+TEST_F(HpuOpTest, DISABLED_geometric_f32) {
   GenerateInputs(1, {{1, 2}}, {torch::kFloat32});
   double p = 0.8;
 
@@ -21,7 +21,7 @@ TEST_F(HpuOpTest, geometric_f32) {
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
-TEST_F(HpuOpTest, geometric_bf16) {
+TEST_F(HpuOpTest, DISABLED_geometric_bf16) {
   GenerateInputs(1, {{1, 2, 4}}, {torch::kBFloat16});
   double p = 0.9;
 
