@@ -1540,8 +1540,15 @@ Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::pow", {self, other}};
-  return k.call();
+  if (other.equal(2)) {
+    return mul_tensor_hpu_lazy(self, self);
+  } else if (other.equal(3)) {
+    auto temp = mul_tensor_hpu_lazy(self, self);
+    return mul_tensor_hpu_lazy(temp, self);
+  } else {
+    LazyOp<at::Tensor> k{"aten::pow", {self, other}};
+    return k.call();
+  }
 }
 
 Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
