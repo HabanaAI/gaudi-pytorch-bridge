@@ -1536,6 +1536,17 @@ upsample_nearest1d_backward.vec:
   op_base_class: UpsampleNearest1DBwd
   out_ids: [0]
 
+vdot:
+  custom_output_shape: VdotOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: VdotOperator
+  out_ids: [0]
+
+vdot.out:
+  custom_output_shape: VdotOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: VdotOperator
+
 xlogy.Scalar_Other:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
