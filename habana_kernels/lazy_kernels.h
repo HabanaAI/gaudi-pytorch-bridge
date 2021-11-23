@@ -21,10 +21,29 @@
 #include "resize.h"
 
 namespace habana_lazy {
+void AddMemcpy(const at::Tensor& src, at::Tensor& dst);
 void updateDstDependencies(
     habana_lazy::HbLazyTensor& hl_dst,
     const at::Tensor& dst,
     bool in_place = false);
+
+bool HandleViews(const at::Tensor& t, const habana_lazy::HbLazyTensor& hl_t);
+habana_lazy::HbLazyTensor HandleViewsOrUpdate(
+    const at::Tensor& t,
+    habana_lazy::HbLazyTensor& hl_t);
+at::Tensor HandleViewsD2H(const at::Tensor& t);
+bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst);
+std::vector<at::Tensor> HandleViewsTensorList(const at::TensorList&);
+at::Tensor add_strided_view_node(
+    const at::Tensor& self,
+    at::IntArrayRef size_in,
+    at::IntArrayRef stride_in,
+    int64_t storage_offset,
+    bool is_update_view,
+    c10::optional<at::Tensor> out);
+void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params);
+at::Tensor get_parent_tensor(const at::Tensor& self);
+const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
 
 void flushWithMarkStep();
 

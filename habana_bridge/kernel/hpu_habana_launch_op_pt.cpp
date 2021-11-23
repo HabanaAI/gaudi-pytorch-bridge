@@ -1424,8 +1424,7 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   auto tensor = value_to_ivalue[value_in]->toTensor();
   auto is_5d_layout = tensor.dim() == 5 ? true : false;
 
-  // for 0D and 1D tensors adjust sizes skipped
-  if (tensor.dim() > 1) {
+  if ((tensor.dim() == 4) || (tensor.dim() == 5)) {
     auto sizes = tensor.sizes().vec();
     auto new_pos = toIValue(node->input(1))->toIntVector();
     std::vector<int64_t> swapped_sizes;

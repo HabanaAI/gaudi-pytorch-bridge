@@ -693,6 +693,43 @@ Tensor pin_memory_hpu(
   return tensor;
 }
 
+void StridedInsertOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect number of arguments for strided insert op");
+  auto orig_t = inputs[0].toTensor();
+  auto insert_t = inputs[1].toTensor();
+  auto strides = inputs[2].toIntVector();
+  auto offset = inputs[3].toInt();
+
+  auto output = habana_helpers::createPTTensor(
+      orig_t,
+      orig_t.sizes(),
+      orig_t.options(),
+      orig_t.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
+
+  struct synStridedOpParams params;
+  params.baseOffset = static_cast<uint64_t>(offset);
+
+  size_t idx = 0;
+  // synapse expects strides in reverse order
+  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+    params.strides[idx++] = static_cast<uint64_t>(*it);
+  }
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -734,6 +771,18 @@ static auto& KernelRegistry =
             "hpu::as_strided_lazy_cl_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AsStridedClOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_insert",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedInsertOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_insert_cl",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedInsertClOperator>(
                   device_id, node_type);
             })
         .add(

@@ -21,6 +21,15 @@ using Graph = torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
 
 namespace habana_lazy {
+struct StrideParams {
+  // storing the tensor helps to retain extend the lifetime of tensor until all
+  // the views have expired
+  at::Tensor t;
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
+  int64_t offset;
+};
+
 class HbExecutionContext {
  public:
   HbExecutionContext() = default;
@@ -102,6 +111,11 @@ class HbExecutionContext {
   bool m_is_cached = false;
 
   std::unordered_map<float, at::Tensor> scalar_to_tensor_map;
+
+  // maps tensor id corresponding to as_strided's o/p with its i/p stride params
+  std::map<int64_t, StrideParams> view_table;
+  // maintains most recent version of the original tensor map
+  std::map<int64_t, at::Tensor> orig_tensor_map;
 
  private:
   // A map between unique lazy tensor ID and execution status

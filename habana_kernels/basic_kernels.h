@@ -157,3 +157,31 @@ class AsStridedClOperator : public AsStridedOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
 };
+
+class StridedInsertOperator : public habana::HabanaOperator {
+ public:
+  StridedInsertOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("strided_insert") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NCHW, habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class StridedInsertClOperator : public StridedInsertOperator {
+ public:
+  StridedInsertClOperator(int device_id, c10::ScalarType scalarType)
+      : StridedInsertOperator(device_id, scalarType) {
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC, habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+  }
+};

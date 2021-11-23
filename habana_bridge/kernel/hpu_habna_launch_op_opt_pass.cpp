@@ -124,6 +124,18 @@ void HabanaLaunchOpPT::set_persistence_input(torch::jit::Node* node) {
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
     valptr_to_persistent_map[val] = true;
+  } else if (val->type()->kind() == c10::TypeKind::ListType) {
+    // This case is needed for fused clip norm
+    // fused clip norm has List(as_strided(grads) ->fused_norm. Since fused norm
+    // is an inplace op,  we need to mark as_strided output as persistent move
+    // one level up and set persistence for all the list inputs
+    auto list_in_vals = val->node()->inputs();
+
+    for (auto in_val : list_in_vals) {
+      if (in_val->type()->kind() == c10::TypeKind::TensorType) {
+        valptr_to_persistent_map[in_val] = true;
+      }
+    }
   }
 }
 

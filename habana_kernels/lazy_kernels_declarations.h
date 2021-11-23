@@ -28,6 +28,7 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
+void strided_insert_hpu_lazy(const at::Tensor&, const at::Tensor&);
 const at::Tensor& as_strided_hpu_lazy_(
     const at::Tensor& self,
     at::IntArrayRef size,
@@ -645,8 +646,8 @@ at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef stride,
     const at::TensorOptions& options,
     bool create_storage = true,
-    synTensorType tensor_type = DATA_TENSOR);
-
+    synTensorType tensor_type = DATA_TENSOR,
+    int64_t storage_offset = 0);
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::MemoryFormat> memory_format);
