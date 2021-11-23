@@ -758,16 +758,26 @@ class LazyOp {
       }
 
       if (input.isTensor()) {
-        // Calculate hash based on unique tensor inputs.
-        size_t input_hash_val = at::IValue::hash(input);
-        if (input_hash_values.count(input_hash_val)) {
-          continue;
-        }
-        input_hash_values.emplace(input_hash_val);
         const at::Tensor& t = input.toTensor();
-        update_hash_key_for_tensor(t, optimized_key);
-        if (optimized_key == 0) {
-          break;
+        if (t.defined()) {
+          if (t.device().type() != c10::DeviceType::HPU) {
+            // non HPU tensors to be handled later
+            optimized_key = 0;
+            break;
+          }
+          // Calculate hash based on unique tensor inputs.
+          size_t input_hash_val = at::IValue::hash(input);
+          if (input_hash_values.count(input_hash_val)) {
+            continue;
+          }
+          input_hash_values.emplace(input_hash_val);
+          update_hash_key_for_tensor(t, optimized_key);
+          if (optimized_key == 0) {
+            break;
+          }
+        } else {
+          optimized_key = at::hash_combine(
+              optimized_key, at::IValue::hash(torch::jit::IValue()));
         }
       } else if (input.isTensorList()) {
         const auto& tensors = input.toTensorVector();
@@ -854,6 +864,7 @@ class LazyOp {
               it = find(input_values.begin(), input_values.end(), val);
               if (it == input_values.end()) {
                 input_values.emplace_back(val);
+                m_input_pt_tensors.emplace_back(tinput);
               }
             }
           } else {
@@ -879,6 +890,7 @@ class LazyOp {
   }
 
  private:
+  std::vector<at::Tensor> m_input_pt_tensors;
   bool m_convert_wrapped_tensor_to_scalar = false;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
