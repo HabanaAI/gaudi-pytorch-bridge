@@ -6813,8 +6813,7 @@ Tensor habana_nms_hpu_lazy(
       hl_result.GetSizes(),
       hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
-  std::vector<HbLazyTensor> hl_flush_result = {hl_result};
-  HbLazyTensor::SyncTensorsGraph(&hl_flush_result);
+  flush_op(result);
   return result;
 }
 
