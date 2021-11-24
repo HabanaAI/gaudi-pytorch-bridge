@@ -150,6 +150,12 @@ bitwise_and.Scalar_out:
   guid: bitwise_and_fwd
   scalar_ids: [1]
 
+bitwise_and.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_and_fwd
+  out_ids: [0]
+
 bitwise_and.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
