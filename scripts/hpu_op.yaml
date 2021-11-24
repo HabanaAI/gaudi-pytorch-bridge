@@ -138,6 +138,13 @@ atanh_:
   guid: atanh_fwd
   inplace_ids: [0]
 
+bitwise_and.Scalar:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_and_fwd
+  scalar_ids: [1]
+  out_ids: [0]
+
 bitwise_and.Scalar_out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
@@ -148,6 +155,11 @@ bitwise_and.Tensor_out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   legacy_eager: true
+
+bitwise_and_.Tensor:
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_and_fwd
+  inplace_ids: [0]
 
 bitwise_not:
   dtypes: [Int, Short, Byte, Char]
@@ -169,16 +181,38 @@ bitwise_or.Scalar_out:
   guid: bitwise_or_fwd
   scalar_ids: [1]
 
+bitwise_or.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_or_fwd
+  out_ids: [0]
+
 bitwise_or.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   legacy_eager: true
 
+bitwise_or_.Tensor:
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_or_fwd
+  inplace_ids: [0]
+
 bitwise_xor.Scalar_out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   scalar_ids: [1]
+
+bitwise_xor.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_xor_fwd
+  out_ids: [0]
+
+bitwise_xor_.Tensor:
+  dtypes: [Int, Short, Byte, Char]
+  guid: bitwise_xor_fwd
+  inplace_ids: [0]
 
 bitwise_xor.Tensor_out:
   custom_output_shape: BinaryOutputShape

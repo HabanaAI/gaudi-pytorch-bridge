@@ -54,7 +54,7 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
   }
 
   void GenerateInputs(int num_inputs) {
-    GenerateInputs(num_inputs, {}, {});
+    GenerateInputs(num_inputs, {torch::kFloat}, {});
   }
 
   // Generate inputs with different dtypes per input
@@ -69,6 +69,14 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
       int num_inputs,
       torch::ArrayRef<torch::IntArrayRef> sizes) {
     GenerateInputs(num_inputs, sizes, {});
+  }
+
+  // sizes and dtypes can be in any order
+  void GenerateInputs(
+      int num_inputs,
+      torch::ArrayRef<torch::ScalarType> dtypes,
+      torch::ArrayRef<torch::IntArrayRef> sizes) {
+    GenerateInputs(num_inputs, sizes, dtypes);
   }
 
   // Generate inputs with different dtypes/sizes per input
@@ -103,9 +111,14 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
     m_hpu_inputs.resize(num_inputs);
 
     for (int i = 0; i < num_inputs; ++i) {
-      m_cpu_inputs[i] = dtypes[i] == torch::kBool
-          ? torch::randn(sizes.at(i)) > 0
-          : torch::randn(sizes.at(i)).to(dtypes[i]);
+      if (torch::isIntegralType(dtypes[i], false)) {
+        // Fixed min and max for now, change when required.
+        m_cpu_inputs[i] = torch::randint(-127, 128, sizes.at(i)).to(dtypes[i]);
+      } else {
+        m_cpu_inputs[i] = dtypes[i] == torch::kBool
+            ? torch::randn(sizes.at(i)) > 0
+            : torch::randn(sizes.at(i)).to(dtypes[i]);
+      }
       m_hpu_inputs[i] = m_cpu_inputs[i].to("hpu");
     }
   }
