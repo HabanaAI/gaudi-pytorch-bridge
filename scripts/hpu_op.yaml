@@ -708,6 +708,7 @@ le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
   scalar_ids: [1]
+  type_promotion: true
 
 le.Tensor_out:
   custom_output_shape: BinaryOutputShape
