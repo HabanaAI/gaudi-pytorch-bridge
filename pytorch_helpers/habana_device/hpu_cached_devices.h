@@ -76,6 +76,11 @@ class HPURegistrar {
     }
   }
 
+  static void synchronize_device() {
+    auto& device = get_hpu_registrar().get_device();
+    device.synchronize();
+  }
+
   static const std::thread::id& getMainThreadId() {
     return main_thread_id_;
   }

@@ -737,6 +737,13 @@ std::set<synDeviceType> device::get_supported_devices() {
       synDeviceType::synDeviceGaudi2};
 }
 
+void device::synchronize() {
+  auto status = synDeviceSynchronize(id_);
+  if (status != synSuccess) {
+    PT_SYNHELPER_FATAL("synDeviceSynchronize failed. Status: ", status);
+  }
+}
+
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
     PT_SYNHELPER_DEBUG(

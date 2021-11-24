@@ -310,6 +310,8 @@ class device {
 
   static std::set<synDeviceType> get_supported_devices();
 
+  void synchronize();
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(

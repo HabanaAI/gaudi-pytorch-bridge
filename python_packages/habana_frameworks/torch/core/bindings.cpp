@@ -79,6 +79,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana_lazy::exec::OptPassCfg::GetInstance()
         ->IsEnabledWeightPermutePass();
   });
+  m.def("synchronize_device", []() {
+    synapse_helpers::HPURegistrar::synchronize_device();
+  });
 
   // Lazy apis
   m.def(
