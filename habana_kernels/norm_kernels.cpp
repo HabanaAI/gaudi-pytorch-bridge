@@ -2469,7 +2469,7 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "hpu::fused_norm",
+            "hpu::fused_norm_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<FusedNormOperator>(device_id, node_type);
             })

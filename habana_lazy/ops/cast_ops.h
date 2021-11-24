@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -56,7 +57,9 @@ class Cast : public Node {
   Cast(const at::Tensor& src, c10::ScalarType type, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
     static_cast<void>(non_blocking);
-    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHPU);
+    auto hl_src = GetHbLazyTensor(src);
+    hl_src = HandleViewsOrUpdate(src, hl_src);
+
     auto ir_value_src = hl_src.GetIrValue();
     AddInput(ir_value_src);
     std::vector<at::Tensor> input_pt_vec{src};

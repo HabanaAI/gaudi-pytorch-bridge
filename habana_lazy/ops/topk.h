@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -32,6 +33,7 @@ class TopK : public ir::Node {
                 ? c10::Symbol::fromQualString("hpu::topk")
                 : c10::Symbol::fromQualString("aten::topk")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -40,6 +42,7 @@ class TopK : public ir::Node {
       auto input_shape = empty_hpu_lazy(
           k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
       auto hl_input_shape = GetOrCreateHbLazyTensor(input_shape, c10::kHPU);
+      hl_input_shape = HandleViewsOrUpdate(input_shape, hl_input_shape);
       AddInput(hl_input_shape.GetIrValue());
       input_pt_vec.emplace_back(input_shape);
     } else {

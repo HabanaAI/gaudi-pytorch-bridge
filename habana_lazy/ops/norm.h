@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -36,13 +37,16 @@ class LayerNormForward : public ir::Node {
     auto weight = weight_opt.value();
     auto bias = bias_opt.value();
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+    hl_weight = HandleViewsOrUpdate(weight, hl_weight);
     AddInput(hl_weight.GetIrValue());
     input_pt_vec.emplace_back(weight);
 
     auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+    hl_bias = HandleViewsOrUpdate(bias, hl_bias);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
 
@@ -86,23 +90,29 @@ class LayerNormBackward : public ir::Node {
       std::array<bool, 3> grad_input_mask)
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {
     auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHPU);
+    hl_dY = HandleViewsOrUpdate(dY, hl_dY);
     AddInput(hl_dY.GetIrValue());
     auto hl_X = GetOrCreateHbLazyTensor(X, c10::kHPU);
+    hl_X = HandleViewsOrUpdate(X, hl_X);
     AddInput(hl_X.GetIrValue());
     auto hl_mean = GetOrCreateHbLazyTensor(mean, c10::kHPU);
+    hl_mean = HandleViewsOrUpdate(mean, hl_mean);
     AddInput(hl_mean.GetIrValue());
     auto hl_rstd = GetOrCreateHbLazyTensor(rstd, c10::kHPU);
+    hl_rstd = HandleViewsOrUpdate(rstd, hl_rstd);
     AddInput(hl_rstd.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{dY, X, mean, rstd};
     auto gamma = weight_opt.value();
 
     auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHPU);
+    hl_gamma = HandleViewsOrUpdate(gamma, hl_gamma);
     AddInput(hl_gamma.GetIrValue());
     input_pt_vec.emplace_back(gamma);
     auto bias = bias_opt.value();
 
     auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+    hl_bias = HandleViewsOrUpdate(bias, hl_bias);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
     AddInputPtTensors(input_pt_vec);
@@ -153,10 +163,12 @@ class BatchNormForward : public ir::Node {
       double eps)
       : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_rmv")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -166,6 +178,7 @@ class BatchNormForward : public ir::Node {
     }
     if (bias.defined()) {
       auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+      hl_bias = HandleViewsOrUpdate(bias, hl_bias);
       AddInput(hl_bias.GetIrValue());
       input_pt_vec.emplace_back(bias);
     } else {
@@ -175,14 +188,17 @@ class BatchNormForward : public ir::Node {
     }
 
     auto hl_residual_add = GetOrCreateHbLazyTensor(residual_add, c10::kHPU);
+    hl_residual_add = HandleViewsOrUpdate(residual_add, hl_residual_add);
     AddInput(hl_residual_add.GetIrValue());
     input_pt_vec.emplace_back(residual_add);
 
     auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
+    hl_running_mean = HandleViewsOrUpdate(running_mean, hl_running_mean);
     AddInput(hl_running_mean.GetIrValue());
     input_pt_vec.emplace_back(running_mean);
 
     auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
+    hl_running_var = HandleViewsOrUpdate(running_var, hl_running_var);
     AddInput(hl_running_var.GetIrValue());
     input_pt_vec.emplace_back(running_var);
 
@@ -232,10 +248,12 @@ class BatchNormInf : public ir::Node {
       double eps)
       : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_inf")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     if (bias.defined()) {
       auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+      hl_bias = HandleViewsOrUpdate(bias, hl_bias);
       AddInput(hl_bias.GetIrValue());
       input_pt_vec.emplace_back(bias);
     } else {
@@ -245,6 +263,7 @@ class BatchNormInf : public ir::Node {
     }
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -255,6 +274,7 @@ class BatchNormInf : public ir::Node {
     if (running_mean.defined()) {
       auto hl_running_mean =
           GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
+      hl_running_mean = HandleViewsOrUpdate(running_mean, hl_running_mean);
       AddInput(hl_running_mean.GetIrValue());
       input_pt_vec.emplace_back(running_mean);
     } else {
@@ -264,6 +284,7 @@ class BatchNormInf : public ir::Node {
     }
     if (running_var.defined()) {
       auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
+      hl_running_var = HandleViewsOrUpdate(running_var, hl_running_var);
       AddInput(hl_running_var.GetIrValue());
       input_pt_vec.emplace_back(running_var);
     } else {
@@ -302,10 +323,11 @@ class FusedNorm : public ir::Node {
       std::vector<at::Tensor>& grad,
       const at::Tensor& max_norm,
       float norm_type)
-      : Node(c10::Symbol::fromQualString("hpu::fused_norm")) {
+      : Node(c10::Symbol::fromQualString("hpu::fused_norm_")) {
     AddInputVec(grad);
 
     auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHPU);
+    hl_max_norm = HandleViewsOrUpdate(max_norm, hl_max_norm);
     AddInput(hl_max_norm.GetIrValue());
 
     m_meta_data.set(
@@ -325,6 +347,7 @@ class FusedNorm : public ir::Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -361,12 +384,15 @@ class BatchNormBackward : public ir::Node {
       UNUSED std::array<bool, 3> output_mask)
       : Node(c10::Symbol::fromQualString("aten::native_batch_norm_backward")) {
     auto hl_grad_out = GetOrCreateHbLazyTensor(grad_out, c10::kHPU);
+    hl_grad_out = HandleViewsOrUpdate(grad_out, hl_grad_out);
     AddInput(hl_grad_out.GetIrValue());
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{grad_out, input};
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -376,15 +402,18 @@ class BatchNormBackward : public ir::Node {
     }
 
     auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
+    hl_running_mean = HandleViewsOrUpdate(running_mean, hl_running_mean);
     AddInput(hl_running_mean.GetIrValue());
     input_pt_vec.emplace_back(running_mean);
 
     auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
+    hl_running_var = HandleViewsOrUpdate(running_var, hl_running_var);
     AddInput(hl_running_var.GetIrValue());
     input_pt_vec.emplace_back(running_var);
 
     if (save_mean.defined()) {
       auto hl_save_mean = GetOrCreateHbLazyTensor(save_mean, c10::kHPU);
+      hl_save_mean = HandleViewsOrUpdate(save_mean, hl_save_mean);
       AddInput(hl_save_mean.GetIrValue());
       input_pt_vec.emplace_back(save_mean);
     } else {
@@ -394,6 +423,7 @@ class BatchNormBackward : public ir::Node {
     }
     if (save_invstd.defined()) {
       auto hl_save_invstd = GetOrCreateHbLazyTensor(save_invstd, c10::kHPU);
+      hl_save_invstd = HandleViewsOrUpdate(save_invstd, hl_save_invstd);
       AddInput(hl_save_invstd.GetIrValue());
       input_pt_vec.emplace_back(save_invstd);
     } else {

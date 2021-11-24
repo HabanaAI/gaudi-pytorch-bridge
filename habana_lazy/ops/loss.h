@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -29,15 +30,18 @@ class NllLoss_forward : public ir::Node {
       int64_t ignore_index)
       : Node(c10::Symbol::fromQualString("aten::nll_loss_forward")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
     AddInput(hl_target.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self, target};
 
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -82,16 +86,20 @@ class NllLoss_backward : public ir::Node {
       const at::Tensor& total_weight)
       : Node(c10::Symbol::fromQualString("aten::nll_loss_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
     AddInput(hl_grad_output.GetIrValue());
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
     AddInput(hl_target.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad_output, self, target};
 
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -103,6 +111,7 @@ class NllLoss_backward : public ir::Node {
     if (total_weight.defined()) {
       auto hl_total_weight =
           GetOrCreateHbLazyTensor(total_weight, c10::kHPU);
+      hl_total_weight = HandleViewsOrUpdate(total_weight, hl_total_weight);
       AddInput(hl_total_weight.GetIrValue());
       input_pt_vec.emplace_back(total_weight);
     } else {
@@ -139,15 +148,18 @@ class BceLoss_forward : public ir::Node {
       int64_t reduction)
       : Node(c10::Symbol::fromQualString("aten::binary_cross_entropy")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
     AddInput(hl_target.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self, target};
 
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -182,18 +194,22 @@ class BceLoss_backward : public ir::Node {
       : Node(c10::Symbol::fromQualString(
             "aten::binary_cross_entropy_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
     AddInput(hl_grad_output.GetIrValue());
 
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
     AddInput(hl_target.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad_output, self, target};
 
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight, hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -232,15 +248,18 @@ class BceLogitsLoss_forward : public ir::Node {
       : Node(c10::Symbol::fromQualString(
             "aten::binary_cross_entropy_with_logits")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHPU);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
     AddInput(hl_target.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self, target};
 
     if (weight.has_value()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight.value(), c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(weight.value(), hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight.value());
     } else {
@@ -251,6 +270,7 @@ class BceLogitsLoss_forward : public ir::Node {
     if (pos_weight.has_value()) {
       auto hl_weight =
           GetOrCreateHbLazyTensor(pos_weight.value(), c10::kHPU);
+      hl_weight = HandleViewsOrUpdate(pos_weight.value(), hl_weight);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(pos_weight.value());
     } else {

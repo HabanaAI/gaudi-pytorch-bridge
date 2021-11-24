@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
@@ -28,6 +29,7 @@ class CustomOp : public ir::Node {
     for (auto& input : inputs) {
       if (input.isTensor()) {
         auto lazy_input = habana_lazy::GetHbLazyTensor(input.toTensor());
+        lazy_input = HandleViewsOrUpdate(input.toTensor(), lazy_input);
         AddInput(lazy_input.GetIrValue());
         input_pt_vec.emplace_back(input.toTensor());
       } else if (input.isScalar()) {

@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -26,7 +27,10 @@ class Permute : public ir::Node {
       at::IntArrayRef dims,
       std::string op = "aten::permute")
       : Node(c10::Symbol::fromQualString(op)) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    HbLazyTensor hl_self = GetHbLazyTensor(self);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -49,7 +53,10 @@ class Expand : public ir::Node {
   Expand() = delete;
   Expand(const at::Tensor& self, at::IntArrayRef dims, bool implicit)
       : Node(c10::Symbol::fromQualString("aten::expand")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    HbLazyTensor hl_self = GetHbLazyTensor(self);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -62,7 +69,9 @@ class Expand : public ir::Node {
   Expand(const at::Tensor& self, const at::Tensor& expand, bool implicit)
       : Node(c10::Symbol::fromQualString("hpu::expand")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto hl_expand = GetOrCreateHbLazyTensor(expand, c10::kHPU);
+    hl_expand = HandleViewsOrUpdate(expand, hl_expand);
     AddInput(hl_self.GetIrValue());
     AddInput(hl_expand.GetIrValue());
 
@@ -97,7 +106,10 @@ class Transpose : public ir::Node {
   Transpose() = delete;
   Transpose(const at::Tensor& self, int64_t dim0, int64_t dim1)
       : Node(c10::Symbol::fromQualString("aten::transpose")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    HbLazyTensor hl_self = GetHbLazyTensor(self);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -124,6 +136,8 @@ class PermuteCL : public ir::Node {
   PermuteCL(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("hpu::permute_cl")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

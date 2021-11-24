@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -34,6 +35,7 @@ class MaxPool : public ir::Node {
       bool ceil_mode)
       : Node(c10::Symbol::fromQualString("aten::max_pool2d_with_indices")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{input};
@@ -76,8 +78,11 @@ class MaxPoolBackWard : public ir::Node {
       const at::Tensor& indices)
       : Node(c10::Symbol::fromQualString("aten::max_pool2d_with_indices_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
+    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_input.GetIrValue());
     AddInput(hl_indices.GetIrValue());
@@ -124,6 +129,7 @@ class AvgPool : public ir::Node {
       c10::optional<int64_t> divisor_override)
       : Node(c10::Symbol::fromQualString("aten::avg_pool2d")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{input};
@@ -182,7 +188,9 @@ class AvgPoolBackWard : public ir::Node {
       c10::optional<int64_t> divisor_override)
       : Node(c10::Symbol::fromQualString("aten::avg_pool2d_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_input.GetIrValue());
 

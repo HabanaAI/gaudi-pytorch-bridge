@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -26,10 +27,13 @@ class MatmulBwd : public Node {
       const at::Tensor& other)
       : Node(c10::Symbol::fromQualString("aten::matmul_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
     AddInput(hl_grad_output.GetIrValue());
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
     auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
+    hl_other = HandleViewsOrUpdate(other, hl_other);
     AddInput(hl_other.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad_output, self, other};

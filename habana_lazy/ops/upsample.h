@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -27,6 +28,7 @@ class UpsampleNearest2d : public Node {
       c10::optional<at::ArrayRef<double>> scale_factors)
       : Node(c10::Symbol::fromQualString("aten::upsample_nearest2d")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(input, hl_input);
     auto ir_value = hl_input.GetIrValue();
     AddInput(ir_value);
 
@@ -74,6 +76,7 @@ class UpsampleNearest2dBackward : public Node {
                 : c10::Symbol::fromQualString(
                       "aten::upsample_nearest2d_backward")) {
     auto hl_input = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    hl_input = HandleViewsOrUpdate(grad_output, hl_input);
     auto ir_value = hl_input.GetIrValue();
     AddInput(ir_value);
     std::vector<at::Tensor> input_pt_vec{grad_output};

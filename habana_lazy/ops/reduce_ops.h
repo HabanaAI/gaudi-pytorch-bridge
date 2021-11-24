@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -23,6 +24,7 @@ class Sum : public Node {
   Sum(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::sum")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -47,6 +49,7 @@ class Prod : public Node {
   Prod(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::prod")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -75,6 +78,7 @@ class SumDimIntList : public Node {
       c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("hpu::sum_dim_IntList")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -110,6 +114,7 @@ class ProdDimInt : public Node {
       c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("hpu::prod_dim_Int")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -140,6 +145,7 @@ class ArgMax : public Node {
   ArgMax(const at::Tensor& self, c10::optional<int64_t> dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("aten::argmax")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -167,6 +173,7 @@ class AllDim : public Node {
   AllDim(const at::Tensor& self, int64_t dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("hpu::all_dim")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -194,6 +201,7 @@ class MaxDim : public Node {
   MaxDim(const at::Tensor& self, int64_t dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("hpu::max_dim")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 

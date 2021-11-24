@@ -102,6 +102,11 @@ class HbExecutionContext {
     return m_hblazy_tensors;
   }
 
+  void clear() {
+    m_retained_tensor_list.clear();
+    scalar_to_tensor_map.clear();
+  }
+
   // We want to retain some tensors for special cases where PT releases them
   // but because we are in lazy mode we actually need them for processing
   // later This should only be used in special cases and released on exit

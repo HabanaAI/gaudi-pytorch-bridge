@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -31,27 +32,26 @@ class OptimizerSparseSgdValidCount : public Node {
       float mom,
       bool nesterov)
       : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerSparseSgd")) {
-    std::vector<HbLazyTensor> hl_tensors;
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHPU));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHPU));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHPU));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHPU));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHPU));
-    hl_tensors.push_back(
-        GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
+    auto hl_gradient = GetOrCreateHbLazyTensor(gradients, c10::kHPU);
+    auto hl_wt = GetOrCreateHbLazyTensor(weights_in, c10::kHPU);
+    auto hl_mom = GetOrCreateHbLazyTensor(moments_in, c10::kHPU);
+    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
+    auto hl_lr = GetOrCreateHbLazyTensor(learning_rate, c10::kHPU);
+    auto hl_vc = GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU);
 
-    for (auto& i : hl_tensors) {
-      AddInput(i.GetIrValue());
-    }
+    hl_gradient = HandleViewsOrUpdate(gradients, hl_gradient);
+    hl_wt = HandleViewsOrUpdate(weights_in, hl_wt);
+    hl_mom = HandleViewsOrUpdate(moments_in, hl_mom);
+    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
+    hl_lr = HandleViewsOrUpdate(learning_rate, hl_lr);
+    hl_vc = HandleViewsOrUpdate(valid_count_tensor, hl_vc);
 
-    std::vector<at::Tensor> input_pt_vec{
-        gradients,
-        weights_in,
-        moments_in,
-        indices,
-        learning_rate,
-        valid_count_tensor};
-    AddInputPtTensors(input_pt_vec);
+    AddInput(hl_gradient.GetIrValue());
+    AddInput(hl_wt.GetIrValue());
+    AddInput(hl_mom.GetIrValue());
+    AddInput(hl_indices.GetIrValue());
+    AddInput(hl_lr.GetIrValue());
+    AddInput(hl_vc.GetIrValue());
 
     m_meta_data.set(mom, static_cast<size_t>(OptSgdIndex::kMomIdx));
     m_meta_data.set(nesterov, static_cast<size_t>(OptSgdIndex::kNesterov));

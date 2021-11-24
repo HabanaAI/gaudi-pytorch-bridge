@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -84,7 +85,10 @@ class OnesLike : public Node {
       const at::TensorOptions& options,
       c10::optional<c10::MemoryFormat> optional_memory_format)
       : Node(c10::Symbol::fromQualString("aten::ones_like")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+    auto hl_self = GetHbLazyTensor(self);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

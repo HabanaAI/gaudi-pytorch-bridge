@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -29,6 +30,8 @@ struct Slice : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::slice")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
 
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -43,6 +46,8 @@ struct Slice : public ir::Node {
   Slice(const at::Tensor& self, int64_t dim, int64_t index)
       : Node(c10::Symbol::fromQualString("aten::select")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -74,34 +79,6 @@ struct Slice : public ir::Node {
   }
 };
 
-class SliceBwd : public Node {
- public:
-  enum class SliceParms { DIM_INDEX = 1, START_INDEX, END_INDEX, STEP_INDEX };
-  SliceBwd() = delete;
-  SliceBwd(
-      const at::Tensor& self,
-      const at::Tensor& grad_output,
-      int64_t dim,
-      int64_t start,
-      int64_t end,
-      int64_t step)
-      : Node(c10::Symbol::fromQualString("hpu::slice_backward")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    AddInput(hl_self.GetIrValue());
-
-    auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
-    AddInput(hl_grad_output.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self, grad_output};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
-    m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
-    m_meta_data.set(end, static_cast<size_t>(SliceParms::END_INDEX));
-    m_meta_data.set(step, static_cast<size_t>(SliceParms::STEP_INDEX));
-  }
-};
-
 struct IndexSelect : public ir::Node {
   enum class IndexSelectParams { DIM_INDEX = 1 };
   IndexSelect() = delete;
@@ -109,6 +86,9 @@ struct IndexSelect : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::index_select")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_index = HandleViewsOrUpdate(index, hl_index);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_index.GetIrValue());
@@ -137,6 +117,9 @@ struct ScatterValue : public ir::Node {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
     auto hl_value = habana_lazy::GetIrValueForScalar(value);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_index = HandleViewsOrUpdate(index, hl_index);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_index.GetIrValue());
@@ -169,6 +152,10 @@ struct ScatterSrc : public ir::Node {
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
     auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHPU);
 
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_index = HandleViewsOrUpdate(index, hl_index);
+    hl_src = HandleViewsOrUpdate(src, hl_src);
+
     AddInput(hl_self.GetIrValue());
     AddInput(hl_index.GetIrValue());
     AddInput(hl_src.GetIrValue());
@@ -199,6 +186,10 @@ struct ScatterAdd : public ir::Node {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
     auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHPU);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_index = HandleViewsOrUpdate(index, hl_index);
+    hl_src = HandleViewsOrUpdate(src, hl_src);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_index.GetIrValue());

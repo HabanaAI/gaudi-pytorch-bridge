@@ -24,6 +24,7 @@ include_dirs = [
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "abseil-cpp"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "pybind11", "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "spdlog", "include"),
+    os.environ["SPECS_EXT_ROOT"],
 ]
 
 libraries = [

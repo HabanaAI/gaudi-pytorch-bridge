@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -68,6 +69,7 @@ class OptimizerFusedAdagrad : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -147,6 +149,7 @@ class OptimizerFusedAdamw : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -207,6 +210,7 @@ class OptimizerFusedSGD : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -284,6 +288,7 @@ class OptimizerFusedSGDMomentum : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -330,6 +335,7 @@ class LambFusedNorm : public ir::Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -435,6 +441,7 @@ class OptimizerFusedLambPhase1 : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -507,6 +514,7 @@ class OptimizerFusedLambPhase2 : public Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }

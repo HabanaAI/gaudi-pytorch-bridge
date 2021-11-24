@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -23,6 +24,9 @@ struct MseLoss : public habana_lazy::ir::Node {
         m_reduction_index{2} {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_target.GetIrValue());
@@ -44,6 +48,10 @@ struct MseLoss : public habana_lazy::ir::Node {
         habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
+
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_target = HandleViewsOrUpdate(target, hl_target);
 
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_self.GetIrValue());
