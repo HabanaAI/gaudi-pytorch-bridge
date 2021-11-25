@@ -190,6 +190,7 @@ size_t Node::get_hash() {
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       m_node_hash = at::hash_combine(m_node_hash, i);
       if (m_inputs[i]) {
+        m_node_hash = at::hash_combine(m_node_hash, m_inputs[i].GetIndex());
         m_node_hash =
             at::hash_combine(m_node_hash, m_inputs[i].mp_node->get_hash());
       }

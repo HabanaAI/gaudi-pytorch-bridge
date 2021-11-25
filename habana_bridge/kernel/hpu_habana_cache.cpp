@@ -136,10 +136,22 @@ void RecipeArgumentSpec::ComputeGraphHashCode(
       s.append("(");
       bool is_start{true};
       for (auto value_in : node->inputs()) {
+        auto in_node = value_in->node();
+        std::size_t output_index = 0;
+        if (in_node) {
+          for (output_index = 0; output_index < in_node->outputs().size();
+               ++output_index) {
+            if (in_node->output(output_index) == value_in) {
+              break;
+            }
+          }
+        }
         if (!is_start) {
           s.append(",");
         }
         is_start = false;
+        s.append(std::to_string(output_index));
+        s.append("_");
         s.append(value_in->node()->kind().toQualString());
       }
       s.append(")");
