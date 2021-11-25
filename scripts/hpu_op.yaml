@@ -1352,6 +1352,15 @@ special_xlog1py.self_scalar:
   out_ids: [1]
   scalar_ids: [0]
 
+special_entr:
+  dtypes: [Float]
+  op_base_class: SpecialEntr
+  out_ids: [0]
+
+special_entr.out:
+   dtypes: [Float]
+   op_base_class: SpecialEntr
+
 sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
