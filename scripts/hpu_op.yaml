@@ -1718,6 +1718,46 @@ uniform_:
   legacy_eager: true
   op_backend: RandomSeedTensorInput
 
+upsample_bilinear2d:
+  custom_output_shape: Upsample2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleBilinear2DOperator
+  out_ids: [0]
+
+upsample_bilinear2d.out:
+  custom_output_shape: Upsample2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleBilinear2DOperator
+
+upsample_bilinear2d.vec:
+  custom_output_shape: Upsample2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleBilinear2DOperator
+  out_ids: [0]
+
+upsample_bilinear2d_backward:
+  custom_output_shape: Upsample2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleBilinear2DOperator
+  out_ids: [0]
+
+upsample_bilinear2d_backward.grad_input:
+  custom_output_shape: Upsample2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleBilinear2DOperator
+
+upsample_bilinear2d_backward.vec:
+  custom_output_shape: Upsample2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleBilinear2DOperator
+  out_ids: [0]
+
 upsample_linear1d:
   custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
@@ -1797,6 +1837,32 @@ upsample_nearest1d_backward.vec:
   dtypes: [BFloat16, Float]
   op_backend: UpsampleNearest1DBwd
   out_ids: [0]
+
+upsample_nearest2d:
+  custom_output_shape: Upsample2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleNearest2DOperator
+  out_ids: [0]
+
+upsample_nearest2d.out:
+  custom_output_shape: Upsample2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleNearest2DOperator
+
+upsample_nearest2d_backward:
+  custom_output_shape: Upsample2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleNearest2DOperator
+  out_ids: [0]
+
+upsample_nearest2d_backward.grad_input:
+  custom_output_shape: Upsample2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleNearest2DOperator
 
 vdot:
   custom_output_shape: VdotOutputShape
