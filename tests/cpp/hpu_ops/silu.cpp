@@ -23,3 +23,25 @@ TEST_F(HpuOpTest, silu_) {
 
   Compare(expected, result, 0.32, 1e-3);
 }
+
+TEST_F(HpuOpTest, silu) {
+  GenerateInputs(1);
+
+  auto expected = torch::silu(GetCpuInput(0));
+  auto result = torch::silu(GetHpuInput(0));
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, silu_out) {
+  GenerateInputs(1);
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty({0}, dtype);
+  auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::silu_out(expected, GetCpuInput(0));
+  torch::silu_out(result, GetHpuInput(0));
+
+  Compare(expected, result);
+}

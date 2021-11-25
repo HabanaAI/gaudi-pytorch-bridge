@@ -1504,10 +1504,19 @@ signbit.out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: SignBit
 
+silu:
+  dtypes: [BFloat16, Float]
+  op_backend: Silu
+  out_ids: [0]
+
 silu_:
   dtypes: [BFloat16, Float]
   op_backend: Silu
   inplace_ids: [0]
+
+silu.out:
+  dtypes: [BFloat16, Float]
+  op_backend: Silu
 
 sin:
   dtypes: [BFloat16, Float]

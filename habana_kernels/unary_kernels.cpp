@@ -2670,16 +2670,6 @@ static auto& KernelRegistry =
               return std::make_shared<IsnanOperator>(device_id, node_type);
             })
         .add(
-            "aten::silu",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SiluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::silu.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SiluOutOperator>(device_id, node_type);
-            })
-        .add(
             "aten::silu_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SiluBackwardOperator>(

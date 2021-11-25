@@ -99,14 +99,14 @@ Tensor hpu_wrap::_reshape_alias(
     IntArrayRef stride) {
   if (!hpu_check_inputs_impl("_reshape_alias", {self}))
     return AtenHpuTypeDefault::_reshape_alias(self, size, stride);
-  //TODO: In order to align the changes of bert with Pytorchv1.9 we used
-  //view inplace of as_strided implementation for the reshape of tensor
-  //with no-change.
-  //We need to revert existing change and use only as_strided once we
-  //establish the convergence with below changes.
-  //Pytorch change: https://github.com/pytorch/pytorch/pull/61466
-  //Below is the proposed change:
-  //if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+  // TODO: In order to align the changes of bert with Pytorchv1.9 we used
+  // view inplace of as_strided implementation for the reshape of tensor
+  // with no-change.
+  // We need to revert existing change and use only as_strided once we
+  // establish the convergence with below changes.
+  // Pytorch change: https://github.com/pytorch/pytorch/pull/61466
+  // Below is the proposed change:
+  // if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
   //  return as_strided_hpu_lazy(self, size, stride, c10::nullopt);
   //
   //} else {
@@ -3417,11 +3417,7 @@ Tensor hpu_wrap::silu(const Tensor& self) {
   if (!hpu_check_inputs_impl("silu", {self}))
     return AtenHpuTypeDefault::silu(self);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return silu_hpu_lazy(self);
-  } else {
-    return silu_hpu(self);
-  }
+  return silu_hpu(self);
 };
 
 Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
@@ -3432,18 +3428,6 @@ Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
   } else {
     HABANA_ASSERT(0 && "silu_backward not implemented for eager mode");
     return silu_backward_hpu_lazy(grad, self);
-  }
-};
-
-Tensor& hpu_wrap::silu_out(const Tensor& self, Tensor& out) {
-  if (!hpu_check_inputs_impl("silu_out", {out, self}))
-    return AtenHpuTypeDefault::silu_out(self, out);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return silu_out_hpu_lazy(self, out);
-  } else {
-    HABANA_ASSERT(0 && "silu_out not implemented for eager mode");
-    return silu_out_hpu_lazy(self, out);
   }
 };
 

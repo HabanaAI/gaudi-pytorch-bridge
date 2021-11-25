@@ -823,36 +823,6 @@ TEST_F(LazyUnaryKernelTest, SiluBwd) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST_F(LazyUnaryKernelTest, SiluOut) {
-  const std::vector<int64_t> dimentions{7, 3};
-  auto A = torch::randn(dimentions, torch::requires_grad(false));
-  auto hA = A.to(torch::kHPU);
-
-  torch::Tensor out_cpu = torch::zeros_like(A);
-  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHPU);
-
-  auto hresult = torch::silu_out(hA, out_hpu);
-  auto hout = hresult.to(torch::kCPU);
-
-  auto cpu_out = torch::silu_out(out_cpu, A);
-  EXPECT_TRUE(allclose(hout, cpu_out));
-}
-
-TEST_F(LazyUnaryKernelTest, SiluOut0Dim) {
-  torch::Tensor A = torch::tensor(9.03);
-  auto hA = A.to(torch::kHPU);
-
-  torch::Tensor out_cpu = torch::zeros_like(A);
-  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHPU);
-
-  auto hresult = torch::silu_out(hA, out_hpu);
-  auto hout = hresult.to(torch::kCPU);
-
-  auto cpu_out = torch::silu_out(out_cpu, A);
-
-  EXPECT_TRUE(allclose(hout, cpu_out));
-}
-
 TEST_F(LazyUnaryKernelTest, SinTest) {
   auto A = torch::randn({4, 5});
   auto hA = A.to(torch::kHPU);
