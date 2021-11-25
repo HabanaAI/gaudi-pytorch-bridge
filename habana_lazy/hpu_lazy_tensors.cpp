@@ -55,6 +55,16 @@ void HbContextArena::UnregisterTensor(Data* data) {
   auto device_id = data->device.index();
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
+
+  // clear the entry in view tables
+  auto it = context->orig_tensor_map.find(data->unique_id);
+  if (it != context->orig_tensor_map.end()) {
+    context->orig_tensor_map.erase(it);
+  }
+  auto view_it = context->view_table.find(data->unique_id);
+  if (view_it != context->view_table.end()) {
+    context->view_table.erase(view_it);
+  }
   context->UnregisterTensor(data);
 }
 

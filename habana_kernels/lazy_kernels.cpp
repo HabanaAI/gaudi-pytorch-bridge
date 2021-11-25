@@ -2195,13 +2195,20 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
 
 Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
   PT_LAZY_TRACE;
-  std::vector<Tensor> indices_vec{indices_in.vec()};
+
   std::vector<Tensor> indices_vec_out{};
+
+  std::vector<Tensor> indices_vec(indices_in.vec());
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
+
+  // handle views for tensorlist indices
+  TensorList indices_in_list(indices_vec);
+  indices_vec = HandleViewsTensorList(indices_in_list);
+
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
@@ -2215,12 +2222,16 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
                                                               : indices_vec;
 
+  auto indices_out_vec = HandleViewsTensorList(indices);
+  TensorList indices_out_list(indices_out_vec);
+
   // for this particular indices configuration gather_mxnet throws GC
   // compilation error, therefore use simple gather for now
-  if (indices.size() == 1 && indices[0].dim() == 1) {
-    auto shape = GatherOperator::compute_output_shape(self, 0, indices[0]);
+  if (indices_out_list.size() == 1 && indices_out_list[0].dim() == 1) {
+    auto shape =
+        GatherOperator::compute_output_shape(self, 0, indices_out_list[0]);
     LazyOp<at::Tensor> k{
-        "aten::gather", {self, 0, indices[0], false}, {1, 3}, {shape}};
+        "aten::gather", {self, 0, indices_out_list[0], false}, {1, 3}, {shape}};
     return k.call();
   }
 
@@ -2241,9 +2252,9 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
 
   LazyOp<at::Tensor> k{
       "aten::index",
-      {self_cast, indices},
+      {self_cast, indices_out_list},
       {},
-      {IndexOperator::compute_output_shape(self_cast, indices)}};
+      {IndexOperator::compute_output_shape(self_cast, indices_out_list)}};
   auto result = k.call();
 
   if (self.scalar_type() != c10::ScalarType::Double &&
@@ -2411,6 +2422,11 @@ Tensor index_put_hpu_lazy(
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
+
+  // handle views for tensorlist indices
+  TensorList indices_in_list(indices_vec);
+  indices_vec = HandleViewsTensorList(indices_in_list);
+
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
@@ -2427,12 +2443,15 @@ Tensor index_put_hpu_lazy(
       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
                                                               : indices_vec;
 
+  auto indices_out_vec = HandleViewsTensorList(indices);
+  TensorList indices_out_list(indices_out_vec);
+
   // Assuming if 1st indices tensor is ZST then other indices tensors in list
   // (if any) will be ZST too. For ZST indices tensor broadcast and scatter_nd
   // operations are throwing GC errors therefore we have this workaround to
   // return a copy of input tensor.
   // TBD: Investigate further and raise a JIRA on GC.
-  if (indices[0].numel() == 0) {
+  if (indices_out_list[0].numel() == 0) {
     auto result = self.clone();
     auto hl_result = GetHbLazyTensor(result);
     updateDstDependencies(hl_result, result);
@@ -2441,7 +2460,7 @@ Tensor index_put_hpu_lazy(
   }
 
   // Broadcast indices
-  auto broadcasted_indices = at::broadcast_tensors(indices);
+  auto broadcasted_indices = at::broadcast_tensors(indices_out_list);
   auto shape_broadcasted = broadcasted_indices[0].sizes().vec();
 
   // Reshape broadcasted indices to [N, 1] for concatenation
@@ -2888,8 +2907,11 @@ Tensor& batch_gemm_out_hpu_lazy(
     const Tensor& self,
     const Tensor& mat2) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
+
+  hl_self = HandleViewsOrUpdate(self, hl_self);
+  hl_mat2 = HandleViewsOrUpdate(mat2, hl_mat2);
 
   const auto node = ir::Node::Create(
       Symbol::fromQualString("aten::bmm"),
@@ -2913,8 +2935,11 @@ Tensor& batch_gemm_out_hpu_lazy(
 
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
+
+  hl_self = HandleViewsOrUpdate(self, hl_self);
+  hl_mat2 = HandleViewsOrUpdate(mat2, hl_mat2);
 
   const auto node = ir::Node::Create(
       Symbol::fromQualString("aten::bmm"),
@@ -4045,6 +4070,7 @@ Tensor sum_dim_IntList_hpu_lazy(
     self_cast = empty_hpu_lazy(
         self.sizes(), hb_options, self.suggest_memory_format(), false);
     auto hl_cast = GetHbLazyTensor(self_cast);
+    hl_cast = HandleViewsOrUpdate(self_cast, hl_cast);
     ir::Value& out = hl_cast.CurrentIrValue();
     out.SetNode(
         node,
@@ -4053,6 +4079,7 @@ Tensor sum_dim_IntList_hpu_lazy(
         hl_cast.dtype_optional());
   }
   auto hl_self = GetOrCreateHbLazyTensor(self_cast, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self_cast, hl_self);
   ir::NodePtr node =
       std::make_shared<ir::SumDimIntList>(self_cast, dim, keepdim, dtype);
   auto result = empty_hpu_lazy(
@@ -4615,6 +4642,7 @@ Tensor clone_hpu_lazy(
     // As d2D copies may not mean trigger execution, we just need to add the
     // nodes like memcopy to our lazy graph that we are creating
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
+    hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
     auto node = ir::Node::Create(
         Symbol::fromQualString("hpu::habana_d2d_memcpy"),
         {hb_tensor.GetIrValue()});
@@ -4647,6 +4675,11 @@ Tensor& zero_hpu_lazy(Tensor& self) {
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   PT_LAZY_TRACE;
 
+  // handle views
+  auto t_list = HandleViewsTensorList(tensors);
+
+  const TensorList view_list{t_list};
+
   struct Kernel : public LazyOp<at::Tensor> {
     explicit Kernel(const at::TensorList tensors, int64_t dim)
         : LazyOp<at::Tensor>("aten::cat", {tensors, dim}, {1}, {}, -1),
@@ -4665,7 +4698,7 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
     const TensorList tensors;
     int64_t dim;
   };
-  Kernel k{tensors, dim_};
+  Kernel k{view_list, dim_};
   return k.call();
 }
 
@@ -4964,7 +4997,9 @@ Tensor threshold_backward_hpu_lazy(
     const Scalar& threshold) {
   PT_LAZY_TRACE;
   auto hl_grad = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+  hl_grad = HandleViewsOrUpdate(grad_output, hl_grad);
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
   auto hl_threshold = GetIrValueForScalar(threshold);
 
   auto node = ir::Node::Create(
@@ -5143,24 +5178,8 @@ at::Tensor& elu_hpu_lazy_(
 
 Tensor relu_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
-  auto result = empty_hpu_lazy(
-      input.sizes(), input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::relu", {input}};
+  return k.call();
 }
 
 Tensor& relu_hpu_lazy_(Tensor& self) {
@@ -5535,32 +5554,17 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
 
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::sigmoid"), {hl_input.GetIrValue()});
-  auto shape_out = input.sizes();
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::sigmoid", {input}};
+  return k.call();
 }
 
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHPU);
   auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+
+  hl_grad_in = HandleViewsOrUpdate(grad_in, hl_grad_in);
+  hl_input = HandleViewsOrUpdate(input, hl_input);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::sigmoid_backward"),
@@ -5806,28 +5810,9 @@ Tensor& rsqrt_hpu_lazy_(Tensor& input) {
 
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::isfinite"), {hl_input.GetIrValue()});
-  auto result = empty_hpu_lazy(
-      input.sizes(),
-      input.options().dtype(c10::ScalarType::Bool),
-      input.suggest_memory_format(),
-      false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k_{
+      "aten::isfinite", {input}, {input.sizes().vec()}, c10::ScalarType::Bool};
+  return k_.call();
 }
 
 Tensor abs_hpu_lazy(const Tensor& input) {
@@ -5854,10 +5839,12 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   // getting flled has finished before we start copying
   if (IsHbLazyTensor(self)) {
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
+    hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
     if (self.device().type() == c10::DeviceType::HPU) {
       // Trigger point execution
       HbLazyTensor::StepMarker({});
     }
+    hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
     auto tensor_data = hb_tensor.GetHbLazyTensorData();
     out = habana_helpers::_local_scalar_dense_internal(tensor_data.value());
   } else {
@@ -6785,6 +6772,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
 at::Tensor max_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::max"), {hl_self.GetIrValue()});

@@ -190,6 +190,8 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
   HandleLazy(size_t lazy_eager_key = 0) {
+    viewUpdateInputs();
+
     auto node = create_node();
     auto results = get_result();
     int i = 0;
@@ -252,6 +254,8 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
       T results) {
+    viewUpdateInputs();
+
     const auto& node = create_node();
     int i = 0;
     std::vector<at::Tensor> tensors;
@@ -293,6 +297,8 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_fundamental<T>::value, T>::type call() {
+    viewUpdateInputs();
+
     const auto& node = create_node();
     const auto& t = get_inputs().at(m_out_index).toTensor();
     const auto& result =
@@ -351,6 +357,8 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
 
+    viewUpdateInputs();
+
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
       return (HandleOptimizedLazyEager());
@@ -382,24 +390,113 @@ class LazyOp {
     return is_inplace;
   }
 
-  // For inplace/out variants
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
-  HandleLazy(at::Tensor& self, size_t lazy_eager_key = 0) {
-    auto hl_self = GetHbLazyTensor(self);
-    // skip ctrl edges for inplace
-    // TODO do the same for out variants
+  void viewUpdateInputs() {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    size_t idx = 0;
+    for (auto ival : m_inputs) {
+      if (ival.isTensor()) {
+        auto t = ival.toTensor();
+        if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
+          auto hl_t = GetHbLazyTensor(t);
 
-    if (!is_inplace(m_symbol)) {
-      updateDstDependencies(hl_self, self, true);
+          // if it is base tensor, use the most recent version else check if
+          // it is a view
+          auto id = hl_t.getTensorUniqueId();
+          if (context->orig_tensor_map.find(id) !=
+              context->orig_tensor_map.end()) {
+            m_inputs[idx] = context->orig_tensor_map[id];
+          } else {
+            HandleViews(t, hl_t);
+          }
+        }
+      }
+      idx++;
     }
+  }
+
+  void HandleViewsInplace(
+      const at::Tensor& self,
+      habana_lazy::HbLazyTensor& hl_self) {
+    auto out_t = empty_hpu_lazy(
+        self.sizes(), self.options(), self.suggest_memory_format(), true);
+
+    // optimization for 8x mul_out case. The below logic avoids extra out of
+    // place as_strided_lazy call
+    // TODO ideally we should also replace inplace op with out of place
+    // variant.
+    if (!is_inplace(m_symbol)) {
+      // out variant op. update m_inputs tensor with out_t
+      for (size_t idx = 0; idx < m_inputs.size(); idx++) {
+        auto t = m_inputs[idx];
+        if (t.isTensor() && t.toTensor().is_same(self)) {
+          m_inputs[idx] = out_t;
+        }
+      }
+    }
+
     const auto& node = create_node();
+
+    hl_self = GetHbLazyTensor(out_t);
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(
         node,
         hl_self.GetDevice(),
         hl_self.GetSizes(),
         hl_self.dtype_optional());
+
+    // add strided insert node and update most recent version of original
+    // tensor
+    flush_op(out_t);
+    strided_insert_hpu_lazy(self, out_t);
+  }
+
+  // For inplace/out variants
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
+  HandleLazy(at::Tensor& self, size_t lazy_eager_key = 0) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    auto hl_self = GetHbLazyTensor(self);
+
+    auto id = hl_self.getTensorUniqueId();
+    auto is_self_view =
+        context->view_table.find(id) != context->view_table.end();
+
+    // Handle views or fetch updated tensor for all the inputs
+    viewUpdateInputs();
+
+    // special handling for self tensor
+    if (is_self_view == false) {
+      // use most recent version of the tensor if applicable
+      auto self_updated = get_recent_base_tensor(self);
+      hl_self = GetHbLazyTensor(self_updated);
+
+      // identify the inplace index and replace it with updated version
+      // m_inputs will be used in create_node()
+      for (size_t idx = 0; idx < m_inputs.size(); idx++) {
+        auto t = m_inputs[idx];
+        if (t.isTensor() && t.toTensor().is_same(self)) {
+          m_inputs[idx] = self_updated;
+        }
+      }
+      // special handling for self tensor
+
+      self = self_updated;
+
+      // skip ctrl edges for inplace
+      // TODO do the same for out variants
+      if (!is_inplace(m_symbol)) {
+        updateDstDependencies(hl_self, self, true);
+      }
+      const auto& node = create_node();
+      ir::Value& out = hl_self.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_self.GetDevice(),
+          hl_self.GetSizes(),
+          hl_self.dtype_optional());
+    } else {
+      HandleViewsInplace(self, hl_self);
+    }
 
     // numel == 0 is the correct check, need the size check until pytorch fixes
     // it properly
@@ -413,9 +510,9 @@ class LazyOp {
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
     }
 
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+
     flush_op(self, lazy_eager_key);
     return self;
   }
