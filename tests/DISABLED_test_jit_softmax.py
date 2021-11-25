@@ -50,7 +50,7 @@ def test_log_softmax(D1, D2):
         model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t)
         print("Fused graph on HPU: ")
         print(model_trace_hpu_graph)
-        FileCheck().check_count("prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
+        FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
         hpu_out = model_trace_hpu(hpu_t)
         hpu_result = hpu_out.to(cpu)
         compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)

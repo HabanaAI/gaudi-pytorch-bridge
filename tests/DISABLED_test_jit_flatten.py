@@ -40,7 +40,7 @@ def test_jit_flatten(in_tensors):
     hpu_t1 = in_tensors[0].to(hpu)
     hpu_t2 = in_tensors[1].to(hpu)
     model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
-    FileCheck().check_count("prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu.graph_for(hpu_t1, hpu_t2)))
+    FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu.graph_for(hpu_t1, hpu_t2)))
     #print(model_trace_hpu.graph_for(hpu_t1, hpu_t2))
     out = model_trace_hpu(hpu_t1, hpu_t2)
     hpu_result = out.to(cpu)

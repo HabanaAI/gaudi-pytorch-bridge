@@ -9,6 +9,7 @@
  */
 
 #include "ir.h"
+#include <absl/strings/str_format.h>
 #include "habana_helpers/logging.h"
 #include "lazy_executor.h"
 
@@ -19,6 +20,20 @@ size_t StdHashCombine(uint64_t a, uint64_t b) {
   return a ^
       (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
 }
+
+// This thread local variable will serve as state to save the current namespace.
+// Graph built in the current thread will set it using htcore.set_module_name.
+// It will be used to name next nodes created in this graph.
+static thread_local std::string currentModule;
+
+void setCurrentModuleName(const std::string& name) {
+  currentModule = name;
+}
+
+const std::string& getCurrentModuleName() {
+  return currentModule;
+}
+
 /*
  * Initilaize static data from Value Class
  */
@@ -55,7 +70,7 @@ std::string Node::ToString() const {
 void Node::AddInput(const Value& value) {
   if (GET_ENV_FLAG(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
     if (value.mp_node) {
-      value.mp_node->m_uses.insert({this, m_inputs.size(), value.m_index});
+      value.mp_node->m_uses.insert({this, m_inputs.size(), value.GetIndex()});
       m_uses_reverse_nodes.push_back(value.mp_node);
     }
   }
@@ -103,10 +118,36 @@ Node::~Node() {
   m_outputs.clear();
 }
 
+void Value::SetNode(
+    NodePtr node,
+    const c10::Device& device,
+    const std::vector<int64_t>& dims,
+    const c10::optional<at::ScalarType> scalar_type,
+    size_t index) {
+  if (m_index == 0) {
+    // m_index has been set directly, don't reset to 0
+    m_index = index;
+  }
+  this->device = c10::make_optional(device);
+  this->dims = c10::make_optional(dims.size());
+  this->scalar_type = scalar_type;
+  mp_node = std::move(node);
+
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    this->m_name = absl::StrFormat(
+        "t%d_%s_%d", unique_id, mp_node->GetName().c_str(), m_index);
+  }
+
+  mp_node->m_outputs.emplace_back(Output(*this));
+}
+
 std::string Value::ToString() const {
-  std::stringstream ss;
-  ss << "id:" << unique_id;
-  return ss.str();
+  if (m_name.empty()) {
+    std::stringstream ss;
+    ss << "id:" << unique_id;
+    return ss.str();
+  }
+  return m_name;
 }
 
 void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
@@ -132,6 +173,11 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    static std::atomic<uint64_t> id(0);
+    node->SetName(absl::StrFormat(
+        "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));
+  }
   for (auto& i : inputs) {
     node->AddInput(i);
   }
@@ -179,7 +225,7 @@ bool Value::DataPtrValidAndNotExpired() const {
 Value::~Value() {}
 
 Output::Output(const Value& v)
-    : m_node(v.mp_node.get()), m_index(v.m_index), m_name(v.ToString()) {
+    : m_node(v.mp_node.get()), m_index(v.GetIndex()), m_name(v.ToString()) {
   device = v.get_device();
   dims = v.get_dims();
   scalar_type = v.get_scalar_type();

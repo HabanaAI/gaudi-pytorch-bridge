@@ -53,8 +53,9 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
 
   hlexec->GetOrCreate(po_data, stack);
 
-  torch::jit::testing::FileCheck().check_not("aten::t")->run(
-      *hlexec->get_graph());
+  torch::jit::testing::FileCheck()
+      .check_not("= aten::t")
+      ->run(*hlexec->get_graph());
 }
 
 TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
@@ -105,9 +106,9 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_not("aten::mm")
-      ->check_not("aten::relu")
-      ->check_count("aten::matmul", 1)
+      .check_not("= aten::mm")
+      ->check_not("= aten::relu")
+      ->check_count("= aten::matmul", 1)
       ->run(*hlexec->get_graph());
   unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
   remove("pattern.json");
@@ -151,9 +152,9 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("hpu::mm_t", 2)
-      ->check_not("aten::t")
-      ->check_not("aten::mm")
+      .check_count("= hpu::mm_t", 2)
+      ->check_not("= aten::t")
+      ->check_not("= aten::mm")
       ->run(*hlexec->get_graph());
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
@@ -198,9 +199,9 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("hpu::mm_t", 2)
-      ->check_not("aten::t")
-      ->check_not("aten::mm")
+      .check_count("= hpu::mm_t", 2)
+      ->check_not("= aten::t")
+      ->check_not("= aten::mm")
       ->run(*hlexec->get_graph());
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
@@ -730,7 +731,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_not("aten::add_")
+      .check_not("= aten::add_")
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
@@ -762,7 +763,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("aten::add_", 1)
+      .check_count("= aten::add_", 1)
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
@@ -794,7 +795,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("aten::add_", 1)
+      .check_count("= aten::add_", 1)
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);

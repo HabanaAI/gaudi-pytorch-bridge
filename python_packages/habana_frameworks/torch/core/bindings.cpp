@@ -162,5 +162,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         habana_lazy::exec::OptPassCfg::GetInstance()->SetReplaceViews(flag);
       },
       py::arg("flag"));
+  m.def(
+      "set_module_name",
+      [](const std::string& name) {
+        habana_lazy::ir::setCurrentModuleName(name);
+      },
+      py::arg("name"));
   m.doc() = "This module registers hpu backend.";
 }

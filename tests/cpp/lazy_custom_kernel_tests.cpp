@@ -52,15 +52,15 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=0.10000000149011612]")
+      .check("= prim::Constant[value=0.10000000149011612]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=0]")
+      .check("= prim::Constant[value=0]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check_count("habanaOptimizerSparseSgd", 1)
+      .check_count("= hpu::habanaOptimizerSparseSgd", 1)
       ->run(*hlexec->get_graph());
 }
 
@@ -100,7 +100,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("habanaOptimizerSparseAdagrad", 1)
+      .check_count("= hpu::habanaOptimizerSparseAdagrad", 1)
       ->run(*hlexec->get_graph());
 }
 

@@ -125,6 +125,8 @@ void replace_inplace_ops(
     for (size_t i = 1; i < node->inputs().size(); ++i) {
       new_node->addInput(node->input(i));
     }
+    new_node->copyAttributes(*node);
+    new_node->output(0)->copyMetadata(node->output(0));
     graph->insertNode(new_node);
     node->output(0)->replaceAllUsesWith(new_node->output(0));
     node->destroy();

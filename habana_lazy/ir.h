@@ -39,6 +39,9 @@ using IndexToIvalMap = std::map<size_t, torch::jit::IValue>;
 
 size_t StdHashCombine(uint64_t a, uint64_t b);
 
+void setCurrentModuleName(const std::string& name);
+const std::string& getCurrentModuleName();
+
 /**
  * Represents the Use of the Value struct as Output
  *
@@ -84,6 +87,10 @@ class Output {
     return m_index;
   }
 
+  void SetName(const std::string& name) {
+    m_name = name;
+  }
+
   bool operator==(const Output& v) const {
     return m_node == v.m_node && m_index == v.m_index;
   }
@@ -115,7 +122,7 @@ class Output {
  protected:
   Node* m_node = nullptr;
   size_t m_index;
-  const std::string m_name;
+  std::string m_name;
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
@@ -262,6 +269,14 @@ class Node {
     return m_op;
   }
 
+  std::string GetName() const {
+    return m_name;
+  }
+
+  void SetName(const std::string& name) {
+    m_name = name;
+  }
+
   virtual std::string ToString() const;
 
   void AddInput(const Value& value);
@@ -347,6 +362,7 @@ class Node {
   size_t m_node_hash = 0;
   size_t post_order_pos = ULLONG_MAX;
   std::vector<at::Tensor> m_input_pt_tensors;
+  std::string m_name;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
@@ -380,17 +396,14 @@ struct Value {
       const c10::Device& device,
       const std::vector<int64_t>& dims,
       const c10::optional<at::ScalarType> scalar_type,
-      size_t index = 0) {
-    if (m_index == 0) {
-      // m_index has been set directly, don't reset to 0
-      // TODO: make m_index private.
-      m_index = index;
-    }
-    this->device = c10::make_optional(device);
-    this->dims = c10::make_optional(dims.size());
-    this->scalar_type = scalar_type;
-    mp_node = std::move(node);
-    mp_node->m_outputs.emplace_back(Output(*this));
+      size_t index = 0);
+
+  const std::string& GetName() const {
+    return m_name;
+  }
+
+  size_t GetIndex() const {
+    return m_index;
   }
 
   void SetNodeForShallowCopy(NodePtr node, size_t index = 0) {
@@ -444,8 +457,6 @@ struct Value {
   uint64_t unique_id;
   /* The payload field holds the values */
   std::weak_ptr<Data> m_data_ptr;
-  /* The m_index field points to the output index from the node*/
-  size_t m_index = 0;
   /* Value is output of this node */
   NodePtr mp_node = nullptr;
   /**
@@ -463,6 +474,9 @@ struct Value {
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
   c10::optional<at::ScalarType> scalar_type;
+  std::string m_name;
+  /* The m_index field points to the output index from the node*/
+  size_t m_index = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
@@ -492,7 +506,7 @@ struct ValueHash {
  public:
   size_t operator()(const Value& v) const {
     return StdHashCombine(
-        reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
+        reinterpret_cast<uintptr_t>(v.mp_node.get()), v.GetIndex());
   }
 };
 

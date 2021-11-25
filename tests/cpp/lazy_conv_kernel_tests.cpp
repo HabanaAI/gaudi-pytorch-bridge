@@ -97,27 +97,27 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=[1, 1]]")
+      .check("= prim::Constant[value=[1, 1]]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=[0, 0]]")
+      .check("= prim::Constant[value=[0, 0]]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=0]")
+      .check("= prim::Constant[value=0]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=1]")
+      .check("= prim::Constant[value=1]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=[True, True, True]]")
+      .check("= prim::Constant[value=[True, True, True]]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check_count("aten::convolution_backward_overrideable", 1)
+      .check_count("= aten::convolution_backward_overrideable", 1)
       ->run(*hlexec->get_graph());
 }
 

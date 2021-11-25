@@ -61,6 +61,8 @@ void fuse_mm_transpose(std::shared_ptr<Graph>& graph) {
            transpose_val,
            no_transpose_val},
           1);
+      mm_t_tnode->output(0)->copyMetadata(last_t_node->output(0));
+      mm_t_tnode->copyAttributes(*last_t_node);
       graph->insertNode(mm_t_tnode);
       last_t_node->output(0)->replaceAllUsesWith(mm_t_tnode->output(0));
       last_t_node->removeAllInputs();
@@ -75,6 +77,8 @@ void fuse_mm_transpose(std::shared_ptr<Graph>& graph) {
            no_transpose_val,
            transpose_val},
           1);
+      mm_t_tnode->output(0)->copyMetadata(last_t_node->output(0));
+      mm_t_tnode->copyAttributes(*last_t_node);
       graph->insertNode(mm_t_tnode);
       last_t_node->output(0)->replaceAllUsesWith(mm_t_tnode->output(0));
       last_t_node->removeAllInputs();
