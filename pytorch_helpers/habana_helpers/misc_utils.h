@@ -14,15 +14,20 @@
 
 #include <cstdlib>
 
+#include <iostream>
+#include <string>
+
 namespace habana {
 
+// Computes (x^y)%1000000007
 inline int64_t mod_exp(int64_t y, int64_t x = 997) {
   const int64_t p{1000000007};
   int64_t z = 1;
-  int64_t sign{(y > 0 ? 1 : -1)};
-  y = std::abs(y);
-  y = y % p;
-  if (y == 0) {
+  int64_t sign{(y < 0 ? -1 : 1)};
+  y = llabs(y);
+
+  x = x % p;
+  if (x == 0) {
     return 0;
   }
 
@@ -34,7 +39,8 @@ inline int64_t mod_exp(int64_t y, int64_t x = 997) {
     y >>= 1;
     x = (x * x) % p;
   }
-  return (z * sign);
+  z *= sign;
+  return z;
 }
 
 inline int64_t mod_exp(bool w, int64_t x = 997) {
