@@ -69,8 +69,9 @@ def post_fwd_hook(module, input, output):
     grad_name = "gradient/" + module_name
     htcore.set_module_name(name)
     try:
-        if isinstance(output, Tensor) and output.requires_grad:
-            output.register_hook(gen_grad_hook(grad_name))
+        if isinstance(output, Tensor):
+            if output.requires_grad:
+                output.register_hook(gen_grad_hook(grad_name))
         else:
             for o in output:
                 if isinstance(o, Tensor) and o.requires_grad:
