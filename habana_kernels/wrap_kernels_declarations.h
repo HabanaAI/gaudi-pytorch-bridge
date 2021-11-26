@@ -985,5 +985,17 @@ at::Tensor roi_align_fwd_wrap(
     int64_t output_w,
     int64_t sampling_ratio,
     bool aligned);
-}
+at::Tensor roi_align_bwd_wrap(
+    const at::Tensor& grad_out,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t bs,
+    int64_t ch,
+    int64_t h,
+    int64_t w,
+    int64_t sampling_ratio,
+    bool aligned);
+} // namespace ops
 } // namespace vision

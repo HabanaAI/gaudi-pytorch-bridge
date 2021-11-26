@@ -31,4 +31,55 @@ class RoiAlignFwdOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
+class RoiAlignBwdOperator : public HabanaOperator {
+ public:
+  RoiAlignBwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "roialign_backward_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class RoiAlignBwdImplOperator : public HabanaOperator {
+ public:
+  RoiAlignBwdImplOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "roialign_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class QuadTreeFwdImplOperator : public HabanaOperator {
+ public:
+  QuadTreeFwdImplOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "quad_tree_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana

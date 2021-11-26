@@ -4306,6 +4306,12 @@ at::Tensor roi_align_fwd_wrap(
     int64_t sampling_ratio,
     bool aligned) {
   int mode = 0;
+  // rois from torchvision are of shape {K, 5} where 1st column contain the
+  // index of corresponding element in the batch, whereas remaining columns
+  // contain the roi co-ordinates. Since "roi_align" TPC kernels expect these
+  // indices and co-ordinates as separate tensors, therefore split operation is
+  // being done here. TPC kernel expects a 1D Int tensor for num_rois, therefore
+  // a reshape and conversion to Int is also done here.
   auto out = rois.split_with_sizes({1, 4}, 1);
   auto num_rois = out[0].view(-1).to(torch::kInt);
   auto roi = out[1];
@@ -4321,14 +4327,45 @@ at::Tensor roi_align_fwd_wrap(
       aligned);
 };
 
-// Enable this once roi_align_bwd is also implemented. Its difficult to link
-// torchvision::_roi_align_backward and CPU implementation will not work with
-// HPU tensors.
-/*TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
+at::Tensor roi_align_bwd_wrap(
+    const at::Tensor& grad_out,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t bs,
+    int64_t ch,
+    int64_t h,
+    int64_t w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  static_cast<void>(output_h);
+  static_cast<void>(output_w);
+  // Refer to comment in roi_align_fwd_wrap for same operations
+  auto out = rois.split_with_sizes({1, 4}, 1);
+  auto num_rois = out[0].view(-1).to(torch::kInt);
+  auto roi = out[1];
+  return roi_align_bwd_hpu_lazy(
+      grad_out,
+      roi,
+      num_rois,
+      static_cast<int>(bs),
+      static_cast<int>(ch),
+      static_cast<int>(h),
+      static_cast<int>(w),
+      static_cast<int>(sampling_ratio),
+      static_cast<float>(spatial_scale),
+      aligned);
+};
+
+TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl(
       TORCH_SELECTIVE_NAME("torchvision::roi_align"),
       TORCH_FN(roi_align_fwd_wrap));
-}*/
+  m.impl(
+      TORCH_SELECTIVE_NAME("torchvision::_roi_align_backward"),
+      TORCH_FN(roi_align_bwd_wrap));
+}
 } // namespace ops
 } // namespace vision
 
@@ -4418,6 +4455,8 @@ TORCH_LIBRARY(hpu, m) {
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def(
       "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> (Tensor)");
+  m.def(
+      "roi_align_bwd(Tensor inputs, Tensor rois, Tensor n_rois, Tensor input_shape, int sr, float ss, bool aligned) -> (Tensor)");
   m.def(
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def(

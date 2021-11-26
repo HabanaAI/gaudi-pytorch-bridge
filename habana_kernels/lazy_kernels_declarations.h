@@ -831,6 +831,17 @@ at::Tensor roi_align_fwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned);
+at::Tensor roi_align_bwd_hpu_lazy(
+    const at::Tensor& grad_out,
+    const at::Tensor& rois,
+    const at::Tensor& num_rois,
+    int bs,
+    int ch,
+    int h,
+    int w,
+    int sampling_ratio,
+    float spatial_scale,
+    bool aligned);
 at::Tensor isnan_hpu_lazy(const at::Tensor& self);
 at::Tensor silu_backward_hpu_lazy(
     const at::Tensor& grad,

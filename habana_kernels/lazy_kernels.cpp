@@ -2244,6 +2244,10 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   PT_LAZY_TRACE;
+  // This WA can be removed once GC fixes SW-70270
+  // If self is a ZST then return it as it is since there is nothing to fill
+  if (!self.numel() && (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))
+    return self;
   LazyOp<at::Tensor&> k{"aten::fill_", {self, value}};
   return k.call(self);
 }
@@ -7183,6 +7187,35 @@ at::Tensor roi_align_fwd_hpu_lazy(
        output_h,
        output_w,
        mode,
+       sampling_ratio,
+       spatial_scale,
+       aligned},
+      {},
+      {out_shape});
+  return k.call();
+}
+
+at::Tensor roi_align_bwd_hpu_lazy(
+    const at::Tensor& grad_out,
+    const at::Tensor& rois,
+    const at::Tensor& num_rois,
+    int bs,
+    int ch,
+    int h,
+    int w,
+    int sampling_ratio,
+    float spatial_scale,
+    bool aligned) {
+  PT_LAZY_TRACE;
+  std::vector<int64_t> out_shape = {bs, ch, h, w};
+  auto input_shape = empty_hpu_lazy(
+      out_shape, grad_out.options(), grad_out.suggest_memory_format(), true);
+  LazyOp<at::Tensor> k(
+      "hpu::roi_align_bwd",
+      {grad_out,
+       rois,
+       num_rois,
+       input_shape,
        sampling_ratio,
        spatial_scale,
        aligned},

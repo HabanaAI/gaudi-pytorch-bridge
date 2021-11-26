@@ -164,4 +164,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "roi_align_forward",
       &vision::ops::roi_align_fwd_wrap,
       "ROI Align forward");
+  m.def(
+      "roi_align_backward",
+      &vision::ops::roi_align_bwd_wrap,
+      "ROI Align backward");
 }

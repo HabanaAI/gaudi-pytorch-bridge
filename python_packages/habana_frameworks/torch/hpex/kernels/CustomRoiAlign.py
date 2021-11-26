@@ -2,6 +2,7 @@ import torch
 from torch.nn.modules.utils import _pair
 from habana_frameworks.torch import _hpex_C
 
+# This class is deprecated and shall be removed in future releases
 class RoiAlignFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, roi, output_size, spatial_scale, sampling_ratio, aligned):
@@ -29,10 +30,9 @@ class RoiAlignFunction(torch.autograd.Function):
         spatial_scale = ctx.spatial_scale
         sampling_ratio = ctx.sampling_ratio
         bs, ch, h, w = ctx.input_shape
-        # use torchvision version of roi_align_backward for now (until HPU version is ready). 
-        grad_input = torch.ops.torchvision._roi_align_backward(
-            grad_output.to("cpu"),
-            rois.to("cpu"),
+        grad_input = _hpex_C.roi_align_backward(
+            grad_output,
+            rois,
             spatial_scale,
             output_size[0],
             output_size[1],
@@ -43,4 +43,4 @@ class RoiAlignFunction(torch.autograd.Function):
             sampling_ratio,
             ctx.aligned,
         )
-        return grad_input.to(torch.device("hpu")), None, None, None, None, None
+        return grad_input, None, None, None, None, None

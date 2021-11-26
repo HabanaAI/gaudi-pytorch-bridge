@@ -58,6 +58,8 @@ class SplitWithSize : public ir::Node {
     auto hl_self = GetHbLazyTensor(self);
     hl_self = HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
     m_meta_data.set(
         split_sizes, static_cast<size_t>(SplitSizeIdx::kSplitSizesIdx));
     m_meta_data.set(dim, static_cast<size_t>(SplitSizeIdx::kDimIdx));

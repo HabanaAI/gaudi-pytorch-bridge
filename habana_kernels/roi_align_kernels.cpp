@@ -58,6 +58,135 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &roi_params, sizeof(roi_params));
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "hpu::roi_align_fwd",
-    KERNEL_FN(RoiAlignFwdOperator));
+void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  auto rois = inputs[1].toTensor();
+  // quad_tree supports f32 only, therefore rois need to be casted to f32 before
+  // feeding into quad_tree
+  auto cast_op =
+      make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
+  if (rois.scalar_type() == c10::ScalarType::BFloat16) {
+    cast_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    std::vector<c10::IValue> stack = {rois, c10::ScalarType::Float};
+    cast_op->AllocateAndAddSynapseNode(graph, stack, false);
+  }
+  auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
+      this->p_context_->device_id_, c10::ScalarType::Float);
+  quad_tree_op->SetSynapseInput(
+      (rois.scalar_type() == c10::ScalarType::BFloat16)
+          ? cast_op->GetSynOutputs()[0]
+          : p_context_->syn_inputs_[1]);
+  quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+  quad_tree_op->SetSynapseInput(p_context_->syn_inputs_[3]);
+  quad_tree_op->AllocateAndAddSynapseNode(graph, inputs, false);
+
+  auto roi_bwd_op = make_operator<habana::RoiAlignBwdImplOperator>(
+      this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
+  roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  roi_bwd_op->SetSynapseInput(
+      (rois.scalar_type() == c10::ScalarType::BFloat16)
+          ? cast_op->GetSynOutputs()[0]
+          : p_context_->syn_inputs_[1]);
+  roi_bwd_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+  roi_bwd_op->SetSynapseInput(quad_tree_op->GetSynOutputs()[0]);
+  roi_bwd_op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(roi_bwd_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(roi_bwd_op->GetOutputs()[0]));
+}
+
+void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 7,
+      "Incorrect size of inputs expected for RoiAlignBwd operator");
+
+  auto grad_out = inputs[0].toTensor();
+  auto rois = inputs[1].toTensor();
+  auto num_rois = inputs[2].toTensor();
+  auto input_shape = inputs[3].toTensor();
+  auto sampling_ratio = inputs[4].toInt();
+  auto spatial_scale = inputs[5].toScalar().toFloat();
+  auto aligned = inputs[6].toBool();
+
+  ns_RoiAlignBwdKernel::ParamsIsValidCount roi_params{};
+  roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
+  roi_params.sampling_ratio = sampling_ratio;
+  roi_params.spatial_scale = spatial_scale;
+  roi_params.aligned = aligned;
+  roi_params.isValidCount = false;
+
+  auto output = habana_helpers::createPTTensor(
+      grad_out, input_shape.sizes(), grad_out.options(), is_output_persistent);
+
+  // Restriction coming from TPC kernel. Adding this restriction serves 2
+  // purpose, (1) if output_size (input_size for roi_align_fwd) for this kernel
+  // exceeds the limit set by TPC, throw an assert in bridge instead of assert
+  // in glue-code, (2) with Dynamic Shapes enabled, this ensures that we
+  // fallback from max_policy = Caclulated to max_policy = Historic if required
+  constexpr int segPerAxis = 16;
+  constexpr int maxVlmCount = 320;
+  TORCH_CHECK(
+      (std::ceil(input_shape.sizes()[1] / segPerAxis) *
+       std::ceil(input_shape.sizes()[2] / segPerAxis)) <= maxVlmCount,
+      "VLM count exceeded in Roi_align_bwd, input image size too large to handle")
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &roi_params, sizeof(roi_params));
+}
+
+void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // auto grad_out = inputs[0].toTensor();
+  auto rois = inputs[1].toTensor();
+  auto num_rois = inputs[2].toTensor();
+  auto input_shape = inputs[3].toTensor();
+  // auto sampling_ratio = inputs[4].toInt();
+  auto spatial_scale = inputs[5].toScalar().toFloat();
+  // auto aligned = inputs[6].toBool();
+
+  std::vector<int64_t> output_size = {
+      input_shape.sizes()[0], 256, num_rois.sizes()[0] + 1};
+
+  auto quadTree_output = habana_helpers::createPTTensor(
+      rois,
+      output_size,
+      rois.options(),
+      rois.suggest_memory_format(),
+      c10::ScalarType::Short,
+      is_output_persistent);
+
+  ns_QuadTree::ParamsTorchVersion quad_tree_params;
+  memset(&quad_tree_params, 0, sizeof(quad_tree_params));
+  // all parameter settings as per recommendation in TPC docs
+  quad_tree_params.segments = 256; // should be a power of 4
+  quad_tree_params.isValidCount = false;
+  quad_tree_params.enableAbsoluteCoords = true;
+  quad_tree_params.levelScalarFactor = spatial_scale;
+  quad_tree_params.enableTorchVersion = true;
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, quadTree_output);
+  }
+
+  AllocateSynapseOutput(graph, quadTree_output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &quad_tree_params, sizeof(quad_tree_params));
+}
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add("hpu::roi_align_fwd", KERNEL_FN(RoiAlignFwdOperator))
+        .add("hpu::roi_align_bwd", KERNEL_FN(RoiAlignBwdOperator));
