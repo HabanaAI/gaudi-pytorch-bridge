@@ -717,6 +717,32 @@ geometric_:
   op_frontend: LazyGeometric
   op_backend: Geometric
 
+glu:
+  dtypes: [Float]
+  op_backend: Glu
+  custom_output_shape: GluOutputShape
+  out_ids: [0]
+  scalar_ids: [1]
+
+glu.out:
+  op_backend: Glu
+  custom_output_shape: GluOutputShape
+  dtypes: [Float]
+  scalar_ids: [1]
+
+glu_backward:
+  custom_output_shape: GluBwdOutputShape
+  dtypes: [Float]
+  op_backend: GluBwd
+  scalar_ids: [2]
+  out_ids: [0]
+
+glu_backward.grad_input:
+  custom_output_shape: GluBwdOutputShape
+  dtypes: [Float]
+  op_backend: GluBwd
+  scalar_ids: [2]
+
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
