@@ -20,7 +20,7 @@ inline int64_t mod_exp(int64_t y, int64_t x = 997) {
   const int64_t p{1000000007};
   int64_t z = 1;
   int64_t sign{(y > 0 ? 1 : -1)};
-  y = abs(y);
+  y = std::abs(y);
   y = y % p;
   if (y == 0) {
     return 0;
