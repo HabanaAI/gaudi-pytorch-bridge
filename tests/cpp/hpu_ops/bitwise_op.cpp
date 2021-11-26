@@ -23,7 +23,7 @@
     auto result1 = torch::op(GetHpuInput(0), GetHpuInput(1));       \
     Compare(expected1, result1);                                    \
     /* Tensor Scalar inputs */                                      \
-    dtype s = 1;                                                    \
+    dtype s = GenerateScalar<dtype>();                              \
     auto expected2 = torch::op(GetCpuInput(0), s);                  \
     auto result2 = torch::op(GetHpuInput(0), s);                    \
     Compare(expected2, result2);                                    \
@@ -37,7 +37,7 @@
     GetHpuInput(0).op(GetHpuInput(1));                              \
     Compare(GetCpuInput(0), GetHpuInput(0));                        \
     /* Tensor Scalar inputs */                                      \
-    dtype s = 0;                                                    \
+    dtype s = GenerateScalar<dtype>();                              \
     GetCpuInput(0).op(s);                                           \
     GetHpuInput(0).op(s);                                           \
     Compare(GetCpuInput(0), GetHpuInput(0));                        \
@@ -55,7 +55,7 @@
     torch::op(GetHpuInput(0), GetHpuInput(1), res1);                    \
     Compare(exp1, res1);                                                \
     /* Tensor Scalar inputs */                                          \
-    dtype_ s = 0;                                                       \
+    dtype_ s = GenerateScalar<dtype_>();                                \
     auto exp2 = torch::empty(0, dtype);                                 \
     auto res2 =                                                         \
         torch::empty(0, torch::TensorOptions(dtype).device(c10::kHPU)); \
