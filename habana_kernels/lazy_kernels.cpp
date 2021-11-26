@@ -1584,76 +1584,6 @@ Tensor pow_scalar_tensor_hpu_lazy(const Scalar& other, const Tensor& self) {
   return k.call();
 }
 
-Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::gt",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
-}
-
-Tensor gt_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::gt", {self, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor& eq_tensor_out_hpu_lazy(
-    Tensor& output,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_LAZY_TRACE;
-  HABANA_ASSERT(0);
-  return eq_tensor_out_hpu(output, self, other);
-}
-Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::eq", {self, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::eq",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
-}
-
-Tensor ne_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  Tensor self_cast = self;
-
-  if (self.scalar_type() == c10::ScalarType::Byte) {
-    LazyOp<at::Tensor> k_{
-        "hpu::cast",
-        {self, c10::ScalarType::Int},
-        {self.sizes().vec()},
-        c10::ScalarType::Int};
-    self_cast = k_.call();
-  }
-
-  LazyCompareOp<at::Tensor> k{
-      "aten::ne", {self_cast, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::ne",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
-}
-
 Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);
@@ -1674,57 +1604,6 @@ Tensor& all_dim_out_hpu_lazy(
       ReduceOperator::compute_output_shape(self, dim, keepdim);
   LazyOp<at::Tensor&> k{"aten::all", {self, dim, keepdim, out}, {shape_out}};
   return k.call(out);
-}
-
-Tensor lt_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::lt", {self, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::lt",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
-}
-
-Tensor ge_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::ge", {self, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::ge",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
-}
-
-Tensor le_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::le", {self, other}, {}, {self.sizes().vec()}};
-  return k.call();
-}
-
-Tensor le_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyCompareOp<at::Tensor> k{
-      "aten::le",
-      {self, other},
-      {},
-      {CompareWrapperOperator::compute_output_shape(self, other)}};
-  return k.call();
 }
 
 Tensor permute_wt_hpu(const Tensor& self) {

@@ -467,6 +467,26 @@ eq_.Tensor:
   inplace_ids: [0]
   type_promotion: true
 
+eq.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
+eq.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  lazy_class: LazyCmp
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
 erf.out:
   dtypes: [BFloat16, Float]
   guid: erf_fwd
@@ -637,6 +657,26 @@ ge_.Tensor:
   inplace_ids: [0]
   type_promotion: true
 
+ge.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
+ge.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+  lazy_class: LazyCmp
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
@@ -669,6 +709,26 @@ gt_.Tensor:
   guid: greater_fwd
   inplace_ids: [0]
   type_promotion: true
+
+gt.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
+gt.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+  lazy_class: LazyCmp
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
@@ -745,6 +805,26 @@ le_.Tensor:
   guid: less_equal_fwd
   inplace_ids: [0]
   type_promotion: true
+
+le.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
+le.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
+  lazy_class: LazyCmp
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
 
 leaky_relu.out:
   dtypes: [BFloat16, Float]
@@ -863,15 +943,6 @@ logsumexp.out:
   op_base_class: LogSumExp
   custom_output_shape: LogSumExpOutputShape
 
-lt.Scalar:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_fwd
-  lazy_class: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_base_class: CompareOp
-  type_promotion: true
-
 logspace.out:
   dtypes: [BFloat16, Float]
   op_base_class: LogSpace
@@ -901,6 +972,26 @@ lt_.Scalar:
   scalar_ids: [1]
   inplace_ids: [0]
   type_promotion: true
+
+lt.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  lazy_class: LazyCmp
+  scalar_ids: [1]
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
+
+lt.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  lazy_class: LazyCmp
+  out_ids: [0]
+  op_base_class: CompareOp
+  type_promotion: true
+  legacy_eager: true
 
 maximum:
   broadcast: true
@@ -1009,6 +1100,24 @@ ne_.Tensor:
   op_base_class: NE
   inplace_ids: [0]
   type_promotion: true
+
+ne.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  lazy_class: LazyCmp
+  op_base_class: NE
+  scalar_ids: [1]
+  out_ids: [0]
+  type_promotion: true
+  legacy_eager: true
+
+ne.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  lazy_class: LazyCmp
+  op_base_class: NE
+  out_ids: [0]
+  type_promotion: true
+  legacy_eager: true
 
 neg.out:
   dtypes: [BFloat16, Float, Int]

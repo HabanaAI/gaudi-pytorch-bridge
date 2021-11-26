@@ -605,23 +605,14 @@ Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("gt", {self, other}))
     return AtenHpuTypeDefault::gt(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gt_tensor_hpu_lazy(self, other);
-
-  } else {
-    return gt_tensor_hpu(self, other);
-  }
+  return gt_tensor_hpu(self, other);
 };
 
 Tensor hpu_wrap::gt(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("gt", {self}))
     return AtenHpuTypeDefault::gt(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gt_scalar_hpu_lazy(self, other);
-  } else {
-    return gt_scalar_hpu(self, other);
-  }
+  return gt_scalar_hpu(self, other);
 };
 Tensor& hpu_wrap::eq_out(
     const Tensor& self,
@@ -630,118 +621,73 @@ Tensor& hpu_wrap::eq_out(
   if (!hpu_check_inputs_impl("eq_out", {output, self, other}))
     return AtenHpuTypeDefault::eq_out(self, other, output);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return eq_tensor_out_hpu_lazy(output, self, other);
-  } else {
-    return eq_tensor_out_hpu(output, self, other);
-  }
+  return eq_tensor_out_hpu(output, self, other);
 };
 Tensor hpu_wrap::eq(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("eq", {self, other}))
     return AtenHpuTypeDefault::eq(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return eq_tensor_hpu_lazy(self, other);
-  } else {
-    return eq_tensor_hpu(self, other);
-  }
+  return eq_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::eq(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("eq", {self}))
     return AtenHpuTypeDefault::eq(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return eq_tensor_scalar_hpu_lazy(self, other);
-
-  } else {
-    return eq_tensor_scalar_hpu(self, other);
-  }
+  return eq_tensor_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::lt(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("lt", {self}))
     return AtenHpuTypeDefault::lt(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return lt_scalar_hpu_lazy(self, other);
-
-  } else {
-    return lt_scalar_hpu(self, other);
-  }
+  return lt_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::lt(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("lt", {self, other}))
     return AtenHpuTypeDefault::lt(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return lt_tensor_hpu_lazy(self, other);
-
-  } else {
-    return lt_tensor_hpu(self, other);
-  }
+  return lt_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::ge(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("ge", {self}))
     return AtenHpuTypeDefault::ge(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return ge_scalar_hpu_lazy(self, other);
-
-  } else {
-    return ge_scalar_hpu(self, other);
-  }
+  return ge_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("ge", {self, other}))
     return AtenHpuTypeDefault::ge(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return ge_tensor_hpu_lazy(self, other);
-
-  } else {
-    return ge_tensor_hpu(self, other);
-  }
+  return ge_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::le(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("le", {self}))
     return AtenHpuTypeDefault::le(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return le_scalar_hpu_lazy(self, other);
-
-  } else {
-    return le_scalar_hpu(self, other);
-  }
+  return le_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::le(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("le", {self, other}))
     return AtenHpuTypeDefault::le(self, other);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return le_tensor_hpu_lazy(self, other);
-
-  } else {
-    return le_tensor_hpu(self, other);
-  }
+  return le_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::ne(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("ne", {self}))
     return AtenHpuTypeDefault::ne(self, other);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return ne_scalar_hpu_lazy(self, other);
-  } else {
-    return ne_scalar_hpu(self, other);
-  }
+  /* This code will be exercised only in legacy eager mode. The following code
+   * is used to replace the graph transformation based ne op implementation */
+  Scalar c = 0.0;
+  Tensor e = hpu_wrap::eq(self, other);
+  return hpu_wrap::eq(e, c);
 };
 Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("ne", {self, other}))
     return AtenHpuTypeDefault::ne(self, other);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return ne_tensor_hpu_lazy(self, other);
-  } else {
-    return ne_tensor_hpu(self, other);
-  }
+  /* This code will be exercised only in legacy eager mode. The following code
+   * is used to replace the graph transformation based ne op implementation */
+  Scalar c = 0.0;
+  Tensor e = hpu_wrap::eq(self, other);
+  return hpu_wrap::eq(e, c);
 };
 
 Tensor& hpu_wrap::all_out(

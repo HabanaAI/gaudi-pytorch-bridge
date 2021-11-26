@@ -1594,6 +1594,7 @@ static const std::
                   at::ScalarType::Double,
                   at::ScalarType::Byte,
                   at::ScalarType::Char,
+                  at::ScalarType::Bool,
                   at::ScalarType::Float,
                   at::ScalarType::BFloat16}},
             },

@@ -20,19 +20,6 @@ using Pattern = std::tuple<std::string, std::string>;
 using Patterns = std::vector<Pattern>;
 
 Patterns internal_patts = {
-    // torch.ne OP pattern
-    {"graph(%a, %b):\n\
-      %c = aten::ne(%a, %b)\n\
-      return (%c)",
-     "graph(%a, %b):\n\
-      %2 : None = prim::Constant()\n\
-      %3 : bool = prim::Constant[value=0]()\n\
-      %4 : int = prim::Constant[value=0.0]()\n\
-      %c : Tensor = aten::eq(%a, %b)\n\
-      %1 : int = prim::dtype(%a)\n\
-      %d : Tensor = aten::to(%c, %1, %3, %3, %2)\n\
-      %e : Tensor = aten::eq(%d, %4)\n\
-      return (%e)"},
     // torch.all(tensor) pattern
     {"graph(%a):\n\
       %b : Tensor = aten::all(%a)\n\
