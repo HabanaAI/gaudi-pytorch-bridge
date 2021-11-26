@@ -51,6 +51,23 @@ addcmul.out:
   op_base_class: AddCOpOut
   scalar_ids: [3]
 
+addr:
+  custom_output_shape: AddROutshape
+  dtypes: [BFloat16, Float]
+  op_base_class: AddR
+  out_ids: [0]
+
+addr_:
+  custom_output_shape: AddROutshape
+  dtypes: [BFloat16, Float]
+  op_base_class: AddR
+  inplace_ids: [0]
+
+addr.out:
+  custom_output_shape: AddROutshape
+  dtypes: [BFloat16, Float]
+  op_base_class: AddR
+
 all:
   custom_output_shape: AllOutputShape
   dtypes: [Bool]
