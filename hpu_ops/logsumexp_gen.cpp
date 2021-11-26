@@ -46,11 +46,18 @@ void LogSumExp::AddNode(
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
   auto self = stack.at(0).toTensor();
-  std::vector<int64_t> dim = stack.at(1).toIntList().vec();
+
   const bool keepdim = stack.at(2).toBool();
   auto ndim = self.dim();
   auto mask = std::bitset<64>();
   auto self_shape = self.sizes().vec();
+  auto dim = stack.at(1).toIntList();
+  // When dim=[], reduce all dimensions based on keepdim value
+  if (0 == dim.size()) {
+    for (int i = 0; i < ndim; ++i) {
+      dim.push_back(i);
+    }
+  }
 
   for (const auto& i : dim) {
     mask.set(c10::maybe_wrap_dim(i, ndim, true));
