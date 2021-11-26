@@ -585,11 +585,17 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     output_shape_fn = ctxop.get_custom_output_shape()
     promote_type = ctxop.supports_type_promotion()
 
-    assert len(out_ids) ^ len(inplace_ids) ^ is_out_fn(fname), (
+    assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (
         "`out_ids` or `inplace_ids` should not be defined for {}".format(fname)
         if is_out_fn(fname)
         else "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
     )
+
+    scalar_ids_set = set(scalar_ids)
+    err_ids = scalar_ids_set.intersection(out_ids if len(out_ids) else inplace_ids)
+    assert (
+        len(err_ids) == 0
+    ), "Input(s) at {} cannot be both scalar and tensor for {}.".format(err_ids, fname)
 
     out_ids = ", ".join([str(o) for o in out_ids])
     inplace_ids = ", ".join([str(i) for i in inplace_ids])
