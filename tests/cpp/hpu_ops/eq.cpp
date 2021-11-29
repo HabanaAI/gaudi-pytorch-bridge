@@ -31,10 +31,10 @@ TEST_F(HpuOpTest, eq_tensor) {
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
-TEST_F(HpuOpTest, equal_f32) {
-  auto ones = torch::ones({12}, "hpu");
-  auto zeros = torch::zeros({12}, "hpu");
-  EXPECT_FALSE(torch::equal(ones, zeros));
+TEST_F(HpuOpTest, equal) {
+  auto tensor1 = torch::tensor({1, 0, 0}, "hpu");
+  auto tensor2 = torch::tensor({1, 1, 1}, "hpu");
+  EXPECT_FALSE(torch::equal(tensor1, tensor2));
 }
 
 TEST_F(HpuOpTest, equal_bf16) {
@@ -43,10 +43,16 @@ TEST_F(HpuOpTest, equal_bf16) {
   EXPECT_TRUE(torch::equal(ones, ones));
 }
 
-TEST_F(HpuOpTest, equal_i32) {
-  auto ones =
-      torch::ones({2, 3, 4}, torch::TensorOptions(torch::kInt32).device("hpu"));
-  EXPECT_TRUE(torch::equal(ones, ones));
+TEST_F(HpuOpTest, equal_diff_shape) {
+  auto ones = torch::ones({2, 12, 8, 9}, "hpu");
+  auto zeros = torch::zeros({1, 122, 3, 4, 6}, "hpu");
+  EXPECT_FALSE(torch::equal(ones, zeros));
+}
+
+TEST_F(HpuOpTest, equal_f32) {
+  auto ones = torch::ones({12}, "hpu");
+  auto zeros = torch::zeros({12}, "hpu");
+  EXPECT_FALSE(torch::equal(ones, zeros));
 }
 
 TEST_F(HpuOpTest, equal_i8) {
@@ -55,6 +61,12 @@ TEST_F(HpuOpTest, equal_i8) {
   auto zeros =
       torch::zeros({8, 4, 4}, torch::TensorOptions(torch::kInt8).device("hpu"));
   EXPECT_FALSE(torch::equal(ones, zeros));
+}
+
+TEST_F(HpuOpTest, equal_i32) {
+  auto ones =
+      torch::ones({2, 3, 4}, torch::TensorOptions(torch::kInt32).device("hpu"));
+  EXPECT_TRUE(torch::equal(ones, ones));
 }
 
 TEST_F(HpuOpTest, equal_u8) {

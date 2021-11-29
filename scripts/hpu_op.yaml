@@ -421,7 +421,7 @@ elu_backward:
 
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: equal_fwd
+  op_base_class: Equal
   out_ids: [0]
 
 eq.Scalar_out:
