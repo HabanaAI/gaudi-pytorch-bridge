@@ -1131,6 +1131,20 @@ mv.out:
   guid: mv
   op_backend: MvOpOut
 
+nan_to_num:
+ dtypes: [Float, Int, BFloat16]
+ op_backend: NantoNum
+ out_ids: [0]
+
+nan_to_num_:
+  dtypes: [Float, Int, BFloat16]
+  op_backend: NantoNum
+  inplace_ids: [0]
+
+nan_to_num.out:
+  dtypes: [Float, Int, BFloat16]
+  op_backend: NantoNum
+
 nansum:
   custom_output_shape: NanSumOutputShape
   dtypes: [Float]

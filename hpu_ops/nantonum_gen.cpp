@@ -1,0 +1,100 @@
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
+#include "generated/hpu_op.h"
+#include "hpu_op_helper.h"
+
+namespace habana {
+void NantoNum::AddNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    const std::vector<bool>& is_output_persistent_list) {
+  const at::Tensor self = stack_tensor(stack, 0);
+  const auto outshape = stack_tensor(stack, 0).sizes();
+
+  // If input is of integral dtype then copy it into output
+  if (c10::isIntegralType(ScalarType(), true)) {
+    auto copy = BuildOp(
+        graph,
+        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+    syn_out(0) = std::move(copy[0]);
+  } else {
+    auto nan_constant = stack.at(1).isNone() ? 0.0 : stack.at(1).toDouble();
+
+    auto const_nan =
+        ConstantHelper(graph, nan_constant, ScalarType(), outshape);
+
+    auto posinf_constant = stack.at(2).isNone()
+        ? std::numeric_limits<float>::max()
+        : stack.at(2).toDouble();
+
+    auto const_posinf =
+        ConstantHelper(graph, posinf_constant, ScalarType(), outshape);
+
+    auto neginf_constant = stack.at(3).isNone()
+        ? std::numeric_limits<float>::lowest()
+        : stack.at(3).toDouble();
+
+    auto const_neginf =
+        ConstantHelper(graph, neginf_constant, ScalarType(), outshape);
+
+    const at::ScalarType& result_type = c10::ScalarType::Bool;
+
+    auto nan_mask = BuildOp(
+        graph,
+        "isnan_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, result_type}});
+
+    ns_IsInfKernel::Params params_pos{};
+    params_pos.detect_positive = 1;
+
+    auto posinf_mask = BuildOp(
+        graph,
+        "isinf_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, result_type}},
+        &params_pos,
+        sizeof(params_pos));
+
+    ns_IsInfKernel::Params params_neg{};
+    params_neg.detect_negative = 1;
+
+    auto neginf_mask = BuildOp(
+        graph,
+        "isinf_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, result_type}},
+        &params_neg,
+        sizeof(params_neg));
+
+    auto where_nan = BuildOp(
+        graph,
+        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {nan_mask[0].get(), const_nan.get(), syn_in(0)},
+        {{outshape, ScalarType()}});
+
+    auto where_pos = BuildOp(
+        graph,
+        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {posinf_mask[0].get(), const_posinf.get(), where_nan[0].get()},
+        {{outshape, ScalarType()}});
+
+    auto where_neg = BuildOp(
+        graph,
+        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {neginf_mask[0].get(), const_neginf.get(), where_pos[0].get()},
+        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+    syn_out(0) = std::move(where_neg[0]);
+  }
+}
+} // namespace habana
