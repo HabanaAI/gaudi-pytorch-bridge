@@ -947,6 +947,20 @@ log1p.out:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
 
+log10:
+  dtypes: [BFloat16, Float]
+  op_backend: Log10
+  out_ids: [0]
+
+log10_:
+  dtypes: [BFloat16, Float]
+  op_backend: Log10
+  inplace_ids: [0]
+
+log10.out:
+  dtypes: [BFloat16, Float]
+  op_backend: Log10
+
 log2.out:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
