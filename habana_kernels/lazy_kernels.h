@@ -998,9 +998,6 @@ class LazyOp {
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
-    optimized_key = at::hash_combine(optimized_key, (size_t)t.dim());
-    optimized_key =
-        at::hash_combine(optimized_key, static_cast<size_t>(t.scalar_type()));
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {
       auto val = hl_tensor->GetIrValue();
@@ -1008,12 +1005,23 @@ class LazyOp {
       torch::jit::IValue hl_tensor_ivalue = d->tensor_data;
       if (hl_tensor_ivalue.isTensor()) {
         auto hb_internal_tensor = hl_tensor_ivalue.toTensor();
+        optimized_key =
+            at::hash_combine(optimized_key, (size_t)hb_internal_tensor.dim());
+        optimized_key = at::hash_combine(
+            optimized_key,
+            static_cast<size_t>(hb_internal_tensor.scalar_type()));
         optimized_key = at::hash_combine(
             optimized_key,
             static_cast<size_t>(hb_internal_tensor.suggest_memory_format()));
+        if (hb_internal_tensor.has_storage()) {
+          auto hb_tensor = GetHbInternalTensorImpl(hb_internal_tensor);
+          if (hb_tensor) {
+            auto lazy_layout_format = hb_tensor->GetTensorLayout();
+            optimized_key = at::hash_combine(
+                optimized_key, static_cast<size_t>(lazy_layout_format));
+          }
+        }
       }
-      optimized_key =
-          at::hash_combine(optimized_key, (size_t)hl_tensor->GetTensorLayout());
       if (!(val.mp_node->is_input())) {
         optimized_key = 0;
       }
