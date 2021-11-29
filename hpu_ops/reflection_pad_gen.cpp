@@ -16,9 +16,9 @@ sizes_vec ReflectionPad1DOutputShape(const at::Stack& stack, bool) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> outputShape = self.sizes().vec();
   auto pad = stack.at(1).toIntVector();
+  TORCH_CHECK((pad.size() == 2), "Pad size can only be 2 for ReflectionPad1d");
   // updating the width dimension
-  outputShape.rbegin()[0] =
-      outputShape.rbegin()[0] + pad[0] + pad[outputShape.size()];
+  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
   return {outputShape};
 }
 
@@ -26,12 +26,11 @@ sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack, bool) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> outputShape = self.sizes().vec();
   auto pad = stack.at(1).toIntVector();
+  TORCH_CHECK((pad.size() == 4), "Pad size can only be 4 for ReflectionPad2d");
   // updating the width dimension
-  outputShape.rbegin()[0] =
-      outputShape.rbegin()[0] + pad[0] + pad[outputShape.size()];
+  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
   // updating the height dimension
-  outputShape.rbegin()[1] =
-      outputShape.rbegin()[1] + pad[1] + pad[outputShape.size() + 1];
+  outputShape.rbegin()[1] = outputShape.rbegin()[1] + pad[2] + pad[3];
   return {outputShape};
 }
 
@@ -44,15 +43,20 @@ static std::shared_ptr<void> FillReflectionPadParams(
   std::vector<int64_t> inputShape = self.sizes().vec();
   auto pads = stack.at(pad_index).toIntVector();
   params->mode = PadMode_t::PAD_MODE_REFLECT;
-  TORCH_CHECK(
-      (pads.size() >= (2 * inputShape.size())),
-      "Pads size (",
-      pads.size(),
-      ") is less than 2 * input's size (",
-      2 * inputShape.size(),
-      ")");
-  for (uint i = 0; i < (2 * inputShape.size()); i++)
-    params->pads[i] = pads[i];
+  int mul = 0;
+  int add = -1;
+  // tpc kernel expects the pad before and pad after
+  // for each dimension
+  for (uint i = 0; i < pads.size(); i++) {
+    if (i % 2 == 0) {
+      mul = 0;
+      add++;
+    } else {
+      mul = 1;
+    }
+    uint hpu_index = (mul * inputShape.size()) + add;
+    params->pads[hpu_index] = pads[i];
+  }
   return params;
 }
 
