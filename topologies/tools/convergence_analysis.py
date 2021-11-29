@@ -38,7 +38,7 @@ def ca_tensor_error_stats(a,b):
     rmse = np.sqrt(mse)
     return maxabs.item(), minabs.item(),mse.item(), h, rmse.item()
 
-def ca_cosine_similarity(a, b, cos_sim_thld):
+def ca_cosine_similarity(a, b, cos_sim_thld,rms_threshold):
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
     if (na.item() == 0.0) and (nb.item() == 0.0):
@@ -50,7 +50,9 @@ def ca_cosine_similarity(a, b, cos_sim_thld):
         nr =  np.divide(na,nb)
         angle = np.arccos(min(np.dot(a, b) / na / nb, 1.0))/np.pi*180
         angle = np.around(angle,2)
-        cos_sim_ok =  np.greater(cos_sim_thld , angle)
+        cos_sim_ok =  np.greater(cos_sim_thld , angle) or np.greater(rms_threshold,na/np.sqrt(a.size))
+        if np.greater(angle,cos_sim_thld) and cos_sim_ok:
+            print('Cosine similarity marked True as RMS was below threshold')
         return na.item(),nb.item(),nr.item(), angle.item(), cos_sim_ok
 
 # Keys for individual tensor stats
@@ -107,7 +109,7 @@ def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
     else:
         return t_dev1_torch, t_dev2_torch
 
-def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch):
+def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch,rms_threshold):
         if t_dev1_torch.is_floating_point() is not True:
             t_dev1_torch = t_dev1_torch.float()
             t_dev2_torch = t_dev2_torch.float()
@@ -120,7 +122,7 @@ def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2
 
         cos_sim_thld = 1.0 # 1 degree threshold for cosine ca_cosine_similarity
         maxabs, minabs, mse, dist, rmse = ca_tensor_error_stats(t_dev1, t_dev2)
-        norm_dev1, norm_dev2, norm_r, angle, cos_sim_ok = ca_cosine_similarity(t_dev1, t_dev2, cos_sim_thld)
+        norm_dev1, norm_dev2, norm_r, angle, cos_sim_ok = ca_cosine_similarity(t_dev1, t_dev2, cos_sim_thld,rms_threshold)
 
         hk = ca_get_header_keys(dev1, dev2, ca_base_key_list)
 
@@ -168,7 +170,7 @@ def ca_make_file_pair_list(dev1, dev2, path1, path2):
     #print(files_dev2)
     return zip(files_dev1,files_dev2)
 
-def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3, topology=None,skip_pattern='None'):
+def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3, topology=None,skip_pattern='None',rms_threshold=1e-10):
     #If we are comparing the tensors on same device, say, habana, rename the devices as
     # habana1 and 2 for the csv file. Else the dictionary key for dev1 and 2 will be same
     #causing an overwriting
@@ -180,6 +182,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
 
     print("Using Tolerances rtol = ", rtol, " atol =", atol, "for comparing", dev1,  "and ", dev2)
     print('Applying skip_pattern:',skip_pattern)
+    print('Applying rms_threshold:',rms_threshold)
     hk = ca_get_header_keys(dev1, dev2, ca_base_key_list)
     tcs_csv = open('tensor_cmp_stats.csv', 'w', newline='')
     header = ['tensor_name', 'dim','size_elems', hk['min'][dev1], hk['min'][dev2], hk['mean'][dev1], hk['mean'][dev2],
@@ -187,7 +190,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
                 'norm_ratio_t', 'minabs_e','maxabs_e','distribution%_abs_e', 'ms_e', 'rms_e', 'angle', 'cosine_sim_ok']
     writer = csv.DictWriter(tcs_csv, fieldnames=header)
     writer.writeheader()
-    max_angle=0.0 #Max angle over all iteartions
+    max_angle=0.0 #Max angle over all iterations
     max_angle_per_iter = dict()
     for file_dev1,file_dev2 in file_pair_list:
         if re.search(skip_pattern,file_dev1) is not None:
@@ -232,7 +235,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
                 else:
                     t_dev2 = tensor_to_perm.reshape(t_dev1.size())
 
-        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2)
+        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2,rms_threshold)
         max_angle = max(tensor_cmp_stat_dict['angle'], max_angle)
         find_max_angle_per_iter(max_angle_per_iter, tensor_cmp_stat_dict)
         writer.writerow(tensor_cmp_stat_dict)
