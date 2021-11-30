@@ -610,7 +610,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
 
-  return collective(
+  auto work = collective(
       inputTensors,
       outputFlattened,
       [&](at::Tensor& input,
@@ -626,15 +626,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
             getHCCLDataType(input.scalar_type()),
             hccl_comm,
             stream);
-
-        // Record even for outputFlattened on ncclStream
-        for (size_t i = 0; i < outputTensors.size(); ++i) {
-          for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-            outputTensors[i][j].copy_(outputFlattened[i][j], true);
-          }
-        }
         return work;
       });
+  // Record even for outputFlattened on ncclStream
+  for (size_t i = 0; i < outputTensors.size(); ++i) {
+    for (size_t j = 0; j < outputTensors[0].size(); ++j) {
+      outputTensors[i][j].copy_(outputFlattened[i][j], true);
+    }
+  }
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::_allgather_base(

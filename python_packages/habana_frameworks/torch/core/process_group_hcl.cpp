@@ -421,7 +421,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
 
-  return hclcollective(
+  auto work = hclcollective(
       inputTensors,
       outputFlattened,
       [&](at::Tensor& input, at::Tensor& output, hcl_communicator& hcl_comm) {
@@ -432,14 +432,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
             (synapse_helpers::device_ptr)output.storage().data_ptr().get(),
             input.numel(),
             getHCLDataType(input.scalar_type()));
-
-        for (size_t i = 0; i < outputTensors.size(); ++i) {
-          for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-            outputTensors[i][j].copy_(outputFlattened[i][j], true);
-          }
-        }
         return work;
       });
+  for (size_t i = 0; i < outputTensors.size(); ++i) {
+    for (size_t j = 0; j < outputTensors[0].size(); ++j) {
+      outputTensors[i][j].copy_(outputFlattened[i][j], true);
+    }
+  }
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::_allgather_base(
