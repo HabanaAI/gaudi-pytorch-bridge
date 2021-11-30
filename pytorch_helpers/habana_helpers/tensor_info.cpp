@@ -13,6 +13,8 @@ void PtTensorInfo::populate_tinfo(
   ir_name_ = irn;
   syn_name_ = sn;
 
+  is_ZST_ = habana::is_ZST(pt_tensor);
+
   buffer_ = pt_tensor.data_ptr();
   buffer_start_ = pt_tensor.storage().data_ptr().get();
 
@@ -104,6 +106,7 @@ void PtTensorInfo::update_shape_syn() {
 
 PtTensorInfo::PtTensorInfo(std::istream& is) {
   using namespace serialization;
+  deserialize(is, is_ZST_);
   deserialize(is, is_view_tensor_);
   deserialize(is, is_restrided_);
   deserialize(is, offset_);
@@ -128,6 +131,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
 
 void PtTensorInfo::Serialize(std::ostream& os) const {
   using namespace serialization;
+  serialize(os, is_ZST_);
   serialize(os, is_view_tensor_);
   serialize(os, is_restrided_);
   serialize(os, offset_);

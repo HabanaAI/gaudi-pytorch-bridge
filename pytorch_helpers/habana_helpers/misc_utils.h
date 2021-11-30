@@ -17,7 +17,18 @@
 #include <iostream>
 #include <string>
 
+#include <ATen/Tensor.h>
+
 namespace habana {
+
+// Returns if the input is a ZST
+inline bool is_ZST(const at::Tensor& t) {
+  // NOTE: There are cases where the numel returns 0 but the tensor has non-null
+  // storage pointer. REPRODUCER: LazyDynamicShapesTest.ArangeTest
+  return (
+      (t.has_storage() && t.storage().data_ptr().get() == nullptr) ||
+      (t.numel() == 0));
+}
 
 // Computes (x^y)%1000000007
 inline int64_t mod_exp(int64_t y, int64_t x = 997) {

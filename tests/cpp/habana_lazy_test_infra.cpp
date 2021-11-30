@@ -24,6 +24,8 @@ void print_tensor_details(torch::Tensor& t, std::string tname) {
       t.dim(),
       ", shape=",
       t.sizes(),
+      ", numel=",
+      t.numel(),
       ", stride=",
       t.strides(),
       ", layout=",

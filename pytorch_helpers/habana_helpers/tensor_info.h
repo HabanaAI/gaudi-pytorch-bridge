@@ -210,9 +210,14 @@ class PtTensorInfo {
     return hb_internal_lf_;
   }
 
+  bool is_ZST() const {
+    return is_ZST_;
+  }
+
   void Serialize(std::ostream& os) const;
 
  private:
+  bool is_ZST_{false};
   bool is_view_tensor_{false};
   bool is_restrided_{false};
 

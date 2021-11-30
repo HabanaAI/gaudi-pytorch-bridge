@@ -504,8 +504,11 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     habana_helpers::TensorShape min_shape, max_shape;
 
     void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
-    auto syn_tensor_it = buff_to_syn_tensor_map.find(pt_tensor_buffer_start);
-    if (syn_tensor_it != buff_to_syn_tensor_map.end()) {
+    bool is_duplicate_syn_tensor{
+        (pt_tensor_buffer_start != nullptr &&
+         buff_to_syn_tensor_map.count(pt_tensor_buffer_start))};
+    if (is_duplicate_syn_tensor) {
+      auto syn_tensor_it = buff_to_syn_tensor_map.find(pt_tensor_buffer_start);
       synapse_helpers::tensor& st = syn_tensor_it->second;
       habana_op->set_is_duplicate_input_flag(true);
       habana_op->add_syn_input_tensor_orig(st);
@@ -513,13 +516,15 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     auto& syn_tensor =
         habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
 
-    if (syn_tensor_it != buff_to_syn_tensor_map.end()) {
+    if (is_duplicate_syn_tensor) {
       habana_op->set_is_duplicate_input_flag(false);
       habana_op->clear_syn_input_tensor_orig();
     }
 
-    buff_to_syn_tensor_map.emplace(
-        pt_tensor_buffer_start, tensor_or_ref(syn_tensor));
+    if (pt_tensor_buffer_start != nullptr) {
+      buff_to_syn_tensor_map.emplace(
+          pt_tensor_buffer_start, tensor_or_ref(syn_tensor));
+    }
     return syn_tensor;
   }
 }
@@ -560,7 +565,9 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 
     if (enable_caching_) {
       void* buffp = ti.get_buffer_start();
-      buff_to_input_ivpsh_map.emplace(buffp, ivalue);
+      if (ti.is_ZST() == false) {
+        buff_to_input_ivpsh_map.emplace(buffp, ivalue);
+      }
     }
   }
 
@@ -736,12 +743,12 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   void* buffp = ti.get_buffer_start();
 
   if (false == isInGraphOutputs(vp)) {
-    if (buff_to_input_ivpsh_map.count(buffp)) {
+    if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
       // Case 1.A: intermediate persistent tensor which an alias of an input
-      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", buffp);
+      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", ti);
       duplicate_input_tivs.emplace_back(ti);
     } else {
-      if (buff_to_output_ivpsh_map.count(buffp)) {
+      if (ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         duplicate_outtinfos.emplace_back(ti);
       } else {
         // Case 1.B: intermediate persistent tensor
@@ -762,28 +769,29 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       // Is this a duplicate tensor going to graph output?
       // See if this the buffer pointer matches any input, then -
       // Check whether it is an alias of any input
-      if (buff_to_input_ivpsh_map.count(buffp)) {
+      if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
-        PT_BRIDGE_DEBUG(
-            "Adding to duplicate_input_to_outtinfo_map ", ti.get_buffer());
+        PT_BRIDGE_DEBUG("Adding to duplicate_input_to_outtinfo_map ", ti);
         duplicate_input_to_outtinfo_map.emplace(ivpsh, ti);
-      } else if (buff_to_intermediate_ivpsh_map.count(buffp)) {
+      } else if (
+          ti.is_ZST() == false && buff_to_intermediate_ivpsh_map.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
-            "Adding to duplicate_intermediate_to_outtinfo_map ",
-            ti.get_buffer());
+            "Adding to duplicate_intermediate_to_outtinfo_map ", ti);
         duplicate_intermediate_to_outtinfo_map.emplace(ivpsh, ti);
-      } else if (buff_to_output_ivpsh_map.count(buffp)) {
+      } else if (
+          ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
-        PT_BRIDGE_DEBUG(
-            "Adding to duplicate_output_to_outtinfo_map ", ti.get_buffer());
+        PT_BRIDGE_DEBUG("Adding to duplicate_output_to_outtinfo_map ", ti);
         duplicate_output_to_outtinfo_map.emplace(ivpsh, ti);
       } else {
         // Case 2.A: graph output tensor, enable_tensor_release_
-        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", ti.get_buffer());
+        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", ti);
         output_tensorinfo_map.emplace(ivpsh, ti);
-        buff_to_output_ivpsh_map.emplace(buffp, ivpsh);
+        if (ti.is_ZST() == false) {
+          buff_to_output_ivpsh_map.emplace(buffp, ivpsh);
+        }
       }
     }
   }
@@ -1161,7 +1169,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
             value_out->debugName(),
             " to output_tensorinfo_map");
         output_tensorinfo_map.emplace(ivpsh_restrided, ti);
-      } else if (buff_to_intermediate_ivpsh_map.count(buffp)) {
+      } else if (
+          ti.is_ZST() == false && buff_to_intermediate_ivpsh_map.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
@@ -1169,6 +1178,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
+
         buff_to_intermediate_ivpsh_map.erase(buffp);
         buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh_restrided);
         TORCH_CHECK(
@@ -1184,13 +1194,14 @@ void HabanaLaunchOpPT::handleRestrideNode(
             value_out->debugName());
         duplicate_intermediate_to_outtinfo_map.erase(ivpsh);
         duplicate_intermediate_to_outtinfo_map.emplace(ivpsh_restrided, ti);
-      } else if (buff_to_input_ivpsh_map.count(buffp)) {
+      } else if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
         PT_BRIDGE_DEBUG(
             "updating buff_to_input_ivpsh_map entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
+
         buff_to_input_ivpsh_map.erase(buffp);
         buff_to_input_ivpsh_map.emplace(buffp, ivpsh_restrided);
 
@@ -1207,13 +1218,15 @@ void HabanaLaunchOpPT::handleRestrideNode(
             value_out->debugName());
         duplicate_input_to_outtinfo_map.erase(ivpsh);
         duplicate_input_to_outtinfo_map.emplace(ivpsh_restrided, ti);
-      } else if (buff_to_output_ivpsh_map.count(buffp)) {
+      } else if (
+          ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
         PT_BRIDGE_DEBUG(
             "updating buff_to_output_ivpsh_map entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
+
         buff_to_output_ivpsh_map.erase(buffp);
         buff_to_output_ivpsh_map.emplace(buffp, ivpsh_restrided);
 
@@ -1235,7 +1248,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
             false,
             " unhandled scenario for restride input %",
             value_in->debugName(),
-            " not found in duplicate_intermediate_to_outtinfo_map");
+            (ti.is_ZST() ? " is ZST" : " is non ZST"),
+            ", not found in any duplicate detection or output map");
       }
     }
 

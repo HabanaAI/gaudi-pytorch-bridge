@@ -359,7 +359,9 @@ class HabanaLaunchOpPT {
     aten_intermediates.push_back(ivpsh->toTensor());
     // We might have outputs that are duplicate of
     // persistent intermediate tensors
-    buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
+    if (false == ti.is_ZST()) {
+      buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
+    }
   }
   void AddAtenIntermediate(
       const IValPtrShared& ivpsh,
