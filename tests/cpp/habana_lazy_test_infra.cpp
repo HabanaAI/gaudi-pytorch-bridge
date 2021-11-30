@@ -9,6 +9,7 @@
  */
 
 #include "habana_lazy_test_infra.h"
+#include <absl/strings/match.h>
 
 #include "pytorch_helpers/habana_helpers/logging.h"
 
@@ -120,4 +121,22 @@ torch::jit::Stack createStack(std::vector<at::Tensor>&& list) {
       std::make_move_iterator(list.end()));
 }
 
+uint64_t EnvHelper::InitSeed() {
+  // Fix seed as 0 by default
+  uint64_t seed = 0;
+  const char* s = std::getenv("PT_HPU_TEST_SEED");
+
+  if (s) {
+    int base = absl::StartsWith(s, "0x") ? 16 : 10;
+    uint64_t val = std::stoul(s, nullptr, base);
+    // Magic code to use random seed
+    if (val == 0xDEADBEEF) {
+      auto gen = at::detail::getDefaultCPUGenerator();
+      return gen.seed();
+    }
+    return val;
+  }
+
+  return seed;
+}
 } // namespace habana_lazy_test

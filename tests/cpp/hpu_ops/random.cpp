@@ -12,6 +12,85 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, uniform_) {
+  GenerateInputs(2);
+
+  auto result1 = GetHpuInput(0).uniform_().cpu();
+  auto result2 = GetHpuInput(1).uniform_().cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto from = GenerateScalar<float>(0.3, 0.5);
+  auto to = GenerateScalar<float>(0.6, 0.7);
+
+  result1 = GetHpuInput(0).uniform_(from, to, gen1).cpu();
+  result2 = GetHpuInput(1).uniform_(from, to, gen2).cpu();
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.ge(from).all().item().toBool());
+  EXPECT_TRUE(result1.lt(to).all().item().toBool());
+}
+
+TEST_F(HpuOpTest, normal_) {
+  GenerateInputs(2);
+
+  auto result1 = GetHpuInput(0).normal_().cpu();
+  auto result2 = GetHpuInput(1).normal_().cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto mean = GenerateScalar<float>();
+  auto std = GenerateScalar<float>();
+  GenerateInputs(2, torch::kBFloat16);
+  result1 = GetHpuInput(0).normal_(mean, std, gen1).cpu();
+  result2 = GetHpuInput(1).normal_(mean, std, gen2).cpu();
+  EXPECT_TRUE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, bernoulli_) {
+  GenerateInputs(3);
+
+  auto result1 = GetHpuInput(0).bernoulli_().cpu();
+  auto result2 = GetHpuInput(1).bernoulli_().cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto p = GetHpuInput(2);
+  torch::manual_seed(31);
+  result1 =
+      GetHpuInput(0).bernoulli_(p, at::detail::getDefaultCPUGenerator()).cpu();
+  torch::manual_seed(31);
+  result2 =
+      GetHpuInput(1).bernoulli_(p, at::detail::getDefaultCPUGenerator()).cpu();
+
+  EXPECT_TRUE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, bernoulli) {
+  GenerateInputs(3, torch::kBFloat16);
+
+  auto result1 = torch::bernoulli(GetHpuInput(0)).cpu();
+  auto result2 = torch::bernoulli(GetHpuInput(1)).cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto p = GetHpuInput(2);
+  SetSeed();
+  result1 =
+      torch::bernoulli(GetHpuInput(0), at::detail::getDefaultCPUGenerator())
+          .cpu();
+  SetSeed();
+  result2 =
+      torch::bernoulli(GetHpuInput(0), at::detail::getDefaultCPUGenerator())
+          .cpu();
+
+  EXPECT_TRUE(result1.equal(result2));
+}
+
 TEST_F(HpuOpTest, random_) {
   GenerateInputs(1);
   SetSeed();

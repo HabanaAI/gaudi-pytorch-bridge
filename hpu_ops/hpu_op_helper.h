@@ -23,6 +23,19 @@ inline at::Tensor stack_tensor(const at::Stack& stack, int index) {
   return stack.at(index).toTensor();
 }
 
+inline std::string& update_guid_dtype(
+    std::string& guid,
+    const std::string& dtype_str) {
+  guid = guid.substr(0, guid.find_last_of('_') + 1).append(dtype_str);
+  return guid;
+}
+
+inline std::string& update_guid_dtype(
+    std::string& guid,
+    c10::ScalarType dtype) {
+  return update_guid_dtype(guid, habana_helpers::name_suffix_from_type(dtype));
+}
+
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors);
 std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(

@@ -34,14 +34,10 @@ const char* const place_on_cpu_env = getenv("PT_HPU_PLACE_ON_CPU");
 class EnvHelper {
   bool m_defined = false;
   unsigned m_saved = 0;
-  int m_seed = InitSeed();
+  uint64_t m_seed = InitSeed();
 
  private:
-  int InitSeed() {
-    // Fix seed as 0
-    const char* s = std::getenv("PT_HPU_TEST_SEED");
-    return s ? std::stoi(s) : 0;
-  }
+  uint64_t InitSeed();
 
  protected:
   void SetMode(unsigned mode = 1, int force = 0) {
@@ -95,7 +91,7 @@ class EnvHelper {
     SetMode(0);
   }
 
-  int GetSeed() const {
+  uint64_t GetSeed() const {
     return m_seed;
   }
 

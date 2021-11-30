@@ -843,27 +843,6 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::uniform_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UniformOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::normal_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NormalOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::bernoulli",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BernoulliOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::bernoulli_float",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BernoulliScalarOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "hpu::randperm_out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<RandpermOperator>(device_id, node_type);

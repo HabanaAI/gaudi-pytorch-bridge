@@ -13,23 +13,47 @@
 
 namespace habana {
 
-template <>
-LazyRandom<at::Tensor&>::LazyRandom(
+template <typename T>
+LazyTensorSeed<T>::LazyTensorSeed(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+    : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
   // Seed is always at the end for all variants
-  get_inputs().back() =
+  LazyTensorSeed<T>::get_inputs().back() =
       get_seed_tensor_hpu(inputs.back().toOptional<at::Generator>());
 }
 
-template <>
-at::Tensor& LazyRandom<at::Tensor&>::get_result_overrideable() {
-  return stack_tensor(get_inputs(), 0);
+template <typename T>
+T LazyTensorSeed<T>::get_result_overrideable() {
+  return stack_tensor(LazyTensorSeed<T>::get_inputs(), 0);
 }
+
+template struct LazyTensorSeed<at::Tensor&>;
+template struct LazyTensorSeed<at::Tensor>;
+
+template <typename T>
+LazyIntSeed<T>::LazyIntSeed(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
+  // Generators can't be represented in JIT graph
+  // https://github.com/pytorch/pytorch/issues/64005
+  // Seed is always at the end for all variants
+  LazyIntSeed<T>::get_inputs().back() = static_cast<int64_t>(
+      get_seed_hpu(inputs.back().toOptional<at::Generator>()));
+}
+
+template <typename T>
+T LazyIntSeed<T>::get_result_overrideable() {
+  return stack_tensor(LazyIntSeed<T>::get_inputs(), 0);
+}
+
+template struct LazyIntSeed<at::Tensor&>;
+template struct LazyIntSeed<at::Tensor>;
 
 static std::shared_ptr<void> RandomUniformParams(
     at::ScalarType type,
@@ -92,21 +116,31 @@ std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
       size);
 }
 
-void RandomOp::AddNode(
+std::shared_ptr<void> FillUniformParams(const at::Stack& stack, size_t& size) {
+  return RandomUniformParams(
+      stack_tensor(stack, 0).scalar_type(),
+      c10::make_optional<float>(stack.at(1).toDouble()),
+      c10::make_optional<float>(stack.at(2).toDouble()),
+      size);
+}
+
+void RandomSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
-  // Discard self tensor
+  // Discard self tensor, input is seed tensor only
   p_context_->syn_inputs_.pop_front();
+  HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
 
   if (ScalarType() == c10::ScalarType::Int) {
+    auto outshape = stack_tensor(stack, 0).sizes();
     size_t size = 0;
     auto rand_params = FillParams(stack, size);
     auto rand = BuildOp(
         graph,
-        "random_uniform_fwd_f32",
+        update_guid_dtype(guid_, "f32"),
         {syn_in(0)},
-        {{stack_tensor(stack, 0).sizes()}},
+        {{outshape}},
         rand_params.get(),
         size);
 
@@ -116,10 +150,7 @@ void RandomOp::AddNode(
         graph,
         "cast_f32_to_i32",
         {rand[0].get()},
-        {{stack_tensor(stack, 0).sizes(),
-          ScalarType(),
-          is_output_persistent_list[0],
-          true}},
+        {{outshape, ScalarType(), is_output_persistent_list[0], true}},
         params.get(),
         size);
     syn_out(0) = std::move(cast[0]);

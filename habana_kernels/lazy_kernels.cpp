@@ -3818,26 +3818,6 @@ Tensor adaptive_avg_pool2d_backward_hpu_lazy(
   return k.call();
 }
 
-Tensor& uniform_hpu_lazy(
-    Tensor& self,
-    double from,
-    double to,
-    c10::optional<Generator> gen) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> op{
-      "aten::uniform_", {self, from, to, std::move(gen)}, {1, 2, 3}};
-  return op.call(self);
-}
-Tensor& normal_hpu_lazy(
-    Tensor& self,
-    double mean,
-    double std,
-    c10::optional<Generator> gen) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> op{
-      "aten::normal_", {self, mean, std, std::move(gen)}, {1, 2, 3}};
-  return op.call(self);
-}
 Tensor& randperm_hpu_lazy(
     Tensor& output,
     int64_t n,
@@ -3858,20 +3838,6 @@ Tensor& randperm_hpu_lazy(
       {{n}}};
 
   return op.call(output);
-}
-Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor> op{
-      "aten::bernoulli", {self, std::move(gen)}, {1}, {self.sizes().vec()}};
-  return op.call();
-}
-Tensor& bernoulli_scalar_hpu_lazy(
-    Tensor& self,
-    double p,
-    c10::optional<Generator> gen) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> op{"hpu::bernoulli_float", {self, p, std::move(gen)}, {1, 2}};
-  return op.call(self);
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(

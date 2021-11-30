@@ -155,6 +155,35 @@ atanh_:
   guid: atanh_fwd
   inplace_ids: [0]
 
+bernoulli:
+  custom_fill_params: FillBernoulliParams
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  guid: random_bernoulli_fwd
+  lazy_class: LazyIntSeed
+  legacy_eager: true
+  op_base_class: Bernoulli
+  out_ids: [0]
+
+bernoulli_.float:
+  custom_fill_params: FillBernoulliParams
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  guid: random_bernoulli_fwd
+  inplace_ids: [0]
+  lazy_class: LazyIntSeed
+  legacy_eager: true
+  op_base_class: Bernoulli
+
+bernoulli_.Tensor:
+  custom_fill_params: FillBernoulliParams
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  guid: random_bernoulli_fwd
+  inplace_ids: [0]
+  lazy_class: LazyIntSeed
+  op_base_class: Bernoulli
+
 bitwise_and.Scalar:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
@@ -1136,6 +1165,16 @@ nll_loss_forward.output:
   guid: nll_loss_fwd
   op_base_class: NllLoss
 
+normal_:
+  custom_fill_params: FillNormalParams
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  guid: random_normal_fwd
+  inplace_ids: [0]
+  lazy_class: LazyTensorSeed
+  legacy_eager: true
+  op_base_class: RandomSeedTensorInput
+
 norm.ScalarOpt_dtype:
   custom_output_shape: NormOutputShape
   dtypes: [BFloat16, Float]
@@ -1171,8 +1210,8 @@ random_:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyRandom
-  op_base_class: RandomOp
+  lazy_class: LazyTensorSeed
+  op_base_class: RandomSeedTensorInput
 
 random_.from:
   custom_fill_params: FillRandomFromParams
@@ -1180,8 +1219,8 @@ random_.from:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyRandom
-  op_base_class: RandomOp
+  lazy_class: LazyTensorSeed
+  op_base_class: RandomSeedTensorInput
 
 random_.to:
   custom_fill_params: FillRandomToParams
@@ -1189,8 +1228,8 @@ random_.to:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyRandom
-  op_base_class: RandomOp
+  lazy_class: LazyTensorSeed
+  op_base_class: RandomSeedTensorInput
 
 multinomial:
   custom_fill_params: FillMultinomialParams
@@ -1618,6 +1657,16 @@ trunc_:
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
   inplace_ids: [0]
+
+uniform_:
+  custom_fill_params: FillUniformParams
+  dtypes: [BFloat16, Float, Int]
+  func_ns_hpu: true
+  guid: random_uniform_fwd
+  inplace_ids: [0]
+  lazy_class: LazyTensorSeed
+  legacy_eager: true
+  op_base_class: RandomSeedTensorInput
 
 upsample_linear1d:
   custom_fill_params: FillUpsampleLinear1DParams

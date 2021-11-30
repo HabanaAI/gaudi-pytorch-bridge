@@ -2407,12 +2407,9 @@ Tensor& hpu_wrap::uniform_(
   if (!hpu_check_inputs_impl("uniform_", {self}))
     return AtenHpuTypeDefault::uniform_(self, from, to, gen);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return uniform_hpu_lazy(self, from, to, gen);
-  } else {
-    return uniform_hpu(self, from, to, gen);
-  }
-};
+  return uniform_hpu(self, from, to, gen);
+}
+
 Tensor& hpu_wrap::normal_(
     Tensor& self,
     double mean,
@@ -2421,23 +2418,16 @@ Tensor& hpu_wrap::normal_(
   if (!hpu_check_inputs_impl("normal_", {self}))
     return AtenHpuTypeDefault::normal_(self, mean, std, gen);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return normal_hpu_lazy(self, mean, std, gen);
-  } else {
-    return normal_hpu(self, mean, std, gen);
-  }
-};
+  return normal_hpu(self, mean, std, gen);
+}
+
 Tensor hpu_wrap::bernoulli(const Tensor& self, c10::optional<Generator> gen) {
   if (!hpu_check_inputs_impl("bernoulli", {self}))
     return AtenHpuTypeDefault::bernoulli(self, gen);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bernoulli_hpu_lazy(self, gen);
+  return bernoulli_hpu(self, gen);
+}
 
-  } else {
-    return bernoulli_hpu(self, gen);
-  }
-};
 Tensor& hpu_wrap::bernoulli_(
     Tensor& self,
     double p,
@@ -2445,12 +2435,7 @@ Tensor& hpu_wrap::bernoulli_(
   if (!hpu_check_inputs_impl("bernoulli_", {self}))
     return AtenHpuTypeDefault::bernoulli_(self, p, gen);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bernoulli_scalar_hpu_lazy(self, p, gen);
-
-  } else {
-    return bernoulli_scalar_hpu(self, p, gen);
-  }
+  return bernoulli_scalar_hpu(self, p, gen);
 }
 
 Tensor& hpu_wrap::randperm_out(
@@ -4437,6 +4422,24 @@ Tensor hpu_wrap::diag(const Tensor& self, int64_t diagonal) {
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
+  // Ops that need custom schema because of Generator
+  m.def("geometric_(Tensor(a!) self, float p, int seed) -> Tensor(a!)");
+  m.def(
+      "uniform_(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)");
+  m.def(
+      "normal_(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)");
+  m.def("bernoulli(Tensor self, *, int seed) -> Tensor");
+  m.def(
+      "bernoulli_.Tensor(Tensor(a!) self, Tensor p, *, int seed) -> Tensor(a!)");
+  m.def(
+      "bernoulli_.float(Tensor(a!) self, float p=0.5, *, int seed) -> Tensor(a!)");
+  m.def(
+      "multinomial(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor");
+  m.def("random_(Tensor(a!) self, Tensor seed) -> Tensor(a!)");
+  m.def(
+      "random_.from(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)");
+  m.def("random_.to(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)");
+
   m.def("nonzero(Tensor self) -> (Tensor Tensor)");
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
@@ -4462,15 +4465,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
-  m.def("geometric_(Tensor(a!) self, float p, int seed) -> Tensor(a!)");
-  m.def("random_(Tensor(a!) self, Tensor seed) -> Tensor(a!)");
-  m.def(
-      "random_.from(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)");
-  m.def("random_.to(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)");
-  m.def(
-      "multinomial(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor");
-  m.def(
-      "bernoulli_float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)");
   m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
