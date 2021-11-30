@@ -684,8 +684,6 @@ at::Tensor& elu_hpu_lazy_(
     const at::Scalar& alpha,
     const at::Scalar& scale,
     const at::Scalar& input_scale);
-at::Tensor relu_hpu_lazy(const at::Tensor& input);
-at::Tensor& relu_hpu_lazy_(at::Tensor& self);
 at::Tensor& leaky_relu_lazy_(
     at::Tensor& self,
     const at::Scalar& negative_slope);

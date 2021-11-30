@@ -3084,22 +3084,12 @@ at::Tensor& hpu_wrap::elu_(
 Tensor hpu_wrap::relu(const Tensor& input) {
   if (!hpu_check_inputs_impl("relu", {input}))
     return AtenHpuTypeDefault::relu(input);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return relu_hpu_lazy(input);
-  } else {
-    return relu_hpu(input);
-  }
+  return relu_hpu(input);
 };
 Tensor& hpu_wrap::relu_(Tensor& self) {
   if (!hpu_check_inputs_impl("relu_", {self}))
     return AtenHpuTypeDefault::relu_(self);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return relu_hpu_lazy_(self);
-  } else {
-    return relu_hpu_(self);
-  }
+  return relu_hpu_(self);
 }
 
 Tensor& hpu_wrap::leaky_relu_(Tensor& self, const Scalar& negative_slope) {

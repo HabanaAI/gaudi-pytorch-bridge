@@ -4990,18 +4990,6 @@ at::Tensor& elu_hpu_lazy_(
   return k.call(self);
 }
 
-Tensor relu_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::relu", {input}};
-  return k.call();
-}
-
-Tensor& relu_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::relu_", {self}};
-  return k.call(self);
-}
-
 at::Tensor& leaky_relu_lazy_(
     at::Tensor& self,
     const at::Scalar& negative_slope) {

@@ -2503,17 +2503,6 @@ static auto& KernelRegistry =
               return std::make_shared<EluOperator>(device_id, node_type, true);
             })
         .add(
-            "aten::relu",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ReluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::relu_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ReluInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::leaky_relu",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LeakyReluOperator>(device_id, node_type);

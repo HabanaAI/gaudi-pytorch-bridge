@@ -1314,6 +1314,18 @@ reciprocal.out:
   guid: reciprocal_fwd
   legacy_eager: true
 
+relu:
+  dtypes: [BFloat16, Float]
+  guid: relu_fwd
+  out_ids: [0]
+  legacy_eager: true
+
+relu_:
+  dtypes: [BFloat16, Float]
+  guid: relu_fwd
+  inplace_ids: [0]
+  legacy_eager: true
+
 remainder.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
