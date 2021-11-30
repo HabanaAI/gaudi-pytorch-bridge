@@ -48,6 +48,7 @@ class FusedSGD(Optimizer):
                         hpu, non_blocking=True
                     )
 
+        self.lr_list = []
         self.lr_t = None
         self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(
             hpu, non_blocking=True
@@ -66,10 +67,13 @@ class FusedSGD(Optimizer):
         if closure is not None:
             loss = closure()
 
+        self.lr_list.clear()
+
         for group in self.param_groups:
             self.lr_t = torch.tensor(
                 [group["lr"]], dtype=torch.float, requires_grad=False
             ).to(hpu, non_blocking=True)
+            self.lr_list.append(self.lr_t)
             if group["momentum"] == 0:
                 grad_list, d_p_list = [], []
                 for p in group["params"]:
