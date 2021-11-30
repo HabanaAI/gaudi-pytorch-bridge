@@ -33,6 +33,7 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <cctype>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -40,6 +41,25 @@
 #include <absl/strings/match.h>
 
 #include "habana_helpers/logging.h"
+
+// NOTE: During PT logger object instantiation the env variables
+// like, MOD MASK and TYPE MASK are read using GET_ENV_FLAG macros.
+// The PT_MOD* macros except _FATAL are undefined as the use of
+// PT logger based macro within this function may cause an infinite loop
+// as PT logger object not created yet.
+#undef PT_MOD_WARN
+#undef PT_MOD_WARN_WITHOUT_LINE_FILE
+#undef PT_MOD_BEGIN
+#undef PT_MOD_END
+#undef PT_MOD_TRACE
+#undef PT_MOD_DEBUG
+
+#define PT_MOD_WARN(...) Logger::nop(__VA_ARGS__);
+#define PT_MOD_WARN_WITHOUT_LINE_FILE(...) Logger::nop(__VA_ARGS__);
+#define PT_MOD_BEGIN(MOD) Logger::nop(MOD);
+#define PT_MOD_END(MOD) Logger::nop(MOD);
+#define PT_MOD_TRACE(MOD, PNAME, NAME) Logger::nop(MOD, PNAME, NAME);
+#define PT_MOD_DEBUG(...) Logger::nop(__VA_ARGS__);
 
 namespace env_flags {
 
@@ -82,79 +102,97 @@ static RT<T> getenv_numeric(
   // -------------------------------------------------------------
   // 1 | XXX undefined   |   default value   |
   // 2 | XXX=            |   default value   |
-  // 3 | XXX=123         |   123             |
-  // 4 | XXX=1234asdf    |   1234            | syntax error "asdf"
-  // 5 | XXX=asdf        |   0 or min_val    | syntax error "asdf"
-  // 6 | XXX=123...789   |   max_val         | overflow error
-  const char* e = getenv(name);
-  if (e && *e) {
+  // 3 | XXX=123         |   0x7b            |
+  // 4 | XXX=abcd        |   0xabcd          |
+  // 5 | XXX=0xabcd      |   0xabcd          |
+  // 6 | XXX=1234asdf    |   Invalid         | syntax error "asdf"
+  // 7 | XXX=asdf        |   Invalid         | syntax error "asdf"
+  // 8 | XXX=123...789   |   Invalid         | overflow error
+  const char* envstrp = getenv(name);
+  if (envstrp && *envstrp) {
+    // getenv returned a valid string
+
+    // Only case that we need to handle is hex numbers without 0x prefix
+    std::string envstr_lc{envstrp};
+    std::string envstr_orig{envstrp};
+
+    // Using a lowercase representation
+    std::transform(
+        envstr_lc.begin(),
+        envstr_lc.end(),
+        envstr_lc.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    const std::string hex_qual{"0x"};
+    if (envstr_lc.find(hex_qual) != 0 &&
+        std::any_of(
+            std::begin(envstr_lc), std::end(envstr_lc), [](unsigned char c) {
+              return (c >= 'a' && c <= 'f');
+            })) {
+      envstr_lc.insert(0, hex_qual);
+      envstrp = envstr_lc.c_str();
+    }
+
     errno = 0;
-    char* err;
-    T env = static_cast<T>(strtonum(e, &err, 0));
-    std::string str = std::string(e);
-    if (!env) {
-      e = (std::string("0x") + str)
-              .c_str(); // add 0x prefix to FFFF and such strings to make it
-                        // valid which is otherwise invalid.
-      env = static_cast<T>(strtonum(
-          e,
-          &err,
-          0)); // converts such valid strings (such as 0xFFFF) to unsinged long.
-      if (*err)
-        Logger::habana_assert(
-            __func__,
-            __FILE__,
-            static_cast<uint32_t>(__LINE__),
-            "Invalid string");
-    }
-    if (errno) {
+    char* endptr;
+    T envval = static_cast<T>(strtonum(envstrp, &endptr, 0));
+    if (errno == ERANGE) {
       PT_SYNHELPER_FATAL(
           "Environment variable \"",
           name,
           "\"=\"",
-          e,
+          envstr_orig,
           "\" converted to different value \"",
-          env,
-          "\" due to overflow.");
-    }
-    if (*err) {
+          envval,
+          "\" due to underflow/overflow.");
+    } else if (errno != 0) {
       PT_SYNHELPER_FATAL(
           "Environment variable \"",
           name,
           "\"=\"",
-          e,
+          envstr_orig,
+          "\" is not converted properly.");
+    }
+
+    // Nonnull endptr means incorrect input string
+    // Report syntax error and assert
+    if (*endptr) {
+      PT_SYNHELPER_FATAL(
+          "Environment variable \"",
+          name,
+          "\"=\"",
+          envstr_orig,
           "\" converted to different value \"",
-          env,
-          "\" due to syntax error \"",
-          err,
-          '\"');
+          envval,
+          "\" due to syntax error.");
     }
-    if ((env < min_val) || (env > max_val)) {
-      auto env_old = env;
-      if (env < min_val) {
-        env = min_val;
-      } else {
-        env = max_val;
-      }
+
+    // Range check and report the error and assert for overflow / underflow
+    if ((envval < min_val) || (envval > max_val)) {
       PT_SYNHELPER_FATAL(
           "Environment variable \"",
           name,
           "\"=\"",
-          e,
+          envstr_orig,
           "\" decoded as ",
-          env_old,
+          envval,
           " is out of range <",
           min_val,
           ", ",
           max_val,
-          "> and was converted to different value \"",
-          env,
-          '\"');
+          ">");
     }
-    // Return partial conversion result
-    // - max_val/min_val in case of overflow/underflow
-    // - "123" in "123asdf" case
-    return env_value(env);
+
+    // Return conversion result
+    PT_SYNHELPER_DEBUG(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        envstr_orig,
+        "\" is decoded as ",
+        envval,
+        '\"');
+    return env_value(envval);
   } else {
     // Both undefined and XXX= cases
     return default_value(def_val);
@@ -163,12 +201,12 @@ static RT<T> getenv_numeric(
 
 template <>
 RT<bool> getenv_by_type(const char* name, bool def_val) {
-  const char* e = getenv(name);
-  if (e && *e) {
-    bool true_found =
-        absl::EqualsIgnoreCase(e, "1") || absl::EqualsIgnoreCase(e, "true");
-    bool false_found =
-        absl::EqualsIgnoreCase(e, "0") || absl::EqualsIgnoreCase(e, "false");
+  const char* envstrp = getenv(name);
+  if (envstrp && *envstrp) {
+    bool true_found = absl::EqualsIgnoreCase(envstrp, "1") ||
+        absl::EqualsIgnoreCase(envstrp, "true");
+    bool false_found = absl::EqualsIgnoreCase(envstrp, "0") ||
+        absl::EqualsIgnoreCase(envstrp, "false");
 
     if (true_found)
       return env_value(true);
@@ -179,7 +217,7 @@ RT<bool> getenv_by_type(const char* name, bool def_val) {
           "Environment variable \"",
           name,
           "\"=\"",
-          e,
+          envstrp,
           "\" converted to default value \"",
           def_val,
           "\" due to syntax error");

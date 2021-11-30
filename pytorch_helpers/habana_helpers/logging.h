@@ -93,6 +93,8 @@ void habana_assert(
     uint32_t line,
     const std::string& msg);
 
+template <class... Args>
+inline void nop(__attribute__((unused)) const Args&... args){};
 } // namespace Logger
 
 class PtLogger {
@@ -101,7 +103,7 @@ class PtLogger {
   unsigned long module_mask_;
   unsigned long type_mask_;
 
-  PtLogger() {
+  void loadMask() {
     module_mask_ = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
     type_mask_ = GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
 
@@ -140,7 +142,7 @@ class PtLogger {
     if (type_mask_) {
       if (node_id_mask) {
         if ((node_id_mask & (1 << node_id)) == 0) {
-          type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
+          type_mask_ = TypeMask::WARNING;
         }
       }
     } else {
@@ -151,6 +153,9 @@ class PtLogger {
         type_mask_ += TypeMask::DEBUG;
       }
     }
+  }
+  PtLogger() {
+    loadMask();
   }
 
  public:
@@ -163,6 +168,10 @@ class PtLogger {
     }
 
     return instance;
+  }
+
+  void refresh() {
+    loadMask();
   }
 
   unsigned long getTypeMask() {
@@ -184,11 +193,10 @@ class PtLogger {
   }
 
   enum TypeMask {
-    FATAL = 0x1,
-    WARNING = 0x2,
-    TRACE = 0x4,
-    DEBUG = 0x8,
-    PROFILE = 0x10,
+    WARNING = 0x1,
+    TRACE = 0x2,
+    DEBUG = 0x4,
+    PROFILE = 0x8,
   };
 
   enum ModuleMask {
@@ -207,6 +215,39 @@ class PtLogger {
     HABHELPER = 0x1000,
   };
 };
+
+inline std::string DebugString(const PtLogger::ModuleMask& mod) {
+  switch (mod) {
+    case PtLogger::ModuleMask::DEVICE:
+      return std::string("DEVICE");
+    case PtLogger::ModuleMask::KERNEL:
+      return std::string("KERNEL");
+    case PtLogger::ModuleMask::BRIDGE:
+      return std::string("BRIDGE");
+    case PtLogger::ModuleMask::SYNHELPER:
+      return std::string("SYNHELPER");
+    case PtLogger::ModuleMask::DISTRIBUTED:
+      return std::string("DISTRIBUTED");
+    case PtLogger::ModuleMask::LAZY:
+      return std::string("LAZY");
+    case PtLogger::ModuleMask::HABANAHOOKS:
+      return std::string("HABANAHOOKS");
+    case PtLogger::ModuleMask::FALLBACK:
+      return std::string("FALLBACK");
+    case PtLogger::ModuleMask::STATS:
+      return std::string("STATS");
+    case PtLogger::ModuleMask::TEST:
+      return std::string("TEST");
+    case PtLogger::ModuleMask::DYNAMIC_SHAPE:
+      return std::string("DYNAMIC_SHAPE");
+    case PtLogger::ModuleMask::DEVMEM:
+      return std::string("DEVMEM");
+    case PtLogger::ModuleMask::HABHELPER:
+      return std::string("HABHELPER");
+    default:
+      return std::string("UNDEFINED");
+  }
+}
 
 class PTFuncLog {
  private:
@@ -244,15 +285,14 @@ class PTFuncLog {
   }
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                             \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
-       (PtLogger::getLogger()->getTypeMask() &             \
-        (PtLogger::TypeMask::FATAL)))) {                   \
-    Logger::habana_assert(                                 \
-        __func__,                                          \
-        __FILE__,                                          \
-        static_cast<uint32_t>(__LINE__),                   \
-        Logger::str(__VA_ARGS__));                         \
+#define PT_MOD_FATAL(MOD, ...)                                                 \
+  {                                                                            \
+    Logger::habana_assert(                                                     \
+        __func__,                                                              \
+        __FILE__,                                                              \
+        static_cast<uint32_t>(__LINE__),                                       \
+        Logger::str(                                                           \
+            "FATAL ERROR :: MODULE:" + DebugString(MOD) + " " + __VA_ARGS__)); \
   }
 
 #define PT_DEVICE_FATAL(...) \

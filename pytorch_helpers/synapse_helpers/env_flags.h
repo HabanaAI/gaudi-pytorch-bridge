@@ -173,7 +173,7 @@ struct PT_HPU_LOG_MOD_MASK : public std::numeric_limits<unsigned long> {
 };
 
 struct PT_HPU_LOG_TYPE_MASK : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 3;
+  static constexpr unsigned long default_value = 1;
 };
 
 struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
