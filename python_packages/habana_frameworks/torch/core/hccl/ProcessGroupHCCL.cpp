@@ -12,6 +12,7 @@
 #include <map>
 #include "hccl.h"
 #include "hccl_types.h"
+#include "hcl_api.h"
 #include "synapse_helpers/env_flags.h"
 
 #include <pybind11/chrono.h>
@@ -23,6 +24,13 @@ using namespace synapse_helpers;
 namespace c10d {
 
 namespace {
+
+#define HCL_SYNC()                       \
+  {                                      \
+    if (GET_ENV_FLAG(PT_USE_HCL_SYNC)) { \
+      HCL_Sync(HCL_COMM_WORLD, 555);     \
+    }                                    \
+  }
 
 std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
     {at::kByte, hcclUint8},
@@ -218,9 +226,8 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
           c10::ListType::create(c10::TensorType::get()))) {
-       future_->markCompleted(at::IValue(outputs_));
-
-      }
+  future_->markCompleted(at::IValue(outputs_));
+}
 
 ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
 
@@ -426,6 +433,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           hcclStream_t stream) {
         auto tensor_data_type = getHCCLDataType(input.scalar_type());
         auto numel = input.numel();
+        HCL_SYNC()
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
@@ -459,6 +467,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
         hcclResult_t hccl_result{hcclSuccess};
+        HCL_SYNC()
         size_t num_elements = input.numel();
         size_t element_size =
             c10::elementSize(getInternalScalarType(input.scalar_type()));
@@ -619,6 +628,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        HCL_SYNC()
         auto work = hcclAllGather(
             send_buffer,
             recv_buffer,
