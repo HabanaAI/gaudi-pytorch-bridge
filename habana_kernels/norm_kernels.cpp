@@ -1164,7 +1164,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
 std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
 LayerNormOperator::getOutputSizes(const at::Tensor& input, int m) {
   auto output_sizes = input.sizes().vec();
-  std::vector<int64_t> shape_mean{m, 1};
+  std::vector<int64_t> shape_mean{1, 1, m, 1};
   return std::make_tuple(output_sizes, shape_mean, shape_mean);
 }
 std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
@@ -1173,7 +1173,7 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     const Tensor& weight,
     int64_t m,
     std::array<bool, 3> is_persistent) {
-  std::vector<int64_t> shape_mean{m, 1};
+  std::vector<int64_t> shape_mean{1, 1, m, 1};
   auto sizes = LayerNormOperator::getOutputSizes(input, m);
   auto output = habana_helpers::createPTTensor(
       input,
@@ -1260,15 +1260,12 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   int64_t n =
       multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
 
-  std::vector<int64_t> shape_mean{m, 1};
-  IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
-
   // Add Reshape node for input to graph for input.view({m,n})
   auto reshape_op_input = make_operator<ReshapeOperator>(
       input.device().index(), input.scalar_type());
   reshape_op_input->SetSynapseInput(p_context_->syn_inputs_[0]);
-  int64_t modified_input_sizes[] = {m, n};
-  c10::IntArrayRef modified_input_shape(modified_input_sizes, 2);
+  int64_t modified_input_sizes[] = {1, 1, m, n};
+  c10::IntArrayRef modified_input_shape(modified_input_sizes, 4);
   torch::jit::Stack stack = {
       c10::IValue(input), c10::IValue(modified_input_shape)};
   reshape_op_input->AllocateAndAddSynapseNode(graph, stack, false);
