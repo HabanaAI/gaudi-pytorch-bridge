@@ -62,7 +62,7 @@ void Geometric::AddNode(
       params.get(),
       size);
 
-  auto constant = ConstantHelper(graph, 1, outshape);
+  auto constant = ConstantHelper(graph, 1, ScalarType(), outshape);
 
   /* The geometric distribution Y is a special case of the negative binomial
    * distribution, with k = 1. random_negative_binomial returns distributions as

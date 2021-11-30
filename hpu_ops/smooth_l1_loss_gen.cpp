@@ -52,7 +52,8 @@ void SmoothL1LossBwdOperator::AddNode(
       {{inputshape, ScalarType()}});
 
   if (mode == at::Reduction::Reduction::Mean) {
-    auto t_norm_factor = ConstantHelper(graph, norm_factor, inputshape);
+    auto t_norm_factor =
+        ConstantHelper(graph, norm_factor, ScalarType(), inputshape);
 
     auto t_mul = BuildOp(
         graph,
@@ -108,7 +109,8 @@ void SmoothL1LossBwdOperator::AddNode(
         {{inputshape, ScalarType()}});
   }
 
-  auto t_mulfactor = ConstantHelper(graph, norm_factor / beta, inputshape);
+  auto t_mulfactor =
+      ConstantHelper(graph, norm_factor / beta, ScalarType(), inputshape);
 
   auto t_l2_temp = BuildOp(
       graph,
@@ -122,7 +124,7 @@ void SmoothL1LossBwdOperator::AddNode(
       {t_diff.at(0).get(), t_l2_temp.at(0).get()},
       {{inputshape, ScalarType()}});
 
-  auto t_mask_const = ConstantHelper(graph, beta, inputshape);
+  auto t_mask_const = ConstantHelper(graph, beta, ScalarType(), inputshape);
 
   auto t_abs = BuildOp(
       graph,
@@ -216,7 +218,7 @@ void SmoothL1LossOperator::AddNode(
       {sub.at(0).get()},
       {{inputshape, ScalarType()}});
 
-  auto t_beta = ConstantHelper(graph, beta, inputshape);
+  auto t_beta = ConstantHelper(graph, beta, ScalarType(), inputshape);
 
   auto mask = BuildOp(
       graph,
@@ -234,7 +236,8 @@ void SmoothL1LossOperator::AddNode(
       loss_params.get(),
       sizeof(ns_MSELossKernel::Params));
 
-  auto t_mse_scale = ConstantHelper(graph, 0.5 / beta, inputshape);
+  auto t_mse_scale =
+      ConstantHelper(graph, 0.5 / beta, ScalarType(), inputshape);
 
   auto t_l2 = BuildOp(
       graph,
@@ -242,7 +245,7 @@ void SmoothL1LossOperator::AddNode(
       {t_mse.at(0).get(), t_mse_scale.get()},
       {{inputshape, ScalarType()}});
 
-  auto t_b = ConstantHelper(graph, 0.5 * beta, inputshape);
+  auto t_b = ConstantHelper(graph, 0.5 * beta, ScalarType(), inputshape);
 
   auto t_l1 = BuildOp(
       graph,

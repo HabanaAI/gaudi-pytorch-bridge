@@ -62,8 +62,7 @@ void AddR::AddNode(
       &vecmul_params,
       sizeof(vecmul_params));
 
-  auto alpha = ConstantHelper(
-      graph, alpha_val, vecmul_outshape, false, false, ScalarType());
+  auto alpha = ConstantHelper(graph, alpha_val, ScalarType(), vecmul_outshape);
 
   auto addr_unsqueezed = BuildOp(
       graph,
@@ -86,8 +85,8 @@ void AddR::AddNode(
         {{self_reshaped_outshape, ScalarType()}}); // (n,m) -> (1, n, m)
 
     if (beta_val != 1.0) {
-      auto beta = ConstantHelper(
-          graph, beta_val, vecmul_outshape, false, false, ScalarType());
+      auto beta =
+          ConstantHelper(graph, beta_val, ScalarType(), vecmul_outshape);
 
       self_reshaped = BuildOp(
           graph,

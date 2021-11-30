@@ -172,10 +172,10 @@ class HabanaOperatorHelper : public HabanaOperator {
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
       const at::Scalar& val,
+      c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
       bool persistent = false,
-      bool final_node = false,
-      c10::optional<at::ScalarType> force_type = c10::nullopt);
+      bool final_node = false);
 
   virtual void AddNode(
       synapse_helpers::graph&,

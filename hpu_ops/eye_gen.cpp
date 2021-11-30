@@ -28,7 +28,7 @@ void EyeOpOut::AddNode(
   std::vector<synapse_helpers::tensor> eye_out;
   auto outshape = EyeOutputShape(stack)[0];
 
-  auto constant = ConstantHelper(graph, 1.0f, outshape);
+  auto constant = ConstantHelper(graph, 1.0f, ScalarType(), outshape);
 
   eye_out = BuildOp(
       graph,

@@ -229,10 +229,10 @@ synapse_helpers::tensor HabanaOperatorHelper::CastHelper(
 synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
     synapse_helpers::graph& graph,
     const at::Scalar& val,
+    c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     bool persistent,
-    bool final_node,
-    c10::optional<at::ScalarType> force_type) {
+    bool final_node) {
   const at::ScalarType& valtype =
       force_type.has_value() ? force_type.value() : val.type();
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(

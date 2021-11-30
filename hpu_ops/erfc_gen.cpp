@@ -24,8 +24,7 @@ void Erfc::AddNode(
       {syn_in(0)},
       {{outshape, ScalarType(), false}});
 
-  auto constant =
-      ConstantHelper(graph, 1, outshape, false, false, ScalarType());
+  auto constant = ConstantHelper(graph, 1, ScalarType(), outshape);
 
   auto erfc = BuildOp(
       graph,

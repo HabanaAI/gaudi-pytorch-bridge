@@ -100,8 +100,7 @@ void NansumList::AddNode(
       {syn_in(0)},
       {{outshape, dtype}});
 
-  auto zero_constant =
-      ConstantHelper(graph, 0.0f, outshape, false, false, ScalarType());
+  auto zero_constant = ConstantHelper(graph, 0.0f, ScalarType(), outshape);
 
   // where on is_nan
   auto where = BuildOp(
@@ -246,8 +245,7 @@ void Nansum::AddNode(
       {syn_in(0)},
       {{outshape, dtype}});
 
-  auto zero_constant =
-      ConstantHelper(graph, 0.0f, outshape, false, false, ScalarType());
+  auto zero_constant = ConstantHelper(graph, 0.0f, ScalarType(), outshape);
 
   // where on is_nan
   auto where = BuildOp(
