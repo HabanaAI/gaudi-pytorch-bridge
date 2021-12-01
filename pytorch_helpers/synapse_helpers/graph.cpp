@@ -173,8 +173,11 @@ synapse_error_o graph::add_node(
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }
-  /* TODO instead of passing mode name as empty string, need to pass op name
-   * using OpNameContext*/
+
+  std::string node_name;
+  if (current_op_name_) {
+    node_name += *current_op_name_ + "/" + node_type;
+  }
 
   PT_SYNHELPER_DEBUG(
       "graph ",
@@ -204,7 +207,7 @@ synapse_error_o graph::add_node(
       params,
       params_size,
       node_type.c_str(),
-      "",
+      node_name.c_str(),
       &nodeId,
       nullptr,
       nullptr);
