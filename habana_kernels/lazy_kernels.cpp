@@ -2002,14 +2002,9 @@ Tensor& scatter_inplace_src_hpu_lazy(
     const Tensor& index,
     const Tensor& src) {
   PT_LAZY_TRACE;
-  auto node =
-      std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim_, index, src);
-  LazyOp<at::Tensor, ir::ScatterSrc> k{node, {self, dim_, index, src}};
-  auto result = k.call();
-  auto hl_self = GetOrCreateHbLazyTensor(self);
-  updateDstDependencies(hl_self, self, true);
-  // Create MemCopy operator to copy value into self
-  AddMemcpy(result, self);
+  LazyOp<Tensor&> op("aten::scatter_", {self, dim_, index, src});
+  op.call(self);
+  flush_op(self);
   return self;
 }
 
@@ -2019,13 +2014,9 @@ Tensor& scatter_inplace_value_hpu_lazy(
     const Tensor& index,
     const Scalar& value) {
   PT_LAZY_TRACE;
-  auto node = std::make_shared<ir::ScatterValue>(self, dim_, index, value);
-  LazyOp<at::Tensor, ir::ScatterValue> k{node, {self, dim_, index, value}};
-  auto result = k.call();
-  auto hl_self = GetOrCreateHbLazyTensor(self);
-  updateDstDependencies(hl_self, self, true);
-  // Create MemCopy operator to copy value into self
-  AddMemcpy(result, self);
+  LazyOp<Tensor&> op("aten::scatter_", {self, dim_, index, value});
+  op.call(self);
+  flush_op(self);
   return self;
 }
 

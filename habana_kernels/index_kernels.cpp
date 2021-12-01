@@ -436,22 +436,26 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
   // auto src = inputs[3].toTensor();
-
   if (index.dim() == 0) {
     index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-
-  auto output = AllocateOutput(inputs, is_output_persistent);
+  if (!inplace) {
+    auto output = AllocateOutput(inputs, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  } else {
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_[0], graph));
+    p_context_->pt_outputs_.emplace_back(self);
+  }
 
   ns_ScatterKernel::Params params;
   params.axis = self.dim() - dim - 1;
 
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
-
-  AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -527,7 +531,7 @@ Tensor& scatter_inplace_src_hpu(
   return self;
 }
 
-void ScatterValueOperator::AllocateAndAddSynapseNode(
+void ScatterValueWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
@@ -568,9 +572,8 @@ void ScatterValueOperator::AllocateAndAddSynapseNode(
   stack = {IValue(src), IValue(value)};
   constOp->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
-
-  auto scatterOp =
-      make_operator<ScatterOperator>(this->p_context_->device_id_, scalar_type);
+  auto scatterOp = make_operator<ScatterWrapperOperator>(
+      this->p_context_->device_id_, scalar_type, "scatter_fwd_", _inplace);
   stack = {
       IValue(self),
       IValue(dim),
@@ -2586,6 +2589,12 @@ static auto& KernelRegistry =
               return std::make_shared<ScatterOperator>(device_id, node_type);
             })
         .add(
+            "aten::scatter_.src",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ScatterInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "aten::scatter_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterAddOperator>(device_id, node_type);
@@ -2594,6 +2603,12 @@ static auto& KernelRegistry =
             "hpu::scatter_value",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterValueOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::scatter_.value",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ScatterValueInplaceOperator>(
                   device_id, node_type);
             })
         .add(

@@ -142,13 +142,15 @@ class ScatterWrapperOperator : public HabanaOperator {
   ScatterWrapperOperator(
       int device_id,
       c10::ScalarType scalarType,
-      const std::string& guid)
+      const std::string& guid,
+      bool is_inplace = false)
       : HabanaOperator(
             guid + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    inplace = is_inplace;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -164,6 +166,7 @@ class ScatterWrapperOperator : public HabanaOperator {
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
       bool is_output_persistent);
+  bool inplace;
 };
 
 class ScatterOperator : public ScatterWrapperOperator {
@@ -172,16 +175,55 @@ class ScatterOperator : public ScatterWrapperOperator {
       : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
 };
 
-// ScatterValueOperator Operator
-//
-class ScatterValueOperator : public ScatterWrapperOperator {
+class ScatterInplaceOperator : public ScatterWrapperOperator {
  public:
-  ScatterValueOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
+  ScatterInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(
+            device_id,
+            scalarType,
+            "scatter_fwd_",
+            true /*inplace*/) {}
+};
+
+// ScatterValueWrapperOperator Operator
+//
+class ScatterValueWrapperOperator : public HabanaOperator {
+ public:
+  ScatterValueWrapperOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      bool is_inplace = false)
+      : HabanaOperator(
+            "scatter_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    _inplace = is_inplace;
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      bool is_output_persistent = false);
+
+ private:
+  bool _inplace;
+};
+
+class ScatterValueOperator : public ScatterValueWrapperOperator {
+ public:
+  ScatterValueOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterValueWrapperOperator(device_id, scalarType) {}
+};
+
+class ScatterValueInplaceOperator : public ScatterValueWrapperOperator {
+ public:
+  ScatterValueInplaceOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      bool is_inplace = true)
+      : ScatterValueWrapperOperator(device_id, scalarType, is_inplace) {}
 };
 
 // ScatterAddOperator Operator

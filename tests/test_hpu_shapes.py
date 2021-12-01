@@ -303,7 +303,25 @@ def test_hpu_scatter_inplace(N, H, I, S):
     self_hpu = self_t.to(hpu)
 
     tcpu_out = self_t.scatter_(0, indices_torch, src)
+    tcpu_out = tcpu_out + tcpu_out
     thpu_out = self_hpu.scatter_(0, indices_torch.to(hpu), src.to(hpu))
+    thpu_out = thpu_out + thpu_out
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
+
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_inplace_intermediate(N, H, I, S):
+    hpu = torch.device('hpu')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    src = torch.randn(N, H)
+    in_t = torch.randn(N, H)
+    in_hpu = in_t.to(hpu)
+
+    self_t = torch.pow(in_t, 2.0)
+    self_hpu = torch.pow(in_hpu, 2.0)
+    tcpu_out = self_t.scatter_(0, indices_torch, src)
+    tcpu_out = tcpu_out + tcpu_out
+    thpu_out = self_hpu.scatter_(0, indices_torch.to(hpu), src.to(hpu))
+    thpu_out = thpu_out + thpu_out
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
