@@ -793,6 +793,12 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
   auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
+
+  // Set the tensor as input and mark as input
+  setTensorAsInputNode(self_hb_tensor);
+  context->MarkTensorStatus(
+      self_hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
+
   // We need to mark this tensor as executed
   // As this will be an input coming from host side, its doesnt need further
   // execution and is ready for consumption as input
@@ -819,10 +825,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
         self_internal_tesor.storage().data_ptr() ==
         internal_tensor_from_copy.storage().data_ptr());
   }
-  setTensorAsInputNode(self_hb_tensor);
-  context->MarkTensorStatus(
-      self_hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
-
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   flush_op(self);
