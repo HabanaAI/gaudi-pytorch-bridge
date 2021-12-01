@@ -81,47 +81,48 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs expected for topk operator");
+
   TORCH_CHECK(
       inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for topk operator");
+      "Input arg0 expected to be tensor for topkout operator");
   TORCH_CHECK(
-      inputs[1].isTensor(),
-      "Input arg2 expected to be tensor for topk operator");
+      inputs[1].isTensor() || inputs[1].isInt(),
+      "Input arg1 expected to be of type Int or Tensor for topkout operator");
   TORCH_CHECK(
-      inputs[2].isTensor(),
-      "Input arg3 expected to be tensor for topk operator");
+      inputs[2].isInt(),
+      "Input arg2 expected to be of type Int for topkout operator");
   TORCH_CHECK(
-      inputs[3].isTensor() || inputs[3].isInt(),
-      "Input arg4 expected to be of type Int or Tensor for topk operator");
+      inputs[3].isBool(),
+      "Input arg3 expected to be of type Bool for topkout operator");
   TORCH_CHECK(
-      inputs[4].isInt(),
-      "Input arg5 expected to be of type Int for topk operator");
+      inputs[4].isBool(),
+      "Input arg4 expected to be of type Bool for topkout operator");
   TORCH_CHECK(
-      inputs[5].isBool(),
-      "Input arg6 expected to be of type Bool for topk operator");
+      inputs[5].isTensor(),
+      "Input arg5 expected to be tensor for topkout operator");
   TORCH_CHECK(
-      inputs[6].isBool(),
-      "Input arg7 expected to be of type Bool for topk operator");
+      inputs[6].isTensor(),
+      "Input arg6 expected to be tensor for topkout operator");
   TORCH_CHECK(
       is_output_persistent.size() == 2,
       "TopkOutOperator: #is_output_persistent should be 2");
 
-  auto values = inputs[0].toTensor();
-  auto indices = inputs[1].toTensor();
-  auto self = inputs[2].toTensor();
-  int64_t dim_ = inputs[4].toInt();
+  auto self = inputs[0].toTensor();
+  int64_t dim_ = inputs[2].toInt();
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  auto values = inputs[5].toTensor();
+  auto indices = inputs[6].toTensor();
 
   int64_t k;
   // Get k value
-  if (inputs[3].isTensor()) {
+  if (inputs[1].isTensor()) {
     TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
     TORCH_CHECK(p_context_->syn_inputs_.size() == 2);
-    Tensor k_tensor = inputs[3].toTensor();
+    Tensor k_tensor = inputs[1].toTensor();
     k = k_tensor.sizes().vec().at(
         0); // Get the first element which holds the dynamic value of k
   } else {
-    k = inputs[3].toInt();
+    k = inputs[1].toInt();
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
       Tensor k_tensor = habana_helpers::createPTTensor(
@@ -195,8 +196,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     syn_inputs.emplace_back(syn_in_tensor_k.get());
   }
 
-  bool largest = inputs[5].toBool();
-  bool sorted = inputs[6].toBool();
+  bool largest = inputs[3].toBool();
+  bool sorted = inputs[4].toBool();
 
   /*
    * BFloat16 is currently not supported. Look at the following jira for more
@@ -248,11 +249,11 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
 }
 
 void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto values = inputs[0].toTensor();
-  auto indices = inputs[1].toTensor();
-  auto self = inputs[2].toTensor();
-  int64_t k = inputs[3].toInt();
-  int64_t dim_ = inputs[4].toInt();
+  auto self = inputs[0].toTensor();
+  int64_t k = inputs[1].toInt();
+  int64_t dim_ = inputs[2].toInt();
+  auto values = inputs[5].toTensor();
+  auto indices = inputs[6].toTensor();
 
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   _allocate_or_resize_output_with_indices(
@@ -275,13 +276,14 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {IValue(values),
-                                    IValue(indices),
-                                    IValue(self),
-                                    IValue(k),
-                                    IValue(dim_),
-                                    IValue(largest),
-                                    IValue(sorted)};
+  std::vector<c10::IValue> stack = {
+      IValue(self),
+      IValue(k),
+      IValue(dim_),
+      IValue(largest),
+      IValue(sorted),
+      IValue(values),
+      IValue(indices)};
   TopkOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -341,8 +343,8 @@ void TopkOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       is_output_persistent[1]);
-  inputs.insert(inputs.begin(), IValue(indices));
-  inputs.insert(inputs.begin(), IValue(values));
+  inputs.push_back(IValue(values));
+  inputs.push_back(IValue(indices));
 
   TopkOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -360,8 +362,8 @@ void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       c10::ScalarType::Int,
       true);
 
-  inputs.insert(inputs.begin(), IValue(indices));
-  inputs.insert(inputs.begin(), IValue(values));
+  inputs.push_back(IValue(values));
+  inputs.push_back(IValue(indices));
 
   TopkOutOperator::SetPTOutputs(inputs);
 }
@@ -453,8 +455,8 @@ void SortOperator::AllocateAndAddSynapseNode(
       c10::ScalarType::Int,
       is_output_persistent[1]);
 
-  inputs.insert(inputs.begin(), IValue(indices));
-  inputs.insert(inputs.begin(), IValue(values));
+  inputs.push_back(IValue(values));
+  inputs.push_back(IValue(indices));
 
   TopkOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -472,8 +474,8 @@ void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor values = at::empty({0}, self.options());
   Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
 
-  inputs.insert(inputs.begin(), IValue(indices));
-  inputs.insert(inputs.begin(), IValue(values));
+  inputs.push_back(IValue(values));
+  inputs.push_back(IValue(indices));
 
   TopkOutOperator::SetPTOutputs(inputs);
 }
@@ -540,7 +542,23 @@ static auto& KernelRegistry =
               static_cast<void>(node_type);
               return std::make_shared<habana::TopkOperator>(device_id, "topk");
             })
-        .add("hpu::topk", [](const int device_id, c10::ScalarType node_type) {
-          static_cast<void>(node_type);
-          return std::make_shared<habana::TopkOperator>(device_id, "topk");
-        });
+        .add(
+            "aten::topk.values",
+            [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
+              return std::make_shared<habana::TopkOutOperator>(
+                  device_id, "topk");
+            })
+        .add(
+            "hpu::topk",
+            [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
+              return std::make_shared<habana::TopkOperator>(device_id, "topk");
+            })
+        .add(
+            "hpu::topk.values",
+            [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
+              return std::make_shared<habana::TopkOutOperator>(
+                  device_id, "topk");
+            });

@@ -657,13 +657,13 @@ std::vector<at::Tensor> split_with_sizes_hpu_lazy(
     at::IntArrayRef split_sizes,
     int64_t dim);
 std::tuple<at::Tensor&, at::Tensor&> topk_out_hpu_lazy(
-    at::Tensor& values,
-    at::Tensor& indices,
     const at::Tensor& self,
     int64_t k,
     int64_t dim_,
     bool largest,
-    bool sorted);
+    bool sorted,
+    at::Tensor& values,
+    at::Tensor& indices);
 std::tuple<at::Tensor, at::Tensor> topk_hpu_lazy(
     const at::Tensor& self,
     int64_t k,

@@ -3008,7 +3008,7 @@ std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
         self, k, dim_, largest, sorted, values, indices);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return topk_out_hpu_lazy(values, indices, self, k, dim_, largest, sorted);
+    return topk_out_hpu_lazy(self, k, dim_, largest, sorted, values, indices);
 
   } else {
     return topk_out_hpu(values, indices, self, k, dim_, largest, sorted);
