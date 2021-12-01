@@ -2323,150 +2323,169 @@ uniform_:
   op_backend: RandomSeedTensorInput
 
 upsample_bilinear2d:
-  custom_output_shape: Upsample2DFwdOutputShape
+  custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DFwdOperator
   out_ids: [0]
 
 upsample_bilinear2d.out:
-  custom_output_shape: Upsample2DFwdOutputShape
+  custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DFwdOperator
 
 upsample_bilinear2d.vec:
-  custom_output_shape: Upsample2DFwdOutputShape
+  custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DFwdOperator
   out_ids: [0]
 
 upsample_bilinear2d_backward:
-  custom_output_shape: Upsample2DBwdOutputShape
+  custom_output_shape: UpsampleBilinear2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DBwdOperator
   out_ids: [0]
 
 upsample_bilinear2d_backward.grad_input:
-  custom_output_shape: Upsample2DBwdOutputShape
+  custom_output_shape: UpsampleBilinear2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DBwdOperator
 
 upsample_bilinear2d_backward.vec:
-  custom_output_shape: Upsample2DBwdOutputShape
+  custom_output_shape: UpsampleBilinear2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleBilinear2DOperator
+  op_backend: UpsampleBilinear2DBwdOperator
   out_ids: [0]
 
 upsample_linear1d:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DFwdOperator
   out_ids: [0]
 
 upsample_linear1d.out:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DFwdOperator
 
 upsample_linear1d.vec:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DFwdOperator
   out_ids: [0]
 
 upsample_linear1d_backward:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DBwdOperator
   out_ids: [0]
 
 upsample_linear1d_backward.grad_input:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DBwdOperator
 
 upsample_linear1d_backward.vec:
-  custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DBwdOperator
   out_ids: [0]
 
 upsample_nearest1d:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DFwd
+  guid: resize_fwd
+  op_backend: UpsampleNearest1DFwdOperator
   out_ids: [0]
 
 upsample_nearest1d.out:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DFwd
+  guid: resize_fwd
+  op_backend: UpsampleNearest1DFwdOperator
 
 upsample_nearest1d.vec:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DFwd
+  guid: resize_fwd
+  op_backend: UpsampleNearest1DFwdOperator
   out_ids: [0]
 
 upsample_nearest1d_backward:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DBwd
+  guid: resize_bwd
+  op_backend: UpsampleNearest1DBwdOperator
   out_ids: [0]
 
 upsample_nearest1d_backward.grad_input:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DBwd
+  guid: resize_bwd
+  op_backend: UpsampleNearest1DBwdOperator
 
 upsample_nearest1d_backward.vec:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: UpsampleNearest1DBwd
+  guid: resize_bwd
+  op_backend: UpsampleNearest1DBwdOperator
   out_ids: [0]
 
 upsample_nearest2d:
-  custom_output_shape: Upsample2DFwdOutputShape
+  custom_output_shape: UpsampleNearest2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleNearest2DOperator
+  op_backend: UpSampleNearest2DFwdOperator
   out_ids: [0]
 
 upsample_nearest2d.out:
-  custom_output_shape: Upsample2DFwdOutputShape
+  custom_output_shape: UpsampleNearest2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleNearest2DOperator
+  op_backend: UpSampleNearest2DFwdOperator
 
 upsample_nearest2d_backward:
-  custom_output_shape: Upsample2DBwdOutputShape
+  custom_output_shape: UpsampleNearest2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleNearest2DOperator
+  op_backend: UpSampleNearest2DBwdOperator
   out_ids: [0]
 
 upsample_nearest2d_backward.grad_input:
-  custom_output_shape: Upsample2DBwdOutputShape
+  custom_output_shape: UpsampleNearest2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleNearest2DOperator
+  op_backend: UpSampleNearest2DBwdOperator
+
+upsample_nearest3d.out:
+  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpSampleNearest3DFwdOperator
+
+upsample_nearest3d_backward:
+  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleNearest3DBwdOperator
+  out_ids: [0]
+
+upsample_nearest3d_backward.grad_input:
+  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpSampleNearest3DBwdOperator
 
 vdot:
   custom_output_shape: VdotOutputShape

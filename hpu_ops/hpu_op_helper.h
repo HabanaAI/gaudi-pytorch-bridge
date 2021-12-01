@@ -97,11 +97,15 @@ class OpBackend : public HabanaOperator {
       std::vector<int> scalar_ids,
       bool is_outfn);
 
- protected:
+ public:
   const c10::ScalarType& ScalarType() const {
     return m_scalar_type;
   }
+  const std::string& GetGuid() const {
+    return guid_;
+  }
 
+ protected:
   c10::ScalarType ComputePromotedScalarType(
       const at::Stack& stack,
       bool update);

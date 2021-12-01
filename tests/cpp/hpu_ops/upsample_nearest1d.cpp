@@ -13,7 +13,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, upsample_nearest1d_fwd_scale) {
   GenerateInputs(1, {{2, 3, 4}});
-  std::vector<double> scale_factor = {2.0};
+  std::vector<double> scale_factor = {0.999};
 
   auto expected =
       torch::upsample_nearest1d(GetCpuInput(0), c10::nullopt, scale_factor);

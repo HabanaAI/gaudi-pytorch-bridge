@@ -16,7 +16,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 // forward variants
 TEST_F(HpuOpTest, upsample_linear1d_fwd_scale) {
   GenerateInputs(1, {{1, 3, 100}});
-  std::vector<double> scale_factor = {1.999};
+  std::vector<double> scale_factor = {0.123};
 
   auto expected = torch::upsample_linear1d(
       GetCpuInput(0), c10::nullopt, /*align_corner*/ true, scale_factor);
