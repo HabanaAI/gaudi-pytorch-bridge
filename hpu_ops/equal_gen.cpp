@@ -69,7 +69,7 @@ void Equal::AddNode(
 
   } else { // inputs with different shape
     auto false_tensor = ConstantHelper(
-        graph, 0, 1, is_output_persistent_list[0], true, result_type);
+        graph, false, 1, is_output_persistent_list[0], true, result_type);
 
     syn_out(0) = std::move(false_tensor);
   }
