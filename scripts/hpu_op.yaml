@@ -924,6 +924,25 @@ minimum.out:
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
 
+mish:
+  dtypes: [BFloat16, Float]
+  op_base_class: Mish
+  out_ids: [0]
+
+mish_:
+  dtypes: [BFloat16, Float]
+  op_base_class: Mish
+  inplace_ids: [0]
+
+mish.out:
+  dtypes: [BFloat16, Float]
+  op_base_class: Mish
+
+mish_backward:
+  dtypes: [BFloat16, Float]
+  op_base_class: Mishbackward
+  out_ids: [0]
+
 mse_loss.out:
   custom_fill_params: FillMseLossParams
   custom_output_shape: MseLossOutputShape
