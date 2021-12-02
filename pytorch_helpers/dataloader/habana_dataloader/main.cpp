@@ -121,18 +121,18 @@ class HabanaAcceleratedPytorchDL {
     }
 
     auto image = torch::empty(
-        {step_batch_size, m_img_height, m_img_width, 3}, image_options);
+        {m_batch_size, m_img_height, m_img_width, 3}, image_options);
     if (m_pin_memory) {
       image = at::native::pin_memory(image, torch::kHPU);
     }
-    auto target = torch::empty({step_batch_size}, target_options);
+    auto target = torch::empty({m_batch_size}, target_options);
     if (m_pin_memory) {
       target = at::native::pin_memory(target, torch::kHPU);
     }
 
     const int image_size =
-        m_img_height * m_img_width * 3 * step_batch_size * sizeof(float);
-    const int target_size = step_batch_size * sizeof(uint32_t);
+        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+    const int target_size = m_batch_size * sizeof(uint32_t);
 
     char* image_data_ptr = (char*)image.data_ptr();
     char* label_data_ptr = (char*)target.data_ptr();
@@ -144,6 +144,12 @@ class HabanaAcceleratedPytorchDL {
         m_loader, aeondataloader::LABEL, target_size, label_data_ptr);
     // get_data API does not advance iterator
     aeondataloader::data_loader_inc(m_loader);
+
+    // Workaround for bad batch size
+    if (step_batch_size < m_batch_size) {
+      image = image.narrow(0, 0, step_batch_size);
+      target = target.narrow(0, 0, step_batch_size);
+    }
 
     /* This is the format in which pytorch expects to accept the data */
     target = target.to(torch::kInt64);
