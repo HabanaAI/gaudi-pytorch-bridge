@@ -131,14 +131,8 @@ class PtTensorInfo {
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
 
   // access functions for read only data members
-  bool is_tensor() const {
-    return is_tensor_;
-  }
   bool is_view_tensor() const {
     return is_view_tensor_;
-  }
-  const IVal& get_ivalue() const {
-    return iv_;
   }
   const std::string& get_ir_name() const {
     return ir_name_;
@@ -219,10 +213,8 @@ class PtTensorInfo {
   void Serialize(std::ostream& os) const;
 
  private:
-  bool is_tensor_{true};
   bool is_view_tensor_{false};
   bool is_restrided_{false};
-  IVal iv_{};
 
   void* buffer_{nullptr};
   void* buffer_start_{nullptr};

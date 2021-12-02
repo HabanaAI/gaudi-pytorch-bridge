@@ -567,25 +567,23 @@ void RecipeValueSpec::update_patching_table(
   if (dynamic_graph) {
     for (size_t i = 0; i < dtensorinfos->size(); ++i) {
       auto& ti = dtensorinfos->at(i);
-      if (ti.is_tensor()) {
-        auto syn_name = ti.get_syn_name();
-        HABANA_ASSERT(m_actual_shapes.count(syn_name));
-        auto dims = m_actual_shapes.at(syn_name).get_dims();
-        auto syn_shape = ti.get_shape();
+      auto syn_name = ti.get_syn_name();
+      HABANA_ASSERT(m_actual_shapes.count(syn_name));
+      auto dims = m_actual_shapes.at(syn_name).get_dims();
+      auto syn_shape = ti.get_shape();
 
-        // If there is no change in the new shape values, then
-        // do not set the same shape, recalculate strides, etc
-        if (dims == syn_shape) {
-          continue;
-        }
-
-        std::vector<int64_t> strides(dims.size(), 1);
-        for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
-          strides[i - 1] *= dims[i] * strides[i];
-        }
-        ti.set_shape(dims);
-        ti.set_strides(strides);
+      // If there is no change in the new shape values, then
+      // do not set the same shape, recalculate strides, etc
+      if (dims == syn_shape) {
+        continue;
       }
+
+      std::vector<int64_t> strides(dims.size(), 1);
+      for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
+        strides[i - 1] *= dims[i] * strides[i];
+      }
+      ti.set_shape(dims);
+      ti.set_strides(strides);
     }
   }
 
@@ -710,9 +708,6 @@ void RecipeValueSpec::update_patching_table(
     std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
     for (; ridx < intermediates_end; ridx++) {
       PtTensorInfo& ti = dtensorinfos->at(ridx);
-      TORCH_CHECK(
-          ti.is_tensor(),
-          "non tensor tinfo found for persistent intermediates");
       auto tshape{ti.get_shape()};
 
       if (ti.is_duplicate()) {
@@ -789,23 +784,18 @@ void RecipeValueSpec::update_patching_table(
           output_idx,
           " is greater than #outputs ",
           aten_output_num);
-      if (ti.is_tensor()) {
-        auto tshape{ti.get_shape()};
-        auto pt_output = create_empty_tensor(ti);
-        PT_BRIDGE_DEBUG(
-            "HabanaOp recipe cache hit :: Creating new output with shape : ",
-            pt_output.sizes());
-        IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
-        aten_outputs->at(output_idx) = ivpsh;
+      auto tshape{ti.get_shape()};
+      auto pt_output = create_empty_tensor(ti);
+      PT_BRIDGE_DEBUG(
+          "HabanaOp recipe cache hit :: Creating new output with shape : ",
+          pt_output.sizes());
+      IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
+      aten_outputs->at(output_idx) = ivpsh;
 
-        outputIVpshMap.emplace(ridx, ivpsh);
+      outputIVpshMap.emplace(ridx, ivpsh);
 
-        // Patch the buffer for the output
-        ti.patch(pt_output);
-      } else {
-        IValPtrShared ivpsh = std::make_shared<IVal>(ti.get_ivalue());
-        aten_outputs->at(output_idx) = ivpsh;
-      }
+      // Patch the buffer for the output
+      ti.patch(pt_output);
     }
 
     // Patch the duplicates of output that are going back to graph
@@ -884,10 +874,7 @@ void RecipeValueSpec::update_patching_table(
 
 void RecipeValueSpec::populate_syn_tensor_ids() {
   for (size_t i = 0; i < num_tinfos; ++i) {
-    PtTensorInfo& ti = dtensorinfos->at(i);
-    if (ti.is_tensor()) {
-      num_tensors++;
-    }
+    num_tensors++;
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
@@ -899,9 +886,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
     size_t tensor_idx{0};
     for (size_t i = 0; i < num_tinfos; ++i) {
       PtTensorInfo& ti = dtensorinfos->at(i);
-      if (ti.is_tensor()) {
-        tensor_names[tensor_idx++] = ti.get_syn_namec_str();
-      }
+      tensor_names[tensor_idx++] = ti.get_syn_namec_str();
     }
 
     synStatus status = synTensorRetrieveIds(
@@ -922,50 +907,45 @@ void RecipeValueSpec::patch_launch_info(
   size_t tensor_idx{0};
   for (size_t i = 0; i < num_tinfos; ++i) {
     PtTensorInfo& ti = dtensorinfos->at(i);
-    if (ti.is_tensor()) {
-      switch (ti.tensor_type()) {
-        case SHAPE_TENSOR:
-        case INPUT_DESCRIBING_SHAPE_TENSOR: {
-          const auto& tsv = ti.syn_shape();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
-              ti.get_syn_namec_str(),
-              0,
-              ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-              tensor_ids[tensor_idx++]});
-          break;
-        }
-        case DATA_TENSOR:
-        case DATA_TENSOR_DYNAMIC: {
-          const auto& tsv = ti.syn_shape();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
-              ti.get_syn_namec_str(),
-              ti.get_buffer_syn(),
-              ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
-              tensor_ids[tensor_idx++]});
-          break;
-        }
-        case DEVICE_SHAPE_TENSOR: {
-          const auto& tsv = ti.syn_shape();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
-              ti.get_syn_namec_str(),
-              ti.get_buffer_syn(),
-              ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-              tensor_ids[tensor_idx++]});
-          break;
-        }
-        case TENSOR_TYPE_MAX:
-          TORCH_CHECK(
-              false,
-              "Patching of ",
-              ti.tensor_type(),
-              " is not supported yet.");
-          break;
-        default:
-          TORCH_CHECK(false, "Unreachable condition.");
+    switch (ti.tensor_type()) {
+      case SHAPE_TENSOR:
+      case INPUT_DESCRIBING_SHAPE_TENSOR: {
+        const auto& tsv = ti.syn_shape();
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+            ti.get_syn_namec_str(),
+            0,
+            ti.tensor_type(),
+            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+            tensor_ids[tensor_idx++]});
+        break;
       }
+      case DATA_TENSOR:
+      case DATA_TENSOR_DYNAMIC: {
+        const auto& tsv = ti.syn_shape();
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+            ti.get_syn_namec_str(),
+            ti.get_buffer_syn(),
+            ti.tensor_type(),
+            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
+            tensor_ids[tensor_idx++]});
+        break;
+      }
+      case DEVICE_SHAPE_TENSOR: {
+        const auto& tsv = ti.syn_shape();
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+            ti.get_syn_namec_str(),
+            ti.get_buffer_syn(),
+            ti.tensor_type(),
+            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+            tensor_ids[tensor_idx++]});
+        break;
+      }
+      case TENSOR_TYPE_MAX:
+        TORCH_CHECK(
+            false, "Patching of ", ti.tensor_type(), " is not supported yet.");
+        break;
+      default:
+        TORCH_CHECK(false, "Unreachable condition.");
     }
   }
 }

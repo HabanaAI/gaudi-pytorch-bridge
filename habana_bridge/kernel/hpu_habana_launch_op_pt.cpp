@@ -1561,7 +1561,6 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   std::unordered_map<void*, size_t> buff_to_outputtinfoidx_map;
   // push the actual output tinfos
   size_t output_idx{0};
-  size_t output_nontensor_cnt{0};
   for (auto output : jit_ir_graph->outputs()) {
     auto oit = value_to_ivalue.find(output);
     TORCH_CHECK(
@@ -1573,14 +1572,7 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     TORCH_CHECK(nullptr != ivpsh, "IValPtrShared for subgraph output is null");
 
     // Checking where we can find the outputs
-    if (!ivpsh->isTensor()) {
-      PtTensorInfo ti(ivpsh);
-      ti.set_output_index(output_idx);
-      std::string irn = std::string("%") + output->debugName();
-      ti.set_ir_name(irn);
-      output_tensorinfos.emplace_back(ti);
-      output_nontensor_cnt++;
-    } else {
+    {
       if (output_tensorinfo_map.count(ivpsh)) {
         auto it = output_tensorinfo_map.find(ivpsh);
         it->second.set_output_index(output_idx);

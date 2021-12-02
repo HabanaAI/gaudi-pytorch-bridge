@@ -56,9 +56,6 @@ PtTensorInfo::PtTensorInfo(
   update_shape_syn();
 }
 
-PtTensorInfo::PtTensorInfo(const IValPtrShared& ivpsh)
-    : is_tensor_(false), iv_(*ivpsh) {}
-
 PtTensorInfo::PtTensorInfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
@@ -107,7 +104,6 @@ void PtTensorInfo::update_shape_syn() {
 
 PtTensorInfo::PtTensorInfo(std::istream& is) {
   using namespace serialization;
-  deserialize(is, is_tensor_);
   deserialize(is, is_view_tensor_);
   deserialize(is, is_restrided_);
   deserialize(is, offset_);
@@ -132,7 +128,6 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
 
 void PtTensorInfo::Serialize(std::ostream& os) const {
   using namespace serialization;
-  serialize(os, is_tensor_);
   serialize(os, is_view_tensor_);
   serialize(os, is_restrided_);
   serialize(os, offset_);
@@ -154,35 +149,33 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   O << '<' << t.get_ir_name();
-  if (t.is_tensor()) {
-    O << ":[" << t.get_shape() << "]:[" << t.get_strides() << "]:#"
-      << t.get_numel() << ':' << '(' << t.get_size() << " b):["
-      << t.getHbInternalLayoutFormat() << "]"
-      << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>'
-      << " tensor type:" << t.tensor_type_;
 
-    if (t.get_dma_cb() != nullptr) {
-      O << " dma_cb : " << (void*)t.get_dma_cb();
-      O << " dma_tensor_idx : " << t.get_dma_tensor_idx();
-    }
-    if (t.is_duplicate()) {
-      O << " duplicate of " << t.get_parent_index();
-    }
+  O << ":[" << t.get_shape() << "]:[" << t.get_strides() << "]:#"
+    << t.get_numel() << ':' << '(' << t.get_size() << " b):["
+    << t.getHbInternalLayoutFormat() << "]"
+    << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>'
+    << " tensor type:" << t.tensor_type_;
 
-    if (ULONG_MAX != t.get_output_index()) {
-      O << ", output index " << t.get_output_index();
-    } else {
-      O << ", non output";
-    }
+  if (t.get_dma_cb() != nullptr) {
+    O << " dma_cb : " << (void*)t.get_dma_cb();
+    O << " dma_tensor_idx : " << t.get_dma_tensor_idx();
+  }
+  if (t.is_duplicate()) {
+    O << " duplicate of " << t.get_parent_index();
+  }
 
-    O << ", is_restrided " << std::boolalpha << t.is_restrided();
-
-    O << ", <" << t.get_buffer_start() << ", +" << t.offset_ << ">";
-    if (t.offset_ != 0) {
-      O << " nz offset view tensor ";
-    }
+  if (ULONG_MAX != t.get_output_index()) {
+    O << ", output index " << t.get_output_index();
   } else {
-    O << "> non-tensor : ivalue :: " << t.iv_;
+    O << ", non output";
+  }
+
+  O << ", is_restrided " << std::boolalpha << t.is_restrided();
+
+  O << ", <" << t.get_buffer_start() << ", +" << t.offset_ << ">";
+
+  if (t.offset_ != 0) {
+    O << " nz offset view tensor ";
   }
   return O;
 }
