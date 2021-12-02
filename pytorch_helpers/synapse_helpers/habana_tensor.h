@@ -235,7 +235,8 @@ class tensor final {
       const std::vector<int64_t>& pt_shape,
       const std::vector<int64_t>& pt_stride,
       const std::string& suffix = std::string(),
-      synTensorType tensor_type = DATA_TENSOR);
+      synTensorType tensor_type = DATA_TENSOR,
+      bool persistent = false);
 
   synTensor& get() {
     return tensor_;

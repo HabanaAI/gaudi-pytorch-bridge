@@ -592,7 +592,9 @@ synapse_helpers::tensor habana_helpers::create_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         tensor.strides().vec(),
-        name);
+        name,
+        DATA_TENSOR,
+        persistent);
   }
 
   std::vector<int64_t> min, max;

@@ -409,7 +409,8 @@ tensor tensor::create_placeholder(
     const std::vector<int64_t>& pt_shape,
     const std::vector<int64_t>& pt_stride,
     const std::string& suffix,
-    synTensorType tensor_type) {
+    synTensorType tensor_type,
+    bool persistent) {
   auto name = detail::tensor_name_generator::generate(suffix);
   tensor tensor{
       syn_device,
@@ -418,7 +419,8 @@ tensor tensor::create_placeholder(
       shape_t{0_D},
       shape_t{0_D},
       name,
-      nullptr};
+      nullptr,
+      persistent};
   tensor.set_placeholder();
   tensor.pt_shape_ = pt_shape;
   tensor.pt_strides_ = pt_stride;
