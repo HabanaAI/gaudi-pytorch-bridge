@@ -10,6 +10,7 @@
 #include "repeat.h"
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -17,6 +18,8 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/tensor_impl.h"
 
 using namespace torch;
 using namespace habana;
@@ -140,7 +143,78 @@ at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats) {
   return output;
 }
 
+std::vector<int64_t> RepeatInlvOperator::compute_output_shape(
+    const at::Tensor& input,
+    int64_t dim,
+    int64_t out_size) {
+  auto outshape = input.sizes().vec();
+  outshape[dim] = out_size;
+  return outshape;
+}
+
+void RepeatInlvOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for repeat-interleave operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for repeat-interleave operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 expected to be Int for repeat-interleave operator");
+  TORCH_CHECK(
+      inputs[3].isTensor(),
+      "Input arg4 expected to be tensor for repeat-interleave operator");
+
+  auto input = inputs[0].toTensor();
+  auto repeats_ht = inputs[1].toTensor();
+  auto dim = inputs[2].toInt();
+  auto out_shape = inputs[3].toTensor();
+
+  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+  auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
+  HABANA_ASSERT(impl);
+  TORCH_CHECK(
+      impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
+      "Incorrect datatype of HOST");
+
+  // set min/max for repeats_ht, this min/max is used only for memory
+  // allocations by synapse (not for actual compilation), therefore we can set
+  // only last element of ht to out_shape (rest of elements set to 0). Recall
+  // that out_shape is computed by summing elements in ht.
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    auto size_tensor = input.sizes().vec()[dim];
+    std::vector<int32_t> d(size_tensor, 0);
+    d[size_tensor - 1] = out_shape.sizes()[dim];
+    impl->set_min<int32_t>(d);
+  } else if (
+      habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    auto size_tensor = input.sizes().vec()[dim];
+    std::vector<int32_t> d(size_tensor, 0);
+    d[size_tensor - 1] = out_shape.sizes()[dim];
+    impl->set_max<int32_t>(d);
+  }
+
+  ns_RepeatKernelGaudiTF::Params params;
+  params.axis = input.dim() - 1 - dim;
+  auto output = habana_helpers::createPTTensor(
+      input,
+      out_shape.sizes(),
+      input.options(),
+      output_metadata.at(0).persistent);
+  // throw away shape tensor before adding synapse node
+  p_context_->syn_inputs_.pop_back();
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::repeat", KERNEL_FN(RepeatOperator))
-        .add("hpu::repeat", KERNEL_FN(RepeatOperator));
+        .add("hpu::repeat", KERNEL_FN(RepeatOperator))
+        .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator));

@@ -4558,7 +4558,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   if (!weight.defined()) {
     weight = bn_create_and_init_undefined_input(
         input, input.suggest_memory_format(), true, 1);
-    }
+  }
 
   if (!bias.defined()) {
     bias = bn_create_and_init_undefined_input(
@@ -5416,6 +5416,69 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
       vector_of_inputs,
       metadata_indices,
       {RepeatOperator::compute_output_shape(self, repeats)}};
+  return k.call();
+}
+
+at::Tensor repeat_inlv_hpu_lazy(
+    const at::Tensor& repeats,
+    c10::optional<int64_t> output_size) {
+  // if output_size is not provided by user, there is no way to compute output
+  // shape without peeking into the "repeats" tensor. See desc. from PyT docs,
+  // "output_size (int, optional) – Total output size for the given axis ( e.g.
+  // sum of repeats). If given, it will avoid stream syncronization needed to
+  // calculate output shape of the tensor."
+
+  // In our case because of the use of H2D tensor for repeats, we will always
+  // break the graph if model puts repeats tensor on HPU, but this should be ok
+  // as this will not cause a blocking synchronization
+  int64_t out_size;
+  // repeats can only by "long" or "int", if long, cast to int because synapse
+  // cannot handle long tensors
+  auto repeats_cpu = repeats.to("cpu").to(torch::kInt32);
+  if (output_size.has_value()) {
+    out_size = output_size.value();
+  } else {
+    auto out = repeats_cpu.sum();
+    out_size = out.item().toInt();
+  }
+  auto input = at::native::arange(
+      repeats.sizes()[0],
+      c10::ScalarType::
+          Int, // c10::optTypeMetaToScalarType(repeats.options().dtype_opt()),
+      repeats.options().layout_opt(),
+      repeats.options().device_opt(),
+      repeats.options().pinned_memory_opt());
+  auto repeats_tensor = empty_hpu_lazy(
+      repeats.sizes(),
+      repeats.options().dtype(c10::ScalarType::Int),
+      repeats.suggest_memory_format(),
+      false,
+      HOST_TO_DEVICE_TENSOR);
+  auto hl_params_shape = GetOrCreateHbLazyTensor(repeats_tensor, c10::kHPU);
+
+  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+  habana_lazy::HbInternalTensorImpl* impl =
+      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+  HABANA_ASSERT(impl);
+  impl->set_host_data(
+      repeats_cpu.data_ptr(),
+      repeats_cpu.sizes()[0],
+      sizeof(int32_t),
+      HostDataType::INT32_T);
+
+  auto output_shape =
+      RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+  auto output_shape_tensor = empty_hpu_lazy(
+      IntArrayRef(output_shape),
+      input.options().dtype(c10::ScalarType::Int),
+      input.suggest_memory_format(),
+      false,
+      SHAPE_TENSOR);
+  LazyOp<at::Tensor> k{
+      "hpu::repeat_inlv",
+      {input, repeats_tensor, 0, output_shape_tensor},
+      {2},
+      {output_shape}};
   return k.call();
 }
 

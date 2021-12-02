@@ -2159,6 +2159,10 @@ static const std::
                   at::ScalarType::Bool}},
             },
             {
+                "repeat_interleave",
+                {{at::ScalarType::Long, at::ScalarType::Int}},
+            },
+            {
                 "nonzero",
                 {{at::ScalarType::Int,
                   at::ScalarType::Long,

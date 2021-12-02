@@ -1783,32 +1783,40 @@ void runIndexPutDynamicTestIntVect(
     out_hpu = torch::index_put(input_hpu, {mask_hpu1}, values_hpu, acc);
     out_cpu = torch::index_put(input_cpu, {mask_cpu1}, values_cpu, acc);
   }
-
-  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
-
-  EXPECT_EQ(allclose(out_cpu, out_hpu, 0.001, 0.001), true);
 }
 
-TEST_F(LazyDynamicShapesTest, IndexPutAccIntTestNCHW) {
-  runIndexPutDynamicTestIntVect(
-      {12, 80, 28, 28},
-      {
-          12,
-      },
-      {12, 28, 28},
-      true);
-  runIndexPutDynamicTestIntVect(
-      {24, 160, 56, 56},
-      {
-          24,
-      },
-      {24, 56, 56},
-      true);
-  runIndexPutDynamicTestIntVect(
-      {48, 320, 112, 112},
-      {
-          48,
-      },
-      {48, 112, 112},
-      true);
+static void repeatInlvTest(
+    at::Tensor A,
+    std::vector<int64_t> rpt_vals,
+    int64_t dim = -1) {
+  auto rpt = torch::tensor(rpt_vals);
+  auto hrpt = rpt.to(torch::kHPU);
+  auto hA = A.to(torch::kHPU);
+  if (dim != -1) {
+    auto hOut = hA.repeat_interleave(hrpt, dim);
+    auto Out = A.repeat_interleave(rpt, dim);
+    EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+  } else {
+    auto hOut = hA.repeat_interleave(hrpt);
+    auto Out = A.repeat_interleave(rpt);
+    EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, RepeatInlv1) {
+  repeatInlvTest(torch::tensor({4, 5}), {10, 7});
+  repeatInlvTest(torch::tensor({4, 5}), {15, 8});
+  repeatInlvTest(torch::tensor({4, 5}), {20, 10});
+}
+
+TEST_F(LazyDynamicShapesTest, RepeatInlv2) {
+  repeatInlvTest(torch::randn({4, 5}), {2});
+  repeatInlvTest(torch::randn({4, 5}), {3});
+  repeatInlvTest(torch::randn({4, 5}), {4});
+}
+
+TEST_F(LazyDynamicShapesTest, RepeatInlv3) {
+  repeatInlvTest(torch::randn({4, 5}), {2, 1, 1, 1, 1}, 1);
+  repeatInlvTest(torch::randn({4, 5}), {2, 1, 2, 1, 2}, 1);
+  repeatInlvTest(torch::randn({4, 5}), {2, 2, 2, 2, 2}, 1);
 }

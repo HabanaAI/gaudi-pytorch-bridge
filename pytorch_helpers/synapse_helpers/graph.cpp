@@ -360,20 +360,15 @@ synapse_error_o graph::launch(
   std::vector<device_ptr> addresses(
       inputs_and_outputs_info.size(), device_nullptr);
   std::unordered_map<uint64_t, uint64_t> host_address_map;
-  uint64_t index = 0;
-  std::transform(
-      inputs_and_outputs_info.begin(),
-      inputs_and_outputs_info.end(),
-      addresses.begin(),
-      [&](const synLaunchTensorInfo& info) {
-        if (info.tensorType != HOST_TO_DEVICE_TENSOR) {
-          return info.pTensorAddress;
-        } else {
-          host_address_map[index] = info.pTensorAddress;
-          return static_cast<uint64_t>(0);
-        }
-        index++;
-      });
+  for (size_t i = 0; i < inputs_and_outputs_info.size(); i++) {
+    auto& info = inputs_and_outputs_info[i];
+    if (info.tensorType != HOST_TO_DEVICE_TENSOR) {
+      addresses[i] = info.pTensorAddress;
+    } else {
+      host_address_map[i] = info.pTensorAddress;
+      addresses[i] = static_cast<uint64_t>(0);
+    }
+  }
   {
     address_lock = absl::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));

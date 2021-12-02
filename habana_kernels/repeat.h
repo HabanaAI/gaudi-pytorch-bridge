@@ -35,4 +35,23 @@ struct RepeatOperator : public HabanaOperator {
       const at::Tensor& self,
       at::IntArrayRef repeats);
 };
+
+class RepeatInlvOperator : public HabanaOperator {
+ public:
+  RepeatInlvOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "repeat_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& input,
+      int64_t dim,
+      int64_t out_size);
+};
 } // namespace habana

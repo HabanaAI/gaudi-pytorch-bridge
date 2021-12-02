@@ -868,9 +868,7 @@ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
       is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
 
   // Set the habana operators to capture data
-  if (refine_ds_enabled_) {
-    habana::ShapeInference::Capture(&m_map_shape);
-  }
+  habana::ShapeInference::Capture(&m_map_shape);
 
   CopyInputStack(input_st);
 }
