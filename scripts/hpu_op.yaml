@@ -1488,6 +1488,7 @@ round_:
   legacy_eager: true
 
 round.out:
+  custom_fill_params: FillRoundParams
   dtypes: [BFloat16, Float]
   guid: round_fwd
 
