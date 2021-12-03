@@ -178,7 +178,7 @@ DynamicBucketInfo::ResultShapes DynamicBucketInfo::CalculateShapes(
       " encountered, should be less than ",
       buckets_.size());
 
-  auto& ranges = buckets_[bucket].ranges();
+  auto& ranges = buckets_[bucket].getRanges();
   auto& dynamic_dims = buckets_[bucket].getDynamicDims();
 
   for (auto& input : dynamic_dims) {
@@ -263,6 +263,7 @@ uint64_t DynamicBucketInfo::GetBucketId(
     uint64_t new_bucket_id = buckets_.size() - 1;
     new_bucket.SetIndex(new_bucket_id);
     UpdateMFUBucketDetails(new_bucket_id);
+    dims_history_.emplace_back(DimsHistoryElement{});
 
     return new_bucket_id;
   }
@@ -368,7 +369,7 @@ bool DynamicBucketInfo::UpdateBucketWithPolicy(
     if (min_policy != DynamicDimsPolicy::DEFAULT ||
         max_policy != DynamicDimsPolicy::DEFAULT) {
       const PadShapes& pad_shapes = PadShapes{};
-      buckets_[bucket_id].ranges() = CalculateRanges(shapes, pad_shapes);
+      buckets_[bucket_id].setRanges(CalculateRanges(shapes, pad_shapes));
     }
     return true;
   }
@@ -385,14 +386,50 @@ std::string DynamicBucketInfo::ResultShapes::DebugString() {
     TORCH_CHECK(
         imax != max_shapes.end() && imin->second.dims() == imax->second.dims(),
         "max and min have different number of input dimensions");
-    result += "  Tensor " + std::to_string(tensor_idx) + ":";
+    result += "  Tensor" + std::to_string(tensor_idx) + ":";
+    bool is_first{true};
+    result += "(";
     for (size_t dim = 0; dim < imin->second.dims(); dim++) {
-      result += " (Dim " + std::to_string(dim) + ":[";
+      result += (is_first ? "" : ",");
+      is_first = false;
+      result += "Dim" + std::to_string(dim) + ":[";
       result += std::to_string(imin->second.dim_size(dim)) + ",";
       result += std::to_string(imax->second.dim_size(dim));
-      result += "])";
+      result += "]";
     }
-    result += "\n";
+    result += ")";
+  }
+  result += "\n";
+  return result;
+}
+
+std::string DynamicBucketInfo::ResultShapes::DebugString(
+    const InpTensorShapes& inp_shapes) {
+  std::string result;
+  for (auto tshape_it : inp_shapes) {
+    const auto& tshape_idx{tshape_it.first};
+    std::string tshape_str_lo;
+    std::string tshape_str_hi;
+    result += '\n';
+    tshape_str_lo += " [";
+    tshape_str_hi += " [";
+    bool is_first{true};
+    const auto& dims{tshape_it.second.get_dims()};
+    for (size_t i = 0; i < tshape_it.second.dims(); i++) {
+      auto dim{dims.at(i)};
+      auto dim_lo{dim};
+      auto dim_hi{dim};
+      if (min_shapes.count(tshape_idx) && max_shapes.count(tshape_idx)) {
+        dim_lo = min_shapes.at(tshape_idx).get_dims().at(i);
+        dim_hi = max_shapes.at(tshape_idx).get_dims().at(i);
+      }
+      tshape_str_lo += (is_first ? "" : ",") + std::to_string(dim_lo);
+      tshape_str_hi += (is_first ? "" : ",") + std::to_string(dim_hi);
+      is_first = false;
+    }
+    tshape_str_lo += "]";
+    tshape_str_hi += "]";
+    result += tshape_str_lo + " -" + tshape_str_hi;
   }
   return result;
 }
@@ -729,6 +766,68 @@ void DynamicBucketInfo::UpdateRunTimes() {
 
 bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
   return bucket < buckets_.size() && buckets_[bucket].GetKeepRunTime();
+}
+
+std::string DynamicBucketInfo::digest_str() const {
+  // Present summary stats
+  std::ostringstream O;
+  O << "DynamicBucketInfo details:" << '\n'
+    << " min policy: " << min_policy_ << '\n'
+    << " max policy: " << max_policy_ << '\n'
+    << " hit count: " << cumu_hit_count_ << '\n'
+    << " miss count: " << (cumu_run_count_ - cumu_hit_count_) << '\n';
+
+  if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    O << " [number of run times stats collected can be lesser than the total number of runs]"
+      << '\n'
+      << " [times are in nano seconds]" << '\n';
+  }
+  if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    O << " compile time stat : " << cumu_compile_time_stat_ << '\n'
+      << " run time stat     : " << cumu_run_time_stat_ << '\n';
+  }
+  O << "Bucket details:" << '\n';
+  // for (const auto& b : buckets_) {
+  for (size_t idx = 0; idx < buckets_.size(); idx++) {
+    const auto& bucket{buckets_.at(idx)};
+    O << "Bucket id: " << idx << '\n';
+    O << bucket.digest_str();
+    O << "Ranges:";
+    if (idx) {
+      const auto& ranges{bucket.getRanges()};
+      const auto& dynamic_dims{bucket.getDynamicDims()};
+      for (auto tensor_it : ref_tensor_shapes_) {
+        const auto& tensor_idx{tensor_it.first};
+        std::string tensor_str_lo;
+        std::string tensor_str_hi;
+        O << '\n';
+        tensor_str_lo += " [";
+        tensor_str_hi += " [";
+        bool is_first{true};
+        for (auto dim_it : tensor_it.second) {
+          const auto& dim_idx{dim_it.first};
+          auto dim_lo{dim_it.second};
+          auto dim_hi{dim_it.second};
+          if (dynamic_dims.count(tensor_idx) &&
+              dynamic_dims.at(tensor_idx).count(dim_idx)) {
+            auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
+            dim_lo = ranges.at(range_idx).first;
+            dim_hi = ranges.at(range_idx).second;
+          }
+          tensor_str_lo += (is_first ? "" : ",") + std::to_string(dim_lo);
+          tensor_str_hi += (is_first ? "" : ",") + std::to_string(dim_hi);
+          is_first = false;
+        }
+        tensor_str_lo += "]";
+        tensor_str_hi += "]";
+        O << tensor_str_lo << " -" << tensor_str_hi;
+      }
+    } else {
+      O << DebugString(ref_tensor_shapes_);
+    }
+    O << '\n' << "--------------------" << '\n';
+  }
+  return O.str();
 }
 
 void DynamicBucketInfo::DynamicDimsHelper::FindOrAdd(

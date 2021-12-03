@@ -68,7 +68,7 @@ class TensorShape {
     for (size_t i = 0; i < t.m_sizes.size(); i++) {
       O << (i > 0 ? ", " : "") << t.m_sizes[i];
     }
-    O << ']' << ' ' << t.scalar_type_;
+    O << ']';
 
     return O;
   }

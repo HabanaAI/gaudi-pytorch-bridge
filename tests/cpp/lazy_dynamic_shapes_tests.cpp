@@ -922,21 +922,22 @@ TEST_F(LazyDynamicShapesTest, ExpandTest) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
   }
 
-  std::vector<int> W_in_sizes{1, 482, 1, 482, 1, 482};
-  std::vector<int> H_in_sizes{200, 1, 200, 1, 1, 200};
+  constexpr int Wmax{482}, Hmax{200};
+  std::vector<int> W_in_sizes{1, Wmax, 1, Wmax, 1, Wmax};
+  std::vector<int> H_in_sizes{Hmax, 1, Hmax, 1, 1, Hmax};
   for (int i = 0; i < W_in_sizes.size(); i++) {
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     int W = W_in_sizes[i];
     int H = H_in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+
     torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
 
-    torch::Tensor h_out = hA.expand({482, 200});
+    auto E = A.expand({Wmax, Hmax});
+    torch::Tensor hE = hA.expand({Wmax, Hmax});
 
-    auto h_cout = h_out.to(torch::kCPU);
-    auto cout = A.expand({482, 200});
-
-    EXPECT_EQ(allclose(h_cout, cout), true);
+    auto cE = hE.to(torch::kCPU);
+    EXPECT_EQ(allclose(cE, E), true);
   }
 
   if (!refine_enabled) {

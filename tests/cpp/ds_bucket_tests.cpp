@@ -78,7 +78,7 @@ class InpShapeGen {
     PT_TEST_DEBUG("Will use the following input tensor shapes:");
     size_t in_idx{0};
     for (auto a : input_shapes_vec) {
-      PT_TEST_DEBUG("input shape[", in_idx++, "]\n", a);
+      PT_TEST_DEBUG("input shape[", in_idx++, "]", a);
     }
   }
 
@@ -216,8 +216,9 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
         "CollectDynamicDims with input shapes",
         "[",
         ddim_idx,
-        "]:\n",
+        "]:",
         input_shapes,
+        '\n',
         "--------------------",
         "\n");
     bucket_info.CollectDynamicDims(input_shapes);
@@ -231,13 +232,14 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
         "For input shapes",
         "[",
         ddim_idx,
-        "]:",
-        "\n",
+        "]: ",
         input_shapes,
+        '\n',
         "Returned bucket id : ",
         bidx,
-        "\nDynamic ranges\n",
-        ranges.DebugString(),
+        "\nDynamic ranges:",
+        ranges.DebugString(input_shapes),
+        '\n',
         "--------------------\n\n");
     ASSERT_EQ(bidx, exp_result_map.at(ddim_idx));
   }};

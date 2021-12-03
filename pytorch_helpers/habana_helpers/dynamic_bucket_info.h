@@ -149,13 +149,40 @@ using DynamicDims = std::map<int64_t, std::map<int64_t, int64_t>>;
 // DimsHistoryElement : input_idx => {dim_idx => dim_val}
 using DimsHistoryElement = std::map<int64_t, std::map<int64_t, int64_t>>;
 
+// Only use for reference tensor shape
 inline std::string DebugString(const DimsHistoryElement& d) {
   std::ostringstream O;
   for (auto tensor_it : d) {
-    O << "  Tensor " << tensor_it.first << ":";
+    O << '\n' << " [";
+    bool is_first{true};
     for (auto dim_it : tensor_it.second) {
-      O << "[Dim " << dim_it.first << ':' << dim_it.second << "]";
+      O << (is_first ? "" : ",");
+      O << dim_it.second;
+      is_first = false;
     }
+    O << "]";
+  }
+  return O.str();
+}
+
+inline std::string DebugString(
+    const DimsHistoryElement& d,
+    const DimsHistoryElement& ref) {
+  std::ostringstream O;
+  for (auto tensor_it : ref) {
+    const auto& tensor_idx{tensor_it.first};
+    O << '\n' << " [";
+    bool is_first{true};
+    for (auto dim_it : tensor_it.second) {
+      const auto& dim_idx{dim_it.first};
+      auto dim_val{dim_it.second};
+      if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
+        dim_val = d.at(tensor_idx).at(dim_idx);
+      }
+      O << (is_first ? "" : ",") << dim_val;
+      is_first = false;
+    }
+    O << "]";
   }
   return O.str();
 }
@@ -163,17 +190,21 @@ inline std::string DebugString(const DimsHistoryElement& d) {
 inline std::ostream& operator<<(std::ostream& O, const DynamicDims& d) {
   O << "dynamic dims ::";
   if (d.empty()) {
-    O << ' ' << "empty" << '\n';
+    O << ' ' << "empty";
   } else {
-    O << '\n';
     for (const auto& r : d) {
-      O << "  " << r.first << " -> ";
+      O << "  " << r.first << "->";
+      bool is_first{true};
+      O << '(';
       for (const auto& a : r.second) {
-        O << ' ' << '(' << a.first << " -> " << a.second << ')';
+        O << (is_first ? "" : ",");
+        O << a.first << "->" << a.second;
+        is_first = false;
       }
-      O << '\n';
+      O << ')';
     }
   }
+  O << '\n';
 
   return O;
 }
@@ -182,7 +213,7 @@ inline std::ostream& operator<<(
     std::ostream& O,
     const std::map<int64_t, habana_helpers::TensorShape>& t) {
   for (const auto& a : t) {
-    O << "  " << a.first << " -> " << a.second << '\n';
+    O << '\n' << " " << a.second;
   }
   return O;
 }
@@ -190,9 +221,15 @@ inline std::ostream& operator<<(
 inline std::ostream& operator<<(
     std::ostream& O,
     const std::unordered_map<int64_t, habana_helpers::TensorShape>& t) {
+  std::vector<int64_t> tensor_idx_vec;
+  tensor_idx_vec.reserve(t.size());
   for (const auto& a : t) {
-    O << "  " << a.first << " -> " << a.second << '\n';
+    tensor_idx_vec.push_back(a.first);
   }
+  for (const auto i : tensor_idx_vec) {
+    O << "  " << i << ":" << t.at(i);
+  }
+  O << '\n';
   return O;
 }
 
@@ -384,8 +421,11 @@ class Bucket {
   uint64_t getToken() const {
     return token_;
   }
-  DynamicRanges& ranges() {
+  const DynamicRanges& getRanges() const {
     return ranges_;
+  }
+  void setRanges(const DynamicRanges& r) {
+    ranges_ = r;
   }
   size_t getDynamiDimsCount() const {
     return ranges_.size();
@@ -431,40 +471,17 @@ class Bucket {
   inline std::string digest_str() const {
     // Present summary stats
     std::ostringstream O;
-    O << "Bucket " << idx_ << ":" << '\n';
-    if (idx_) {
-      O << " Dynamic Dims::\n";
-      for (auto& d : dynamic_dims_) {
-        O << "  Tensor " << d.first << ":";
-        for (const auto& a : d.second) {
-          O << " (Dim " << a.first << ":";
-          auto& r{ranges_.at(a.second)};
-          O << '[' << r.first << ',' << r.second << ']' << ')';
-        }
-        O << "\n";
-      }
-    } else {
-      O << " Reference bucket" << '\n';
-    }
-    O << " hit count " << cumu_hit_count_ << ", miss count "
-      << (cumu_run_count_ - cumu_hit_count_) << '\n';
+    O << " recipe key: " << recipe_key_ << '\n'
+      << " hit count: " << cumu_hit_count_ << '\n'
+      << " miss count: " << (cumu_run_count_ - cumu_hit_count_) << '\n';
+
     if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      O << " compile time stat : " << compile_time_ << '\n'
-        << " base_time : " << base_time_ << '\n'
-        << " run time stat     : " << run_time_stat_ << '\n';
+      O << " compile time stat: " << compile_time_ << '\n'
+        << " base_time: " << base_time_ << '\n'
+        << " run time stat: " << run_time_stat_ << '\n';
     }
-    O << " split stat impl : " << split_stat_impl_;
-    O << "--------------------" << '\n';
 
     return O.str();
-  }
-
-  friend inline std::ostream& operator<<(std::ostream& O, const Bucket& b) {
-    O << b.digest_str() << " score " << b.score_ << ", recipe key "
-      << b.recipe_key_ << ", token " << b.token_ << '\n';
-    O << " split stat impl : " << b.split_stat_impl_;
-    O << "--------------------" << '\n';
-    return O;
   }
 
   static constexpr uint64_t uninitialized_token = 1000000006;
@@ -530,18 +547,7 @@ class DynamicBucketInfo {
     }
     // SynapseShapes syn_shapes;
     std::string DebugString();
-    // TODO: Change range representation to : [<min, max>, <min, max>]
-    friend inline std::ostream& operator<<(
-        std::ostream& O,
-        const ResultShapes& r) {
-      if (r.empty()) {
-        O << "Empty range" << '\n';
-      } else {
-        O << "Min shapes ::" << '\n' << r.min_shapes;
-        O << "Max shapes ::" << '\n' << r.max_shapes;
-      }
-      return O;
-    }
+    std::string DebugString(const InpTensorShapes& inp_shapes);
   };
 
   ResultShapes CalculateShapes(uint64_t bucket);
@@ -583,51 +589,20 @@ class DynamicBucketInfo {
   void add_token_for_input_shapes(size_t key, size_t val) {
     input_token_map_.emplace(key, val);
   }
-  inline std::string digest_str() const {
-    // Present summary stats
-    std::ostringstream O;
-    O << "DynamicBucketInfo digest ::" << '\n';
-    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      O << " [number of run times stats collected can be lesser than the total number of runs]"
-        << '\n'
-        << " [times are in nano seconds]" << '\n';
-    }
-    O << " hit count " << cumu_hit_count_ << ", miss count "
-      << (cumu_run_count_ - cumu_hit_count_) << '\n';
-    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      O << " compile time stat : " << cumu_compile_time_stat_ << '\n'
-        << " run time stat     : " << cumu_run_time_stat_ << '\n';
-    }
-    O << "Individual bucket-wise digest ::" << '\n';
-    for (const auto& b : buckets_) {
-      O << b.digest_str();
-    }
-    return O.str();
-  }
+  std::string digest_str() const;
   friend inline std::ostream& operator<<(
       std::ostream& O,
       const DynamicBucketInfo& d) {
-    O << d.digest_str() << "DynamicBucketInfo details::" << '\n'
-      << " global_count=" << d.global_count
-      << ", prev_dynamic_dims=" << d.prev_dynamic_dims_
-      << ", refine_enabled=" << std::boolalpha << d.refine_enabled_
-      << std::noboolalpha << '\n';
-    O << " min policy=" << d.min_policy_ << ", max policy=" << d.max_policy_
-      << ", split policy=" << d.split_policy_ << '\n';
-    O << "Initial tensor shapes ::" << '\n';
-    for (const auto& a : d.shapes_) {
-      O << "  " << a.first << " -> " << a.second << '\n';
-    }
-    O << "Reference tensor shapes ::" << '\n';
-    O << d.ref_tensor_shapes_;
-    O << "--------------------" << '\n';
-    O << "List of buckets ::" << '\n' << ' ' << d.buckets_;
-    O << "Dim history : len=" << d.dims_history_.size()
-      << ", contents ::" << '\n';
+    O << d.digest_str();
+    O << "Dims history len: " << d.dims_history_.size()
+      << ", contents :" << '\n';
     bool skipped{false};
-    for (size_t i = 0; i < d.dims_history_.size(); i++) {
+    size_t i{0};
+    O << " history[" << i << "]:" << DebugString(d.ref_tensor_shapes_) << '\n';
+    i += 1;
+    for (; i < d.dims_history_.size(); i++) {
       const auto& a = d.dims_history_[i];
-      if (i > 0 && a == d.dims_history_[i - 1]) {
+      if (a == d.dims_history_[i - 1]) {
         skipped = true;
         continue;
       }
@@ -636,14 +611,14 @@ class DynamicBucketInfo {
         O << "  "
           << "..." << '\n';
       }
-      O << "  " << (i + 1) << " : " << DebugString(a) << '\n';
+      O << " history[" << i << "]:" << DebugString(a, d.ref_tensor_shapes_)
+        << '\n';
     }
     if (skipped) {
       skipped = false;
       O << "  "
         << "..." << '\n';
     }
-    O << d.dynamic_dims_;
     O << "--------------------" << '\n';
     return O;
   }
@@ -762,15 +737,19 @@ class DynamicBucketInfo {
     friend inline std::ostream& operator<<(
         std::ostream& O,
         const DynamicDimsHelper& d) {
-      O << "dd : " << d.dd_;
-      O << "rem_size :" << (d.rem_size_.size() ? "" : " empty") << '\n';
-      for (const auto& a : d.rem_size_) {
-        O << "  " << '(' << a.first << " -> " << a.second << ')' << '\n';
-      }
-      O << "flat dd :" << (d.flat_dd_.size() ? "" : " empty") << '\n';
+      O << "flatened view: " << (d.flat_dd_.size() ? "" : " empty");
       for (const auto& a : d.flat_dd_) {
-        O << "  " << a << '\n';
+        O << a;
       }
+      O << '\n';
+
+      O << d.dd_;
+      O << "rem_size: " << (d.rem_size_.size() ? "" : " empty");
+      for (const auto& a : d.rem_size_) {
+        O << "  "
+          << "Tensor" << a.first << ":" << a.second;
+      }
+      O << '\n';
 
       return O;
     }
