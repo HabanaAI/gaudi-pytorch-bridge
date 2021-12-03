@@ -2959,6 +2959,10 @@ void HabanaLaunchOpPT::handle_pass_exception(
       switch (graph_input_info.max_policy) {
         case habana_helpers::DynamicDimsPolicy::CALCULATED:
           graph_input_info.max_policy =
+              habana_helpers::DynamicDimsPolicy::HISTORIC;
+          break;
+        case habana_helpers::DynamicDimsPolicy::HISTORIC:
+          graph_input_info.max_policy =
               habana_helpers::DynamicDimsPolicy::CURRENT;
           break;
         default:

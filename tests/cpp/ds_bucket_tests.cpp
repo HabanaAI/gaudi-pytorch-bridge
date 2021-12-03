@@ -108,18 +108,81 @@ class InpShapeGen {
 
   static int64_t min_dim;
 
-  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals;
-  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw57731;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw63966;
   static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw60162;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw61032;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals_sw57731;
+  static std::vector<std::vector<std::vector<int64_t>>> dyn_dimvals;
 
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw63966;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw60162;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw61032;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_sw57731;
   static std::unordered_map<size_t, uint64_t> exp_result_map_c;
   static std::unordered_map<size_t, uint64_t> exp_result_map_h;
-  static std::unordered_map<size_t, uint64_t> exp_result_map_sw57731;
-  static std::unordered_map<size_t, uint64_t> exp_result_map_sw60162;
 };
 
 int64_t InpShapeGen::min_dim =
     habana_helpers::DynamicBucketInfo::default_min_value();
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw63966 = {
+        {{40, 50, 60}, {20, 30}},
+        {{40, 50, 70}, {20, 25}},
+        {{35, 50, 80}, {20, 20}},
+        {{35, 50, 90}, {20, 15}},
+};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw63966 = {
+    {0, 0},
+    {1, 1},
+    {2, 2},
+    {3, 3},
+};
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw60162 = {
+        {{280000}, {85, 5200}},
+        {{280000}, {30, 5200}},
+        {{180000}, {35, 3200}},
+        {{180000}, {25, 3200}},
+        {{220000}, {95, 4800}},
+};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw60162 = {
+    {0, 0},
+    {1, 1},
+    {2, 2},
+    {3, 3},
+    {4, 4},
+};
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw61032 = {
+        {{1, 200}},
+        {{482, 1}},
+        {{1, 200}},
+        {{482, 1}},
+        {{1, 1}},
+        {{482, 200}},
+};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw61032 = {
+    {0, 0},
+    {1, 1},
+    {2, 0},
+    {3, 1},
+    {4, 2},
+    {5, 3},
+};
+
+std::vector<std::vector<std::vector<int64_t>>>
+    InpShapeGen::dyn_dimvals_sw57731 = {
+        {{32768, 1024}},
+        {{1024, 1024}},
+        {{1024, 1024}},
+        {{4096, 1024}},
+        {{1024, 4096}},
+};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw57731 =
+    {{0, 0}, {1, 1}, {2, 1}, {3, 2}, {4, 3}};
 
 std::vector<std::vector<std::vector<int64_t>>> InpShapeGen::dyn_dimvals = {
     {{10}, {20, 30}, {40, 50, 60}},
@@ -129,30 +192,16 @@ std::vector<std::vector<std::vector<int64_t>>> InpShapeGen::dyn_dimvals = {
     {{10}, {17, 33}, {37, 55, 60}},
     {{10}, {20, 22}, {40, 50, 60}},
 };
-std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_c =
-    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_c = {
+    {0, 0},
+    {1, 1},
+    {2, 2},
+    {3, 3},
+    {4, 4},
+    {5, 5},
+};
 std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_h =
     {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 1}};
-
-std::vector<std::vector<std::vector<int64_t>>>
-    InpShapeGen::dyn_dimvals_sw57731 = {
-        {{32768, 1024}},
-        {{1024, 1024}},
-        {{1024, 1024}},
-        {{4096, 1024}},
-        {{1024, 4096}}};
-std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw57731 =
-    {{0, 0}, {1, 1}, {2, 1}, {3, 2}, {4, 3}};
-
-std::vector<std::vector<std::vector<int64_t>>>
-    InpShapeGen::dyn_dimvals_sw60162 = {
-        {{280000}, {85, 5200}},
-        {{280000}, {30, 5200}},
-        {{180000}, {35, 3200}},
-        {{180000}, {25, 3200}},
-        {{220000}, {95, 4800}}};
-std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_sw60162 =
-    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}};
 
 class DynamicDimsTest : public ::testing::TestWithParam<std::tuple<
                             std::vector<std::vector<std::vector<int64_t>>>,
@@ -165,28 +214,36 @@ INSTANTIATE_TEST_SUITE_P(
     DynamicDimsTest,
     ::testing::Values(
         std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw63966,
+            InpShapeGen::exp_result_map_sw63966,
+            habana_helpers::DynamicDimsPolicy::HISTORIC),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw60162,
+            InpShapeGen::exp_result_map_sw60162,
+            habana_helpers::DynamicDimsPolicy::CURRENT),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw60162,
+            InpShapeGen::exp_result_map_sw60162,
+            habana_helpers::DynamicDimsPolicy::CALCULATED),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw61032,
+            InpShapeGen::exp_result_map_sw61032,
+            habana_helpers::DynamicDimsPolicy::HISTORIC),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw57731,
+            InpShapeGen::exp_result_map_sw57731,
+            habana_helpers::DynamicDimsPolicy::CURRENT),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals_sw57731,
+            InpShapeGen::exp_result_map_sw57731,
+            habana_helpers::DynamicDimsPolicy::CALCULATED),
+        std::make_tuple(
             InpShapeGen::dyn_dimvals,
             InpShapeGen::exp_result_map_c,
             habana_helpers::DynamicDimsPolicy::CURRENT),
         std::make_tuple(
             InpShapeGen::dyn_dimvals,
             InpShapeGen::exp_result_map_h,
-            habana_helpers::DynamicDimsPolicy::CALCULATED),
-        std::make_tuple(
-            InpShapeGen::dyn_dimvals_sw57731,
-            InpShapeGen::exp_result_map_sw57731,
-            habana_helpers::DynamicDimsPolicy::CURRENT),
-        std::make_tuple(
-            InpShapeGen::dyn_dimvals_sw57731,
-            InpShapeGen::exp_result_map_sw57731,
-            habana_helpers::DynamicDimsPolicy::CALCULATED),
-        std::make_tuple(
-            InpShapeGen::dyn_dimvals_sw60162,
-            InpShapeGen::exp_result_map_sw60162,
-            habana_helpers::DynamicDimsPolicy::CURRENT),
-        std::make_tuple(
-            InpShapeGen::dyn_dimvals_sw60162,
-            InpShapeGen::exp_result_map_sw60162,
             habana_helpers::DynamicDimsPolicy::CALCULATED)));
 
 TEST_P(DynamicDimsTest, BucketingPolicy) {

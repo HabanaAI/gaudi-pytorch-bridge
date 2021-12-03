@@ -687,7 +687,30 @@ class DynamicBucketInfo {
   DimMultipliers CalculateFlattenedMultipliers(
       const InpTensorShapes& shapes,
       int64_t max_multiplier);
-  size_t CalculateHistoricMin(const InpTensorShapes& shapes);
+
+  // Following function determines the historic min/max depending on the
+  // comparator and initial min/max value.
+  // xin is used as a shortened form of max or min in valiable names.
+  size_t CalculateHistoric(
+      const InpTensorShapes& shapes,
+      std::string xin_name,
+      std::function<bool(int64_t, int64_t)> comp,
+      int64_t xin_val);
+  size_t CalculateHistoricMin(const InpTensorShapes& shapes) {
+    return CalculateHistoric(
+        shapes,
+        std::string("Min"),
+        std::greater<int64_t>(),
+        std::numeric_limits<int64_t>::max());
+  }
+  size_t CalculateHistoricMax(const InpTensorShapes& shapes) {
+    return CalculateHistoric(
+        shapes,
+        std::string("Max"),
+        std::less<int64_t>(),
+        std::numeric_limits<int64_t>::min());
+  }
+
   DynamicRanges CalculateRanges(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes);
