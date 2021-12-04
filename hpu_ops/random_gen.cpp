@@ -157,6 +157,6 @@ void RandomSeedTensorInput::AddNode(
     return;
   }
 
-  HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent_list);
+  OpBackend::AddNode(graph, stack, is_output_persistent_list);
 }
 } // namespace habana

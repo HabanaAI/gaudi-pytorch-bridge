@@ -49,8 +49,7 @@ void CumsumHabanaOperator::AddNode(
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
 
   if (dtype == ScalarType()) {
-    return HabanaOperatorHelper::AddNode(
-        graph, stack, is_output_persistent_list);
+    return OpBackend::AddNode(graph, stack, is_output_persistent_list);
   }
 
   const auto& outshape = stack_tensor(stack, 0).sizes();

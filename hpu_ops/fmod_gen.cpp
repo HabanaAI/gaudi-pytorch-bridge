@@ -19,8 +19,7 @@ void Fmod::AddNode(
   const auto& result_type = ScalarType();
 
   if (result_type == at::kFloat or result_type == at::kBFloat16) {
-    return HabanaOperatorHelper::AddNode(
-        graph, stack, is_output_persistent_list);
+    return OpBackend::AddNode(graph, stack, is_output_persistent_list);
   }
   // TPC supports only float and bfloat, for other types cast to float and
   // perform fmod and then, cast back to original type

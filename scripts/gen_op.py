@@ -114,9 +114,9 @@ class HpuOp{{
 {hfuncs}
 }};
 
-{op_base_classes}
+{op_backend_classes}
 
-{lazy_classes}
+{op_frontend_classes}
 
 {fill_params_decls}
 
@@ -155,9 +155,9 @@ namespace habana {{
 }}  // namespace habana
 """
 
-_OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
+_OPCLASS_HEADER = """struct {cname} : {op_backend_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-      {op_base_class}(device_id, \"{guid}_\", scalar_type, {{{out_ids}}}, {{{inplace_ids}}}, {{{scalar_ids}}}, {is_out_fn}) {{{ctor_extra_calls}
+      {op_backend_class}(device_id, \"{guid}_\", scalar_type, {{{out_ids}}}, {{{inplace_ids}}}, {{{scalar_ids}}}, {is_out_fn}) {{{ctor_extra_calls}
   }}{custom_handler}
 }};
 """
@@ -193,13 +193,13 @@ class Op(object):
     def get_layouts(self):
         return self.op.get("layouts", [])
 
-    def get_op_base_class(self):
-        return self.op.get("op_base_class", "HabanaOperatorHelper")
+    def get_op_backend_class(self):
+        return self.op.get("op_backend", "OpBackend")
 
-    def get_lazy_class(self):
-        lazy_class = self.op.get("lazy_class", None)
-        if lazy_class:
-            return lazy_class
+    def get_op_frontend_class(self):
+        op_frontend_class = self.op.get("op_frontend", None)
+        if op_frontend_class:
+            return op_frontend_class
         if self.supports_type_promotion():
             return "LazyOpWithTypePromotion"
         return "LazyOp"
@@ -547,11 +547,11 @@ def lazyop(
         code += tfetcher.generate_meta_fetches()
         code += "  at::TensorList metavar = {}({});\n".format(fn, ", ".join(meta_vars))
         code += '  {}<{}> hpu_op{{"{}", {{{}}}, metavar}};\n'.format(
-            ctxop.get_lazy_class(), rtype, schema_fn, ", ".join(param_vars)
+            ctxop.get_op_frontend_class(), rtype, schema_fn, ", ".join(param_vars)
         )
     else:
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
-            ctxop.get_lazy_class(), rtype, schema_fn, ", ".join(param_vars)
+            ctxop.get_op_frontend_class(), rtype, schema_fn, ", ".join(param_vars)
         )
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -581,7 +581,7 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     scalar_ids = ctxop.get_scalar_ids()
     custom_fill_params = ctxop.get_custom_fill_params()
     tpc_param = ctxop.get_tpc_param()
-    op_base_class = ctxop.get_op_base_class()
+    op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     promote_type = ctxop.supports_type_promotion()
 
@@ -649,7 +649,7 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
         ctor_extra_calls.append("EnableTypePromotion();")
 
     return _OPCLASS_HEADER.format(
-        op_base_class=op_base_class,
+        op_backend_class=op_backend_class,
         cname=cname,
         guid=guid,
         out_ids=out_ids,
@@ -992,13 +992,13 @@ def generate_all(fgens):
     )
 
 
-def generate_op_base_hclasses(fgens):
+def generate_op_backend_hclasses(fgens):
     code = ""
     classes = set()
     for fgen in fgens:
-        fclass = fgen.ctxop.get_op_base_class()
-        if fclass != "HabanaOperatorHelper" and fclass not in classes:
-            code += "HPU_CUSTOM_HABANA_OP({})\n".format(fclass)
+        fclass = fgen.ctxop.get_op_backend_class()
+        if fclass != "OpBackend" and fclass not in classes:
+            code += "HPU_OP_BACKEND({})\n".format(fclass)
             classes.add(fclass)
     return code
 
@@ -1007,7 +1007,7 @@ def generate_lazy_hclasses(fgens):
     code = ""
     classes = set()
     for fgen in fgens:
-        fclass = fgen.ctxop.get_lazy_class()
+        fclass = fgen.ctxop.get_op_frontend_class()
         # TODO add macro for LazyOpWithTypePromotion
         if fclass == "LazyOp":
             continue
@@ -1015,7 +1015,7 @@ def generate_lazy_hclasses(fgens):
             continue
         if fclass in classes:
             continue
-        code += "HPU_FRONTEND_OP({})\n".format(fclass)
+        code += "HPU_OP_FRONTEND({})\n".format(fclass)
         classes.add(fclass)
     return code
 
@@ -1076,8 +1076,8 @@ def generate(args):
         fgens
     ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
 
-    op_base_classes = generate_op_base_hclasses(fgens)
-    lazy_classes = generate_lazy_hclasses(fgens)
+    op_backend_classes = generate_op_backend_hclasses(fgens)
+    op_frontend_classes = generate_lazy_hclasses(fgens)
     fill_params_decls = generate_fill_params_hdecls(fgens)
     outshapes_decls = generate_outshapes_hdecls(fgens)
 
@@ -1096,8 +1096,8 @@ def generate(args):
         _H_HEADER.format(
             gen=os.path.basename(sys.argv[0]),
             hfuncs=hfunctions,
-            op_base_classes=op_base_classes,
-            lazy_classes=lazy_classes,
+            op_backend_classes=op_backend_classes,
+            op_frontend_classes=op_frontend_classes,
             fill_params_decls=fill_params_decls,
             outshapes_decls=outshapes_decls,
         ),

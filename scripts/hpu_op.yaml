@@ -33,7 +33,7 @@ acosh_:
 add.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
-  op_base_class: BinaryOp
+  op_backend: BinaryOp
   scalar_ids: [2]
   use_meta: true
 
@@ -41,39 +41,39 @@ addcdiv.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
   guid: div
-  op_base_class: AddCOpOut
+  op_backend: AddCOpOut
   scalar_ids: [3]
 
 addcmul.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: mult
-  op_base_class: AddCOpOut
+  op_backend: AddCOpOut
   scalar_ids: [3]
 
 addr:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
-  op_base_class: AddR
+  op_backend: AddR
   out_ids: [0]
 
 addr_:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
-  op_base_class: AddR
+  op_backend: AddR
   inplace_ids: [0]
 
 addr.out:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
-  op_base_class: AddR
+  op_backend: AddR
 
 all:
   custom_output_shape: AllOutputShape
   dtypes: [Bool]
   guid: all_fwd
   out_ids: [0]
-  lazy_class: LazyAll
+  op_frontend: LazyAll
   legacy_eager: true
 
 argmax.out:
@@ -81,15 +81,15 @@ argmax.out:
   custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16]
   guid: argmax_fwd
-  op_base_class: ArgMinMax
+  op_backend: ArgMinMax
 
 argmin:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16]
-  op_base_class: ArgMinMax
+  op_backend: ArgMinMax
   guid: argmin_fwd
-  lazy_class: LazyArgmin
+  op_frontend: LazyArgmin
   out_ids: [0]
 
 argmin.out:
@@ -97,7 +97,7 @@ argmin.out:
   custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16]
   guid: argmin_fwd
-  op_base_class: ArgMinMax
+  op_backend: ArgMinMax
 
 asin:
   dtypes: [Float]
@@ -160,9 +160,9 @@ bernoulli:
   dtypes: [BFloat16, Float]
   func_ns_hpu: true
   guid: random_bernoulli_fwd
-  lazy_class: LazyIntSeed
+  op_frontend: LazyIntSeed
   legacy_eager: true
-  op_base_class: Bernoulli
+  op_backend: Bernoulli
   out_ids: [0]
 
 bernoulli_.float:
@@ -171,9 +171,9 @@ bernoulli_.float:
   func_ns_hpu: true
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  lazy_class: LazyIntSeed
+  op_frontend: LazyIntSeed
   legacy_eager: true
-  op_base_class: Bernoulli
+  op_backend: Bernoulli
 
 bernoulli_.Tensor:
   custom_fill_params: FillBernoulliParams
@@ -181,8 +181,8 @@ bernoulli_.Tensor:
   func_ns_hpu: true
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  lazy_class: LazyIntSeed
-  op_base_class: Bernoulli
+  op_frontend: LazyIntSeed
+  op_backend: Bernoulli
 
 bitwise_and.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -295,7 +295,7 @@ clamp:
 
 clamp.Tensor:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: clampTensor
+  op_backend: clampTensor
   out_ids: [0]
 
 clamp_:
@@ -307,7 +307,7 @@ clamp_:
 
 clamp_.Tensor:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: clampTensor
+  op_backend: clampTensor
   inplace_ids: [0]
 
 clamp.out:
@@ -317,7 +317,7 @@ clamp.out:
 
 clamp.Tensor_out:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: clampTensor
+  op_backend: clampTensor
 
 clamp_max:
   custom_fill_params: FillClampMaxParams
@@ -415,15 +415,15 @@ cumprod:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
-  lazy_class: LazyCumsum
-  op_base_class: CumsumHabanaOperator
+  op_frontend: LazyCumsum
+  op_backend: CumsumHabanaOperator
   out_ids: [0]
 
 cumprod.out:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
-  op_base_class: CumsumHabanaOperator
+  op_backend: CumsumHabanaOperator
 
 cumprod_:
   custom_fill_params: FillCumsumParams
@@ -435,7 +435,7 @@ cumsum.out:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumsum_fwd
-  op_base_class: CumsumHabanaOperator
+  op_backend: CumsumHabanaOperator
 
 cumsum_:
   custom_fill_params: FillCumsumParams
@@ -447,8 +447,8 @@ div.Tensor_mode:
   custom_output_shape: BinaryOutputShape
   dtypes: [Float, BFloat16, Long, Int, Char]
   guid: div
-  lazy_class: LazyDiv
-  op_base_class: DivRoundModeOperator
+  op_frontend: LazyDiv
+  op_backend: DivRoundModeOperator
   out_ids: [0]
 
 elu.out:
@@ -467,7 +467,7 @@ elu_backward:
 
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_base_class: Equal
+  op_backend: Equal
   out_ids: [0]
 
 eq.Scalar_out:
@@ -499,10 +499,10 @@ eq_.Tensor:
 eq.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   scalar_ids: [1]
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -510,9 +510,9 @@ eq.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -522,17 +522,17 @@ erf.out:
 
 erfc:
   dtypes: [BFloat16, Float]
-  op_base_class: Erfc
+  op_backend: Erfc
   out_ids: [0]
 
 erfc_:
   dtypes: [BFloat16, Float]
-  op_base_class: Erfc
+  op_backend: Erfc
   inplace_ids: [0]
 
 erfc.out:
   dtypes: [BFloat16, Float]
-  op_base_class: Erfc
+  op_backend: Erfc
 
 exp.out:
   dtypes: [BFloat16, Float]
@@ -569,12 +569,12 @@ expm1_:
 eye.out:
   custom_output_shape: EyeOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: EyeOpOut
+  op_backend: EyeOpOut
 
 eye.m_out:
   custom_output_shape: EyeOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: EyeOpOut
+  op_backend: EyeOpOut
 
 floor:
   dtypes: [BFloat16, Float]
@@ -594,22 +594,22 @@ floor_:
 
 frac:
   dtypes: [BFloat16, Float]
-  op_base_class: Frac
+  op_backend: Frac
   out_ids: [0]
 
 frac_:
   dtypes: [BFloat16, Float]
-  op_base_class: Frac
+  op_backend: Frac
   inplace_ids: [0]
 
 frac.out:
   dtypes: [BFloat16, Float]
-  op_base_class: Frac
+  op_backend: Frac
 
 fmod.Scalar:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_base_class: Fmod
+  op_backend: Fmod
   out_ids: [0]
   scalar_ids: [1]
   type_promotion: true
@@ -617,7 +617,7 @@ fmod.Scalar:
 fmod.Scalar_out:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_base_class: Fmod
+  op_backend: Fmod
   scalar_ids: [1]
   type_promotion: true
 
@@ -625,7 +625,7 @@ fmod.Tensor:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_base_class: Fmod
+  op_backend: Fmod
   out_ids: [0]
   type_promotion: true
 
@@ -633,7 +633,7 @@ fmod.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_base_class: Fmod
+  op_backend: Fmod
   type_promotion: true
 
 fmod_.Scalar:
@@ -641,14 +641,14 @@ fmod_.Scalar:
   guid: mod_fwd
   inplace_ids: [0]
   scalar_ids: [1]
-  op_base_class: Fmod
+  op_backend: Fmod
   type_promotion: true
 
 fmod_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   inplace_ids: [0]
-  op_base_class: Fmod
+  op_backend: Fmod
   type_promotion: true
 
 ge.Scalar_out:
@@ -689,10 +689,10 @@ ge_.Tensor:
 ge.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   scalar_ids: [1]
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -700,9 +700,9 @@ ge.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -711,8 +711,8 @@ geometric_:
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
   func_ns_hpu: true
-  lazy_class: LazyGeometric
-  op_base_class: Geometric
+  op_frontend: LazyGeometric
+  op_backend: Geometric
 
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -742,10 +742,10 @@ gt_.Tensor:
 gt.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   scalar_ids: [1]
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -753,9 +753,9 @@ gt.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -784,30 +784,30 @@ hardtanh_backward:
 
 heaviside:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Heaviside
+  op_backend: Heaviside
   out_ids: [0]
 
 heaviside.out:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Heaviside
+  op_backend: Heaviside
 
 heaviside_:
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Heaviside
+  op_backend: Heaviside
   inplace_ids: [0]
 
 hypot:
   dtypes: [BFloat16,Float]
-  op_base_class: Hypot
+  op_backend: Hypot
   out_ids: [0]
 
 hypot.out:
   dtypes: [BFloat16,Float]
-  op_base_class: Hypot
+  op_backend: Hypot
 
 hypot_:
   dtypes: [BFloat16,Float]
-  op_base_class: Hypot
+  op_backend: Hypot
   inplace_ids: [0]
 
 le.Scalar_out:
@@ -838,10 +838,10 @@ le_.Tensor:
 le.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   scalar_ids: [1]
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -849,9 +849,9 @@ le.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -866,38 +866,38 @@ leaky_relu.out:
 lerp.Scalar:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
   scalar_ids: [2]
   out_ids: [0]
 
 lerp.Tensor:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
   out_ids: [0]
 
 lerp.Scalar_out:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
   scalar_ids: [2]
 
 lerp.Tensor_out:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
 
 lerp_.Scalar:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
   scalar_ids: [2]
   inplace_ids: [0]
 
 lerp_.Tensor:
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_base_class: Lerp
+  op_backend: Lerp
   inplace_ids: [0]
 
 log.out:
@@ -936,45 +936,45 @@ log2_:
 
 logaddexp:
   dtypes: [BFloat16, Float]
-  op_base_class: LogAddExp
+  op_backend: LogAddExp
   out_ids: [0]
 
 logaddexp.out:
   dtypes: [BFloat16, Float]
-  op_base_class: LogAddExp
+  op_backend: LogAddExp
 
 logaddexp2:
   dtypes: [BFloat16, Float]
-  op_base_class: LogAddExp2
+  op_backend: LogAddExp2
   out_ids: [0]
 
 logaddexp2.out:
   dtypes: [BFloat16, Float]
-  op_base_class: LogAddExp2
+  op_backend: LogAddExp2
 
 logcumsumexp:
   dtypes: [BFloat16, Float]
-  op_base_class: LogCumsumExp
+  op_backend: LogCumsumExp
   out_ids: [0]
 
 logcumsumexp.out:
   dtypes: [BFloat16, Float]
-  op_base_class: LogCumsumExp
+  op_backend: LogCumsumExp
 
 logsumexp:
   custom_output_shape: LogSumExpOutputShape
   dtypes: [BFloat16,Float]
-  op_base_class: LogSumExp
+  op_backend: LogSumExp
   out_ids: [0]
 
 logsumexp.out:
   dtypes: [BFloat16,Float]
-  op_base_class: LogSumExp
+  op_backend: LogSumExp
   custom_output_shape: LogSumExpOutputShape
 
 logspace.out:
   dtypes: [BFloat16, Float]
-  op_base_class: LogSpace
+  op_backend: LogSpace
   custom_output_shape: LogspaceOutputShape
 
 lt.Scalar_out:
@@ -1005,10 +1005,10 @@ lt_.Scalar:
 lt.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   scalar_ids: [1]
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -1016,9 +1016,9 @@ lt.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
-  lazy_class: LazyCmp
+  op_frontend: LazyCmp
   out_ids: [0]
-  op_base_class: CompareOp
+  op_backend: CompareOp
   type_promotion: true
   legacy_eager: true
 
@@ -1046,21 +1046,21 @@ minimum.out:
 
 mish:
   dtypes: [BFloat16, Float]
-  op_base_class: Mish
+  op_backend: Mish
   out_ids: [0]
 
 mish_:
   dtypes: [BFloat16, Float]
-  op_base_class: Mish
+  op_backend: Mish
   inplace_ids: [0]
 
 mish.out:
   dtypes: [BFloat16, Float]
-  op_base_class: Mish
+  op_backend: Mish
 
 mish_backward:
   dtypes: [BFloat16, Float]
-  op_base_class: Mishbackward
+  op_backend: Mishbackward
   out_ids: [0]
 
 mse_loss.out:
@@ -1079,61 +1079,61 @@ mul.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: mult_fwd
   legacy_eager: true
-  op_base_class: BinaryOp
+  op_backend: BinaryOp
   use_meta: true
 
 mv.out:
   custom_output_shape: MvOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: mv
-  op_base_class: MvOpOut
+  op_backend: MvOpOut
 
 nansum:
   custom_output_shape: NanSumOutputShape
   dtypes: [Float]
-  op_base_class: Nansum
+  op_backend: Nansum
   out_ids: [0]
 
 nansum.dim_IntList:
   custom_output_shape: NanSumIntListOutputShape
   dtypes: [Float]
-  op_base_class: NansumList
+  op_backend: NansumList
   out_ids: [0]
 
 nansum.IntList_out:
   custom_output_shape: NanSumIntListOutputShape
   dtypes: [Float]
-  op_base_class: NansumList
+  op_backend: NansumList
 
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Byte, Char]
-  op_base_class: NE
+  op_backend: NE
   type_promotion: true
 
 ne.Scalar_out:
   dtypes: [BFloat16, Float, Int, Byte, Char]
   scalar_ids: [1]
-  op_base_class: NE
+  op_backend: NE
   type_promotion: true
 
 ne_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_base_class: NE
+  op_backend: NE
   scalar_ids: [1]
   inplace_ids: [0]
   type_promotion: true
 
 ne_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_base_class: NE
+  op_backend: NE
   inplace_ids: [0]
   type_promotion: true
 
 ne.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  lazy_class: LazyCmp
-  op_base_class: NE
+  op_frontend: LazyCmp
+  op_backend: NE
   scalar_ids: [1]
   out_ids: [0]
   type_promotion: true
@@ -1142,8 +1142,8 @@ ne.Scalar:
 ne.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  lazy_class: LazyCmp
-  op_base_class: NE
+  op_frontend: LazyCmp
+  op_backend: NE
   out_ids: [0]
   type_promotion: true
   legacy_eager: true
@@ -1163,7 +1163,7 @@ nll_loss_forward.output:
   custom_output_shape: NllLossOutputShape
   dtypes: [BFloat16, Float, Long]
   guid: nll_loss_fwd
-  op_base_class: NllLoss
+  op_backend: NllLoss
 
 normal_:
   custom_fill_params: FillNormalParams
@@ -1171,14 +1171,14 @@ normal_:
   func_ns_hpu: true
   guid: random_normal_fwd
   inplace_ids: [0]
-  lazy_class: LazyTensorSeed
+  op_frontend: LazyTensorSeed
   legacy_eager: true
-  op_base_class: RandomSeedTensorInput
+  op_backend: RandomSeedTensorInput
 
 norm.ScalarOpt_dtype:
   custom_output_shape: NormOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: NormHabanaOperator
+  op_backend: NormHabanaOperator
   out_ids: [0]
 
 pow.Scalar_out:
@@ -1210,8 +1210,8 @@ random_:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyTensorSeed
-  op_base_class: RandomSeedTensorInput
+  op_frontend: LazyTensorSeed
+  op_backend: RandomSeedTensorInput
 
 random_.from:
   custom_fill_params: FillRandomFromParams
@@ -1219,8 +1219,8 @@ random_.from:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyTensorSeed
-  op_base_class: RandomSeedTensorInput
+  op_frontend: LazyTensorSeed
+  op_backend: RandomSeedTensorInput
 
 random_.to:
   custom_fill_params: FillRandomToParams
@@ -1228,8 +1228,8 @@ random_.to:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyTensorSeed
-  op_base_class: RandomSeedTensorInput
+  op_frontend: LazyTensorSeed
+  op_backend: RandomSeedTensorInput
 
 multinomial:
   custom_fill_params: FillMultinomialParams
@@ -1238,7 +1238,7 @@ multinomial:
   func_ns_hpu: true
   guid: random_multinomial_fwd
   out_ids: [0]
-  lazy_class: LazyRandomMulti
+  op_frontend: LazyRandomMulti
 
 reciprocal.out:
   dtypes: [BFloat16, Float]
@@ -1247,7 +1247,7 @@ reciprocal.out:
 
 remainder.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   out_ids: [0]
   legacy_eager: true
   type_promotion: true
@@ -1255,7 +1255,7 @@ remainder.Tensor:
 
 remainder.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   out_ids: [0]
   legacy_eager: true
   scalar_ids: [1]
@@ -1263,7 +1263,7 @@ remainder.Scalar:
 
 remainder_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   inplace_ids: [0]
   legacy_eager: true
   type_promotion: true
@@ -1271,7 +1271,7 @@ remainder_.Tensor:
 
 remainder_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   inplace_ids: [0]
   legacy_eager: true
   scalar_ids: [1]
@@ -1279,14 +1279,14 @@ remainder_.Scalar:
 
 remainder.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   legacy_eager: true
   type_promotion: true
   broadcast: true
 
 remainder.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Short]
-  op_base_class: RemainderOp
+  op_backend: RemainderOp
   legacy_eager: true
   scalar_ids: [1]
   type_promotion: true
@@ -1307,7 +1307,7 @@ reflection_pad1d.out:
 reflection_pad1d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
-  op_base_class: ReflectionPad
+  op_backend: ReflectionPad
   dtypes: [Float]
   guid: pad_bwd
   out_ids: [0]
@@ -1315,7 +1315,7 @@ reflection_pad1d_backward:
 reflection_pad1d_backward.grad_input:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
-  op_base_class: ReflectionPad
+  op_backend: ReflectionPad
   dtypes: [Float]
   guid: pad_bwd
 
@@ -1335,7 +1335,7 @@ reflection_pad2d.out:
 reflection_pad2d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
-  op_base_class: ReflectionPad
+  op_backend: ReflectionPad
   dtypes: [Float]
   guid: pad_bwd
   out_ids: [0]
@@ -1343,7 +1343,7 @@ reflection_pad2d_backward:
 reflection_pad2d_backward.grad_input:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
-  op_base_class: ReflectionPad
+  op_backend: ReflectionPad
   dtypes: [Float]
   guid: pad_bwd
 
@@ -1390,7 +1390,7 @@ resize_:
   custom_output_shape: ResizeOutputShape
   guid: memcpy
   inplace_ids: [0]
-  op_base_class: ResizeHabanaOperator
+  op_backend: ResizeHabanaOperator
 
 round:
   custom_fill_params: FillRoundParams
@@ -1418,7 +1418,7 @@ rsub.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
-  lazy_class: LazyRsub
+  op_frontend: LazyRsub
   out_ids: [0]
   scalar_ids: [2]
 
@@ -1445,11 +1445,11 @@ sign.out:
 
 signbit.out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_base_class: SignBit
+  op_backend: SignBit
 
 silu_:
   dtypes: [BFloat16, Float]
-  op_base_class: Silu
+  op_backend: Silu
   inplace_ids: [0]
 
 sin:
@@ -1484,36 +1484,36 @@ sinh_:
 smooth_l1_loss:
   custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossOperator
+  op_backend: SmoothL1LossOperator
   out_ids: [0]
 
 smooth_l1_loss.out:
   custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossOperator
+  op_backend: SmoothL1LossOperator
 
 smooth_l1_loss_backward:
   custom_output_shape: SmoothL1LossBackwardOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossBwdOperator
+  op_backend: SmoothL1LossBwdOperator
   out_ids: [0]
 
 smooth_l1_loss_backward.grad_input:
   custom_output_shape: SmoothL1LossBackwardOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossBwdOperator
+  op_backend: SmoothL1LossBwdOperator
 
 special_xlog1py:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   out_ids: [0]
 
 special_xlog1py.other_scalar:
   custom_output_shape: XlogYOutputShape
   guid: log1p_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   out_ids: [0]
   scalar_ids: [1]
 
@@ -1521,38 +1521,38 @@ special_xlog1py.other_scalar_out:
   custom_output_shape: XlogYOutputShape
   guid: log1p_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   scalar_ids: [1]
 
 special_xlog1py.out:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
 
 special_xlog1py.self_scalar_out:
   guid: log1p_fwd
   custom_output_shape: XlogYOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   scalar_ids: [0]
 
 special_xlog1py.self_scalar:
   guid: log1p_fwd
   custom_output_shape: XlogYOutputShape
   dtypes: [BFloat16, Float]
-  lazy_class: LazyXlogY
-  op_base_class: XlogYOperator
+  op_frontend: LazyXlogY
+  op_backend: XlogYOperator
   out_ids: [1]
   scalar_ids: [0]
 
 special_entr:
   dtypes: [Float]
-  op_base_class: SpecialEntr
+  op_backend: SpecialEntr
   out_ids: [0]
 
 special_entr.out:
    dtypes: [Float]
-   op_base_class: SpecialEntr
+   op_backend: SpecialEntr
 
 sqrt:
   dtypes: [BFloat16, Float]
@@ -1573,7 +1573,7 @@ sub.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
-  op_base_class: BinaryOp
+  op_backend: BinaryOp
   scalar_ids: [2]
 
 tan.out:
@@ -1607,7 +1607,7 @@ tanh_backward.grad_input:
 trace:
   custom_output_shape: TraceOutputShape
   dtypes: [BFloat16,Float]
-  op_base_class: Trace
+  op_backend: Trace
   out_ids: [0]
 
 tril:
@@ -1664,16 +1664,16 @@ uniform_:
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
-  lazy_class: LazyTensorSeed
+  op_frontend: LazyTensorSeed
   legacy_eager: true
-  op_base_class: RandomSeedTensorInput
+  op_backend: RandomSeedTensorInput
 
 upsample_linear1d:
   custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
   out_ids: [0]
 
 upsample_linear1d.out:
@@ -1681,14 +1681,14 @@ upsample_linear1d.out:
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
 
 upsample_linear1d.vec:
   custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
   out_ids: [0]
 
 upsample_linear1d_backward:
@@ -1696,7 +1696,7 @@ upsample_linear1d_backward:
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
   out_ids: [0]
 
 upsample_linear1d_backward.grad_input:
@@ -1704,66 +1704,66 @@ upsample_linear1d_backward.grad_input:
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
 
 upsample_linear1d_backward.vec:
   custom_fill_params: FillUpsampleLinear1DParams
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_base_class: UpsampleLinear1DOperator
+  op_backend: UpsampleLinear1DOperator
   out_ids: [0]
 
 upsample_nearest1d:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DFwd
+  op_backend: UpsampleNearest1DFwd
   out_ids: [0]
 
 upsample_nearest1d.out:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DFwd
+  op_backend: UpsampleNearest1DFwd
 
 upsample_nearest1d.vec:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DFwd
+  op_backend: UpsampleNearest1DFwd
   out_ids: [0]
 
 upsample_nearest1d_backward:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DBwd
+  op_backend: UpsampleNearest1DBwd
   out_ids: [0]
 
 upsample_nearest1d_backward.grad_input:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DBwd
+  op_backend: UpsampleNearest1DBwd
 
 upsample_nearest1d_backward.vec:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: UpsampleNearest1DBwd
+  op_backend: UpsampleNearest1DBwd
   out_ids: [0]
 
 vdot:
   custom_output_shape: VdotOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: VdotOperator
+  op_backend: VdotOperator
   out_ids: [0]
 
 vdot.out:
   custom_output_shape: VdotOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: VdotOperator
+  op_backend: VdotOperator
 
 xlogy.Scalar_Other:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   out_ids: [0]
   scalar_ids: [1]
 
@@ -1771,34 +1771,34 @@ xlogy.Tensor:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   out_ids: [0]
 
 xlogy.OutScalar_Self:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   scalar_ids: [0]
 
 xlogy.OutScalar_Other:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   scalar_ids: [1]
 
 xlogy.OutTensor:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
 
 xlogy_.Scalar_Other:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   scalar_ids: [1]
   inplace_ids: [0]
 
@@ -1806,14 +1806,14 @@ xlogy_.Tensor:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   inplace_ids: [0]
 
 xlogy.Scalar_Self:
-  op_base_class: XlogYOperator
+  op_backend: XlogYOperator
   guid: log_fwd
   custom_output_shape: XlogYOutputShape
   dtypes: [BFloat16, Float]
-  lazy_class: LazyXlogY
+  op_frontend: LazyXlogY
   out_ids: [1]
   scalar_ids: [0]

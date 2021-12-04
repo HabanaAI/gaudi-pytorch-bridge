@@ -57,7 +57,7 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   return type;
 }
 
-HabanaOperatorHelper::HabanaOperatorHelper(
+OpBackend::OpBackend(
     int device_id,
     const std::string& guid,
     c10::ScalarType scalar_type,
@@ -76,7 +76,7 @@ HabanaOperatorHelper::HabanaOperatorHelper(
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
-void HabanaOperatorHelper::HandleScalarToTensor(
+void OpBackend::HandleScalarToTensor(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   if (m_scalar_ids.empty()) {
@@ -95,7 +95,7 @@ void HabanaOperatorHelper::HandleScalarToTensor(
   }
 }
 
-void HabanaOperatorHelper::HandleFn(
+void OpBackend::HandleFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
@@ -128,7 +128,7 @@ void HabanaOperatorHelper::HandleFn(
   }
 }
 
-void HabanaOperatorHelper::HandleOutFn(
+void OpBackend::HandleOutFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   if (!m_is_outfn) {
@@ -151,7 +151,7 @@ void HabanaOperatorHelper::HandleOutFn(
       p_context_->syn_inputs_.end());
 }
 
-void HabanaOperatorHelper::HandleInplaceFn(
+void OpBackend::HandleInplaceFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   if (m_inplace_ids.empty()) {
@@ -167,7 +167,7 @@ void HabanaOperatorHelper::HandleInplaceFn(
   }
 }
 
-void HabanaOperatorHelper::HandleTypePromotion(
+void OpBackend::HandleTypePromotion(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   if (!m_promote_type) {
@@ -211,7 +211,20 @@ void HabanaOperatorHelper::HandleTypePromotion(
   m_scalar_type = result_type;
 }
 
-synapse_helpers::tensor HabanaOperatorHelper::CastHelper(
+std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
+    synapse_helpers::graph& graph,
+    const std::string& guid,
+    std::vector<synTensor> node_inputs,
+    const std::vector<NodeOutputAttr>& node_output_attr,
+    void* params,
+    size_t param_size) {
+  return OpBackend::BuildNode(
+      this,
+      graph,
+      {guid, std::move(node_inputs), node_output_attr, params, param_size});
+}
+
+synapse_helpers::tensor OpBackend::CastHelper(
     synapse_helpers::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
@@ -219,14 +232,133 @@ synapse_helpers::tensor HabanaOperatorHelper::CastHelper(
     const at::ScalarType& to,
     bool persistent,
     bool final_node) {
+  return OpBackend::BuildCast(
+      this,
+      graph,
+      syn_in,
+      sizes,
+      from,
+      to,
+      CAST_ROUND_HALF_NE,
+      persistent,
+      final_node);
+}
+
+synapse_helpers::tensor OpBackend::ConstantHelper(
+    synapse_helpers::graph& graph,
+    const at::Scalar& val,
+    c10::optional<at::ScalarType> force_type,
+    const at::IntArrayRef constant_outshape,
+    bool persistent,
+    bool final_node) {
+  return OpBackend::BuildConstant(
+      this, graph, val, force_type, constant_outshape, persistent, final_node);
+}
+
+void OpBackend::AddNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    const std::vector<bool>&) {
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  AddNodeToSynapseGraph(graph, params.get(), size);
+}
+
+void OpBackend::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    std::vector<bool> is_output_persistent_list) {
+  CustomHandler(graph, stack);
+  HandleFn(graph, stack, is_output_persistent_list);
+  HandleInplaceFn(graph, stack);
+  HandleOutFn(graph, stack);
+
+  HandleScalarToTensor(graph, stack);
+  HandleTypePromotion(graph, stack);
+
+  AddNode(graph, stack, is_output_persistent_list);
+}
+
+std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    NodeAttr node_attr) {
+  auto ctx = op->p_context_;
+  std::vector<synapse_helpers::tensor> outputs;
+  std::vector<synTensor> node_outputs;
+  int available_output_id = 0;
+  int persistent_output_id = 0;
+  int final_output_id = 0;
+
+  for (const auto& attr : node_attr.output_attrs) {
+    if (attr.final_node and op->IsOutputAvailable()) {
+      // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
+      outputs.emplace_back(
+          std::move(ctx->syn_outputs_.at(available_output_id++).ref()));
+    } else {
+      const auto& t = at::detail::make_tensor<c10::TensorImpl>(
+          c10::DispatchKeySet{
+              at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
+          c10::scalarTypeToTypeMeta(attr.dtype),
+          c10::Device(c10::kHPU, 0));
+      t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
+      outputs.emplace_back(
+          habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
+      if (attr.persistent) {
+        const auto& impl =
+            ctx->pt_outputs_.at(persistent_output_id++).unsafeGetTensorImpl();
+        impl->set_sizes_contiguous(attr.sizes);
+        impl->set_storage_and_dtype(
+            impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
+      } else if (attr.final_node) {
+        ctx->pt_outputs_.at(final_output_id++) = t;
+      }
+    }
+    node_outputs.emplace_back(outputs.back().get());
+  }
+
+  auto result = graph.add_node(
+      std::move(node_attr.inputs),
+      std::move(node_outputs),
+      node_attr.params,
+      node_attr.param_size,
+      node_attr.guid);
+  HABANA_ASSERT(
+      ok(result),
+      "Adding ",
+      node_attr.guid,
+      " to graph failed with ",
+      get_error(result).error);
+
+  return outputs;
+}
+
+synapse_helpers::tensor OpBackend::BuildCast(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    const at::IntArrayRef sizes,
+    const at::ScalarType& from,
+    const at::ScalarType& to,
+    CastF32RoundMode_t round_mode,
+    bool persistent,
+    bool final_node) {
   const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
       "_to_" + habana_helpers::name_suffix_from_type(to);
-  auto cast =
-      BuildOp(graph, guid, {syn_in}, {{sizes, to, persistent, final_node}});
+  ns_CastKernel::Params params{round_mode};
+  NodeAttr castnode{
+      guid,
+      {syn_in},
+      {{sizes, to, persistent, final_node}},
+      &params,
+      sizeof(params)};
+  auto cast = BuildNode(op, graph, std::move(castnode));
+
   return std::move(cast.at(0));
 }
 
-synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
+synapse_helpers::tensor OpBackend::BuildConstant(
+    OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Scalar& val,
     c10::optional<at::ScalarType> force_type,
@@ -244,101 +376,21 @@ synapse_helpers::tensor HabanaOperatorHelper::ConstantHelper(
       ") to ",
       valtype);
 
-  PARAMS_STUB_VARS(ns_ConstantKernel::Params, size, params);
-
+  ns_ConstantKernel::Params params{};
   if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
-    get<int>(params->constant) = val.to<int>();
+    get<int>(params.constant) = val.to<int>();
   } else {
-    get<float>(params->constant) = val.to<float>();
+    get<float>(params.constant) = val.to<float>();
   }
 
-  auto constant = BuildOp(
+  auto constant = BuildNode(
+      op,
       graph,
-      "constant_" + habana_helpers::name_suffix_from_type(valtype),
-      {},
-      {{constant_outshape, valtype, persistent, final_node}},
-      params.get(),
-      size);
+      {"constant_" + habana_helpers::name_suffix_from_type(valtype),
+       {},
+       {{constant_outshape, valtype, persistent, final_node}},
+       &params,
+       sizeof(params)});
   return std::move(constant.at(0));
-}
-
-void HabanaOperatorHelper::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>&) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  AddNodeToSynapseGraph(graph, params.get(), size);
-}
-
-void HabanaOperatorHelper::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    std::vector<bool> is_output_persistent_list) {
-  CustomHandler(graph, stack);
-  HandleFn(graph, stack, is_output_persistent_list);
-  HandleInplaceFn(graph, stack);
-  HandleOutFn(graph, stack);
-
-  HandleScalarToTensor(graph, stack);
-  HandleTypePromotion(graph, stack);
-
-  AddNode(graph, stack, is_output_persistent_list);
-}
-
-std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
-    synapse_helpers::graph& graph,
-    const std::string& guid,
-    std::vector<synTensor> node_inputs,
-    const std::vector<_node_output_attr>& node_output_attrs,
-    void* params,
-    size_t param_size) {
-  std::vector<synapse_helpers::tensor> outputs;
-  std::vector<synTensor> node_outputs;
-  int available_output_id = 0;
-  int persistent_output_id = 0;
-  int final_output_id = 0;
-
-  for (const auto& attr : node_output_attrs) {
-    if (attr.final_node and IsOutputAvailable()) {
-      // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
-      outputs.emplace_back(
-          std::move(p_context_->syn_outputs_.at(available_output_id++).ref()));
-    } else {
-      const auto& t = at::detail::make_tensor<c10::TensorImpl>(
-          c10::DispatchKeySet{
-              at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
-          c10::scalarTypeToTypeMeta(attr.dtype),
-          c10::Device(c10::kHPU, 0));
-      t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
-      outputs.emplace_back(
-          habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
-      if (attr.persistent) {
-        const auto& impl = p_context_->pt_outputs_.at(persistent_output_id++)
-                               .unsafeGetTensorImpl();
-        impl->set_sizes_contiguous(attr.sizes);
-        impl->set_storage_and_dtype(
-            impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
-      } else if (attr.final_node) {
-        p_context_->pt_outputs_.at(final_output_id++) = t;
-      }
-    }
-    node_outputs.emplace_back(outputs.back().get());
-  }
-
-  auto result = graph.add_node(
-      std::move(node_inputs),
-      std::move(node_outputs),
-      params,
-      param_size,
-      guid);
-  HABANA_ASSERT(
-      ok(result),
-      "Adding ",
-      guid,
-      " to graph failed with ",
-      get_error(result).error);
-
-  return outputs;
 }
 } // namespace habana

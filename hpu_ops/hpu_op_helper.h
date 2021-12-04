@@ -52,10 +52,24 @@ template <>
 inline float& get<float>(fint_t& u) {
   return u.f;
 }
+struct NodeOutputAttr {
+  at::IntArrayRef sizes{};
+  at::ScalarType dtype{at::kFloat};
+  bool persistent{false};
+  bool final_node{false};
+};
 
-class HabanaOperatorHelper : public HabanaOperator {
+struct NodeAttr {
+  std::string guid;
+  std::vector<synTensor> inputs;
+  std::vector<NodeOutputAttr> output_attrs;
+  void* params = nullptr;
+  size_t param_size = 0;
+};
+
+class OpBackend : public HabanaOperator {
  public:
-  HabanaOperatorHelper(
+  OpBackend(
       int device_id,
       const std::string& guid,
       c10::ScalarType scalar_type,
@@ -148,20 +162,12 @@ class HabanaOperatorHelper : public HabanaOperator {
       at::Stack& stack,
       std::vector<bool> is_output_persistent) override;
 
-  // Compound node helpers
-  struct _node_output_attr {
-    at::IntArrayRef sizes{};
-    at::ScalarType dtype{at::kFloat};
-    bool persistent{false};
-    bool final_node{false};
-  };
-
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
       synapse_helpers::graph& graph,
       const std::string& guid,
       std::vector<synTensor> node_inputs,
-      const std::vector<_node_output_attr>& node_output_attrs,
+      const std::vector<NodeOutputAttr>& node_output_attr,
       void* params = nullptr,
       size_t param_size = 0);
 
@@ -195,6 +201,32 @@ class HabanaOperatorHelper : public HabanaOperator {
       at::Stack&,
       const std::vector<bool>&);
 
+ public:
+  static std::vector<synapse_helpers::tensor> BuildNode(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      NodeAttr node_attr);
+
+  static synapse_helpers::tensor BuildCast(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      const at::IntArrayRef sizes,
+      const at::ScalarType& from,
+      const at::ScalarType& to,
+      CastF32RoundMode_t round_mode = CAST_ROUND_HALF_NE,
+      bool persistent = false,
+      bool final_node = false);
+
+  static synapse_helpers::tensor BuildConstant(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      const at::Scalar& val,
+      c10::optional<at::ScalarType> force_type = c10::nullopt,
+      const at::IntArrayRef constant_outshape = 1,
+      bool persistent = false,
+      bool final_node = false);
+
  private:
   const std::vector<int> m_res_ids;
   const std::vector<int> m_inplace_ids;
@@ -219,8 +251,8 @@ class HabanaOperatorHelper : public HabanaOperator {
   const size_t& params_size = sizeof(structname);         \
   auto params = std::make_shared<structname>()
 
-#define HPU_CUSTOM_HABANA_OP(op)            \
-  struct op : HabanaOperatorHelper {        \
+#define HPU_OP_BACKEND(op)                  \
+  struct op : OpBackend {                   \
     op(int device_id,                       \
        const std::string& guid,             \
        c10::ScalarType scalar_type,         \
@@ -228,7 +260,7 @@ class HabanaOperatorHelper : public HabanaOperator {
        const std::vector<int>& inplace_ids, \
        const std::vector<int>& scalar_ids,  \
        bool is_outfn)                       \
-        : HabanaOperatorHelper(             \
+        : OpBackend(                        \
               device_id,                    \
               guid,                         \
               scalar_type,                  \
@@ -244,7 +276,7 @@ class HabanaOperatorHelper : public HabanaOperator {
 
 } // namespace habana
 
-#define HPU_FRONTEND_OP(op)                                                    \
+#define HPU_OP_FRONTEND(op)                                                    \
   template <typename T>                                                        \
   struct op : habana_lazy::LazyOp<T> {                                         \
     op(const std::string& qualstring,                                          \

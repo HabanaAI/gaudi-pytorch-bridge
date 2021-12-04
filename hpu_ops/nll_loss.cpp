@@ -51,7 +51,7 @@ void NllLoss::AddNode(
   // remove total_weight from output as it is unsupported
   p_context_->syn_outputs_.pop_back();
 
-  HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent_list);
+  OpBackend::AddNode(graph, stack, is_output_persistent_list);
 
   // dummy output in place of total_weight
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
