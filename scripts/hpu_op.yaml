@@ -59,7 +59,10 @@ addr:
 
 addr_:
   custom_output_shape: AddROutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    self: [BFloat16, Float]
+    vec1: [BFloat16, Float]
+    vec2: [BFloat16, Float]
   op_backend: AddR
   inplace_ids: [0]
 
@@ -70,7 +73,7 @@ addr.out:
 
 all:
   custom_output_shape: AllOutputShape
-  dtypes: [Bool]
+  dtypes: [Char]
   guid: all_fwd
   out_ids: [0]
   op_frontend: LazyAll
@@ -445,7 +448,7 @@ cumsum_:
 
 div.Tensor_mode:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Float, BFloat16, Long, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char]
   guid: div
   op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
@@ -1161,7 +1164,7 @@ neg_:
 nll_loss_forward.output:
   custom_fill_params: FillNllLossParams
   custom_output_shape: NllLossOutputShape
-  dtypes: [BFloat16, Float, Long]
+  dtypes: [BFloat16, Float, Int]
   guid: nll_loss_fwd
   op_backend: NllLoss
 

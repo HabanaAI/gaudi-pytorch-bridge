@@ -519,15 +519,20 @@ def lazyop(
     schema_fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
     code = ""
 
-    if ctxop.get_dtypes():
+    dtypes = ctxop.get_dtypes()
+    if dtypes:
         input_tensors = (
             tfetcher.get_tensors()[:-1]
             if is_out_fn(fname) and len(tfetcher.get_tensors()) > 1
             else tfetcher.get_tensors()
         )
+
         for t in input_tensors:
-            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE({}, {}, {})\n".format(
-                t, fname, ", ".join(param_vars)
+            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}({}, {}, {})\n".format(
+                "_PER_TENSOR" if isinstance(dtypes, dict) else "",
+                t,
+                fname,
+                ", ".join(param_vars),
             )
         code += "\n"
 
@@ -906,8 +911,19 @@ def generate_impl(aten_sig, overload, override_fn):
 
 
 def generate_dtype_macro(ctxop, fname):
-    dtypes = ctxop.get_dtypes()
-    if dtypes:
+    def generate_line(dtypes, suffix):
+        dtypes_set = set(dtypes)
+        assert len(dtypes) == len(
+            dtypes_set
+        ), "Found same dtype defined more than once for {}".format(suffix)
+
+        assert not any(x in dtypes_set for x in ["Double", "Long", "Bool"]), (
+            "Double, Long and Bool are not natively supported, they are "
+            "treated as Float, Int and Char respectively. For instance if "
+            "Float is a supported dtype, Double is added as a supported dtype "
+            "in the script."
+        )
+
         if "Float" in dtypes:
             dtypes.append("Double")
         if "Int" in dtypes:
@@ -916,8 +932,19 @@ def generate_dtype_macro(ctxop, fname):
             dtypes.append("Bool")
 
         return "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
-            fname, ", ".join(["c10::ScalarType::" + d for d in dtypes])
+            suffix, ", ".join(["c10::ScalarType::" + d for d in dtypes])
         )
+
+    dtypes = ctxop.get_dtypes()
+    if isinstance(dtypes, list):
+        return generate_line(dtypes, fname)
+    elif isinstance(dtypes, dict):
+        lines = []
+        for k, v in dtypes.items():
+            lines.append(generate_line(v, fname + k))
+        return "\n".join(lines)
+    else:
+        assert dtypes is None, "dtypes support list/dict only."
 
 
 def generate_all(fgens):

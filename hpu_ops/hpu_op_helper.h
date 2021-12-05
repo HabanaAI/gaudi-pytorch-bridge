@@ -301,3 +301,10 @@ class OpBackend : public HabanaOperator {
           !fn##_supported_dtypes.count(tensor.scalar_type()))) { \
     return AtenHpuTypeDefault::fn(args);                         \
   }
+
+#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, fn, args...)    \
+  if (ABSL_PREDICT_FALSE(                                                \
+          tensor.defined() &&                                            \
+          !fn##tensor##_supported_dtypes.count(tensor.scalar_type()))) { \
+    return AtenHpuTypeDefault::fn(args);                                 \
+  }
