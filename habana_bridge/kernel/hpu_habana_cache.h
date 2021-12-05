@@ -22,12 +22,11 @@
 #include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "habana_bridge/kernel/hpu_shape_inference.h"
-
-#include "habana_lazy/hpu_lazy_tensors.h"
-
+#include "habana_helpers/collective_kernel_info.h"
 #include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_serialization/recipe_cache.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/graph.h"
@@ -222,8 +221,6 @@ struct RecipeValueSpec {
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr = nullptr);
 
-  void create_outdup(PtTensorInfo& ti, at::Tensor orig);
-  void create_outdup(size_t ti_idx, IValPtrShared& ivpsh_parent);
   void create_outdup(
       size_t ti_idx,
       std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
@@ -274,8 +271,10 @@ struct RecipeValueSpec {
   void Serialize(std::ostream& os) const;
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-  std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
+  std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
+  std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
+      collective_kernels_info;
   uint64_t workspace_size;
 
   uint64_t htensor_wbuff = 0;

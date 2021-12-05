@@ -19,3 +19,8 @@ set_target_properties(Synapse PROPERTIES
 add_library(tpc_kernels SHARED IMPORTED)
 set_target_properties(tpc_kernels PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
+
+add_library(hcl SHARED IMPORTED)
+set_target_properties(hcl PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_ROOT}/include"
+  )

@@ -863,4 +863,14 @@ at::Tensor& diag_hpu_lazy_out(
     int64_t diagonal,
     at::Tensor& out);
 at::Tensor frobenius_norm_hpu_lazy(const at::Tensor& self);
+
+at::Tensor& broadcast_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t root_rank,
+    int64_t comm_id);
+at::Tensor& allreduce_hpu_lazy_(
+    at::Tensor& tensor,
+    uint8_t reduce_op,
+    int64_t comm_id);
+
 } // namespace habana_lazy

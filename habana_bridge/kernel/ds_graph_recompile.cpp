@@ -49,7 +49,7 @@ torch::jit::Stack habana::CreateInputStack(
         "is missing from ",
         input_shapes);
     auto pt_input =
-        habana::CreateEmptyTensor(ti, input_shapes.at(tidx).get_dims());
+        habana::CreateEmptyTensor(*ti, input_shapes.at(tidx).get_dims());
     new_input_stack.push_back(torch::jit::IValue(pt_input));
   }
   PT_BRIDGE_END;

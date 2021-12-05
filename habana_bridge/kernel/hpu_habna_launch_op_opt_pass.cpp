@@ -86,16 +86,42 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
-    if (isControlEdge(node) || isInplace(node)) {
+    if (isControlEdge(node) || isInplace(node) || isCollective(node)) {
       set_persistence_input(node);
       set_persistence_output(node);
     }
   } // for (auto* node : graph_nodes)
 } // function end
 
+// TODO: SW-68565 SFG step 2
+// void HabanaLaunchOpPT::externalMarkingPass(
+//    torch::jit::graph_node_list graph_nodes) {
+//  for (auto* node : graph_nodes) {
+//    if (node->kind().is_prim()) {
+//      continue;
+//    }
+//
+//    // Get kernel context
+//    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+//        0, node->schema().operator_name(), getNodeScalarType(node));
+//    if (HabanaKernel == nullptr)
+//      continue;
+//
+//    // collective inputs must be set external in order to
+//    // trigger before graph execution ends
+//    if (isCollective(node)) {
+//      set_external_input(node);
+//    }
+//
+//  } // for (auto* node : graph_nodes)
+//} // function end
+
 void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
     torch::jit::graph_node_list graph_nodes) {
   // This pass marks tensors persistent if they are nt persistent from graph
   // but are made persistent due to synapse limitations
   persistenceMarkingPass(graph_nodes);
+
+  // TODO: SW-68565 SFG step 2
+  // externalMarkingPass(graph_nodes);
 }

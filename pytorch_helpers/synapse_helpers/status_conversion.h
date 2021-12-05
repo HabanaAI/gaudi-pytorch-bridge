@@ -14,7 +14,7 @@
 #pragma once
 
 #include "hccl.h"
-#include "synapse_helpers/synapse_error.h"
+#include "synapse_error.h"
 
 namespace hccl_integration {
 

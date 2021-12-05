@@ -30,6 +30,8 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "synapse_helpers/env_flags.h"
 
+#include "habana_kernels/hccl_kernels.h"
+
 namespace habana {
 
 // static initializations
@@ -241,16 +243,16 @@ void RecipeValueSpec::print_hbuff(
     size_t iteration_count,
     int numel) {
   float* wb = reinterpret_cast<float*>(htensor_wbuff);
-  unsigned buf_size = dtensorinfos->at(buf_idx).get_size();
+  unsigned buf_size = dtensorinfos->at(buf_idx)->get_size();
 
   out << "iteration " << iteration_count << " : <"
       << ((buf_idx >= num_inputs) ? "output" : "input") << "> :: < "
-      << dtensorinfos->at(buf_idx).get_ir_name() << " : "
-      << "shape [" << dtensorinfos->at(buf_idx).get_shape() << "] : "
-      << "numel " << dtensorinfos->at(buf_idx).get_numel() << " : "
+      << dtensorinfos->at(buf_idx)->get_ir_name() << " : "
+      << "shape [" << dtensorinfos->at(buf_idx)->get_shape() << "] : "
+      << "numel " << dtensorinfos->at(buf_idx)->get_numel() << " : "
       << "size (" << buf_size << " b) >";
   out << "<buffer" << '[' << buf_idx << ']' << "@"
-      << dtensorinfos->at(buf_idx).get_buffer() << ">";
+      << dtensorinfos->at(buf_idx)->get_buffer() << ">";
 
   const unsigned max_numel = buf_size / sizeof(float);
   unsigned lim{max_numel};
@@ -277,7 +279,7 @@ void RecipeValueSpec::print_hbuff(
 void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   TORCH_CHECK(num_tinfos > buf_idx, "buf_idx is out of range");
 
-  unsigned buf_size = dtensorinfos->at(buf_idx).get_size();
+  unsigned buf_size = dtensorinfos->at(buf_idx)->get_size();
   if (buf_size > htensor_wbuff_size) {
     buf_size = htensor_wbuff_size;
   }
@@ -286,9 +288,9 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
   std::atomic<bool> copyDone{false};
   auto syn_error = device.copy_data_to_host(
-      (uint64_t)dtensorinfos->at(buf_idx).get_buffer(),
+      (uint64_t)dtensorinfos->at(buf_idx)->get_buffer(),
       (void*)htensor_wbuff,
-      dtensorinfos->at(buf_idx).get_buffer_start_syn(),
+      dtensorinfos->at(buf_idx)->get_buffer_start_syn(),
       buf_size,
       [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -371,10 +373,10 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
 
   int info_size = 0;
   deserialize(is, info_size);
-  dtensorinfos = std::make_shared<std::vector<PtTensorInfo>>();
+  dtensorinfos = std::make_shared<std::vector<PtTensorInfoShared>>();
   dtensorinfos->reserve(info_size);
   for (int i = 0; i < info_size; ++i) {
-    dtensorinfos->emplace_back(PtTensorInfo(is));
+    dtensorinfos->emplace_back(std::make_shared<PtTensorInfo>(is));
   }
 
   deserialize(is, workspace_size);
@@ -411,6 +413,9 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
+
+  // TODO: SW-68563 deserialize tensorinfo map for collectives
+  // link collective tensor info to their matching in dtensorinfo
 }
 
 void RecipeValueSpec::Serialize(std::ostream& os) const {
@@ -421,8 +426,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, recipe->graph_is_empty_);
   }
   serialize(os, static_cast<int>(dtensorinfos.get()->size()));
-  for (PtTensorInfo& tInfo : *dtensorinfos) {
-    tInfo.Serialize(os);
+  for (PtTensorInfoShared& tInfo : *dtensorinfos) {
+    tInfo->Serialize(os);
   }
   serialize(os, workspace_size);
   serialize(os, htensor_wbuff);
@@ -454,6 +459,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, dynamic_graph);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
+
+  // TODO: SW-68563 serialize tensorinfo map for collectives
 }
 
 void RecipeValueSpec::update_patching_table(
@@ -464,7 +471,7 @@ void RecipeValueSpec::update_patching_table(
   PT_BRIDGE_BEGIN;
   if (dynamic_graph) {
     for (size_t i = 0; i < dtensorinfos->size(); ++i) {
-      auto& ti = dtensorinfos->at(i);
+      auto& ti = *(dtensorinfos->at(i));
       auto tensor_id = ti.get_tensor_id();
       HABANA_ASSERT(m_actual_shapes.count(tensor_id));
       auto dims = m_actual_shapes.at(tensor_id).get_dims();
@@ -518,14 +525,14 @@ void RecipeValueSpec::update_patching_table(
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       bool is_shape_tensor = impl && impl->isShapeTensor();
       if (false == is_shape_tensor) {
-        dtensorinfos->at(ridx).patch_exact(input.toTensor());
+        dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
       }
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {
-        dtensorinfos->at(ridx).patch_exact(t);
+        dtensorinfos->at(ridx)->patch_exact(t);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
         ridx++;
@@ -544,13 +551,13 @@ void RecipeValueSpec::update_patching_table(
   if (num_induplicates) {
     size_t induplicates_index_end = num_inputs + num_induplicates;
     for (; ridx < induplicates_index_end; ridx++) {
-      size_t parent_idx = dtensorinfos->at(ridx).get_parent_index();
-      dtensorinfos->at(ridx).patch(dtensorinfos->at(parent_idx));
+      size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
+      dtensorinfos->at(ridx)->patch(*(dtensorinfos->at(parent_idx)));
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
           parent_idx,
           ", parent buffer ptr ",
-          dtensorinfos->at(parent_idx).get_buffer());
+          dtensorinfos->at(parent_idx)->get_buffer());
     }
   }
 
@@ -562,7 +569,7 @@ void RecipeValueSpec::update_patching_table(
     size_t dma_inputs_index_end =
         num_inputs + num_induplicates + num_dma_inputs;
     for (; ridx < dma_inputs_index_end; ridx++) {
-      auto& ti = dtensorinfos->at(ridx);
+      auto& ti = *(dtensorinfos->at(ridx));
 
       auto dma_cb = ti.get_dma_cb();
       auto tshape{ti.get_shape()};
@@ -586,7 +593,7 @@ void RecipeValueSpec::update_patching_table(
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: DMA input : buffer ptr ",
-          dtensorinfos->at(ridx).get_buffer());
+          dtensorinfos->at(ridx)->get_buffer());
     }
   }
 
@@ -605,7 +612,7 @@ void RecipeValueSpec::update_patching_table(
   std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
   std::vector<at::Tensor> intermediate_tensors;
   for (; ridx < intermediates_end; ridx++) {
-    PtTensorInfo& ti = dtensorinfos->at(ridx);
+    PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto tshape{ti.get_shape()};
 
     if (ti.is_duplicate()) {
@@ -675,7 +682,7 @@ void RecipeValueSpec::update_patching_table(
   std::unordered_map<size_t, IValPtrShared> outputIVpshMap;
   size_t outputs_end = intermediates_end + num_outputs;
   for (; ridx < outputs_end; ridx++) {
-    PtTensorInfo& ti = dtensorinfos->at(ridx);
+    PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto output_idx = ti.get_output_index();
     TORCH_CHECK(
         output_idx < aten_output_num,
@@ -701,8 +708,8 @@ void RecipeValueSpec::update_patching_table(
   size_t outduplicates_end = outputs_end + num_outduplicates;
   if (num_outduplicates) {
     for (; ridx < outduplicates_end; ridx++) {
-      size_t parent_idx = dtensorinfos->at(ridx).get_parent_index();
-      dtensorinfos->at(ridx).patch(dtensorinfos->at(parent_idx));
+      size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
+      dtensorinfos->at(ridx)->patch(*(dtensorinfos->at(parent_idx)));
     }
   }
 
@@ -783,7 +790,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 
     size_t tensor_idx{0};
     for (size_t i = 0; i < num_tinfos; ++i) {
-      PtTensorInfo& ti = dtensorinfos->at(i);
+      PtTensorInfo& ti = *(dtensorinfos->at(i));
       tensor_names[tensor_idx++] = ti.get_syn_namec_str();
     }
 
@@ -804,7 +811,7 @@ void RecipeValueSpec::patch_launch_info(
 
   size_t tensor_idx{0};
   for (size_t i = 0; i < num_tinfos; ++i) {
-    PtTensorInfo& ti = dtensorinfos->at(i);
+    PtTensorInfo& ti = *(dtensorinfos->at(i));
     switch (ti.tensor_type()) {
       case SHAPE_TENSOR:
       case INPUT_DESCRIBING_SHAPE_TENSOR: {
@@ -976,6 +983,20 @@ void RecipeValueSpec::launch(
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
+
+  // Launch collective ops on collective stream
+  // TODO: SW-68571 move stream synchonization from hccl kernels collective call
+  // to here, skip if not stream async
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES)) {
+    HABANA_ASSERT(device.IsStreamASyncEnabled())
+    for (auto kernel_info : collective_kernels_info) {
+      CollectiveOperator* collective =
+          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
+      HABANA_ASSERT(collective);
+      collective->RunCollective(kernel_info->input_tensor_infos);
+    }
+  }
+
   num_launches++;
   increment_launch_count();
 }

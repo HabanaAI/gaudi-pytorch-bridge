@@ -32,6 +32,8 @@ class PtTensorInfo;
 typedef void (
     *getDMAInputTensorCBType)(const PtTensorInfo& ti, at::Tensor& dma_tensor);
 
+using PtTensorInfoShared = std::shared_ptr<PtTensorInfo>;
+
 class PtTensorInfo {
  public:
   PtTensorInfo(const IValPtrShared& ivpsh);

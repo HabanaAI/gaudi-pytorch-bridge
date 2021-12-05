@@ -4507,6 +4507,14 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_SELECTIVE_NAME("torchvision::nms"),
       TORCH_FN(torchvision_nms_hpu_wrap));
 }
+
+TORCH_LIBRARY(hccl, m) {
+  m.def(
+      "broadcast_(Tensor(a!) tensor, int root_rank, int64_t comm_id) -> Tensor(a!)");
+  m.def(
+      "allreduce_(Tensor(a!) tensor, uint8_t reduceOp, int64_t comm_id) -> Tensor(a!)");
+}
+
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("habana_d2d_memcpy", habana_d2d_memcpy);
   m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);

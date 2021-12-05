@@ -37,6 +37,7 @@ hcclResult_t to_hccl_result(synStatus status) {
       return hcclInternalError;
     case synOutOfHostMemory:
     case synOutOfDeviceMemory:
+    case synOutOfResources:
       return hcclOutOfMemory;
     case synObjectAlreadyInitialized:
     case synObjectNotInitialized:
@@ -61,6 +62,8 @@ hcclResult_t to_hccl_result(synStatus status) {
       return hcclInternalError;
     case synWrongParamsFile:
     case synDeviceAlreadyAcquired:
+    case synUninitialized:
+    case synAlreadyInitialized:
       return hcclInvalidUsage;
     case synNameIsAlreadyUsed:
     case synBusy:

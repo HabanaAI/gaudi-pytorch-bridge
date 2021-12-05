@@ -22,7 +22,8 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
-#include "device_context.h"
+#include "process_group_lazy_hccl.hpp"
+#include "pytorch_helpers/synapse_helpers/device_context.h"
 namespace c10d {
 
 // Now continue on other work in the current stream.
@@ -156,7 +157,12 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
       int rank,
       int size,
       const std::chrono::milliseconds& timeout) {
-    return c10::make_intrusive<ProcessGroupHCCL>(store, rank, size, timeout);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES)) {
+      return c10::make_intrusive<ProcessGroupLazyHCCL>(
+          store, rank, size, timeout);
+    } else {
+      return c10::make_intrusive<ProcessGroupHCCL>(store, rank, size, timeout);
+    }
   }
 
   template <typename T>
@@ -179,22 +185,43 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
                 std::chrono::milliseconds(kWatchdogThreadSleepMillis)));
 
     auto processGroup = module.attr("ProcessGroup");
-    auto processGroupHCCL = intrusive_ptr_class_<::c10d::ProcessGroupHCCL>(
-        module, "ProcessGroupHCCL", processGroup);
 
-    processGroupHCCL.def(
-        py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
-                    int rank,
-                    int size,
-                    std::chrono::milliseconds timeout) {
-          return c10::make_intrusive<::c10d::ProcessGroupHCCL>(
-              store, rank, size, timeout);
-        }),
-        py::arg("store"),
-        py::arg("rank"),
-        py::arg("size"),
-        py::arg("timeout") =
-            std::chrono::milliseconds(kWatchdogThreadSleepMillis));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES)) {
+      auto processGroupHCCL =
+          intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL>(
+              module, "ProcessGroupHCCL", processGroup);
+
+      processGroupHCCL.def(
+          py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
+                      int rank,
+                      int size,
+                      std::chrono::milliseconds timeout) {
+            return c10::make_intrusive<::c10d::ProcessGroupLazyHCCL>(
+                store, rank, size, timeout);
+          }),
+          py::arg("store"),
+          py::arg("rank"),
+          py::arg("size"),
+          py::arg("timeout") =
+              std::chrono::milliseconds(kWatchdogThreadSleepMillis));
+    } else {
+      auto processGroupHCCL = intrusive_ptr_class_<::c10d::ProcessGroupHCCL>(
+          module, "ProcessGroupHCCL", processGroup);
+
+      processGroupHCCL.def(
+          py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
+                      int rank,
+                      int size,
+                      std::chrono::milliseconds timeout) {
+            return c10::make_intrusive<::c10d::ProcessGroupHCCL>(
+                store, rank, size, timeout);
+          }),
+          py::arg("store"),
+          py::arg("rank"),
+          py::arg("size"),
+          py::arg("timeout") =
+              std::chrono::milliseconds(kWatchdogThreadSleepMillis));
+    }
   }
 
  private:

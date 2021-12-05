@@ -7491,4 +7491,41 @@ Tensor floor_divide_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return div(self, other, "trunc");
 }
 
+at::Tensor& broadcast_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t root_rank,
+    int64_t comm_id) {
+  PT_LAZY_TRACE;
+  // TODO SW-68649 handle views:
+  // if tensor is view
+  //   tensor_orig = Handle_views(tensor) : if view strided_view / else get
+  //   latest version
+  // if tensor_orig non contiguous
+  //   add memcpy to contiguous tmp
+  // do op(tmp)
+  // flush  // will be removed in step 4
+  // if tensor is view
+  //   srided insert tmp to base tensor of tensor
+  // else if tensor non contiguous
+  //   strided insert tmp to tensor
+  // else(?)
+  //   update version of tensor?
+
+  auto t_updated = habana_lazy::HandleViewsD2H(tensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::broadcast_", {t_updated, root_rank, comm_id}, {1, 2}, {}, 0);
+  return k.call(t_updated, true);
+}
+
+at::Tensor& allreduce_hpu_lazy_(
+    at::Tensor& tensor,
+    uint8_t reduce_op,
+    int64_t comm_id) {
+  PT_LAZY_TRACE;
+  auto t_updated = habana_lazy::HandleViewsD2H(tensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::allreduce_", {t_updated, reduce_op, comm_id}, {1, 2}, {}, 0);
+  return k.call(t_updated, true);
+}
+
 } // namespace habana_lazy

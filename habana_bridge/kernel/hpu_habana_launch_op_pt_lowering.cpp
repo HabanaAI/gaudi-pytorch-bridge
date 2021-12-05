@@ -83,6 +83,7 @@ void habana::HabanaLaunchOpPT::Clear(bool is_shape_inference) {
   buff_to_syn_tensor_map.clear();
 
   jit_to_synapse_node_idx_map.clear();
+  collective_kernels_info.clear();
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
@@ -170,6 +171,8 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
         shape_tensor_tinfos.end());
   }
 
+  rv.collective_kernels_info = collective_kernels_info;
+
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
@@ -226,8 +229,8 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
   }
 
   for (auto& ti : *rv.dtensorinfos) {
-    if (!ti.is_duplicate()) {
-      rv.ntensorbytes += ti.get_size();
+    if (!ti->is_duplicate()) {
+      rv.ntensorbytes += ti->get_size();
     }
   }
 
@@ -273,7 +276,7 @@ void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
     tensor_file.open(
         tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i).watch_enabled()) {
+      if (rv.dtensorinfos->at(i)->watch_enabled()) {
         rv.d2h_dbuff(i);
         rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
       }
@@ -287,7 +290,7 @@ void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
     std::ofstream tensor_file;
     tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i).watch_enabled()) {
+      if (rv.dtensorinfos->at(i)->watch_enabled()) {
         rv.d2h_dbuff(i);
         rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
       }
@@ -314,7 +317,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     if (0 == htensor_wbuff_size) {
       for (size_t i = 0; i < rv.num_tinfos; ++i) {
         htensor_wbuff_size =
-            std::max(htensor_wbuff_size, rv.dtensorinfos->at(i).get_size());
+            std::max(htensor_wbuff_size, rv.dtensorinfos->at(i)->get_size());
       }
     }
 
@@ -388,23 +391,23 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
 
 void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // dtensorinfos maintain the flattened tinfo list
-  rv.dtensorinfos =
-      std::make_shared<std::vector<PtTensorInfo>>(std::vector<PtTensorInfo>());
+  rv.dtensorinfos = std::make_shared<std::vector<PtTensorInfoShared>>(
+      std::vector<PtTensorInfoShared>());
 
   std::unordered_map<void*, size_t> buff_to_inputtividx_map;
   for (auto& tiv : input_tivs) {
-    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
-      const auto ti = absl::get<PtTensorInfo>(tiv);
+    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
+      const auto ti = absl::get<PtTensorInfoShared>(tiv);
       rv.dtensorinfos->push_back(ti);
       if (enable_caching_) {
-        void* buffp = ti.get_buffer_start();
+        void* buffp = ti->get_buffer_start();
         buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
       }
-    } else if (absl::holds_alternative<std::vector<PtTensorInfo>>(tiv)) {
-      for (const auto& ti : absl::get<std::vector<PtTensorInfo>>(tiv)) {
+    } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
+      for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
         rv.dtensorinfos->push_back(ti);
         if (enable_caching_) {
-          void* buffp = ti.get_buffer_start();
+          void* buffp = ti->get_buffer_start();
           buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
         }
       }
@@ -418,36 +421,36 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // Link the input tivs with the duplicate
   size_t nduplicates{0};
   for (auto& tiv : duplicate_input_tivs) {
-    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
-      auto ti = absl::get<PtTensorInfo>(tiv);
+    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
+      auto ti = absl::get<PtTensorInfoShared>(tiv);
       if (enable_caching_) {
-        void* buffp = ti.get_buffer_start();
+        void* buffp = ti->get_buffer_start();
         auto it_parent = buff_to_inputtividx_map.find(buffp);
 
         std::ostringstream err;
-        err << ti;
+        err << *ti;
 
         TORCH_CHECK(
             buff_to_inputtividx_map.end() != it_parent,
             "parent tinfo is missing for input duplicate ",
             err.str());
 
-        ti.set_duplicate_flag(true);
+        ti->set_duplicate_flag(true);
         size_t parent_idx = it_parent->second;
         TORCH_CHECK(
             parent_idx < num_inputs,
             "out of bound parent index : ",
             parent_idx,
             " for ",
-            ti.get_syn_name());
-        ti.set_parent_index(parent_idx);
+            ti->get_syn_name());
+        ti->set_parent_index(parent_idx);
         PT_BRIDGE_DEBUG(
             "FlattenAndLinkInputTIVs: Input duplicate: parent idx ",
             parent_idx,
             " parent buffer ptr ",
-            rv.dtensorinfos->at(parent_idx).get_buffer(),
+            rv.dtensorinfos->at(parent_idx)->get_buffer(),
             " duplicate_tiv buffer ptr ",
-            ti.get_buffer());
+            ti->get_buffer());
       }
       rv.dtensorinfos->push_back(ti);
       nduplicates++;
@@ -519,21 +522,21 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     {
       if (output_tensorinfo_map.count(ivpsh)) {
         auto it = output_tensorinfo_map.find(ivpsh);
-        it->second.set_output_index(output_idx);
+        it->second->set_output_index(output_idx);
         output_tensorinfos.push_back(it->second);
-        if (it->second.get_syn_name().empty()) {
+        if (it->second->get_syn_name().empty()) {
           has_empty_name = true;
         }
         output_tensorinfo_map.erase(ivpsh);
       } else if (duplicate_input_to_outtinfo_map.count(ivpsh)) {
         auto it_dup = duplicate_input_to_outtinfo_map.find(ivpsh);
-        it_dup->second.set_output_index(output_idx);
+        it_dup->second->set_output_index(output_idx);
       } else if (duplicate_intermediate_to_outtinfo_map.count(ivpsh)) {
         auto it_dup = duplicate_intermediate_to_outtinfo_map.find(ivpsh);
-        it_dup->second.set_output_index(output_idx);
+        it_dup->second->set_output_index(output_idx);
       } else if (duplicate_output_to_outtinfo_map.count(ivpsh)) {
         auto it_dup = duplicate_output_to_outtinfo_map.find(ivpsh);
-        it_dup->second.set_output_index(output_idx);
+        it_dup->second->set_output_index(output_idx);
       } else {
         TORCH_CHECK(
             0,
@@ -567,11 +570,11 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   if (!intermediate_tinfos.empty()) {
     rv.num_intermediates = intermediate_tinfos.size();
     for (auto& ti : intermediate_tinfos) {
-      void* buffp = ti.get_buffer_start();
+      void* buffp = ti->get_buffer_start();
       // Duplicate analysis for the persistent intermediates
       if (buff_to_interim_tividx_map.count(buffp)) {
-        ti.set_duplicate_flag(true);
-        ti.set_parent_index(buff_to_interim_tividx_map[buffp]);
+        ti->set_duplicate_flag(true);
+        ti->set_parent_index(buff_to_interim_tividx_map[buffp]);
       } else {
         buff_to_interim_tividx_map.emplace(buffp, interim_tinfo_idx);
       }
@@ -592,7 +595,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   // Add the outputs to rv.dtensorinfos
   for (auto& ti : output_tensorinfos) {
     rv.dtensorinfos->push_back(ti);
-    void* buffp = ti.get_buffer_start();
+    void* buffp = ti->get_buffer_start();
 
     buff_to_outputtinfoidx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
   }
@@ -607,29 +610,29 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   // that go back to the FusedOp from the outputs
   size_t nduplicates{0};
   for (auto& ti : duplicate_outtinfos) {
-    void* buffp = ti.get_buffer_start();
+    void* buffp = ti->get_buffer_start();
     auto it_parent = buff_to_outputtinfoidx_map.find(buffp);
 
     std::ostringstream err;
-    err << ti;
+    err << *ti;
 
     TORCH_CHECK(
         buff_to_outputtinfoidx_map.end() != it_parent,
         "parent tinfo is missing for output duplicate ",
         err.str());
 
-    ti.set_duplicate_flag(true);
+    ti->set_duplicate_flag(true);
     size_t parent_idx = it_parent->second;
     TORCH_CHECK(
         parent_idx >= outputs_start && parent_idx < outputs_end,
         "for output duplicate ",
-        ti.get_syn_name(),
+        ti->get_syn_name(),
         "parent index should be within [",
         outputs_start,
         ',',
         outputs_end,
         ')');
-    ti.set_parent_index(parent_idx);
+    ti->set_parent_index(parent_idx);
     rv.dtensorinfos->push_back(ti);
     nduplicates++;
   }
@@ -640,13 +643,13 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   std::unordered_map<void*, size_t> buff_to_inputtividx_map;
   size_t in_idx = 0;
   for (auto& tiv : input_tivs) {
-    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
-      const auto ti = absl::get<PtTensorInfo>(tiv);
-      void* buffp = ti.get_buffer_start();
+    if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
+      const auto ti = absl::get<PtTensorInfoShared>(tiv);
+      void* buffp = ti->get_buffer_start();
       buff_to_inputtividx_map.emplace(buffp, in_idx++);
-    } else if (absl::holds_alternative<std::vector<PtTensorInfo>>(tiv)) {
-      for (const auto& ti : absl::get<std::vector<PtTensorInfo>>(tiv)) {
-        void* buffp = ti.get_buffer_start();
+    } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
+      for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
+        void* buffp = ti->get_buffer_start();
         buff_to_inputtividx_map.emplace(buffp, in_idx++);
       }
     } else {
@@ -661,23 +664,23 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   for (auto& mi : duplicate_input_to_outtinfo_map) {
     auto ivpsh = mi.first;
     auto& ti = mi.second;
-    void* buffp = ti.get_buffer_start();
+    void* buffp = ti->get_buffer_start();
     auto it_parent = buff_to_inputtividx_map.find(buffp);
 
     std::ostringstream err;
-    err << ti;
+    err << *ti;
 
     TORCH_CHECK(
         buff_to_inputtividx_map.end() != it_parent,
         "parent tinfo is missing for input_to_out duplicate ",
         err.str());
 
-    ti.set_duplicate_flag(true);
+    ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
     TORCH_CHECK(
         parent_idx < rv.num_inputs,
         "for in_to_out duplicate ",
-        ti.get_syn_name(),
+        ti->get_syn_name(),
         "parent index ",
         parent_idx,
         " should be within [",
@@ -685,7 +688,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         ',',
         rv.num_inputs,
         ')');
-    ti.set_parent_index(parent_idx);
+    ti->set_parent_index(parent_idx);
     rv.dtensorinfos->push_back(ti);
     nduplicates++;
   }
@@ -699,23 +702,23 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   for (auto& mi : duplicate_intermediate_to_outtinfo_map) {
     auto ivpsh = mi.first;
     auto& ti = mi.second;
-    void* buffp = ti.get_buffer_start();
+    void* buffp = ti->get_buffer_start();
     auto it_parent = buff_to_interim_tividx_map.find(buffp);
 
     std::ostringstream err;
-    err << ti;
+    err << *ti;
 
     TORCH_CHECK(
         buff_to_interim_tividx_map.end() != it_parent,
         "parent tinfo is missing for interim_to_out duplicate ",
         err.str());
 
-    ti.set_duplicate_flag(true);
+    ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
     TORCH_CHECK(
         (parent_idx >= intermediates_start && parent_idx < intermediates_end),
         "for interim to out duplicate ",
-        ti.get_syn_name(),
+        ti->get_syn_name(),
         "parent index ",
         parent_idx,
         " should be within [",
@@ -723,7 +726,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         ',',
         intermediates_end,
         ')');
-    ti.set_parent_index(parent_idx);
+    ti->set_parent_index(parent_idx);
     rv.dtensorinfos->push_back(ti);
     nduplicates++;
   }
@@ -736,24 +739,24 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   for (auto& mi : duplicate_output_to_outtinfo_map) {
     auto ivpsh = mi.first;
     auto& ti = mi.second;
-    void* buffp = ti.get_buffer_start();
+    void* buffp = ti->get_buffer_start();
     auto it_parent = buff_to_outputtinfoidx_map.find(buffp);
 
     std::ostringstream err;
-    err << ti;
+    err << *ti;
 
     TORCH_CHECK(
         buff_to_outputtinfoidx_map.end() != it_parent,
         "parent tinfo is missing for output_to_out duplicate ",
         err.str());
 
-    ti.set_duplicate_flag(true);
+    ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
     TORCH_CHECK(
         parent_idx >= outputs_start && parent_idx < outputs_end,
         parent_idx < rv.num_inputs,
         "for out_to_out duplicate ",
-        ti.get_syn_name(),
+        ti->get_syn_name(),
         "parent index ",
         parent_idx,
         " should be within [",
@@ -761,7 +764,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         ',',
         outputs_end,
         ')');
-    ti.set_parent_index(parent_idx);
+    ti->set_parent_index(parent_idx);
     rv.dtensorinfos->push_back(ti);
     nduplicates++;
   }

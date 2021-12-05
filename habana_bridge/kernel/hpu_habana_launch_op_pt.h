@@ -46,9 +46,8 @@ using CValPtr = const torch::jit::Value*;
 using tensor_or_ref = synapse_helpers::tensor_or_ref;
 using SynTensorOrRefList = std::vector<tensor_or_ref>;
 using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
-
 using IValPtrSharedToTesorInfoMap =
-    std::unordered_map<IValPtrShared, PtTensorInfo>;
+    std::unordered_map<IValPtrShared, PtTensorInfoShared>;
 
 struct habanaTensorLayoutInfo {
   LayoutFormat layout;
@@ -192,29 +191,34 @@ class HabanaLaunchOpPT {
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
+  std::unordered_map<IValPtrShared, PtTensorInfoShared>
+      ivalue_to_tensor_info_map;
+
   // A map for value to persistent flag
   std::unordered_map<CValPtr, bool> valptr_to_persistent_map;
 
-  // TIV : absl::variant<PtTensorInfo, std::vector<PtTensorInfo>> objects
-  // TIVs for launcing the recipe
+  // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
+  // objects TIVs for launcing the recipe
 
   // input_tivs and output_tensorinfos are used with caching disabled
-  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+  std::vector<
+      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       input_tivs;
-  std::vector<PtTensorInfo> output_tensorinfos;
+  std::vector<PtTensorInfoShared> output_tensorinfos;
 
   // Following tiv stores are used with caching enabled
   std::unordered_map<
       IValPtrShared,
-      absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       input_tiv_map;
-  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+  std::vector<
+      absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
       duplicate_input_tivs;
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;
   std::unordered_map<void*, tensor_or_ref> buff_to_syn_tensor_map;
-  std::vector<PtTensorInfo> duplicate_outtinfos;
+  std::vector<PtTensorInfoShared> duplicate_outtinfos;
 
   size_t dma_input_idx{0};
   size_t appended_index{0};
@@ -227,16 +231,16 @@ class HabanaLaunchOpPT {
   // used for storing the seed tensors needed for dropout kernel.
   std::vector<at::Tensor> aten_intermediates;
   // tinfos corresponding to aten_intermediates.
-  std::vector<PtTensorInfo> intermediate_tinfos;
+  std::vector<PtTensorInfoShared> intermediate_tinfos;
 
   // For supporting operators that need inputs which are not present in the
   // stack. These inputs need to be DMA transferred during creation of the op
   // or patching a cached recipe.
   std::vector<at::Tensor> aten_dma_inputs;
   // tinfos corresponding to aten_intermediates.
-  std::deque<PtTensorInfo> dma_input_tensorinfos;
+  std::deque<PtTensorInfoShared> dma_input_tensorinfos;
   // tinfos corresponding to shape tensor.
-  std::vector<PtTensorInfo> shape_tensor_tinfos;
+  std::vector<PtTensorInfoShared> shape_tensor_tinfos;
 
   // caching :: begin
 
@@ -287,6 +291,8 @@ class HabanaLaunchOpPT {
   std::vector<synNodeId> blocked_syn_nodes_vec;
   std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
       memory_reuse_pairs;
+  std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
+      collective_kernels_info;
 
   // TODO add all the optimizers
   std::vector<std::string> custom_optimizer_nodestr_vec = {
@@ -392,6 +398,7 @@ class HabanaLaunchOpPT {
   bool isPermuteInGraphOutputs(torch::jit::Value* value);
   bool IsOutputToPermute(torch::jit::Value* value);
   torch::jit::Value* GetPermuteOutvalue(torch::jit::Value* val);
+  bool isCollective(torch::jit::Node* node);
 
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
@@ -412,13 +419,15 @@ class HabanaLaunchOpPT {
   bool IsCustomOptimizer(std::string node_str);
 
   // Patching related
-  void AddAtenIntermediate(const IValPtrShared& ivpsh, const PtTensorInfo& ti) {
-    void* buffp = ti.get_buffer();
+  void AddAtenIntermediate(
+      const IValPtrShared& ivpsh,
+      const PtTensorInfoShared ti) {
+    void* buffp = ti->get_buffer();
     intermediate_tinfos.emplace_back(ti);
     aten_intermediates.push_back(ivpsh->toTensor());
     // We might have outputs that are duplicate of
     // persistent intermediate tensors
-    if (false == ti.is_ZST()) {
+    if (false == ti->is_ZST()) {
       buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
     }
   }
@@ -428,7 +437,7 @@ class HabanaLaunchOpPT {
       const std::string& ir_name,
       const uint64_t tensor_id) {
     const auto& pttensor = ivpsh->toTensor();
-    auto ti = PtTensorInfo(
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         pttensor, syntensor_name, ir_name, watch_tensor_flag_, tensor_id);
     AddAtenIntermediate(ivpsh, ti);
   }

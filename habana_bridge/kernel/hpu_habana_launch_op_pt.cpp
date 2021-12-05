@@ -35,6 +35,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -289,6 +290,10 @@ torch::jit::Value* HabanaLaunchOpPT::GetPermuteOutvalue(
   return nullptr;
 }
 
+bool HabanaLaunchOpPT::isCollective(torch::jit::Node* node) {
+  return std::string(node->kind().toQualString()).rfind("hccl", 0) == 0;
+}
+
 bool HabanaLaunchOpPT::isPermuteInGraphOutputs(torch::jit::Value* value) {
   // return if graph output is restrided node output
   if (IsOutputToPermute(value)) {
@@ -477,7 +482,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     }
   }
 
-  std::vector<PtTensorInfo> tiv;
+  std::vector<PtTensorInfoShared> tiv;
   for (auto& pt_tensor : pyTensorList) {
     if (!pt_tensor.defined()) {
       continue;
@@ -488,7 +493,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
     std::string irn = "%" + value_in->debugName();
-    PtTensorInfo ti(
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         pt_tensor,
         syn_tensor.name(),
         irn,
@@ -496,10 +501,11 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         syn_tensor.id(),
         syn_tensor.tensor_type());
     tiv.push_back(ti);
+    ivalue_to_tensor_info_map[ivalue] = ti;
 
     if (enable_caching_) {
-      void* buffp = ti.get_buffer_start();
-      if (ti.is_ZST() == false) {
+      void* buffp = ti->get_buffer_start();
+      if (ti->is_ZST() == false) {
         buff_to_input_ivpsh_map.emplace(buffp, ivalue);
       }
     }
@@ -604,7 +610,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       oss << "%dma_input" << '_' << dma_input_idx;
       dma_input_idx++;
       std::string irn{oss.str()};
-      PtTensorInfo ti(
+      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
           seed_tensor,
           syn_tensor.name(),
           irn,
@@ -612,8 +618,9 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           syn_tensor.id(),
           DATA_TENSOR,
           dma_cb);
+      ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
       auto dma_tensor_idx = aten_dma_inputs.size();
-      ti.set_dma_tensor_idx(dma_tensor_idx);
+      ti->set_dma_tensor_idx(dma_tensor_idx);
       dma_input_tensorinfos.emplace_back(ti);
       // Saving as persistent intermediate tensor
       aten_dma_inputs.push_back(seed_tensor);
@@ -670,30 +677,31 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       enable_caching_
   //    D: It is a duplicate of an existing output
 
-  auto ti = PtTensorInfo(
+  PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
       ivpsh,
       out_syntensor.name(),
       vp,
       watch_tensor_flag_,
       out_syntensor.id(),
       out_syntensor.tensor_type());
-  void* buffp = ti.get_buffer_start();
+  ivalue_to_tensor_info_map[ivpsh] = ti;
+  void* buffp = ti->get_buffer_start();
 
   if (false == isInGraphOutputs(vp)) {
-    if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+    if (ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
       // Case 1.A: intermediate persistent tensor which an alias of an input
       PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", ti);
       duplicate_input_tivs.emplace_back(ti);
     } else {
-      if (ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
+      if (ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         duplicate_outtinfos.emplace_back(ti);
       } else {
         // Case 1.B: intermediate persistent tensor
-        if (ti.is_view_tensor()) {
+        if (ti->is_view_tensor()) {
           PT_BRIDGE_DEBUG(
               "Starting persistent intermediate is view tensor ",
               "with non zero offset ",
-              ti.get_offset());
+              ti->get_offset());
         }
         AddAtenIntermediate(ivpsh, ti);
       }
@@ -706,27 +714,28 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       // Is this a duplicate tensor going to graph output?
       // See if this the buffer pointer matches any input, then -
       // Check whether it is an alias of any input
-      if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+      if (ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
-        PT_BRIDGE_DEBUG("Adding to duplicate_input_to_outtinfo_map ", ti);
+        PT_BRIDGE_DEBUG("Adding to duplicate_input_to_outtinfo_map ", *ti);
         duplicate_input_to_outtinfo_map.emplace(ivpsh, ti);
       } else if (
-          ti.is_ZST() == false && buff_to_intermediate_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false &&
+          buff_to_intermediate_ivpsh_map.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
-            "Adding to duplicate_intermediate_to_outtinfo_map ", ti);
+            "Adding to duplicate_intermediate_to_outtinfo_map ", *ti);
         duplicate_intermediate_to_outtinfo_map.emplace(ivpsh, ti);
       } else if (
-          ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
-        PT_BRIDGE_DEBUG("Adding to duplicate_output_to_outtinfo_map ", ti);
+        PT_BRIDGE_DEBUG("Adding to duplicate_output_to_outtinfo_map ", *ti);
         duplicate_output_to_outtinfo_map.emplace(ivpsh, ti);
       } else {
         // Case 2.A: graph output tensor, enable_tensor_release_
-        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", ti);
+        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", *ti);
         output_tensorinfo_map.emplace(ivpsh, ti);
-        if (ti.is_ZST() == false) {
+        if (ti->is_ZST() == false) {
           buff_to_output_ivpsh_map.emplace(buffp, ivpsh);
         }
       }
@@ -804,7 +813,8 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
-      PtTensorInfo ti(maybe_syn_shape_tensor, irn);
+      PtTensorInfoShared ti =
+          std::make_shared<PtTensorInfo>(maybe_syn_shape_tensor, irn);
       shape_tensor_tinfos.emplace_back(ti);
     }
   }
@@ -908,13 +918,14 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     meta_syn_tensors.push_back(
         absl::get<synapse_helpers::tensor>(std::move(variant)));
 
-    PtTensorInfo ti(
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         value_to_ivalue[value_in],
         meta_syn_tensors.back().name(),
         value_in,
         watch_tensor_flag_,
         meta_syn_tensors.back().id(),
         meta_syn_tensors.back().tensor_type());
+    ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
     if (!isInGraphOutputs(value_in)) {
       duplicate_input_tivs.emplace_back(ti);
     } else {
@@ -1043,7 +1054,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
     auto& syn_tensor_vec = pt_to_synapse_tensors[ivpsh];
     synapse_helpers::tensor& syn_tensor = syn_tensor_vec->at(0);
-    auto ti = PtTensorInfo(
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         ivpsh_restrided,
         syn_tensor.name(),
         value_in,
@@ -1053,7 +1064,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
     value_to_ivalue.erase(value_in);
 
     if (enable_caching_) {
-      void* buffp = ti.get_buffer_start();
+      void* buffp = ti->get_buffer_start();
       if (output_tensorinfo_map.count(ivpsh)) {
         // Case 2.A: graph output tensor
         PT_BRIDGE_DEBUG(
@@ -1068,7 +1079,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
             " to output_tensorinfo_map");
         output_tensorinfo_map.emplace(ivpsh_restrided, ti);
       } else if (
-          ti.is_ZST() == false && buff_to_intermediate_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false &&
+          buff_to_intermediate_ivpsh_map.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
@@ -1092,7 +1104,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
             value_out->debugName());
         duplicate_intermediate_to_outtinfo_map.erase(ivpsh);
         duplicate_intermediate_to_outtinfo_map.emplace(ivpsh_restrided, ti);
-      } else if (ti.is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+      } else if (
+          ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
         PT_BRIDGE_DEBUG(
             "updating buff_to_input_ivpsh_map entry for ",
@@ -1117,7 +1130,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
         duplicate_input_to_outtinfo_map.erase(ivpsh);
         duplicate_input_to_outtinfo_map.emplace(ivpsh_restrided, ti);
       } else if (
-          ti.is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
         PT_BRIDGE_DEBUG(
             "updating buff_to_output_ivpsh_map entry for ",
@@ -1146,13 +1159,15 @@ void HabanaLaunchOpPT::handleRestrideNode(
             false,
             " unhandled scenario for restride input %",
             value_in->debugName(),
-            (ti.is_ZST() ? " is ZST" : " is non ZST"),
+            (ti->is_ZST() ? " is ZST" : " is non ZST"),
             ", not found in any duplicate detection or output map");
       }
     }
 
     value_to_ivalue[value_in] = ivpsh_restrided;
     value_to_ivalue[value_out] = ivpsh_restrided;
+    ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
+    ivalue_to_tensor_info_map[value_to_ivalue[value_out]] = ti;
   } else {
     PT_BRIDGE_DEBUG(
         "restride node output %", value_out->debugName(), " is non persistent");
@@ -1179,13 +1194,15 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
             std::make_shared<SynTensorOrRefList>();
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
         pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
-        intermediate_tinfos.emplace_back(PtTensorInfo(
+        PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
             tensor,
             meta_syn_tensors.back().name(),
             irn,
             watch_tensor_flag_,
             meta_syn_tensors.back().id(),
-            meta_syn_tensors.back().tensor_type()));
+            meta_syn_tensors.back().tensor_type());
+
+        ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
         aten_intermediates.push_back(tensor);
       } else {
         value_to_ivalue[value] = ivptrsh;
@@ -1406,6 +1423,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       watch_tensor_flag_ = true;
     }
 
+    // TODO: SW-68593 if node is collective add validation that outputs or
+    // output duplicates are not used in the graph
+
     // If its a meta op we need to call the CPU impl and capture changes
     // Only valid for single tensor ops
     // Can we avoid the string match here?
@@ -1516,9 +1536,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           irn += std::to_string(appended_index);
           appended_index++;
 
-          PtTensorInfo ti(
+          PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
               tensor, tensor_name, irn, watch_tensor_flag_, tensor_id);
           auto& ivpsh = it->second;
+          ivalue_to_tensor_info_map[ivpsh] = ti;
 
           if (enable_caching_) {
             auto mit = input_tiv_map.find(ivpsh);
@@ -1541,6 +1562,37 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " as persistent intermediate");
         }
       }
+    }
+
+    if (!is_shape_inference && isCollective(node)) {
+      // save indexes of kernel input stack in graph input stack
+      // when launching provide new input stack to RunCollective
+      std::shared_ptr<habana_helpers::collective_kernel_info> kernel_info =
+          std::make_shared<habana_helpers::collective_kernel_info>();
+
+      auto node_inputs = node->inputs();
+      for (auto input : node_inputs) {
+        auto ivalptr = value_to_ivalue.at(input);
+        if (ivalptr->isTensor()) {
+          PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
+          kernel_info->input_tensor_infos.push_back(ti);
+        } else {
+          kernel_info->input_tensor_infos.push_back(nullptr);
+        }
+      }
+
+      auto node_outputs = node->outputs();
+      for (auto output : node_outputs) {
+        auto ivalptr = value_to_ivalue.at(output);
+        if (ivalptr->isTensor()) {
+          PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
+          kernel_info->output_tensor_infos.push_back(ti);
+        } else {
+          kernel_info->output_tensor_infos.push_back(nullptr);
+        }
+      }
+      kernel_info->kernel = HabanaKernel;
+      collective_kernels_info.push_back(kernel_info);
     }
 
     // Adding to a vector as we share context through shared pointers and we
@@ -1810,7 +1862,7 @@ void RecipeValueSpec::create_outdup(
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
 
-  PtTensorInfo& ti = dtensorinfos->at(ti_idx);
+  PtTensorInfo& ti = *(dtensorinfos->at(ti_idx));
   auto output_idx = ti.get_output_index();
   TORCH_CHECK(
       output_idx < aten_output_num,
