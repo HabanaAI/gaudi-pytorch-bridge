@@ -696,7 +696,14 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   hl_context->setExecutionMode(kLOWERING);
 
   habana::HabanaLaunchOpPT launch{fast_path_jit_ir};
-  launch.run(stack);
+  try {
+    launch.run(stack);
+  } catch (std::exception& e) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
+    context->setExecutionMode(kLAZY);
+    UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+    throw;
+  }
 
   hl_context->setExecutionMode(kLAZY);
   hl_context->MarkTensorsExecuted();

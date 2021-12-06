@@ -62,7 +62,14 @@ void HlExec::Launch(torch::jit::Stack& stack) {
 
   auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
   habana::HabanaLaunchOpPT launch{mp_g_, false, graphIndex};
-  launch.run(stack);
+  try {
+    launch.run(stack);
+  } catch (std::exception& e) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
+    context->setExecutionMode(kLAZY);
+    UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+    throw;
+  }
 
   context->setExecutionMode(kLAZY);
   context->MarkTensorsExecuted();
