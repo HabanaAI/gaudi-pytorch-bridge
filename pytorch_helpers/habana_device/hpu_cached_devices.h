@@ -81,6 +81,10 @@ class HPURegistrar {
     device.synchronize();
   }
 
+  static int get_total_device_count() {
+    return synapse_helpers::device::get_total_device_count();
+  }
+
   static const std::thread::id& getMainThreadId() {
     return main_thread_id_;
   }

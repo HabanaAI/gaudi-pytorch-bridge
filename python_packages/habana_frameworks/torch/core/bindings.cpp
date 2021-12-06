@@ -54,7 +54,7 @@ bool IsAvailable() {
     habana::HABANAGuardImpl device_guard;
     device_guard.getDevice();
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    if (device.get_count() > 0)
+    if (device.get_count_by_current_type() > 0)
       return true;
   } catch (...) {
     return false;
@@ -81,6 +81,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("synchronize_device", []() {
     synapse_helpers::HPURegistrar::synchronize_device();
+  });
+  m.def("get_device_count", []() {
+    return synapse_helpers::HPURegistrar::get_total_device_count();
   });
 
   // Lazy apis

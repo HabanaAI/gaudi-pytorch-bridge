@@ -282,7 +282,9 @@ class device {
     return recipe_counter_;
   }
 
-  int get_count();
+  int get_count_by_current_type();
+
+  static int get_total_device_count();
 
   host_memory& get_host_memory() {
     return host_memory_;

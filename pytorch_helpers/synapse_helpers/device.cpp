@@ -280,10 +280,21 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   return device_ptr;
 }
 
-int device::get_count() {
+int device::get_count_by_current_type() {
   int count = 0;
   synStatus status{synStatus::synSuccess};
   status = synDeviceGetCountByDeviceType((uint32_t*)&count, type_);
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG("Fail to get device count. Status: ", status);
+  }
+
+  return count;
+}
+
+int device::get_total_device_count() {
+  int count = 0;
+  synStatus status{synStatus::synSuccess};
+  status = synDeviceGetCount((uint32_t*)&count);
   if (status != synSuccess) {
     PT_SYNHELPER_DEBUG("Fail to get device count. Status: ", status);
   }
