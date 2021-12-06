@@ -13,7 +13,7 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, logaddexp) {
-  GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
+  GenerateInputs(2);
   torch::ScalarType dtype = torch::kFloat;
 
   auto expected = torch::logaddexp(GetCpuInput(0), GetCpuInput(1));
@@ -23,12 +23,11 @@ TEST_F(HpuOpTest, logaddexp) {
 }
 
 TEST_F(HpuOpTest, logaddexp_out) {
-  GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
+  GenerateInputs(2);
   torch::ScalarType dtype = torch::kFloat;
 
-  auto expected = torch::empty((2, 3, 4), dtype);
-  auto result =
-      torch::empty((2, 3, 4), torch::TensorOptions(dtype).device("hpu"));
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
   torch::logaddexp_outf(GetCpuInput(0), GetCpuInput(1), expected);
   torch::logaddexp_outf(GetHpuInput(0), GetHpuInput(1), result);
