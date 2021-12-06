@@ -12,6 +12,18 @@
 
 namespace habana {
 
+bool SupportedDtypes::count(c10::ScalarType type) const {
+  return m_dtypes.count(type);
+}
+
+bool SupportedDtypes::count(const at::Tensor& tensor) const {
+  return count(tensor.scalar_type());
+}
+
+bool SupportedDtypes::count(const c10::optional<at::Tensor>& tensor) const {
+  return tensor.has_value() and count(tensor.value());
+}
+
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors) {
   std::vector<at::Tensor> metatensors;
@@ -369,7 +381,8 @@ synapse_helpers::tensor OpBackend::BuildConstant(
       force_type.has_value() ? force_type.value() : val.type();
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       at::canCast(val.type(), valtype),
-      "ConstantHelper cannot cast ",
+      __func__,
+      " cannot cast ",
       val.type(),
       " (",
       val.isFloatingPoint() ? val.toFloat() : val.toInt(),

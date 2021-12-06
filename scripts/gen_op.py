@@ -527,13 +527,22 @@ def lazyop(
             else tfetcher.get_tensors()
         )
 
-        for t in input_tensors:
-            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}({}, {}, {})\n".format(
-                "_PER_TENSOR" if isinstance(dtypes, dict) else "",
-                t,
+        # Check the promoted input when type promotion applies
+        if ctxop.supports_type_promotion():
+            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE(at::result_type({}, {}), {}, {})\n".format(
+                param_vars[0],
+                param_vars[1],
                 fname,
                 ", ".join(param_vars),
             )
+        else:
+            for t in input_tensors:
+                code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}({}, {}, {})\n".format(
+                    "_PER_TENSOR" if isinstance(dtypes, dict) else "",
+                    t,
+                    fname,
+                    ", ".join(param_vars),
+                )
         code += "\n"
 
     if ctxop.is_legacy_reqd():
@@ -1095,7 +1104,7 @@ def generate(args):
             if fgen:
                 fgens.append(fgen)
         except Exception as e:
-            print("Failed to generate op {}: {}".format(ts, e), file=sys.stdout)
+            print("Failed to generate op {}: {}".format(ts, e), file=sys.stderr)
             errors.append(e)
     print("Generated {} ops from {}".format(len(fgens), args.yaml), file=sys.stdout)
     assert len(errors) == 0, errors

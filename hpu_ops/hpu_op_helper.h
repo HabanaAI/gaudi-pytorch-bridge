@@ -13,6 +13,19 @@
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 namespace habana {
+
+class SupportedDtypes {
+ public:
+  SupportedDtypes(std::unordered_set<c10::ScalarType> dtypes)
+      : m_dtypes(std::move(dtypes)) {}
+  bool count(c10::ScalarType type) const;
+  bool count(const at::Tensor& tensor) const;
+  bool count(const c10::optional<at::Tensor>& tensor) const;
+
+ private:
+  std::unordered_set<c10::ScalarType> m_dtypes;
+};
+
 using sizes_vec = std::vector<std::vector<int64_t>>;
 
 inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
@@ -296,14 +309,11 @@ class OpBackend : public HabanaOperator {
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool = false);
 
-#define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \
-  const static std::unordered_set<c10::ScalarType> fn##_supported_dtypes \
-      supported_dtypes;
+#define HPU_SUPPORTED_DTYPES(fn, supported_dtypes) \
+  const static SupportedDtypes fn##_supported_dtypes supported_dtypes;
 
-#define FALLBACK_IF_UNSUPPORTED_DTYPE(tensor, fn, args...)       \
-  if (ABSL_PREDICT_FALSE(                                        \
-          tensor.defined() &&                                    \
-          !fn##_supported_dtypes.count(tensor.scalar_type()))) { \
+#define FALLBACK_IF_UNSUPPORTED_DTYPE(input, fn, args...)        \
+  if (ABSL_PREDICT_FALSE(!fn##_supported_dtypes.count(input))) { \
     return AtenHpuTypeDefault::fn(args);                         \
   }
 
