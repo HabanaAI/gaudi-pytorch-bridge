@@ -4068,6 +4068,17 @@ void optimizer_lamb_phase2_hpu_wrap(
   }
 }
 
+Tensor torchvision_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    double iou_threshold) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return habana_nms_hpu_lazy(boxes, scores, iou_threshold, .0f);
+  } else {
+    return habana_nms_hpu(boxes, scores, iou_threshold, .0f);
+  }
+}
+
 Tensor habana_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
@@ -4462,6 +4473,11 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> (Tensor)");
 }
 
+TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
+  m.impl(
+      TORCH_SELECTIVE_NAME("torchvision::nms"),
+      TORCH_FN(torchvision_nms_hpu_wrap));
+}
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("habana_d2d_memcpy", habana_d2d_memcpy);
   m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);
