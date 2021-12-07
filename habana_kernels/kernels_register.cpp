@@ -4503,7 +4503,7 @@ TORCH_LIBRARY(hpu, m) {
       "strided_insert_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(
       "strided_insert_cl_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
-  m.def("as_strided_layout_(Tensor self, int[] size) -> (Tensor)");
+  m.def("as_strided_layout(Tensor self, int[] size) -> (Tensor)");
   m.def("reshape(Tensor self, int[] size) -> (Tensor)");
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");

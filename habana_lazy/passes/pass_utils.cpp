@@ -92,7 +92,8 @@ void WeightIdentificationPass::markInputs(const torch::jit::Value* in) {
   std::string node_str = node->kind().toQualString();
   if (0 == kernelWeightIdx.count(node_str) &&
       !(strcmp(node->kind().toQualString(), "prim::ListConstruct") == 0) &&
-      !(strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0)) {
+      !(strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0) &&
+      !StridedKernels.count(node_str)) {
     for (auto& i : node->inputs()) {
       if (isTensor(i) && !weightTensors.count(i)) {
         weightTensors.insert(i);
@@ -137,7 +138,7 @@ void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
 
 void WeightIdentificationPass::markWeights(const torch::jit::Value* in) {
   markInputs(in);
-  markOutputs(in);
+  markInOutputs(in);
 }
 
 void WeightIdentificationPass::markInOutputs(const torch::jit::Value* in) {
@@ -147,35 +148,26 @@ void WeightIdentificationPass::markInOutputs(const torch::jit::Value* in) {
 
     // TODO: check if its binary/unary ops & then mark
     std::string node_str = node->kind().toQualString();
+    if (StridedKernels.count(node_str))
+      continue;
     if (0 == kernelWeightIdx.count(node_str) &&
         !(strcmp(node->kind().toQualString(), "hpu::control_edge_other_") ==
-          0)) {
+          0) &&
+        !(strcmp(node->kind().toQualString(), "prim::ListConstruct") == 0) &&
+        !(strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0)) {
       for (auto& in1 : node->inputs()) {
-        if (!weightTensors.count(in1)) {
+        if (isTensor(in1) && !weightTensors.count(in1)) {
           if (strcmp(node->kind().toQualString(), "prim::Return") != 0) {
+            weightTensors.insert(in1);
             markInputs(in1);
           }
         }
       }
 
       for (auto& out : node->outputs()) {
-        if (!weightTensors.count(out)) {
+        if (isTensor(out) && !weightTensors.count(out)) {
           weightTensors.insert(out);
           markInOutputs(out);
-        }
-      }
-    }
-
-    // markOutput of Outvariant kernels
-    if (is_mark_out_varients) {
-      auto it = kernelOutVariantIdx.find(node_str);
-      if (kernelOutVariantIdx.end() != it) {
-        auto outIdx = it->second;
-        HABANA_ASSERT(outIdx < node->inputs().size());
-        auto weightOut = node->inputs()[outIdx];
-        if (!weightTensors.count(weightOut)) {
-          weightTensors.insert(weightOut);
-          markInOutputs(weightOut);
         }
       }
     }
@@ -221,7 +213,7 @@ void WeightIdentificationPass::markWeightTensors(
       HABANA_ASSERT(weightIdx < node->outputs().size());
       auto weightOut = node->outputs()[weightIdx];
       weightTensors.insert(weightOut);
-      markWeights(weightOut);
+      markInOutputs(weightOut);
     }
   }
 }

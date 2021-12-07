@@ -865,7 +865,7 @@ Tensor as_strided_layout_hpu_lazy(
   if (self.dim() == 5)
     dims_ = dim_out_pos_3d;
   auto node =
-      std::make_shared<ir::Permute>(self, dims_, "hpu::as_strided_layout_");
+      std::make_shared<ir::Permute>(self, dims_, "hpu::as_strided_layout");
   auto result = empty_strided_hpu_lazy(size, stride, self.options(), false);
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
@@ -1983,8 +1983,19 @@ Tensor convolution_hpu_lazy(
   Tensor weight_hpu = weight;
   if (weight.device().type() == c10::DeviceType::CPU &&
       (habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()))
+           ->IsEnabledWeightPermutePass())) {
     weight_hpu = weight.to(c10::kHPU, true);
+    HbLazyTensor src_hb_tensor =
+        GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
+    if (src_hb_tensor.isStorageAttached()) {
+      auto at_internal_tensor = *(src_hb_tensor.GetHbLazyTensorData());
+      if (at_internal_tensor.has_storage()) {
+        auto hb_tensor =
+            habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+        hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+      }
+    }
+  }
   auto weight_hwck = permute_wt_hpu(weight_hpu);
   bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
                              ->IsEnabledWeightPermutePass())

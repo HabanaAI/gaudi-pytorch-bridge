@@ -119,6 +119,10 @@ class Output {
     return scalar_type;
   }
 
+  const c10::optional<std::vector<int64_t>> get_sizes() const {
+    return sizes;
+  }
+
  protected:
   Node* m_node = nullptr;
   size_t m_index;
@@ -126,6 +130,7 @@ class Output {
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
+  c10::optional<std::vector<int64_t>> sizes;
   c10::optional<at::ScalarType> scalar_type;
 };
 using OutputList = std::vector<Output>;
@@ -469,6 +474,10 @@ struct Value {
     return scalar_type;
   }
 
+  const c10::optional<std::vector<int64_t>> get_sizes() const {
+    return sizes;
+  }
+
   virtual ~Value();
 
   /* Unique id for Value */
@@ -491,6 +500,7 @@ struct Value {
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
+  c10::optional<std::vector<int64_t>> sizes;
   c10::optional<at::ScalarType> scalar_type;
   std::string m_name;
   /* The m_index field points to the output index from the node*/

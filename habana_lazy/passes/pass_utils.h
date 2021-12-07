@@ -86,6 +86,11 @@ class WeightIdentificationPass {
   const std::unordered_map<std::string, size_t> kernelOutVariantIdx = {
       {"hpu::habana_d2d_memcpy_other", 1},
       {"hpu::mul_out", 0}};
+  const std::set<std::string> StridedKernels = {
+      "hpu::as_strided_lazy",
+      "hpu::strided_insert",
+      "hpu::strided_view",
+      "hpu::strided_view_cl"};
 
   const std::unordered_map<std::string, std::vector<size_t>>
       customOptimizerWeightIdx = {

@@ -302,8 +302,8 @@ void HlExec::Create(
     auto t = mp_g_->addInput(inp.ToString());
     HABANA_ASSERT(!inp.m_data_ptr.expired());
     std::shared_ptr<Data> d = inp.m_data_ptr.lock();
-    t->setType(c10::TensorType::create(
-        d->logical_element_type, d->device, d->sizes.size(), false));
+    t->setType(c10::TensorType::createContiguous(
+        *(d->logical_element_type), d->device, d->sizes));
     t->setDebugName(inp.ToString());
     ir_map[ir::Output(inp)] = t;
   }
@@ -388,11 +388,10 @@ void HlExec::Create(
               c10::TypeKind::TensorType) {
             auto irout_val = node->GetOutput(idx);
             auto jit_value_out = jit_node->output(idx);
-            jit_value_out->setType(c10::TensorType::create(
-                irout_val.get_scalar_type(),
-                irout_val.get_device(),
-                irout_val.get_dims(),
-                false));
+            jit_value_out->setType(c10::TensorType::createContiguous(
+                *(irout_val.get_scalar_type()),
+                *(irout_val.get_device()),
+                *(irout_val.get_sizes())));
             jit_value_out->setDebugName(irout_val.ToString());
           }
         }

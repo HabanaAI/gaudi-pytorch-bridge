@@ -141,6 +141,7 @@ void Value::SetNode(
   }
   this->device = c10::make_optional(device);
   this->dims = c10::make_optional(dims.size());
+  this->sizes = c10::make_optional(dims);
   this->scalar_type = scalar_type;
   mp_node = std::move(node);
 
@@ -259,6 +260,7 @@ Output::Output(const Value& v)
     : m_node(v.mp_node.get()), m_index(v.GetIndex()), m_name(v.ToString()) {
   device = v.get_device();
   dims = v.get_dims();
+  sizes = v.get_sizes();
   scalar_type = v.get_scalar_type();
 }
 } // namespace ir
