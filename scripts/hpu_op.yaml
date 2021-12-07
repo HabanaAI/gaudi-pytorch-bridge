@@ -1642,6 +1642,19 @@ sub.out:
   op_backend: BinaryOp
   scalar_ids: [2]
 
+take:
+  dtypes:
+    self: [BFloat16, Float]
+    index: [Int]
+  op_backend: TakeOperator
+  out_ids: [0]
+
+take.out:
+  dtypes:
+    self: [BFloat16, Float]
+    index: [Int]
+  op_backend: TakeOperator
+
 tan.out:
   dtypes: [Float]
   guid: tan_fwd
