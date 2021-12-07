@@ -504,14 +504,12 @@ at::Tensor get_tensor_for_scalar(
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-  auto map_it = context->scalar_to_tensor_map.find(alpha);
+  auto map_it = context->scalar_to_tensor_map.find(
+      std::make_pair(alpha, options.dtype().toScalarType()));
   if (map_it == context->scalar_to_tensor_map.end()) {
-    if (options.has_dtype()) {
-      alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
-    } else {
-      alpha_tensor = at::tensor(alpha).to(c10::kHPU, true);
-    }
-    context->scalar_to_tensor_map[alpha] = alpha_tensor;
+    alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
+    context->scalar_to_tensor_map[std::make_pair(
+        alpha, options.dtype().toScalarType())] = alpha_tensor;
   } else {
     alpha_tensor = map_it->second;
   }

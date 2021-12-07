@@ -30,6 +30,22 @@ struct StrideParams {
   int64_t offset;
 };
 
+struct HashFn {
+  std::size_t operator()(const std::pair<float, at::ScalarType>& pair) const {
+    return std::hash<float>()(pair.first) ^
+        std::hash<float>()((float)pair.second);
+  }
+};
+
+class EqualFn {
+ public:
+  bool operator()(
+      const std::pair<float, at::ScalarType>& a,
+      const std::pair<float, at::ScalarType>& b) const {
+    return a.first == b.first && a.second == b.second;
+  }
+};
+
 class HbExecutionContext {
  public:
   HbExecutionContext() = default;
@@ -115,7 +131,12 @@ class HbExecutionContext {
 
   bool m_is_cached = false;
 
-  std::unordered_map<float, at::Tensor> scalar_to_tensor_map;
+  std::unordered_map<
+      std::pair<float, at::ScalarType>,
+      at::Tensor,
+      HashFn,
+      EqualFn>
+      scalar_to_tensor_map;
 
   // maps tensor id corresponding to as_strided's o/p with its i/p stride params
   std::map<int64_t, StrideParams> view_table;

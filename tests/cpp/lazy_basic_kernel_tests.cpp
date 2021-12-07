@@ -3,6 +3,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -10,7 +11,6 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
-
 using namespace habana_lazy;
 using namespace at;
 
@@ -185,4 +185,11 @@ TEST_F(LazyBasicKernelTest, weightsharinggraphcycle) {
   hC.copy_(hB);
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, getTensorForScalarNoDtype) {
+  auto opt = TensorOptions();
+  EXPECT_EQ(opt.has_dtype(), false);
+  auto tensor = get_tensor_for_scalar(0.0);
+  EXPECT_EQ(tensor.scalar_type(), torch::kFloat);
 }
