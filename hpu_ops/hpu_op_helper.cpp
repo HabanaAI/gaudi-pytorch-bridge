@@ -117,15 +117,28 @@ void OpBackend::HandleFn(
 
   const auto& outshapes = ComputeOutputShapes(stack, true);
 
-  HABANA_ASSERT(
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       outshapes.empty() || outshapes.size() == is_output_persistent_list.size(),
       "Num outputs and num outshapes does not match ",
       is_output_persistent_list.size(),
       " != ",
       outshapes.size());
 
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+      m_res_ids.size() == is_output_persistent_list.size(),
+      "Num outputs defined (",
+      m_res_ids.size(),
+      ") as out_ids is not matching with actual num outputs (",
+      is_output_persistent_list.size());
   for (unsigned i = 0; i < is_output_persistent_list.size(); ++i) {
-    // Use sizes of tensor at m_out_id if ComputeOutputShapes() is not
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        stack.at(m_res_ids.at(i)).isTensor(),
+        "Index in out_ids[",
+        i,
+        "] is incorrect, got ",
+        stack.at(m_res_ids.at(i)).tagKind(),
+        " instead of Tensor.");
+    // Use sizes of tensor at m_res_id if ComputeOutputShapes() is not
     // implemented
     const auto& t = stack.at(m_res_ids.at(i)).toTensor();
     const auto& dtype = m_promote_type
@@ -227,7 +240,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
     synapse_helpers::graph& graph,
     const std::string& guid,
     std::vector<synTensor> node_inputs,
-    const std::vector<NodeOutputAttr>& node_output_attr,
+    const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
     void* params,
     size_t param_size) {
   return OpBackend::BuildNode(

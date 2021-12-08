@@ -70,14 +70,15 @@ template <>
 inline float& get<float>(fint_t& u) {
   return u.f;
 }
-struct NodeOutputAttr {
-  at::IntArrayRef sizes{};
-  at::ScalarType dtype{at::kFloat};
-  bool persistent{false};
-  bool final_node{false};
-};
 
 struct NodeAttr {
+  struct NodeOutputAttr {
+    at::IntArrayRef sizes{};
+    at::ScalarType dtype{at::kFloat};
+    bool persistent{false};
+    bool final_node{false};
+  };
+
   std::string guid;
   std::vector<synTensor> inputs;
   std::vector<NodeOutputAttr> output_attrs;
@@ -185,7 +186,7 @@ class OpBackend : public HabanaOperator {
       synapse_helpers::graph& graph,
       const std::string& guid,
       std::vector<synTensor> node_inputs,
-      const std::vector<NodeOutputAttr>& node_output_attr,
+      const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
       void* params = nullptr,
       size_t param_size = 0);
 
