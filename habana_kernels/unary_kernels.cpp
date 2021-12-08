@@ -2607,16 +2607,6 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "aten::erf",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ErfOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::erf_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ErfInplaceOperator>(device_id, node_type);
-            })
-        .add(
             "aten::exp",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ExpOperator>(device_id, node_type);

@@ -519,6 +519,18 @@ eq.Tensor:
   type_promotion: true
   legacy_eager: true
 
+erf:
+  dtypes: [BFloat16, Float]
+  guid: erf_fwd
+  out_ids: [0]
+  legacy_eager: true
+
+erf_:
+  dtypes: [BFloat16, Float]
+  guid: erf_fwd
+  inplace_ids: [0]
+  legacy_eager: true
+
 erf.out:
   dtypes: [BFloat16, Float]
   guid: erf_fwd

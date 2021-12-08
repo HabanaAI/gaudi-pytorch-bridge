@@ -5409,16 +5409,6 @@ Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
   return result;
 }
 
-Tensor& erf_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::erf_", {self}};
-  return k.call(self);
-}
-Tensor erf_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::erf", {self}};
-  return k.call();
-}
 Tensor& exp_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::exp_", {self}};

@@ -718,8 +718,6 @@ at::Tensor gelu_hpu_lazy(const at::Tensor& self);
 at::Tensor gelu_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& self);
-at::Tensor& erf_hpu_lazy_(at::Tensor& self);
-at::Tensor erf_hpu_lazy(const at::Tensor& self);
 at::Tensor& exp_hpu_lazy_(at::Tensor& self);
 at::Tensor exp_hpu_lazy(const at::Tensor& self);
 at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);

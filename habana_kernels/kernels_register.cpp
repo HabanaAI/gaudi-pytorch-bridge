@@ -3242,23 +3242,13 @@ Tensor& hpu_wrap::erf_(Tensor& self) {
   if (!hpu_check_inputs_impl("erf_", {self}))
     return AtenHpuTypeDefault::erf_(self);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return erf_hpu_lazy_(self);
-
-  } else {
-    return erf_hpu_(self);
-  }
+  return erf_hpu_(self);
 };
 Tensor hpu_wrap::erf(const Tensor& self) {
   if (!hpu_check_inputs_impl("erf", {self}))
     return AtenHpuTypeDefault::erf(self);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return erf_hpu_lazy(self);
-
-  } else {
-    return erf_hpu(self);
-  }
+  return erf_hpu(self);
 };
 Tensor& hpu_wrap::exp_(Tensor& self) {
   if (!hpu_check_inputs_impl("exp_", {self}))
