@@ -4208,6 +4208,7 @@ Tensor hpu_wrap::adaptive_avg_pool2d(
     IntArrayRef output_size) {
   return AdaptiveAvgPool2DFunction::apply(input, output_size);
 };
+
 struct SliceFunction : public torch::autograd::Function<SliceFunction> {
   static at::Tensor forward(
       AutogradContext* ctx,
@@ -4484,6 +4485,14 @@ TORCH_LIBRARY(hpu, m) {
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def(
       "as_strided_lazy_cl_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
+  m.def(
+      "strided_view(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+  m.def(
+      "strided_view_cl(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+  m.def(
+      "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
+  m.def(
+      "strided_insert_cl(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
   m.def("as_strided_layout_(Tensor self, int[] size) -> (Tensor)");
   m.def("reshape(Tensor self, int[] size) -> (Tensor)");
   m.def(

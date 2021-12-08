@@ -542,22 +542,27 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
   std::vector<int64_t> out_size_vec;
   std::vector<int64_t> out_stride_vec;
 
-  if ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) &&
-      (size.size() == 4)) {
-    // NCHW -> NHWC
-    const int64_t dim_pos_in[4] = {0, 2, 3, 1};
-    for (size_t idx = 0; idx < size.size(); idx++) {
-      out_size_vec.emplace_back(size[dim_pos_in[idx]]);
-      out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
-    }
-  } else if (
-      (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) &&
-      (size.size() == 5)) {
-    // NCDHW -> NDHWC
-    const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
-    for (size_t idx = 0; idx < size.size(); idx++) {
-      out_size_vec.emplace_back(size[dim_pos_in[idx]]);
-      out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
+  if ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) ||
+      (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d)) {
+    if (size.size() == 4) {
+      // NCHW -> NHWC
+      const int64_t dim_pos_in[4] = {0, 2, 3, 1};
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+        out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
+      }
+    } else if (size.size() == 5) {
+      // NCDHW -> NDHWC
+      const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+        out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
+      }
+    } else {
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[idx]);
+        out_stride_vec.emplace_back(stride[idx]);
+      }
     }
   } else {
     for (size_t idx = 0; idx < size.size(); idx++) {
@@ -739,6 +744,49 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for strided view , used for tensor views
+ * @param self - input which needs to be viewed
+ ************************************************************************/
+void StridedViewOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
+  TORCH_CHECK(
+      inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
+  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 fneeds to be of scalar type");
+  auto size = inputs[1].toIntVector();
+  auto strides = inputs[2].toIntVector();
+  auto offset = inputs[3].toInt();
+
+  auto output = habana_helpers::createPTTensor(
+      self,
+      size,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
+
+  struct synStridedOpParams params;
+  params.baseOffset = static_cast<uint64_t>(offset);
+
+  size_t idx = 0;
+  // synapse expects strides in reverse order
+  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+    params.strides[idx++] = static_cast<uint64_t>(*it);
+  }
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -780,6 +828,18 @@ static auto& KernelRegistry =
             "hpu::as_strided_lazy_cl_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AsStridedClOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_view",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedViewOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_view_cl",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedViewClOperator>(
                   device_id, node_type);
             })
         .add(

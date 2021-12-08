@@ -414,18 +414,46 @@ class LazyOp {
     }
   }
 
+  void viewUpdateInputsInplace() {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    size_t idx = 0;
+    for (auto ival : m_inputs) {
+      if (ival.isTensor()) {
+        auto t = ival.toTensor();
+        if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
+          auto hl_t = GetHbLazyTensor(t);
+
+          // if it is base tensor, use the most recent version else check if
+          // it is a view
+          auto id = hl_t.getTensorUniqueId();
+          if (context->orig_tensor_map.find(id) !=
+              context->orig_tensor_map.end()) {
+            m_inputs[idx] = context->orig_tensor_map[id];
+          } else {
+            if (is_inplace(m_symbol)) {
+              HandleViews(t, hl_t);
+            }
+          }
+        }
+      }
+      idx++;
+    }
+  }
+
   void HandleViewsInplace(
       const at::Tensor& self,
       habana_lazy::HbLazyTensor& hl_self) {
     auto out_t = empty_hpu_lazy(
-        self.sizes(), self.options(), self.suggest_memory_format(), true);
+        self.sizes(), self.options(), self.suggest_memory_format(), false);
 
     // optimization for 8x mul_out case. The below logic avoids extra out of
     // place as_strided_lazy call
     // TODO ideally we should also replace inplace op with out of place
     // variant.
     if (!is_inplace(m_symbol)) {
-      // out variant op. update m_inputs tensor with out_t
+      // out variant needs storage as it is a graph input
+      out_t = empty_hpu_lazy(
+          self.sizes(), self.options(), self.suggest_memory_format(), true);
       for (size_t idx = 0; idx < m_inputs.size(); idx++) {
         auto t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
@@ -462,7 +490,7 @@ class LazyOp {
         context->view_table.find(id) != context->view_table.end();
 
     // Handle views or fetch updated tensor for all the inputs
-    viewUpdateInputs();
+    viewUpdateInputsInplace();
 
     // special handling for self tensor
     if (is_self_view == false) {
@@ -479,13 +507,10 @@ class LazyOp {
         }
       }
       // special handling for self tensor
-
-      self = self_updated;
-
       // skip ctrl edges for inplace
       // TODO do the same for out variants
       if (!is_inplace(m_symbol)) {
-        updateDstDependencies(hl_self, self, true);
+        updateDstDependencies(hl_self, self_updated, true);
       }
       const auto& node = create_node();
       ir::Value& out = hl_self.CurrentIrValue();

@@ -308,6 +308,7 @@ ENV_STRUCT_DEFINITION(PT_HABANA_POOL_SIZE, unsigned long, 24);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_STRATEGY, unsigned, 5);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_MAX_MERGE_COUNT, unsigned, 5);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_ENABLE_LFU_MERGE, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VIEW_TABLE, bool, false);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes

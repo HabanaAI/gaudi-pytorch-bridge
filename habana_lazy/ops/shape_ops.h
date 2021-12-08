@@ -184,5 +184,43 @@ class StridedInsert : public ir::Node {
   }
 };
 
+class StridedView : public ir::Node {
+ public:
+  enum class StridedViewMeta {
+    SIZE_INDEX = 1,
+    STRIDE_INDEX = 2,
+    STORAGE_OFFSET = 3
+  };
+  StridedView() = delete;
+  StridedView(
+      const at::Tensor& self,
+      at::IntArrayRef size,
+      at::IntArrayRef stride,
+      int64_t storage_offset,
+      std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(size, static_cast<size_t>(StridedViewMeta::SIZE_INDEX));
+    m_meta_data.set(stride, static_cast<size_t>(StridedViewMeta::STRIDE_INDEX));
+    m_meta_data.set(
+        storage_offset, static_cast<size_t>(StridedViewMeta::STORAGE_OFFSET));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", Size = "
+       << m_meta_data.get(static_cast<size_t>(StridedViewMeta::SIZE_INDEX))
+       << ", strides = "
+       << m_meta_data.get(static_cast<size_t>(StridedViewMeta::STRIDE_INDEX))
+       << ", storage offset = ";
+    return ss.str();
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy
