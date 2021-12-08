@@ -1024,6 +1024,26 @@ logcumsumexp:
   op_backend: LogCumsumExp
   out_ids: [0]
 
+log_sigmoid_backward:
+  dtypes: [Float]
+  op_backend: LogSigmoidBackward
+  out_ids: [0]
+
+log_sigmoid_backward.grad_input:
+  dtypes: [Float]
+  op_backend: LogSigmoidBackward
+
+log_sigmoid_forward:
+  custom_output_shape: LogSigmoidfwdOutputShape
+  dtypes: [Float]
+  op_backend: LogSigmoidForward
+  out_ids: [0, 0]
+
+log_sigmoid_forward.output:
+  custom_output_shape: LogSigmoidfwdOutputShape
+  dtypes: [Float]
+  op_backend: LogSigmoidForward
+
 logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_backend: LogCumsumExp
