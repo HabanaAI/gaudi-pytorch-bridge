@@ -1524,6 +1524,31 @@ round.out:
   dtypes: [BFloat16, Float]
   guid: round_fwd
 
+rrelu_with_noise:
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  op_frontend: LazyTensorSeed
+  op_backend: Rrelu_with_noise
+  out_ids: [0]
+
+rrelu_with_noise_:
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  op_frontend: LazyRreluOutInplace
+  op_backend: Rrelu_with_noise
+  inplace_ids: [0]
+
+rrelu_with_noise.out:
+  dtypes: [BFloat16, Float]
+  func_ns_hpu: true
+  op_frontend: LazyRreluOutInplace
+  op_backend: Rrelu_with_noise
+
+rrelu_with_noise_backward:
+  dtypes: [BFloat16, Float]
+  op_backend: Rrelu_with_noise_bwd
+  out_ids: [0]
+
 rsqrt:
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd

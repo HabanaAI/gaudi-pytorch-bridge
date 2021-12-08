@@ -4376,6 +4376,12 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "random_.from(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)");
   m.def("random_.to(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)");
+  m.def(
+      "rrelu_with_noise(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor");
+  m.def(
+      "rrelu_with_noise.out(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
+  m.def(
+      "rrelu_with_noise_(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)");
 
   m.def("nonzero(Tensor self) -> (Tensor Tensor)");
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
