@@ -57,7 +57,7 @@ void Geometric::AddNode(
       graph,
       "random_negative_binomial_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0)},
+      {},
       {{outshape, ScalarType(), false}},
       params.get(),
       size);
