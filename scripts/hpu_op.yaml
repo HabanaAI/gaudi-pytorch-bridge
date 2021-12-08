@@ -1077,6 +1077,21 @@ log_sigmoid_forward.output:
   dtypes: [Float]
   op_backend: LogSigmoidForward
 
+_log_softmax:
+  dtypes: [BFloat16, Float]
+  guid: logsoftmax_fwd
+  custom_fill_params: FillLogSoftmaxParams
+  out_ids: [0]
+  legacy_eager: true
+
+_log_softmax_backward_data:
+  dtypes: [BFloat16, Float]
+  guid: logsoftmax_bwd
+  custom_fill_params: FillLogSoftmaxBackwardParams
+  op_backend: LogSoftmaxBackward
+  out_ids: [0]
+  legacy_eager: true
+
 logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_backend: LogCumsumExp

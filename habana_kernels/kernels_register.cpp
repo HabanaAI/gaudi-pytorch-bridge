@@ -2702,12 +2702,7 @@ Tensor hpu_wrap::_log_softmax(
         check_handle->get_status()))
     return AtenHpuTypeDefault::_log_softmax(self, dim, half_to_float);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return log_softmax_hpu_lazy(self, dim, half_to_float);
-
-  } else {
-    return log_softmax_hpu(self, dim, half_to_float);
-  }
+  return log_softmax_hpu(self, dim, half_to_float);
 }
 
 Tensor hpu_wrap::_log_softmax_backward_data(
@@ -2720,12 +2715,7 @@ Tensor hpu_wrap::_log_softmax_backward_data(
     return AtenHpuTypeDefault::_log_softmax_backward_data(
         grad, output, dim, input);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return log_softmax_backward_hpu_lazy(grad, output, dim, input);
-
-  } else {
-    return log_softmax_backward_hpu(grad, output, dim, input);
-  }
+  return log_softmax_backward_hpu(grad, output, dim, input);
 };
 Tensor hpu_wrap::_softmax(
     const Tensor& self,

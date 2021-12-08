@@ -4251,55 +4251,6 @@ Tensor argmax_hpu_lazy(
   flush_op(result);
   return result;
 }
-Tensor log_softmax_hpu_lazy(
-    const Tensor& self,
-    const int64_t dim,
-    const bool half_to_float) {
-  PT_LAZY_TRACE;
-  auto node = std::make_shared<ir::LogSoftMax>(
-      self, dim, half_to_float, "aten::_log_softmax");
-  // infer shape
-  auto shape_out = LogSoftmaxOperator::compute_output_shape(self);
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-
-  auto hl_result = GetHbLazyTensor(result);
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
-}
-Tensor log_softmax_backward_hpu_lazy(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto node = std::make_shared<ir::LogSoftMaxBackward>(
-      grad, output, dim, input, "aten::_log_softmax_backward_data");
-  // infer output shape
-  auto shape_out = LogSoftmaxBackwardOperator::compute_output_shape(input);
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-
-  auto hl_result = GetHbLazyTensor(result);
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
-}
 
 Tensor softmax_hpu_lazy(
     const Tensor& self,
@@ -4966,7 +4917,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
       auto shape_out = self.sizes().vec();
       int64_t dim_ = c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
       shape_out[dim_] = k;
-      auto type = kLong;
+      auto type = kLong; // PyTorch expects returned indices dtype to be Long
 
       auto result_0 = empty_hpu_lazy(
           shape_out, self.options(), self.suggest_memory_format(), false);

@@ -598,15 +598,6 @@ at::Tensor& bitwise_xor_out_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-at::Tensor log_softmax_hpu_lazy(
-    const at::Tensor& self,
-    const int64_t dim,
-    const bool half_to_float);
-at::Tensor log_softmax_backward_hpu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& output,
-    int64_t dim,
-    const at::Tensor& input);
 at::Tensor softmax_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
