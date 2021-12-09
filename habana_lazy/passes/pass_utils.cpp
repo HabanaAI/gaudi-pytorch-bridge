@@ -212,7 +212,7 @@ void WeightIdentificationPass::markWeightTensors(
       HABANA_ASSERT(weightIdx < node->outputs().size());
       auto weightOut = node->outputs()[weightIdx];
       weightTensors.insert(weightOut);
-      markInOutputs(weightOut);
+      markWeights(weightOut);
     }
   }
 }
