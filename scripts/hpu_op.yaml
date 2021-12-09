@@ -895,6 +895,14 @@ ge.Tensor:
   type_promotion: true
   legacy_eager: true
 
+gelu.out:
+  dtypes: [Float,BFloat16]
+  guid: gelu_fwd
+
+gelu_backward.grad_input:
+  dtypes: [BFloat16, Float]
+  guid: gelu_bwd
+
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
