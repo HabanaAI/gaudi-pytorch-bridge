@@ -169,15 +169,15 @@ class ScatterWrapperOperator : public HabanaOperator {
   bool inplace;
 };
 
-class ScatterOperator : public ScatterWrapperOperator {
+class ScatterHelperOperator : public ScatterWrapperOperator {
  public:
-  ScatterOperator(int device_id, c10::ScalarType scalarType)
+  ScatterHelperOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
 };
 
-class ScatterInplaceOperator : public ScatterWrapperOperator {
+class ScatterInplaceHelperOperator : public ScatterWrapperOperator {
  public:
-  ScatterInplaceOperator(int device_id, c10::ScalarType scalarType)
+  ScatterInplaceHelperOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(
             device_id,
             scalarType,
@@ -211,15 +211,15 @@ class ScatterValueWrapperOperator : public HabanaOperator {
   bool _inplace;
 };
 
-class ScatterValueOperator : public ScatterValueWrapperOperator {
+class ScatterValueHelperOperator : public ScatterValueWrapperOperator {
  public:
-  ScatterValueOperator(int device_id, c10::ScalarType scalarType)
+  ScatterValueHelperOperator(int device_id, c10::ScalarType scalarType)
       : ScatterValueWrapperOperator(device_id, scalarType) {}
 };
 
-class ScatterValueInplaceOperator : public ScatterValueWrapperOperator {
+class ScatterValueHelperInplaceOperator : public ScatterValueWrapperOperator {
  public:
-  ScatterValueInplaceOperator(
+  ScatterValueHelperInplaceOperator(
       int device_id,
       c10::ScalarType scalarType,
       bool is_inplace = true)

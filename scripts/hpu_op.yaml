@@ -1666,6 +1666,54 @@ rsub.Tensor:
   out_ids: [0]
   scalar_ids: [2]
 
+scatter.src:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    src: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+  op_backend: ScatterOperator
+  out_ids: [0]
+  legacy_eager: true
+
+scatter_.src:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    src: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+  op_backend: ScatterOperator
+  inplace_ids: [0]
+  legacy_eager: true
+
+scatter.src_out:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    src: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+    out: [BFloat16, Float, Int, Short, Byte, Char]
+  op_backend: ScatterOperator
+
+scatter.value:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+  op_backend: ScatterOperator
+  out_ids: [0]
+
+scatter_.value:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+  op_backend: ScatterOperator
+  inplace_ids: [0]
+  legacy_eager: true
+
+scatter.value_out:
+  dtypes:
+    self: [BFloat16, Float, Int, Short, Byte, Char]
+    index: [Int]
+    out: [BFloat16, Float, Int, Short, Byte, Char]
+  op_backend: ScatterOperator
+
 sgn.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd

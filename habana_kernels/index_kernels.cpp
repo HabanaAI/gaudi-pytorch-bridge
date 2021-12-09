@@ -482,7 +482,7 @@ Tensor scatter_src_hpu(
       "scatter_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   // create the operator
-  ScatterOperator Op(device_id, scalar_type);
+  ScatterHelperOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim_), IValue(index_int), IValue(src)};
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -614,7 +614,7 @@ Tensor scatter_value_hpu(
       "scatter_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   // create the operator
-  ScatterValueOperator Op(device_id, scalar_type);
+  ScatterValueHelperOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim_), IValue(index_int), IValue(value)};
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -812,7 +812,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   temp_stack.clear();
 
   ////auto temp  = scatter_src_hpu(self, dim, index_broadcast, value_acc);
-  auto scatterOp = make_operator<ScatterOperator>(
+  auto scatterOp = make_operator<ScatterHelperOperator>(
       this->p_context_->device_id_, self.scalar_type());
   temp_stack = {
       IValue(self),
@@ -991,7 +991,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   temp_stack.clear();
 
   ////auto temp  = scatter_src_hpu(self, dim, index_broadcast, value_acc);
-  auto scatterOp = make_operator<ScatterOperator>(
+  auto scatterOp = make_operator<ScatterHelperOperator>(
       this->p_context_->device_id_, self.scalar_type());
   temp_stack = {
       IValue(self),
@@ -2584,32 +2584,9 @@ static auto& KernelRegistry =
               return std::make_shared<GatherOperator>(device_id, node_type);
             })
         .add(
-            "aten::scatter.src",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::scatter_.src",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::scatter_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterAddOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::scatter_value",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterValueOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::scatter_.value",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterValueInplaceOperator>(
-                  device_id, node_type);
             })
         .add(
             "hpu::scatter_nd",

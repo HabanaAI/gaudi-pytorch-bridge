@@ -67,6 +67,7 @@
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
+#include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -2086,45 +2087,6 @@ Tensor gather_src_hpu_lazy(
   return result;
 }
 
-Tensor& scatter_inplace_src_hpu_lazy(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> op("aten::scatter_", {self, dim_, index, src});
-  op.call(self);
-  flush_op(self);
-  return self;
-}
-
-Tensor& scatter_inplace_value_hpu_lazy(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Scalar& value) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> op("aten::scatter_", {self, dim_, index, value});
-  op.call(self);
-  flush_op(self);
-  return self;
-}
-
-Tensor scatter_src_hpu_lazy(
-    const Tensor& self,
-    int64_t dim,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_LAZY_TRACE;
-  auto node =
-      std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim, index, src);
-  LazyOp<at::Tensor, ir::ScatterSrc> k{
-      node,
-      {self, dim, index, src},
-      {ScatterWrapperOperator::compute_output_shape(self)}};
-  return k.call();
-};
-
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,
@@ -2727,7 +2689,7 @@ Tensor slice_backward_hpu_lazy_legacy(
       index.options().device_opt(),
       index.options().pinned_memory_opt());
   auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
-  auto result = scatter_src_hpu_lazy(grad_input, dim, expand_idx, grad_output);
+  auto result = HpuOp::scatter(grad_input, dim, expand_idx, grad_output);
 
   return result;
 }

@@ -1012,12 +1012,7 @@ Tensor& hpu_wrap::scatter_(
   if (!hpu_check_inputs_impl("scatter_", {self, index, src}))
     return AtenHpuTypeDefault::scatter_(self, dim_, index, src);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return scatter_inplace_src_hpu_lazy(self, dim_, index, src);
-
-  } else {
-    return scatter_inplace_src_hpu(self, dim_, index, src);
-  }
+  return scatter_inplace_src_hpu(self, dim_, index, src);
 };
 Tensor hpu_wrap::scatter(
     const Tensor& self,
@@ -1027,24 +1022,14 @@ Tensor hpu_wrap::scatter(
   if (!hpu_check_inputs_impl("scatter", {self, index, src}))
     return AtenHpuTypeDefault::scatter(self, dim_, index, src);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return scatter_src_hpu_lazy(self, dim_, index, src);
-
-  } else {
-    return scatter_src_hpu(self, dim_, index, src);
-  }
+  return scatter_src_hpu(self, dim_, index, src);
 };
 Tensor& hpu_wrap::scatter_(
     Tensor& self,
     int64_t dim_,
     const Tensor& index,
     const Scalar& value) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return scatter_inplace_value_hpu_lazy(self, dim_, index, value);
-
-  } else {
-    return scatter_inplace_value_hpu(self, dim_, index, value);
-  }
+  return scatter_inplace_value_hpu(self, dim_, index, value);
 };
 Tensor hpu_wrap::scatter_add(
     const Tensor& self,
@@ -4422,8 +4407,6 @@ TORCH_LIBRARY(hpu, m) {
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
-      "scatter_value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor(a!)");
-  m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
   m.def("arange_out_ds(Tensor shape, Tensor result) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
@@ -4533,11 +4516,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       static_cast<at::Tensor (*)(
           const at::Tensor&, int64_t, bool, c10::optional<at::ScalarType>)>(
           &hpu_wrap::prod));
-  m.impl(
-      "scatter_value",
-      static_cast<
-          at::Tensor& (*)(at::Tensor&, int64_t, const at::Tensor&, const Scalar&)>(
-          &hpu_wrap::scatter_));
   m.impl(
       "arange_out",
       static_cast<
