@@ -26,7 +26,7 @@ FuncDef = namedtuple_with_defaults("FuncDef", "cpp_sig, aten_sig, dispatch, defa
 
 OpGen = namedtuple_with_defaults(
     "OpGen",
-    "tree, xtree, rwxtree, func, xfunc, lazy_code, kernel_code, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dispatch, default, ctxop",
+    "tree, xtree, rwxtree, func, xfunc, op_frontend, op_backend, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dispatch, default, ctxop",
 )
 
 _GRAMMAR = r"""
@@ -147,7 +147,7 @@ namespace habana {{
 
 {funcs}
 
-{kernel_code}
+{op_backend}
 
 {kr_regs}
 
@@ -588,7 +588,18 @@ def bitwise_ops_alt_guid(guid):
     return code
 
 
-def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
+# HACK: Construct tensor from options
+def tril_triu_without_tensor():
+    # row, col, offset, c10::optional<ScalarType> dtype, c10::optional<Layout> layout, c10::optional<Device> device, c10::optional<bool> pin_mem
+    code = (
+        "auto options = at::TensorOptions(at::kHPU).dtype(stack[3].toOptional<c10::ScalarType>());\n"
+        "    at::Tensor t = at::empty(ComputeOutputShapes(stack, true)[0], options);\n"
+        "    stack.emplace_back(t);"
+    )
+    return code
+
+
+def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors):
     guid = ctxop.get_guid()
     out_ids = ctxop.get_out_ids()
     inplace_ids = ctxop.get_inplace_ids()
@@ -617,6 +628,8 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
 
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
+    elif fname == "tril_indices" or fname == "triu_indices":
+        custom_handler = _CUSTOM_HANDLER.format(body=tril_triu_without_tensor())
     else:
         custom_handler = ""
 
@@ -721,8 +734,8 @@ class TensorFetcher(object):
 
 
 def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
-    lazy_code = "{} {{\n".format(sig)
-    lazy_code += generate_entry_debug_code(tree, fname, params)
+    op_frontend = "{} {{\n".format(sig)
+    op_frontend += generate_entry_debug_code(tree, fname, params)
 
     tfetcher = TensorFetcher("metatens")
     param_vars = []
@@ -773,7 +786,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
         if type_core(tree.children[0]) == "::std::tuple":
             lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
 
-    lazy_code += lazyop(
+    op_frontend += lazyop(
         ctxop,
         tfetcher,
         fn,
@@ -785,10 +798,12 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
         lazyop_call_args,
     )
 
-    hpuop_class = opname.replace(".", "_")
-    kernel_code = get_hpuop_class_impl(ctxop, fname, hpuop_class, len(call_args))
+    op_backend_class = opname.replace(".", "_")
+    op_backend = get_op_backend_class_impl(
+        ctxop, fname, op_backend_class, len(call_args)
+    )
 
-    return lazy_code, kernel_code, hpuop_class, ctxop
+    return op_frontend, op_backend, op_backend_class, ctxop
 
 
 def requires_registration(fgen):
@@ -813,7 +828,7 @@ def get_hpu_wrapper(fndef, ctx):
 
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
     if requires_registration(fndef) and get_aten_opname(aten_sig) in ctx.op_data:
-        lazy_code, kernel_code, cname, ctxop = generate_code(
+        op_frontend, op_backend, cname, ctxop = generate_code(
             ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params
         )
 
@@ -823,8 +838,8 @@ def get_hpu_wrapper(fndef, ctx):
             rwxtree=rwxtree,
             func=fname,
             xfunc=xfname,
-            lazy_code=lazy_code,
-            kernel_code=kernel_code,
+            op_frontend=op_frontend,
+            op_backend=op_backend,
             cname=cname,
             sig=fndef.cpp_sig,
             rwsig=rwsig,
@@ -967,9 +982,9 @@ def generate_all(fgens):
     dtype_defs = ""
     dtype_fnames = set()
 
-    lazy_hfunctions = ""
-    lazy_functions = ""
-    kernel_code = ""
+    op_frontend_hfunctions = ""
+    op_frontend_functions = ""
+    op_backend = ""
 
     for fgen in fgens:
         # torch registrations
@@ -997,17 +1012,16 @@ def generate_all(fgens):
             dtype_defs += "{}\n".format(generate_dtype_macro(fgen.ctxop, fgen.func))
             dtype_fnames.add(fgen.func)
 
-        # Lazy function declarations
-        if fgen.lazy_code:
-            lazy_hfunctions += "  static {};\n".format(fgen.rwsig)
+        if fgen.op_frontend:
+            # Lazy function declarations
+            op_frontend_hfunctions += "  static {};\n".format(fgen.rwsig)
 
-        # Lazy functions
-        if fgen.lazy_code:
-            lazy_functions += "{}\n\n".format(fgen.lazy_code)
+            # Lazy functions
+            op_frontend_functions += "{}\n\n".format(fgen.op_frontend)
 
         # Lowering Kernel code
-        if fgen.kernel_code:
-            kernel_code += "{}\n".format(fgen.kernel_code)
+        if fgen.op_backend:
+            op_backend += "{}\n".format(fgen.op_backend)
 
     torch_regs = aten_code + "\n}\n"
 
@@ -1019,11 +1033,11 @@ def generate_all(fgens):
     kr_regs = kr_code + "\n".join(krlines) + ";"
     return (
         dtype_defs,
-        lazy_hfunctions,
-        lazy_functions,
+        op_frontend_hfunctions,
+        op_frontend_functions,
         torch_regs,
         overridden,
-        kernel_code,
+        op_backend,
         kr_regs,
     )
 
@@ -1039,7 +1053,7 @@ def generate_op_backend_hclasses(fgens):
     return code
 
 
-def generate_lazy_hclasses(fgens):
+def generate_op_frontend_hclasses(fgens):
     code = ""
     classes = set()
     for fgen in fgens:
@@ -1113,7 +1127,7 @@ def generate(args):
     ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
 
     op_backend_classes = generate_op_backend_hclasses(fgens)
-    op_frontend_classes = generate_lazy_hclasses(fgens)
+    op_frontend_classes = generate_op_frontend_hclasses(fgens)
     fill_params_decls = generate_fill_params_hdecls(fgens)
     outshapes_decls = generate_outshapes_hdecls(fgens)
 
@@ -1123,7 +1137,7 @@ def generate(args):
         functions,
         torch_regs,
         overridden,
-        kernel_code,
+        op_backend,
         kr_regs,
     ) = generate_all(fgens)
 
@@ -1144,7 +1158,7 @@ def generate(args):
             gen=os.path.basename(sys.argv[0]),
             dtype_defs=dtype_defs,
             funcs=functions,
-            kernel_code=kernel_code,
+            op_backend=op_backend,
             kr_regs=kr_regs,
             torch_regs=torch_regs,
         ),

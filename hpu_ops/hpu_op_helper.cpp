@@ -294,6 +294,7 @@ void OpBackend::AllocateAndAddSynapseNode(
     at::Stack& stack,
     std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
+
   HandleFn(graph, stack, is_output_persistent_list);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
