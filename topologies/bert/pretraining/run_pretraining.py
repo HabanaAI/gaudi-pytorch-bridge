@@ -728,13 +728,13 @@ def main():
         os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = demo_config_path + "/../../configs/BERT_Fusion_Ops.txt"
         os.environ["PT_HPU_POOL_STRATEGY"]="4"
         if args.local_rank != -1:
-            os.environ["PT_USE_HCL_SYNC"] = "1"
+            os.environ["PT_HPU_USE_HCL_SYNC"] = "1"
     if args.use_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
         os.environ["PT_HPU_LOWER_AS_STRIDED"] = "1"
         if args.local_rank != -1:
             os.environ["PT_HPU_POOL_STRATEGY"]="0"
-            os.environ["PT_USE_HCL_SYNC"] = "1"
+            os.environ["PT_HPU_USE_HCL_SYNC"] = "1"
 
         try:
             import habana_frameworks.torch.core as htcore

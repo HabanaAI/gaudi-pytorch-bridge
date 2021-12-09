@@ -25,11 +25,11 @@ namespace c10d {
 
 namespace {
 
-#define HCL_SYNC()                       \
-  {                                      \
-    if (GET_ENV_FLAG(PT_USE_HCL_SYNC)) { \
-      HCL_Sync(HCL_COMM_WORLD, 555);     \
-    }                                    \
+#define HCL_SYNC()                           \
+  {                                          \
+    if (GET_ENV_FLAG(PT_HPU_USE_HCL_SYNC)) { \
+      HCL_Sync(HCL_COMM_WORLD, 555);         \
+    }                                        \
   }
 
 std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
