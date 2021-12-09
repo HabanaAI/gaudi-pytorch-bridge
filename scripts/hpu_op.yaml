@@ -51,6 +51,17 @@ addcmul.out:
   op_backend: AddCOpOut
   scalar_ids: [3]
 
+addmm_:
+  custom_output_shape: AddMMOutshape
+  dtypes: [BFloat16, Float]
+  op_backend: AddMM
+  inplace_ids: [0]
+
+addmm.out:
+  custom_output_shape: AddMMOutshape
+  dtypes: [BFloat16, Float]
+  op_backend: AddMM
+
 addmv:
   custom_output_shape: AddMVOutshape
   dtypes: [BFloat16, Float]
