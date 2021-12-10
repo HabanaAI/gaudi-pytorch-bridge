@@ -453,10 +453,14 @@ class HabanaLaunchOpPT {
   inline void try_run_shape_inference(
       const ShapeInfo::InferencePass& pass,
       DynamicShapeInfo& graph_input_info) {
-    try {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK)) {
+      try {
+        run_shape_inference(pass, graph_input_info);
+      } catch (const PassException& e) {
+        handle_pass_exception(graph_input_info, e);
+      }
+    } else {
       run_shape_inference(pass, graph_input_info);
-    } catch (const PassException& e) {
-      handle_pass_exception(graph_input_info, e);
     }
   }
 };

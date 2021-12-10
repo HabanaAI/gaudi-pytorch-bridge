@@ -2018,8 +2018,8 @@ void HabanaLaunchOpPT::run_shape_inference(
     run_pass();
   } catch (std::exception& e) {
     error_str = e.what();
-    PT_DYNAMIC_SHAPE_WARN(
-        "Exception occured in Pass = ", pass, " - Details :\n", error_str);
+    PT_DYNAMIC_SHAPE_WARN("Exception occured in Pass = ", pass);
+    PT_DYNAMIC_SHAPE_DEBUG("Exception Details :\n", error_str);
     throw_exception = true;
   }
 
@@ -2089,8 +2089,6 @@ void HabanaLaunchOpPT::handle_pass_exception(
         throw std::runtime_error("Exception was not handled ..");
         break;
       }
-      PT_DYNAMIC_SHAPE_WARN(
-          "Output/Compile exception changing min and max to CURRENT..");
       graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
       graph_input_info.max_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
       break;
@@ -2145,8 +2143,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // CURRENT and pass as OUTPUT_PASS which breaks the handling and throws
     // runtime error.
     case ShapeInfo::InferencePass::OUTPUT_SHAPE:
-      PT_DYNAMIC_SHAPE_WARN(
-          "Output/Compile Pass exception rerun with policy CURRENT ..");
+      PT_DYNAMIC_SHAPE_WARN("Rerun with policy CURRENT ..");
       graph_input_info.min_input_tshapes.clear();
       graph_input_info.max_input_tshapes.clear();
       graph_input_info.max_input_tshapes.insert(
@@ -2207,16 +2204,33 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       graph_input_info.max_policy,
       "}");
 
-  // Try running the BuildSynapseGraph with min and max
-  // infered above if the BuildSynapseGraph fails, call
-  // handle_pass_exception with pass type OUTPUT_SHAPE. In handling this
-  // exception bucket ranges are recalculated as per min and max both as CURRENT
-  // and again call CompileAndRunDynamicGraph with changed ranges and policy.
-  // This is last resort if anything further fails bail out the execution. We
-  // need not change anything in cache because exception either occurs in
-  // compilation or launch and both happens before adding recipie to cache.
   std::string result = "OK";
-  try {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK)) {
+    // Try running the BuildSynapseGraph with min and max
+    // infered above if the BuildSynapseGraph fails, call
+    // handle_pass_exception with pass type OUTPUT_SHAPE. In handling this
+    // exception bucket ranges are recalculated as per min and max both as
+    // CURRENT and again call CompileAndRunDynamicGraph with changed ranges and
+    // policy. This is last resort if anything further fails bail out the
+    // execution. We need not change anything in cache because exception either
+    // occurs in compilation or launch and both happens before adding recipie to
+    // cache.
+    try {
+      auto syn_graph =
+          habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+      syn_graph.set_dynamic_graph(is_dynamic_graph);
+      BuildSynapseGraph(syn_graph);
+      CompileSynapseGraph();
+      ConstructPatchingTable();
+      ExecuteSynapseGraph();
+    } catch (std::exception& e) {
+      PT_DYNAMIC_SHAPE_WARN("Exception in BuildSynapseGraph");
+      PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
+      Clear(true);
+      PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
+      handle_pass_exception(graph_input_info, p);
+    }
+  } else {
     auto syn_graph =
         habana_helpers::create_graph(device.id(), GetSynapseGraphName());
     syn_graph.set_dynamic_graph(is_dynamic_graph);
@@ -2224,13 +2238,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     CompileSynapseGraph();
     ConstructPatchingTable();
     ExecuteSynapseGraph();
-  } catch (std::exception& e) {
-    PT_DYNAMIC_SHAPE_WARN(
-        "Exception in BuildSynapseGraph Details:\n", e.what());
-    result = e.what();
-    Clear(true);
-    PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
-    handle_pass_exception(graph_input_info, p);
   }
   auto ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);

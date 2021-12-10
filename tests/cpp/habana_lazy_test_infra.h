@@ -34,6 +34,9 @@ const char* const place_on_cpu_env = getenv("PT_HPU_PLACE_ON_CPU");
 class EnvHelper {
   bool m_defined = false;
   unsigned m_saved = 0;
+  unsigned m_dynamic = 0;
+  unsigned m_fallback_pass = 1;
+  unsigned m_fallback_launch = 0;
   uint64_t m_seed = InitSeed();
 
  private:
@@ -49,6 +52,45 @@ class EnvHelper {
       SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, mode, force);
     } else {
       UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+    }
+  }
+
+  void SetDynamicMode() {
+    m_dynamic = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    if (!m_dynamic) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    }
+  }
+
+  void UnsetDynamicMode() {
+    if (!m_dynamic) {
+      UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    }
+  }
+
+  void DisableDynamicPassFallback() {
+    m_fallback_pass = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK);
+    if (m_fallback_pass) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK, false, 1);
+    }
+  }
+
+  void RestoreDynamicPassFallback() {
+    if (m_fallback_pass) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK, true, 1);
+    }
+  }
+
+  void EnableDynamicLaunchFallback() {
+    m_fallback_launch = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK);
+    if (!m_fallback_launch) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK, true, 1);
+    }
+  }
+
+  void RestoreDynamicLaunchFallback() {
+    if (!m_fallback_launch) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK, false, 1);
     }
   }
 
