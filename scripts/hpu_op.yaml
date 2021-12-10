@@ -51,6 +51,23 @@ addcmul.out:
   op_backend: AddCOpOut
   scalar_ids: [3]
 
+addmv:
+  custom_output_shape: AddMVOutshape
+  dtypes: [BFloat16, Float]
+  op_backend: AddMV
+  out_ids: [0]
+
+addmv_:
+  custom_output_shape: AddMVOutshape
+  dtypes: [BFloat16, Float]
+  op_backend: AddMV
+  inplace_ids: [0]
+
+addmv.out:
+  custom_output_shape: AddMVOutshape
+  dtypes: [BFloat16, Float]
+  op_backend: AddMV
+
 addr:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
