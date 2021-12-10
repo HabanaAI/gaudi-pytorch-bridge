@@ -133,10 +133,6 @@ class HabanaLaunchOpPT {
   // This is done to enable reuse of PT and synapse tensors and their processing
   std::vector<HabanaOperatorPtr> habana_kernels;
 
-  // A map between the abstract value containers in graph and actual Ivalues in
-  // stack
-  std::unordered_map<CValPtr, habanaTensorLayoutInfo> value_to_tensor_layout;
-
   // map between PT and synapse tensors
   std::deque<synapse_helpers::tensor> meta_syn_tensors;
 

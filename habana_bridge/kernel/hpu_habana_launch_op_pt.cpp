@@ -288,16 +288,6 @@ LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
   }
 }
 
-LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(torch::jit::Value* val) {
-  // The value of the node keeps the tensor physical layout memorized
-  // We can update this later if we see any changes to the way layouts are
-  // handled
-  TORCH_CHECK(
-      value_to_tensor_layout.find(val) != std::end(value_to_tensor_layout),
-      "HabanaFusion : Channel order not updated");
-  return value_to_tensor_layout[val].layout;
-}
-
 bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
@@ -792,7 +782,6 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
     torch::jit::Node* node) {
   auto output_nodes = node->outputs();
   auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
-  LayoutFormat out_layout;
 
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
@@ -802,36 +791,6 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
     } else {
       PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
       HABANA_ASSERT(0);
-    }
-  }
-
-  // Note the input layout information for the node to pass on to output edge
-  auto node_ins = node->inputs();
-  LayoutFormat assigned_input_layout = LayoutFormat::NCHW;
-  LayoutFormat origin_input_layout = LayoutFormat::NCHW;
-
-  int node_idx = 0;
-  for (auto value_in : node_ins) {
-    if (value_to_ivalue[value_in] &&
-        value_in->type()->kind() == c10::TypeKind::TensorType) {
-      /* Get the input tensor layout information */
-      assigned_input_layout =
-          ((node_idx == 0) ||
-           getTensorChannelOrder(value_in) == LayoutFormat::HWCK)
-          ? getTensorChannelOrder(value_in)
-          : assigned_input_layout;
-
-      // Get the origin layout too, to pass it along..we see if any of the
-      // inputs in NHWC origin then we mark the origin layout as NHWC We need
-      // to make this more robust by having a tensor level memory of layout We
-      // need to mark weight tensors by meta data so that we can recognize
-      // them and not permute to NHWC at exit.
-      origin_input_layout =
-          value_to_tensor_layout[value_in].layout_at_graph_entry ==
-              LayoutFormat::NHWC
-          ? LayoutFormat::NHWC
-          : origin_input_layout;
-      node_idx++;
     }
   }
 
@@ -852,19 +811,8 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
   }
 
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
-  size_t meta_size = habana_kernel_meta_data.output_layout.size();
 
   for (synapse_helpers::tensor& out_tensor_syn : habana_op->GetSynOutputs()) {
-    out_layout = output_tensor_idx >= meta_size
-        ? LayoutFormat::ANY
-        : habana_kernel_meta_data.output_layout.at(output_tensor_idx);
-
-    /* Pass down the layout information from input to output for layout
-       agnostic output (only for single input ans single output op nodes) */
-    value_to_tensor_layout[output_nodes[output_nodes_idx]].layout =
-        out_layout == LayoutFormat::ANY ? assigned_input_layout : out_layout;
-    value_to_tensor_layout[output_nodes[output_nodes_idx]]
-        .layout_at_graph_entry = origin_input_layout;
     if (excluded_out_indices.find(output_tensor_idx) ==
         excluded_out_indices.end()) {
       IValPtrShared ivpsh =
@@ -1249,9 +1197,6 @@ void HabanaLaunchOpPT::handleRestrideNode(
     PT_BRIDGE_DEBUG(
         "restride node output %", value_out->debugName(), " is non persistent");
     value_to_ivalue[value_out] = ivpsh_restrided;
-    value_to_tensor_layout[value_out].layout = LayoutFormat::NHWC;
-    value_to_tensor_layout[value_out].layout_at_graph_entry =
-        LayoutFormat::NHWC;
   }
 }
 
@@ -1263,12 +1208,6 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
       if (value->type()->kind() == c10::TypeKind::TensorType) {
         auto ivptrsh_updated = castConstantTensor(ivptrsh);
         value_to_ivalue[value] = ivptrsh_updated;
-        // Marking NCHW for now, for non 4D tensors layour doesnt matter
-        // Marking default...can update it after ""first use" to correct
-        // format
-        value_to_tensor_layout[value].layout = LayoutFormat::NCHW;
-        value_to_tensor_layout[value].layout_at_graph_entry =
-            LayoutFormat::NCHW;
         std::string irn{"%intermediate_"};
         irn += std::to_string(intermediate_index);
         intermediate_index++;
@@ -1381,9 +1320,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       // any meta ops that would create a new pytorch/syanpse tensor
       // If we need view to be handled as a meta op, need to enable
       // the below code
-      /*out_layout = value_to_tensor_layout[value_in].layout;
-      out_origin_layout =
-          value_to_tensor_layout[value_in].layout_at_graph_entry;
+      /*
       if (pt_to_synapse_tensors.find(value_to_ivalue[value_in]) ==
           std::end(pt_to_synapse_tensors)) {
         in_data = tensor.data_ptr();
@@ -1434,9 +1371,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     // the below code
     /*if (ival->isTensor()) {
       auto tensor = ival->toTensor();
-      value_to_tensor_layout[val_out].layout = out_layout;
-      value_to_tensor_layout[val_out].layout_at_graph_entry =
-    out_origin_layout; create_duplicate_syn_tensor(&tensor, val_out, true);
+      create_duplicate_syn_tensor(&tensor, val_out, true);
       out_data = tensor.data_ptr();
     }*/
     i++;
@@ -2299,9 +2234,6 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
 void HabanaLaunchOpPT::AdjustInputLayout() {
   for (size_t j = 0; j < pt_stack_sh.size(); j++) {
     auto value_input = jit_ir_graph->inputs().at(j);
-    value_to_tensor_layout[value_input].layout = LayoutFormat::NCHW;
-    value_to_tensor_layout[value_input].layout_at_graph_entry =
-        LayoutFormat::NCHW;
 
     if (pt_stack_sh[j]->isTensor()) {
       // Taking alias as that allows us to detach it from PT and do metadata
@@ -2330,25 +2262,9 @@ void HabanaLaunchOpPT::AdjustInputLayout() {
         tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
       }
 
-      // Get  the logical layout from PT tensor
-      // We dont touch this, even while doing permutes, the PT logical
-      // tensor is retained For us all tensors are contiguous PT doesnt let
-      // us mark logical layout directly so we dont change them
-      value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
-      value_to_tensor_layout[value_input].layout_at_graph_entry =
-          getPTTensorLayout(tensor);
-
-      if (getPTTensorLayout(tensor) == LayoutFormat::NHWC) {
-        // Make the sizes according to NCHW as PT maintains
-        // NCHW shapes even for NHWC tensors(It doesnt change shape)s
-        IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
-        value_to_ivalue[value_input] = ivptrsh;
-        pt_stack_sh[j] = ivptrsh;
-      } else {
-        IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
-        value_to_ivalue[value_input] = ivptrsh;
-        pt_stack_sh[j] = ivptrsh;
-      }
+      IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
+      value_to_ivalue[value_input] = ivptrsh;
+      pt_stack_sh[j] = ivptrsh;
     } else {
       value_to_ivalue[value_input] = pt_stack_sh[j];
     }
@@ -2657,7 +2573,6 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
   }
 
   value_to_ivalue.clear();
-  value_to_tensor_layout.clear();
   watchlist_.clear();
   syn_graph_ptr = nullptr;
 
