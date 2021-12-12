@@ -8,3 +8,4 @@
 ################################################################################
 
 add_subdirectory(habana_serialization)
+add_subdirectory(tensor_comparator)

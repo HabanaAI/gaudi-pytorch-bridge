@@ -281,6 +281,30 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
 }
 
+void HbLazyTensor::SetCPUTensorData(at::Tensor cpu_tensor_data) {
+  PT_BRIDGE_DEBUG(
+      "Type is ", c10::DeviceTypeName(cpu_tensor_data.device().type()));
+  HABANA_ASSERT(cpu_tensor_data.device().type() == c10::DeviceType::CPU);
+  data()->cpu_tensor_data = std::move(cpu_tensor_data);
+}
+
+void HbLazyTensor::SetSBSLiveTensorIndication() {
+  data()->sbs_live_tensor = true;
+}
+
+bool HbLazyTensor::GetSBSLiveTensorIndication() const {
+  return data()->sbs_live_tensor;
+}
+
+const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
+  const auto& tens = data()->cpu_tensor_data;
+  if (tens != c10::nullopt) {
+    bool isCPU = tens.value().device().type() == c10::DeviceType::CPU;
+    HABANA_ASSERT(isCPU);
+  }
+  return tens;
+}
+
 c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
   if (data()->tensor_data) {
     return (data()->tensor_data.value().unsafeGetTensorImpl());
@@ -675,6 +699,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     out_tensor.SetTensorData(st);
   }
   context->MarkTensorsExecuted(executing_indices);
+
+  // Compare Tensors
+  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+    SBSDebug::getInstance().CompareTensors(*tensors);
+  }
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

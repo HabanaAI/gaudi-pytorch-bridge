@@ -78,6 +78,8 @@ struct Data {
   c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
+  c10::optional<at::Tensor> cpu_tensor_data;
+  bool sbs_live_tensor = false;
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
@@ -149,6 +151,10 @@ class HbLazyTensor {
   void setPtrDataIrToData();
   ir::Value createIrValueFromData();
   void SetTensorData(at::Tensor tensor_data);
+  void SetCPUTensorData(at::Tensor tensor_data);
+  void SetSBSLiveTensorIndication();
+  bool GetSBSLiveTensorIndication() const;
+  const c10::optional<at::Tensor>& GetCPUTensorData() const;
   void AssignIrValue(ir::Value ir_value) const;
   c10::ScalarType dtype() const;
   c10::optional<c10::ScalarType> dtype_optional() const;

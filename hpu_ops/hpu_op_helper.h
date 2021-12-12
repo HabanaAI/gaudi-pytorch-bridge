@@ -9,7 +9,6 @@
  */
 #pragma once
 #include <utility>
-
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 namespace habana {

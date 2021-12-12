@@ -142,6 +142,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/passes/weight_permute_graph.cpp
   habana_lazy/hpu_lazy_cache.cpp
   habana_lazy/lazy_executor.cpp
+  habana_lazy/sbs_runner.cpp
   habana_lazy/visualize.cpp
   habana_lazy/view_utils.cpp
 )
@@ -157,6 +158,7 @@ target_link_libraries(habana_pytorch_plugin
     "${TORCH_LIBRARIES}"
     pytorch_synapse_helpers_abi11
     json
+    tensor_comparator_core
 )
 
   target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})

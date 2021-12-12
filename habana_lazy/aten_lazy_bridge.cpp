@@ -183,7 +183,7 @@ std::vector<at::Tensor> HpuGetFallbackTensorList(
   std::vector<at::Tensor> fbtensors;
   fbtensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {
-    fbtensors.push_back(tensor.to(c10::kCPU));
+    fbtensors.push_back(std::move(tensor.to(c10::kCPU)));
   }
   return fbtensors;
 }

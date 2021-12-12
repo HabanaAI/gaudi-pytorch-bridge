@@ -74,7 +74,13 @@ LazyIndex<at::Tensor>::LazyIndex(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+    : habana_lazy::LazyOp<at::Tensor>(
+          qualstring,
+          inputs,
+          out_shapes_fn,
+          0,
+          (qualstring == "hpu::index" ? habana_lazy::bFalse
+                                      : habana_lazy::bTrue)) {
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   c10::ArrayRef<c10::IValue> indices_in = sub_inputs.at(1).toListRef();
