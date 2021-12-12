@@ -499,6 +499,12 @@ void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params) {
   context->view_table[id] = params;
 }
 
+/**
+ * Returns a tensor for a scalar value.
+ * In case of 64b dtypes such as Long/Double it returns a tensor
+ * where the FE (user's PT tensor) is in Long/Double and the BE (device storage)
+ * is in Int/Float
+ */
 at::Tensor get_tensor_for_scalar(
     float alpha,
     const at::TensorOptions& options) {
