@@ -10,7 +10,9 @@
 
 #include "process_group_hcl.h"
 #include <map>
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_executor.h"
 
 using namespace synapse_helpers;
 namespace c10d {
@@ -278,19 +280,32 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     PostProcess post) {
   habana_lazy::HbLazyTensor::StepMarker();
 
-  const auto devices = getDeviceList(inputs);
-  auto comms = getCommList(devices);
-  auto work = initWork(outputs, devices, comms);
+  // Handle views
+  std::vector<at::Tensor> in_view_vec, out_view_vec;
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  for (auto t : inputs) {
+    auto t_updated = habana_lazy::HandleViewsD2H(t);
+    in_view_vec.emplace_back(t_updated);
+  }
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    if (getHCLDataType(inputs[i].scalar_type()) != syn_type_na) {
-      fn(inputs[i], outputs[i], *(comms[i]));
+  for (auto t : outputs) {
+    auto t_updated = habana_lazy::HandleViewsD2H(t);
+    out_view_vec.emplace_back(t_updated);
+  }
+
+  const auto devices = getDeviceList(in_view_vec);
+  auto comms = getCommList(devices);
+  auto work = initWork(out_view_vec, devices, comms);
+
+  for (size_t i = 0; i < in_view_vec.size(); ++i) {
+    if (getHCLDataType(in_view_vec[i].scalar_type()) != syn_type_na) {
+      fn(in_view_vec[i], out_view_vec[i], *(comms[i]));
     } else {
       LOG(INFO) << "HCL called on unsupported data type\n";
     }
   }
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
+  for (size_t i = 0; i < in_view_vec.size(); ++i) {
     // Update work
   }
   return work;

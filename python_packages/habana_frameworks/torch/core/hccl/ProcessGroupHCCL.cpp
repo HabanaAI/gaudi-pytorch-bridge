@@ -17,7 +17,9 @@
 
 #include <pybind11/chrono.h>
 #include "device_context.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 using namespace synapse_helpers;
@@ -374,27 +376,41 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     PostProcess post) {
   hcclResult_t hccl_result{hcclSuccess};
   habana_lazy::HbLazyTensor::StepMarker();
-  const auto devices = getDeviceList(inputs);
+
+  // Handle views
+  std::vector<at::Tensor> in_view_vec, out_view_vec;
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  for (auto t : inputs) {
+    auto t_updated = habana_lazy::HandleViewsD2H(t);
+    in_view_vec.emplace_back(t_updated);
+  }
+
+  for (auto t : outputs) {
+    auto t_updated = habana_lazy::HandleViewsD2H(t);
+    out_view_vec.emplace_back(t_updated);
+  }
+
+  const auto devices = getDeviceList(in_view_vec);
   auto comms = getCommList(devices);
   auto deviceCtxts = getDeviceCtxtList(devices);
   auto commStreams = getCommStreams(devices);
-  auto work = initWork(outputs, devices, comms, deviceCtxts);
+  auto work = initWork(out_view_vec, devices, comms, deviceCtxts);
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
+  for (size_t i = 0; i < in_view_vec.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
     void* input_address;
     void* output_address;
     hcclStream_t collective_stream = commStreams[i];
     synapse_helpers::device_ptr input_storage_ptr =
-        (synapse_helpers::device_ptr)inputs[i].storage().data_ptr().get();
+        (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
     synapse_helpers::device_ptr output_storage_ptr =
-        (synapse_helpers::device_ptr)outputs[i].storage().data_ptr().get();
+        (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
-    deviceCtxt->lock_address(inputs[i].data_ptr(), &input_address);
-    deviceCtxt->lock_address(outputs[i].data_ptr(), &output_address);
+    deviceCtxt->lock_address(in_view_vec[i].data_ptr(), &input_address);
+    deviceCtxt->lock_address(out_view_vec[i].data_ptr(), &output_address);
     hccl_result =
-        fn(inputs[i],
-           outputs[i],
+        fn(in_view_vec[i],
+           out_view_vec[i],
            input_address,
            output_address,
            *(comms[i]),
@@ -403,7 +419,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     deviceCtxt->submit_events(collective_stream, output_storage_ptr);
   }
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
+  for (size_t i = 0; i < in_view_vec.size(); ++i) {
     // Update work
   }
   return work;
