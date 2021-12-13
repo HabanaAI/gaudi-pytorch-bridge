@@ -33,16 +33,30 @@ void NantoNum::AddNode(
     auto const_nan =
         ConstantHelper(graph, nan_constant, ScalarType(), outshape);
 
-    auto posinf_constant = stack.at(2).isNone()
-        ? std::numeric_limits<float>::max()
-        : stack.at(2).toDouble();
+    c10::Scalar max_value;
+
+    if (self.dtype() == c10::ScalarType::BFloat16) {
+      max_value = std::numeric_limits<c10::BFloat16>::max();
+    } else {
+      max_value = std::numeric_limits<float>::max();
+    }
+
+    auto posinf_constant =
+        stack.at(2).isNone() ? max_value : stack.at(2).toDouble();
 
     auto const_posinf =
         ConstantHelper(graph, posinf_constant, ScalarType(), outshape);
 
-    auto neginf_constant = stack.at(3).isNone()
-        ? std::numeric_limits<float>::lowest()
-        : stack.at(3).toDouble();
+    c10::Scalar min_value;
+
+    if (self.dtype() == c10::ScalarType::BFloat16) {
+      min_value = std::numeric_limits<c10::BFloat16>::lowest();
+    } else {
+      min_value = std::numeric_limits<float>::lowest();
+    }
+
+    auto neginf_constant =
+        stack.at(3).isNone() ? min_value : stack.at(3).toDouble();
 
     auto const_neginf =
         ConstantHelper(graph, neginf_constant, ScalarType(), outshape);
