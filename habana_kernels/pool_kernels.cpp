@@ -1558,41 +1558,14 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
             "aten::max_pool2d_with_indices",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MaxPool2dWithIndicesOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(MaxPool2dWithIndicesOperator))
         .add(
             "aten::max_pool2d_with_indices_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MaxPool2dWithIndicesBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::max_pool2d",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MaxPool2dOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::avg_pool2d",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AvgPool2dOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::avg_pool2d_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AvgPool2dBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::_adaptive_avg_pool2d",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AdaptiveAvgPool2dOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(MaxPool2dWithIndicesBackwardOperator))
+        .add("aten::max_pool2d", KERNEL_FN(MaxPool2dOperator))
+        .add("aten::avg_pool2d", KERNEL_FN(AvgPool2dOperator))
+        .add("aten::avg_pool2d_backward", KERNEL_FN(AvgPool2dBackwardOperator))
+        .add("aten::_adaptive_avg_pool2d", KERNEL_FN(AdaptiveAvgPool2dOperator))
         .add(
             "aten::_adaptive_avg_pool2d_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AdaptiveAvgPool2dBackwardOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(AdaptiveAvgPool2dBackwardOperator));

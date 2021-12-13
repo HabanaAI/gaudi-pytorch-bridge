@@ -842,23 +842,13 @@ Tensor optimizer_lamb_fused_norm_hpu(
   return out[0];
 }
 
-static auto& KernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "hpu::habanaOptimizerLambFusedNorm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptNormFusedNormOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::habanaOptimizerLambPhase1",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerLambPhase1Operator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::habanaOptimizerLambPhase2",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerLambPhase2Operator>(
-                  device_id, node_type);
-            });
+static auto& KernelRegistry = habana::KernelRegistry()
+                                  .add(
+                                      "hpu::habanaOptimizerLambFusedNorm",
+                                      KERNEL_FN(OptNormFusedNormOperator))
+                                  .add(
+                                      "hpu::habanaOptimizerLambPhase1",
+                                      KERNEL_FN(OptimizerLambPhase1Operator))
+                                  .add(
+                                      "hpu::habanaOptimizerLambPhase2",
+                                      KERNEL_FN(OptimizerLambPhase2Operator));

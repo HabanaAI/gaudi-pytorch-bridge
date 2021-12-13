@@ -746,6 +746,4 @@ Tensor convolution_hpu(
 
 static auto& KernelRegistry = habana::KernelRegistry().add(
     "aten::convolution_overrideable",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ConvOperator>(device_id, node_type);
-    });
+    KERNEL_FN(ConvOperator));

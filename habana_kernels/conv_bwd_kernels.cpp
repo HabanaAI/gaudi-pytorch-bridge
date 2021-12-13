@@ -1025,6 +1025,4 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
 
 static auto& KernelRegistry = habana::KernelRegistry().add(
     "aten::convolution_backward_overrideable",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ConvBackwardOperator>(device_id, node_type);
-    });
+    KERNEL_FN(ConvBackwardOperator));

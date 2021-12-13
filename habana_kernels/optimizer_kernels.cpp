@@ -1131,37 +1131,17 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::habanaOptimizerSparseSgd",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerSparseSgdOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(OptimizerSparseSgdOperator))
         .add(
             "hpu::habanaOptimizerSparseAdagrad",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerSparseAdagradOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::habanaOptimizerAdamW",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerAdamwOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(OptimizerSparseAdagradOperator))
+        .add("hpu::habanaOptimizerAdamW", KERNEL_FN(OptimizerAdamwOperator))
         .add(
             "hpu::habanaOptimizerFusedAdagrad",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerFusedAdagradOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(OptimizerFusedAdagradOperator))
         .add(
             "hpu::habanaOptimizerFusedSGD",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerFusedSGDOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(OptimizerFusedSGDOperator))
         .add(
             "hpu::habanaOptimizerFusedSGDMomentum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<OptimizerFusedSGDMomentumOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(OptimizerFusedSGDMomentumOperator));

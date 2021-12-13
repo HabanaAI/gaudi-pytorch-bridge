@@ -580,33 +580,10 @@ Tensor softmax_backward_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::log_softmax",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::LogSoftmaxOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::_softmax",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::SoftmaxOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::softmax.int",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::SoftmaxIntOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::softmax",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::SoftmaxIntOperator>(
-                  device_id, node_type);
-            })
+        .add("aten::log_softmax", KERNEL_FN(LogSoftmaxOperator))
+        .add("aten::_softmax", KERNEL_FN(SoftmaxOperator))
+        .add("aten::softmax", KERNEL_FN(SoftmaxIntOperator))
+        .add("aten::softmax.int", KERNEL_FN(SoftmaxIntOperator))
         .add(
             "aten::_softmax_backward_data",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::SoftmaxBackwardOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(SoftmaxBackwardOperator));

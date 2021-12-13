@@ -1630,61 +1630,16 @@ Tensor binary_cross_entropy_with_logits_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::binary_cross_entropy",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BceFwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::binary_cross_entropy_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BceBwdOperator>(device_id, node_type);
-            })
+        .add("aten::binary_cross_entropy", KERNEL_FN(BceFwdOperator))
+        .add("aten::binary_cross_entropy_backward", KERNEL_FN(BceBwdOperator))
         .add(
             "aten::binary_cross_entropy_with_logits",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BceLogitsFwdOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::mse_loss",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MSELossFwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::mse_loss_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MSELossBwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::kl_div",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<KlDivOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::kl_div_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<KlDivBwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::nll_loss_forward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NLLLossFwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::nll_loss_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NLLLossBwdOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::nll_loss2d_forward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NLLLoss2dFwdOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::nll_loss2d_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NLLLoss2dBwdOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(BceLogitsFwdOperator))
+        .add("aten::mse_loss", KERNEL_FN(MSELossFwdOperator))
+        .add("aten::mse_loss_backward", KERNEL_FN(MSELossBwdOperator))
+        .add("aten::kl_div", KERNEL_FN(KlDivOperator))
+        .add("aten::kl_div_backward", KERNEL_FN(KlDivBwdOperator))
+        .add("aten::nll_loss_forward", KERNEL_FN(NLLLossFwdOperator))
+        .add("aten::nll_loss_backward", KERNEL_FN(NLLLossBwdOperator))
+        .add("aten::nll_loss2d_forward", KERNEL_FN(NLLLoss2dFwdOperator))
+        .add("aten::nll_loss2d_backward", KERNEL_FN(NLLLoss2dBwdOperator));

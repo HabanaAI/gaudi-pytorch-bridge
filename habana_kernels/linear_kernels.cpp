@@ -1565,65 +1565,17 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::mm",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MMOperator>(device_id);
-            })
-        .add(
-            "hpu::mm_t",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MMOperator>(device_id);
-            })
-        .add(
-            "aten::mv",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MvOperator>(device_id);
-            })
-        .add(
-            "aten::dot",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::DotOperator>(device_id);
-            })
-        .add(
-            "aten::addmm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::AddmmOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::addmm_t",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::AddmmOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::bmm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::BmmOperator>(
-                  device_id, node_type);
-            })
+        .add("aten::mm", KERNEL_FN_DROP_ARG2(MMOperator))
+        .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
+        .add("aten::mv", KERNEL_FN_DROP_ARG2(MvOperator))
+        .add("aten::dot", KERNEL_FN_DROP_ARG2(DotOperator))
+        .add("aten::addmm", KERNEL_FN(AddmmOperator))
+        .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))
+        .add("aten::bmm", KERNEL_FN(BmmOperator))
         .add(
             "aten::matmul_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MatmulBackwardOperator>(
-                  device_id);
-            })
+            KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
         .add(
             "hpu::matmul_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MatmulBackwardOperator>(
-                  device_id);
-            })
-        .add(
-            "aten::matmul",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::MatMulOperator>(device_id);
-            });
+            KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
+        .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator));

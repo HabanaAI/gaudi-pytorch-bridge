@@ -382,16 +382,6 @@ Tensor min_hpu(const at::Tensor& self) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::max_dim",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MaxDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::max",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MaxOperator>(device_id, node_type);
-            })
-        .add("aten::min", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<MinOperator>(device_id, node_type);
-        });
+        .add("hpu::max_dim", KERNEL_FN(MaxDimOperator))
+        .add("aten::max", KERNEL_FN(MaxOperator))
+        .add("aten::min", KERNEL_FN(MinOperator));

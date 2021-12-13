@@ -2567,86 +2567,19 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::index_select",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IndexSelectOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::gather_elements",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GatherElemOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::gather",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GatherOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::scatter_add",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterAddOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::scatter_nd",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterNdOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::scatter_nd_onnx",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ScatterNdONNXOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::select.int",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SelectOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::index_put",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IndexPutOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::arange",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ArangeOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::slice.Tensor",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SliceOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::index_add",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IndexAddOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::_unique2",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UniqueOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::arange_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ArangeOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::arange_out_ds",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ArangeOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::index.Tensor_hacked_twin",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IndexOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::linspace.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LinspaceOutOperator>(
-                  device_id, node_type);
-            });
+        .add("aten::index_select", KERNEL_FN(IndexSelectOperator))
+        .add("hpu::gather_elements", KERNEL_FN(GatherElemOperator))
+        .add("aten::gather", KERNEL_FN(GatherOperator))
+        .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))
+        .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
+        .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
+        .add("aten::select.int", KERNEL_FN(SelectOperator))
+        .add("aten::index_put", KERNEL_FN(IndexPutOperator))
+        .add("aten::arange", KERNEL_FN(ArangeOperator))
+        .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
+        .add("aten::index_add", KERNEL_FN(IndexAddOperator))
+        .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
+        .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
+        .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
+        .add("aten::index.Tensor_hacked_twin", KERNEL_FN(IndexOperator))
+        .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator));

@@ -243,13 +243,5 @@ Tensor addcdiv_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::addcmul",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AddcmulOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::addcdiv",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AddcdivOperator>(device_id, node_type);
-            });
+        .add("aten::addcmul", KERNEL_FN(AddcmulOperator))
+        .add("aten::addcdiv", KERNEL_FN(AddcdivOperator));

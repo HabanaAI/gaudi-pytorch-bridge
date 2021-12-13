@@ -558,31 +558,16 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
             "aten::upsample_nearest2d.vec",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UpsampleNearest2dOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(UpsampleNearest2dOperator))
         .add(
             "aten::upsample_nearest2d_backward.vec",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UpsampleNearest2dBackwardOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(UpsampleNearest2dBackwardOperator))
         .add(
             "hpu::upsample_nearest2d_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UpsampleNearest2dBackwardOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(UpsampleNearest2dBackwardOperator))
         .add(
             "aten::upsample_nearest3d.vec",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UpsampleNearest3dOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(UpsampleNearest3dOperator))
         .add(
             "aten::upsample_nearest3d_backward.vec",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<UpsampleNearest3dBackwardOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(UpsampleNearest3dBackwardOperator));

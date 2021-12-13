@@ -1095,43 +1095,18 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::constant_pad_nd",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<PadOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::embedding",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingOperator>(device_id, node_type);
-            })
+        .add("aten::constant_pad_nd", KERNEL_FN(PadOperator))
+        .add("aten::embedding", KERNEL_FN(EmbeddingOperator))
         .add(
             "aten::embedding_bag_sum_fwd",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingBagSumForwardOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(EmbeddingBagSumForwardOperator))
         .add(
             "aten::embedding_bag_sum_bwd.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingBagSumBackwardOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(EmbeddingBagSumBackwardOperator))
         .add(
             "aten::embedding_dense_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingDenseBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::embedding_bag_sum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingBagSumOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(EmbeddingDenseBackwardOperator))
+        .add("hpu::embedding_bag_sum", KERNEL_FN(EmbeddingBagSumOperator))
         .add(
             "hpu::embedding_bag_sum_bwd_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EmbeddingBagSumBwdKernelModeOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(EmbeddingBagSumBwdKernelModeOperator));

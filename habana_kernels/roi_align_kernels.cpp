@@ -60,6 +60,4 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry = habana::KernelRegistry().add(
     "hpu::roi_align_fwd",
-    [](int device_id, c10::ScalarType scalar_type) {
-      return std::make_shared<RoiAlignFwdOperator>(device_id, scalar_type);
-    });
+    KERNEL_FN(RoiAlignFwdOperator));

@@ -842,18 +842,6 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::randperm_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<RandpermOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::_fused_dropout",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DropoutOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::_fused_dropout_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DropoutOperator>(device_id, node_type);
-            });
+        .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
+        .add("aten::_fused_dropout", KERNEL_FN(DropoutOperator))
+        .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator));

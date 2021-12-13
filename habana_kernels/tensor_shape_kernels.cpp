@@ -1325,90 +1325,20 @@ at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::cat",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<CatOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::cat.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<CatOutOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::permute",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<PermuteOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::permute_cl",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<PermuteCLOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::permute_weight",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<PermuteOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::permuted_weight_restride",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<PermuteOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::t",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<TOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::transpose.int",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<TransposeOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::reshape",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ReshapeOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::flatten",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<FlattenOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::expand",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BroadcastOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::expand",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BroadcastOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::view",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ViewOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::view",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ViewOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::reshape",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ViewOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::flip",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<FlipOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::split_with_sizes",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SplitWithSizeOperator>(
-                  device_id, node_type);
-            });
-;
+        .add("aten::cat", KERNEL_FN_GLOBAL(CatOperator))
+        .add("aten::cat.out", KERNEL_FN_GLOBAL(CatOutOperator))
+        .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
+        .add("hpu::permute_cl", KERNEL_FN_GLOBAL(PermuteCLOperator))
+        .add("hpu::permute_weight", KERNEL_FN_GLOBAL(PermuteOperator))
+        .add("hpu::permuted_weight_restride", KERNEL_FN_GLOBAL(PermuteOperator))
+        .add("aten::t", KERNEL_FN_GLOBAL(TOperator))
+        .add("aten::transpose.int", KERNEL_FN_GLOBAL(TransposeOperator))
+        .add("aten::reshape", KERNEL_FN_GLOBAL(ReshapeOperator))
+        .add("aten::flatten", KERNEL_FN_GLOBAL(FlattenOperator))
+        .add("aten::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
+        .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
+        .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
+        .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
+        .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
+        .add("aten::flip", KERNEL_FN_GLOBAL(FlipOperator))
+        .add("aten::split_with_sizes", KERNEL_FN_GLOBAL(SplitWithSizeOperator));

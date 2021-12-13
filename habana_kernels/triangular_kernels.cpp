@@ -240,13 +240,5 @@ at::Tensor& diag_hpu_out(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::diag",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DiagOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::diag_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DiagOutOperator>(device_id, node_type);
-            });
+        .add("aten::diag", KERNEL_FN(DiagOperator))
+        .add("hpu::diag_out", KERNEL_FN(DiagOutOperator));

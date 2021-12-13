@@ -1877,84 +1877,19 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::_grad_sum_to_size",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GradSumToSizeOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::sum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SumOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::mean",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MeanOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::mean.dim",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MeanDimOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::sum_dim_IntList",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SumDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::sum.dim_IntList",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SumDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::sum.IntList_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SumDimOutOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::prod",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ProdOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::prod_dim_Int",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ProdDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::prod.dim_Int",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ProdDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::any",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AnyOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::any.dim",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AnyDimOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::any.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AnyDimOutOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::all_dim",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AllOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::all.out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AllOutOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::argmax",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ArgMaxOperator>(device_id, node_type);
-            });
+        .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
+        .add("aten::sum", KERNEL_FN(SumOperator))
+        .add("aten::mean", KERNEL_FN(MeanOperator))
+        .add("aten::mean.dim", KERNEL_FN(MeanDimOperator))
+        .add("hpu::sum_dim_IntList", KERNEL_FN(SumDimOperator))
+        .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))
+        .add("aten::sum.IntList_out", KERNEL_FN(SumDimOutOperator))
+        .add("aten::prod", KERNEL_FN(ProdOperator))
+        .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator))
+        .add("aten::prod.dim_Int", KERNEL_FN(ProdDimOperator))
+        .add("aten::any", KERNEL_FN(AnyOperator))
+        .add("aten::any.dim", KERNEL_FN(AnyDimOperator))
+        .add("aten::any.out", KERNEL_FN(AnyDimOutOperator))
+        .add("hpu::all_dim", KERNEL_FN(AllOperator))
+        .add("aten::all.out", KERNEL_FN(AllOutOperator))
+        .add("aten::argmax", KERNEL_FN(ArgMaxOperator));

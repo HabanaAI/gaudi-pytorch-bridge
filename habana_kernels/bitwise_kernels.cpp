@@ -338,27 +338,7 @@ Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::bitwise_and_Tensor_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BitwiseAndOutOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::bitwise_or_Tensor_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BitwiseOrOutOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::bitwise_xor_Tensor_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BitwiseXorOutOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::bitwise_not_Tensor_out",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BitwiseNotOutOperator>(
-                  device_id, node_type);
-            });
+        .add("hpu::bitwise_and_Tensor_out", KERNEL_FN(BitwiseAndOutOperator))
+        .add("hpu::bitwise_or_Tensor_out", KERNEL_FN(BitwiseOrOutOperator))
+        .add("hpu::bitwise_xor_Tensor_out", KERNEL_FN(BitwiseXorOutOperator))
+        .add("hpu::bitwise_not_Tensor_out", KERNEL_FN(BitwiseNotOutOperator));

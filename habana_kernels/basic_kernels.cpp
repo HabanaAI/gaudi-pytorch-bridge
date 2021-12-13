@@ -817,98 +817,20 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::habana_d2d_memcpy",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MemCopyOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::habana_d2d_memcpy_other",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MemCopyOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::cast",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<CastLazyOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::to.dtype",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ToDtypeOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::control_edge_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DummyOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::control_edge_other_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<DummyOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::as_strided_lazy_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AsStridedOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::as_strided_lazy_cl_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AsStridedClOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_view",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedViewOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_view_cl",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedViewClOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_view_ds",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedViewOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_view_cl_ds",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedViewClOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_insert",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedInsertOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_insert_cl",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedInsertClOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::strided_insert_ds",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedInsertOperator>(
-                  device_id, node_type);
-            })
+        .add("hpu::habana_d2d_memcpy", KERNEL_FN_GLOBAL(MemCopyOperator))
+        .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))
+        .add("hpu::cast", KERNEL_FN_GLOBAL(CastLazyOperator))
+        .add("aten::to.dtype", KERNEL_FN_GLOBAL(ToDtypeOperator))
+        .add("hpu::control_edge_", KERNEL_FN_GLOBAL(DummyOperator))
+        .add("hpu::control_edge_other_", KERNEL_FN_GLOBAL(DummyOperator))
+        .add("hpu::as_strided_lazy_", KERNEL_FN_GLOBAL(AsStridedOperator))
+        .add("hpu::as_strided_lazy_cl_", KERNEL_FN_GLOBAL(AsStridedClOperator))
+        .add("hpu::strided_view", KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add("hpu::strided_view_cl", KERNEL_FN_GLOBAL(StridedViewClOperator))
+        .add("hpu::strided_view_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add("hpu::strided_view_cl_ds", KERNEL_FN_GLOBAL(StridedViewClOperator))
+        .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
+        .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(
             "hpu::strided_insert_cl_ds",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<StridedInsertClOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::as_strided_layout_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AsStridedLayoutOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN_GLOBAL(StridedInsertClOperator));

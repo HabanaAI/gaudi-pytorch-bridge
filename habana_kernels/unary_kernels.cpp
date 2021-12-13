@@ -2492,132 +2492,29 @@ Tensor cumsum_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::elu",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::elu_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<EluOperator>(device_id, node_type, true);
-            })
-        .add(
-            "aten::leaky_relu",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LeakyReluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::leaky_relu_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LeakyReluOperator>(
-                  device_id, node_type, true);
-            })
-        .add(
-            "aten::leaky_relu_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LeakyReluBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::hardsigmoid",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<HardsigmoidOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::hardsigmoid_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<HardsigmoidOperator>(
-                  device_id, node_type, true);
-            })
+        .add("aten::elu", KERNEL_FN(EluOperator))
+        .add("aten::elu_", KERNEL_FN(EluOperator))
+        .add("aten::leaky_relu", KERNEL_FN(LeakyReluOperator))
+        .add("aten::leaky_relu_", KERNEL_FN_ARG(LeakyReluOperator, true))
+        .add("aten::leaky_relu_backward", KERNEL_FN(LeakyReluBackwardOperator))
+        .add("aten::hardsigmoid", KERNEL_FN(HardsigmoidOperator))
+        .add("aten::hardsigmoid_", KERNEL_FN_ARG(HardsigmoidOperator, true))
         .add(
             "aten::hardsigmoid_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<HardsigmoidBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::abs",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AbsOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::abs_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<AbsInplaceOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::isfinite",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IsfiniteOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::neg",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NegOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::sign",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SignOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::reciprocal",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ReciprocalOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::reciprocal_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ReciprocalInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::gelu",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GeluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::gelu_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GeluBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::hbgelu2",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<HbGeluOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::hbgelu2_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GeluBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::exp",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ExpOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::exp_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ExpInplaceOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::isnan",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<IsnanOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::silu_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SiluBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::cumsum",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<CumsumOperator>(device_id, node_type);
-            });
+            KERNEL_FN(HardsigmoidBackwardOperator))
+        .add("aten::abs", KERNEL_FN(AbsOperator))
+        .add("aten::abs_", KERNEL_FN(AbsInplaceOperator))
+        .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
+        .add("aten::neg", KERNEL_FN(NegOperator))
+        .add("aten::sign", KERNEL_FN(SignOperator))
+        .add("aten::reciprocal", KERNEL_FN(ReciprocalOperator))
+        .add("aten::reciprocal_", KERNEL_FN(ReciprocalInplaceOperator))
+        .add("aten::gelu", KERNEL_FN(GeluOperator))
+        .add("aten::gelu_backward", KERNEL_FN(GeluBackwardOperator))
+        .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))
+        .add("aten::hbgelu2_backward", KERNEL_FN(GeluBackwardOperator))
+        .add("aten::exp", KERNEL_FN(ExpOperator))
+        .add("aten::exp_", KERNEL_FN(ExpInplaceOperator))
+        .add("aten::isnan", KERNEL_FN(IsnanOperator))
+        .add("aten::silu_backward", KERNEL_FN(SiluBackwardOperator))
+        .add("aten::cumsum", KERNEL_FN(CumsumOperator));

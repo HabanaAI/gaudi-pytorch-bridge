@@ -2449,60 +2449,21 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::native_batch_norm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BatchNormForwardOperator>(
-                  device_id, node_type);
-            })
+        .add("aten::native_batch_norm", KERNEL_FN(BatchNormForwardOperator))
         .add(
             "hpu::native_batch_norm_rmv",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BatchNormForwardRmvOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::native_batch_norm_inf",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BatchNormInfOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "hpu::fused_norm_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<FusedNormOperator>(device_id, node_type);
-            })
+            KERNEL_FN(BatchNormForwardRmvOperator))
+        .add("hpu::native_batch_norm_inf", KERNEL_FN(BatchNormInfOperator))
+        .add("hpu::fused_norm_", KERNEL_FN(FusedNormOperator))
         .add(
             "aten::native_batch_norm_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BatchNormBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::native_layer_norm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LayerNormOperator>(device_id, node_type);
-            })
+            KERNEL_FN(BatchNormBackwardOperator))
+        .add("aten::native_layer_norm", KERNEL_FN(LayerNormOperator))
         .add(
             "aten::native_layer_norm_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LayerNormBackwardOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::norm.Scalar",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<NormOperator>(device_id, node_type);
-            })
-        .add(
-            "hpu::instance_norm",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<InstanceNormOperator>(
-                  device_id, node_type);
-            })
+            KERNEL_FN(LayerNormBackwardOperator))
+        .add("aten::norm.Scalar", KERNEL_FN(NormOperator))
+        .add("hpu::instance_norm", KERNEL_FN(InstanceNormOperator))
         .add(
             "hpu::instance_norm_backward",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<InstanceNormBackwardOperator>(
-                  device_id, node_type);
-            });
+            KERNEL_FN(InstanceNormBackwardOperator));

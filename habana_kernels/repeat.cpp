@@ -139,15 +139,5 @@ at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::repeat",
-            [](const int device_id, c10::ScalarType scalar_type) {
-              return std::make_shared<habana::RepeatOperator>(
-                  device_id, scalar_type);
-            })
-        .add(
-            "hpu::repeat",
-            [](const int device_id, c10::ScalarType scalar_type) {
-              return std::make_shared<habana::RepeatOperator>(
-                  device_id, scalar_type);
-            });
+        .add("aten::repeat", KERNEL_FN(RepeatOperator))
+        .add("hpu::repeat", KERNEL_FN(RepeatOperator));

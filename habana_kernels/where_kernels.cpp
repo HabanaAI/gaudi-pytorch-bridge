@@ -169,8 +169,5 @@ Tensor where_tensor_hpu(
   return output;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "aten::_s_where",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<WhereOperator>(device_id, node_type);
-    });
+static auto& KernelRegistry =
+    habana::KernelRegistry().add("aten::_s_where", KERNEL_FN(WhereOperator));
