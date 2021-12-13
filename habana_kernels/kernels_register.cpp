@@ -4208,10 +4208,15 @@ struct SliceFunction : public torch::autograd::Function<SliceFunction> {
       c10::optional<int64_t> end,
       int64_t step) {
     at::Tensor result;
+
+    // handle optional parameters
+    int64_t start_val = start.has_value() ? start.value() : 0;
+    int64_t end_val = end.has_value() ? end.value() : INT64_MAX;
+
     ctx->save_for_backward({self});
     ctx->saved_data["dim"] = dim;
-    ctx->saved_data["start"] = start;
-    ctx->saved_data["end"] = end;
+    ctx->saved_data["start"] = start_val;
+    ctx->saved_data["end"] = end_val;
     ctx->saved_data["step"] = step;
     result = slice_hpu_lazy(self, dim, start, end, step);
     return result;

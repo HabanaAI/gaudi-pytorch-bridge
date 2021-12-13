@@ -2668,7 +2668,7 @@ Tensor slice_hpu_lazy(
   return output;
 }
 
-Tensor slice_backward_hpu_lazy(
+Tensor slice_backward_hpu_lazy_legacy(
     const Tensor& self,
     const Tensor& grad_output,
     int64_t dim,
@@ -2719,6 +2719,125 @@ Tensor slice_backward_hpu_lazy(
       index.options().pinned_memory_opt());
   auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
   auto result = scatter_src_hpu_lazy(grad_input, dim, expand_idx, grad_output);
+
+  return result;
+}
+
+Tensor slice_backward_hpu_lazy(
+    const Tensor& self,
+    const Tensor& grad_output,
+    int64_t dim,
+    int64_t start,
+    int64_t end,
+    int64_t step) {
+  PT_LAZY_TRACE;
+  Tensor result;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+    auto ndim = self.dim();
+    auto size = self.sizes();
+
+    bool is_cl =
+        ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) ||
+         (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast));
+
+    if (ndim == 0) {
+      TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
+    }
+    dim = at::maybe_wrap_dim(dim, ndim);
+
+    // always set contigous strides. This is because for multidimensional
+    // slices, self.strides() will have swapped strides that is applicable only
+    // for CPU handle chlast and chlast3d appropriately
+
+    std::vector<int64_t> out_size_vec;
+    c10::MemoryFormat mf;
+
+    if (is_cl && (size.size() == 4)) {
+      // NCHW -> NHWC
+      const int64_t dim_pos_in[4] = {0, 2, 3, 1};
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+      }
+
+      const int64_t dim_translate_pos[4] = {0, 3, 1, 2};
+      dim = dim_translate_pos[dim];
+      mf = c10::MemoryFormat::ChannelsLast;
+
+    } else if (is_cl && (size.size() == 5)) {
+      // NCDHW -> NDHWC
+      const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[dim_pos_in[idx]]);
+      }
+
+      const int64_t dim_translate_pos[5] = {0, 4, 1, 2, 3};
+      dim = dim_translate_pos[dim];
+      mf = c10::MemoryFormat::ChannelsLast3d;
+
+    } else {
+      for (size_t idx = 0; idx < size.size(); idx++) {
+        out_size_vec.emplace_back(size[idx]);
+      }
+    }
+
+    std::vector<int64_t> strides_vec(out_size_vec.size(), 1);
+    for (auto i = out_size_vec.size(); i > 1; --i) {
+      strides_vec[i - 2] = strides_vec[i - 1] * out_size_vec[i - 1];
+    }
+
+    DimVector strides(strides_vec);
+    DimVector sizes(out_size_vec);
+
+    // TODO: support negative strides
+    TORCH_CHECK(step > 0, "slice step must be positive");
+
+    // INT64_MAX stands for default value.
+    if (start == INT64_MAX) {
+      start = 0;
+    }
+    if (start < 0) {
+      start += sizes[dim];
+    }
+    if (end < 0) {
+      end += sizes[dim];
+    }
+    if (start < 0) {
+      start = 0;
+    } else if (start >= sizes[dim]) {
+      start = sizes[dim];
+    }
+    if (end < start) {
+      end = start;
+    } else if (end >= sizes[dim]) {
+      end = sizes[dim];
+    }
+
+    // auto storage_offset = self.storage_offset() + start * strides[dim];
+    auto storage_offset = start * strides[dim];
+    auto len = end - start;
+    sizes[dim] = (len + step - 1) / step; // round-up
+    strides[dim] *= step;
+
+    // convert c10::List to IntArrayRef
+    std::vector<int64_t> size_vec;
+    for (size_t idx = 0; idx < size.size(); idx++) {
+      size_vec.emplace_back(size[idx]);
+    }
+
+    IntArrayRef grad_in_size(size_vec);
+
+    auto grad_input =
+        empty_hpu_lazy(grad_in_size, grad_output.options(), mf, true);
+    grad_input = zero_hpu_lazy(grad_input);
+
+    result = add_strided_insert_node(
+        grad_input, grad_output, strides, storage_offset);
+  } else {
+    result = slice_backward_hpu_lazy_legacy(
+        self, grad_output, dim, start, end, step);
+  }
+
   return result;
 };
 
