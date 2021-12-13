@@ -1139,6 +1139,20 @@ class LazyOpWithTypePromotion : public LazyOp<T> {
   T get_result_overrideable() override;
 };
 
+template <typename T>
+class PromoteIntToFloat : public LazyOp<T> {
+ public:
+  explicit PromoteIntToFloat(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      const std::function<
+          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+          out_shapes_fn = nullptr) noexcept;
+
+ private:
+  T get_result_overrideable() override;
+};
+
 template <typename ReturnType>
 class LazyBinaryOp : public LazyOp<ReturnType> {
  public:

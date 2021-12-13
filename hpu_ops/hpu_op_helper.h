@@ -102,6 +102,10 @@ class OpBackend : public HabanaOperator {
     return m_scalar_type;
   }
 
+  c10::ScalarType ComputePromotedScalarType(
+      const at::Stack& stack,
+      bool update);
+
   const std::unordered_map<int, at::Scalar>& ScalarInputs() const {
     return m_scalar_inputs;
   }
@@ -127,6 +131,10 @@ class OpBackend : public HabanaOperator {
 
   void EnableTypePromotion() {
     m_promote_type = true;
+  }
+
+  void PromoteIntToFloat() {
+    m_promote_int_to_float = true;
   }
 
   void SetFillParams(
@@ -165,6 +173,9 @@ class OpBackend : public HabanaOperator {
   void HandleInplaceFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleOutFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleTypePromotion(
+      synapse_helpers::graph& graph,
+      const at::Stack& stack);
+  void HandleIntToFloatPromotion(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
 
@@ -254,6 +265,7 @@ class OpBackend : public HabanaOperator {
 
   c10::ScalarType m_scalar_type;
   bool m_promote_type = false;
+  bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;

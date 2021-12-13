@@ -88,6 +88,27 @@ OpBackend::OpBackend(
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
+c10::ScalarType OpBackend::ComputePromotedScalarType(
+    const at::Stack& stack,
+    bool update) {
+  c10::ScalarType type = c10::ScalarType::Undefined;
+
+  auto t0 = GetScalarType(stack, 0);
+  auto t1 = GetScalarType(stack, 1);
+  if (m_promote_type) {
+    type = at::promote_types(t0, t1);
+  } else if (m_promote_int_to_float) {
+    type = c10::isIntegralType(t0, true) and c10::isIntegralType(t1, true)
+        ? at::get_default_dtype_as_scalartype()
+        : at::promote_types(t0, t1);
+  }
+
+  if (update and type != c10::ScalarType::Undefined) {
+    m_scalar_type = type;
+  }
+  return type;
+}
+
 void OpBackend::HandleScalarToTensor(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -141,8 +162,8 @@ void OpBackend::HandleFn(
     // Use sizes of tensor at m_res_id if ComputeOutputShapes() is not
     // implemented
     const auto& t = stack.at(m_res_ids.at(i)).toTensor();
-    const auto& dtype = m_promote_type
-        ? at::promote_types(GetScalarType(stack, 0), GetScalarType(stack, 1))
+    const auto& dtype = m_promote_type or m_promote_int_to_float
+        ? ComputePromotedScalarType(stack, true)
         : t.scalar_type();
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
     bool is_output_persistent = is_output_persistent_list[i];
@@ -201,8 +222,7 @@ void OpBackend::HandleTypePromotion(
 
   const std::array<at::ScalarType, 2> input_types{
       GetScalarType(stack, 0), GetScalarType(stack, 1)};
-  const at::ScalarType& result_type =
-      at::promote_types(input_types[0], input_types[1]);
+  const at::ScalarType& result_type = ComputePromotedScalarType(stack, true);
 
   int cast_index = -1;
   if (input_types[0] != result_type and input_types[1] == result_type) {
@@ -231,9 +251,37 @@ void OpBackend::HandleTypePromotion(
   SetGuid(
       guid_.substr(0, guid_.find_last_of('_') + 1) +
       habana_helpers::name_suffix_from_type(result_type));
+}
 
-  // Update m_scalar_type
-  m_scalar_type = result_type;
+void OpBackend::HandleIntToFloatPromotion(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  if (!m_promote_int_to_float) {
+    return;
+  }
+
+  const std::array<at::ScalarType, 2> input_types{
+      GetScalarType(stack, 0), GetScalarType(stack, 1)};
+  const at::ScalarType& result_type = ComputePromotedScalarType(stack, true);
+
+  for (auto i = 0u; i < input_types.size(); ++i) {
+    if (input_types[i] == result_type) {
+      continue;
+    }
+
+    auto cast = CastHelper(
+        graph,
+        syn_in(i),
+        stack.at(i).isTensor() ? stack_tensor(stack, i).sizes() : 1,
+        input_types[i],
+        result_type);
+
+    // Replace the input with the casted input
+    p_context_->syn_inputs_.at(i) = std::move(cast);
+  }
+
+  // Update the guid to reflect the promoted type
+  update_guid_dtype(guid_, habana_helpers::name_suffix_from_type(result_type));
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
@@ -301,6 +349,7 @@ void OpBackend::AllocateAndAddSynapseNode(
 
   HandleScalarToTensor(graph, stack);
   HandleTypePromotion(graph, stack);
+  HandleIntToFloatPromotion(graph, stack);
 
   AddNode(graph, stack, is_output_persistent_list);
 }

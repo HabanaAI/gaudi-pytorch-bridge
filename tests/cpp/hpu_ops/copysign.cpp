@@ -28,7 +28,21 @@ TEST_F(HpuOpTest, copysign_out_tensor) {
 
 TEST_F(HpuOpTest, copysign_out_bf16) {
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
-  GenerateInputs(2, {torch::kBFloat16, torch::kBFloat16});
+  GenerateInputs(2, {torch::kBFloat16, torch::kFloat});
+
+  auto expected = torch::empty(0, torch::kFloat);
+  auto result =
+      torch::empty(0, torch::TensorOptions(torch::kFloat).device("hpu"));
+
+  torch::copysign_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  torch::copysign_outf(GetHpuInput(0), GetCpuInput(1), result);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, copysign_out_int) {
+  torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kBFloat16));
+  GenerateInputs(2, torch::kInt);
 
   auto expected = torch::empty(0, torch::kBFloat16);
   auto result =
@@ -94,13 +108,24 @@ TEST_F(HpuOpTest, copysign_scalar_) {
 
 TEST_F(HpuOpTest, copysign_scalar_bf16) {
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
-  GenerateInputs(1, {torch::kBFloat16});
+  GenerateInputs(1, torch::kBFloat16);
   auto other = GenerateScalar<int>(-3, 3);
 
   auto expected = torch::copysign(GetCpuInput(0), other);
   auto result = torch::copysign(GetHpuInput(0), other);
 
   Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, copysign_scalar_int) {
+  torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kBFloat16));
+  GenerateInputs(1, torch::kInt);
+  auto other = GenerateScalar<int>();
+
+  auto expected = torch::copysign(GetCpuInput(0), other);
+  auto result = torch::copysign(GetHpuInput(0), other);
+
+  Compare(expected, result, 0, 0);
 }
 
 TEST_F(HpuOpTest, copysign_bc) {
