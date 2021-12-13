@@ -179,6 +179,8 @@ class HbLazyTensor {
   static void RunSavedGraph(const std::string& device_str);
   static void ExecuteCachedGraph();
 
+  static void* lazyTensorDataPtr(const at::Tensor& t);
+
   void ShallowCopyTo(HbLazyTensor* dest) const;
 
   int64_t getTensorUniqueId() const {

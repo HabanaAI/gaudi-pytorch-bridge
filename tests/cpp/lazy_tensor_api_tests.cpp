@@ -40,3 +40,24 @@ TEST_F(LazyTensorAPITest, EmptyStorage) {
   habana_lazy::HbLazyTensor::StepMarker("hpu");
   ASSERT_TRUE(GetHbLazyTensor(a).CurrentTensorData() != nullopt);
 }
+
+TEST_F(LazyTensorAPITest, DataPtr) {
+  auto dummy = torch::ones(1).to("hpu");
+  auto p = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy);
+  PT_TEST_DEBUG("tensor data ptr = ", p, "\n");
+  auto dummy2 = torch::randn({2, 300, 5, 6}).to("hpu");
+  auto p2 = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy2);
+  PT_TEST_DEBUG("tensor 2 data ptr = ", p2, "\n");
+  ASSERT_TRUE(p != p2);
+  auto dummy3 = torch::randn({2, 3, 5, 6}).to("hpu");
+  auto p3 = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy3);
+  PT_TEST_DEBUG("tensor 3 data ptr = ", p3, "\n");
+  ASSERT_TRUE(p != p3 && p2 != p3);
+  auto dummy4 = torch::randn({2}).to("hpu");
+  auto p4 = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy4);
+  PT_TEST_DEBUG("tensor 4 data ptr = ", p4, "\n");
+  ASSERT_TRUE(p != p4 && p2 != p4 && p3 != p4);
+  auto p_again = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy);
+  PT_TEST_DEBUG("tensor data ptr second call = ", p_again, "\n");
+  ASSERT_TRUE(p == p_again);
+}

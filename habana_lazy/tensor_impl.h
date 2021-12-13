@@ -34,7 +34,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
     return m_tensor;
   }
   void set_tensor(HbLazyTensor hb_tensor);
-  void set_storage_tensor(at::Tensor internal_tensor);
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const HbLazyTensor& hb_tensor);
 
@@ -70,13 +69,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   bool m_size_initialized;
 
   HbLazyTensor m_tensor;
-
-  // The m_storage_tensor shares the storage with the internal tensor, when the
-  // internal tensor is created upon the execution of this lazy tensor.
-  // The storage object from this m_storage_tensor is then moved to the lazy
-  // tensor so that outside callers of storage_ on the lazy tensor can get
-  // access to the internal storage.
-  at::Tensor m_storage_tensor;
 };
 
 // Habana internal TensorImpl

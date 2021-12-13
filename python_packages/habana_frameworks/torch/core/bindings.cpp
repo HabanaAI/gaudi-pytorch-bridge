@@ -67,6 +67,15 @@ int GetCurrentThreadDevice() {
   return d.id();
 }
 
+intptr_t GetDataPtr(const at::Tensor& t) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0,
+      "htcore.data_ptr() is only available for lazy mode."
+      " Set PT_HPU_LAZY_MODE=1 or PT_HPU_LAZY_MODE=2.");
+  return reinterpret_cast<intptr_t>(
+      habana_lazy::HbLazyTensor::lazyTensorDataPtr(t));
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   torch_hcl_init();
   // python API to report device memory live allocation details
@@ -171,5 +180,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         habana_lazy::ir::setCurrentModuleName(name);
       },
       py::arg("name"));
+  m.def(
+      "data_ptr",
+      [](const at::Tensor& t) { return GetDataPtr(t); },
+      py::arg("t"));
   m.doc() = "This module registers hpu backend.";
 }

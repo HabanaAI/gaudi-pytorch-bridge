@@ -845,3 +845,7 @@ void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
   HbLazyTensor::SyncLiveTensorsGraph(&device, true);
   HbLazyTensor::MarkStep(device);
 }
+
+void* HbLazyTensor::lazyTensorDataPtr(const at::Tensor& t) {
+  return GetLazyTensorDataPtr(t);
+}

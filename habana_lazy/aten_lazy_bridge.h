@@ -92,4 +92,5 @@ c10::optional<c10::Device> GetHpuDevice(
 c10::optional<c10::Device> GetHpuDevice(const c10::Device& device);
 c10::optional<c10::Device> GetHpuDevice(
     const c10::optional<c10::Device>& device);
+void* GetLazyTensorDataPtr(const at::Tensor& t);
 } // namespace habana_lazy
