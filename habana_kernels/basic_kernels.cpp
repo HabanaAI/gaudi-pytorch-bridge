@@ -716,8 +716,19 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       "Incorrect number of arguments for strided insert op");
   auto orig_t = inputs[0].toTensor();
   auto insert_t = inputs[1].toTensor();
-  auto strides = inputs[2].toIntVector();
-  auto offset = inputs[3].toInt();
+  std::vector<int64_t> strides;
+  int64_t offset = 0;
+
+  bool have_shape_tensors = inputs[2].isTensor();
+  if (have_shape_tensors) {
+    TORCH_CHECK(p_context_->syn_inputs_[2].ref().is_shape_tensor());
+    TORCH_CHECK(p_context_->syn_inputs_[3].ref().is_shape_tensor());
+    strides = p_context_->syn_inputs_[2].ref().pt_shape();
+    offset = p_context_->syn_inputs_[3].ref().pt_shape()[0];
+  } else {
+    strides = inputs[2].toIntVector();
+    offset = inputs[3].toInt();
+  }
 
   auto output = habana_helpers::createPTTensor(
       orig_t,
@@ -727,11 +738,12 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, output);
+  if (!have_shape_tensors) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
+    }
   }
-
   struct synStridedOpParams params;
   params.baseOffset = static_cast<uint64_t>(offset);
 
@@ -753,14 +765,29 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   auto self = inputs[0].toTensor();
-  TORCH_CHECK(
-      inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
-  TORCH_CHECK(
-      inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
-  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 fneeds to be of scalar type");
-  auto size = inputs[1].toIntVector();
-  auto strides = inputs[2].toIntVector();
-  auto offset = inputs[3].toInt();
+  std::vector<int64_t> size;
+  std::vector<int64_t> strides;
+  int64_t offset = 0;
+
+  bool have_shape_tensors = inputs[1].isTensor();
+  if (have_shape_tensors) {
+    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
+    TORCH_CHECK(p_context_->syn_inputs_[2].ref().is_shape_tensor());
+    TORCH_CHECK(p_context_->syn_inputs_[3].ref().is_shape_tensor());
+
+    size = p_context_->syn_inputs_[1].ref().pt_shape();
+    strides = p_context_->syn_inputs_[2].ref().pt_shape();
+    offset = p_context_->syn_inputs_[3].ref().pt_shape()[0];
+  } else {
+    TORCH_CHECK(
+        inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
+    TORCH_CHECK(
+        inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
+    TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 needs to be of scalar type");
+    size = inputs[1].toIntVector();
+    strides = inputs[2].toIntVector();
+    offset = inputs[3].toInt();
+  }
 
   auto output = habana_helpers::createPTTensor(
       self,
@@ -770,11 +797,12 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, output);
+  if (!have_shape_tensors) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
+    }
   }
-
   struct synStridedOpParams params;
   params.baseOffset = static_cast<uint64_t>(offset);
 
@@ -843,6 +871,18 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
+            "hpu::strided_view_ds",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedViewOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_view_cl_ds",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedViewClOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "hpu::strided_insert",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<StridedInsertOperator>(
@@ -850,6 +890,18 @@ static auto& KernelRegistry =
             })
         .add(
             "hpu::strided_insert_cl",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedInsertClOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_insert_ds",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<StridedInsertOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::strided_insert_cl_ds",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<StridedInsertClOperator>(
                   device_id, node_type);

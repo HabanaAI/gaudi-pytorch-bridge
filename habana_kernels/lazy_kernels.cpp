@@ -299,14 +299,40 @@ Tensor add_strided_insert_node(
     IntArrayRef strides,
     int64_t offset) {
   auto mf = orig_t.suggest_memory_format();
-  std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                          (mf == c10::MemoryFormat::ChannelsLast3d))
-      ? "hpu::strided_insert_cl"
-      : "hpu::strided_insert";
+  ir::NodePtr node;
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                            (mf == c10::MemoryFormat::ChannelsLast3d))
+        ? "hpu::strided_insert_cl_ds"
+        : "hpu::strided_insert_ds";
 
-  ir::NodePtr node = std::make_shared<ir::StridedInsert>(
-      orig_t, insert_t, strides, offset, node_str);
+    auto out_stride_st = empty_hpu_lazy(
+        strides,
+        orig_t.options(),
+        orig_t.suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
 
+    std::vector<int64_t> offset_vec = {offset};
+    IntArrayRef offset_ref(offset_vec.data(), offset_vec.size());
+    auto offset_st = empty_hpu_lazy(
+        offset_ref,
+        orig_t.options(),
+        orig_t.suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
+
+    node = std::make_shared<ir::StridedInsert>(
+        orig_t, insert_t, out_stride_st, offset_st, node_str);
+  } else {
+    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                            (mf == c10::MemoryFormat::ChannelsLast3d))
+        ? "hpu::strided_insert_cl"
+        : "hpu::strided_insert";
+
+    node = std::make_shared<ir::StridedInsert>(
+        orig_t, insert_t, strides, offset, node_str);
+  }
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
@@ -953,16 +979,46 @@ ir::NodePtr create_as_strided_node(
   IntArrayRef out_size(out_size_vec.data(), out_size_vec.size());
   IntArrayRef out_stride(out_stride_vec.data(), out_stride_vec.size());
   auto offset = storage_offset.value_or(self.storage_offset());
-
+  auto mf = self.suggest_memory_format();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
-    auto mf = self.suggest_memory_format();
-    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                            (mf == c10::MemoryFormat::ChannelsLast3d))
-        ? "hpu::strided_view_cl"
-        : "hpu::strided_view";
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                              (mf == c10::MemoryFormat::ChannelsLast3d))
+          ? "hpu::strided_view_cl_ds"
+          : "hpu::strided_view_ds";
 
-    node = std::make_shared<ir::StridedView>(
-        self, out_size, out_stride, offset, node_str);
+      auto out_size_st = empty_hpu_lazy(
+          out_size,
+          self.options(),
+          self.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+      auto out_stride_st = empty_hpu_lazy(
+          out_stride,
+          self.options(),
+          self.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+      std::vector<int64_t> offset_vec = {offset};
+      IntArrayRef offset_ref(offset_vec.data(), offset_vec.size());
+      auto offset_st = empty_hpu_lazy(
+          offset_ref,
+          self.options(),
+          self.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+
+      node = std::make_shared<ir::StridedView>(
+          self, out_size_st, out_stride_st, offset_st, node_str);
+      return node;
+    } else {
+      std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                              (mf == c10::MemoryFormat::ChannelsLast3d))
+          ? "hpu::strided_view_cl"
+          : "hpu::strided_view";
+      node = std::make_shared<ir::StridedView>(
+          self, out_size, out_stride, offset, node_str);
+    }
   } else {
     if ((stride.size() == 0) ||
         ((out_stride_vec.size() > 0) &&
@@ -979,7 +1035,6 @@ ir::NodePtr create_as_strided_node(
           self, out_size, out_stride, offset, node_str);
     }
   }
-
   return node;
 }
 
@@ -991,7 +1046,6 @@ Tensor add_strided_view_node(
     bool is_update_view,
     c10::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
-
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};

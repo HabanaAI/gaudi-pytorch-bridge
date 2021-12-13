@@ -1235,6 +1235,35 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  int N = 1;
+  int C = 2;
+  int H = 4;
+  at::Scalar alpha = 0.5;
+  at::Scalar Y = 2.0;
+  std::vector<int> in_sizes{8, 10, 12, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor C = A.view(-1);
+    torch::Tensor out_cpu = C.add_(alpha);
+    torch::Tensor hC = hA.view(-1);
+    torch::Tensor out_hpu = hC.add_(alpha);
+    auto out = out_hpu.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, CastTest) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {

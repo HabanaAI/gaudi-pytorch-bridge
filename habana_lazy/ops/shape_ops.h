@@ -173,13 +173,50 @@ class StridedInsert : public ir::Node {
         storage_offset, static_cast<size_t>(StridedInsertMeta::STORAGE_OFFSET));
   }
 
+  StridedInsert(
+      const at::Tensor& orig_t,
+      const at::Tensor& insert_t,
+      const at::Tensor& stride_t,
+      const at::Tensor& storage_offset_t,
+      std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_orig = habana_lazy::GetOrCreateHbLazyTensor(orig_t, c10::kHPU);
+    AddInput(hl_orig.GetIrValue());
+
+    auto hl_insert = habana_lazy::GetOrCreateHbLazyTensor(insert_t, c10::kHPU);
+    AddInput(hl_insert.GetIrValue());
+
+    auto hl_stride = habana_lazy::GetOrCreateHbLazyTensor(stride_t, c10::kHPU);
+    AddInput(hl_stride.GetIrValue());
+
+    auto hl_storage_offset =
+        habana_lazy::GetOrCreateHbLazyTensor(storage_offset_t, c10::kHPU);
+    AddInput(hl_storage_offset.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{
+        orig_t, insert_t, stride_t, storage_offset_t};
+    AddInputPtTensors(input_pt_vec);
+  }
+
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", Strides = "
-       << m_meta_data.get(static_cast<size_t>(StridedInsertMeta::STRIDE_INDEX))
-       << ", storage offset = "
-       << m_meta_data.get(
-              static_cast<size_t>(StridedInsertMeta::STORAGE_OFFSET));
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      HABANA_ASSERT(m_inputs.size() == 4);
+      ss << Node::ToString();
+      HABANA_ASSERT(m_inputs[2].DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> d1 = m_inputs[2].m_data_ptr.lock();
+      ss << ", strides = " << d1->sizes;
+      HABANA_ASSERT(m_inputs[3].DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> d2 = m_inputs[3].m_data_ptr.lock();
+      ss << ", storage offset = " << d2->sizes;
+    } else {
+      ss << Node::ToString() << ", Strides = "
+         << m_meta_data.get(
+                static_cast<size_t>(StridedInsertMeta::STRIDE_INDEX))
+         << ", storage offset = "
+         << m_meta_data.get(
+                static_cast<size_t>(StridedInsertMeta::STORAGE_OFFSET));
+    }
     return ss.str();
   }
 };
@@ -211,13 +248,51 @@ class StridedView : public ir::Node {
         storage_offset, static_cast<size_t>(StridedViewMeta::STORAGE_OFFSET));
   }
 
+  StridedView(
+      const at::Tensor& self,
+      at::Tensor& size,
+      at::Tensor& stride,
+      at::Tensor& storage_offset,
+      std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
+    AddInput(hl_self.GetIrValue());
+
+    auto hl_size = habana_lazy::GetOrCreateHbLazyTensor(size, c10::kHPU);
+    AddInput(hl_size.GetIrValue());
+
+    auto hl_stride = habana_lazy::GetOrCreateHbLazyTensor(stride, c10::kHPU);
+    AddInput(hl_stride.GetIrValue());
+
+    auto hl_storage_offset =
+        habana_lazy::GetOrCreateHbLazyTensor(storage_offset, c10::kHPU);
+    AddInput(hl_storage_offset.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self, size, stride, storage_offset};
+    AddInputPtTensors(input_pt_vec);
+  }
+
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", Size = "
-       << m_meta_data.get(static_cast<size_t>(StridedViewMeta::SIZE_INDEX))
-       << ", strides = "
-       << m_meta_data.get(static_cast<size_t>(StridedViewMeta::STRIDE_INDEX))
-       << ", storage offset = ";
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      HABANA_ASSERT(m_inputs.size() == 4);
+      ss << Node::ToString();
+      HABANA_ASSERT(m_inputs[1].DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> d1 = m_inputs[1].m_data_ptr.lock();
+      ss << ", Size = " << d1->sizes;
+      HABANA_ASSERT(m_inputs[2].DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> d2 = m_inputs[2].m_data_ptr.lock();
+      ss << ", strides = " << d2->sizes;
+      HABANA_ASSERT(m_inputs[3].DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> d3 = m_inputs[3].m_data_ptr.lock();
+      ss << ", storage offset = " << d3->sizes;
+    } else {
+      ss << Node::ToString() << ", Size = "
+         << m_meta_data.get(static_cast<size_t>(StridedViewMeta::SIZE_INDEX))
+         << ", strides = "
+         << m_meta_data.get(static_cast<size_t>(StridedViewMeta::STRIDE_INDEX))
+         << ", storage offset = ";
+    }
     return ss.str();
   }
 };
