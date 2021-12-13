@@ -624,6 +624,11 @@ eye.m_out:
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
+fill_.Tensor:
+  dtypes: [BFloat16, Float, Int]
+  op_backend: Fill
+  inplace_ids: [0]
+
 floor:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
