@@ -207,7 +207,6 @@ if (BUILD_PKGS)
   set(PKGS
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
     ${CMAKE_SOURCE_DIR}/python_packages
-    $ENV{MODEL_GARDEN_PYTORCH_PATH}/../internal/PyTorch/computer_vision/detectron2
   )
 
   foreach(PKG ${PKGS})
