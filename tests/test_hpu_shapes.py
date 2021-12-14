@@ -69,6 +69,87 @@ gather_data_type_list = [
     torch.float64
 ]
 
+@pytest.mark.parametrize("N, W, C", [(8, 4, 28)])
+def test_hpu_view_insert(N, W, C):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+
+    """
+        Do scale and transform from xywh to ltrb
+        suppose input Nx4xnum_bbox Nxlabel_numxnum_bbox
+    """
+    bboxes_in = torch.randn(N, W, C, requires_grad=False)
+    scores_in = torch.randn(N, W, C, requires_grad=False)
+    dboxes = torch.randn(N, W, C, requires_grad=False)
+    dboxes_xywh = torch.randn(N, W, C, requires_grad=False)
+    scale_xy = 0.5
+    scale_wh = 0.5
+
+    hbboxes_in = bboxes_in.to(hpu)
+    hscores_in = scores_in.to(hpu)
+    hdboxes = dboxes.to(hpu)
+    hdboxes_xywh = dboxes_xywh.to(hpu)
+
+    #CPU
+    bboxes_in = bboxes_in.permute(0, 2, 1)
+    scores_in = scores_in.permute(0, 2, 1)
+    dboxes = dboxes.permute(0, 2, 1)
+    dboxes_xywh = dboxes_xywh.permute(0, 2, 1)
+    # print(bboxes_in.device, scores_in.device, self.dboxes_xywh.device)
+
+    bboxes_in[:, :, :2] = scale_xy * bboxes_in[:, :, :2]
+    bboxes_in[:, :, 2:] = scale_wh * bboxes_in[:, :, 2:]
+
+    bboxes_in[:, :, :2] = bboxes_in[:, :, :2] * dboxes_xywh[:, :,
+                                                2:] + dboxes_xywh[:, :,
+                                                      :2]
+    bboxes_in[:, :, 2:] = bboxes_in[:, :, 2:].exp() * dboxes_xywh[:, :,
+                                                      2:]
+
+    # Transform format to ltrb
+    l, t, r, b = bboxes_in[:, :, 0] - 0.5 * bboxes_in[:, :, 2], \
+                 bboxes_in[:, :, 1] - 0.5 * bboxes_in[:, :, 3], \
+                 bboxes_in[:, :, 0] + 0.5 * bboxes_in[:, :, 2], \
+                 bboxes_in[:, :, 1] + 0.5 * bboxes_in[:, :, 3]
+
+    bboxes_in[:, :, 0] = l
+    bboxes_in[:, :, 1] = t
+    bboxes_in[:, :, 2] = r
+    bboxes_in[:, :, 3] = b
+
+    scores_softmax = torch.nn.functional.softmax(scores_in, dim=-1)
+
+    #HPU
+    hbboxes_in = hbboxes_in.permute(0, 2, 1)
+    hscores_in = hscores_in.permute(0, 2, 1)
+    hdboxes = hdboxes.permute(0, 2, 1)
+    hdboxes_xywh = hdboxes_xywh.permute(0, 2, 1)
+    # print(bboxes_in.device, scores_in.device, self.dboxes_xywh.device)
+
+    hbboxes_in[:, :, :2] = scale_xy * hbboxes_in[:, :, :2]
+    hbboxes_in[:, :, 2:] = scale_wh * hbboxes_in[:, :, 2:]
+
+    hbboxes_in[:, :, :2] = hbboxes_in[:, :, :2] * hdboxes_xywh[:, :,
+                                                2:] + hdboxes_xywh[:, :,
+                                                      :2]
+    hbboxes_in[:, :, 2:] = hbboxes_in[:, :, 2:].exp() * hdboxes_xywh[:, :,
+                                                      2:]
+
+    # Transform format to ltrb
+    hl, ht, hr, hb = hbboxes_in[:, :, 0] - 0.5 * hbboxes_in[:, :, 2], \
+                     hbboxes_in[:, :, 1] - 0.5 * hbboxes_in[:, :, 3], \
+                     hbboxes_in[:, :, 0] + 0.5 * hbboxes_in[:, :, 2], \
+                     hbboxes_in[:, :, 1] + 0.5 * hbboxes_in[:, :, 3]
+
+    hbboxes_in[:, :, 0] = hl
+    hbboxes_in[:, :, 1] = ht
+    hbboxes_in[:, :, 2] = hr
+    hbboxes_in[:, :, 3] = hb
+
+    hscores_softmax = torch.nn.functional.softmax(hscores_in, dim=-1)
+
+    compare_tensors(hscores_softmax, scores_softmax, atol=0.001, rtol=1.e-3)
+    compare_tensors(hbboxes_in, bboxes_in, atol=0.001, rtol=1.e-3)
 
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
