@@ -1896,12 +1896,31 @@ tanh_backward:
   guid: tanh_bwd
   out_ids: [0]
 
+threshold:
+  dtypes: [BFloat16, Float]
+  op_backend: Threshold
+  out_ids: [0]
+
+threshold_:
+  dtypes: [BFloat16, Float]
+  op_backend: Threshold
+  inplace_ids: [0]
+
+threshold.out:
+  dtypes: [BFloat16, Float]
+  op_backend: Threshold
+
 threshold_backward:
   dtypes: [BFloat16, Float]
   guid: relu_bwd
   out_ids: [1]
   op_backend: ThresholdBackwardHabanaOperator
   legacy_eager: true
+
+threshold_backward.grad_input:
+  dtypes: [BFloat16, Float]
+  guid: relu_bwd
+  op_backend: ThresholdBackwardHabanaOperator
 
 trace:
   custom_output_shape: TraceOutputShape
