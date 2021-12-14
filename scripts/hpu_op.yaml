@@ -1190,6 +1190,14 @@ maximum.out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
 
+min.dim:
+  custom_output_shape: MinOutputShape
+  custom_fill_params: FillMinParams
+  dtypes: [BFloat16, Float]
+  op_backend: Min
+  op_frontend: LazyMin
+  out_ids: [0,0]
+
 minimum:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
