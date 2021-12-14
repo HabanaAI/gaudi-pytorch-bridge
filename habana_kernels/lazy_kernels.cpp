@@ -74,6 +74,8 @@ using namespace habana;
 using namespace at;
 
 namespace habana_lazy {
+static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
+
 #define STRINGIFY(op_code) #op_code
 
 #define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
@@ -4452,10 +4454,7 @@ Tensor empty_hpu_lazy(
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data
     if (shape_tensor) {
-      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ||
-              (tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR)
-          ? SYN_MAX_TENSOR_DIM
-          : 0;
+      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
     }
     int elem_size = new_dtype.itemsize();
     int64_t size_bytes = nelements * elem_size;
@@ -4469,7 +4468,10 @@ Tensor empty_hpu_lazy(
         AtenInternalHbTensor(std::move(storage_impl), new_dtype);
     // Setup the tensor sizes & strides for tensor with dim = 4, else for now
     // assuming contiguous
-    if ((4 == size.size()) && mem_format.has_value()) {
+    if (tensor_type == DEVICE_SHAPE_TENSOR) {
+      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
+          device_shape_tensor_size);
+    } else if ((4 == size.size()) && mem_format.has_value()) {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
           size, CalculateStrides(size, mem_format.value()));
     } else if ((5 == size.size()) && mem_format.has_value()) {
@@ -4509,7 +4511,10 @@ Tensor empty_hpu_lazy(
 
       // Setup the tensor sizes & strides for tensor with dim = 4, else for
       // now assuming contiguous
-      if ((4 == size.size()) && mem_format.has_value()) {
+      if (tensor_type == DEVICE_SHAPE_TENSOR) {
+        at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
+            device_shape_tensor_size);
+      } else if ((4 == size.size()) && mem_format.has_value()) {
         at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
             size, CalculateStrides(size, mem_format.value()));
       } else if ((5 == size.size()) && mem_format.has_value()) {
