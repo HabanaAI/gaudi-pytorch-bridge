@@ -764,6 +764,12 @@ fmod_.Tensor:
   op_backend: Fmod
   type_promotion: true
 
+gather.out:
+  custom_fill_params: FillGatherParams
+  custom_output_shape: GatherOutputShape
+  dtypes: [BFloat16, Float, Int, Short, Byte, Char]
+  guid: gather_elements_fwd
+
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
