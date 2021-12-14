@@ -2369,9 +2369,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Input shapes::\n",
+      "Input shapes::",
       graph_input_info.act_input_tshapes,
-      "--------------------");
+      "\n--------------------");
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BUCKET_REFINEMENT)) {
     current_dbipsh_->CheckForSplitBucket();
