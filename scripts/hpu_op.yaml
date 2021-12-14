@@ -1432,6 +1432,13 @@ lt.Tensor:
   type_promotion: true
   legacy_eager: true
 
+max.dim_max:
+  custom_output_shape: MinOutputShape
+  custom_fill_params: FillMinParams
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_max_fwd
+  op_backend: MaxOut
+
 maximum:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
