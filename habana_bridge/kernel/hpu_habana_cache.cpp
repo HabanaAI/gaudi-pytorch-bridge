@@ -293,26 +293,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " #output_to_outduplicates       : " << v.num_output_to_outduplicates
     << '\n';
 
-  if (v.aten_dma_inputs.size()) {
-    O << "aten_dma_inputs #" << v.aten_dma_inputs.size() << " ::";
-    O << '\n';
-    size_t idx{0};
-    for (auto& a : v.aten_dma_inputs) {
-      O << idx++ << " : ";
-      PrintATenTensor(a);
-    }
-  }
-
-  if (v.aten_intermediates.size()) {
-    O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
-    O << '\n';
-    size_t idx{0};
-    for (auto& a : v.aten_intermediates) {
-      O << idx++ << " : ";
-      PrintATenTensor(a);
-    }
-  }
-
   if (v.aten_outputs) {
     O << "aten_outputs #" << v.aten_outputs->size() << " ::";
     O << '\n';
@@ -560,9 +540,9 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
 
 void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
-    const habana::NameShapeMap& m_actual_shapes,
-    bool enable_tensor_release) {
+    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
+    std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
+    const habana::NameShapeMap& m_actual_shapes) {
   PT_BRIDGE_BEGIN;
   if (dynamic_graph) {
     for (size_t i = 0; i < dtensorinfos->size(); ++i) {
@@ -684,7 +664,7 @@ void RecipeValueSpec::update_patching_table(
 
       IValPtrShared dma_ivpsh = std::make_shared<IVal>(seed_tensor);
       PT_BRIDGE_DEBUG("Persistent tensor for DMA\n");
-      dma_inputs->push_back(dma_ivpsh);
+      dma_inputs_ptr->push_back(dma_ivpsh);
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: DMA input : buffer ptr ",
@@ -695,180 +675,180 @@ void RecipeValueSpec::update_patching_table(
   // Shape tensor patching is already done from name shape map
   ridx = ridx + num_shape_tensors;
 
-  if (enable_tensor_release) {
-    // TODO : Creation of output tensors and associated patching should
-    // be part of a member function of RecipeValueSpec
+  // TODO : Creation of output tensors and associated patching should
+  // be part of a member function of RecipeValueSpec
 
-    // Patch persistent intermediates
-    // The persistent intermediates are retained in the rv
-    size_t intermediates_start =
-        num_inputs + num_induplicates + num_dma_inputs + num_shape_tensors;
-    size_t intermediates_end = intermediates_start + num_intermediates;
-    auto intermediate_idx = 0;
-    std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
-    for (; ridx < intermediates_end; ridx++) {
-      PtTensorInfo& ti = dtensorinfos->at(ridx);
-      auto tshape{ti.get_shape()};
+  // Patch persistent intermediates
+  // The persistent intermediates are retained in the rv
+  size_t intermediates_start =
+      num_inputs + num_induplicates + num_dma_inputs + num_shape_tensors;
+  size_t intermediates_end = intermediates_start + num_intermediates;
+  auto intermediate_idx = 0;
+  std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
+  std::vector<at::Tensor> intermediate_tensors;
+  for (; ridx < intermediates_end; ridx++) {
+    PtTensorInfo& ti = dtensorinfos->at(ridx);
+    auto tshape{ti.get_shape()};
 
-      if (ti.is_duplicate()) {
-        auto ti_parent_index = ti.get_parent_index();
-        auto pt_parent_index = ti_parent_index - intermediates_start;
-        TORCH_CHECK(
-            pt_parent_index < aten_intermediates.size(),
-            "out of range duplicate intermediate tensor index ",
-            pt_parent_index,
-            " #aten_intermediates ",
-            aten_intermediates.size());
-
-        auto pt_parent = aten_intermediates[pt_parent_index];
-
-        auto pt_sizes{ti.get_shape()};
-        auto pt_strides{ti.get_strides()};
-        long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
-        auto pt_opt_offset = c10::make_optional(pt_offset);
-
-        at::Tensor pt_intermediate =
-            at::as_strided(pt_parent, pt_sizes, pt_strides, pt_opt_offset);
-
-        PT_BRIDGE_DEBUG(
-            "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
-            tshape);
-
-        aten_intermediates.push_back(pt_intermediate);
-      } else {
-        auto pt_intermediate = create_empty_tensor(ti);
-        PT_BRIDGE_DEBUG(
-            "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
-            tshape);
-
-        aten_intermediates.push_back(pt_intermediate);
-      }
-      auto& rv_intermediate_tensor = aten_intermediates.at(intermediate_idx++);
-
-      // Theoretically the data and storage pts of an interim tinfo
-      // should not change over iterations. That possibility will only
-      // arise if we support freeing of aten_intermediates after the
-      // recipe execution.
-      ti.patch(rv_intermediate_tensor);
-
-      IValPtrShared ivpsh = std::make_shared<IVal>(rv_intermediate_tensor);
-      intermediateIVpshMap.emplace(ridx, ivpsh);
-      PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache hit :: Intermediate : buffer ptr ",
-          rv_intermediate_tensor.data_ptr());
-    }
-
-    TORCH_CHECK(
-        ridx == intermediates_end,
-        "tensor info index ",
-        ridx,
-        " mismatch with intermediates_end ",
-        intermediates_end);
-
-    // The aten_output_num is the total number of outputs
-    size_t aten_output_num = num_outputs + num_input_to_outduplicates +
-        num_intermediate_to_outduplicates + num_output_to_outduplicates;
-
-    aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
-        std::vector<IValPtrShared>(aten_output_num));
-
-    // Patch outputs
-    std::unordered_map<size_t, IValPtrShared> outputIVpshMap;
-    size_t outputs_end = intermediates_end + num_outputs;
-    for (; ridx < outputs_end; ridx++) {
-      PtTensorInfo& ti = dtensorinfos->at(ridx);
-      auto output_idx = ti.get_output_index();
+    if (ti.is_duplicate()) {
+      auto ti_parent_index = ti.get_parent_index();
+      auto pt_parent_index = ti_parent_index - intermediates_start;
       TORCH_CHECK(
-          output_idx < aten_output_num,
-          "output index ",
-          output_idx,
-          " is greater than #outputs ",
-          aten_output_num);
-      auto tshape{ti.get_shape()};
-      auto pt_output = create_empty_tensor(ti);
+          pt_parent_index < intermediate_tensors.size(),
+          "out of range duplicate intermediate tensor index ",
+          pt_parent_index,
+          " #intermediate_tensors ",
+          intermediate_tensors.size());
+
+      auto pt_parent = intermediate_tensors[pt_parent_index];
+
+      auto pt_sizes{ti.get_shape()};
+      auto pt_strides{ti.get_strides()};
+      long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
+      auto pt_opt_offset = c10::make_optional(pt_offset);
+
+      at::Tensor pt_intermediate =
+          at::as_strided(pt_parent, pt_sizes, pt_strides, pt_opt_offset);
+
       PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache hit :: Creating new output with shape : ",
-          pt_output.sizes());
-      IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
-      aten_outputs->at(output_idx) = ivpsh;
+          "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
+          tshape);
 
-      outputIVpshMap.emplace(ridx, ivpsh);
+      intermediate_tensors.push_back(pt_intermediate);
+    } else {
+      auto pt_intermediate = create_empty_tensor(ti);
+      PT_BRIDGE_DEBUG(
+          "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
+          tshape);
 
-      // Patch the buffer for the output
-      ti.patch(pt_output);
+      intermediate_tensors.push_back(pt_intermediate);
     }
+    auto& rv_intermediate_tensor = intermediate_tensors.at(intermediate_idx++);
 
-    // Patch the duplicates of output that are going back to graph
-    size_t outduplicates_end = outputs_end + num_outduplicates;
-    if (num_outduplicates) {
-      for (; ridx < outduplicates_end; ridx++) {
-        size_t parent_idx = dtensorinfos->at(ridx).get_parent_index();
-        dtensorinfos->at(ridx).patch(dtensorinfos->at(parent_idx));
-      }
-    }
+    // Theoretically the data and storage pts of an interim tinfo
+    // should not change over iterations. That possibility will only
+    // arise if we support freeing of intermediate_tensors after the
+    // recipe execution.
+    ti.patch(rv_intermediate_tensor);
 
-    TORCH_CHECK(
-        ridx == outduplicates_end,
-        "tensor info idx",
-        ridx,
-        " mismatch with outduplicates_end",
-        outduplicates_end);
-
-    // Patch the input duplicates if there are any
-    size_t input_to_outduplicates_end =
-        outduplicates_end + num_input_to_outduplicates;
-    if (num_input_to_outduplicates) {
-      for (; ridx < input_to_outduplicates_end; ridx++) {
-        create_outdup(ridx, inputIVpshMap, "inputIVpshMap");
-      }
-    }
-
-    TORCH_CHECK(
-        ridx == input_to_outduplicates_end,
-        "tensor info idx ",
-        ridx,
-        " mismatch with input_to_outduplicates_end ",
-        input_to_outduplicates_end);
-
-    // Patch the interim duplicates if there are any
-    size_t interim_to_outduplicates_end =
-        input_to_outduplicates_end + num_intermediate_to_outduplicates;
-    if (num_intermediate_to_outduplicates) {
-      for (; ridx < interim_to_outduplicates_end; ridx++) {
-        create_outdup(ridx, intermediateIVpshMap, "intermediateIVpshMap");
-      }
-    }
-
-    TORCH_CHECK(
-        ridx == interim_to_outduplicates_end,
-        "tensor info idx ",
-        ridx,
-        " mismatch with interim_to_outduplicates_end ",
-        interim_to_outduplicates_end);
-
-    // Patch the output duplicates if there are any
-    size_t output_to_outduplicates_end =
-        interim_to_outduplicates_end + num_output_to_outduplicates;
-    if (num_output_to_outduplicates) {
-      for (; ridx < output_to_outduplicates_end; ridx++) {
-        create_outdup(ridx, outputIVpshMap, "outputIVpshMap");
-      }
-    }
-
-    TORCH_CHECK(
-        ridx == output_to_outduplicates_end,
-        "tensor info idx ",
-        ridx,
-        " mismatch with output_to_outduplicates_end ",
-        output_to_outduplicates_end);
-
-    TORCH_CHECK(
-        ridx == num_tinfos,
-        "tensor info idx ",
-        ridx,
-        ", mismatch with num_tinfos",
-        num_tinfos);
+    IValPtrShared ivpsh = std::make_shared<IVal>(rv_intermediate_tensor);
+    intermediate_tensors_ptr->push_back(ivpsh);
+    intermediateIVpshMap.emplace(ridx, ivpsh);
+    PT_BRIDGE_DEBUG(
+        "HabanaOp recipe cache hit :: Intermediate : buffer ptr ",
+        rv_intermediate_tensor.data_ptr());
   }
+
+  TORCH_CHECK(
+      ridx == intermediates_end,
+      "tensor info index ",
+      ridx,
+      " mismatch with intermediates_end ",
+      intermediates_end);
+
+  // The aten_output_num is the total number of outputs
+  size_t aten_output_num = num_outputs + num_input_to_outduplicates +
+      num_intermediate_to_outduplicates + num_output_to_outduplicates;
+
+  aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
+      std::vector<IValPtrShared>(aten_output_num));
+
+  // Patch outputs
+  std::unordered_map<size_t, IValPtrShared> outputIVpshMap;
+  size_t outputs_end = intermediates_end + num_outputs;
+  for (; ridx < outputs_end; ridx++) {
+    PtTensorInfo& ti = dtensorinfos->at(ridx);
+    auto output_idx = ti.get_output_index();
+    TORCH_CHECK(
+        output_idx < aten_output_num,
+        "output index ",
+        output_idx,
+        " is greater than #outputs ",
+        aten_output_num);
+    auto tshape{ti.get_shape()};
+    auto pt_output = create_empty_tensor(ti);
+    PT_BRIDGE_DEBUG(
+        "HabanaOp recipe cache hit :: Creating new output with shape : ",
+        pt_output.sizes());
+    IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
+    aten_outputs->at(output_idx) = ivpsh;
+
+    outputIVpshMap.emplace(ridx, ivpsh);
+
+    // Patch the buffer for the output
+    ti.patch(pt_output);
+  }
+
+  // Patch the duplicates of output that are going back to graph
+  size_t outduplicates_end = outputs_end + num_outduplicates;
+  if (num_outduplicates) {
+    for (; ridx < outduplicates_end; ridx++) {
+      size_t parent_idx = dtensorinfos->at(ridx).get_parent_index();
+      dtensorinfos->at(ridx).patch(dtensorinfos->at(parent_idx));
+    }
+  }
+
+  TORCH_CHECK(
+      ridx == outduplicates_end,
+      "tensor info idx",
+      ridx,
+      " mismatch with outduplicates_end",
+      outduplicates_end);
+
+  // Patch the input duplicates if there are any
+  size_t input_to_outduplicates_end =
+      outduplicates_end + num_input_to_outduplicates;
+  if (num_input_to_outduplicates) {
+    for (; ridx < input_to_outduplicates_end; ridx++) {
+      create_outdup(ridx, inputIVpshMap, "inputIVpshMap");
+    }
+  }
+
+  TORCH_CHECK(
+      ridx == input_to_outduplicates_end,
+      "tensor info idx ",
+      ridx,
+      " mismatch with input_to_outduplicates_end ",
+      input_to_outduplicates_end);
+
+  // Patch the interim duplicates if there are any
+  size_t interim_to_outduplicates_end =
+      input_to_outduplicates_end + num_intermediate_to_outduplicates;
+  if (num_intermediate_to_outduplicates) {
+    for (; ridx < interim_to_outduplicates_end; ridx++) {
+      create_outdup(ridx, intermediateIVpshMap, "intermediateIVpshMap");
+    }
+  }
+
+  TORCH_CHECK(
+      ridx == interim_to_outduplicates_end,
+      "tensor info idx ",
+      ridx,
+      " mismatch with interim_to_outduplicates_end ",
+      interim_to_outduplicates_end);
+
+  // Patch the output duplicates if there are any
+  size_t output_to_outduplicates_end =
+      interim_to_outduplicates_end + num_output_to_outduplicates;
+  if (num_output_to_outduplicates) {
+    for (; ridx < output_to_outduplicates_end; ridx++) {
+      create_outdup(ridx, outputIVpshMap, "outputIVpshMap");
+    }
+  }
+
+  TORCH_CHECK(
+      ridx == output_to_outduplicates_end,
+      "tensor info idx ",
+      ridx,
+      " mismatch with output_to_outduplicates_end ",
+      output_to_outduplicates_end);
+
+  TORCH_CHECK(
+      ridx == num_tinfos,
+      "tensor info idx ",
+      ridx,
+      ", mismatch with num_tinfos",
+      num_tinfos);
   PT_BRIDGE_END;
 }
 
@@ -952,7 +932,8 @@ void RecipeValueSpec::patch_launch_info(
 
 void RecipeValueSpec::launch(
     at::ArrayRef<torch::jit::IValue> input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>> dma_inputs) {
+    std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+    std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
   SelfCheck();
 
   PT_BRIDGE_DEBUG("RecipeValueSpec::launch\n", *this);
@@ -976,8 +957,8 @@ void RecipeValueSpec::launch(
             input.toTensor().storage().data_ptr().get()));
       }
     }
-    if (dma_inputs != nullptr && dma_inputs->size() > 0) {
-      for (auto& dma_input : *dma_inputs) {
+    if (dma_inputs_ptr != nullptr && dma_inputs_ptr->size() > 0) {
+      for (auto& dma_input : *dma_inputs_ptr) {
         TORCH_CHECK(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
         at::Tensor tensor = dma_input->toTensor();
@@ -991,10 +972,13 @@ void RecipeValueSpec::launch(
 
     // Hold on to the pytorch tensors for the intermediates untill the recipe
     // execution completes
-    for (auto& tensor : aten_intermediates) {
-      ptRefs.push_back(std::move(tensor));
+    if (intermediate_tensors_ptr != nullptr &&
+        intermediate_tensors_ptr->size() > 0) {
+      for (auto& intermediate_tensor : *intermediate_tensors_ptr) {
+        at::Tensor tensor = intermediate_tensor->toTensor();
+        ptRefs.push_back(std::move(tensor));
+      }
     }
-    aten_intermediates.clear();
 
     outDevPtr.reserve(
         num_outputs + num_input_to_outduplicates +

@@ -214,7 +214,6 @@ class HabanaLaunchOpPT {
   // caching :: end
 
   bool enable_caching_{true};
-  bool enable_tensor_release_{false};
   bool watch_tensor_flag_{false};
   bool enable_tensor_dump_{false};
   bool refine_ds_enabled_{false};
@@ -383,7 +382,7 @@ class HabanaLaunchOpPT {
       const IValPtrShared& ivpsh,
       const IValPtrShared& ivpsh_updated,
       const ValPtr& vp) {
-    if (enable_tensor_release_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
+    if (enable_caching_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
       auto a = output_tensorinfo_map.find(ivpsh);
       auto ti = PtTensorInfo(
           ivpsh_updated, a->second.get_syn_name(), vp, watch_tensor_flag_);

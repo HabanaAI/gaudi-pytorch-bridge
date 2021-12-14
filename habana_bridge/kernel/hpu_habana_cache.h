@@ -210,15 +210,16 @@ struct RecipeValueSpec {
   int update_hit_count();
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
-      const habana::NameShapeMap& m_actual_shapes,
-      bool enable_tensor_release = true);
+      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
+      std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
+      const habana::NameShapeMap& m_actual_shapes);
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec);
   void launch(
       at::ArrayRef<torch::jit::IValue> input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
+      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr = nullptr);
 
   void create_outdup(PtTensorInfo& ti, at::Tensor orig);
   void create_outdup(size_t ti_idx, IValPtrShared& ivpsh_parent);
@@ -274,13 +275,6 @@ struct RecipeValueSpec {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
-  // We keep two separate arrays for storing persistent intermediate.
-  // aten_intermediates is used for storing intermediates which are usually
-  // marked persistent by persistenceMarkingPass. aten_dma_inputs is
-  // used for storing the seed tensors needed for dropout kernel within the
-  // recipe.
-  std::vector<at::Tensor> aten_dma_inputs;
-  std::vector<at::Tensor> aten_intermediates;
   uint64_t workspace_size;
 
   uint64_t htensor_wbuff = 0;
