@@ -856,6 +856,28 @@ hardtanh_backward:
   guid: hardtanh_bwd
   out_ids: [0]
 
+huber_loss:
+  custom_output_shape: HuberLossOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: HuberLossOperator
+  out_ids: [0]
+
+huber_loss.out:
+  custom_output_shape: HuberLossOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: HuberLossOperator
+
+huber_loss_backward:
+  custom_output_shape: HuberLossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: HuberLossBwdOperator
+  out_ids: [0]
+
+huber_loss_backward.out:
+  custom_output_shape: HuberLossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: HuberLossBwdOperator
+
 heaviside:
   dtypes: [BFloat16, Float, Int]
   op_backend: Heaviside
