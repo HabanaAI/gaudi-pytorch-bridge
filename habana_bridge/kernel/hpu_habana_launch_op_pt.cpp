@@ -2313,7 +2313,7 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
     auto& syn_device = synapse_helpers::HPURegistrar::get_device();
-    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
       auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
       if (time_event_handle_cache.get_total_events_count() <
           synapse_helpers::event_handle_cache::

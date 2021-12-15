@@ -427,7 +427,7 @@ int RecipeValueSpec::update_hit_count() {
   device.get_recipe_handle_cache().increaseHitCount(key);
   auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
 
-  auto max_hit_count = GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT);
+  auto max_hit_count = GET_ENV_FLAG_NEW(PT_HABANA_MAX_RECIPE_HIT_COUNT);
   if (max_hit_count && rv_hit_count >= int(max_hit_count)) {
     device.get_recipe_handle_cache().printHitCount();
     PT_BRIDGE_DEBUG(

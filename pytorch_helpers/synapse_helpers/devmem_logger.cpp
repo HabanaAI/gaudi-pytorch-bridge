@@ -34,7 +34,7 @@ deviceMallocData::deviceMallocData() {
   std::string node_id = std::getenv("ID") ? std::getenv("ID") : "0";
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG(PT_HABANA_MEM_LOG_FILENAME), node_id);
-  auto log_level = (mem_log_level)GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL);
+  auto log_level = (mem_log_level)GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL);
   switch (log_level) {
     case MEM_LOG_ALL:
       print_free_bt = true;

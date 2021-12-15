@@ -82,36 +82,8 @@ struct GC_KERNEL_PATH {
   static constexpr const char* default_value = "";
 };
 
-struct PT_HABANA_MEM_LOG_LEVEL : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 0;
-};
-
-struct PT_HABANA_MAX_RECIPE_HIT_COUNT : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 0;
-};
-
 struct PT_HABANA_MEM_LOG_FILENAME {
   static constexpr const char* default_value = "habana_log.livealloc.log";
-};
-
-struct PT_HPU_POOL_LOG_FRAGMENTATION_INFO {
-  static constexpr bool default_value = false;
-};
-
-struct PT_ENABLE_SYNC_OUTPUT_HOST {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_ENABLE_SYNC_OUTPUT_HOST {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_USE_HCL_SYNC {
-  static constexpr bool default_value = true;
-};
-
-struct PT_USE_HCL_OPTS {
-  static constexpr bool default_value = false;
 };
 
 struct PT_HPU_LOWER_AS_STRIDED {
@@ -122,41 +94,13 @@ struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
   static constexpr bool default_value = false;
 };
 
-struct PT_HPU_ERROR_HANDLER {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_DUMP_IR_DOT_GRAPH {
-  static constexpr bool default_value = false;
-};
-
-struct PT_HPU_DISABLE_INSTANCE_NORM {
-  static constexpr bool default_value = false;
-};
-
-struct PT_HPU_AVOID_RE_EXECUTE_GRAPHS {
-  static constexpr bool default_value = true;
-};
-
 struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
   static constexpr std::size_t default_value =
       std::numeric_limits<std::size_t>::max();
 };
 
-struct PT_HPU_GRAPH_DUMP : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 0;
-};
-
 struct PT_HPU_GRAPH_DUMP_PREFIX {
   static constexpr const char* default_value = ".";
-};
-
-struct PT_ENABLE_SYNLAUNCH_TIME_CAPTURE {
-  static constexpr bool default_value = false;
 };
 
 struct PT_HPU_LOG_MOD_MASK : public std::numeric_limits<unsigned long> {
@@ -173,9 +117,6 @@ struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
 
 struct PT_HPU_LOG_NODE_MASK : public std::numeric_limits<unsigned long> {
   static constexpr unsigned long default_value = 0;
-};
-struct PT_HPU_ENABLE_DEBUG_NAMES {
-  static constexpr bool default_value = true;
 };
 
 // Option to save compiled recipes to disk.
@@ -300,6 +241,20 @@ ENV_STRUCT_DEFINITION(PT_HPU_POOL_STRATEGY, unsigned, 5);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_MAX_MERGE_COUNT, unsigned, 5);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_ENABLE_LFU_MERGE, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VIEW_TABLE, bool, false);
+ENV_STRUCT_DEFINITION(PT_HABANA_MEM_LOG_LEVEL, unsigned, 0);
+ENV_STRUCT_DEFINITION(PT_HABANA_MAX_RECIPE_HIT_COUNT, unsigned, 0);
+ENV_STRUCT_DEFINITION(PT_HPU_POOL_LOG_FRAGMENTATION_INFO, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNC_OUTPUT_HOST, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_USE_HCL_SYNC, bool, true);
+ENV_STRUCT_DEFINITION(PT_USE_HCL_OPTS, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ERROR_HANDLER, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_PRINT_BACKTRACE_ON_SIGNAL, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_DUMP_IR_DOT_GRAPH, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_DISABLE_INSTANCE_NORM, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_AVOID_RE_EXECUTE_GRAPHS, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_GRAPH_DUMP, unsigned, 0);
+ENV_STRUCT_DEFINITION(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_DEBUG_NAMES, bool, true);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes

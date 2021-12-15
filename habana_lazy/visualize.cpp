@@ -78,7 +78,7 @@ void DumpGraph(const GraphPtr& graph, const std::string& filename) {
 }
 
 void DumpPreGraph(const GraphPtr& graph, size_t hash) {
-  if (GET_ENV_FLAG(PT_HPU_GRAPH_DUMP) >= 1) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 1) {
     DumpGraph(
         graph,
         GetGraphFilename("pre-graph", GetGraphIndex(hash), ResetPassIndex()));
@@ -86,7 +86,7 @@ void DumpPreGraph(const GraphPtr& graph, size_t hash) {
 }
 
 void DumpPostGraph(const GraphPtr& graph, size_t hash) {
-  if (GET_ENV_FLAG(PT_HPU_GRAPH_DUMP) >= 1) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 1) {
     DumpGraph(
         graph,
         GetGraphFilename("post-graph", GetGraphIndex(hash), NextPassIndex()));
@@ -97,7 +97,7 @@ void DumpOptimizedGraph(
     const GraphPtr& graph,
     size_t hash,
     const std::string& pass) {
-  if (GET_ENV_FLAG(PT_HPU_GRAPH_DUMP) >= 2) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 2) {
     DumpGraph(
         graph,
         GetGraphFilename(
@@ -106,7 +106,7 @@ void DumpOptimizedGraph(
 }
 
 void DumpCachedGraph(const GraphPtr& graph, size_t hash) {
-  if (GET_ENV_FLAG(PT_HPU_GRAPH_DUMP) >= 3) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP) >= 3) {
     DumpGraph(graph, GetGraphFilename("cached", GetGraphIndex(hash)));
   }
 }

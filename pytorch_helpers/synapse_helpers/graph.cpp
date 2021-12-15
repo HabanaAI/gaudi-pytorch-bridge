@@ -357,7 +357,7 @@ synapse_error_o graph::launch(
       ++iter;
     }
 
-    if (GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
+    if (GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
       std::string msg = absl::StrFormat(
           "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
       synapse_helpers::print_live_allocations(msg.c_str());

@@ -35,11 +35,11 @@
 
 namespace hccl_integration {
 
-#define HCL_SYNC()                           \
-  {                                          \
-    if (GET_ENV_FLAG(PT_HPU_USE_HCL_SYNC)) { \
-      HCL_Sync(hcl_comm(), get_sync_tag());  \
-    }                                        \
+#define HCL_SYNC()                               \
+  {                                              \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_HCL_SYNC)) { \
+      HCL_Sync(hcl_comm(), get_sync_tag());      \
+    }                                            \
   }
 
 device_context::device_context(int device_id) {
@@ -306,7 +306,7 @@ hcclResult_t device_context::synchronize_output(
       ")");
   synapse_helpers::device_handle dev_handle = device_;
   HABANA_ASSERT(nullptr != dev_handle);
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
     dev_handle->wait_until_address_ready(output_address);
   }
   return hcclSuccess;

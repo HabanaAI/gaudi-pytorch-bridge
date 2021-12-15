@@ -351,7 +351,7 @@ void HbLazyTensor::ClearAndAssignNewIrValue() {
   //   tensor to further ops using this tensor.
 
   ir::Value val = createIrValueFromData();
-  if (GET_ENV_FLAG(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
     ir::Value& currentIrVal = CurrentIrValue();
     // Check if any other node uses this node, if used, then replace its irval
     // with the new one.
@@ -449,7 +449,7 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   }
 
   ir::Utils::ComputePostOrder(p_roots, po_data);
-  if (!GET_ENV_FLAG(PT_HPU_DUMP_IR_DOT_GRAPH)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_DUMP_IR_DOT_GRAPH)) {
     PT_LAZY_DEBUG(
         IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
   } else {

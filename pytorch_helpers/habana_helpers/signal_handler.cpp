@@ -110,7 +110,7 @@ void InstallSignalHandlers(signalHandlerFnPtr handlerFn) {
 class HPUSigHandler {
  public:
   HPUSigHandler() {
-    if (GET_ENV_FLAG(PT_HPU_ERROR_HANDLER)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ERROR_HANDLER)) {
       habana_helpers::signalHandler::InstallSignalHandlers(fatalSignalHandler);
       done = false;
     }
@@ -144,7 +144,7 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
       ss << "Internal Error: Received signal - " << strsignal(signum) << "\n";
     }
 
-    if (GET_ENV_FLAG(PT_HPU_PRINT_BACKTRACE_ON_SIGNAL)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_PRINT_BACKTRACE_ON_SIGNAL)) {
       ss << c10::get_backtrace(2) << "\n";
     }
 

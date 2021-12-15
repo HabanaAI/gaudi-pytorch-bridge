@@ -16,7 +16,7 @@ namespace synapse_helpers {
 recipe_handle_cache::recipe_handle_cache(device& device)
     : mutex_{}, device_{device}, evict_strategy_{NumberLimit(MAX_CACHE_SIZE)} {
   static_cast<void>(device_);
-  enable_hit_count_ = (GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT) != 0);
+  enable_hit_count_ = (GET_ENV_FLAG_NEW(PT_HABANA_MAX_RECIPE_HIT_COUNT) != 0);
 }
 
 void recipe_handle_cache::insert(

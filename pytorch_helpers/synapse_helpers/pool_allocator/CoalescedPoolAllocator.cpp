@@ -904,7 +904,7 @@ void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   // Fragmentation info
   bool log_fragmentation_info =
-      GET_ENV_FLAG(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
+      GET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
 
   if (log_fragmentation_info) {
     const std::string occupancy_mask = "[+++]";

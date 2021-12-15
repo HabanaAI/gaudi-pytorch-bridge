@@ -52,11 +52,11 @@ std::mutex hcl_communicator::world_mtx;
     }                                           \
   }
 
-#define HCL_SYNC()                           \
-  {                                          \
-    if (GET_ENV_FLAG(PT_HPU_USE_HCL_SYNC)) { \
-      HCL_Sync(hcl_comm(), get_sync_tag());  \
-    }                                        \
+#define HCL_SYNC()                               \
+  {                                              \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_HCL_SYNC)) { \
+      HCL_Sync(hcl_comm(), get_sync_tag());      \
+    }                                            \
   }
 
 hcl_communicator_handle hcl_communicator::get_or_create_world(
@@ -944,7 +944,7 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
   uint32_t flags = 0;
 
   // TBD: ensure allreduce buffers are not dependant
-  if ((eHCLAllReduce == operation) && GET_ENV_FLAG(PT_USE_HCL_OPTS)) {
+  if ((eHCLAllReduce == operation) && GET_ENV_FLAG_NEW(PT_USE_HCL_OPTS)) {
     // this will aid in pipelining allreduce calls in hcl
     flags = eHCLWeakOrder;
   }
@@ -1038,7 +1038,7 @@ void hcl_communicator::synchronize_output(
     synapse_helpers::device_ptr output_address) {
   // Added to pipeline the lazy host copy operations after
   // communication collective is called.
-  if (using_streams_ && GET_ENV_FLAG(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
+  if (using_streams_ && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
     my_device_->wait_until_address_ready(output_address);
   } else {
     return;

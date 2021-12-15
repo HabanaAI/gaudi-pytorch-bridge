@@ -475,7 +475,7 @@ class Bucket {
       << " hit count: " << cumu_hit_count_ << '\n'
       << " miss count: " << (cumu_run_count_ - cumu_hit_count_) << '\n';
 
-    if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
       O << " compile time stat: " << compile_time_ << '\n'
         << " base_time: " << base_time_ << '\n'
         << " run time stat: " << run_time_stat_ << '\n';

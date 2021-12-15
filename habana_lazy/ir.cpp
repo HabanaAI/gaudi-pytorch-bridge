@@ -68,7 +68,7 @@ std::string Node::ToString() const {
 }
 
 void Node::AddInput(const Value& value) {
-  if (GET_ENV_FLAG(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
     if (value.mp_node) {
       value.mp_node->m_uses.insert({this, m_inputs.size(), value.GetIndex()});
       m_uses_reverse_nodes.push_back(value.mp_node);
@@ -133,7 +133,7 @@ void Value::SetNode(
   this->scalar_type = scalar_type;
   mp_node = std::move(node);
 
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
     this->m_name = absl::StrFormat(
         "t%d_%s_%d", unique_id, mp_node->GetName().c_str(), m_index);
   }
@@ -173,7 +173,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_DEBUG_NAMES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
     static std::atomic<uint64_t> id(0);
     node->SetName(absl::StrFormat(
         "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));

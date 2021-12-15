@@ -2067,7 +2067,7 @@ Tensor hpu_wrap::instance_norm(
   auto running_mean = running_mean_opt.value_or(Tensor());
   auto running_var = running_var_opt.value_or(Tensor());
 
-  if (GET_ENV_FLAG(PT_HPU_DISABLE_INSTANCE_NORM)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_INSTANCE_NORM)) {
     return at::native::instance_norm(
         input,
         weight,

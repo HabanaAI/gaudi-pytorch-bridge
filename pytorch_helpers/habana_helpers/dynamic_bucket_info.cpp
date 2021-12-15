@@ -795,12 +795,12 @@ std::string DynamicBucketInfo::digest_str() const {
     << " hit count: " << cumu_hit_count_ << '\n'
     << " miss count: " << (cumu_run_count_ - cumu_hit_count_) << '\n';
 
-  if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
     O << " [number of run times stats collected can be lesser than the total number of runs]"
       << '\n'
       << " [times are in nano seconds]" << '\n';
   }
-  if (GET_ENV_FLAG(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
     O << " compile time stat : " << cumu_compile_time_stat_ << '\n'
       << " run time stat     : " << cumu_run_time_stat_ << '\n';
   }

@@ -266,7 +266,7 @@ void HPUDeviceAllocator::flush_stream_events() const {
 }
 
 void HPUDeviceAllocator::print_memory_stats(const char* msg) {
-  if (!GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL)) {
+  if (!GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL)) {
     if (unsigned(-1) ==
         habana::HPUDeviceAllocator::allocator_active_device_id) {
       return;
