@@ -79,6 +79,32 @@ all:
   op_frontend: LazyAll
   legacy_eager: true
 
+amax:
+  custom_output_shape: AmaxAminOutputShape
+  dtype: [Float, BFloat16, Int]
+  guid:  reduce_max_fwd
+  out_ids: [0]
+  op_backend: AmaxAmin
+
+amax.out:
+  custom_output_shape: AmaxAminOutputShape
+  dtype: [Float, BFloat16, Int]
+  guid:  reduce_max_fwd
+  op_backend: AmaxAmin
+
+amin:
+  custom_output_shape: AmaxAminOutputShape
+  dtype: [Float, BFloat16, Int]
+  guid:  reduce_min_fwd
+  out_ids: [0]
+  op_backend: AmaxAmin
+
+amin.out:
+  custom_output_shape: AmaxAminOutputShape
+  dtype: [Float, BFloat16, Int]
+  guid:  reduce_min_fwd
+  op_backend: AmaxAmin
+
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
