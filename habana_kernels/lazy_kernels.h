@@ -42,6 +42,7 @@ at::Tensor add_strided_view_node(
     bool is_update_view,
     c10::optional<at::Tensor> out);
 void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params);
+StrideParams& getViewTableParams(HbLazyTensor& hl_view_t);
 at::Tensor get_parent_tensor(const at::Tensor& self);
 const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
 

@@ -422,6 +422,7 @@ void InsertPermute_graph(
 
         // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
              0) ||
@@ -562,6 +563,7 @@ void InsertPermute_graph(
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||

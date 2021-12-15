@@ -367,6 +367,113 @@ Tensor add_strided_insert_node(
   return result;
 }
 
+Tensor add_view_lazy(
+    const Tensor& self,
+    IntArrayRef size,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  int64_t sum_elm = 1;
+  for (auto& i : self.sizes()) {
+    sum_elm *= i;
+  }
+  auto inferred_size =
+      habana_helpers::infer_size(size, static_cast<int64_t>(sum_elm));
+
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hb_result = GetHbLazyTensor(result);
+  ir::Value& out = hb_result.CurrentIrValue();
+  ir::NodePtr node = std::make_shared<ir::View>(self, inferred_size);
+  out.SetNode(
+      node,
+      hb_result.GetDevice(),
+      hb_result.GetSizes(),
+      hb_result.dtype_optional());
+  flush_op(result);
+  return result;
+}
+
+Tensor add_slice_lazy(
+    const Tensor& self,
+    const StridedOpSliceParams& params,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  int64_t dim = params.dim;
+  int64_t step = params.step;
+  int64_t start_val = params.start.has_value() ? params.start.value() : 0;
+  int64_t end_val = params.end.has_value() ? params.end.value() : INT64_MAX;
+
+  auto node = std::make_shared<ir::Slice>(self, dim, start_val, end_val, step);
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  flush_op(result);
+  return result;
+}
+
+Tensor add_select_lazy(
+    const Tensor& self,
+    const StridedOpSelectParams& params,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  int64_t dim = params.dim;
+  int64_t index = params.index;
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    HABANA_ASSERT(false, "select() cannot be applied to a 0-dim tensor.")
+  }
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  auto size = self.size(dim);
+  if (index < -size || index >= size) {
+    if (self.has_names() && self.names()[dim] != Dimname::wildcard()) {
+      HABANA_ASSERT(
+          false,
+          "select(): index ",
+          index,
+          " out of range for tensor of size ",
+          self.sizes(),
+          " at dimension ",
+          self.names()[dim]);
+    }
+    HABANA_ASSERT(
+        false,
+        "select(): index ",
+        index,
+        " out of range for tensor of size ",
+        self.sizes(),
+        " at dimension ",
+        dim);
+  }
+  if (index < 0) {
+    index += size;
+  }
+
+  auto node = std::make_shared<ir::Slice>(self, dim, index);
+
+  // infer shape
+  auto shape = SelectOperator::compute_output_shape(self, dim);
+
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  flush_op(result);
+  return result;
+}
+
 void strided_insert_hpu_lazy(
     const Tensor& self,
     const Tensor& insert_t,
@@ -436,17 +543,41 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
 
     // pick the most recent version
     auto recent_orig_t = get_recent_base_tensor(params.t);
-
+    Tensor out;
     auto t_opt = c10::make_optional(t);
-
-    Tensor out = add_strided_view_node(
-        recent_orig_t,
-        params.sizes,
-        params.strides,
-        params.offset,
-        false,
-        t_opt);
-
+    bool add_asstrided_node = true;
+    if (GET_ENV_FLAG_NEW(PT_HPU_DONT_USE_STRIDED_VIEW)) {
+      add_asstrided_node = false;
+      switch (params.optype) {
+        case kStridedOpView:
+          out = add_view_lazy(recent_orig_t, params.sizes, t_opt);
+          break;
+        case kStridedOpSlice:
+          if (GET_ENV_FLAG_NEW(PT_HPU_USE_STRIDED_VIEW_FOR_SLICE)) {
+            add_asstrided_node = true;
+          } else {
+            add_slice_lazy(recent_orig_t, params.params.slice_param, t_opt);
+          }
+          break;
+        case kStridedOpSelect:
+          add_select_lazy(recent_orig_t, params.params.select_param, t_opt);
+          break;
+        case kStridedOpDefault:
+          add_asstrided_node = true;
+          break;
+        default:
+          HABANA_ASSERT(0);
+      }
+    }
+    if (add_asstrided_node) {
+      out = add_strided_view_node(
+          recent_orig_t,
+          params.sizes,
+          params.strides,
+          params.offset,
+          false,
+          t_opt);
+    }
     is_view = true;
   }
   return is_view;
@@ -552,6 +683,15 @@ void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params) {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
   context->view_table[id] = params;
+}
+
+StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {
+  PT_LAZY_TRACE;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto id = hl_view_t.getTensorUniqueId();
+  auto it = context->view_table.find(id);
+  HABANA_ASSERT(it != context->view_table.end());
+  return context->view_table[id];
 }
 
 /**
@@ -1122,7 +1262,12 @@ Tensor add_strided_view_node(
   }
   auto hb_result = GetHbLazyTensor(result);
 
-  StrideParams params = {self_, size.vec(), stride.vec(), storage_offset};
+  StrideParams params;
+  params.t = self_;
+  params.sizes = size.vec();
+  params.strides = stride.vec();
+  params.offset = storage_offset;
+  params.optype = kStridedOpDefault;
 
   if (is_update_view) {
     updateViewTable(hb_result, params);
@@ -1418,8 +1563,17 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
         " spans across two contiguous subspaces). Use .reshape(...) instead.");
     auto stride_value = *stride;
 
-    return as_strided_hpu_lazy(
+    auto out = as_strided_hpu_lazy(
         self, inferred_size, stride_value, self.storage_offset());
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    // There could be some cases where slice/select/etc followed by view, in
+    // those cases use as_strided instead of using the ViewOP.
+    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
+        GetHbLazyTensor(self).getTensorUniqueId()) {
+      strided_param.optype = kStridedOpView;
+    }
+    return out;
   } else {
     int64_t sum_elm = 1;
     for (auto& i : self.sizes()) {
@@ -2759,41 +2913,38 @@ Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
-  if ((self_in.dim() <= 1) || (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE))) {
-    return slice_hpu_with_asstrided(self_in, dim, start, end, step);
+  if (self_in.dim() <= 1) {
+    return at::native::slice(self_in, dim, start, end, step);
   }
-  // check if output tensor will be ZST
-  auto sum_elm = habana_helpers::tensor_numel(self_in);
-  auto out_zst = (!sum_elm) ||
-      ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-       (start.value() == end.value()));
 
-  // WA for https://jira.habana-labs.com/browse/SW-37197
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+    auto out = slice_hpu_with_asstrided(self_in, dim, start, end, step);
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    // There could be some cases where view/select/etc followed by slice, in
+    // those cases use as_strided instead of using the SliceOP.
+    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
+        GetHbLazyTensor(self_in).getTensorUniqueId()) {
+      strided_param.optype = kStridedOpSlice;
+      StridedOpSliceParams slice_param = {dim, start, end, step};
+      strided_param.params.slice_param = slice_param;
+    }
+    return out;
+  }
+
   auto self = self_in;
   auto dim_orig = dim;
-  if ((dim == self_in.dim() - 1) && (step > 1) && !out_zst) {
+  if ((dim == self_in.dim() - 1) && (step > 1)) {
     self = transpose_hpu_lazy(self_in, self_in.dim() - 1, self_in.dim() - 2);
     dim = self.dim() - 2;
   }
-  auto node =
-      std::make_shared<ir::Slice>(self, dim, start.value(), end.value(), step);
 
   auto shape = SliceOperator::compute_output_shape(
       self, dim, start.value(), end.value(), step);
 
-  // This ZST output tensor should ideally be handled at Synapse level, but
-  // since it is throwing errors in that case we are forced to add this
-  // work-around.
-  // TBD: Investigate and raise a JIRA on GC. SW-57116 already raised in context
-  // of transformer.
-  if (out_zst) {
-    auto result = empty_hpu_lazy(
-        shape, self.options(), self.suggest_memory_format(), true);
-    auto hl_result = GetHbLazyTensor(result);
-    updateDstDependencies(hl_result, result);
-    flush_op(result);
-    return result;
-  }
+  auto node =
+      std::make_shared<ir::Slice>(self, dim, start.value(), end.value(), step);
+
   auto result = empty_hpu_lazy(
       shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
@@ -2994,7 +3145,23 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
-    return at::native::select(self, dim, index);
+    auto out = at::native::select(self, dim, index);
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    // in case of 5d channels last, the strides are not correct while creating
+    // empty_as_strided_lazy when coming from as_strided_hpu_lazy
+    auto is_5d_cl = (self.dim() == 5) &&
+        (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d);
+    // There could be some cases where view/slice/etc followed by slice, in
+    // those cases use as_strided instead of using the SelectOp.
+    if ((!is_5d_cl) &&
+        (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
+         GetHbLazyTensor(self).getTensorUniqueId())) {
+      strided_param.optype = kStridedOpSelect;
+      StridedOpSelectParams select_param = {dim, index};
+      strided_param.params.select_param = select_param;
+    }
+    return out;
   }
 
   int64_t ndim = self.dim();

@@ -21,6 +21,32 @@ using Graph = torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
 
 namespace habana_lazy {
+enum StrideOPType {
+  kStridedOpDefault = 0,
+  kStridedOpView,
+  kStridedOpSlice,
+  kStridedOpSelect,
+  kStridedOpTranspose
+};
+
+struct StridedOpSliceParams {
+  int64_t dim;
+  c10::optional<int64_t> start;
+  c10::optional<int64_t> end;
+  int64_t step;
+};
+
+struct StridedOpSelectParams {
+  int64_t dim;
+  int64_t index;
+};
+
+union OpParams {
+  StridedOpSliceParams slice_param;
+  StridedOpSelectParams select_param;
+  OpParams(){};
+};
+
 struct StrideParams {
   // storing the tensor helps to retain extend the lifetime of tensor until all
   // the views have expired
@@ -28,6 +54,8 @@ struct StrideParams {
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
   int64_t offset;
+  StrideOPType optype;
+  OpParams params;
 };
 
 struct HashFn {
