@@ -2317,7 +2317,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
 }
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
-    int64_t dim_,
+    int64_t dim,
     const Tensor& indices,
     const Tensor& source) {
   PT_LAZY_TRACE;
@@ -2325,7 +2325,7 @@ Tensor& index_add_hpu_lazy_(
   // TPC doesn't support inplace index add natively
   // Implement using out of place index add followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
-
+  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   auto hl_self = GetOrCreateHbLazyTensor(self);
 
   LazyOp<Tensor> index_add_op(
@@ -2574,9 +2574,10 @@ Tensor& index_put_hpu_lazy_(
 
 Tensor index_select_hpu_lazy(
     const Tensor& self,
-    int64_t dim,
+    int64_t dim_,
     const Tensor& index) {
   PT_LAZY_TRACE;
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto node = std::make_shared<ir::IndexSelect>(self, dim, index);
 
   auto shape = GatherOperator::compute_output_shape(self, dim, index);

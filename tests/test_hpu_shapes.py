@@ -142,7 +142,7 @@ def test_hpu_unique(N, H, W, C):
     compare_tensors(hpu_result, cpu_flipped, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("dim", [0, 1, 2, 3])
+@pytest.mark.parametrize("dim", [0, 1, -2, 3])
 def test_hpu_index_select(N, H, W, C, dim):
     kernel = torch.index_select
 
@@ -262,7 +262,7 @@ def test_hpu_index_put_bool_inplace(N, H, W, C, dtype, acc):
         evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("dim", [0, 1, 2, 3])
+@pytest.mark.parametrize("dim", [0, 1, -2, 3])
 def test_hpu_index_add(N, H, W, C, dim):
     kernel = torch.index_add
 
