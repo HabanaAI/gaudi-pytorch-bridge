@@ -33,6 +33,10 @@ class HpuFallbackHelper {
     return singleton;
   }
 
+  const std::unordered_map<std::string, size_t>& get_op_count() const {
+    return m_op_count;
+  }
+
   void enumerate_fallback();
 
   void print_fallback_freq() const;

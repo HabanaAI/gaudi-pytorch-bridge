@@ -11,6 +11,7 @@
 
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
+#include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -81,6 +82,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
     habana::HPUDeviceAllocator::print_memory_stats(msg);
+  });
+  m.def("get_fallback_op_count", []() {
+    return habana::HpuFallbackHelper::get()->get_op_count();
   });
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
   m.def("is_available", []() { return IsAvailable(); });
