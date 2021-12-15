@@ -28,9 +28,15 @@ TEST(EnvFlags, GetEnv) {
       "PT_HPU_LAZY_MODE ",
       (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE) ? "defined" : "not defined"));
 
-  // auto env_val_old = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
-  // PT_TEST_DEBUG("OLD PT_HPU_LAZY_MODE=", env_val);
+  auto is_env_val_org_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
+  auto env_val_org = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
 
+  // Unset env variable
+  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  auto is_env_val_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
+  EXPECT_EQ(is_env_val_defined, false);
+
+  // Env var not defined get default value
   auto env_val = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   PT_TEST_DEBUG("PT_HPU_LAZY_MODE=", env_val);
   EXPECT_EQ(env_val, 2);
@@ -48,6 +54,46 @@ TEST(EnvFlags, GetEnv) {
   EXPECT_EQ(env_val, 0);
 
   UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+
+  if (is_env_val_org_defined) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, env_val_org, 1);
+    PT_TEST_DEBUG("Restore original PT_HPU_LAZY_MODE=", env_val_org);
+  }
+
+  // Test string env variables
+  PT_TEST_DEBUG(
+      "PT_HPU_GRAPH_DUMP_PREFIX ",
+      (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_GRAPH_DUMP_PREFIX) ? "defined"
+                                                         : "not defined"));
+
+  auto is_env_str_val_org_defined =
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  auto env_str_val_org = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+
+  // Unset env str variable
+  UNSET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  auto is_env_str_val_defined =
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  EXPECT_EQ(is_env_str_val_defined, false);
+
+  // Env str var not defined get default value
+  std::string env_str_val = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  PT_TEST_DEBUG("PT_HPU_GRAPH_DUMP_PREFIX=", env_str_val);
+  EXPECT_EQ(env_str_val, ".");
+
+  SET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX, "./tmp_path", 1);
+
+  env_str_val = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  PT_TEST_DEBUG("PT_HPU_GRAPH_DUMP_PREFIX=", env_str_val);
+  EXPECT_EQ(env_str_val, "./tmp_path");
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+
+  if (is_env_str_val_org_defined) {
+    SET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX, env_str_val_org, 1);
+    PT_TEST_DEBUG(
+        "Restore original PT_HPU_GRAPH_DUMP_PREFIX=", env_str_val_org);
+  }
 }
 
 TEST(EnvFlags, FatalMessage) {

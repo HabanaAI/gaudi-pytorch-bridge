@@ -61,7 +61,7 @@ std::string GetGraphFilename(
     const std::string& suffix,
     size_t graphIndex,
     ssize_t passIndex = -1) {
-  std::string folder = GET_ENV_FLAG(PT_HPU_GRAPH_DUMP_PREFIX);
+  std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
   std::stringstream ss;
   ss << folder << "/"
      << "jit_ir_" << graphIndex << "_";

@@ -73,10 +73,10 @@ int removeFiles(const char* dir) {
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
   setenv("HABANA_PGM_LRU_MAX", "3", 3);
   std::string cache_path_ = "cache_dir";
-  std::string cache_path = GET_ENV_FLAG(PT_RECIPE_CACHE_PATH);
+  std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
   if (cache_path == "") {
     cache_path = cache_path_;
-    setenv("PT_RECIPE_CACHE_PATH", cache_path.c_str(), 1);
+    SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, cache_path.c_str(), 1);
   }
   RecipeCacheLRU::get_cache().ResetDiskCache();
   // make sure dir is empty.
@@ -144,10 +144,10 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
   std::string cache_path_ = "cache_dir";
   std::string curr_path = fs::current_path();
-  std::string cache_path = GET_ENV_FLAG(PT_RECIPE_CACHE_PATH);
+  std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
   if (cache_path == "") {
     cache_path = cache_path_;
-    setenv("PT_RECIPE_CACHE_PATH", cache_path.c_str(), 1);
+    SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, cache_path.c_str(), 1);
   }
   RecipeCacheLRU::get_cache().ResetDiskCache();
   // make sure dir is empty.

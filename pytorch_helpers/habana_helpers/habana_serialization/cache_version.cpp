@@ -106,8 +106,8 @@ std::string CacheVersion::libs_env_hash() {
   hash = at::hash_combine(
       hash, hash64_file_content(synapse_logger::getSynapseLibPath()));
 
-  if (IS_ENV_FLAG_DEFINED(GC_KERNEL_PATH)) {
-    std::string gc_kernel_path = GET_ENV_FLAG(GC_KERNEL_PATH);
+  if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) {
+    std::string gc_kernel_path = GET_ENV_FLAG_NEW(GC_KERNEL_PATH);
     auto foundComma = gc_kernel_path.find(":");
     if (foundComma != std::string::npos) {
       // GC_KERNEL_PATH can be a list of paths to libs, comma separated, need to

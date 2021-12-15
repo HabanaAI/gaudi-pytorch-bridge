@@ -245,6 +245,30 @@ INST_GETENV_BY_TYPE(unsigned long long, strtoull)
 
 namespace new_style {
 
+const char* getenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    const char* act_val,
+    const char* def_val) {
+  // Conversion to string:
+  //   |    env var      |   returned value
+  // ----------------------------------------
+  // 1 | XXX undefined   |   default value
+  // 2 | XXX=asdf        |   "asdf"
+  if (!is_cached) {
+    const char* envstrp = getenv(name);
+    if (envstrp && *envstrp) {
+      act_val = envstrp;
+      is_defined = true;
+    } else {
+      act_val = def_val;
+    }
+    is_cached = true;
+  }
+  return act_val;
+}
+
 template <class T, class F>
 static T getenv_numeric_new(
     const char* name,
@@ -344,6 +368,11 @@ INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned, strtoul)
 INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned long, strtoul)
 INSTANTIATE_GETENV_BY_TYPE_NEW(long long, strtoll)
 INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned long long, strtoull)
+
+ENV_STRING_STRUCT_STATIC_DEFINITION(GC_KERNEL_PATH);
+ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HABANA_MEM_LOG_FILENAME);
+ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HPU_GRAPH_DUMP_PREFIX);
+ENV_STRING_STRUCT_STATIC_DEFINITION(PT_RECIPE_CACHE_PATH);
 
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_MODE, unsigned);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_LOWERING, bool);

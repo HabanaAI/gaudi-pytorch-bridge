@@ -78,13 +78,6 @@ namespace env_flags {
 
 // Synapse-specific env var.
 // Colon-separated list of tpc kernel libs to be loaded for GC
-struct GC_KERNEL_PATH {
-  static constexpr const char* default_value = "";
-};
-
-struct PT_HABANA_MEM_LOG_FILENAME {
-  static constexpr const char* default_value = "habana_log.livealloc.log";
-};
 
 struct PT_HPU_LOWER_AS_STRIDED {
   static constexpr bool default_value = true;
@@ -97,10 +90,6 @@ struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
 struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
   static constexpr std::size_t default_value =
       std::numeric_limits<std::size_t>::max();
-};
-
-struct PT_HPU_GRAPH_DUMP_PREFIX {
-  static constexpr const char* default_value = ".";
 };
 
 struct PT_HPU_LOG_MOD_MASK : public std::numeric_limits<unsigned long> {
@@ -117,12 +106,6 @@ struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
 
 struct PT_HPU_LOG_NODE_MASK : public std::numeric_limits<unsigned long> {
   static constexpr unsigned long default_value = 0;
-};
-
-// Option to save compiled recipes to disk.
-// If proper path is set, disk cache is enabled for all compiled recipes.
-struct PT_RECIPE_CACHE_PATH {
-  static constexpr const char* default_value = "";
 };
 
 // Overloads for different type of default value
@@ -202,6 +185,21 @@ bool is_defined(const char* name) {
 
 namespace new_style {
 
+// Struct defination for string env variables
+#define ENV_STRING_STRUCT_DEFINITION(NAME, DEFAULT_VAL)       \
+  struct NAME {                                               \
+    static bool is_cached;                                    \
+    static bool is_defined;                                   \
+    static const char* actual_value;                          \
+    static constexpr const char* default_value = DEFAULT_VAL; \
+  }
+
+#define ENV_STRING_STRUCT_STATIC_DEFINITION(NAME) \
+  bool NAME::is_cached{false};                    \
+  bool NAME::is_defined{false};                   \
+  const char* NAME::actual_value{};
+
+// Struct defination for non-string env variables with numeric limits
 #define ENV_STRUCT_DEFINITION(NAME, TYPE, DEFAULT_VAL) \
   struct NAME : public std::numeric_limits<TYPE> {     \
     static bool is_cached;                             \
@@ -214,6 +212,15 @@ namespace new_style {
   bool NAME::is_cached{false};                   \
   bool NAME::is_defined{false};                  \
   TYPE NAME::actual_value{};
+
+ENV_STRING_STRUCT_DEFINITION(GC_KERNEL_PATH, "");
+ENV_STRING_STRUCT_DEFINITION(
+    PT_HABANA_MEM_LOG_FILENAME,
+    "habana_log.livealloc.log");
+ENV_STRING_STRUCT_DEFINITION(PT_HPU_GRAPH_DUMP_PREFIX, ".");
+// Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.
+// If proper path is set, disk cache is enabled for all compiled recipes.
+ENV_STRING_STRUCT_DEFINITION(PT_RECIPE_CACHE_PATH, "");
 
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_MODE, unsigned, 2);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_LOWERING, bool, false);
@@ -269,6 +276,15 @@ ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_IGNORE_VERSION, bool, false);
 // produce exactly the same cache entires.
 ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_DUMP_DEBUG, bool, false);
 
+// Method for string env variables
+const char* getenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    const char* act_val,
+    const char* def_val);
+
+// Template method(s) for non-string env variables
 template <class T>
 T getenv_by_type_new(
     const char* name,
@@ -293,6 +309,14 @@ void setenv_by_type_new(
     is_cached = true;
     is_defined = true;
   }
+}
+
+template <class E>
+typename std::
+    enable_if<!has_min_max_methods<E>::value, decltype(E::default_value)>::type
+    getenv_E_new(const char* name) {
+  return getenv_by_type_new(
+      name, E::is_cached, E::is_defined, E::actual_value, E::default_value);
 }
 
 template <class E>
