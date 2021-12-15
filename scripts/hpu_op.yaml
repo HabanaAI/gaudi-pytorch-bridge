@@ -596,6 +596,11 @@ elu_backward:
   guid: elu_bwd
   out_ids: [0]
 
+elu_backward.grad_input:
+  custom_fill_params: FillEluBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: elu_bwd
+
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: Equal
