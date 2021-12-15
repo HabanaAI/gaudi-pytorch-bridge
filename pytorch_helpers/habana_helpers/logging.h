@@ -104,13 +104,13 @@ class PtLogger {
   unsigned long type_mask_;
 
   void loadMask() {
-    module_mask_ = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
-    type_mask_ = GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
+    module_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
+    type_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
 
     char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
 
     unsigned long node_id = 0;
-    unsigned long node_id_mask = GET_ENV_FLAG(PT_HPU_LOG_NODE_MASK);
+    unsigned long node_id_mask = GET_ENV_FLAG_NEW(PT_HPU_LOG_NODE_MASK);
 
     if (node_id_mask) {
       // multinode can be either rank or id

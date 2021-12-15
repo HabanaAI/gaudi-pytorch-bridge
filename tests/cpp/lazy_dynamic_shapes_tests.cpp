@@ -49,9 +49,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
   const int N = 16;
   int H = 16;
 
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   std::vector<int> in_sizes{16, 32, 64};
@@ -125,7 +125,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -151,9 +151,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
   const int N = 16;
   int H = 16;
 
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   std::vector<int> in_sizes{16, 32, 64};
@@ -219,7 +219,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -248,9 +248,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
   const int N = 16;
   int H = 16;
   at::Scalar inScalar = 2.0;
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   std::vector<int> in_sizes{16, 32, 64};
@@ -337,7 +337,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -370,9 +370,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
   const int N = 16;
   int H = 16;
   at::Scalar inScalar = 2.0;
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   std::vector<int> in_sizes{16, 32, 64};
@@ -454,14 +454,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 4;
@@ -507,14 +507,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, BucketRefinement) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 50;
@@ -551,14 +551,14 @@ TEST_F(LazyDynamicShapesTest, BucketRefinement) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 4;
@@ -596,7 +596,7 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -605,17 +605,17 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   int kW = 3;
   const int C = 16;
   // Check org state of env flag
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // unset the env variable if set for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
   HbLazyTensor::SetDynamicMode();
   // Check if env flag set for op Accumulation/execution
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -627,12 +627,12 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
   // Check if env flag restored after execution
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   if (org_state) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 }
 
@@ -641,17 +641,17 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
   int kW = 3;
   const int C = 16;
   // Set the env flag if not set
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   bool org_state = refine_enabled;
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   // Check org state of env flag
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, true);
   HbLazyTensor::SetDynamicMode();
   // Check if env flag set for op Accumulation/execution
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -664,13 +664,13 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
   HbLazyTensor::StepMarker({});
   // Check if env flag is same after execution(since set through
   // env and not through SetDynamicMode)
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original env variable
   if (!org_state) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -679,14 +679,14 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   int kW = 3;
   const int C = 16;
   // Check org state of env flag
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // unset the env variable if set for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
   // Check if dynamic mode is unset
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -698,20 +698,20 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
   // Check if env flag is still unset
-  refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original state
   if (org_state) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 1;
   const int C = 16;
@@ -741,14 +741,14 @@ TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
     ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 1;
   const int C = 16;
@@ -778,14 +778,14 @@ TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
     ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int kH = 3;
   int kW = 3;
@@ -828,14 +828,14 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {
     ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ProdTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int H = 4;
@@ -850,14 +850,14 @@ TEST_F(LazyDynamicShapesTest, ProdTest) {
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 1;
   int C = 4;
@@ -882,14 +882,14 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTest2) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
@@ -912,14 +912,14 @@ TEST_F(LazyDynamicShapesTest, SliceTest2) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ExpandTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   constexpr int Wmax{482}, Hmax{200};
@@ -941,14 +941,14 @@ TEST_F(LazyDynamicShapesTest, ExpandTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ExpandTest2) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   std::vector<int> W_in_sizes{754, 350, 664, 1};
@@ -971,14 +971,14 @@ TEST_F(LazyDynamicShapesTest, ExpandTest2) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int H = 4;
@@ -998,14 +998,14 @@ TEST_F(LazyDynamicShapesTest, RepeatTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatTest2) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int H = 4;
@@ -1028,14 +1028,14 @@ TEST_F(LazyDynamicShapesTest, RepeatTest2) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
@@ -1063,14 +1063,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ArangeTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   // std::vector<int> start_sizes{1, 1, 1, 1};
@@ -1099,14 +1099,14 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 2;
@@ -1137,14 +1137,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 1;
@@ -1168,14 +1168,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, AddConstantTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   // test case for result = add(tensor, scalar, alpha)
   int N = 1;
@@ -1196,15 +1196,15 @@ TEST_F(LazyDynamicShapesTest, AddConstantTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, AddViewTest) {
   // test case for result = add(tensor, scalar, alpha)
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 2;
   int C = 4;
@@ -1231,14 +1231,14 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 1;
   int C = 2;
@@ -1260,14 +1260,14 @@ TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, CastTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   PT_TEST_DEBUG("\nPTI_DBG :: TEST ", 0, "  --------\n");
   torch::Tensor A = torch::randn({1}, torch::dtype(torch::kBFloat16));
@@ -1287,14 +1287,14 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, UniqueOp) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   c10::ScalarType dtype{torch::kInt32};
@@ -1320,14 +1320,14 @@ TEST_F(LazyDynamicShapesTest, UniqueOp) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int A = 8;
@@ -1359,7 +1359,7 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -1526,9 +1526,9 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
 }
 
 TEST_F(LazyDynamicShapesTest, NmsSmall) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   torch::manual_seed(0);
@@ -1600,14 +1600,14 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
   //}
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 1;
   int C = 4;
@@ -1627,15 +1627,15 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, ViewTest) {
   // test case for result = add(tensor, scalar, alpha)
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   int N = 2;
   int C = 4;
@@ -1656,14 +1656,14 @@ TEST_F(LazyDynamicShapesTest, ViewTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int64_t dim = 0;
@@ -1694,7 +1694,7 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
   }
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
@@ -1732,9 +1732,9 @@ void runTopkDynamicTest(
 }
 
 TEST_F(LazyDynamicShapesTest, TopKTest1) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   // Changing K valuse
@@ -1745,14 +1745,14 @@ TEST_F(LazyDynamicShapesTest, TopKTest1) {
   runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
   auto roi_align_test = [](int num_boxes, std::vector<int64_t> input_shape) {
     auto images = torch::randn(input_shape).to(torch::kHPU);
@@ -1771,6 +1771,6 @@ TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
   roi_align_test({10}, {2, 3, 35, 35});
   roi_align_test({12}, {2, 3, 50, 50});
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }

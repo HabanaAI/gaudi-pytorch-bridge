@@ -16,9 +16,9 @@ using namespace habana_lazy;
 class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
-  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 
   int H = 4;
@@ -41,6 +41,6 @@ TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }
 }

@@ -86,7 +86,7 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   EXPECT_EQ(equal, true);
 }
 TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
-  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
   Tensor Out = A.narrow(0, 2, 5);
@@ -107,11 +107,11 @@ TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
   hA = hA.div_(2);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
-  unsetenv("PT_HPU_LOWER_AS_STRIDED");
+  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
-  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
 
@@ -132,7 +132,7 @@ TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
   HbLazyTensor::StepMarker({});
 
   EXPECT_EQ(allclose(hA.cpu(), A), true);
-  unsetenv("PT_HPU_LOWER_AS_STRIDED");
+  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, ControlEdge) {
@@ -159,7 +159,7 @@ TEST_F(LazyBasicKernelTest, ControlEdge) {
   EXPECT_EQ(allclose(out, B), true);
 }
 TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
-  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({16});
   auto hA = A.to(torch::kHPU);
   std::vector<int64_t> sz{4};
@@ -169,7 +169,7 @@ TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
   int64_t offset = 0;
   auto hB = as_strided_hpu_lazy(hA, sizes, strides, offset);
   Tensor out = hB.to(kCPU);
-  unsetenv("PT_HPU_LOWER_AS_STRIDED");
+  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, weightsharinggraphcycle) {

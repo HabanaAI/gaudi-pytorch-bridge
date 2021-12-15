@@ -70,7 +70,7 @@ class UpsampleNearest2dBackward : public Node {
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors)
       : Node(
-            GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
                 ? c10::Symbol::fromQualString(
                       "hpu::upsample_nearest2d_backward")
                 : c10::Symbol::fromQualString(
@@ -88,7 +88,7 @@ class UpsampleNearest2dBackward : public Node {
         scale_factors,
         static_cast<size_t>(UpsampleNearest2dBackwardIndex::SCALE_INDEX));
 
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       auto input_shape = empty_hpu_lazy(
           input_size,
           grad_output.options(),
@@ -117,7 +117,7 @@ class UpsampleNearest2dBackward : public Node {
        << m_meta_data.get(
               static_cast<size_t>(UpsampleNearest2dBackwardIndex::SCALE_INDEX));
 
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       HABANA_ASSERT(m_inputs.size() == 2);
       auto& input_shape = m_inputs[1];
       if (input_shape.DataPtrValidAndNotExpired()) {

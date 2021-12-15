@@ -112,11 +112,7 @@ LogManager& LogManager::instance() {
 LogManager::LogManager()
     : m_env_log_level_all(GET_ENV_FLAG_NEW(PT_HPU_LOG_LEVEL_ALL)),
       m_env_log_type(GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE)) {
-  if (getenv("PT_HPU_LOG_MOD_MASK") != nullptr) {
-    m_env_log_module_mask = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
-  } else {
-    m_env_log_module_mask = 0;
-  }
+  m_env_log_module_mask = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
   setLogPattern();
 

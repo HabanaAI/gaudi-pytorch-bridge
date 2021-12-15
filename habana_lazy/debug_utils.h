@@ -61,7 +61,8 @@ class DebugHelper {
  private:
   DebugHelper()
       : curr_number_of_accumulated_ops(0),
-        max_number_of_accumulated_ops(GET_ENV_FLAG(PT_HPU_MAX_ACCUM_SIZE)) {}
+        max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)) {
+  }
   ~DebugHelper() {}
   DebugHelper(const DebugHelper&);
   DebugHelper& operator=(const DebugHelper&);

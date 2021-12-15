@@ -79,35 +79,6 @@ namespace env_flags {
 // Synapse-specific env var.
 // Colon-separated list of tpc kernel libs to be loaded for GC
 
-struct PT_HPU_LOWER_AS_STRIDED {
-  static constexpr bool default_value = true;
-};
-
-struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
-  static constexpr bool default_value = false;
-};
-
-struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
-  static constexpr std::size_t default_value =
-      std::numeric_limits<std::size_t>::max();
-};
-
-struct PT_HPU_LOG_MOD_MASK : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = UINT64_MAX;
-};
-
-struct PT_HPU_LOG_TYPE_MASK : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 1;
-};
-
-struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 1;
-};
-
-struct PT_HPU_LOG_NODE_MASK : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 0;
-};
-
 // Overloads for different type of default value
 
 template <class T>
@@ -264,6 +235,13 @@ ENV_STRUCT_DEFINITION(PT_HPU_AVOID_RE_EXECUTE_GRAPHS, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_GRAPH_DUMP, unsigned, 0);
 ENV_STRUCT_DEFINITION(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_DEBUG_NAMES, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_LOWER_AS_STRIDED, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_MAX_ACCUM_SIZE, unsigned long, UINT64_MAX);
+ENV_STRUCT_DEFINITION(PT_HPU_PGM_ENABLE_CACHE, bool, true);
+ENV_STRUCT_DEFINITION(PT_HPU_LOG_MOD_MASK, unsigned long, UINT64_MAX);
+ENV_STRUCT_DEFINITION(PT_HPU_LOG_TYPE_MASK, unsigned long, 1);
+ENV_STRUCT_DEFINITION(PT_HPU_LOG_NODE_MASK, unsigned long, 0);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes

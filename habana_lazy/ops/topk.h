@@ -29,7 +29,7 @@ class TopK : public ir::Node {
       bool largest,
       bool sorted)
       : Node(
-            GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
                 ? c10::Symbol::fromQualString("hpu::topk")
                 : c10::Symbol::fromQualString("aten::topk")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
@@ -38,7 +38,7 @@ class TopK : public ir::Node {
 
     std::vector<at::Tensor> input_pt_vec{self};
 
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       auto input_shape = empty_hpu_lazy(
           k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
       auto hl_input_shape = GetOrCreateHbLazyTensor(input_shape, c10::kHPU);
@@ -59,7 +59,7 @@ class TopK : public ir::Node {
   std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString();
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       auto& input_shape_k = m_inputs[1];
       if (input_shape_k.DataPtrValidAndNotExpired()) {
         std::shared_ptr<Data> data_k = input_shape_k.m_data_ptr.lock();

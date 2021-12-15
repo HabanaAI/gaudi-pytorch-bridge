@@ -144,8 +144,8 @@ TEST(EnvFlags, GetEnv) {
 }
 
 TEST(EnvFlags, FatalMessage) {
-  auto env_val_typ = GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
-  auto env_val_mod = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
+  auto env_val_typ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+  auto env_val_mod = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
   std::stringstream ss;
   ss << "0x" << std::uppercase << std::hex << env_val_typ;
@@ -161,6 +161,9 @@ TEST(EnvFlags, FatalMessage) {
         env_val_typ_str,
         "  PT_HPU_LOG_MOD_MASK=",
         env_val_mod_str);
+
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
     setenv("PT_HPU_LOG_TYPE_MASK", env_val_typ_str.c_str(), 1);
     setenv("PT_HPU_LOG_MOD_MASK", env_val_mod_str.c_str(), 1);
@@ -186,8 +189,8 @@ TEST(EnvFlags, FatalMessage) {
           "unset PT_HPU_LOG_TYPE_MASK",
           ", unset PT_HPU_LOG_MOD_MASK");
 
-      unsetenv("PT_HPU_LOG_TYPE_MASK");
-      unsetenv("PT_HPU_LOG_MOD_MASK");
+      UNSET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+      UNSET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
     } else {
       PT_TEST_DEBUG(
           "New logging env setup : "
@@ -196,6 +199,9 @@ TEST(EnvFlags, FatalMessage) {
           "  PT_HPU_LOG_MOD_MASK=",
           env_str);
 
+      UNSET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+      UNSET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
+
       setenv("PT_HPU_LOG_TYPE_MASK", env_str.c_str(), 1);
       setenv("PT_HPU_LOG_MOD_MASK", env_str.c_str(), 1);
     }
@@ -203,8 +209,8 @@ TEST(EnvFlags, FatalMessage) {
     // Refresh the logger
     PtLogger::getLogger()->refresh();
 
-    GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
-    GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
+    GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
     try {
       PT_SYNHELPER_FATAL("<example error message>");
@@ -231,8 +237,8 @@ TEST(EnvFlags, FatalMessage) {
 }
 
 TEST(EnvFlags, Logging) {
-  auto env_val_typ = GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
-  auto env_val_mod = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
+  auto env_val_typ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+  auto env_val_mod = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
   std::stringstream ss;
   ss << "0x" << std::uppercase << std::hex << env_val_typ;
@@ -248,6 +254,9 @@ TEST(EnvFlags, Logging) {
         env_val_typ_str,
         "  PT_HPU_LOG_MOD_MASK=",
         env_val_mod_str);
+
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
     setenv("PT_HPU_LOG_TYPE_MASK", env_val_typ_str.c_str(), 1);
     setenv("PT_HPU_LOG_MOD_MASK", env_val_mod_str.c_str(), 1);
@@ -277,6 +286,9 @@ TEST(EnvFlags, Logging) {
         "  PT_HPU_LOG_MOD_MASK=",
         mod_str);
 
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    UNSET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
+
     setenv("PT_HPU_LOG_TYPE_MASK", typ_str.c_str(), 1);
     setenv("PT_HPU_LOG_MOD_MASK", mod_str.c_str(), 1);
 
@@ -284,8 +296,8 @@ TEST(EnvFlags, Logging) {
       // Refresh the logger
       PtLogger::getLogger()->refresh();
 
-      GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
-      GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
+      GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+      GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
 
       // If it fails to raise an exception, we should restore the env
       restore_env();

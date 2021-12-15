@@ -95,7 +95,7 @@ static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
   }
 
 bool to_lower_as_strided() {
-  return GET_ENV_FLAG(PT_HPU_LOWER_AS_STRIDED);
+  return GET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 void flushWithMarkStep() {
@@ -300,7 +300,7 @@ Tensor add_strided_insert_node(
     int64_t offset) {
   auto mf = orig_t.suggest_memory_format();
   ir::NodePtr node;
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
                             (mf == c10::MemoryFormat::ChannelsLast3d))
         ? "hpu::strided_insert_cl_ds"
@@ -981,7 +981,7 @@ ir::NodePtr create_as_strided_node(
   auto offset = storage_offset.value_or(self.storage_offset());
   auto mf = self.suggest_memory_format();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
                               (mf == c10::MemoryFormat::ChannelsLast3d))
           ? "hpu::strided_view_cl_ds"
@@ -2942,7 +2942,7 @@ Tensor& arange_hpu_lazy(
 
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
       (output.scalar_type() == c10::ScalarType::Int)) {
     std::vector<int64_t> params_vec{step.toInt(), end.toInt(), start.toInt()};
     auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
@@ -4080,7 +4080,7 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
   std::string op_name;
   std::set<size_t> metadata_indices;
 
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     auto repeats_shape = empty_hpu_lazy(
         repeats,
         self.options(),
@@ -4896,7 +4896,7 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   habana_helpers::recalc_strides(expandedStrides, expandedSizes);
   ir::NodePtr node;
 
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     auto expand_shape_tensor = empty_strided_hpu_lazy(
         expandedSizes, expandedStrides, self.options(), false, SHAPE_TENSOR);
     node = std::make_shared<ir::Expand>(self, expand_shape_tensor, implicit);
@@ -5007,7 +5007,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
   std::string op_name;
   std::set<size_t> metadata_indices;
 
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     op_name = "hpu::topk";
     auto k_tensor = empty_hpu_lazy(
         k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
@@ -5079,7 +5079,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
   shape_out[dim_] = k;
   out_shapes = {shape_out, shape_out};
 
-  if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     op_name = "hpu::topk";
     auto k_tensor = empty_hpu_lazy(
         k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);

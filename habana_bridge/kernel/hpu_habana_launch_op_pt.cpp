@@ -150,7 +150,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
     const std::string& name,
     const std::string& id)
     : op_name(name), jit_ir_graph{std::move(graph)}, debug(dbg), id_str(id) {
-  refine_ds_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
   if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
@@ -180,13 +180,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
-  enable_caching_ = true;
-
-  // The enable_caching_ can be overridden with PT_HPU_PGM_ENABLE_CACHE
-  const auto val = GET_ENV_FLAG(PT_HPU_PGM_ENABLE_CACHE);
-  if (val == 0) {
-    enable_caching_ = false;
-  }
+  enable_caching_ = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
   use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
@@ -245,7 +239,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
 HabanaLaunchOpPT::HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph)
     : jit_ir_graph{std::move(graph)} {
-  refine_ds_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 
   PT_BRIDGE_DEBUG("Creating HabanaLaunchOp for Optimized Lazy Eager Path");
 

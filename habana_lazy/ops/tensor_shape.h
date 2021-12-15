@@ -83,7 +83,7 @@ class Expand : public ir::Node {
   std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString();
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
       HABANA_ASSERT(m_inputs.size() == 2);
       auto& dims_shape = m_inputs[1];
       if (dims_shape.DataPtrValidAndNotExpired()) {

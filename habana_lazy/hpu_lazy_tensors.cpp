@@ -830,20 +830,16 @@ void HbLazyTensor::StepMarker(const std::string& device_str) {
   HbLazyTensor::SyncLiveTensorsGraph(&device, /* is_cached*/ false);
   HbLazyTensor::MarkStep(device);
   if (switch_dynamic_mode) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     switch_dynamic_mode = false;
   }
 }
 
 void HbLazyTensor::SetDynamicMode() {
-  char* read_env = getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  bool dynamic_env = false;
-  if (read_env != nullptr) {
-    dynamic_env = atoi(read_env);
-  }
+  bool dynamic_env = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   switch_dynamic_mode = dynamic_env ? false : true;
   if (switch_dynamic_mode) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
 }
 

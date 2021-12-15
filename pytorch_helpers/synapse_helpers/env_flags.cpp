@@ -320,58 +320,105 @@ static T getenv_numeric_new(
     T min_val,
     T max_val,
     F func_strtonum) {
-  T env{};
+  // Conversion to number:
+  //   |    env var      |   returned value  |    LOG
+  // -------------------------------------------------------------
+  // 1 | XXX undefined   |   default value   |
+  // 2 | XXX=            |   default value   |
+  // 3 | XXX=123         |   0x7b            |
+  // 4 | XXX=abcd        |   0xabcd          |
+  // 5 | XXX=0xabcd      |   0xabcd          |
+  // 6 | XXX=1234asdf    |   Invalid         | syntax error "asdf"
+  // 7 | XXX=asdf        |   Invalid         | syntax error "asdf"
+  // 8 | XXX=123...789   |   Invalid         | overflow error
+  T envval{};
   if (!is_cached) {
-    const char* e = getenv(name);
-    if (e && *e) {
+    const char* envstrp = getenv(name);
+    if (envstrp && *envstrp) {
+      // getenv returned a valid string
+
+      // Only case that we need to handle is hex numbers without 0x prefix
+      std::string envstr_lc{envstrp};
+      std::string envstr_orig{envstrp};
+
+      // Using a lowercase representation
+      std::transform(
+          envstr_lc.begin(),
+          envstr_lc.end(),
+          envstr_lc.begin(),
+          [](unsigned char c) { return std::tolower(c); });
+
+      const std::string hex_qual{"0x"};
+      if (envstr_lc.find(hex_qual) != 0 &&
+          std::any_of(
+              std::begin(envstr_lc), std::end(envstr_lc), [](unsigned char c) {
+                return (c >= 'a' && c <= 'f');
+              })) {
+        envstr_lc.insert(0, hex_qual);
+        envstrp = envstr_lc.c_str();
+      }
+
       errno = 0;
-      char* err;
-      env = static_cast<T>(func_strtonum(e, &err, 0));
-      if (errno) {
+      char* endptr;
+      envval = static_cast<T>(func_strtonum(envstrp, &endptr, 0));
+      if (errno == ERANGE) {
         PT_SYNHELPER_FATAL(
             "Environment variable \"",
             name,
             "\"=\"",
-            e,
+            envstr_orig,
             "\" converted to different value \"",
-            env,
-            "\" due to overflow.");
-      }
-      if (*err) {
+            envval,
+            "\" due to underflow/overflow.");
+      } else if (errno != 0) {
         PT_SYNHELPER_FATAL(
             "Environment variable \"",
             name,
             "\"=\"",
-            e,
-            "\" converted to different value \"",
-            env,
-            "\" due to syntax error \"",
-            err,
-            '\"');
+            envstr_orig,
+            "\" is not converted properly.");
       }
-      if ((env < min_val) || (env > max_val)) {
-        auto env_old = env;
-        if (env < min_val) {
-          env = min_val;
-        } else {
-          env = max_val;
-        }
-        PT_SYNHELPER_WARN(
+
+      // Nonnull endptr means incorrect input string
+      // Report syntax error and assert
+      if (*endptr) {
+        PT_SYNHELPER_FATAL(
             "Environment variable \"",
             name,
             "\"=\"",
-            e,
+            envstr_orig,
+            "\" converted to different value \"",
+            envval,
+            "\" due to syntax error.");
+      }
+
+      // Range check and report the error and assert for overflow / underflow
+      if ((envval < min_val) || (envval > max_val)) {
+        PT_SYNHELPER_FATAL(
+            "Environment variable \"",
+            name,
+            "\"=\"",
+            envstr_orig,
             "\" decoded as ",
-            env_old,
+            envval,
             " is out of range <",
             min_val,
             ", ",
             max_val,
-            "> and was converted to different value \"",
-            env,
-            '\"');
+            ">");
       }
-      act_val = env;
+
+      // Return conversion result
+      PT_SYNHELPER_DEBUG(
+          "Environment variable \"",
+          name,
+          "\"=\"",
+          envstr_orig,
+          "\" is decoded as ",
+          envval,
+          '\"');
+
+      act_val = envval;
       is_defined = true;
     } else {
       act_val = def_val;
@@ -458,6 +505,13 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_AVOID_RE_EXECUTE_GRAPHS, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_GRAPH_DUMP, unsigned);
 ENV_STRUCT_STATIC_DEFINITION(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_DEBUG_NAMES, bool);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LOWER_AS_STRIDED, bool);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, bool);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_MAX_ACCUM_SIZE, unsigned long);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_PGM_ENABLE_CACHE, bool);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LOG_MOD_MASK, unsigned long);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LOG_TYPE_MASK, unsigned long);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LOG_NODE_MASK, unsigned long);
 
 } // namespace new_style
 
