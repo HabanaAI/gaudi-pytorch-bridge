@@ -198,6 +198,12 @@ atan_:
   guid: atan_fwd
   inplace_ids: [0]
 
+avg_pool2d.out:
+  custom_fill_params: Fillavgpool2dParams
+  custom_output_shape: Avgpool2dOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: Avgpool2d
+
 atanh:
   dtypes: [Float]
   guid: atanh_fwd
