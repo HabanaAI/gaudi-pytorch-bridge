@@ -66,51 +66,63 @@ bool dropCachedRecipe_LRU(size_t& recipe_count) {
   return dropped;
 }
 
-std::string makeOpName(const char* name) {
-  std::string op_name =
-      (name ? std::string(name) : std::string("HabanaLaunchOp"));
-  std::replace(op_name.begin(), op_name.end(), ':', '_');
-  return op_name;
-}
-
-std::string makeIdStr(const char* name, size_t graph_index) {
+std::string makeIdStr(const std::string& name, size_t graph_index) {
   std::ostringstream oss;
-  oss << makeOpName(name) << '_' << graph_index;
+  oss << name << '_' << graph_index;
   return oss.str();
 }
 
-HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg)
-    : HabanaLaunchOpPT(
-          node->g(attr::Subgraph),
-          dbg,
-          node->kind().toQualString()) {}
+HabanaMetaDataToLowering::HabanaMetaDataToLowering(
+    const bool& debug,
+    const size_t& graphIndex,
+    const std::string OpName,
+    const std::string& op_strs,
+    const size_t graph_key,
+    bool is_optimized_lazy_eager)
+    : dbg(debug),
+      graph_index(graphIndex),
+      op_name(OpName),
+      opstrs(op_strs),
+      graphKey(graph_key),
+      isOptimizedLazyEager(is_optimized_lazy_eager) {}
 
-HabanaLaunchOpPT::HabanaLaunchOpPT(
-    std::shared_ptr<torch::jit::Graph> graph,
-    bool dbg,
-    size_t graph_index,
-    const char* name)
-    : HabanaLaunchOpPT(
-          std::move(graph),
-          dbg,
-          makeOpName(name),
-          makeIdStr(name, graph_index)) {}
-
-HabanaLaunchOpPT::HabanaLaunchOpPT(
-    std::shared_ptr<torch::jit::Graph> graph,
-    bool dbg,
-    const std::string& name)
-    : op_name(name), jit_ir_graph{std::move(graph)}, debug(dbg), id_str(name) {}
-
-HabanaLaunchOpPT::HabanaLaunchOpPT(
-    std::shared_ptr<torch::jit::Graph> graph,
-    bool dbg,
+std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
     const std::string& name,
-    const std::string& id)
-    : op_name(name), jit_ir_graph{std::move(graph)}, debug(dbg), id_str(id) {
-  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    size_t g_index) {
+  if (id_str == std::string()) {
+    id_str = makeIdStr(name, g_index);
+  }
+  return id_str;
+}
 
-  PT_BRIDGE_DEBUG("Creating : ", id_str);
+void HabanaLaunchOpPT::SetSynapseGraphName(
+    const std::string& name,
+    size_t g_index) {
+  if (id_str == std::string()) {
+    id_str = makeIdStr(name, g_index);
+  }
+}
+
+void HabanaLaunchOpPT::SetOpName(const std::string& name) {
+  op_name = name;
+}
+
+HabanaLaunchOpPT::HabanaLaunchOpPT(
+    std::shared_ptr<torch::jit::Graph> graph,
+    std::shared_ptr<HabanaMetaDataToLowering> hb_meta_data_to_lowering)
+    : name(hb_meta_data_to_lowering->GetOpName()),
+      graph_index(hb_meta_data_to_lowering->GetGraphIndex()),
+      jit_ir_graph{std::move(graph)},
+      debug(hb_meta_data_to_lowering->GetDbgFlag()) {
+  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  op_strs = hb_meta_data_to_lowering->GetOpStrs();
+  graph_key = hb_meta_data_to_lowering->GetGraphKey();
+  bool is_optimized_lazy_eager =
+      hb_meta_data_to_lowering->GetOptimizedLazyEagerFlag();
+
+  SetOpName(name);
+
+  PT_BRIDGE_DEBUG("Creating : ", SetAndGetSynapseGraphName(name, graph_index));
   if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
     HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
   }
@@ -119,7 +131,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   tensor_dump_numel_ = -2;
 
-  char* snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
+  char* snumel = nullptr;
+  if (!is_optimized_lazy_eager) {
+    snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
+  }
   if (snumel != nullptr) {
     tensor_dump_numel_ = atoi(snumel);
     char* wfile_name = getenv("HABANA_PGM_WATCHLIST_FILE");
@@ -144,6 +159,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
+    std::string& idstrs = SetAndGetSynapseGraphName(name, graph_index);
     struct stat st = {};
     std::string dir_name{"./tensor_dumps"};
     mode_t dir_mode{0755};
@@ -153,7 +169,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       TORCH_CHECK(0 == ret, std::string("failed to create " + dir_name));
     }
 
-    dir_name += std::string("/") + id_str;
+    dir_name += std::string("/") + idstrs;
 
     if (stat(dir_name.c_str(), &st) == -1) {
       auto ret = mkdir(dir_name.c_str(), dir_mode);
@@ -171,7 +187,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
       std::ofstream tensor_file;
       tensor_file.open(tdmp_file_name_pre_.c_str());
-      tensor_file << "---- id_str : " << id_str << '\n'
+      tensor_file << "---- id_str : " << idstrs << '\n'
                   << "---- tensor dump of the following graph" << '\n';
       tensor_file << jit_ir_graph->toString() << "----" << '\n' << '\n';
       tensor_file.close();
@@ -185,7 +201,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
       std::ofstream tensor_file;
       tensor_file.open(tdmp_file_name_.c_str());
-      tensor_file << "---- id_str : " << id_str << '\n'
+      tensor_file << "---- id_str : " << idstrs << '\n'
                   << "---- tensor dump of the following graph" << '\n';
       tensor_file << jit_ir_graph->toString() << "----" << '\n' << '\n';
       tensor_file.close();
@@ -197,25 +213,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 }
 
-HabanaLaunchOpPT::HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph)
-    : jit_ir_graph{std::move(graph)} {
-  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-
-  PT_BRIDGE_DEBUG("Creating HabanaLaunchOp for Optimized Lazy Eager Path");
-
-  if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
-    HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
-  }
-
-  valptr_to_persistent_map = {};
-  tensor_dump_numel_ = -2;
-  enable_tensor_dump_ = false;
-  enable_caching_ = true;
-  use_persistent_tensors = false;
-}
-
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
-  PT_BRIDGE_DEBUG("Destroying : ", id_str);
+  PT_BRIDGE_DEBUG("Destroying : ", GetSynapseGraphName());
 }
 
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims) {
@@ -1637,7 +1636,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-      std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
+      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key, op_strs);
   PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
       "Processing with dynamic shape enabled\n",
@@ -1700,7 +1699,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // Check for cached recipe
   if (enable_caching_) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        input_refs, jit_ir_graph, cur_ds_token_);
+        input_refs, graph_key, op_strs, cur_ds_token_);
     current_dbipsh_->SetRecipeKeyForBucket(
         graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
@@ -1866,7 +1865,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // caching :: begin
   if (enable_caching_) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        false, input_refs, jit_ir_graph, "");
+        false, input_refs, jit_ir_graph, graph_key, op_strs);
 
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
@@ -2109,7 +2108,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     // Add the <key,value> pair to the map
     std::shared_ptr<RecipeArgumentSpec> rargpsh =
         std::make_shared<RecipeArgumentSpec>(
-            input_refs, jit_ir_graph, cur_ds_token_);
+            input_refs, graph_key, op_strs, cur_ds_token_);
     cur_rvalpsh->key = rargpsh->hashCode();
     cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
     RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);

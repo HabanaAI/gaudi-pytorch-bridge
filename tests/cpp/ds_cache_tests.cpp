@@ -69,9 +69,12 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   // std::cout << "PTI_DBG :: y : \n" << hy.to("cpu") << '\n';
 
   std::string id_str{"HabanaLaunchOp"};
+  size_t graphKey = 0;
+  std::string op_strs = std::string();
+  habana_lazy::ComputeGraphHashCode(
+      jit_ir_graph, id_str, inputs, op_strs, graphKey);
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
-      std::make_shared<habana::RecipeArgumentSpec>(
-          jit_ir_graph, inputs, id_str);
+      std::make_shared<habana::RecipeArgumentSpec>(inputs, graphKey, op_strs);
 
   // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
   //<< rargpsh1->graphHashCode() << '\n';
@@ -79,7 +82,7 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
       std::make_shared<habana::RecipeArgumentSpec>(
-          false, inputs, jit_ir_graph, id_str);
+          false, inputs, jit_ir_graph, graphKey, op_strs);
 
   // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
   //<< rargpsh2->graphHashCode()

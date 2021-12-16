@@ -60,8 +60,20 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // save the graph for perf mode
   context->saveGraph(mp_g_);
 
+  std::string opName = getHabanaLazyGraphName();
+  if (lazyInfo) {
+    opName = lazyInfo->get_lazy_op_name();
+  }
+
   auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
-  habana::HabanaLaunchOpPT launch{mp_g_, false, graphIndex};
+  habana::HabanaLaunchOpPT launch{
+      mp_g_,
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false,
+          graphIndex,
+          opName,
+          mp_g_and_meta_data_->get_cached_opstrs(),
+          mp_g_and_meta_data_->get_cached_graph_key())};
   try {
     launch.run(stack);
   } catch (std::exception& e) {
@@ -216,8 +228,7 @@ void HlExec::PruneDuplicateGraphInputs(
  */
 void HlExec::GetOrCreate(
     const ir::PostOrderData& po_data,
-    torch::jit::Stack& stack,
-    size_t optimized_lazy_eager_key) {
+    torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
 
   size_t num_inputs = po_data.inputs.size();
@@ -242,14 +253,18 @@ void HlExec::GetOrCreate(
     mp_g_ = std::make_shared<Graph>();
     Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
+    at::ArrayRef<torch::jit::IValue> input_refs =
+        torch::jit::last(stack, mp_g_->inputs().size());
+    mp_g_and_meta_data_ =
+        std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
     return;
   }
-  mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
-      m_g_hash_);
+  mp_g_and_meta_data_ = habana_lazy::LazyGraphCache::GetLazyCache()
+                            .GetOptimizedJITGraphAndMetaData(m_g_hash_);
 
   // Cache miss
   // ==========
-  if (mp_g_ == nullptr) {
+  if (mp_g_and_meta_data_ == nullptr) {
     PT_LAZY_DEBUG(
         "JIT Cache miss :: key ",
         m_g_hash_,
@@ -263,7 +278,11 @@ void HlExec::GetOrCreate(
     // Optimization is done during Create() itself
     Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
-    LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_);
+    at::ArrayRef<torch::jit::IValue> input_refs =
+        torch::jit::last(stack, mp_g_->inputs().size());
+    mp_g_and_meta_data_ =
+        std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
+    LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_and_meta_data_);
   } else {
     PT_LAZY_DEBUG(
         "JIT Cache hit :: key ",
@@ -271,7 +290,14 @@ void HlExec::GetOrCreate(
         ", graph_index ",
         visualize::GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache hit");
+    mp_g_ = mp_g_and_meta_data_->get_cached_graph();
+    HABANA_ASSERT(mp_g_ != nullptr)
     visualize::DumpCachedGraph(mp_g_, m_g_hash_);
+  }
+
+  size_t optimized_lazy_eager_key = 0;
+  if (lazyInfo) {
+    optimized_lazy_eager_key = lazyInfo->get_optimized_lazy_eager_key();
   }
 
   if (optimized_lazy_eager_key != 0) {
@@ -280,7 +306,7 @@ void HlExec::GetOrCreate(
             optimized_lazy_eager_key);
     if (IsOptimizedLazyEagerCached == false) {
       FastLazyGraphCache::GetFastLazyCache().Add(
-          optimized_lazy_eager_key, mp_g_);
+          optimized_lazy_eager_key, mp_g_and_meta_data_);
       PT_LAZY_DEBUG(
           "Fast Path JIT Cache miss :: key ", optimized_lazy_eager_key);
     }

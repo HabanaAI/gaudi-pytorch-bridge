@@ -15,6 +15,13 @@
 #include "habana_lazy/ir_utils.h"
 
 namespace habana_lazy {
+// Functionality to calculate the graph hash on the JIT graph
+void ComputeGraphHashCode(
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::string& id,
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    std::string& op_strs,
+    size_t& graphHashCode);
 /**
  * LazyGraphCache
  * ----------------
@@ -122,6 +129,29 @@ class LazyArgumentSpec {
       m_compiled_graph;
 };
 
+struct OptimizedJITGraphAndMetaData {
+  OptimizedJITGraphAndMetaData(
+      const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
+      const at::ArrayRef<torch::jit::IValue>& input_refs);
+
+  std::shared_ptr<torch::jit::Graph> get_cached_graph() {
+    return jit_graph_to_lowering;
+  }
+
+  std::string get_cached_opstrs() {
+    return opstrs;
+  }
+
+  size_t get_cached_graph_key() {
+    return graphKey;
+  }
+
+ private:
+  std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
+  std::string opstrs = std::string();
+  size_t graphKey = 0;
+};
+
 /**
  * LazyGraphCache
  *
@@ -136,12 +166,12 @@ class LazyArgumentSpec {
  * Cache Lookup
  * ============
  * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
- * auto jit_graph =
- * LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(las.hashCode());
+ * auto jit_graph_and_meta_data =
+ * LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(las.hashCode());
  *
  * Cache hit
  * =========
- * if (jit_graph != nullptr) lower_jit_graph(...)
+ * if (jit_graph_and_metat_data != nullptr) lower_jit_graph(...)
  *
  * Cache miss handling
  * ===================
@@ -149,7 +179,10 @@ class LazyArgumentSpec {
  * auto jit_graph = Create(post_order_graph, input_tensors);
  * // Create a LazyArgumentSpec
  * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
- * LazyGraphCache::GetLazyCache().Add(las.hashCode, jit_graph);
+ * // Compute meta data for JIT graph and store in cache along with JIT graph
+ * auto jit_graph_and_meta_data =
+ * std::make_shared<OptimizedJITGraphAndMetaData>(jit_graph, input_refs);
+ * LazyGraphCache::GetLazyCache().Add(las.hashCode, jit_graph_and_meta_data);
  * lower_jit_graph(...)
  *
  */
@@ -170,8 +203,9 @@ class LazyGraphCache {
 
   ~LazyGraphCache();
 
-  std::shared_ptr<torch::jit::Graph> GetOptimizedJITGraph(size_t key);
-  void Add(size_t key, std::shared_ptr<torch::jit::Graph> val);
+  std::shared_ptr<OptimizedJITGraphAndMetaData> GetOptimizedJITGraphAndMetaData(
+      size_t key);
+  void Add(size_t key, std::shared_ptr<OptimizedJITGraphAndMetaData> val);
   void RemoveGraph(size_t key);
   bool IsCached(size_t key);
   bool Empty();
@@ -182,8 +216,9 @@ class LazyGraphCache {
 
   std::mutex m_mutex;
   ;
-  // Cache stores a JIT graph shared_ptr for a given hash key
-  std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>> m_cache_map;
+  // Cache stores a JIT graph shared_ptr and meta data for a given hash key
+  std::unordered_map<size_t, std::shared_ptr<OptimizedJITGraphAndMetaData>>
+      m_cache_map;
 };
 
 class FastLazyGraphCache {
@@ -203,8 +238,9 @@ class FastLazyGraphCache {
 
   ~FastLazyGraphCache();
 
-  std::shared_ptr<torch::jit::Graph> GetOptimizedJITGraph(size_t key);
-  void Add(size_t key, std::shared_ptr<torch::jit::Graph> val);
+  std::shared_ptr<OptimizedJITGraphAndMetaData> GetOptimizedJITGraphAndMetaData(
+      size_t key);
+  void Add(size_t key, std::shared_ptr<OptimizedJITGraphAndMetaData> val);
   void RemoveGraph(size_t key);
   bool IsCached(size_t key);
   bool Empty();
@@ -215,8 +251,9 @@ class FastLazyGraphCache {
 
   std::mutex m_mutex;
 
-  // Cache stores a JIT graph shared_ptr for a given hash key
-  std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>> m_cache_map;
+  // Cache stores a JIT graph shared_ptr and meta data for a given hash key
+  std::unordered_map<size_t, std::shared_ptr<OptimizedJITGraphAndMetaData>>
+      m_cache_map;
 };
 
 } // namespace habana_lazy

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "habana_lazy/hpu_lazy_cache.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
 #include "lazy_executor.h"
@@ -26,6 +27,8 @@ using HabanaLazyValue = habana_lazy::ir::Value;
 using HabanaLazyOutput = habana_lazy::ir::Output;
 using JitIValue = torch::jit::IValue;
 using GraphPtr = std::shared_ptr<Graph>;
+using OptimizedJITGraphAndMetaDataPtr =
+    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>;
 using JitValuePtr = std::shared_ptr<JitValue>;
 using ScopePtr = torch::jit::ScopePtr;
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
@@ -236,10 +239,7 @@ class HlExec {
    *   outputs: Lazy value pointers representing output tensors
    *   str: post order graph string
    */
-  void GetOrCreate(
-      const ir::PostOrderData& po_data,
-      torch::jit::Stack& stack,
-      size_t optimized_lazy_eager_key = 0);
+  void GetOrCreate(const ir::PostOrderData& po_data, torch::jit::Stack& stack);
 
   /**
    * This method calls torch::jit optimizer passes.
@@ -270,6 +270,11 @@ class HlExec {
     mp_g_ = p_g;
   }
 
+  void set_lazy_front_end_info(
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> info) {
+    lazyInfo = info;
+  }
+
  private:
   /**
    * This method creates the JIT IR Graph
@@ -285,8 +290,10 @@ class HlExec {
       torch::jit::Stack& stack);
 
   GraphPtr mp_g_;
+  OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_;
   size_t m_g_hash_;
   std::map<HabanaLazyTensorPtr, JitValuePtr> m_tensorbind_;
+  std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyInfo = nullptr;
 };
 
 }; // namespace exec

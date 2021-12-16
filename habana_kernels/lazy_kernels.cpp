@@ -126,18 +126,20 @@ void flushWithMarkStep() {
 
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
-void flush_op(UNUSED at::TensorList tensors, UNUSED size_t lazy_eager_key) {
+void flush_op(
+    UNUSED at::TensorList tensors,
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info) {
   const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   DebugHelper::getInstance().incrementAccumulatedOps();
 
   if (m_flush_op) {
-    HbLazyTensor::StepMarker({});
+    HbLazyTensor::StepMarker({}, lazy_front_end_info);
   } else if (m_random_flush) {
     flushWithMarkStep();
   } else if (DebugHelper::getInstance().isExceededMaxAccumlatedSize()) {
     PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
-    HbLazyTensor::StepMarker({});
+    HbLazyTensor::StepMarker({}, lazy_front_end_info);
   }
 }
 

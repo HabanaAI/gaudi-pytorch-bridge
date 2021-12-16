@@ -81,21 +81,20 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
     at::ArrayRef<torch::jit::IValue> input_refs,
-    std::string id)
-    : cas(false, input_refs) {
-  ComputeGraphHashCode(irgraph, id, input_refs);
+    const size_t& graphKey,
+    const std::string& op_strs)
+    : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
   hash_code = graph_hash_code;
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const uint64_t token,
-    const std::string id)
-    : cas(false, input_refs) {
-  ComputeGraphHashCode(irgraph, id, input_refs);
+    const size_t& graphKey,
+    const std::string& op_strs,
+    const uint64_t token)
+    : cas(false, input_refs), opstrs(op_strs) {
+  graph_hash_code = graphKey;
   hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, token);
 
@@ -108,105 +107,17 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const std::string& id)
-    : cas(with_grad, input_refs),
-      opstrs(std::string()),
-      hash_code(cas.hashCode()) {
+    const size_t& graphKey,
+    const std::string& op_strs)
+    : cas(with_grad, input_refs), opstrs(op_strs), hash_code(cas.hashCode()) {
   cargspec_hash_code = cas.hashCode();
-  ComputeGraphHashCode(irgraph, id, input_refs);
+  graph_hash_code = graphKey;
   hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
   hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
-}
-
-void RecipeArgumentSpec::ComputeGraphHashCode(
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const std::string& id,
-    at::ArrayRef<torch::jit::IValue> input_refs) {
-  std::hash<std::string> str_hash;
-  opstrs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
-  std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
-  size_t idx{0};
-  for (auto node : irgraph->nodes()) {
-    if (node->kind() != torch::jit::prim::Constant) {
-      std::string s(node->kind().toQualString());
-      s.append("(");
-      bool is_start{true};
-      for (auto value_in : node->inputs()) {
-        auto in_node = value_in->node();
-        std::size_t output_index = 0;
-        if (in_node) {
-          for (output_index = 0; output_index < in_node->outputs().size();
-               ++output_index) {
-            if (in_node->output(output_index) == value_in) {
-              break;
-            }
-          }
-        }
-        if (!is_start) {
-          s.append(",");
-        }
-        is_start = false;
-        s.append(std::to_string(output_index));
-        s.append("_");
-        s.append(value_in->node()->kind().toQualString());
-      }
-      s.append(")");
-      // Adding delemeters for better readability
-      opstrs.append(s + "\n");
-    } else {
-      std::ostringstream oss;
-      oss << *node;
-      opstrs.append(oss.str());
-    }
-    node_idx_map.emplace(node, idx);
-    idx++;
-  }
-  graph_hash_code = str_hash(opstrs);
-
-  size_t connection_hash{0};
-  // Adding input hash
-  for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
-    auto value_in = irgraph->inputs().at(i);
-    size_t input_connection_hash = i;
-    for (auto& use : value_in->uses()) {
-      auto node = use.user;
-      HABANA_ASSERT(node);
-      input_connection_hash =
-          at::hash_combine(input_connection_hash, node_idx_map[node]);
-    }
-    connection_hash = at::hash_combine(connection_hash, input_connection_hash);
-  }
-  // Adding output hash
-  for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
-    auto value_out = irgraph->outputs().at(i);
-    size_t output_connection_hash = i;
-    auto node = value_out->node();
-    HABANA_ASSERT(node);
-    output_connection_hash =
-        at::hash_combine(output_connection_hash, node_idx_map[node]);
-    connection_hash = at::hash_combine(connection_hash, output_connection_hash);
-  }
-  graph_hash_code = at::hash_combine(graph_hash_code, connection_hash);
-
-  // Handle the dims also
-  size_t typedims_hash{0};
-  for (auto& input : input_refs) {
-    if (input.isTensor()) {
-      auto pt_tensor = input.toTensor();
-      typedims_hash =
-          at::hash_combine(typedims_hash, habana::mod_exp(pt_tensor.dim()));
-      auto pt_type = pt_tensor.scalar_type();
-      int64_t pt_type_int{
-          static_cast<std::underlying_type<c10::ScalarType>::type>(pt_type)};
-      typedims_hash =
-          at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
-    }
-  }
-  graph_hash_code = at::hash_combine(graph_hash_code, typedims_hash);
 }
 
 void RecipeArgumentSpec::ComputeOffsetHashCode(

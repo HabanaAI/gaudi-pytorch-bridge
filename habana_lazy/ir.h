@@ -23,6 +23,8 @@
 namespace habana_lazy {
 struct Data;
 
+const std::string getHabanaLazyGraphName();
+
 namespace ir {
 
 class Node;

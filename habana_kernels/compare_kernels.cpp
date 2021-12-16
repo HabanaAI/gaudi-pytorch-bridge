@@ -514,7 +514,10 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
   habana_lazy::transform_graph(graph);
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false, "ne_tensor"};
+  HabanaLaunchOpPT launch{
+      graph,
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false, 0, "ne_tensor", "", 0, false)};
   launch.run(stack);
 
   // Pop output from stack
@@ -553,7 +556,10 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
   habana_lazy::transform_graph(graph);
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false, "ne_scalar"};
+  HabanaLaunchOpPT launch{
+      graph,
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false, 0, "ne_scalar", "", 0, false)};
   launch.run(stack);
 
   // Pop output from stack

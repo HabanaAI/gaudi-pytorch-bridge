@@ -112,7 +112,10 @@ bool habana::CompileGraphWithRange(
         "JIT_IR_Graph_BEGIN\n", mp_g_->toString(), "JIT_IR_Graph_END");
 
     size_t graphIndex{0xABCDEF};
-    habana::HabanaLaunchOpPT habanaFusedOp{mp_g_, false, graphIndex};
+    habana::HabanaLaunchOpPT habanaFusedOp{
+        mp_g_,
+        std::make_shared<habana::HabanaMetaDataToLowering>(
+            false, graphIndex, std::string(), std::string(), 0)};
     try {
       habanaFusedOp.CompileGraphWithRange(
           input_stack, input_ranges, new_bucket);

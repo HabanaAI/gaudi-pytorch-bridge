@@ -17,6 +17,95 @@
 
 namespace habana_lazy {
 
+void ComputeGraphHashCode(
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::string& id,
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    std::string& op_strs,
+    size_t& graphHashCode) {
+  std::hash<std::string> str_hash;
+  op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
+  std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
+  size_t idx{0};
+  for (auto node : irgraph->nodes()) {
+    if (node->kind() != torch::jit::prim::Constant) {
+      std::string s(node->kind().toQualString());
+      s.append("(");
+      bool is_start{true};
+      for (auto value_in : node->inputs()) {
+        auto in_node = value_in->node();
+        std::size_t output_index = 0;
+        if (in_node) {
+          for (output_index = 0; output_index < in_node->outputs().size();
+               ++output_index) {
+            if (in_node->output(output_index) == value_in) {
+              break;
+            }
+          }
+        }
+        if (!is_start) {
+          s.append(",");
+        }
+        is_start = false;
+        s.append(std::to_string(output_index));
+        s.append("_");
+        s.append(value_in->node()->kind().toQualString());
+      }
+      s.append(")");
+      // Adding delemeters for better readability
+      op_strs.append(s + "\n");
+    } else {
+      std::ostringstream oss;
+      oss << *node;
+      op_strs.append(oss.str());
+    }
+    node_idx_map.emplace(node, idx);
+    idx++;
+  }
+  graphHashCode = str_hash(op_strs);
+
+  size_t connection_hash{0};
+  // Adding input hash
+  for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
+    auto value_in = irgraph->inputs().at(i);
+    size_t input_connection_hash = i;
+    for (auto& use : value_in->uses()) {
+      auto node = use.user;
+      HABANA_ASSERT(node);
+      input_connection_hash =
+          at::hash_combine(input_connection_hash, node_idx_map[node]);
+    }
+    connection_hash = at::hash_combine(connection_hash, input_connection_hash);
+  }
+  // Adding output hash
+  for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
+    auto value_out = irgraph->outputs().at(i);
+    size_t output_connection_hash = i;
+    auto node = value_out->node();
+    HABANA_ASSERT(node);
+    output_connection_hash =
+        at::hash_combine(output_connection_hash, node_idx_map[node]);
+    connection_hash = at::hash_combine(connection_hash, output_connection_hash);
+  }
+  graphHashCode = at::hash_combine(graphHashCode, connection_hash);
+
+  // Handle the dims also
+  size_t typedims_hash{0};
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      typedims_hash =
+          at::hash_combine(typedims_hash, habana::mod_exp(pt_tensor.dim()));
+      auto pt_type = pt_tensor.scalar_type();
+      int64_t pt_type_int{
+          static_cast<std::underlying_type<c10::ScalarType>::type>(pt_type)};
+      typedims_hash =
+          at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
+    }
+  }
+  graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
+}
+
 std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
     LazyArgumentSpec::m_compiled_graph;
 
@@ -145,12 +234,24 @@ void LazyArgumentSpec::GetArgSpecKey(
   m_hash_code = at::hash_combine(m_hash_code, mf_hash_code);
 }
 
+OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
+    const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
+    const at::ArrayRef<torch::jit::IValue>& input_refs)
+    : jit_graph_to_lowering(JitGraphToLowering) {
+  // Compute the graph hash only if recipe cache is enabled or dynamic shape is
+  // enabled.
+  if (GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
+  }
+}
+
 // LazyGraphCache Functions
 //==========================
 LazyGraphCache::LazyGraphCache() : m_mutex{} {}
 
-std::shared_ptr<torch::jit::Graph> LazyGraphCache::GetOptimizedJITGraph(
-    size_t key) {
+std::shared_ptr<OptimizedJITGraphAndMetaData> LazyGraphCache::
+    GetOptimizedJITGraphAndMetaData(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
@@ -161,7 +262,9 @@ std::shared_ptr<torch::jit::Graph> LazyGraphCache::GetOptimizedJITGraph(
   return nullptr;
 }
 
-void LazyGraphCache::Add(size_t key, std::shared_ptr<torch::jit::Graph> val) {
+void LazyGraphCache::Add(
+    size_t key,
+    std::shared_ptr<OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
 
   std::unique_lock<std::mutex> lck(m_mutex);
@@ -201,8 +304,8 @@ LazyGraphCache::~LazyGraphCache() {
 //==========================
 FastLazyGraphCache::FastLazyGraphCache() : m_mutex{} {}
 
-std::shared_ptr<torch::jit::Graph> FastLazyGraphCache::GetOptimizedJITGraph(
-    size_t key) {
+std::shared_ptr<OptimizedJITGraphAndMetaData> FastLazyGraphCache::
+    GetOptimizedJITGraphAndMetaData(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
@@ -215,7 +318,7 @@ std::shared_ptr<torch::jit::Graph> FastLazyGraphCache::GetOptimizedJITGraph(
 
 void FastLazyGraphCache::Add(
     size_t key,
-    std::shared_ptr<torch::jit::Graph> val) {
+    std::shared_ptr<OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
 
   std::unique_lock<std::mutex> lck(m_mutex);

@@ -1591,7 +1591,10 @@ Tensor all_hpu(const Tensor& self) {
   habana_lazy::transform_graph(graph);
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false, "all"};
+  HabanaLaunchOpPT launch{
+      graph,
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false, 0, "all", "", 0, false)};
   launch.run(stack);
 
   // Pop output from stack
@@ -1617,7 +1620,10 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   habana_lazy::transform_graph(graph);
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false, "all_dim"};
+  HabanaLaunchOpPT launch{
+      graph,
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false, 0, "all_dim", "", 0, false)};
   launch.run(stack);
 
   // Pop output from stack

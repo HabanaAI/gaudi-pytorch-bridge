@@ -72,21 +72,22 @@ class HbCas {
 //   compute the hash directly from the subgraph within the constructor
 struct RecipeArgumentSpec {
   RecipeArgumentSpec(
-      const std::shared_ptr<torch::jit::Graph>& irgraph,
       at::ArrayRef<torch::jit::IValue> input_refs,
-      std::string id = std::string());
+      const size_t& graphKey,
+      const std::string& op_strs);
 
   RecipeArgumentSpec(
       at::ArrayRef<torch::jit::IValue> input_refs,
-      const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const uint64_t token = 0,
-      const std::string id = std::string());
+      const size_t& graphKey,
+      const std::string& op_strs,
+      const uint64_t token);
 
   RecipeArgumentSpec(
       bool with_grad,
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const std::string& id);
+      const size_t& graphKey,
+      const std::string& op_strs);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (opstrs == arg.opstrs);
@@ -126,10 +127,6 @@ struct RecipeArgumentSpec {
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
-  void ComputeGraphHashCode(
-      const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const std::string& id,
-      at::ArrayRef<torch::jit::IValue> input_refs);
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 
   HbCas cas;

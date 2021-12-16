@@ -107,21 +107,53 @@ struct TensorMetaData {
       : sizes(sz), strides(st), mf(f) {}
 };
 
+struct HabanaMetaDataToLowering {
+  HabanaMetaDataToLowering(
+      const bool& debug,
+      const size_t& graphIndex,
+      const std::string OpName,
+      const std::string& op_strs,
+      const size_t graph_key,
+      bool is_optimized_lazy_eager = false);
+
+  std::string GetOpStrs() {
+    return opstrs;
+  }
+
+  size_t GetGraphKey() {
+    return graphKey;
+  }
+
+  std::string& GetOpName() {
+    return op_name;
+  }
+
+  size_t GetGraphIndex() {
+    return graph_index;
+  }
+
+  bool GetDbgFlag() {
+    return dbg;
+  }
+
+  bool GetOptimizedLazyEagerFlag() {
+    return isOptimizedLazyEager;
+  }
+
+ private:
+  bool dbg = false;
+  size_t graph_index = 0;
+  std::string op_name = std::string();
+  std::string opstrs = std::string();
+  size_t graphKey = 0;
+  bool isOptimizedLazyEager = false;
+};
+
 class HabanaLaunchOpPT {
  public:
-  explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg);
-  // Lazy mode graphs
   explicit HabanaLaunchOpPT(
       std::shared_ptr<torch::jit::Graph> graph,
-      bool dbg,
-      size_t graph_index,
-      const char* name = nullptr);
-  // Eager mode graphs
-  explicit HabanaLaunchOpPT(
-      std::shared_ptr<torch::jit::Graph> graph,
-      bool dbg,
-      const std::string& name);
-  explicit HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph);
+      std::shared_ptr<HabanaMetaDataToLowering> hb_meta_data_to_lowering);
   ~HabanaLaunchOpPT();
 
   void CompileGraphWithRange(
@@ -133,18 +165,15 @@ class HabanaLaunchOpPT {
 
   static std::unordered_set<std::string> watchlist_;
 
- protected:
-  explicit HabanaLaunchOpPT(
-      std::shared_ptr<torch::jit::Graph> graph,
-      bool dbg,
-      const std::string& name,
-      const std::string& id);
-
  private:
-  std::string op_name;
+  std::string op_name = std::string();
+  std::string name = std::string();
+  size_t graph_index = 0;
   std::shared_ptr<torch::jit::Graph> jit_ir_graph;
   bool debug;
-  std::string id_str;
+  std::string id_str = std::string();
+  std::string op_strs = std::string();
+  size_t graph_key = 0;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   std::vector<TensorMetaData> input_tms;
@@ -328,9 +357,14 @@ class HabanaLaunchOpPT {
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
-  const std::string& GetSynapseGraphName() const {
-    return id_str;
+  const std::string& GetSynapseGraphName() {
+    return SetAndGetSynapseGraphName(name, graph_index);
   }
+  std::string& SetAndGetSynapseGraphName(
+      const std::string& name,
+      size_t g_index);
+  void SetSynapseGraphName(const std::string& name, size_t g_index);
+  void SetOpName(const std::string& name);
   void ProcessPersistentNodeOutput(
       const IValPtrShared& ivpsh,
       const ValPtr& vp,

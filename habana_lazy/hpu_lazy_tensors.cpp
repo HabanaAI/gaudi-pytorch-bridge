@@ -520,31 +520,33 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
 
 void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
-    size_t optimized_lazy_eager_key) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  SyncTensorsGraphInternal(tensors, optimized_lazy_eager_key);
+  SyncTensorsGraphInternal(tensors, lazyFrontEndInfo);
 }
 
 void HbLazyTensor::SyncTensorsGraphFast(
     std::vector<HbLazyTensor>* tensors,
     std::vector<ir::Value>& input_values,
-    size_t optimized_lazy_eager_key) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  SyncTensorsGraphInternalFast(tensors, input_values, optimized_lazy_eager_key);
+  SyncTensorsGraphInternalFast(tensors, input_values, lazyFrontEndInfo);
 }
 
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
-    bool use_cached_graph = false) {
+    bool use_cached_graph = false,
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info =
+        nullptr) {
   PT_LAZY_TRACE;
   DebugHelper::getInstance().resetCurrentAccumulatedOps();
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
     auto tensors = GetLiveTensors(device);
-    SyncTensorsGraph(&tensors);
+    SyncTensorsGraph(&tensors, lazy_front_end_info);
   }
 }
 
@@ -565,7 +567,7 @@ at::Tensor HbLazyTensor::Process0DTensor(std::shared_ptr<Data>& d) {
 
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
-    size_t optimized_lazy_eager_key) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
   std::vector<int> indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
@@ -611,7 +613,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->MarkTensorExecuting(d->unique_id);
   }
 
-  hlexec.GetOrCreate(po_data, stack, optimized_lazy_eager_key);
+  hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
+
+  hlexec.GetOrCreate(po_data, stack);
   // This is the logic to remove outputs of control edges that are dangling from
   // the outputs of JIT graph We dont want to alter graph execution, so removing
   // after graph is already prepared. Also we DO want that the tensors of this
@@ -692,7 +696,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 void HbLazyTensor::SyncTensorsGraphInternalFast(
     std::vector<HbLazyTensor>* tensors,
     std::vector<ir::Value>& input_values,
-    size_t optimized_lazy_eager_key) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
   std::vector<int> indices;
   for (size_t i = 0; i < tensors->size(); ++i) {
@@ -714,9 +718,14 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     context->MarkTensorExecuting(d->unique_id);
   }
 
-  GraphPtr fast_path_jit_ir =
-      habana_lazy::FastLazyGraphCache::GetFastLazyCache().GetOptimizedJITGraph(
-          optimized_lazy_eager_key);
+  HABANA_ASSERT(lazyFrontEndInfo != nullptr);
+
+  size_t optimized_lazy_eager_key =
+      lazyFrontEndInfo->get_optimized_lazy_eager_key();
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      fast_path_jit_ir_and_mdata =
+          habana_lazy::FastLazyGraphCache::GetFastLazyCache()
+              .GetOptimizedJITGraphAndMetaData(optimized_lazy_eager_key);
   PT_LAZY_DEBUG("Fast Path JIT Cache hit :: key ", optimized_lazy_eager_key);
 
   // Dump the JIT graph with PT_LAZY_DEBUG
@@ -743,7 +752,15 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
   hl_context->setExecutionMode(kLOWERING);
 
-  habana::HabanaLaunchOpPT launch{fast_path_jit_ir};
+  habana::HabanaLaunchOpPT launch{
+      fast_path_jit_ir_and_mdata->get_cached_graph(),
+      std::make_shared<habana::HabanaMetaDataToLowering>(
+          false,
+          0,
+          lazyFrontEndInfo->get_lazy_op_name(),
+          fast_path_jit_ir_and_mdata->get_cached_opstrs(),
+          fast_path_jit_ir_and_mdata->get_cached_graph_key(),
+          true)};
   try {
     launch.run(stack);
   } catch (std::exception& e) {
@@ -879,7 +896,9 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   StepMarker(device_str);
 }
 
-void HbLazyTensor::StepMarker(const std::string& device_str) {
+void HbLazyTensor::StepMarker(
+    const std::string& device_str,
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info) {
   PT_LAZY_TRACE;
 
   // Entry point of bucket refinement thread
@@ -887,7 +906,8 @@ void HbLazyTensor::StepMarker(const std::string& device_str) {
 
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(&device, /* is_cached*/ false);
+  HbLazyTensor::SyncLiveTensorsGraph(
+      &device, /* is_cached*/ false, lazy_front_end_info);
   HbLazyTensor::MarkStep(device);
   if (switch_dynamic_mode) {
     UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);

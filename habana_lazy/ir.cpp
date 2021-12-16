@@ -14,6 +14,11 @@
 #include "lazy_executor.h"
 
 namespace habana_lazy {
+
+const std::string getHabanaLazyGraphName() {
+  return "HabanaFusedOpLazy";
+}
+
 namespace ir {
 
 size_t StdHashCombine(uint64_t a, uint64_t b) {

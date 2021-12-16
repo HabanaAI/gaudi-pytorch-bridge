@@ -92,6 +92,29 @@ struct Data {
   int version = 0;
 }; // namespace habana_lazy
 
+struct HbLazyFrontEndInfoToBackend {
+  void set_optimized_lazy_eager_key(const size_t key) {
+    optimized_lazy_eager_key = key;
+  }
+
+  void set_lazy_op_name(const std::string& name) {
+    op_name = name;
+    std::replace(op_name.begin(), op_name.end(), ':', '_');
+  }
+
+  size_t get_optimized_lazy_eager_key() {
+    return optimized_lazy_eager_key;
+  }
+
+  std::string get_lazy_op_name() {
+    return op_name;
+  }
+
+ private:
+  size_t optimized_lazy_eager_key = 0;
+  std::string op_name = getHabanaLazyGraphName();
+};
+
 class HbLazyTensor {
  public:
   // This is the core Lazy tensor data structure where all the tensor data is
@@ -171,17 +194,21 @@ class HbLazyTensor {
 
   static void SyncTensorsGraph(
       std::vector<HbLazyTensor>* tensors,
-      size_t optimized_lazy_eager_key = 0);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
   static void SyncTensorsGraphFast(
       std::vector<HbLazyTensor>* tensors,
       std::vector<ir::Value>& input_values,
-      size_t optimized_lazy_eager_key = 0);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
-      bool use_cached_graph);
+      bool use_cached_graph,
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info);
 
-  static void StepMarker(const std::string& device_str = {});
+  static void StepMarker(
+      const std::string& device_str = {},
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info =
+          nullptr);
   static void StepMarkerBind(const std::string& device_str = {});
   static void InitiateBucketRefinement();
   static void SetDynamicMode();
@@ -251,11 +278,11 @@ class HbLazyTensor {
   void ClearAndAssignNewIrValue();
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
-      size_t optimized_lazy_eager_key = 0);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
   static void SyncTensorsGraphInternalFast(
       std::vector<HbLazyTensor>* tensors,
       std::vector<ir::Value>& input_values,
-      size_t optimized_lazy_eager_key = 0);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
   static bool switch_dynamic_mode;
 
   // The following handle is used to keep track of refinement thread.
