@@ -269,6 +269,47 @@ const char* getenv_by_type_new(
   return act_val;
 }
 
+bool getenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    bool& act_val,
+    bool def_val,
+    bool min_val,
+    bool max_val) {
+  (void)min_val;
+  (void)max_val;
+  if (!is_cached) {
+    bool result = def_val;
+    const char* envstrp = getenv(name);
+    if (envstrp && *envstrp) {
+      bool true_found = absl::EqualsIgnoreCase(envstrp, "1") ||
+          absl::EqualsIgnoreCase(envstrp, "true");
+      bool false_found = absl::EqualsIgnoreCase(envstrp, "0") ||
+          absl::EqualsIgnoreCase(envstrp, "false");
+
+      if (true_found)
+        result = true;
+      else if (false_found)
+        result = false;
+      else {
+        PT_SYNHELPER_FATAL(
+            "Environment variable \"",
+            name,
+            "\"=\"",
+            envstrp,
+            "\" converted to default value \"",
+            def_val,
+            "\" due to syntax error");
+      }
+      is_defined = true;
+    }
+    act_val = result;
+    is_cached = true;
+  }
+  return act_val;
+}
+
 template <class T, class F>
 static T getenv_numeric_new(
     const char* name,
@@ -361,7 +402,6 @@ static T getenv_numeric_new(
         conv);                                  \
   }
 
-INSTANTIATE_GETENV_BY_TYPE_NEW(bool, strtol)
 INSTANTIATE_GETENV_BY_TYPE_NEW(int, strtol)
 INSTANTIATE_GETENV_BY_TYPE_NEW(long, strtol)
 INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned, strtoul)

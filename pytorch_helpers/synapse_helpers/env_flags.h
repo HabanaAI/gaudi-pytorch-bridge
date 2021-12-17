@@ -286,7 +286,17 @@ const char* getenv_by_type_new(
     const char* act_val,
     const char* def_val);
 
-// Template method(s) for non-string env variables
+// Method for bool env variables to handle "true"/"false" and 1/0
+bool getenv_by_type_new(
+    const char* name,
+    bool& is_cached,
+    bool& is_defined,
+    bool& act_val,
+    const bool def_val,
+    const bool min_val,
+    const bool max_val);
+
+// Template method(s) for non-string and non-bool env variables
 template <class T>
 T getenv_by_type_new(
     const char* name,
