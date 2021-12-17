@@ -527,6 +527,21 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 }
 
+at::Tensor HbLazyTensor::Process0DTensor(std::shared_ptr<Data>& d) {
+  TORCH_CHECK(d->tensor_data.has_value(), "Empty tensor optional");
+  at::Tensor pt_tensor = d->tensor_data.value();
+
+  // Make regular 0D tensors 1D
+  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+  bool is_shape_tensor = impl && impl->isShapeTensor();
+  if (pt_tensor.dim() == 0) {
+    TORCH_CHECK(is_shape_tensor == false, "0D shape tensor encountered");
+    pt_tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
+  }
+
+  return pt_tensor;
+}
+
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     size_t optimized_lazy_eager_key) {
@@ -571,7 +586,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
     }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    stack.emplace_back(d->tensor_data);
+    auto pt_tensor = Process0DTensor(d);
+    stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d->unique_id);
@@ -671,7 +687,8 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   for (const auto& in : input_values) {
     HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    stack.emplace_back(d->tensor_data);
+    auto pt_tensor = Process0DTensor(d);
+    stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d->unique_id);

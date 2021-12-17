@@ -139,6 +139,9 @@ class HbLazyTensor {
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
   c10::optional<at::Tensor> GetHbLazyTensorData();
+
+  // Static methods
+  static at::Tensor Process0DTensor(std::shared_ptr<Data>& d);
   static void MarkStep(const c10::Device& device);
   // Retrieves the PyTorch CPU tensors behind the Habana Lazy tensors IR
   // operations. All the tensors must be on the same device.

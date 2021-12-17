@@ -17,6 +17,30 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
+void habana::HabanaLaunchOpPT::BackupInputStack(torch::jit::Stack& input_st) {
+  // Keep a handle to the stack for future use
+  pt_stack = &input_st;
+
+  for (size_t i = 0; i < pt_stack->size(); i++) {
+    if (pt_stack->at(i).isTensor()) {
+      auto& t{pt_stack->at(i).toTensor()};
+      input_tms.emplace_back(
+          t.sizes().vec(), t.strides().vec(), t.suggest_memory_format());
+    } else {
+      input_tms.emplace_back(
+          std::vector<int64_t>(),
+          std::vector<int64_t>(),
+          c10::MemoryFormat::Preserve);
+    }
+
+    IValPtrShared ivpsh = std::make_shared<IVal>(pt_stack->at(i));
+    pt_stack_sh.push_back(ivpsh);
+    if (ivpsh->isTensor() || ivpsh->isTensorList()) {
+      num_tensor_inputs++;
+    }
+  }
+}
+
 void habana::HabanaLaunchOpPT::Clear(bool is_shape_inference) {
   if (is_shape_inference == false) {
     pt_stack = nullptr;
@@ -242,6 +266,35 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
   rv.populate_syn_tensor_ids();
 }
 
+void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
+  if (enable_tensor_dump_) {
+    std::ofstream tensor_file;
+    tensor_file.open(
+        tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
+    for (size_t i = 0; i < rv.num_tinfos; ++i) {
+      if (rv.dtensorinfos->at(i).watch_enabled()) {
+        rv.d2h_dbuff(i);
+        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      }
+    }
+    tensor_file.close();
+  }
+}
+
+void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
+  if (enable_tensor_dump_) {
+    std::ofstream tensor_file;
+    tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
+    for (size_t i = 0; i < rv.num_tinfos; ++i) {
+      if (rv.dtensorinfos->at(i).watch_enabled()) {
+        rv.d2h_dbuff(i);
+        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      }
+    }
+    tensor_file.close();
+  }
+}
+
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   if (syn_graph_ptr->is_empty()) {
@@ -307,20 +360,11 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
 
   if (enable_caching_) {
     // Add the <key,value> pair to the map
-    if (false == refine_ds_enabled_) {
-      std::shared_ptr<RecipeArgumentSpec> rargpsh =
-          std::make_shared<RecipeArgumentSpec>(
-              false, input_refs, jit_ir_graph, "");
-      rv.key = rargpsh->hashCode();
-      RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);
-    } else {
-      std::shared_ptr<RecipeArgumentSpec> rargpsh =
-          std::make_shared<RecipeArgumentSpec>(
-              input_refs, jit_ir_graph, cur_ds_token_);
-      rv.key = rargpsh->hashCode();
+    if (refine_ds_enabled_) {
       rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
-      RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);
     }
+    rv.key = cur_rargpsh->hashCode();
+    RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
@@ -338,30 +382,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   }
 
   UpdateOutputs(rv);
-}
-
-void habana::HabanaLaunchOpPT::OrderInputs() {
-  if (enable_caching_) {
-    // Order the input_tivs according to the order of suggraph inputs
-    size_t i = pt_stack_sh.size() - num_inputs;
-    for (; i < pt_stack_sh.size(); i++) {
-      IValPtrShared ivpsh = pt_stack_sh.at(i);
-      if (ivpsh->isTensor() || ivpsh->isTensorList()) {
-        auto it = input_tiv_map.find(ivpsh);
-        if (it != input_tiv_map.end()) {
-          input_tivs.push_back(it->second);
-        } else {
-          TORCH_CHECK(false, "synapse tensor not found for input index", i);
-        }
-      }
-    }
-    TORCH_CHECK(
-        input_tivs.size() == num_tensor_inputs,
-        "number of input tensors ",
-        num_tensor_inputs,
-        " mismatch with #input_tivs ",
-        input_tivs.size());
-  }
 }
 
 void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
@@ -451,6 +471,30 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
       rv.num_induplicates,
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
+}
+
+void habana::HabanaLaunchOpPT::OrderInputs() {
+  if (enable_caching_) {
+    // Order the input_tivs according to the order of suggraph inputs
+    size_t i = pt_stack_sh.size() - num_inputs;
+    for (; i < pt_stack_sh.size(); i++) {
+      IValPtrShared ivpsh = pt_stack_sh.at(i);
+      if (ivpsh->isTensor() || ivpsh->isTensorList()) {
+        auto it = input_tiv_map.find(ivpsh);
+        if (it != input_tiv_map.end()) {
+          input_tivs.push_back(it->second);
+        } else {
+          TORCH_CHECK(false, "synapse tensor not found for input index", i);
+        }
+      }
+    }
+    TORCH_CHECK(
+        input_tivs.size() == num_tensor_inputs,
+        "number of input tensors ",
+        num_tensor_inputs,
+        " mismatch with #input_tivs ",
+        input_tivs.size());
+  }
 }
 
 void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
@@ -724,40 +768,43 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   rv.num_tinfos = rv.dtensorinfos->size();
 }
 
+void habana::HabanaLaunchOpPT::RestoreInputTensorMetadata() {
+  for (size_t i{0}; i < pt_stack->size(); i++) {
+    if (pt_stack->at(i).isTensor()) {
+      auto& input_tensor = pt_stack->at(i).toTensor();
+      input_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          input_tms.at(i).sizes, input_tms.at(i).strides);
+      input_tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+          input_tms.at(i).mf);
+    }
+  }
+}
+
+void habana::HabanaLaunchOpPT::UpdateOutputs() {
+  // Restore the metadata of the inputs
+  RestoreInputTensorMetadata();
+
+  // Update the stack from the JIT IR outputs
+  torch::jit::drop(*pt_stack, num_inputs);
+  for (auto output : jit_ir_graph->outputs()) {
+    auto oit = value_to_ivalue.find(output);
+    TORCH_CHECK(
+        oit != value_to_ivalue.end(),
+        "value_to_ivalue does not have an entry for %",
+        output->debugName());
+    IValPtrShared ivpsh = oit->second;
+    pt_stack->insert(pt_stack->end(), *ivpsh);
+  }
+}
+
 void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
+  // Restore the metadata of the inputs
+  RestoreInputTensorMetadata();
+
   // Update the stack from the recipe itself
   torch::jit::drop(*pt_stack, num_inputs);
   for (const auto& ivpsh : *(rv.aten_outputs)) {
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
   rv.aten_outputs = nullptr;
-}
-
-void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
-  if (enable_tensor_dump_) {
-    std::ofstream tensor_file;
-    tensor_file.open(
-        tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
-    for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i).watch_enabled()) {
-        rv.d2h_dbuff(i);
-        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
-      }
-    }
-    tensor_file.close();
-  }
-}
-
-void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
-  if (enable_tensor_dump_) {
-    std::ofstream tensor_file;
-    tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
-    for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i).watch_enabled()) {
-        rv.d2h_dbuff(i);
-        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
-      }
-    }
-    tensor_file.close();
-  }
 }

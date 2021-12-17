@@ -1560,43 +1560,11 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
   }
 }
 
-void HabanaLaunchOpPT::AdjustInputLayout() {
+void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
   for (size_t j = 0; j < pt_stack_sh.size(); j++) {
     auto value_input = jit_ir_graph->inputs().at(j);
-
-    if (pt_stack_sh[j]->isTensor()) {
-      // Taking alias as that allows us to detach it from PT and do metadata
-      // changes It gives us more control over tensor changes, but caution
-      // is needed. Its might be a bit dangerous, but only way to
-      // communicate layour changes PT doesnt allow any stride changes we
-      // want, we can review it with PT folks
-
-      auto impl =
-          habana_lazy::GetHbInternalTensorImpl(pt_stack_sh[j]->toTensor());
-      bool is_shape_tensor = impl && impl->isShapeTensor();
-
-      /*
-       * If we detach from pytorch, we loose the shape tensor related info
-       * For shape tensors, we dont create an alias, since these tensors are
-       * created by the frontend, we dont need tp detach.
-       * Assumption here is that the Frontend will not create a shape tensor
-       * with zero dims
-       */
-      auto tensor = is_shape_tensor ? pt_stack_sh[j]->toTensor()
-                                    : at::alias(pt_stack_sh[j]->toTensor());
-
-      // WE dont support 0D tensors internally, so convert to 1D internally
-      if (tensor.dim() == 0) {
-        HABANA_ASSERT(is_shape_tensor == false);
-        tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
-      }
-
-      IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
-      value_to_ivalue[value_input] = ivptrsh;
-      pt_stack_sh[j] = ivptrsh;
-    } else {
-      value_to_ivalue[value_input] = pt_stack_sh[j];
-    }
+    auto ivpsh = pt_stack_sh[j];
+    value_to_ivalue[value_input] = ivpsh;
   }
 }
 
@@ -1666,20 +1634,20 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
 void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
 
-  std::shared_ptr<RecipeArgumentSpec> rargpsh =
+  std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
       std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
   PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
       "Processing with dynamic shape enabled\n",
       "JIT IR graph_hash_code : ",
-      rargpsh->graphHashCode());
+      rargpsh_graph->graphHashCode());
 
-  current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh);
+  current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
   if (nullptr == current_dbipsh_) {
     PT_DYNAMIC_SHAPE_DEBUG("Creating new DynamicBucketInfo");
     auto dbi = habana_helpers::DynamicBucketInfo();
     current_dbipsh_ = std::make_shared<habana_helpers::DynamicBucketInfo>(dbi);
-    DynamicBucketInfoMap::get_instance().add(rargpsh, current_dbipsh_);
+    DynamicBucketInfoMap::get_instance().add(rargpsh_graph, current_dbipsh_);
   }
 
   DynamicShapeInfo graph_input_info;
@@ -1726,17 +1694,16 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
 
   statistics_ = std::move(habana_helpers::CompilationStatistics::Create(
-      visualize::GetGraphIndex(rargpsh->graphHashCode()),
+      visualize::GetGraphIndex(rargpsh_graph->graphHashCode()),
       current_dbipsh_->getCount()));
 
   // Check for cached recipe
   if (enable_caching_) {
-    std::shared_ptr<RecipeArgumentSpec> spec_key =
-        std::make_shared<RecipeArgumentSpec>(
-            input_refs, jit_ir_graph, cur_ds_token_);
+    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+        input_refs, jit_ir_graph, cur_ds_token_);
     current_dbipsh_->SetRecipeKeyForBucket(
-        graph_input_info.current_bucket_id, spec_key->hashCode());
-    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
+        graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
+    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       // Cache hit for a dynamic bucket
@@ -1790,7 +1757,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       ReturnCachedRecipe(rv);
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaOp recipe cache hit :: key ",
-          spec_key->hashCode(),
+          cur_rargpsh->hashCode(),
           "\n",
           current_dbipsh_->digest_str(),
           "Recipe Header::",
@@ -1801,14 +1768,14 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
           "--------------------");
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
 
-      statistics_->LogSelectedRecipe(spec_key->hashCode(), 0);
+      statistics_->LogSelectedRecipe(cur_rargpsh->hashCode(), 0);
       statistics_->LogLaunch(current_dbipsh_->GetTime(current_bucket_id_), 0);
       Clear();
       PT_BRIDGE_END;
       return;
     } else {
       PT_DYNAMIC_SHAPE_DEBUG(
-          "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
+          "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
@@ -1827,19 +1794,6 @@ void HabanaLaunchOpPT::PrintRecipeInputs() {
     auto vp = jit_ir_graph->inputs().at(i);
     O << idx++ << " : %" << vp->debugName() << " : ";
     PrintATenTensor(pt_stack_sh.at(i));
-  }
-}
-
-void HabanaLaunchOpPT::UpdateOutputs() {
-  drop(*pt_stack, num_inputs);
-  for (auto output : jit_ir_graph->outputs()) {
-    auto oit = value_to_ivalue.find(output);
-    TORCH_CHECK(
-        oit != value_to_ivalue.end(),
-        "value_to_ivalue does not have an entry for %",
-        output->debugName());
-    IValPtrShared ivpsh = oit->second;
-    pt_stack->insert(pt_stack->end(), *ivpsh);
   }
 }
 
@@ -1885,11 +1839,18 @@ void RecipeValueSpec::create_outdup(
   aten_outputs->at(output_idx) = ivpsh;
 }
 
-void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
+void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   PT_BRIDGE_BEGIN;
   num_inputs = jit_ir_graph->inputs().size();
+  TORCH_CHECK(
+      num_inputs == input_st.size(),
+      "Input stack size=",
+      num_inputs,
+      " is not matching with #graph_inputs=",
+      input_st.size());
+
   num_tensor_inputs = 0;
-  input_refs = last(stack, num_inputs);
+  input_refs = last(input_st, num_inputs);
   iteration_count_++;
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
@@ -1899,17 +1860,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     habana::ShapeInference::Capture(&m_map_shape);
   }
 
-  // Keep a handle to the stack for future use
-  pt_stack = &stack;
-
-  size_t j = stack.size() - num_inputs;
-  for (; j < stack.size(); j++) {
-    IValPtrShared ivpsh = std::make_shared<IVal>(stack[j]);
-    pt_stack_sh.push_back(ivpsh);
-    if (ivpsh->isTensor() || ivpsh->isTensorList()) {
-      num_tensor_inputs++;
-    }
-  }
+  BackupInputStack(input_st);
 
   // Fusion pass should ensure all nodes are on Habana, if all nodes not on
   // habana device, we should assert
@@ -1940,11 +1891,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
   // caching :: begin
   if (enable_caching_) {
-    std::shared_ptr<RecipeArgumentSpec> spec_key =
-        std::make_shared<RecipeArgumentSpec>(
-            false, input_refs, jit_ir_graph, "");
+    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+        false, input_refs, jit_ir_graph, "");
 
-    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
+    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       RecipeValueSpec& rv = *rvpsh;
@@ -1989,13 +1939,13 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       return;
     } else {
       PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
+          "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
     }
   }
   // caching :: end
 
-  AdjustInputLayout();
+  CreateValueToIvalueMapForInputs();
 
   //<Decription> This is the main function that
   //  a. creates the HabanaLaunchOp
@@ -2027,7 +1977,7 @@ void HabanaLaunchOpPT::run_pass() {
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
-  AdjustInputLayout();
+  CreateValueToIvalueMapForInputs();
   BuildSynapseGraph(syn_graph, true);
   //
   // clear the data that has been setup as part of the above
@@ -2248,7 +2198,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     last_compilation_pass = habana_helpers::CompilationPass::DYNAMIC_MAX;
   }
 
-  AdjustInputLayout();
+  CreateValueToIvalueMapForInputs();
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "Running BuildSynapseGraph with min{",

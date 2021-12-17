@@ -95,6 +95,18 @@ class PassException : public std::exception {
   std::string m_message;
 };
 
+struct TensorMetaData {
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
+  c10::MemoryFormat mf;
+
+  TensorMetaData(
+      std::vector<int64_t> sz,
+      std::vector<int64_t> st,
+      c10::MemoryFormat f)
+      : sizes(sz), strides(st), mf(f) {}
+};
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg);
@@ -128,6 +140,8 @@ class HabanaLaunchOpPT {
   bool debug;
   std::string id_str;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
+
+  std::vector<TensorMetaData> input_tms;
 
   std::string DumpNode(torch::jit::Node* node);
   // We keep a vector of kernels so that the context memory
@@ -210,6 +224,7 @@ class HabanaLaunchOpPT {
   IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map;
+  std::shared_ptr<RecipeArgumentSpec> cur_rargpsh{nullptr};
 
   // caching :: end
 
@@ -250,6 +265,14 @@ class HabanaLaunchOpPT {
   std::map<torch::jit::Node*, std::pair<size_t, size_t>> dfs_time_in_out_map;
   size_t dfs_cnt = 0;
 
+  // Main function responsible for constructing a synapse graph from
+  // 1. JIT IR Graph
+  // 2. Input Stack
+  // Currently this funciton is used for shape inference as well
+  void BuildSynapseGraph(
+      synapse_helpers::graph& syn_graph,
+      bool is_shape_inference = false);
+
   LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
@@ -268,7 +291,7 @@ class HabanaLaunchOpPT {
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   bool isInplace(torch::jit::Node* node);
   bool isControlEdge(torch::jit::Node* node);
-  void AdjustInputLayout();
+  void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
   bool IsValidNode(torch::jit::Node*);
@@ -332,8 +355,6 @@ class HabanaLaunchOpPT {
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
   void PrintRecipeInputs();
-  void UpdateOutputs();
-  void UpdateOutputs(RecipeValueSpec& rv);
 
   std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
@@ -380,10 +401,7 @@ class HabanaLaunchOpPT {
   }
 
   // Member functions related to lowering IR to Synapse
-  void BuildSynapseGraph(
-      synapse_helpers::graph& syn_graph,
-      bool is_shape_inference = false);
-
+  void BackupInputStack(torch::jit::Stack& input_st);
   void Clear(bool is_shape_inference = false);
 
   // TODO: Check whether the swap destruct paradigm provides any performance
@@ -403,6 +421,9 @@ class HabanaLaunchOpPT {
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
   void OrderOutputTinfos(RecipeValueSpec& rv);
+  void RestoreInputTensorMetadata();
+  void UpdateOutputs();
+  void UpdateOutputs(RecipeValueSpec& rv);
 
   // --------------------
 
