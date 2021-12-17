@@ -12,6 +12,21 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, eye) {
+  int n = GenerateScalar<int>(1, 8);
+  auto expected = torch::eye(n);
+  auto result = torch::eye(n, "hpu");
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, eye_m) {
+  int n = GenerateScalar<int>(1, 8);
+  int m = GenerateScalar<int>(1, 8);
+  auto expected = torch::eye(n, m);
+  auto result = torch::eye(n, m, "hpu");
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, eye_out) {
   int64_t n = 3;
   torch::ScalarType dtype = torch::kFloat;
