@@ -53,21 +53,14 @@ void Any::AddNode(
       size);
 
   constexpr float value = 0;
-  auto constant_value = ConstantHelper(
-      graph,
-      value,
-      c10::ScalarType::Float,
-      1 /*constant_outshape*/,
-      false /*persistent*/,
-      false /*final_node*/);
-
+  auto constant_value = ConstantHelper(graph, value);
   auto out_shape = AllOutputShape(stack, true)[0];
 
   auto greater_than_zero = BuildOp(
       graph,
       "greater_fwd_f32",
       {reduce_sum[0].get(), constant_value.get()},
-      {{out_shape, c10::ScalarType::Bool, is_output_persistent_list[0], true}});
+      {{out_shape, c10::ScalarType::Bool, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(greater_than_zero[0]);
 }

@@ -58,7 +58,7 @@ void Geometric::AddNode(
       "random_negative_binomial_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {},
-      {{outshape, ScalarType(), false}},
+      {{outshape, ScalarType()}},
       params.get(),
       size);
 
@@ -72,7 +72,7 @@ void Geometric::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {random_neg_binomial[0].get(), constant.get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(geometric[0]);
 }

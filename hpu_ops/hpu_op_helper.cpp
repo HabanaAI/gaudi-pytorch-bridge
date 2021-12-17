@@ -344,7 +344,7 @@ synapse_helpers::tensor OpBackend::CastHelper(
     const at::ScalarType& from,
     const at::ScalarType& to,
     bool persistent,
-    bool final_node) {
+    c10::optional<int> final_result_index) {
   return OpBackend::BuildCast(
       this,
       graph,
@@ -354,7 +354,7 @@ synapse_helpers::tensor OpBackend::CastHelper(
       to,
       CAST_ROUND_HALF_NE,
       persistent,
-      final_node);
+      final_result_index);
 }
 
 synapse_helpers::tensor OpBackend::ConstantHelper(
@@ -363,9 +363,15 @@ synapse_helpers::tensor OpBackend::ConstantHelper(
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     bool persistent,
-    bool final_node) {
+    c10::optional<int> final_result_index) {
   return OpBackend::BuildConstant(
-      this, graph, val, force_type, constant_outshape, persistent, final_node);
+      this,
+      graph,
+      val,
+      force_type,
+      constant_outshape,
+      persistent,
+      final_result_index);
 }
 
 void OpBackend::AddNode(
@@ -401,15 +407,13 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   auto ctx = op->p_context_;
   std::vector<synapse_helpers::tensor> outputs;
   std::vector<synTensor> node_outputs;
-  int available_output_id = 0;
-  int persistent_output_id = 0;
-  int final_output_id = 0;
+  int i = 0;
 
   for (const auto& attr : node_attr.output_attrs) {
-    if (attr.final_node and op->IsOutputAvailable()) {
+    if (attr.final_result_index.has_value() and op->IsOutputAvailable()) {
       // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
       outputs.emplace_back(
-          std::move(ctx->syn_outputs_.at(available_output_id++).ref()));
+          std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
     } else {
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{
@@ -420,13 +424,12 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       outputs.emplace_back(
           habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
       if (attr.persistent) {
-        const auto& impl =
-            ctx->pt_outputs_.at(persistent_output_id++).unsafeGetTensorImpl();
+        const auto& impl = ctx->pt_outputs_.at(i++).unsafeGetTensorImpl();
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
-      } else if (attr.final_node) {
-        ctx->pt_outputs_.at(final_output_id++) = t;
+      } else if (attr.final_result_index.has_value()) {
+        ctx->pt_outputs_.at(*attr.final_result_index) = t;
       }
     }
     node_outputs.emplace_back(outputs.back().get());
@@ -457,14 +460,14 @@ synapse_helpers::tensor OpBackend::BuildCast(
     const at::ScalarType& to,
     CastF32RoundMode_t round_mode,
     bool persistent,
-    bool final_node) {
+    c10::optional<int> final_result_index) {
   const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
       "_to_" + habana_helpers::name_suffix_from_type(to);
   ns_CastKernel::Params params{round_mode};
   NodeAttr castnode{
       guid,
       {syn_in},
-      {{sizes, to, persistent, final_node}},
+      {{sizes, to, persistent, final_result_index}},
       &params,
       sizeof(params)};
   auto cast = BuildNode(op, graph, std::move(castnode));
@@ -479,7 +482,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     bool persistent,
-    bool final_node) {
+    c10::optional<int> final_result_index) {
   const at::ScalarType& valtype =
       force_type.has_value() ? force_type.value() : val.type();
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
@@ -504,7 +507,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
       graph,
       {"constant_" + habana_helpers::name_suffix_from_type(valtype),
        {},
-       {{constant_outshape, valtype, persistent, final_node}},
+       {{constant_outshape, valtype, persistent, final_result_index}},
        &params,
        sizeof(params)});
   return std::move(constant.at(0));

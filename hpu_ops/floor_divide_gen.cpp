@@ -56,7 +56,7 @@ void FloorDivideOperator::AddNode(
       graph,
       rounding_mode + opStringSuffix,
       {divOp.at(0).get()},
-      {{shape_out, computation_type, is_output_persistent_list[0], true}});
+      {{shape_out, computation_type, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(makeIntegerOp[0]);
 }

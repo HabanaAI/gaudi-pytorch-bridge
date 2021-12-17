@@ -46,7 +46,7 @@ void MvOpOut::AddNode(
       graph,
       "reshape",
       {mmOp[0].get()},
-      {{shape_3, ScalarType(), is_output_persistent_list[0], true}});
+      {{shape_3, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output
   syn_out(0) = std::move(reshapeOp2[0]);

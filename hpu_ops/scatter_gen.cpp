@@ -26,10 +26,11 @@ void ScatterOperator::AddNode(
     index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  ns_ScatterKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  ns_ScatterKernel::Params params{};
+  params.axis = static_cast<int>(self.dim() - dim - 1);
   bool bool_val = false;
   bool is_bool = false;
+  at::Scalar val;
   if (!stack.at(3).isTensor()) {
     // Why do we need to do this?
     // We are converting the val to a real Bool (0 or 1) for src=Bool case.
@@ -95,7 +96,7 @@ void ScatterOperator::AddNode(
         "scatter_fwd_" +
             habana_helpers::name_suffix_from_type(c10::ScalarType::Int),
         syn_input_tensors,
-        {{outshape, c10::ScalarType::Int, false, false}},
+        {{outshape, c10::ScalarType::Int}},
         &params,
         sizeof(params));
 
@@ -106,7 +107,7 @@ void ScatterOperator::AddNode(
         torch::kInt,
         self.scalar_type(),
         is_output_persistent_list[0],
-        true);
+        0);
     syn_out(0) = std::move(result_bool);
   } else {
     std::vector<synTensor> syn_input_tensors = {
@@ -115,7 +116,7 @@ void ScatterOperator::AddNode(
         graph,
         "scatter_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         syn_input_tensors,
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
         &params,
         sizeof(params));
 

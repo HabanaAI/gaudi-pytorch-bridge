@@ -111,7 +111,7 @@ void AddMM::AddNode(
       graph,
       "squeeze",
       {addmm[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(addmm_out[0]);
 }

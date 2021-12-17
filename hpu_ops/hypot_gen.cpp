@@ -46,7 +46,7 @@ void Hypot::AddNode(
       graph,
       "sqrt_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {add[0].get()},
-      {{result_outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{result_outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of sqrt is the output of this op
   syn_out(0) = std::move(sqrt[0]);

@@ -60,7 +60,7 @@ void CumsumHabanaOperator::AddNode(
       graph,
       "cast_" + cast_from + "_to_" + cast_to,
       {syn_in(0)},
-      {{outshape, dtype, false}});
+      {{outshape, dtype}});
 
   size_t size = 0;
   const auto& params = FillCumsumParams(stack, size);
@@ -69,7 +69,7 @@ void CumsumHabanaOperator::AddNode(
       graph,
       guid + cast_to,
       {cast.at(0).get()},
-      {{outshape, dtype, is_output_persistent_list[0], true}},
+      {{outshape, dtype, is_output_persistent_list[0], 0}},
       params.get(),
       size);
   syn_out(0) = std::move(op.at(0));

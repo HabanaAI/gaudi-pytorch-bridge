@@ -66,7 +66,8 @@ void RollHabanaOperator::AddNode(
     }
     remain_shift = input_shape[axis_flat] - to_shift;
 
-    auto is_final_output = i == axisElementsCount - 1;
+    auto is_final_output =
+        i == axisElementsCount - 1 ? c10::make_optional<int>(0) : c10::nullopt;
     auto is_output_persistent =
         is_final_output ? is_output_persistent_list[0] : false;
 

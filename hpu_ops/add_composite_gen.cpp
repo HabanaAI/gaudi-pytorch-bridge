@@ -82,7 +82,7 @@ void AddCOpOut::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       add_op_inputs,
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output
   syn_out(0) = std::move(add_op[0]);

@@ -131,7 +131,7 @@ void LogSumExp::AddNode(
               graph,
               "reshape",
               {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -170,7 +170,7 @@ void LogSumExp::AddNode(
               graph,
               "reshape",
               {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -184,7 +184,7 @@ void LogSumExp::AddNode(
           graph,
           "reshape",
           {logsumexp[0].get()},
-          {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+          {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
       // output of reshape is the output of this op
       syn_out(0) = std::move(reshape[0]);

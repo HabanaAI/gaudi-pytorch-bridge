@@ -47,7 +47,7 @@ void Trace::AddNode(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {diag[0].get()},
-        {{1, ScalarType(), is_output_persistent_list[0], true}},
+        {{1, ScalarType(), is_output_persistent_list[0], 0}},
         &reduce_params,
         sizeof(reduce_params));
 
@@ -69,7 +69,7 @@ void Trace::AddNode(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {diag[0].get()},
-        {{1, ScalarType(), is_output_persistent_list[0], true}},
+        {{1, ScalarType(), is_output_persistent_list[0], 0}},
         &reduce_params,
         sizeof(reduce_params));
 

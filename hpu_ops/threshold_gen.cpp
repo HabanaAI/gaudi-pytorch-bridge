@@ -50,7 +50,7 @@ void Threshold::AddNode(
         graph,
         "relu_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
     syn_out(0) = std::move(output[0]);
   } else {
     auto threshold_gen = ConstantHelper(graph, threshold, ScalarType());
@@ -67,7 +67,7 @@ void Threshold::AddNode(
         graph,
         "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {greaterthan_threshold[0].get(), syn_in(0), value_gen.get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(output[0]);
   }

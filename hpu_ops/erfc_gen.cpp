@@ -30,7 +30,7 @@ void Erfc::AddNode(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get(), erf[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(erfc[0]);
 }

@@ -49,7 +49,7 @@ void ProdOut::AddNode(
         graph,
         "reshape",
         {reduce_prod[0].get()},
-        {{shape, ScalarType(), is_output_persistent_list[0], true}});
+        {{shape, ScalarType(), is_output_persistent_list[0], 0}});
     syn_out(0) = std::move(reshape[0]);
 
     // keepdim is true directly mapping to the tpc kernel.
@@ -58,7 +58,7 @@ void ProdOut::AddNode(
         graph,
         "reduce_prod_fwd",
         {syn_in(0)},
-        {{shape, ScalarType(), is_output_persistent_list[0], true}},
+        {{shape, ScalarType(), is_output_persistent_list[0], 0}},
         params.get(),
         size);
     syn_out(0) = std::move(reduce_prod[0]);

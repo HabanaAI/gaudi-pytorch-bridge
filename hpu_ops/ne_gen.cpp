@@ -31,7 +31,7 @@ void NE::AddNode(
       graph,
       "not_fwd_i8",
       {eq[0].get()},
-      {{outshape, result_type, is_output_persistent_list[0], true}});
+      {{outshape, result_type, is_output_persistent_list[0], 0}});
 
   // output of not is the output of this op
   syn_out(0) = std::move(not_equal[0]);

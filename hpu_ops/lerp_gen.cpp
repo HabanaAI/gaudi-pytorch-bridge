@@ -38,21 +38,21 @@ void Lerp::AddNode(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), syn_in(0)},
-      {{{sub_outshape}, ScalarType(), false}});
+      {{{sub_outshape}, ScalarType()}});
 
   // multiplication of weight and sub
   auto mult = BuildOp(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(2), sub[0].get()},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // addition of start and mult
   auto lerp = BuildOp(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), mult[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of lerp is the output of this op
   syn_out(0) = std::move(lerp[0]);

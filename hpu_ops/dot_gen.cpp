@@ -57,7 +57,7 @@ void Dot::AddNode(
       graph,
       "reshape",
       {mm[0].get()},
-      {{1, ScalarType(), is_output_persistent_list[0], true}});
+      {{1, ScalarType(), is_output_persistent_list[0], 0}});
   syn_out(0) = std::move(dot[0]);
 }
 } // namespace habana

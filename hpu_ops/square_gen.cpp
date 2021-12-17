@@ -22,7 +22,7 @@ void Square::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(square[0]);
 }

@@ -70,7 +70,7 @@ void SpecialEntr::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask_neg[0].get(), ninf.get(), prod_term[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
   syn_out(0) = std::move(output[0]);
 }
 } // namespace habana

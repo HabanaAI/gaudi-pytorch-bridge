@@ -21,7 +21,7 @@ void Fill::AddNode(
       graph,
       "broadcast_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of broadcast is the output of this op
   syn_out(0) = std::move(broadcast[0]);

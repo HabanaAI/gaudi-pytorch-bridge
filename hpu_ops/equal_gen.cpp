@@ -63,13 +63,13 @@ void Equal::AddNode(
         c10::ScalarType::Float,
         result_type,
         is_output_persistent_list[0],
-        true);
+        0);
 
     syn_out(0) = std::move(cast_f32_to_i8);
 
   } else { // inputs with different shape
     auto false_tensor = ConstantHelper(
-        graph, false, result_type, 1, is_output_persistent_list[0], true);
+        graph, false, result_type, 1, is_output_persistent_list[0], 0);
 
     syn_out(0) = std::move(false_tensor);
   }

@@ -98,7 +98,7 @@ void HuberLossBwdOperator::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask_bwd.at(0).get(), t_2.at(0).get(), t_1.at(0).get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
   return;
@@ -171,7 +171,7 @@ void HuberLossOperator::AddNode(
         graph,
         "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {mask.at(0).get(), result_true.at(0).get(), result_false.at(0).get()},
-        {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
+        {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(condition_out.at(0));
     return;
@@ -205,7 +205,7 @@ void HuberLossOperator::AddNode(
       graph,
       reduction_guid + habana_helpers::name_suffix_from_type(ScalarType()),
       reduction_inputs,
-      {{1, ScalarType(), is_output_persistent_list[0], true}},
+      {{1, ScalarType(), is_output_persistent_list[0], 0}},
       &node_params,
       sizeof(node_params));
 

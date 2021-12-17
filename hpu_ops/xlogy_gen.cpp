@@ -52,7 +52,7 @@ void XlogYOperator::AddNode(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
     syn_out(0) = std::move(xlogy[0]);
   } else {
     auto other_shape = stack_tensor(stack, 1).sizes();
@@ -63,7 +63,7 @@ void XlogYOperator::AddNode(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
     syn_out(0) = std::move(xlogy[0]);
   }
 }

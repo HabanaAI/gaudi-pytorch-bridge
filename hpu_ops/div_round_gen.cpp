@@ -167,7 +167,7 @@ void DivRoundModeOperator::AddNode(
       {{shape_out,
         computation_type,
         bOtherThanTrueMode ? false : is_output_persistent_list[0],
-        not bOtherThanTrueMode}});
+        bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}});
   if (!bOtherThanTrueMode) {
     syn_out(0) = std::move(divOp[0]);
     return;
@@ -181,7 +181,7 @@ void DivRoundModeOperator::AddNode(
       {{shape_out,
         computation_type,
         bNeedToCastFinalResult ? false : is_output_persistent_list[0],
-        not bNeedToCastFinalResult}});
+        bNeedToCastFinalResult ? c10::nullopt : c10::make_optional<int>(0)}});
   if (!bNeedToCastFinalResult) {
     syn_out(0) = std::move(makeIntegerOp[0]);
     return;
@@ -194,7 +194,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       strNode_type,
       {makeIntegerOp.at(0).get()},
-      {{shape_out, final_result_type, is_output_persistent_list[0], true}});
+      {{shape_out, final_result_type, is_output_persistent_list[0], 0}});
   syn_out(0) = std::move(castToReturnTypeOp[0]);
 }
 

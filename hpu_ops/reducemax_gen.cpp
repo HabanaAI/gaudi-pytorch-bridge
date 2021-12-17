@@ -44,13 +44,13 @@ void MaxOut::AddNode(
         graph,
         "reshape",
         {reduce_max[0].get()},
-        {{shape, ScalarType(), is_output_persistent_list[0]}});
+        {{shape, ScalarType(), is_output_persistent_list[0], 0}});
 
     auto reshape2 = BuildOp(
         graph,
         "reshape",
         {reduce_max[1].get()},
-        {{shape, dtype, is_output_persistent_list[1], true}});
+        {{shape, dtype, is_output_persistent_list[1], 1}});
 
     syn_out(0) = std::move(reshape1[0]);
     syn_out(1) = std::move(reshape2[0]);
@@ -59,8 +59,8 @@ void MaxOut::AddNode(
         graph,
         guid_,
         {syn_in(0)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true},
-         {outshape, dtype, is_output_persistent_list[1], true}},
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0},
+         {outshape, dtype, is_output_persistent_list[1], 1}},
         params.get(),
         size);
 

@@ -69,7 +69,7 @@ void BinaryOp::AddNode(
       graph,
       guid_,
       binaryop_inputs,
-      {{outshape, result_type, is_output_persistent_list[0], true}});
+      {{outshape, result_type, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(op[0]);
 }

@@ -22,7 +22,7 @@ void LogCumsumExp::AddNode(
       graph,
       "exp_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // Fill params for cumsum
   size_t size = 0;
@@ -33,7 +33,7 @@ void LogCumsumExp::AddNode(
       graph,
       "cumsum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {exp[0].get()},
-      {{outshape, ScalarType(), false}},
+      {{outshape, ScalarType()}},
       cumsum_params.get(),
       size);
 
@@ -42,7 +42,7 @@ void LogCumsumExp::AddNode(
       graph,
       "log_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {cumsum[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(log[0]);

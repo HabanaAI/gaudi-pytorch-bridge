@@ -22,35 +22,35 @@ void Frac::AddNode(
       graph,
       "sign_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // abs on output of sign -> modulus
   auto abs_val = BuildOp(
       graph,
       "abs_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // floor on output of mod
   auto floor_val = BuildOp(
       graph,
       "floor_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {abs_val[0].get()},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // mul on output of floor & sign
   auto mul = BuildOp(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {floor_val[0].get(), sign[0].get()},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   // sub on input & output of mul
   auto sub = BuildOp(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), mul[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of sub is the output of this op
   syn_out(0) = std::move(sub[0]);

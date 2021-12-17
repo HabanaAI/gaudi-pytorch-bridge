@@ -27,20 +27,14 @@ void Log10::AddNode(
 
   // 1/ln(10) = 0.4342944819
   constexpr float value = 0.4342944819;
-  auto constant_value = ConstantHelper(
-      graph,
-      value,
-      ScalarType(),
-      1 /*constant_outshape*/,
-      false /*persistent*/,
-      false /*final_node*/);
+  auto constant_value = ConstantHelper(graph, value, ScalarType());
 
   // mul on log of input and constant value
   auto output = BuildOp(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant_value.get(), log[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(output[0]);
 }

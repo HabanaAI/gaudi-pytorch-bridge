@@ -43,7 +43,7 @@ void Bernoulli::AddNode(
       graph,
       guid_,
       {p->get()},
-      {{outshape, ScalarType(), persistent_list[0], true}},
+      {{outshape, ScalarType(), persistent_list[0], 0}},
       params.get(),
       size);
   syn_out(0) = std::move(op[0]);

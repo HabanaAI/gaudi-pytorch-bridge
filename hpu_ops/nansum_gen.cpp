@@ -120,7 +120,7 @@ void NansumList::AddNode(
           {{parameters[0].shape_list,
             ScalarType(),
             is_output_persistent_list[0],
-            true}},
+            0}},
           parameters[0].param_list.get(),
           parameters[0].size_list);
 
@@ -152,7 +152,7 @@ void NansumList::AddNode(
               graph,
               guidReshape,
               {reduce_sum_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
           syn_out(0) = std::move(reshape[0]);
         }
@@ -186,7 +186,7 @@ void NansumList::AddNode(
               graph,
               guidReshape,
               {reduce_sum_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
           syn_out(0) = std::move(reshape[0]);
         }
@@ -198,7 +198,7 @@ void NansumList::AddNode(
           graph,
           guidReshape,
           {reduce_sum[0].get()},
-          {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+          {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
       syn_out(0) = std::move(reshape[0]);
     }
@@ -282,7 +282,7 @@ void Nansum::AddNode(
             graph,
             guidReshape,
             {reduce_sum_itr[0].get()},
-            {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+            {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
         syn_out(0) = std::move(reshape[0]);
       }
@@ -295,7 +295,7 @@ void Nansum::AddNode(
         graph,
         guidReshape,
         {reduce_sum[0].get()},
-        {{new_shape, ScalarType(), is_output_persistent_list[0], true}});
+        {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(reshape[0]);
   }

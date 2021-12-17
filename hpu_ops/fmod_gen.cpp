@@ -51,7 +51,7 @@ void Fmod::AddNode(
       torch::kFloat,
       result_type,
       is_output_persistent_list[0],
-      true);
+      0);
   syn_out(0) = std::move(final_cast);
 }
 } // namespace habana

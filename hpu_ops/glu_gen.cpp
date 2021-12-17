@@ -65,7 +65,7 @@ void Glu::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {split[0].get(), sigmoid[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(mult[0]);
 }
@@ -139,7 +139,7 @@ void GluBwd::AddNode(
       graph,
       "concat",
       {grad_in1[0].get(), grad_in2[0].get()},
-      {{out_shape[0], ScalarType(), is_output_persistent_list[0], true}},
+      {{out_shape[0], ScalarType(), is_output_persistent_list[0], 0}},
       &concat_params,
       sizeof(concat_params));
 

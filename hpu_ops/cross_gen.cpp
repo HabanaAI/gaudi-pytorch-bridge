@@ -268,7 +268,7 @@ void Cross::AddNode(
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),
         !is_scd ? false : is_output_persistent_list[0],
-        is_scd}});
+        is_scd ? c10::make_optional<int>(0) : c10::nullopt}});
 
   // if syn_dim is scd, move the output of sub
   if (is_scd) {
@@ -290,7 +290,7 @@ void Cross::AddNode(
       graph,
       "transpose",
       {sub[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
       &trans_params,
       sizeof(trans_params));
   syn_out(0) = std::move(transpose_output[0]);

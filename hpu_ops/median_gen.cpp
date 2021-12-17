@@ -170,7 +170,7 @@ void Median::AddNode(
       graph,
       "slice",
       {Topk[0].get()},
-      {{Slice_outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{Slice_outshape, ScalarType(), is_output_persistent_list[0], 0}},
       &Slice_params,
       sizeof(Slice_params));
   syn_out(0) = std::move(median_value[0]);
@@ -180,7 +180,7 @@ void Median::AddNode(
         graph,
         "slice",
         {Topk[1].get()},
-        {{Slice_outshape, ScalarType(), is_output_persistent_list[0], true}},
+        {{Slice_outshape, ScalarType(), is_output_persistent_list[0], 1}},
         &Slice_params,
         sizeof(Slice_params));
     syn_out(1) = std::move(median_index[0]);

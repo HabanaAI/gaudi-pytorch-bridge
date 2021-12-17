@@ -49,7 +49,7 @@ void CompareOp::AddNode(
       graph,
       guid_,
       {syn_in(0), syn_in(1)},
-      {{outshape, at::kBool, is_output_persistent_list[0], true}});
+      {{outshape, at::kBool, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(result[0]);
 }

@@ -70,7 +70,7 @@ void NormHabanaOperator::AddNode(
           graph,
           "sqrt_fwd_" + habana_helpers::name_suffix_from_type(dtype),
           {sum[0].get()},
-          {{1, dtype, is_output_persistent_list[0], true}});
+          {{1, dtype, is_output_persistent_list[0], 0}});
 
       syn_out(0) = std::move(sqrt[0]);
 
@@ -79,7 +79,7 @@ void NormHabanaOperator::AddNode(
           graph,
           "frobenius_norm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
           {input_tensor},
-          {{1, dtype, is_output_persistent_list[0], true}});
+          {{1, dtype, is_output_persistent_list[0], 0}});
 
       syn_out(0) = std::move(norm[0]);
     }
@@ -120,7 +120,7 @@ void NormHabanaOperator::AddNode(
         graph,
         "slice_" + habana_helpers::name_suffix_from_type(dtype),
         {reciprocal[0].get()},
-        {{1, dtype, is_output_persistent_list[0], true}},
+        {{1, dtype, is_output_persistent_list[0], 0}},
         &slice_params,
         sizeof(slice_params));
 

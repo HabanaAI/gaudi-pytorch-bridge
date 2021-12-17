@@ -64,7 +64,7 @@ void LogSpace::AddNode(
       graph,
       "pow_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get(), range[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(pow[0]);
 }

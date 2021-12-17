@@ -94,7 +94,7 @@ void ArgMinMax::AddNode(
           graph,
           guid_,
           {reshape[0].get()},
-          {{shape, dtype, is_output_persistent_list[0], true}},
+          {{shape, dtype, is_output_persistent_list[0], 0}},
           params.get(),
           size);
       syn_out(0) = std::move(op[0]);
@@ -111,7 +111,7 @@ void ArgMinMax::AddNode(
           graph,
           "reshape",
           {op[0].get()},
-          {{shape, dtype, is_output_persistent_list[0], true}});
+          {{shape, dtype, is_output_persistent_list[0], 0}});
       syn_out(0) = std::move(output[0]);
     }
   } else if (!keepdim) { // reduce dim when keepdim is false using reshape.
@@ -122,7 +122,7 @@ void ArgMinMax::AddNode(
         graph,
         "reshape",
         {op[0].get()},
-        {{shape, dtype, is_output_persistent_list[0], true}});
+        {{shape, dtype, is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(reshape[0]);
   } else { // Direct TPC kernel call when keepdim is true.
@@ -130,7 +130,7 @@ void ArgMinMax::AddNode(
         graph,
         guid_,
         {syn_in(0)},
-        {{shape, dtype, is_output_persistent_list[0], true}},
+        {{shape, dtype, is_output_persistent_list[0], 0}},
         params.get(),
         size);
     syn_out(0) = std::move(op[0]);

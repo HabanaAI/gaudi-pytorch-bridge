@@ -35,7 +35,7 @@ void EyeOpOut::AddNode(
       "matrix_diagonal_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(eye_out[0]);
 }

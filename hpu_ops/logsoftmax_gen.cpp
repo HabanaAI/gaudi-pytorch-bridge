@@ -48,7 +48,7 @@ void LogSoftmaxBackward::AddNode(
       graph,
       guid_,
       {syn_in(1), syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
       params.get(),
       size);
 

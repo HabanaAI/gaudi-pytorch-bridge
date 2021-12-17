@@ -89,8 +89,8 @@ void Min::AddNode(
       graph,
       "reduce_min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true},
-       {outshape, dtype, is_output_persistent_list[1], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0},
+       {outshape, dtype, is_output_persistent_list[1], 1}},
       params.get(),
       size);
 

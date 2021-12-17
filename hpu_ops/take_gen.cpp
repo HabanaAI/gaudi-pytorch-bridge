@@ -32,7 +32,7 @@ void TakeOperator::AddNode(
       graph,
       "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {reshape[0].get(), syn_in(1)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
       &params,
       sizeof(params));
 

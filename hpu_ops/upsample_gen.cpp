@@ -420,7 +420,7 @@ static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     bool persistant,
-    bool final_node) {
+    c10::optional<int> final_index = c10::nullopt) {
   synTransposeParams trans_params{};
   trans_params.tensorDim = variant_type;
   for (int i = 0; i < (variant_type); ++i) {
@@ -448,7 +448,7 @@ static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
       graph,
       {"transpose",
        std::move(input),
-       {{outshape, op->ScalarType(), persistant, final_node}},
+       {{outshape, op->ScalarType(), persistant, final_index}},
        &trans_params,
        sizeof(trans_params)});
 }
@@ -524,7 +524,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
         shape_in[0], shape_in[2], shape_in[3], shape_in[4], shape_in[1]};
   }
   auto transpose = Transpose_MemFormat(
-      op, graph, variant_type, input, out_shape_temp, false, false);
+      op, graph, variant_type, std::move(input), out_shape_temp, false);
 
   // Reshape - 1D varaints only
   // N,W,C to N,H,W,C where H=1
@@ -616,7 +616,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
       {resize[0].get()},
       outshape,
       is_output_persistent_list[0],
-      true);
+      0);
 }
 
 // AddNode FWD 1D Linear function

@@ -121,7 +121,7 @@ void AddMV::AddNode(
       graph,
       "squeeze",
       {addmv[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(addmv_out[0]);
 }

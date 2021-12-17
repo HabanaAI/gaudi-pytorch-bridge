@@ -76,7 +76,7 @@ struct NodeAttr {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
     bool persistent{false};
-    bool final_node{false};
+    c10::optional<int> final_result_index{c10::nullopt};
   };
 
   std::string guid;
@@ -220,7 +220,7 @@ class OpBackend : public HabanaOperator {
       const at::ScalarType& from,
       const at::ScalarType& to,
       bool persistent = false,
-      bool final_node = false);
+      c10::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
@@ -228,7 +228,7 @@ class OpBackend : public HabanaOperator {
       c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
       bool persistent = false,
-      bool final_node = false);
+      c10::optional<int> final_result_index = c10::nullopt);
 
   virtual void AddNode(
       synapse_helpers::graph&,
@@ -250,7 +250,7 @@ class OpBackend : public HabanaOperator {
       const at::ScalarType& to,
       CastF32RoundMode_t round_mode = CAST_ROUND_HALF_NE,
       bool persistent = false,
-      bool final_node = false);
+      c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(
       OpBackend* op,
@@ -259,7 +259,7 @@ class OpBackend : public HabanaOperator {
       c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
       bool persistent = false,
-      bool final_node = false);
+      c10::optional<int> final_result_index = c10::nullopt);
 
  private:
   const std::vector<int> m_res_ids;

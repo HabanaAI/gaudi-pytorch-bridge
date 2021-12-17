@@ -78,7 +78,7 @@ void Heaviside::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {less_than_zero[0].get(), const_zero[0].get(), where_inner[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   // output of where_outer is the output of this op
   syn_out(0) = std::move(where_outer[0]);

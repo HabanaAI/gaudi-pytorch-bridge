@@ -73,7 +73,7 @@ void LogSigmoidForward::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {buffer_right[0].get(), buffer_left[0].get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[1]}});
+      {{inputshape, ScalarType(), is_output_persistent_list[1], 1}});
 
   // log(buffer)
   auto log = BuildOp(
@@ -94,7 +94,7 @@ void LogSigmoidForward::AddNode(
       graph,
       "neg_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {max_vec_log[0].get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(buffer[0]);
@@ -179,7 +179,7 @@ void LogSigmoidBackward::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {o_neg[0].get(), syn_in(0)},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(output[0]);
 }

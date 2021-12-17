@@ -122,7 +122,7 @@ void Avgpool2d::AddNode(
       graph,
       "transpose",
       {resize[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
       &trans_params,
       sizeof(trans_params));
   syn_out(0) = std::move(transpose_nchw[0]);

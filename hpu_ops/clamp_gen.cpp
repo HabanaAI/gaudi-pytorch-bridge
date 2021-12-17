@@ -125,13 +125,13 @@ void clampTensor::AddNode(
         graph,
         "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), false}});
+        {{outshape, self.scalar_type()}});
 
     auto minOut = BuildOp(
         graph,
         "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {maxOut[0].get(), syn_in(2)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(minOut[0]);
   } else if (minTensorDefined) {
@@ -139,7 +139,7 @@ void clampTensor::AddNode(
         graph,
         "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(maxOut[0]);
   } else {
@@ -149,7 +149,7 @@ void clampTensor::AddNode(
         graph,
         "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], true}});
+        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
 
     syn_out(0) = std::move(minOut[0]);
   }

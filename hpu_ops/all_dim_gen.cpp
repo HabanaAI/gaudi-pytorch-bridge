@@ -66,7 +66,7 @@ void AllDim::AddNode(
       graph,
       "reshape",
       {cast_i8.get()},
-      {{out_shape, c10::ScalarType::Bool, is_output_persistent_list[0], true}});
+      {{out_shape, c10::ScalarType::Bool, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(reshape[0]);
 }
@@ -115,7 +115,7 @@ void All::AddNode(
       c10::ScalarType::Float,
       c10::ScalarType::Bool,
       is_output_persistent_list[0],
-      true);
+      0);
 
   syn_out(0) = std::move(cast_i8);
 }

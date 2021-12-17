@@ -39,7 +39,7 @@ void ExponentialIntSeedInput::AddNode(
       "random_exponential_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
       params.get(),
       size);
   syn_out(0) = std::move(exponential[0]);

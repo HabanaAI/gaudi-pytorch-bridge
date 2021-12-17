@@ -148,7 +148,7 @@ void RandomSeedTensorInput::AddNode(
         graph,
         "cast_f32_to_i32",
         {rand[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], true}},
+        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
         params.get(),
         size);
     syn_out(0) = std::move(cast[0]);

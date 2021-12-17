@@ -32,7 +32,7 @@ void Mish::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), tanh_out[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
   syn_out(0) = std::move(output[0]);
 }
 
@@ -93,7 +93,7 @@ void Mishbackward::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), add_out[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
   syn_out(0) = std::move(grad_input[0]);
 }
 } // namespace habana
