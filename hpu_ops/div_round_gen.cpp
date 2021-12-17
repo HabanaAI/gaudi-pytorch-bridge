@@ -96,14 +96,19 @@ void DivRoundModeOperator::AddNode(
   static_cast<void>(graph);
 
   const at::Tensor self = stack_tensor(stack, 0);
-  const at::Tensor other = stack_tensor(stack, 1);
+  at::Tensor other;
+  if (stack.at(1).isTensor()) {
+    other = stack_tensor(stack, 1);
+  }
   std::string rounding_mode =
       stack[2].isNone() ? StrModeTrue : stack[2].toStringRef();
 
   std::vector<at::Tensor> tensors = {self, other};
 
   // Find the result type
-  const at::ScalarType& final_result_type = at::result_type(self, other);
+  const at::ScalarType& final_result_type = stack.at(1).isScalar()
+      ? ComputePromotedScalarType(stack, true)
+      : at::result_type(self, other);
 
   // Computation is always done in float
   const at::ScalarType& computation_type =
@@ -117,9 +122,10 @@ void DivRoundModeOperator::AddNode(
   stack.pop_back();
 
   // Initialization
-  constexpr unsigned int cNoOfInputTensors = 2;
+  const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
   std::vector<synapse_helpers::tensor> divOp, cast[cNoOfInputTensors],
       makeIntegerOp, castToReturnTypeOp;
+
   std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
 
   // Convert each tensor to float/bfloat16 (if not already in)
@@ -144,7 +150,9 @@ void DivRoundModeOperator::AddNode(
     binaryop_inputs.at(i) = cast[i].at(0).get();
   }
 
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto shape_out = stack.at(1).isScalar()
+      ? self.sizes().vec()
+      : BinaryOperator::compute_output_shape(self, other);
 
   // Check if mode is other than default "true", i.e. "floor" or "trunc"
   bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);

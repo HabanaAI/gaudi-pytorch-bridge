@@ -545,6 +545,28 @@ cumsum_:
   guid: cumsum_fwd
   inplace_ids: [0]
 
+div.out_mode:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Float, BFloat16, Int, Char]
+  guid: div
+  op_backend: DivRoundModeOperator
+
+div.Scalar_mode:
+  dtypes: [Float, BFloat16, Int, Char]
+  guid: div
+  op_backend: DivRoundModeOperator
+  out_ids: [0]
+  scalar_ids: [1]
+  type_promotion: true
+
+div_.Scalar_mode:
+  dtypes: [Float, BFloat16, Int, Char]
+  guid: div
+  op_backend: DivRoundModeOperator
+  inplace_ids: [0]
+  scalar_ids: [1]
+  type_promotion: true
+
 div.Tensor_mode:
   custom_output_shape: BinaryOutputShape
   dtypes: [Float, BFloat16, Int, Char]
@@ -552,6 +574,13 @@ div.Tensor_mode:
   op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
   out_ids: [0]
+
+div_.Tensor_mode:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Float, BFloat16, Int, Char]
+  guid: div
+  op_backend: DivRoundModeOperator
+  inplace_ids: [0]
 
 elu.out:
   dtypes: [BFloat16, Float]

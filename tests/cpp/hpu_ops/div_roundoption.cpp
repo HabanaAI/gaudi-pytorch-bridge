@@ -96,3 +96,103 @@ TEST_F(HpuOpTest, divroundTruncateTypePromoInt8Int8) {
   auto result = torch::div(hA, hB, "trunc");
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, div_inplace_f32) {
+  GenerateInputs(1, torch::kFloat);
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto other = GenerateScalar<float>();
+
+  GetCpuInput(0).div_(other, mode);
+  GetHpuInput(0).div_(other, mode);
+
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, div_inplace_f32int) {
+  GenerateInputs(1, torch::kFloat);
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto other = GenerateScalar<int>();
+
+  GetCpuInput(0).div_(other, mode);
+  GetHpuInput(0).div_(other, mode);
+
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, div_inplace_bf16int8) {
+  GenerateInputs(2, {torch::kBFloat16, torch::kInt8});
+  c10::optional<c10::string_view> mode = c10::nullopt;
+
+  GetCpuInput(0).div_(GetCpuInput(1), mode);
+  GetHpuInput(0).div_(GetCpuInput(1), mode);
+
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, div_scalar_int) {
+  GenerateInputs(1, torch::kInt);
+  auto other = GenerateScalar<int>();
+
+  auto expected = torch::div(GetCpuInput(0), other, /* rounding_mode*/ "trunc");
+  auto result = torch::div(GetHpuInput(0), other, /* rounding_mode*/ "trunc");
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, div_scalar_int8f32) {
+  GenerateInputs(1, torch::kInt8);
+  auto other = GenerateScalar<float>();
+
+  auto expected = torch::div(GetCpuInput(0), other, /* rounding_mode*/ "floor");
+  auto result = torch::div(GetHpuInput(0), other, /* rounding_mode*/ "floor");
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, div_scalar_bf16int) {
+  GenerateInputs(1, torch::kBFloat16);
+  auto other = GenerateScalar<int>();
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto expected = torch::div(GetCpuInput(0), other, mode);
+  auto result = torch::div(GetHpuInput(0), other, mode);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, div_scalar_bf16f32) {
+  GenerateInputs(1, torch::kBFloat16);
+  auto other = GenerateScalar<float>();
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto expected = torch::div(GetCpuInput(0), other, mode);
+  auto result = torch::div(GetHpuInput(0), other, mode);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, div_out_f32) {
+  GenerateInputs(2);
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::div_outf(
+      GetCpuInput(0), GetCpuInput(1), /* rounding_mode*/ "trunc", expected);
+  torch::div_outf(
+      GetHpuInput(0), GetHpuInput(1), /* rounding_mode*/ "trunc", result);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, div_out_f32int8) {
+  GenerateInputs(2, {torch::kFloat, torch::kInt8});
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::div_outf(
+      GetCpuInput(0), GetCpuInput(1), /* rounding_mode*/ "floor", expected);
+  torch::div_outf(
+      GetHpuInput(0), GetHpuInput(1), /* rounding_mode*/ "floor", result);
+
+  Compare(expected, result);
+}
