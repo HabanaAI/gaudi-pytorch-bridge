@@ -14,26 +14,24 @@
 #define DIM(...) __VA_ARGS__
 
 #define HPU_AMAX_AMIN_OUT_TEST(name, op_code, in_size, dim, keepdim, dtype)   \
-  TEST_F(AmaxAminHpuOpTest, name) {                                           \
-    auto input = torch::randn({in_size}).to(dtype);                           \
-    auto hinput = input.to(torch::kHPU);                                      \
+  TEST_F(HpuOpTest, name) {                                                   \
+    GenerateInputs(1, {in_size}, dtype);                                      \
     auto expected = torch::empty(0, dtype);                                   \
     auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu")); \
-    torch::op_code(input, dim, keepdim, expected);                            \
-    torch::op_code(hinput, dim, keepdim, result);                             \
+    torch::op_code(GetCpuInput(0), dim, keepdim, expected);                   \
+    torch::op_code(GetHpuInput(0), dim, keepdim, result);                     \
     Compare(expected, result);                                                \
   }
 
 #define HPU_AMAX_AMIN_USUAL_TEST(name, op_code, in_size, dim, keepdim, dtype) \
-  TEST_F(AmaxAminHpuOpTest, name) {                                           \
-    auto input = torch::randn(in_size).to(dtype);                             \
-    auto hinput = input.to(torch::kHPU);                                      \
-    auto expected = torch::op_code(input, dim, keepdim);                      \
-    auto result = torch::op_code(hinput, dim, keepdim);                       \
+  TEST_F(HpuOpTest, name) {                                                   \
+    GenerateInputs(1, {in_size}, dtype);                                      \
+    auto expected = torch::op_code(GetCpuInput(0), dim, keepdim);             \
+    auto result = torch::op_code(GetHpuInput(0), dim, keepdim);               \
     Compare(expected, result);                                                \
   }
 
-class AmaxAminHpuOpTest : public HpuOpTestUtil {};
+class HpuOpTest : public HpuOpTestUtil {};
 
 HPU_AMAX_AMIN_OUT_TEST(
     amax_long,

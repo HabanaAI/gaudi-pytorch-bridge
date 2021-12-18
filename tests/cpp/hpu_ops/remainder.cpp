@@ -71,7 +71,7 @@ TEST_F(HpuOpTest, remainder_tensor_out) {
 }
 
 TEST_F(HpuOpTest, remainder_) {
-  GenerateIntInputs(2, {{1, 3}, {3, 1}}, -30, 10);
+  GenerateIntInputs(2, {{3, 3}, {3, 1}}, -30, 10);
   auto exp = GetCpuInput(0).remainder_(GetCpuInput(1));
   auto res = GetHpuInput(0).remainder_(GetHpuInput(1));
 

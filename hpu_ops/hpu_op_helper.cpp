@@ -88,25 +88,65 @@ OpBackend::OpBackend(
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
+static c10::ScalarType get_promoted_type(
+    const at::Tensor& t,
+    at::Scalar s,
+    bool promote_int_to_float) {
+  if (promote_int_to_float and c10::isIntegralType(t.scalar_type(), true) and
+      s.isIntegral(true)) {
+    return at::get_default_dtype_as_scalartype();
+  }
+  return at::result_type(t, s);
+}
+
+static c10::ScalarType get_promoted_type(
+    at::Scalar s,
+    const at::Tensor& t,
+    bool promote_int_to_float) {
+  if (promote_int_to_float and c10::isIntegralType(t.scalar_type(), true) and
+      s.isIntegral(true)) {
+    return at::get_default_dtype_as_scalartype();
+  }
+  return at::result_type(s, t);
+}
+
+static c10::ScalarType get_promoted_type(
+    const at::Tensor& t1,
+    const at::Tensor& t2,
+    bool promote_int_to_float) {
+  if (promote_int_to_float and c10::isIntegralType(t1.scalar_type(), true) and
+      c10::isIntegralType(t2.scalar_type(), true)) {
+    return at::get_default_dtype_as_scalartype();
+  }
+  return at::result_type(t1, t2);
+}
+
 c10::ScalarType OpBackend::ComputePromotedScalarType(
     const at::Stack& stack,
     bool update) {
-  c10::ScalarType type = c10::ScalarType::Undefined;
+  c10::ScalarType result_type = c10::ScalarType::Undefined;
 
-  auto t0 = GetScalarType(stack, 0);
-  auto t1 = GetScalarType(stack, 1);
-  if (m_promote_type) {
-    type = at::promote_types(t0, t1);
-  } else if (m_promote_int_to_float) {
-    type = c10::isIntegralType(t0, true) and c10::isIntegralType(t1, true)
-        ? at::get_default_dtype_as_scalartype()
-        : at::promote_types(t0, t1);
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_promote_type or m_promote_int_to_float);
+  if (stack.at(0).isTensor()) {
+    const auto& self = stack.at(0).toTensor();
+    if (stack.at(1).isTensor()) {
+      result_type = get_promoted_type(
+          self, stack.at(1).toTensor(), m_promote_int_to_float);
+    } else {
+      result_type = get_promoted_type(
+          self, stack.at(1).toScalar(), m_promote_int_to_float);
+    }
+  } else {
+    const auto& self = stack.at(0).toScalar();
+    result_type =
+        get_promoted_type(self, stack.at(1).toTensor(), m_promote_int_to_float);
   }
 
-  if (update and type != c10::ScalarType::Undefined) {
-    m_scalar_type = type;
+  if (update) {
+    m_scalar_type = result_type;
   }
-  return type;
+
+  return result_type;
 }
 
 void OpBackend::HandleScalarToTensor(
