@@ -38,6 +38,8 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 
 #include "habana_kernels/habana_operator.h"
+#include "habana_lazy/visualize.h"
+#include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 
 namespace habana {
 using CValPtr = const torch::jit::Value*;
@@ -407,6 +409,7 @@ class HabanaLaunchOpPT {
   // Dynamic shape specific parts
   uint64_t current_bucket_id_{};
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
+  std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
   void CreateDynamicBucketInputShapes(
       habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);

@@ -83,6 +83,10 @@ struct PT_HCCL_MEMORY_ALLOWANCE_MB : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 200;
 };
 
+struct PT_COMPILATION_STATS_PATH {
+  static constexpr const char* default_value = "";
+};
+
 // Overloads for different type of default value
 
 template <class T>

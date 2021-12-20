@@ -1720,17 +1720,22 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         ranges.min_shapes.begin(), ranges.min_shapes.end());
     graph_input_info.max_input_tshapes.insert(
         ranges.max_shapes.begin(), ranges.max_shapes.end());
-    graph_input_info.current_bucket_id = current_bucket_id_;
-    graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
-    graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
   }
+  graph_input_info.current_bucket_id = current_bucket_id_;
+  graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
+  graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
+
+  statistics_ = std::move(habana_helpers::CompilationStatistics::Create(
+      visualize::GetGraphIndex(rargpsh->graphHashCode()),
+      current_dbipsh_->getCount()));
 
   // Check for cached recipe
   if (enable_caching_) {
     std::shared_ptr<RecipeArgumentSpec> spec_key =
         std::make_shared<RecipeArgumentSpec>(
             input_refs, jit_ir_graph, cur_ds_token_);
-
+    current_dbipsh_->SetRecipeKeyForBucket(
+        graph_input_info.current_bucket_id, spec_key->hashCode());
     std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
 
     if (ABSL_PREDICT_TRUE(rvpsh)) {
@@ -1755,6 +1760,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         PT_DYNAMIC_SHAPE_DEBUG("Running output shape inference pass");
         try_run_shape_inference(
             ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
+        statistics_->LogUsedBucket(current_bucket_id_, ranges, 0);
       }
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
@@ -1775,7 +1781,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         DumpTensors_pre(rv);
       }
       rv.launch(input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
-
       if (enable_tensor_dump_) {
         DumpTensors(rv);
       }
@@ -1796,6 +1801,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
           "--------------------");
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
 
+      statistics_->LogSelectedRecipe(spec_key->hashCode(), 0);
+      statistics_->LogLaunch(current_dbipsh_->GetTime(current_bucket_id_), 0);
       Clear();
       PT_BRIDGE_END;
       return;
@@ -1805,7 +1812,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
-
   CompileAndRunDynamicGraph(graph_input_info);
   Clear();
   PT_BRIDGE_END;
@@ -2215,6 +2221,8 @@ void HabanaLaunchOpPT::handle_pass_exception(
 void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     DynamicShapeInfo& graph_input_info) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
+  habana_helpers::CompilationPass last_compilation_pass =
+      habana_helpers::CompilationPass::STATIC;
   // If both min and max exists then the graph is dynamic
   bool is_dynamic_graph = (!graph_input_info.min_input_tshapes.empty()) &&
       (!graph_input_info.max_input_tshapes.empty());
@@ -2236,6 +2244,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         graph_input_info.max_policy);
     try_run_shape_inference(
         ShapeInfo::InferencePass::MAX_SHAPE, graph_input_info);
+    // TODO: get correct policy from the last pass executed
+    last_compilation_pass = habana_helpers::CompilationPass::DYNAMIC_MAX;
   }
 
   AdjustInputLayout();
@@ -2255,6 +2265,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   // This is last resort if anything further fails bail out the execution. We
   // need not change anything in cache because exception either occurs in
   // compilation or launch and both happens before adding recipie to cache.
+  std::string result = "OK";
   try {
     auto syn_graph =
         habana_helpers::create_graph(device.id(), GetSynapseGraphName());
@@ -2266,10 +2277,25 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_WARN(
         "Exception in BuildSynapseGraph Details:\n", e.what());
+    result = e.what();
     Clear(true);
     PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
     handle_pass_exception(graph_input_info, p);
   }
+  auto ranges =
+      current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
+  statistics_->LogCompilation(
+      graph_input_info.min_policy,
+      graph_input_info.max_policy,
+      ranges,
+      current_dbipsh_->GetRecipeKeyForBucket(
+          graph_input_info.current_bucket_id),
+      result,
+      last_compilation_pass);
+  statistics_->LogSelectedRecipe(
+      current_dbipsh_->GetRecipeKeyForBucket(
+          graph_input_info.current_bucket_id),
+      0);
 }
 
 /*Optimizes the memory usage for chain of strided inserts by reusing the input

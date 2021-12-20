@@ -73,6 +73,16 @@ class TensorShape {
     return O;
   }
 
+  std::string DebugString() const {
+    std::ostringstream sstr;
+    sstr << "[";
+    for (size_t i = 0; i < m_sizes.size(); i++) {
+      sstr << (i > 0 ? ", " : "") << m_sizes[i];
+    }
+    sstr << "]";
+    return sstr.str();
+  }
+
  private:
   size_t m_dim{0};
   int64_t n_elements{0};

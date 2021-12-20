@@ -440,7 +440,9 @@ class Bucket {
   void SetKeepRunTime(bool flag) {
     keep_time_ = flag;
   };
-
+  uint64_t GetTime() const {
+    return run_time_stat_.GetAvgTime();
+  };
   size_t GetRecipeKey() {
     return recipe_key_;
   };
@@ -634,7 +636,9 @@ class DynamicBucketInfo {
       const std::shared_ptr<synapse_helpers::TimeSlotBase>& ts,
       int bucket);
   void UpdateRunTimes();
-
+  uint64_t GetTime(uint64_t bucket_idx) const {
+    return buckets_.at(bucket_idx).GetTime();
+  };
   size_t GetRecipeKeyForBucket(size_t bucket_idx) {
     return buckets_.at(bucket_idx).GetRecipeKey();
   };
@@ -671,6 +675,10 @@ class DynamicBucketInfo {
 
   static int64_t default_min_value() {
     return default_min_value_;
+  }
+
+  uint64_t getCount() {
+    return global_count;
   }
 
   static constexpr int64_t default_max_multiplier_ = 2;
