@@ -1941,6 +1941,17 @@ smooth_l1_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
 
+_softmax.out:
+  custom_fill_params: FillSoftmaxForwardParams
+  dtypes: [BFloat16, Float]
+  guid: softmax_fwd
+
+_softmax_backward_data.out:
+  custom_fill_params: FillSoftmaxBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: softmax_bwd
+  op_backend: SoftmaxBackward
+
 special_xlog1py:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
