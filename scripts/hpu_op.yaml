@@ -909,6 +909,11 @@ hardsigmoid.out:
   dtypes: [BFloat16, Float]
   guid: hard_sigmoid_fwd
 
+hardsigmoid_backward.grad_input:
+  custom_fill_params: FillHardSigmoidParams
+  dtypes: [BFloat16, Float]
+  guid: hard_sigmoid_bwd
+
 hardtanh:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]

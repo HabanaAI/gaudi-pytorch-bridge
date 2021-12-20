@@ -60,3 +60,16 @@ TEST_F(HpuOpTest, sigmoid_backward_out) {
 
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, hardsigmoid_bwd_out) {
+  GenerateInputs(2);
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::hardsigmoid_backward_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  torch::hardsigmoid_backward_outf(GetHpuInput(0), GetHpuInput(1), result);
+
+  Compare(expected, result);
+}
