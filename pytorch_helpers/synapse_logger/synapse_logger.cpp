@@ -107,6 +107,9 @@ SynapseLogger::SynapseLogger()
   if (!lazy_open_) {
     command("restart");
   }
+  if (c_commands == nullptr) {
+    command("disable");
+  }
 }
 
 void SynapseLogger::command_signal_handler(int) {
@@ -208,6 +211,9 @@ void SynapseLogger::disable() {
     }
   }
 }
+void SynapseLogger::disable_mask() {
+  source_cat_mask_ = 0;
+}
 void SynapseLogger::restart() {
   {
     std::lock_guard<std::mutex> tlock(transfer_lock_);
@@ -216,7 +222,9 @@ void SynapseLogger::restart() {
   std::lock_guard<std::mutex> lock(log_lock_);
   if (0 == source_cat_mask_) {
     source_cat_mask_ =
-        static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL);
+        static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL) |
+        static_cast<uint64_t>(
+            data_dump_category::CUSTOM_RUNTIME_TRACE_PROVIDER);
   }
   if (use_null_backend_) {
     // Disable api call and tensor data logging for null backend.
@@ -333,6 +341,8 @@ void SynapseLogger::command(absl::string_view cmd) {
           static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
+  } else if (cmd_name == "disable_mask") {
+    disable_mask();
   } else {
     SLOG(S_ERROR) << "Unknown command " << cmd_name << ".\n";
     return;

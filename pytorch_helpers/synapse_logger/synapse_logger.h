@@ -121,6 +121,7 @@ class SynapseLogger {
   void restart();
   void disable();
   void lazy_open();
+  void disable_mask();
 
   void dump_reference(
       const std::string& ref,

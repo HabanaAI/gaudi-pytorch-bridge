@@ -73,6 +73,7 @@ def get_version():
 core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
 hccl_csrc = glob.glob("habana_frameworks/torch/core/hccl/*.cpp")
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
+profiler_csrc = glob.glob("habana_frameworks/torch/profiler/csrc/*.cpp")
 
 
 class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True)):
@@ -141,6 +142,16 @@ setup(
         cpp_extension.CppExtension(
             name="habana_frameworks.torch._hpex_C",
             sources=hpex_csrc,
+            language="c++",
+            include_dirs=include_dirs,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            libraries=libraries,
+            runtime_library_dirs=["$ORIGIN/lib/"],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habana_frameworks.torch._profiler_C",
+            sources=profiler_csrc,
             language="c++",
             include_dirs=include_dirs,
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
