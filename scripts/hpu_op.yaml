@@ -1129,6 +1129,11 @@ le.Tensor:
   type_promotion: true
   legacy_eager: true
 
+leaky_relu_backward.grad_input:
+  custom_fill_params: FillLeakyReluBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: leakyrelu_bwd
+
 leaky_relu.out:
   dtypes: [BFloat16, Float]
   guid: leakyrelu_fwd
