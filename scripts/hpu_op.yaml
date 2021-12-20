@@ -1204,6 +1204,18 @@ logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_backend: LogCumsumExp
 
+logical_and.out:
+  dtypes: [BFloat16, Float, Byte, Char]
+  guid: and
+
+logical_or.out:
+  dtypes: [BFloat16, Float, Byte, Char]
+  guid: or
+
+logical_xor.out:
+  dtypes: [BFloat16, Float, Byte, Char]
+  guid: xor
+
 logsumexp:
   custom_output_shape: LogSumExpOutputShape
   dtypes: [BFloat16,Float]
