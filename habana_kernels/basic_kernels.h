@@ -166,7 +166,10 @@ class StridedInsertOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
 
     kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NCHW, habana::LayoutFormat::ANY});
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
@@ -189,7 +192,10 @@ class StridedInsertClOperator : public StridedInsertOperator {
   StridedInsertClOperator(int device_id, c10::ScalarType scalarType)
       : StridedInsertOperator(device_id, scalarType) {
     kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC, habana::LayoutFormat::ANY});
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
 };
@@ -202,7 +208,11 @@ class StridedViewOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
 
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NCHW});
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
@@ -225,7 +235,11 @@ class StridedViewClOperator : public StridedViewOperator {
       : StridedViewOperator(device_id, scalarType) {
     static_cast<void>(scalarType);
 
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC});
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
 };

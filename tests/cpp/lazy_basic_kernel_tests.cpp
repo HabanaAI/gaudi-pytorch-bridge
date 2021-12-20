@@ -308,3 +308,43 @@ TEST_F(LazyBasicKernelTest, allreducewithcontroledge) {
 
   EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, InplaceViewon3d) {
+  torch::Tensor A = torch::randn({2, 3, 4, 5, 6});
+  auto hA = A.to(torch::kHPU);
+  auto B = A.view(-1);
+  B.add_(0.5);
+  // hpu
+  auto hB = hA.view(-1);
+  hB.add_(0.5);
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(A, hA.cpu()), true);
+}
+
+TEST_F(LazyBasicKernelTest, DISABLED_InplaceViewonChlast) {
+  int N = 2, C = 3, H = 4, W = 5;
+  torch::Tensor A =
+      torch::randn({N, C, H, W}).contiguous(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.to(torch::kHPU);
+  auto B = A.view(-1);
+  B.add_(0.5);
+  // hpu
+  auto hB = hA.view(-1);
+  hB.add_(0.5);
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(A, hA.cpu()), true);
+}
+
+TEST_F(LazyBasicKernelTest, DISABLED_InplaceViewonChlast3d) {
+  int N = 2, C = 3, D = 4, H = 5, W = 6;
+  torch::Tensor A = torch::randn({N, C, D, H, W})
+                        .contiguous(c10::MemoryFormat::ChannelsLast3d);
+  auto hA = A.to(torch::kHPU);
+  auto B = A.view(-1);
+  B.add_(0.5);
+  // hpu
+  auto hB = hA.view(-1);
+  hB.add_(0.5);
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(A, hA.cpu()), true);
+}

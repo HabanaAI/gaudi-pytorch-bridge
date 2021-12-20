@@ -47,7 +47,7 @@ class View : public ir::Node {
       auto shape = empty_hpu_lazy(
           size,
           self.options(),
-          self.suggest_memory_format(),
+          c10::MemoryFormat::Contiguous,
           false,
           SHAPE_TENSOR);
       auto hl_shape = GetOrCreateHbLazyTensor(shape, c10::kHPU);

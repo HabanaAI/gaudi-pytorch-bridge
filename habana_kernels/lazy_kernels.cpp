@@ -309,7 +309,7 @@ Tensor add_strided_insert_node(
     auto out_stride_st = empty_hpu_lazy(
         strides,
         orig_t.options(),
-        orig_t.suggest_memory_format(),
+        c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
 
@@ -318,7 +318,7 @@ Tensor add_strided_insert_node(
     auto offset_st = empty_hpu_lazy(
         offset_ref,
         orig_t.options(),
-        orig_t.suggest_memory_format(),
+        c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
 
@@ -990,13 +990,13 @@ ir::NodePtr create_as_strided_node(
       auto out_size_st = empty_hpu_lazy(
           out_size,
           self.options(),
-          self.suggest_memory_format(),
+          c10::MemoryFormat::Contiguous,
           false,
           SHAPE_TENSOR);
       auto out_stride_st = empty_hpu_lazy(
           out_stride,
           self.options(),
-          self.suggest_memory_format(),
+          c10::MemoryFormat::Contiguous,
           false,
           SHAPE_TENSOR);
       std::vector<int64_t> offset_vec = {offset};
@@ -1004,7 +1004,7 @@ ir::NodePtr create_as_strided_node(
       auto offset_st = empty_hpu_lazy(
           offset_ref,
           self.options(),
-          self.suggest_memory_format(),
+          c10::MemoryFormat::Contiguous,
           false,
           SHAPE_TENSOR);
 
