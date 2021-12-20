@@ -72,21 +72,26 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     const c10::Device* device) {
   PT_LAZY_TRACE;
   std::vector<HbLazyTensor> tensors;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto fn = [&](HbContext* devctx) {
     for (auto& uid_wptr : devctx->tensors_data) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
       if (data != nullptr) {
-        // Activate this code once the logic is fixed for live tensors
-        // auto exec_context =
-        //   habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        //       device->index());
-        // auto status =
-        // exec_context->getTensorExecutionStatus(data->unique_id);
-        // if (status != kEXECUTION_COMPLETE && status != kINPUT) {
-        tensors.emplace_back(HbLazyTensor(std::move(data)));
-        //}
-      }
-    }
+        auto hl_t = HbLazyTensor(std::move(data));
+        auto id = hl_t.getTensorUniqueId();
+        // exclude the views
+        auto ir_value = hl_t.CurrentIrValue();
+        if ((ir_value && ir_value.mp_node->is_input() == false) &&
+            (context->view_table.find(id) != context->view_table.end() ||
+             (context->orig_tensor_map.find(id) !=
+              context->orig_tensor_map.end()))) {
+          // book keep view tensors to clear the ir nodes after mark step
+          context->hb_tensors_out_view.emplace_back(hl_t);
+        } else {
+          tensors.emplace_back(hl_t);
+        }
+      } // if (data != nullptr)
+    } // for (auto& uid_wptr : devctx->tensors_data)
   };
   ForAllHbContexts(fn, device);
   return tensors;
@@ -628,6 +633,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     i.ClearAndAssignNewIrValue();
   }
 
+  // clear IR values corresponding to unexecuted view outputs
+  for (auto& t : context->hb_tensors_out_view) {
+    ir::Value val = t.createIrValueFromData();
+    t.resetVersionCounter();
+    t.AssignIrValue(val);
+  }
+
   // Save po_data input and output to context for perf mode
   if (context->m_is_cached == false) {
     context->saveInputsAndOutputs(
@@ -635,11 +647,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->m_is_cached = true;
   }
 
-  // clear the scalar to tensor cache
-  context->scalar_to_tensor_map.clear();
-
-  // clear retained tensor list
-  context->m_retained_tensor_list.clear();
+  // clear the context
+  context->clear();
 }
 
 void HbLazyTensor::SyncTensorsGraphInternalFast(

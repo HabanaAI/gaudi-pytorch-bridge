@@ -272,6 +272,11 @@ class HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent);
 
+  virtual void ReuseMemoryAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec);
+
   //
   // destructor
   virtual ~HabanaOperator();

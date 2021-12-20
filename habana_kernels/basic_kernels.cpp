@@ -707,13 +707,10 @@ Tensor pin_memory_hpu(
   return tensor;
 }
 
-void StridedInsertOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+void StridedInsertOperator::compute_params(
+    synStridedOpParams& params,
     Stack& inputs,
-    bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect number of arguments for strided insert op");
+    synapse_helpers::graph& graph) {
   auto orig_t = inputs[0].toTensor();
   auto insert_t = inputs[1].toTensor();
   std::vector<int64_t> strides;
@@ -730,6 +727,34 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
     offset = inputs[3].toInt();
   }
 
+  if (!have_shape_tensors) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, orig_t);
+    }
+  }
+
+  params.baseOffset = static_cast<uint64_t>(offset);
+
+  size_t idx = 0;
+  // synapse expects strides in reverse order
+  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+    params.strides[idx++] = static_cast<uint64_t>(*it);
+  }
+}
+
+void StridedInsertOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect number of arguments for strided insert op");
+
+  synStridedOpParams params;
+  compute_params(params, inputs, graph);
+
+  auto orig_t = inputs[0].toTensor();
   auto output = habana_helpers::createPTTensor(
       orig_t,
       orig_t.sizes(),
@@ -738,20 +763,26 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
-  if (!have_shape_tensors) {
-    // Allocate Shape tensor
-    if (graph.is_dynamic_graph()) {
-      AllocateSynapseShapeTensor(graph, output);
-    }
-  }
-  struct synStridedOpParams params;
-  params.baseOffset = static_cast<uint64_t>(offset);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
 
-  size_t idx = 0;
-  // synapse expects strides in reverse order
-  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-    params.strides[idx++] = static_cast<uint64_t>(*it);
-  }
+void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect number of arguments for strided insert op");
+  auto graph_input = inputs[4].toTensor();
+  auto orig_t = inputs[0].toTensor();
+  TORCH_CHECK(graph_input.sizes() == orig_t.sizes(), "incorrect graph input");
+
+  struct synStridedOpParams params;
+  compute_params(params, inputs, graph);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(syn_t_vec[0], graph));
+  p_context_->pt_outputs_.emplace_back(graph_input);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }

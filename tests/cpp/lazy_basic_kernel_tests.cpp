@@ -260,3 +260,51 @@ TEST_F(LazyBasicKernelTest, InplaceView) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
+
+TEST_F(LazyBasicKernelTest, allreduce) {
+  torch::Tensor A = torch::randn({4});
+  auto v1 = A.view(-1);
+  auto v2 = A.view(-1);
+  auto grad1 = torch::randn({4});
+  auto grad2 = torch::randn({4});
+
+  auto hA = A.to(torch::kHPU);
+  auto hv1 = hA.view(-1);
+  auto hv2 = hA.view(-1);
+  auto hgrad1 = grad1.to(torch::kHPU);
+  auto hgrad2 = grad2.to(torch::kHPU);
+
+  v1.mul_(grad1);
+  v2.mul_(grad2);
+
+  hv1.mul_(hgrad1);
+  hv2.mul_(hgrad2);
+
+  EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, allreducewithcontroledge) {
+  torch::Tensor A = torch::randn({4});
+  auto b = torch::relu(A);
+  auto v1 = A.view(-1);
+  auto v2 = A.view(-1);
+  auto grad1 = torch::randn({4});
+  auto grad2 = torch::randn({4});
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = torch::relu(hA);
+  auto hv1 = hA.view(-1);
+  auto hv2 = hA.view(-1);
+  auto hgrad1 = grad1.to(torch::kHPU);
+  auto hgrad2 = grad2.to(torch::kHPU);
+
+  v1.mul_(grad1);
+  v2.mul_(grad2);
+
+  hv1.mul_(hgrad1);
+  hv2.mul_(hgrad2);
+
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+}

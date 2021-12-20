@@ -249,6 +249,25 @@ void HabanaLaunchOpPT::PreprocessControlEdges() {
   }
 }
 
+// checks if node 1 is an ancestor of node2
+bool HabanaLaunchOpPT::IsAncestor(
+    torch::jit::Node* node1,
+    torch::jit::Node* node2) {
+  bool is_ancestor = false;
+  if ((dfs_time_in_out_map[node1].first < dfs_time_in_out_map[node2].first) &&
+      (dfs_time_in_out_map[node1].second > dfs_time_in_out_map[node2].second)) {
+    is_ancestor = true;
+  }
+
+  return is_ancestor;
+}
+
+bool HabanaLaunchOpPT::IsAncestorOrDescendant(
+    torch::jit::Node* node1,
+    torch::jit::Node* node2) {
+  return (IsAncestor(node1, node2) || IsAncestor(node2, node1));
+}
+
 // checks if any of the blocking nodes is an ancestor to the blocked node.
 // this would create a control edge induced graph cycle and subsequently graph
 // compile failure
@@ -277,6 +296,8 @@ bool HabanaLaunchOpPT::IsControlEdgeCycle(torch::jit::Node* blocked_node) {
 
 void HabanaLaunchOpPT::ProcessControlEdges() {
   PreprocessControlEdges();
+
+  ProcessControlEdgesForMemoryReuse();
 
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
 
@@ -347,4 +368,34 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
 
   // process dependencies for custom optimizer
   HabanaLaunchOpPT::ProcessCustomOptControlEdges(graph_nodes);
+}
+
+// Adds control edges for the cases when memory is used by different nodes of
+// the graph This function expects that the information on pairs of nodes
+// sharing memory is available
+void HabanaLaunchOpPT::ProcessControlEdgesForMemoryReuse() {
+  for (const auto& p : memory_reuse_pairs) {
+    auto blocked_node = p.second;
+    for (auto& u : p.first->uses()) {
+      auto blocking_node = u.user;
+
+      if (IsValidNode(blocking_node) &&
+          (!IsAncestorOrDescendant(blocking_node, blocked_node))) {
+        blocking_nodes_vec.emplace_back(blocking_node);
+        HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
+      }
+    } // for (auto& u : val_ins[0]->uses())
+
+    if (blocking_syn_nodes_vec.size()) {
+      HabanaLaunchOpPT::addSynNodes(blocked_syn_nodes_vec, blocked_node);
+
+      if (blocked_syn_nodes_vec.size()) {
+        syn_graph_ptr->set_synapse_control_edges_pt(
+            blocking_syn_nodes_vec, blocked_syn_nodes_vec);
+      }
+
+      blocked_syn_nodes_vec.clear();
+      blocked_syn_nodes_vec.clear();
+    }
+  } // for (const auto& p : memory_reuse_pairs)
 }

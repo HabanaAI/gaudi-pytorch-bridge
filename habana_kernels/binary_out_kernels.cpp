@@ -20,6 +20,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "hpu_ops/generated/hpu_op.h"
 
 using namespace torch;
 
@@ -180,7 +181,15 @@ Tensor& div_tensor_hpu_out(
   return out;
 }
 
+// Using autogen's OpBackend for mul_out as it has fixes for type promotion
+namespace habana {
+struct mul_out : OpBackend {
+  mul_out(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(device_id, "mult_fwd_", scalar_type, {}, {}, {}, true) {}
+};
+} // namespace habana
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::mul_out", KERNEL_FN(MulOutOperator))
+        .add("aten::mul.out", KERNEL_FN(mul_out))
         .add("hpu::div_out", KERNEL_FN(DivOutOperator));

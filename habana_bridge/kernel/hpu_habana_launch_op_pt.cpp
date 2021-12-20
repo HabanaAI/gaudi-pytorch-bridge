@@ -180,7 +180,9 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
+
   enable_caching_ = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
+
   use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
@@ -1892,8 +1894,16 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     auto outputPersistent = nodeOutputPersistence(node);
 
     if (outputPersistent.size() == 1) {
-      HabanaKernel->AllocateAndAddSynapseNode(
-          syn_graph, input_stack, outputPersistent[0]);
+      std::string node_str(node->kind().toQualString());
+
+      if ((!is_shape_inference) && (outputPersistent[0] == true) &&
+          (node_str.find("strided_insert") != std::string::npos)) {
+        ProcessStridedInsertAtOutput(
+            node, HabanaKernel, input_stack, syn_graph);
+      } else {
+        HabanaKernel->AllocateAndAddSynapseNode(
+            syn_graph, input_stack, outputPersistent[0]);
+      }
     } else {
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputPersistent);
@@ -3041,4 +3051,60 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     handle_pass_exception(graph_input_info, p);
   }
 }
+
+/*Optimizes the memory usage for chain of strided inserts by reusing the input
+ * memory for the graph output. Such a use case is common in allreduce*/
+void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
+    torch::jit::Node* node,
+    HabanaOperatorPtr HabanaKernel,
+    torch::jit::Stack& input_stack,
+    synapse_helpers::graph& syn_graph) {
+  // strided insert as graph output (i.e. persistence set as true)
+  bool is_reuse_input = false;
+  auto val_ins = node->inputs();
+  auto node_qual_str = node->kind().toQualString();
+
+  // Check for unbroken chain of strided inserts from graph output to input
+  torch::jit::Node* input_node = node;
+  while ((strcmp(node_qual_str, "prim::Param") != 0)) {
+    input_node = val_ins[0]->node();
+    node_qual_str = input_node->kind().toQualString();
+
+    std::string node_str(node_qual_str);
+
+    if (node_str.find("strided_insert") == std::string::npos) {
+      break;
+    }
+
+    val_ins = input_node->inputs();
+  }
+
+  if (strcmp(node_qual_str, "prim::Param") == 0) {
+    // reached input with unbroken chain of strided inserts
+    is_reuse_input = true;
+  }
+
+  if (is_reuse_input == false) {
+    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, true);
+  } else {
+    TORCH_CHECK(
+        value_to_ivalue.count(val_ins[0]),
+        "incorrect input for strided insert");
+    const auto& ivalue = value_to_ivalue[val_ins[0]];
+    TORCH_CHECK(
+        pt_to_synapse_tensors.find(ivalue) != pt_to_synapse_tensors.end(),
+        "incorrect ivalue for strided insert input");
+
+    input_stack.insert(input_stack.end(), *ivalue);
+    HabanaKernel->ReuseMemoryAndAddSynapseNode(
+        syn_graph, input_stack, *pt_to_synapse_tensors[ivalue]);
+
+    /* Since memory is reused we need control edges between the consumers of the
+    graph input (prim:param) and the strided insert at the graph output. Refer
+    gtest LazyBasicKernelTest.allreducewithcontroledge*/
+    // book keep the node pair that reuses same memory
+    memory_reuse_pairs.emplace_back(std::make_pair(val_ins[0], node));
+  }
+}
+
 } // namespace habana

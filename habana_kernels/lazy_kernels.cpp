@@ -1607,6 +1607,7 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
       {BinaryOperator::compute_output_shape(self, other)}};
   return k.call();
 }
+
 Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
@@ -1616,17 +1617,18 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   auto id = GetHbLazyTensor(out).getTensorUniqueId();
   if (context->view_table.find(id) != context->view_table.end()) {
     auto orig_out = out;
-    out = mul_tensor_hpu_lazy(self, other);
-    strided_insert_hpu_lazy(orig_out, out);
-    return out;
+    auto temp = mul_tensor_hpu_lazy(self, other);
+    strided_insert_hpu_lazy(orig_out, temp);
   } else {
-    LazyOp<at::Tensor&> k(
-        "hpu::mul_out",
-        {out, self, other},
-        {},
-        {BinaryOperator::compute_output_shape(self, other)});
-    return k.call(out);
+    std::vector<at::Tensor> metatens_tensors = {self, other, out};
+    auto metatens = habana::GetMetaTensorList(metatens_tensors);
+    at::TensorList metavar =
+        at::mul_outf(metatens[0], metatens[1], metatens[2]);
+    LazyOp<at::Tensor&> hpu_op{"aten::mul", {self, other, out}, metavar};
+    return hpu_op.call(out);
   }
+
+  return out;
 }
 
 Tensor mul_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
@@ -2411,6 +2413,7 @@ Tensor index_put_hpu_lazy(
     // do a mark_step to avoid attaching the select + scatter to a larger
     // previous graph
     HbLazyTensor::StepMarker({});
+
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
       indices_vec_out.insert(
@@ -4745,6 +4748,7 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
 
@@ -5676,7 +5680,9 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
       // Trigger point execution
       HbLazyTensor::StepMarker({});
     }
-    hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
+    // if there is a view, we need to sync before accessing the tensor_data.
+    // This is because we skip view outputs in stepmarker
+    hb_tensor = GetHbLazyTensor(HandleViewsD2H(self));
     auto tensor_data = hb_tensor.GetHbLazyTensorData();
     out = habana_helpers::_local_scalar_dense_internal(tensor_data.value());
   } else {
@@ -6339,7 +6345,9 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
         out_index++);
   }
 
-  flush_op(lr);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    HbLazyTensor::StepMarker({});
+  }
   return lr;
 }
 

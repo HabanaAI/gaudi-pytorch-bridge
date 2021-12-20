@@ -121,6 +121,7 @@ class HbExecutionContext {
   void clear() {
     m_retained_tensor_list.clear();
     scalar_to_tensor_map.clear();
+    hb_tensors_out_view.clear();
   }
 
   // We want to retain some tensors for special cases where PT releases them
@@ -142,6 +143,9 @@ class HbExecutionContext {
   std::map<int64_t, StrideParams> view_table;
   // maintains most recent version of the original tensor map
   std::map<int64_t, at::Tensor> orig_tensor_map;
+
+  // view tensors that occurs as graph outputs
+  std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
 
  private:
   // A map between unique lazy tensor ID and execution status

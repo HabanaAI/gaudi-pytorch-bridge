@@ -326,6 +326,17 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
+void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) {
+  static_cast<void>(graph);
+  static_cast<void>(inputs);
+  static_cast<void>(syn_t_vec);
+  TORCH_CHECK(
+      0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
+};
+
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
     UNUSED synapse_helpers::tensor_or_ref&& tensor) {
   TORCH_CHECK(

@@ -231,6 +231,8 @@ class HabanaLaunchOpPT {
   std::vector<torch::jit::Node*> blocking_nodes_vec;
   std::vector<synNodeId> blocking_syn_nodes_vec;
   std::vector<synNodeId> blocked_syn_nodes_vec;
+  std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
+      memory_reuse_pairs;
 
   // TODO add all the optimizers
   std::vector<std::string> custom_optimizer_nodestr_vec = {
@@ -279,6 +281,9 @@ class HabanaLaunchOpPT {
   void Dfs(torch::jit::Node*);
   void PreprocessControlEdges();
   bool IsControlEdgeCycle(torch::jit::Node*);
+  bool IsAncestor(torch::jit::Node*, torch::jit::Node*);
+  bool IsAncestorOrDescendant(torch::jit::Node*, torch::jit::Node*);
+  void ProcessControlEdgesForMemoryReuse();
   void HandleMappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
@@ -304,6 +309,11 @@ class HabanaLaunchOpPT {
   void ProcessSynapseOutputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
+  void ProcessStridedInsertAtOutput(
+      torch::jit::Node*,
+      HabanaOperatorPtr,
+      torch::jit::Stack&,
+      synapse_helpers::graph&);
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);

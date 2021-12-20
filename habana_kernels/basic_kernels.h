@@ -174,6 +174,14 @@ class StridedInsertOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  void ReuseMemoryAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec) override;
+  void compute_params(
+      synStridedOpParams&,
+      torch::jit::Stack& inputs,
+      synapse_helpers::graph& graph);
 };
 
 class StridedInsertClOperator : public StridedInsertOperator {
