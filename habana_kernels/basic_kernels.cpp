@@ -832,5 +832,8 @@ static auto& KernelRegistry =
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(
+            "hpu::strided_insert_cl",
+            KERNEL_FN_GLOBAL(StridedInsertClOperator))
+        .add(
             "hpu::strided_insert_cl_ds",
             KERNEL_FN_GLOBAL(StridedInsertClOperator));
