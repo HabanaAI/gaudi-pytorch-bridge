@@ -12,6 +12,11 @@
 #pragma once
 namespace habana_lazy {
 
+// Checks whether a c10::optional<Tensor> is defined.
+inline bool IsDefined(const c10::optional<at::Tensor>& tensor) {
+  return tensor.has_value() && tensor.value().defined();
+}
+
 at::Tensor HbLazyToAtenTensor(
     HbLazyTensor HbLazy_tensor,
     const at::TensorOptions& tensor_options);

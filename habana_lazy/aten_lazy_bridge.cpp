@@ -14,14 +14,6 @@
 #include "habana_lazy/ops/hpu_input.h"
 namespace habana_lazy {
 
-////////////////////////////Util functions : Move to seperate file if
-/// needed/////////////////////////////////////////////
-// Checks whether a c10::optional<Tensor> is defined.
-inline bool IsDefined(const c10::optional<at::Tensor>& tensor) {
-  return tensor.has_value() && tensor.value().defined();
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 at::Tensor HbLazyToAtenTensor(
     HbLazyTensor HbLazy_tensor,
     const at::TensorOptions& tensor_options) {
