@@ -107,6 +107,16 @@ all:
   op_frontend: LazyAll
   legacy_eager: true
 
+all.all_out:
+  custom_output_shape: AllAnyOutputShape
+  dtypes: [Char]
+  op_backend: All
+
+all.out:
+  custom_output_shape: AllDimOutputShape
+  dtypes: [Char]
+  op_backend: AllDim
+
 amax:
   custom_output_shape: AmaxAminOutputShape
   dtype: [Float, BFloat16, Int]
@@ -132,6 +142,11 @@ amin.out:
   dtype: [Float, BFloat16, Int]
   guid:  reduce_min_fwd
   op_backend: AmaxAmin
+
+any.all_out:
+  custom_output_shape: AllAnyOutputShape
+  dtypes: [Char]
+  op_backend: Any
 
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape

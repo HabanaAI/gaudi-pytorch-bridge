@@ -141,11 +141,6 @@ at::Tensor pow_scalar_tensor_hpu_lazy(
     const at::Scalar& other,
     const at::Tensor& self);
 at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
-at::Tensor& all_dim_out_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    at::Tensor& out);
 at::Tensor upsample_nearest2d_hpu_lazy(
     const at::Tensor& input,
     c10::optional<at::IntArrayRef> output_size,

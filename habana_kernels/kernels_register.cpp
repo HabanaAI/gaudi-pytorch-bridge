@@ -690,22 +690,6 @@ Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
   return hpu_wrap::eq(e, c);
 };
 
-Tensor& hpu_wrap::all_out(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    Tensor& out) {
-  if (!hpu_check_inputs_impl("all_out", {self, out}))
-    return AtenHpuTypeDefault::all_out(self, dim, keepdim, out);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return all_dim_out_hpu_lazy(self, dim, keepdim, out);
-  } else {
-    HABANA_ASSERT(0 && "all_out is not implemented for eager mode");
-    return all_dim_out_hpu_lazy(self, dim, keepdim, out);
-  }
-};
-
 Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
   if (!hpu_check_inputs_impl("all", {self}))
     return AtenHpuTypeDefault::all(self, dim, keepdim);

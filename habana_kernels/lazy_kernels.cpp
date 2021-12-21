@@ -1750,19 +1750,6 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   return op.call();
 }
 
-Tensor& all_dim_out_hpu_lazy(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-
-  std::vector<int64_t> shape_out =
-      ReduceOperator::compute_output_shape(self, dim, keepdim);
-  LazyOp<at::Tensor&> k{"aten::all", {self, dim, keepdim, out}, {shape_out}};
-  return k.call(out);
-}
-
 Tensor permute_wt_hpu(const Tensor& self) {
   Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()

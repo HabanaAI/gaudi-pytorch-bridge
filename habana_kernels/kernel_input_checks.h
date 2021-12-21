@@ -332,12 +332,6 @@ static const std::
                 }},
             },
             {
-                "all_out",
-                {{
-                    at::ScalarType::Bool,
-                }},
-            },
-            {
                 "convolution_overrideable",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
