@@ -1534,6 +1534,13 @@ prelu:
   guid: prelu_fwd
   out_ids: [0]
 
+prod.int_out:
+  custom_output_shape: ProdOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float]
+  guid: reduce_prod_fwd
+  op_backend: ProdOut
+
 random_:
   custom_fill_params: FillRandomParams
   dtypes: [BFloat16, Float, Int]
