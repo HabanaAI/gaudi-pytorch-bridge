@@ -529,6 +529,12 @@ class DynamicBucketInfo {
       SplitPolicy sp = SplitPolicy::DYNAMIC)
       : min_policy_(min_policy), max_policy_(max_policy), split_policy_(sp) {
     refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    auto set_min_max_current =
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
+    if (set_min_max_current) {
+      min_policy_ = DynamicDimsPolicy::CURRENT;
+      max_policy_ = DynamicDimsPolicy::CURRENT;
+    }
   };
 
   using TensorShapes = std::unordered_map<int64_t, habana_helpers::TensorShape>;
