@@ -385,7 +385,8 @@ synapse_error_o graph::launch(
           old_launch_info.data(),
           old_launch_info.size(),
           device.get_workspace_buffer(workspace_size),
-          recipe_handle.syn_recipe_handle_);
+          recipe_handle.syn_recipe_handle_,
+          SYN_FLAGS_TENSOR_NAME);
     } else {
       PT_SYNHELPER_DEBUG("Launching recipe with tensor ids");
       uint32_t flags{0};

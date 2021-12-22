@@ -338,14 +338,16 @@ synStatus SYN_API_CALL synLaunch(
     const synLaunchTensorInfo* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
-    const synRecipeHandle pRecipehandle) {
+    const synRecipeHandle pRecipehandle,
+    uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
       ARG(streamHandle),
       M_ARG(launchTensorsInfo, numberTensors),
       ARG(numberTensors),
       ARG_X(pWorkspace),
-      ARG(pRecipehandle));
+      ARG(pRecipehandle),
+      ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synLaunch,
@@ -353,7 +355,8 @@ synStatus SYN_API_CALL synLaunch(
       launchTensorsInfo,
       numberTensors,
       pWorkspace,
-      pRecipehandle)
+      pRecipehandle,
+      flags)
   API_LOG_RESULT();
   return status;
 }
