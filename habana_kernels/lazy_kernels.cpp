@@ -3737,7 +3737,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
-  ir::NodePtr node;
 
   Tensor running_mean, running_var, residual_add;
   // if RMV are undefined, create zero mean and unit variance tensors for
@@ -3782,98 +3781,57 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   if (training) {
     residual_add = empty_hpu_lazy(
         {1}, input.options(), input.suggest_memory_format(), true);
-    node = std::make_shared<ir::BatchNormForward>(
-        input,
-        weight,
-        bias,
-        residual_add,
-        running_mean,
-        running_var,
-        training,
-        momentum,
-        eps);
+    using T = std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor>;
+    struct BN : LazyOp<T> {
+      BN(const Stack& inputs)
+          : LazyOp<T>("hpu::native_batch_norm_rmv", inputs, {}, -1) {}
+      T get_result_overrideable() override {
+        const auto& inputs = get_inputs();
+        const auto& input = inputs[0].toTensor();
+        const auto& running_mean = inputs[4].toTensor();
+        const auto& running_var = inputs[5].toTensor();
+        auto result_img = empty_hpu_lazy(
+            input.sizes(),
+            input.options(),
+            input.suggest_memory_format(),
+            false);
+        auto result_mean = empty_hpu_lazy(
+            running_mean.sizes(),
+            running_mean.options(),
+            input.suggest_memory_format(),
+            false);
+        auto result_var = empty_hpu_lazy(
+            running_var.sizes(),
+            running_var.options(),
+            input.suggest_memory_format(),
+            false);
+        return {result_img, running_mean, running_var, result_mean, result_var};
+      }
+    };
+    BN op(
+        {input,
+         weight,
+         bias,
+         residual_add,
+         running_mean,
+         running_var,
+         training,
+         momentum,
+         eps});
+    auto res = op.call();
+    return {std::get<0>(res), std::get<3>(res), std::get<4>(res)};
   } else {
-    // weight and bias positions are swapped to match TPC kernel signature
-    node = std::make_shared<ir::BatchNormInf>(
-        input,
-        weight,
-        bias,
-        running_mean,
-        running_var,
-        training,
-        momentum,
-        eps);
-  }
-
-  auto output_sizes = input.sizes().vec();
-  auto sizes = std::make_tuple(
-      output_sizes, running_mean.sizes().vec(), running_var.sizes().vec());
-  auto mf = input.suggest_memory_format();
-
-  // Get Output Image
-  auto result_img =
-      empty_hpu_lazy(std::get<0>(sizes), input.options(), mf, false);
-  const auto hlresult0 = GetHbLazyTensor(result_img);
-  ir::Value& out0 = hlresult0.CurrentIrValue();
-  out0.SetNode(
-      node,
-      hlresult0.GetDevice(),
-      hlresult0.GetSizes(),
-      hlresult0.dtype_optional());
-
-  // set the running mean and variance as output nodes
-  if (training) {
-    const auto hlresult1 = GetHbLazyTensor(running_mean);
-    ir::Value& out1 = hlresult1.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hlresult1.GetDevice(),
-        hlresult1.GetSizes(),
-        hlresult1.dtype_optional(),
-        1);
-
-    const auto hlresult2 = GetHbLazyTensor(running_var);
-    ir::Value& out2 = hlresult2.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hlresult2.GetDevice(),
-        hlresult2.GetSizes(),
-        hlresult2.dtype_optional(),
-        2);
-  }
-
-  Tensor result_mean, result_var;
-  if (training) {
-    // Get output mean and var
-    result_mean =
-        empty_hpu_lazy(std::get<1>(sizes), running_mean.options(), mf, false);
-    const auto hlresult3 = GetHbLazyTensor(result_mean);
-    ir::Value& out3 = hlresult3.CurrentIrValue();
-    out3.SetNode(
-        node,
-        hlresult3.GetDevice(),
-        hlresult3.GetSizes(),
-        hlresult3.dtype_optional(),
-        3);
-
-    result_var =
-        empty_hpu_lazy(std::get<2>(sizes), running_var.options(), mf, false);
-    const auto hlresult4 = GetHbLazyTensor(result_var);
-    ir::Value& out4 = hlresult4.CurrentIrValue();
-    out4.SetNode(
-        node,
-        hlresult4.GetDevice(),
-        hlresult4.GetSizes(),
-        hlresult4.dtype_optional(),
-        4);
-  }
-
-  if (training) {
-    flush_op({result_img, result_mean, result_var, running_mean, running_var});
-    return std::make_tuple(result_img, result_mean, result_var);
-  } else {
-    flush_op({result_img, running_mean, running_var});
-    return std::make_tuple(result_img, running_mean, running_var);
+    LazyOp<Tensor> op(
+        "hpu::native_batch_norm_inf",
+        {input,
+         bias,
+         weight,
+         running_mean,
+         running_var,
+         training,
+         momentum,
+         eps});
+    return {op.call(), running_mean, running_var};
   }
 }
 
@@ -4622,7 +4580,8 @@ Tensor& mean_dim_out_hpu_lazy(
 Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
   auto self = self_in;
-  // Cast Boolean/Char (I8) inputs to Float since TPC kernel supports only f32
+  // Cast Boolean/Char (I8) inputs to Float since TPC kernel supports only
+  // f32
   if (self_in.scalar_type() == c10::ScalarType::Bool ||
       self_in.scalar_type() == c10::ScalarType::Char) {
     c10::ScalarType dst_dtype = c10::ScalarType::Float;
@@ -4909,8 +4868,8 @@ Tensor empty_hpu_lazy(
         /*resizeable=*/true);
     Tensor at_internal_tensor =
         AtenInternalHbTensor(std::move(storage_impl), new_dtype);
-    // Setup the tensor sizes & strides for tensor with dim = 4, else for now
-    // assuming contiguous
+    // Setup the tensor sizes & strides for tensor with dim = 4, else for
+    // now assuming contiguous
     if (tensor_type == DEVICE_SHAPE_TENSOR) {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
           device_shape_tensor_size);
@@ -4978,7 +4937,8 @@ Tensor empty_hpu_lazy(
       //    habana_lazy_executor.getDeviceExecutionContext(
       //        options.device().index());
       // context->MarkTensorStatus(
-      //    hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
+      //    hb_tensor.getTensorUniqueId(),
+      //    LazyTensorExecutionStatus::kINPUT);
       // setTensorAsInputNode(hb_tensor);
     }
 
@@ -4993,8 +4953,8 @@ Tensor empty_hpu_lazy(
     HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
         size, 0, options.device(), typeMetaToScalarType(original_dtype));
     Tensor at_tensor = AtenFromHbLazyTensor(hb_tensor);
-    // Setup the tensor sizes & strides for tensor with dim = 4, else for now
-    // assuming contiguous
+    // Setup the tensor sizes & strides for tensor with dim = 4, else for
+    // now assuming contiguous
     if ((4 == size.size()) && mem_format.has_value()) {
       at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
           size, CalculateStrides(size, mem_format.value()));
@@ -5223,9 +5183,9 @@ void adjustPTSizesLazy(Tensor& t) {
   } else {
     t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
   }
-  // For 4D tensors we need to make sure that we generate the PT channel last
-  // strides. Also as its a front end tensor, there may be a backend tensor
-  // already if so, change dims for that tensor too.
+  // For 4D tensors we need to make sure that we generate the PT channel
+  // last strides. Also as its a front end tensor, there may be a backend
+  // tensor already if so, change dims for that tensor too.
   if (t.dim() == 4) {
     t.unsafeGetTensorImpl()->empty_tensor_restride(
         c10::MemoryFormat::ChannelsLast);
@@ -7091,7 +7051,8 @@ Tensor masked_scale_hpu_lazy(
     const Tensor& mask,
     double scale) {
   PT_LAZY_TRACE;
-  // scale changed to support dropout backward based on what we pass for dropout
+  // scale changed to support dropout backward based on what we pass for
+  // dropout
   scale = scale / (scale - 1);
   auto masked = mul_tensor_hpu_lazy(self, mask);
   auto scaled = mul_scalar_hpu_lazy(masked, scale);
