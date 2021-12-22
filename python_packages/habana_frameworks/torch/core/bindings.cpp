@@ -16,6 +16,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "pytorch_helpers/synapse_helpers/stream.h"
 
 template <typename T>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
@@ -188,5 +189,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "data_ptr",
       [](const at::Tensor& t) { return GetDataPtr(t); },
       py::arg("t"));
+  m.def("compute_stream", []() {
+    if (IsAvailable()) {
+      auto& d = synapse_helpers::HPURegistrar::get_device();
+      void* stream = (void*)d.get_compute_stream();
+      return reinterpret_cast<intptr_t>(stream);
+    }
+    return reinterpret_cast<intptr_t>(nullptr);
+  });
   m.doc() = "This module registers hpu backend.";
 }

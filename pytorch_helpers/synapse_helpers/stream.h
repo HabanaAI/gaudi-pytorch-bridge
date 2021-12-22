@@ -61,6 +61,9 @@ class stream {
    */
   explicit stream(device& device, stream_flavor flavor);
 
+  stream(const stream& other)
+      : device_(other.device_), handle_(other.handle_) {}
+
   ~stream();
 
   /*! \brief Pushes newely created event to the std::deque, registers it on its
