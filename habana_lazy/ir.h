@@ -197,6 +197,7 @@ class MetaData {
   size_t get_hash() {
     size_t hash = 0;
     for (auto& m : m_data) {
+      hash = at::hash_combine(m.first, hash);
       if (m.second.isList()) {
         for (auto& v : m.second.toListRef()) {
           hash = ival_hash(v, hash);
