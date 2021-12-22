@@ -324,16 +324,21 @@ synapse_error_o tensor::create() {
 
   memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
   deviceLayout.deviceDataType = data_type_;
-  if (tensor_type_ == SHAPE_TENSOR ||
-      tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR ||
-      tensor_type_ == DEVICE_SHAPE_TENSOR) {
-    HABANA_ASSERT(data_type_ == syn_type_uint32);
-  }
+
   status = synTensorSetDeviceLayout(tensor_, &deviceLayout);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetDeviceLayout failed.", status, cleanup());
 
-  if (has_dynamic_shape()) {
+  if (is_const_) {
+    HABANA_ASSERT(!is_persistent_);
+    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
+    status = synTensorSetHostPtr(
+        tensor_, host_ptr_, host_ptr_size_, data_type_, true);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "synTensorSetHostPtr failed.", status, cleanup());
+  } else {
+    HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
+
     synTensorGeometry minGeometry;
     uint32_t minSizes[sizeof(minGeometry.sizes) / sizeof(uint32_t)] = {0};
 
@@ -347,18 +352,10 @@ synapse_error_o tensor::create() {
     status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "synTensorSetGeometry min sizes failed.", status, cleanup());
-  }
-
-  if (is_const_) {
-    HABANA_ASSERT(!is_persistent_);
-    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
-    status = synTensorSetHostPtr(
-        tensor_, host_ptr_, host_ptr_size_, data_type_, true);
-    SYNAPSE_SUCCESS_CHECK_WITH_OP(
-        "synTensorSetHostPtr failed.", status, cleanup());
-  } else {
-    HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
-    if (!memory_section_ && is_persistent_) {
+    if (tensor_type_ == SHAPE_TENSOR ||
+        tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
+      HABANA_ASSERT(data_type_ == syn_type_uint32);
+    } else if (!memory_section_ && is_persistent_) {
       auto memory_attributes{
           synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
           (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT

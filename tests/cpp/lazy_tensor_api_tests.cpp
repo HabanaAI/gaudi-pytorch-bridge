@@ -3,6 +3,8 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "habana_device/HPUGuardImpl.h"
+#include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -10,6 +12,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "pytorch_helpers/habana_helpers/graph.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -60,4 +63,18 @@ TEST_F(LazyTensorAPITest, DataPtr) {
   auto p_again = habana_lazy::HbLazyTensor::lazyTensorDataPtr(dummy);
   PT_TEST_DEBUG("tensor data ptr second call = ", p_again, "\n");
   ASSERT_TRUE(p == p_again);
+}
+
+TEST_F(LazyTensorAPITest, ShapeTensorTest) {
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto syn_graph =
+      habana_helpers::create_graph(device.id(), "Test_graph", false);
+  torch::Tensor input = torch::randn({10, 20}).to(torch::kHPU);
+  auto syn_shape_input = habana_helpers::create_shape_tensor(
+      input, syn_graph, false, INPUT_DESCRIBING_SHAPE_TENSOR);
+  ASSERT_TRUE(syn_shape_input.is_persistent());
+  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
 }

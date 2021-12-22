@@ -780,7 +780,6 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   switch (shape_tensor_type) {
     case SHAPE_TENSOR:
       builder.mark_shape_tensor();
-      builder.mark_persistence(false);
       break;
     case DEVICE_SHAPE_TENSOR:
       builder.mark_device_shape_tensor();
