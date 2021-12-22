@@ -1227,6 +1227,11 @@ _log_softmax:
   out_ids: [0]
   legacy_eager: true
 
+_log_softmax.out:
+  dtypes: [BFloat16, Float]
+  guid: logsoftmax_fwd
+  custom_fill_params: FillLogSoftmaxParams
+
 _log_softmax_backward_data:
   dtypes: [BFloat16, Float]
   guid: logsoftmax_bwd
@@ -1234,6 +1239,12 @@ _log_softmax_backward_data:
   op_backend: LogSoftmaxBackward
   out_ids: [0]
   legacy_eager: true
+
+_log_softmax_backward_data.out:
+  dtypes: [BFloat16, Float]
+  guid: logsoftmax_bwd
+  custom_fill_params: FillLogSoftmaxBackwardParams
+  op_backend: LogSoftmaxBackward
 
 logcumsumexp.out:
   dtypes: [BFloat16, Float]
