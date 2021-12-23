@@ -236,31 +236,31 @@ atanh_:
 bernoulli:
   custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   guid: random_bernoulli_fwd
   op_frontend: LazyIntSeed
   legacy_eager: true
   op_backend: Bernoulli
   out_ids: [0]
+  schema_args: "(Tensor self, *, int seed) -> Tensor"
 
 bernoulli_.float:
   custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: LazyIntSeed
   legacy_eager: true
   op_backend: Bernoulli
+  schema_args: "(Tensor(a!) self, float p=0.5, *, int seed) -> Tensor(a!)"
 
 bernoulli_.Tensor:
   custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: LazyIntSeed
   op_backend: Bernoulli
+  schema_args: "(Tensor(a!) self, Tensor p, *, int seed) -> Tensor(a!)"
 
 bitwise_and.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -915,9 +915,9 @@ geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
-  func_ns_hpu: true
   op_frontend: LazyGeometric
   op_backend: Geometric
+  schema_args: "(Tensor(a!) self, float p, int seed) -> Tensor(a!)"
 
 glu:
   dtypes: [Float]
@@ -1096,7 +1096,7 @@ index.Tensor:
   guid: index
   op_backend: IndexHabanaOperator
   op_frontend: LazyIndex
-  func_ns_hpu: true
+  schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
   out_ids: [0]
 
 le.Scalar_out:
@@ -1519,6 +1519,15 @@ mse_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: mse_loss_bwd
 
+multinomial:
+  custom_fill_params: FillMultinomialParams
+  custom_output_shape: MultinomialOutputShape
+  dtypes: [BFloat16, Float]
+  guid: random_multinomial_fwd
+  out_ids: [0]
+  op_frontend: LazyRandomMulti
+  schema_args: "(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor"
+
 mv.out:
   custom_output_shape: MvOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
@@ -1619,12 +1628,12 @@ nll_loss_forward.output:
 normal_:
   custom_fill_params: FillNormalParams
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   guid: random_normal_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   legacy_eager: true
   op_backend: RandomSeedTensorInput
+  schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
 
 norm.ScalarOpt_dtype:
   custom_output_shape: NormOutputShape
@@ -1665,38 +1674,29 @@ prod.int_out:
 random_:
   custom_fill_params: FillRandomParams
   dtypes: [BFloat16, Float, Int]
-  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   op_backend: RandomSeedTensorInput
+  schema_args: "(Tensor(a!) self, Tensor seed) -> Tensor(a!)"
 
 random_.from:
   custom_fill_params: FillRandomFromParams
   dtypes: [BFloat16, Float, Int]
-  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   op_backend: RandomSeedTensorInput
+  schema_args: "(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)"
 
 random_.to:
   custom_fill_params: FillRandomToParams
   dtypes: [BFloat16, Float, Int]
-  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   op_backend: RandomSeedTensorInput
-
-multinomial:
-  custom_fill_params: FillMultinomialParams
-  custom_output_shape: MultinomialOutputShape
-  dtypes: [BFloat16, Float]
-  func_ns_hpu: true
-  guid: random_multinomial_fwd
-  out_ids: [0]
-  op_frontend: LazyRandomMulti
+  schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
 
 reciprocal.out:
   dtypes: [BFloat16, Float]
@@ -1923,23 +1923,23 @@ round.out:
 
 rrelu_with_noise:
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   op_frontend: LazyTensorSeed
   op_backend: Rrelu_with_noise
   out_ids: [0]
+  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
 
 rrelu_with_noise_:
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   op_frontend: LazyRreluOutInplace
   op_backend: Rrelu_with_noise
   inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
 
 rrelu_with_noise.out:
   dtypes: [BFloat16, Float]
-  func_ns_hpu: true
   op_frontend: LazyRreluOutInplace
   op_backend: Rrelu_with_noise
+  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 rrelu_with_noise_backward:
   dtypes: [BFloat16, Float]
@@ -2375,12 +2375,12 @@ trunc_:
 uniform_:
   custom_fill_params: FillUniformParams
   dtypes: [BFloat16, Float, Int]
-  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   legacy_eager: true
   op_backend: RandomSeedTensorInput
+  schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
 upsample_bicubic2d:
   custom_output_shape: UpsampleBicubic2DFwdOutputShape

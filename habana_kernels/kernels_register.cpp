@@ -4384,30 +4384,6 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
-  // Ops that need custom schema because of Generator
-  m.def("geometric_(Tensor(a!) self, float p, int seed) -> Tensor(a!)");
-  m.def(
-      "uniform_(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)");
-  m.def(
-      "normal_(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)");
-  m.def("bernoulli(Tensor self, *, int seed) -> Tensor");
-  m.def(
-      "bernoulli_.Tensor(Tensor(a!) self, Tensor p, *, int seed) -> Tensor(a!)");
-  m.def(
-      "bernoulli_.float(Tensor(a!) self, float p=0.5, *, int seed) -> Tensor(a!)");
-  m.def(
-      "multinomial(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor");
-  m.def("random_(Tensor(a!) self, Tensor seed) -> Tensor(a!)");
-  m.def(
-      "random_.from(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)");
-  m.def("random_.to(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)");
-  m.def(
-      "rrelu_with_noise(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor");
-  m.def(
-      "rrelu_with_noise.out(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "rrelu_with_noise_(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)");
-
   m.def("nonzero(Tensor self) -> (Tensor Tensor)");
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
@@ -4427,7 +4403,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
-  m.def("hpu::index.Tensor(Tensor self, Tensor[] indices) -> Tensor");
   m.def("arange_out_ds(Tensor shape, Tensor result) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(

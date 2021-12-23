@@ -21,7 +21,6 @@ LazyTensorSeed<T>::LazyTensorSeed(
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
-  // Seed is always at the end for all variants
   LazyTensorSeed<T>::get_inputs().back() =
       get_seed_tensor_hpu(inputs.back().toOptional<at::Generator>());
 }
@@ -42,7 +41,6 @@ LazyIntSeed<T>::LazyIntSeed(
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
-  // Seed is always at the end for all variants
   LazyIntSeed<T>::get_inputs().back() = static_cast<int64_t>(
       get_seed_hpu(inputs.back().toOptional<at::Generator>()));
 }

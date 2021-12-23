@@ -153,6 +153,8 @@ namespace habana {{
 {kr_regs}
 
 {torch_regs}
+
+{custom_schema_regs}
 }}  // namespace habana
 """
 
@@ -179,8 +181,9 @@ _FILL_PARAMS = """[](const at::Stack& stack, size_t& size) {{
 
 
 class Op(object):
-    def __init__(self, op):
+    def __init__(self, opname, op):
         self.op = op
+        self.opname = opname
 
     def get_guid(self):
         return self.op.get("guid", None)
@@ -240,8 +243,10 @@ class Op(object):
     def promote_int_to_float(self):
         return self.op.get("promote_int_to_float", False)
 
-    def func_ns(self):
-        return "hpu" if self.op.get("func_ns_hpu", False) else "aten"
+    def custom_schema(self):
+        args = self.op.get("schema_args", None)
+        if args:
+            return self.opname + args
 
 
 class Context(object):
@@ -257,7 +262,7 @@ class Context(object):
             return "at::{}".format(name + "f" if is_out_fn(name) else name)
 
     def get_op(self, opname):
-        return Op(self.op_data[opname])
+        return Op(opname, self.op_data[opname])
 
 
 class StringEmit(object):
@@ -522,7 +527,8 @@ def generate_entry_debug_code(t, fname, params):
 def lazyop(
     ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, lazyop_call_args
 ):
-    schema_fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
+    ns = "hpu" if ctxop.custom_schema() else "aten"
+    schema_fn = ns + "::" + get_aten_opname(aten_sig).split(".")[0]
     code = ""
 
     dtypes = ctxop.get_dtypes()
@@ -995,6 +1001,9 @@ def generate_all(fgens):
     op_frontend_functions = ""
     op_backend = ""
 
+    custom_schema_def = []
+    custom_schema_regs = ""
+
     for fgen in fgens:
         # torch registrations
         mapsig_key = get_mapsig_key(fgen.mapsig)
@@ -1010,10 +1019,11 @@ def generate_all(fgens):
 
         # KernelRegistry registrations
         op = fgen.aten_sig.split("(")[0].split("::")[1]
+        ns = "hpu" if fgen.ctxop.custom_schema() else "aten"
         krlines.append(
             '  .add("{}::{}", [](const int device_id, c10::ScalarType node_type) {{\n'
             "      return std::make_shared<{}>(device_id, node_type);\n"
-            "  }})".format(fgen.ctxop.func_ns(), op, fgen.cname)
+            "  }})".format(ns, op, fgen.cname)
         )
 
         # Dtype definitions
@@ -1032,14 +1042,25 @@ def generate_all(fgens):
         if fgen.op_backend:
             op_backend += "{}\n".format(fgen.op_backend)
 
+        # Custom schema definitions
+        if fgen.ctxop.custom_schema():
+            custom_schema_def.append(
+                '  m.def("{}");'.format(fgen.ctxop.custom_schema())
+            )
+
     torch_regs = aten_code + "\n}\n"
 
     if autogradhpu_code:
         code += (
-            "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n" + autogradhpu_code + "\n}\n"
+            "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n" + autogradhpu_code + "\n}"
         )
 
     kr_regs = kr_code + "\n".join(krlines) + ";"
+
+    if len(custom_schema_def):
+        custom_schema_regs = (
+            "TORCH_LIBRARY_FRAGMENT(hpu, m) {\n" + "\n".join(custom_schema_def) + "\n}"
+        )
     return (
         dtype_defs,
         op_frontend_hfunctions,
@@ -1048,6 +1069,7 @@ def generate_all(fgens):
         overridden,
         op_backend,
         kr_regs,
+        custom_schema_regs,
     )
 
 
@@ -1145,6 +1167,7 @@ def generate(args):
         overridden,
         op_backend,
         kr_regs,
+        custom_schema_regs,
     ) = generate_all(fgens)
 
     # Create output files ...
@@ -1167,6 +1190,7 @@ def generate(args):
             op_backend=op_backend,
             kr_regs=kr_regs,
             torch_regs=torch_regs,
+            custom_schema_regs=custom_schema_regs,
         ),
         file=gen_cpp_output_file(args),
     )
