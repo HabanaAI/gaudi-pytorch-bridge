@@ -9,6 +9,7 @@
  */
 
 #include "ProcessGroupHCCL.hpp"
+#include <future>
 #include <map>
 #include "hccl.h"
 #include "hccl_types.h"
@@ -199,10 +200,34 @@ ProcessGroupHCCL::ProcessGroupHCCL(
     : ProcessGroup(rank, size),
       store_(store),
       hcclCommCounter_(0),
-      stop_(false) {}
+      stop_(false) {
+  mTh = std::thread(&ProcessGroupHCCL::threadFunction, this);
+}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
+  {
+    std::lock_guard<std::mutex> lock(mMut);
+    mDestroy = true;
+    mFuncs.push([] { return true; });
+    mCondVar.notify_one();
+  }
+  mTh.join();
   destroy();
+}
+
+void ProcessGroupHCCL::threadFunction() {
+  while (true) {
+    std::unique_lock<std::mutex> lock(mMut);
+    mCondVar.wait(lock, [this] { return !mFuncs.empty(); });
+    if (mDestroy)
+      break;
+
+    auto func = mFuncs.front();
+    mFuncs.pop();
+    lock.unlock();
+
+    func();
+  }
 }
 
 void ProcessGroupHCCL::destroy() {
@@ -374,7 +399,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     Fn fn,
     PreProcess pre,
     PostProcess post) {
-  hcclResult_t hccl_result{hcclSuccess};
   habana_lazy::HbLazyTensor::StepMarker();
 
   // Handle views
@@ -408,15 +432,37 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
     deviceCtxt->lock_address(in_view_vec[i].data_ptr(), &input_address);
     deviceCtxt->lock_address(out_view_vec[i].data_ptr(), &output_address);
-    hccl_result =
-        fn(in_view_vec[i],
-           out_view_vec[i],
-           input_address,
-           output_address,
-           *(comms[i]),
-           collective_stream);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
-    deviceCtxt->submit_events(collective_stream, output_storage_ptr);
+
+    auto pr = std::make_shared<std::promise<bool>>();
+    std::future<bool> fut = pr->get_future();
+    auto func = [fn = fn,
+                 input = in_view_vec[i],
+                 output = out_view_vec[i],
+                 input_address = input_address,
+                 output_address = output_address,
+                 comm = comms[i],
+                 collective_stream = collective_stream,
+                 deviceCtxt = deviceCtxt,
+                 output_storage_ptr = output_storage_ptr,
+                 pr = pr]() mutable {
+      hcclResult_t hccl_result =
+          fn(input,
+             output,
+             input_address,
+             output_address,
+             *comm,
+             collective_stream);
+      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      deviceCtxt->submit_events(collective_stream, output_storage_ptr);
+      pr->set_value(hccl_result == hcclSuccess);
+    };
+    {
+      std::lock_guard<std::mutex> lock(mMut);
+      mFuncs.push(func);
+      mCondVar.notify_one();
+    }
+
+    deviceCtxt->submit_future(output_storage_ptr, std::move(fut));
   }
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
@@ -441,7 +487,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
   return collective(
       tensors,
       tensors,
-      [&](at::Tensor& input,
+      [rootRank = opts.rootRank](
+          at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -455,7 +502,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
             recv_buffer,
             numel,
             tensor_data_type,
-            opts.rootRank,
+            rootRank,
             hccl_comm,
             stream);
       });
@@ -476,7 +523,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
-      [&](at::Tensor& input,
+      [reduceOp = opts.reduceOp](
+          at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -498,7 +546,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
               recv_buffer + data_offset,
               num_elements_in_current_chunk,
               getHCCLDataType(input.scalar_type()),
-              getHCCLReduceOp(opts.reduceOp),
+              getHCCLReduceOp(reduceOp),
               hccl_comm,
               stream);
           TORCH_CHECK(

@@ -198,6 +198,13 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   }
 
  private:
+  std::thread mTh;
+  std::mutex mMut;
+  bool mDestroy = false;
+  std::queue<std::function<void()>> mFuncs;
+  std::condition_variable mCondVar;
+  void threadFunction();
+
   // Helper that encapsulates work shared across all collective communication
   template <typename Fn>
   c10::intrusive_ptr<ProcessGroup::Work> collective(

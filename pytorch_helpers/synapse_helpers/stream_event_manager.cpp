@@ -30,6 +30,28 @@ void stream_event_manager::add_producer(
   add_producer(std::move(device_ptrs), "", stream, std::move(done_cb));
 }
 
+void stream_event_manager::add_future(
+    device_ptr device_address,
+    std::future<bool> fut) {
+  std::lock_guard<std::mutex> lock(future_mut_);
+  auto found = future_by_addr_.find(device_address);
+  if (found != future_by_addr_.end()) {
+    HABANA_ASSERT(found->second.valid());
+    found->second.wait();
+  }
+  future_by_addr_[device_address] = std::move(fut);
+}
+
+void stream_event_manager::wait_for_future(device_ptr device_address) {
+  std::lock_guard<std::mutex> lock(future_mut_);
+  auto found = future_by_addr_.find(device_address);
+  if (found != future_by_addr_.end()) {
+    HABANA_ASSERT(found->second.valid());
+    found->second.wait();
+    future_by_addr_.erase(device_address);
+  }
+}
+
 void stream_event_manager::add_producer(
     std::vector<device_ptr>&& device_addresses,
     std::string event_id,
@@ -113,6 +135,8 @@ void stream_event_manager::enqueue_wait_event(
       " waits for event mapped to device address ",
       std::hex,
       device_address);
+
+  wait_for_future(device_address);
   shared_event event;
   {
     std::lock_guard<std::mutex> lock_guard(mut_);

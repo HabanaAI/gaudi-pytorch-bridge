@@ -294,6 +294,16 @@ hcclResult_t device_context::submit_events(
   return hcclSuccess;
 }
 
+hcclResult_t device_context::submit_future(
+    synapse_helpers::device_ptr device_addr,
+    std::future<bool> fut) {
+  synapse_helpers::device_handle dev_handle = device_;
+  HABANA_ASSERT(nullptr != dev_handle);
+
+  dev_handle->submit_future(device_addr, std::move(fut));
+  return hcclSuccess;
+}
+
 hcclResult_t device_context::stream_synchronize(hcclStream_t stream) {
   return to_hccl_result(synStreamSynchronize(stream));
 }

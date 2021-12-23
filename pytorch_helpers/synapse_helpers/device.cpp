@@ -702,6 +702,10 @@ void device::register_producer_on_stream(
   sem_.add_producer(std::move(bound_addresses), stream, std::move(done_cb));
 }
 
+void device::submit_future(device_ptr device_addr, std::future<bool> fut) {
+  sem_.add_future(device_addr, std::move(fut));
+}
+
 void device::register_producer_on_stream(
     std::vector<device_ptr>&& bound_addresses,
     const std::string& event_id,
