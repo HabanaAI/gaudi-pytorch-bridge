@@ -1502,6 +1502,11 @@ mish_backward:
   op_backend: Mishbackward
   out_ids: [0]
 
+mm.out:
+  custom_output_shape: MmOutputShape
+  dtypes: [BFloat16,Float]
+  guid: gemm
+
 mse_loss.out:
   custom_fill_params: FillMseLossParams
   custom_output_shape: MseLossOutputShape
