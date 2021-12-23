@@ -41,9 +41,15 @@ struct StridedOpSelectParams {
   int64_t index;
 };
 
+struct StridedOpTransposeParams {
+  int64_t dim0_;
+  int64_t dim1_;
+};
+
 union OpParams {
   StridedOpSliceParams slice_param;
   StridedOpSelectParams select_param;
+  StridedOpTransposeParams transpose_param;
   OpParams(){};
 };
 

@@ -476,6 +476,28 @@ Tensor add_select_lazy(
   return result;
 }
 
+Tensor add_transpose_lazy(
+    const Tensor& self,
+    const StridedOpTransposeParams& params,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  int64_t dim0_ = params.dim0_;
+  int64_t dim1_ = params.dim1_;
+
+  ir::NodePtr node = std::make_shared<ir::Transpose>(self, dim0_, dim1_);
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  flush_op(result);
+  return result;
+}
+
 void strided_insert_hpu_lazy(
     const Tensor& self,
     const Tensor& insert_t,
@@ -562,6 +584,10 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
           break;
         case kStridedOpSelect:
           add_select_lazy(recent_orig_t, params.params.select_param, t_opt);
+          break;
+        case kStridedOpTranspose:
+          add_transpose_lazy(
+              recent_orig_t, params.params.transpose_param, t_opt);
           break;
         case kStridedOpDefault:
           add_asstrided_node = true;
@@ -5163,7 +5189,18 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+    auto out = at::native::transpose(self, dim0_, dim1_);
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
+        GetHbLazyTensor(self).getTensorUniqueId()) {
+      strided_param.optype = kStridedOpTranspose;
+      StridedOpTransposeParams transpose_param = {dim0_, dim1_};
+      strided_param.params.transpose_param = transpose_param;
+    }
+    return out;
+  }
   std::vector<at::IValue> vector_of_inputs;
   vector_of_inputs = {self, dim0_, dim1_};
 

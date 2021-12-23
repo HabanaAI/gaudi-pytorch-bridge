@@ -294,6 +294,15 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest2) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, TransposeTestCL) {
+  torch::Tensor A = torch::randn({8, 224, 224, 3}, torch::requires_grad(false))
+                        .contiguous(c10::MemoryFormat::ChannelsLast);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::transpose(hA, 0, 3);
+  torch::Tensor Out = torch::transpose(A, 0, 3);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, TransposeTest3) {
   torch::Tensor A =
       torch::randint(1, 24, {2, 3, 4}, torch::dtype(torch::kInt64));

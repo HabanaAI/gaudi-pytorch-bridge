@@ -431,6 +431,7 @@ void InsertPermute_graph(
             (strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::permute") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::transpose") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
              0) ||
@@ -574,6 +575,7 @@ void InsertPermute_graph(
           (strcmp(node->kind().toQualString(), "aten::permute") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::transpose") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
