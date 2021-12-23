@@ -199,6 +199,8 @@ class HabanaLaunchOpPT {
 
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
+  uint64_t t_compile_ns{0};
+  std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
 
   // Making the cache eviction policy as lru as default
 
@@ -270,9 +272,12 @@ class HabanaLaunchOpPT {
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
   bool IsValidNode(torch::jit::Node*);
-  void CompileAndExecuteHabanaFusedOpKernel(
+  void BuildSynapseGraph(
       synapse_helpers::graph& syn_graph,
       bool is_shape_inference = false);
+  void CompileSynapseGraph();
+  void ConstructPatchingTable();
+  void ExecuteSynapseGraph();
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
   ControlEdgeType nodeRequiresControlEdge(torch::jit::Node* node);

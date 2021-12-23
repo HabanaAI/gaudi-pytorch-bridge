@@ -1805,7 +1805,7 @@ std::string HabanaLaunchOpPT::DumpNode(torch::jit::Node* node) {
   return str;
 }
 
-void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
+void HabanaLaunchOpPT::BuildSynapseGraph(
     synapse_helpers::graph& syn_graph,
     bool is_shape_inference) {
   // figure out the right device id
@@ -1973,26 +1973,23 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     // dont want to call delete untill we are done with whole graph
     habana_kernels.push_back(HabanaKernel);
   }
+}
 
-  // if its a shape inference pass, we dont need to do any additional processing
-  // for launching the graph
-  if (is_shape_inference) {
-    return;
-  }
-
+void HabanaLaunchOpPT::CompileSynapseGraph() {
   // Process control edges
   HabanaLaunchOpPT::ProcessControlEdges();
 
-  if (syn_graph.is_empty()) {
-    UpdateOutputs();
+  TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
+  if (syn_graph_ptr->is_empty()) {
+    PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
     return;
   }
 
   std::chrono::steady_clock::time_point t_start;
   t_start = std::chrono::steady_clock::now();
-  auto&& error_variant{syn_graph.compile()};
+  auto&& error_variant{syn_graph_ptr->compile()};
   auto t_compile = std::chrono::steady_clock::now() - t_start;
-  uint64_t t_compile_ns =
+  t_compile_ns =
       std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
 
   if (ABSL_PREDICT_FALSE(
@@ -2012,26 +2009,33 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   RecipeValueSpec::increment_compile_count();
 
   auto cur_recipe = get_value(std::move(error_variant));
+  cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe);
+  RecipeValueSpec& rv = *cur_rvalpsh;
 
-  std::shared_ptr<RecipeValueSpec> rvalpsh =
-      std::make_shared<RecipeValueSpec>(cur_recipe);
-
-  RecipeValueSpec& rv = *rvalpsh;
-  if (!syn_graph.is_empty()) {
-    // first time, we need to get workspace size of the recipe, that was
-    // compiled
-    auto&& ws_size_result{
-        synapse_helpers::graph::query_workspace_size(*cur_recipe)};
-    if (ABSL_PREDICT_FALSE(
-            absl::holds_alternative<synapse_helpers::synapse_error>(
-                ws_size_result))) {
-      auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
-      PT_BRIDGE_FATAL(
-          "workspace size query failed: ", error.error, " ", error.status);
-      TORCH_CHECK(false, "workspace size query failed");
-    }
-    rv.workspace_size = get_value(ws_size_result);
+  // Get workspace size of the compiled recipe
+  auto&& ws_size_result{
+      synapse_helpers::graph::query_workspace_size(*cur_recipe)};
+  if (ABSL_PREDICT_FALSE(
+          absl::holds_alternative<synapse_helpers::synapse_error>(
+              ws_size_result))) {
+    auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
+    PT_BRIDGE_FATAL(
+        "workspace size query failed: ", error.error, " ", error.status);
+    TORCH_CHECK(false, "workspace size query failed");
   }
+  rv.workspace_size = get_value(ws_size_result);
+}
+
+void HabanaLaunchOpPT::ConstructPatchingTable() {
+  TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
+  if (syn_graph_ptr->is_empty()) {
+    PT_BRIDGE_DEBUG(
+        "Empty synapse graph. No need to construct the patching table.");
+    return;
+  }
+
+  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
+  RecipeValueSpec& rv = *cur_rvalpsh;
 
   // input_tivs need to be reordered for patching
   OrderInputs();
@@ -2149,6 +2153,23 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
 
+  rv.populate_syn_tensor_ids();
+}
+
+void HabanaLaunchOpPT::ExecuteSynapseGraph() {
+  TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
+  if (syn_graph_ptr->is_empty()) {
+    PT_BRIDGE_DEBUG("Empty synapse graph. Will update outputs directly.");
+    UpdateOutputs();
+    return;
+  }
+
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  synDeviceId device_id = device.id();
+
+  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
+  RecipeValueSpec& rv = *cur_rvalpsh;
+
   if (enable_tensor_dump_) {
     if (0 == htensor_wbuff_size) {
       for (size_t i = 0; i < rv.num_tinfos; ++i) {
@@ -2170,8 +2191,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   if (enable_tensor_dump_) {
     DumpTensors_pre(rv);
   }
-
-  rv.populate_syn_tensor_ids();
 
   if (refine_ds_enabled_) {
     // Initiate recipe execution time collection
@@ -2207,14 +2226,14 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
           std::make_shared<RecipeArgumentSpec>(
               false, input_refs, jit_ir_graph, "");
       rv.key = rargpsh->hashCode();
-      RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
+      RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);
     } else {
       std::shared_ptr<RecipeArgumentSpec> rargpsh =
           std::make_shared<RecipeArgumentSpec>(
               input_refs, jit_ir_graph, cur_ds_token_);
       rv.key = rargpsh->hashCode();
-      rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
-      RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
+      rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
+      RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);
     }
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
@@ -2592,6 +2611,7 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
   value_to_ivalue.clear();
   watchlist_.clear();
   syn_graph_ptr = nullptr;
+  cur_rvalpsh = nullptr;
 
   habana_kernels.clear();
 
@@ -2781,7 +2801,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   //  b. compiles and executes the same
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());
-  CompileAndExecuteHabanaFusedOpKernel(syn_graph);
+  BuildSynapseGraph(syn_graph);
+  CompileSynapseGraph();
+  ConstructPatchingTable();
+  ExecuteSynapseGraph();
 
   // clear the context
   // TODO : See if we need to add a contect to this object pointer or clearing
@@ -2804,7 +2827,7 @@ void HabanaLaunchOpPT::run_pass() {
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
   AdjustInputLayout();
-  CompileAndExecuteHabanaFusedOpKernel(syn_graph, true);
+  BuildSynapseGraph(syn_graph, true);
   //
   // clear the data that has been setup as part of the above
   // method
@@ -3023,14 +3046,14 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   AdjustInputLayout();
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Running CompileAndExecuteHabanaFusedOpKernel with min{",
+      "Running BuildSynapseGraph with min{",
       graph_input_info.min_policy,
       "}:max{",
       graph_input_info.max_policy,
       "}");
 
-  // Try running the CompileAndExecuteHabanaFusedOpKernel with min and max
-  // infered above if the CompileAndExecuteHabanaFusedOpKernel fails, call
+  // Try running the BuildSynapseGraph with min and max
+  // infered above if the BuildSynapseGraph fails, call
   // handle_pass_exception with pass type OUTPUT_SHAPE. In handling this
   // exception bucket ranges are recalculated as per min and max both as CURRENT
   // and again call CompileAndRunDynamicGraph with changed ranges and policy.
@@ -3041,11 +3064,13 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     auto syn_graph =
         habana_helpers::create_graph(device.id(), GetSynapseGraphName());
     syn_graph.set_dynamic_graph(is_dynamic_graph);
-    CompileAndExecuteHabanaFusedOpKernel(syn_graph);
+    BuildSynapseGraph(syn_graph);
+    CompileSynapseGraph();
+    ConstructPatchingTable();
+    ExecuteSynapseGraph();
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_WARN(
-        "Exception in CompileAndExecuteHabanaFusedOpKernel Details:\n",
-        e.what());
+        "Exception in BuildSynapseGraph Details:\n", e.what());
     clear(true);
     PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
     handle_pass_exception(graph_input_info, p);
