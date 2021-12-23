@@ -1298,6 +1298,10 @@ logical_and.out:
   dtypes: [BFloat16, Float, Byte, Char]
   guid: and
 
+logical_not.out:
+  dtypes: [Byte, Char]
+  guid: not_fwd
+
 logical_or.out:
   dtypes: [BFloat16, Float, Byte, Char]
   guid: or

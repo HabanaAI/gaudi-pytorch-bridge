@@ -10,11 +10,12 @@
 
 #include "util.h"
 
-class LogicalHpuOpTest : public HpuOpTestUtil,
-                         public testing::WithParamInterface<c10::ScalarType> {};
+class LogicalOutHpuOpTest
+    : public HpuOpTestUtil,
+      public testing::WithParamInterface<c10::ScalarType> {};
 
 #define HPU_LOGICAL_OUT_TEST(op)                                               \
-  TEST_P(LogicalHpuOpTest, op) {                                               \
+  TEST_P(LogicalOutHpuOpTest, op) {                                            \
     const auto& dtype = GetParam();                                            \
     GenerateInputs(2, dtype);                                                  \
     torch::ScalarType dtypef = torch::kFloat;                                  \
@@ -26,12 +27,51 @@ class LogicalHpuOpTest : public HpuOpTestUtil,
   }                                                                            \
   INSTANTIATE_TEST_SUITE_P(                                                    \
       op,                                                                      \
-      LogicalHpuOpTest,                                                        \
+      LogicalOutHpuOpTest,                                                     \
       testing::Values(                                                         \
           torch::kFloat, torch::kBFloat16, torch::kByte, torch::kChar));
 
-#define TEST_HPU_LOGICAL_OP(op) HPU_LOGICAL_OUT_TEST(op##_outf)
+class LogicalNotHpuOpTest
+    : public HpuOpTestUtil,
+      public testing::WithParamInterface<c10::ScalarType> {};
+
+#define HPU_LOGICAL_NOT_TEST(op)                                               \
+  TEST_P(LogicalNotHpuOpTest, op) {                                            \
+    const auto& dtype = GetParam();                                            \
+    GenerateInputs(1, dtype);                                                  \
+    torch::ScalarType dtypef = torch::kBool;                                   \
+    auto expected = torch::empty(0, dtypef);                                   \
+    auto result = torch::empty(0, torch::TensorOptions(dtypef).device("hpu")); \
+    torch::op(GetCpuInput(0), expected);                                       \
+    torch::op(GetHpuInput(0), result);                                         \
+    Compare(expected, result);                                                 \
+  }                                                                            \
+  INSTANTIATE_TEST_SUITE_P(                                                    \
+      op, LogicalNotHpuOpTest, testing::Values(torch::kByte, torch::kChar));
+
+class LogicalHpuOpTest : public HpuOpTestUtil,
+                         public testing::WithParamInterface<c10::ScalarType> {};
+
+#define HPU_LOGICAL_TEST(op)                                   \
+  TEST_P(LogicalHpuOpTest, op) {                               \
+    const auto& dtype = GetParam();                            \
+    GenerateInputs(2, dtype);                                  \
+    auto expected = torch::op(GetCpuInput(0), GetCpuInput(1)); \
+    auto result = torch::op(GetHpuInput(0), GetHpuInput(1));   \
+    Compare(expected, result);                                 \
+  }                                                            \
+  INSTANTIATE_TEST_SUITE_P(                                    \
+      op,                                                      \
+      LogicalHpuOpTest,                                        \
+      testing::Values(torch::kFloat, torch::kByte, torch::kChar));
+
+#define TEST_HPU_LOGICAL_OP(op)   \
+  HPU_LOGICAL_OUT_TEST(op##_outf) \
+  HPU_LOGICAL_TEST(op)
+
+#define TEST_HPU_LOGICAL_NOT_OP(op) HPU_LOGICAL_NOT_TEST(op##_outf)
 
 TEST_HPU_LOGICAL_OP(logical_and)
 TEST_HPU_LOGICAL_OP(logical_or)
 TEST_HPU_LOGICAL_OP(logical_xor)
+TEST_HPU_LOGICAL_NOT_OP(logical_not)
