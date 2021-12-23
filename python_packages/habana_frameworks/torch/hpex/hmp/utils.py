@@ -215,7 +215,7 @@ def op_wrap_dynamic(op):
         if _hmp_state.disable_cast:
             return op(*args, **kwds)
 
-        if isinstance(args[0], list):
+        if isinstance(args[0], list) or isinstance(args[0], tuple):
             # ops with tensorlist as input
             cast_fn = decide_cast_fn(*args[0], **kwds)
             vprint("casting ", op, " to ", cast_fn.__name__)
