@@ -71,6 +71,9 @@ int removeFiles(const char* dir) {
 }
 
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
+    GTEST_SKIP();
+  }
   setenv("HABANA_PGM_LRU_MAX", "3", 3);
   std::string cache_path_ = "cache_dir";
   std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
@@ -142,6 +145,9 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
 }
 
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
+    GTEST_SKIP();
+  }
   std::string cache_path_ = "cache_dir";
   std::string curr_path = fs::current_path();
   std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
