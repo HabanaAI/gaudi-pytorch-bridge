@@ -1379,7 +1379,7 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   PT_LAZY_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
-    at::DimVector inferred_size = at::infer_size_dv(size, self.numel());
+    auto inferred_size = habana_helpers::infer_size(size, self.numel());
     auto stride =
         at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
     TORCH_CHECK(
