@@ -60,3 +60,23 @@ TEST_F(LazyControlEdgeTest, ControlEdgeCycle) {
   auto h3_c = h3.to(torch::kCPU);
   EXPECT_TRUE(allclose(c3, h3_c, rtol, atol));
 }
+
+TEST_F(LazyControlEdgeTest, stridedinsertreuse) {
+  torch::Tensor A = torch::randn({4});
+  auto b = torch::relu(A);
+  auto v1 = A.view(-1);
+  auto grad1 = torch::randn({4});
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = torch::relu(hA);
+  auto hv1 = hA.view(-1);
+  auto hgrad1 = grad1.to(torch::kHPU);
+
+  v1.mul_(grad1);
+
+  hv1.mul_(hgrad1);
+
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+}

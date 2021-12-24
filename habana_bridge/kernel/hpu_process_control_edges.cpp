@@ -378,9 +378,9 @@ void HabanaLaunchOpPT::ProcessControlEdgesForMemoryReuse() {
     auto blocked_node = p.second;
     for (auto& u : p.first->uses()) {
       auto blocking_node = u.user;
-
       if (IsValidNode(blocking_node) &&
-          (!IsAncestorOrDescendant(blocking_node, blocked_node))) {
+          (!IsAncestorOrDescendant(blocking_node, blocked_node) &&
+           (blocking_node != blocked_node))) {
         blocking_nodes_vec.emplace_back(blocking_node);
         HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
       }
@@ -388,7 +388,6 @@ void HabanaLaunchOpPT::ProcessControlEdgesForMemoryReuse() {
 
     if (blocking_syn_nodes_vec.size()) {
       HabanaLaunchOpPT::addSynNodes(blocked_syn_nodes_vec, blocked_node);
-
       if (blocked_syn_nodes_vec.size()) {
         syn_graph_ptr->set_synapse_control_edges_pt(
             blocking_syn_nodes_vec, blocked_syn_nodes_vec);
