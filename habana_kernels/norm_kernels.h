@@ -9,6 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
+#include "habana_kernels/index_kernels.h"
 namespace habana {
 
 class BatchNormForwardOperator : public habana::HabanaOperator {
@@ -365,6 +366,33 @@ class FusedNormOperator : public HabanaOperator {
   }
 
   virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+  // the common portion of code between fused_norm and fused_norm_lazy
+  std::shared_ptr<SliceOperator> compute_clip_coeff(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool>& is_output_persistent);
+};
+
+// FusedNormLazy Operator
+// The difference  between FusedNormOperator is out of place implementation of
+// gradient clipping This is possible because we can attach the clipped grad
+// back to the original tensor (similar to BN RMV) This approach avoids creation
+// of duplicate persistent tensors in multinode scenario where
+// grad = Strided_view(buckettensor) here strided view will be out of place. so
+// we would be adding strided insert nodes after fused norm to get updated
+// version of grad
+class FusedNormLazyOperator : public FusedNormOperator {
+ public:
+  FusedNormLazyOperator(int device_id, c10::ScalarType scalarType)
+      : FusedNormOperator(device_id, scalarType) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;

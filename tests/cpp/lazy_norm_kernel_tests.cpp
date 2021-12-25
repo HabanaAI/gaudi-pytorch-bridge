@@ -279,12 +279,12 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute_gal) {
   at::Tensor result_cpu = std::get<0>(results_cpu);
 
   // Print Both Tensor contents:
-  std::clog << "\n\n\n\nLazy Result: " << std::endl;
-  PrintATenTensor(result_lazy);
-  std::clog << result_lazy << std::endl;
-  std::clog << "\n\n\n\nCPU Result: " << std::endl;
-  PrintATenTensor(result_cpu);
-  std::clog << result_cpu << std::endl;
+  //   std::clog << "\n\n\n\nLazy Result: " << std::endl;
+  //   PrintATenTensor(result_lazy);
+  //   std::clog << result_lazy << std::endl;
+  //   std::clog << "\n\n\n\nCPU Result: " << std::endl;
+  //   PrintATenTensor(result_cpu);
+  //   std::clog << result_cpu << std::endl;
 
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
@@ -512,6 +512,35 @@ TEST_F(LazyNormKernelTest, FusedNormTest) {
 
   EXPECT_EQ(
       allclose(total_norm_hpu.to(torch::kCPU), total_norm_cpu, 0.0001), true);
+}
+
+TEST_F(LazyNormKernelTest, FusedNormViewTest) {
+  std::vector<torch::Tensor> grad_vec;
+  std::vector<torch::Tensor> grad_vec_h;
+  std::vector<torch::Tensor> grad_vec_norms;
+
+  // setup input grad tensor lists
+  auto t = torch::randn({2, 2});
+  auto tH = t.to(torch::kHPU);
+  auto v = t.view(-1);
+  grad_vec.push_back(v);
+  grad_vec_norms.push_back(torch::norm(v));
+
+  auto hV = tH.view(-1);
+  grad_vec_h.push_back(hV);
+
+  // init max_norm
+  torch::Tensor max_norm =
+      torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
+  auto max_norm_hpu = max_norm.to(torch::kHPU);
+  // do hpu and cpu fused_norm calcs
+  auto total_norm_hpu = fused_norm_hpu_wrap(grad_vec_h, max_norm_hpu, 2.0);
+  auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
+
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(
+      allclose(total_norm_hpu.to(torch::kCPU), total_norm_cpu, 0.001), true);
 }
 
 TEST_F(LazyNormKernelTest, FrobNormTest) {

@@ -2044,14 +2044,10 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   return out.at(0);
 }
 
-void FusedNormOperator::AllocateAndAddSynapseNode(
+std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for FusedNorm Operator");
-
+    std::vector<bool>& is_output_persistent) {
   auto gradients = inputs[0].toTensorList();
   auto max_grad_norm = inputs[1].toTensor();
   auto norm_type = inputs[2].toScalar();
@@ -2059,6 +2055,8 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<unsigned int>(gradients.size());
+
+  auto slice_op = make_operator<SliceOperator>(device_id, scalar_type);
 
   if (norm_type.toFloat() == 2.0) {
     torch::jit::Stack stack;
@@ -2178,7 +2176,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     add_op2->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
     // take just the first element of add since all values would be repeated
-    auto slice_op = make_operator<SliceOperator>(device_id, scalar_type);
+
     slice_op->SetSynapseInput(add_op2->GetSynOutputs()[0]);
     stack.emplace_back(IValue(add_op2->GetOutputs()[0]));
     stack.emplace_back(IValue(0));
@@ -2187,28 +2185,80 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(1));
     slice_op->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
-    // p.grad.detach().mul_(clip_coef)
-    for (unsigned int i = 0; i < num_params; i++) {
-      auto mul1 = make_operator<MulInplaceOperator>(device_id, scalar_type);
-      mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
-      mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
-      mul1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i + 1u}));
-      stack.emplace_back(IValue(gradients.get(i)));
-      stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
-      mul1->AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent[i + 1]);
-      stack.clear();
-      // Add grads to output lists to satisfy GC (since grad updation is
-      // inplace)
-      p_context_->syn_outputs_.emplace_back(
-          std::move(mul1->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(mul1->GetOutputs()[0]);
-    }
   } else {
     // other norm_type not supported for now
     // BERT Hugging-face uses norm_type = 2.0
     // therefore supporting only that for now.
-    HABANA_ASSERT(0);
+    HABANA_ASSERT(0, "unsupported norm_type for fused norm");
+  }
+
+  return slice_op;
+}
+
+void FusedNormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for FusedNorm Operator");
+
+  auto gradients = inputs[0].toTensorList();
+  auto num_params = static_cast<unsigned int>(gradients.size());
+  auto device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+
+  auto slice_op = compute_clip_coeff(graph, inputs, is_output_persistent);
+
+  torch::jit::Stack stack;
+
+  // p.grad.detach().mul_(clip_coef)
+  for (unsigned int i = 0; i < num_params; i++) {
+    auto mul1 = make_operator<MulInplaceOperator>(device_id, scalar_type);
+    mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
+    mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
+    mul1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i + 1u}));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
+    mul1->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i + 1]);
+    stack.clear();
+    // Add grads to output lists to satisfy GC (since grad updation is
+    // inplace)
+    p_context_->syn_outputs_.emplace_back(std::move(mul1->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(mul1->GetOutputs()[0]);
+  }
+}
+
+void FusedNormLazyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for FusedNorm Operator");
+
+  auto gradients = inputs[0].toTensorList();
+  auto num_params = static_cast<unsigned int>(gradients.size());
+  auto device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+
+  auto slice_op = compute_clip_coeff(graph, inputs, is_output_persistent);
+
+  torch::jit::Stack stack;
+
+  // clipped_grad = p.grad.detach().mul(clip_coef)
+  for (unsigned int i = 0; i < num_params; i++) {
+    auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
+    mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
+    mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
+    mul1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i + 1u}));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
+    mul1->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i + 1]);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(std::move(mul1->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(mul1->GetOutputs()[0]);
   }
 }
 
@@ -2459,6 +2509,7 @@ static auto& KernelRegistry =
             KERNEL_FN(BatchNormForwardRmvOperator))
         .add("hpu::native_batch_norm_inf", KERNEL_FN(BatchNormInfOperator))
         .add("hpu::fused_norm_", KERNEL_FN(FusedNormOperator))
+        .add("hpu::fused_norm_lazy", KERNEL_FN(FusedNormLazyOperator))
         .add(
             "aten::native_batch_norm_backward",
             KERNEL_FN(BatchNormBackwardOperator))

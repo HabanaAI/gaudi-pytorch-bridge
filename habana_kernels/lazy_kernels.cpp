@@ -297,7 +297,8 @@ Tensor add_strided_insert_node(
     const Tensor& orig_t,
     const Tensor& insert_t,
     IntArrayRef strides,
-    int64_t offset) {
+    int64_t offset,
+    bool is_flush = true) {
   auto mf = orig_t.suggest_memory_format();
   ir::NodePtr node;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
@@ -344,11 +345,16 @@ Tensor add_strided_insert_node(
       hl_result.GetSizes(),
       hl_result.dtype_optional());
 
-  flush_op(result);
+  if (is_flush) {
+    flush_op(result);
+  }
   return result;
 }
 
-void strided_insert_hpu_lazy(const Tensor& self, const Tensor& insert_t) {
+void strided_insert_hpu_lazy(
+    const Tensor& self,
+    const Tensor& insert_t,
+    bool is_flush) {
   PT_LAZY_TRACE;
   auto hl_self = GetHbLazyTensor(self);
   auto id = hl_self.getTensorUniqueId();
@@ -362,7 +368,11 @@ void strided_insert_hpu_lazy(const Tensor& self, const Tensor& insert_t) {
   // pick the most recent version
   Tensor recent_orig_t = get_recent_base_tensor(params_ptr->t);
   auto out = add_strided_insert_node(
-      recent_orig_t, insert_t, params_ptr->strides, params_ptr->offset);
+      recent_orig_t,
+      insert_t,
+      params_ptr->strides,
+      params_ptr->offset,
+      is_flush);
 
   // update orig tensor map
   auto param_id = GetHbLazyTensor(params_ptr->t).getTensorUniqueId();
@@ -5931,18 +5941,49 @@ Tensor fused_norm_hpu_lazy(
       hlresult.dtype_optional(),
       out_index++);
 
+  // check if any of the grad is a view output and add strided insert node
+  // accordingly
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (size_t i = 0; i < grad.size(); i++) {
-    auto hlgrad = GetHbLazyTensor(grad[i]);
-    ir::Value& out1 = hlgrad.CurrentIrValue();
-    out1.SetNode(
-        node_unpack,
-        hlgrad.GetDevice(),
-        hlgrad.GetSizes(),
-        hlgrad.dtype_optional(),
-        out_index++);
+    auto grad_t = grad[i];
+    auto hlgrad = GetHbLazyTensor(grad_t);
+    auto id = hlgrad.getTensorUniqueId();
+    auto it = context->view_table.find(id);
+
+    if (it == context->view_table.end()) {
+      ir::Value& out1 = hlgrad.CurrentIrValue();
+      out1.SetNode(
+          node_unpack,
+          hlgrad.GetDevice(),
+          hlgrad.GetSizes(),
+          hlgrad.dtype_optional(),
+          out_index++);
+    } else {
+      // fused norm has operated out of place on strided view's output
+      auto clip_grad = empty_hpu_lazy(
+          grad_t.sizes(),
+          grad_t.options(),
+          grad_t.suggest_memory_format(),
+          false);
+      auto hlgrad = GetHbLazyTensor(clip_grad);
+      ir::Value& out1 = hlgrad.CurrentIrValue();
+      out1.SetNode(
+          node_unpack,
+          hlgrad.GetDevice(),
+          hlgrad.GetSizes(),
+          hlgrad.dtype_optional(),
+          out_index++);
+
+      // add strided insert node. Do not flush in lazy eager as it is a fused
+      // op. step marker will be used at the end
+      strided_insert_hpu_lazy(grad_t, clip_grad, /*is_flush*/ false);
+    }
   }
 
-  flush_op(result);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    HbLazyTensor::StepMarker({});
+  }
+
   return result;
 }
 
