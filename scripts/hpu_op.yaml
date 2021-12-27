@@ -1787,6 +1787,34 @@ reflection_pad2d_backward.grad_input:
   dtypes: [Float]
   guid: pad_bwd
 
+reflection_pad3d:
+  custom_output_shape: ReflectionPad3DOutputShape
+  custom_fill_params: FillReflectionPadForwardParams
+  dtypes: [Float]
+  guid: pad_fwd
+  out_ids: [0]
+
+reflection_pad3d.out:
+  custom_output_shape: ReflectionPad3DOutputShape
+  custom_fill_params: FillReflectionPadForwardParams
+  dtypes: [Float]
+  guid: pad_fwd
+
+reflection_pad3d_backward:
+  custom_output_shape: ReflectionPadBackwardOutputShape
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPad
+  dtypes: [Float]
+  guid: pad_bwd
+  out_ids: [0]
+
+reflection_pad3d_backward.grad_input:
+  custom_output_shape: ReflectionPadBackwardOutputShape
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPad
+  dtypes: [Float]
+  guid: pad_bwd
+
 replication_pad1d:
   custom_output_shape: ReplicationPad1dOutputShape
   custom_fill_params: FillReplicationPad1dParams

@@ -34,6 +34,20 @@ sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack, bool) {
   return {outputShape};
 }
 
+sizes_vec ReflectionPad3DOutputShape(const at::Stack& stack, bool) {
+  auto self = stack.at(0).toTensor();
+  std::vector<int64_t> outputShape = self.sizes().vec();
+  auto pad = stack.at(1).toIntVector();
+  TORCH_CHECK((pad.size() == 6), "Pad size can only be 6 for ReflectionPad3d");
+  // updating the width dimension
+  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
+  // updating the height dimension
+  outputShape.rbegin()[1] = outputShape.rbegin()[1] + pad[2] + pad[3];
+  // updating the depth dimension
+  outputShape.rbegin()[2] = outputShape.rbegin()[2] + pad[4] + pad[5];
+  return {outputShape};
+}
+
 static std::shared_ptr<void> FillReflectionPadParams(
     const at::Stack& stack,
     size_t& size,
