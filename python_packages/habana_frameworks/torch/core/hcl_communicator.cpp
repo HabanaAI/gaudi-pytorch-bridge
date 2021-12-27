@@ -196,7 +196,7 @@ synapse_error_o hcl_communicator::allreduce(
     const event_done_callback& done_callback) {
   // TBD: Add it to the API.  Will do it as separate release as it needs to be
   // synchronized with pytorch-fork
-  HABANA_ASSERT(hclop == eHCLSum || hclop == eHCLMul)
+  HABANA_ASSERT(hclop == eHCLSum || hclop == eHCLProd)
   auto allreduce_function = [this, hclop](
                                 synStreamHandle collective_stream,
                                 device_ptr input_address,

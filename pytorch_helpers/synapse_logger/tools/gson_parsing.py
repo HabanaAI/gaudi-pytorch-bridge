@@ -80,7 +80,7 @@ class synDeviceType(Enum):
     synDeviceTypeInvalid = 6
     synDeviceTypeSize = 7
 
-hcl_ops = {0: "eHCLOpNone", 1: "eHCLSum", 2: "eHCLMul"}
+hcl_ops = {0: "eHCLOpNone", 1: "eHCLSum", 2: "eHCLProd"}
 
 FuncDef = namedtuple("FuncDef", ["name", "args", "return_type"])
 

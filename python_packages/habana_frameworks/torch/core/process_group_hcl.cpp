@@ -36,7 +36,7 @@ std::map<ReduceOp, HCL_Op> hclOp = {
     {ReduceOp::MIN, eHCLOpNone},
     {ReduceOp::MAX, eHCLOpNone},
     {ReduceOp::SUM, eHCLSum},
-    {ReduceOp::PRODUCT, eHCLMul},
+    {ReduceOp::PRODUCT, eHCLProd},
 };
 
 HCL_Op getHCLOpType(ReduceOp type) {
