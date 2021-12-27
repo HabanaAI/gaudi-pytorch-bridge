@@ -2399,6 +2399,9 @@ Tensor& hpu_wrap::randperm_out(
     int64_t n,
     c10::optional<Generator> gen,
     Tensor& out) {
+  if (!hpu_check_inputs_impl("random_shuffle", {out}))
+    return AtenHpuTypeDefault::randperm_out(n, gen, out);
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return randperm_hpu_lazy(out, n, gen);
   } else {
