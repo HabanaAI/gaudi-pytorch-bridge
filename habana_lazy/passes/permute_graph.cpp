@@ -316,7 +316,7 @@ void InsertPermute_graph(
     str.append(o.str());
     str.append("\n");
   }
-  PT_BRIDGE_DEBUG(str);
+  PT_LAZY_DEBUG(str);
 
   std::unordered_map<
       torch::jit::Node*,
@@ -339,9 +339,14 @@ void InsertPermute_graph(
     if (node->kind() == torch::jit::prim::ListUnpack) {
       for (auto value_out : node->outputs()) {
         if (value_out->type()->kind() == c10::TypeKind::TensorType) {
-          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              habana::LayoutFormat::NCHW;
+          // if already marked by weightmarkingPass, assign the Layout
+          if (value_to_tensor_layout.find(value_out) ==
+              value_to_tensor_layout.end()) {
+            value_to_tensor_layout[value_out].layout =
+                habana::LayoutFormat::NCHW;
+            value_to_tensor_layout[value_out].layout_at_graph_entry =
+                habana::LayoutFormat::NCHW;
+          }
         }
       }
       continue;
@@ -481,6 +486,11 @@ void InsertPermute_graph(
       for (const auto value_out : node_outs) {
         auto out_layout =
             habana_kernel_meta_data.output_layout.at(output_tensor_idx);
+        // if already marked by weightmarkingPass, assign the Layout
+        if (value_to_tensor_layout.find(value_out) !=
+            value_to_tensor_layout.end()) {
+          out_layout = value_to_tensor_layout[value_out].layout;
+        }
         if (out_layout == habana::LayoutFormat::ANY) {
           value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
           value_to_tensor_layout[value_out].layout_at_graph_entry =
@@ -730,6 +740,12 @@ void InsertPermute_graph(
         }
 
         for (const auto value_out : node_outs) {
+          if (value_to_tensor_layout.find(value_out) !=
+              value_to_tensor_layout.end()) {
+            assigned_input_layout = value_to_tensor_layout[value_out].layout;
+            origin_input_layout =
+                value_to_tensor_layout[value_out].layout_at_graph_entry;
+          }
           value_to_tensor_layout[value_out].layout = assigned_input_layout;
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               origin_input_layout;

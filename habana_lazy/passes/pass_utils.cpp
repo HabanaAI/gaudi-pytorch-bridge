@@ -83,7 +83,9 @@ void WeightIdentificationPass::markInputs(const torch::jit::Value* in) {
     return;
   }
   std::string node_str = node->kind().toQualString();
-  if (0 == kernelWeightIdx.count(node_str)) {
+  if (0 == kernelWeightIdx.count(node_str) &&
+      !(strcmp(node->kind().toQualString(), "prim::ListConstruct") == 0) &&
+      !(strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0)) {
     for (auto& i : node->inputs()) {
       if (isTensor(i) && !weightTensors.count(i)) {
         weightTensors.insert(i);
