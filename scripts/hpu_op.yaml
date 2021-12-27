@@ -602,6 +602,11 @@ div_.Tensor_mode:
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
 
+dot.out:
+  custom_output_shape: DotOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: Dot
+
 elu.out:
   dtypes: [BFloat16, Float]
   guid: elu_fwd
