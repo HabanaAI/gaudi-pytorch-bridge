@@ -1310,6 +1310,49 @@ logical_xor.out:
   dtypes: [BFloat16, Float, Byte, Char]
   guid: xor
 
+logit:
+  dtypes: [BFloat16,Float]
+  guid: logit_fwd
+  out_ids: [0]
+  tpc_param:
+    name: ns_LogitKernel::Params
+    params:
+    - [1, float]
+
+logit_:
+  dtypes: [BFloat16,Float]
+  guid: logit_fwd
+  inplace_ids: [0]
+  tpc_param:
+    name: ns_LogitKernel::Params
+    params:
+    - [1, float]
+
+logit.out:
+  dtypes: [BFloat16,Float]
+  guid: logit_fwd
+  tpc_param:
+    name: ns_LogitKernel::Params
+    params:
+    - [1, float]
+
+logit_backward:
+  dtypes: [BFloat16, Float]
+  guid: logit_bwd
+  out_ids: [0]
+  tpc_param:
+    name: ns_LogitKernel::Params
+    params:
+    - [2, float]
+
+logit_backward.grad_input:
+  dtypes: [BFloat16, Float]
+  guid: logit_bwd
+  tpc_param:
+    name: ns_LogitKernel::Params
+    params:
+    - [2, float]
+
 logsumexp:
   custom_output_shape: LogSumExpOutputShape
   dtypes: [BFloat16,Float]
