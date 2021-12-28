@@ -745,6 +745,21 @@ floor_:
   inplace_ids: [0]
   legacy_eager: true
 
+floor_divide.out:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: div
+  op_backend: FloorDivideOperator
+  promote_int_to_float: true
+
+floor_divide_.Tensor:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: div
+  op_backend: FloorDivideOperator
+  promote_int_to_float: true
+  inplace_ids: [0]
+
 frac:
   dtypes: [BFloat16, Float]
   op_backend: Frac
