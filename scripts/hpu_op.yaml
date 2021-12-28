@@ -262,6 +262,16 @@ bernoulli_.Tensor:
   op_backend: Bernoulli
   schema_args: "(Tensor(a!) self, Tensor p, *, int seed) -> Tensor(a!)"
 
+binary_cross_entropy.out:
+  custom_output_shape: BinaryCrossEntropyFwdOutputShape
+  dtypes: [Float, BFloat16]
+  op_backend: BinaryCrossEntropyFwd
+
+binary_cross_entropy_backward.grad_input:
+  custom_output_shape: BinaryCrossEntropyBwdOutputShape
+  dtypes: [Float, BFloat16]
+  op_backend: BinaryCrossEntropyBwd
+
 bitwise_and.Scalar:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
