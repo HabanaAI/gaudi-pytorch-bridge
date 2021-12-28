@@ -26,7 +26,7 @@ void ProdOut::AddNode(
     const std::vector<bool>& is_output_persistent_list) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
-  auto dim = stack.at(1).toInt();
+  auto dim_ = stack.at(1).toInt();
   auto shape = ProdOutputShape(stack)[0];
   std::vector<int64_t> outshape{self.sizes().vec()};
   size_t size = 0;
@@ -36,10 +36,7 @@ void ProdOut::AddNode(
   // custom outshape give two diff shape but
   // reduce prod_fwd guid  requried same shape for Keepdim True/false
   if (!keepdim) {
-    // Handling -ve dimension
-    if (dim < 0) {
-      dim += self.dim();
-    }
+    auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
     outshape[dim] = 1;
     auto reduce_prod = BuildOp(
         graph,
