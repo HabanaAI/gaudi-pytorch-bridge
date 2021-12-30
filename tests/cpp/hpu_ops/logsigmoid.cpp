@@ -59,3 +59,22 @@ TEST_F(HpuOpTest, log_sigmoid_bwd_out) {
 
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, log_sigmoid) {
+  GenerateInputs(1);
+  auto exp = torch::log_sigmoid(GetCpuInput(0));
+  auto res = torch::log_sigmoid(GetHpuInput(0));
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, log_sigmoid_out) {
+  GenerateInputs(1);
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto exp = torch::empty(0, dtype);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::log_sigmoid_outf(GetCpuInput(0), exp);
+  torch::log_sigmoid_outf(GetHpuInput(0), res);
+  Compare(exp, res);
+}
