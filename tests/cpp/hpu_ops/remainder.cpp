@@ -36,6 +36,14 @@ TEST_F(HpuOpTest, remainder_scalar) {
   Compare(exp, res);
 }
 
+TEST_F(HpuOpTest, remainder_scalar_tensor) {
+  GenerateIntInputs(1, {{2, 3, 3}}, -10000, 10000);
+  auto exp = torch::remainder(25, GetCpuInput(0));
+  auto res = torch::remainder(25, GetHpuInput(0));
+
+  Compare(exp, res);
+}
+
 TEST_F(HpuOpTest, remainder_scalar_out) {
   GenerateIntInputs(1, {{2, 3, 3}}, -10000, 10000);
   c10::ScalarType dtype = torch::kFloat;
@@ -63,7 +71,7 @@ TEST_F(HpuOpTest, remainder_tensor_out) {
 }
 
 TEST_F(HpuOpTest, remainder_) {
-  GenerateIntInputs(2, {{2, 3, 3}, {2, 3, 1}}, -30, 10);
+  GenerateIntInputs(2, {{1, 3}, {3, 1}}, -30, 10);
   auto exp = GetCpuInput(0).remainder_(GetCpuInput(1));
   auto res = GetHpuInput(0).remainder_(GetHpuInput(1));
 

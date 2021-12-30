@@ -12,6 +12,9 @@
 
 namespace habana {
 sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
+  if (stack.at(0).isScalar() && stack.at(1).isTensor()) {
+    return {stack_tensor(stack, 1).sizes().vec()};
+  }
   const torch::Tensor& self = stack_tensor(stack, 0);
   if (stack.at(1).isScalar()) {
     return {self.sizes().vec()};

@@ -1712,52 +1712,6 @@ relu_:
   inplace_ids: [0]
   legacy_eager: true
 
-remainder.Tensor:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  out_ids: [0]
-  legacy_eager: true
-  type_promotion: true
-  broadcast: true
-
-remainder.Scalar:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  out_ids: [0]
-  legacy_eager: true
-  scalar_ids: [1]
-  type_promotion: true
-
-remainder_.Tensor:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  inplace_ids: [0]
-  legacy_eager: true
-  type_promotion: true
-  broadcast: true
-
-remainder_.Scalar:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  inplace_ids: [0]
-  legacy_eager: true
-  scalar_ids: [1]
-  type_promotion: true
-
-remainder.Tensor_out:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  legacy_eager: true
-  type_promotion: true
-  broadcast: true
-
-remainder.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Char, Short]
-  op_backend: RemainderOp
-  legacy_eager: true
-  scalar_ids: [1]
-  type_promotion: true
-
 reflection_pad1d:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
@@ -1841,6 +1795,59 @@ reflection_pad3d_backward.grad_input:
   op_backend: ReflectionPad
   dtypes: [Float]
   guid: pad_bwd
+
+remainder.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  out_ids: [0]
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  out_ids: [0]
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
+
+remainder_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  inplace_ids: [0]
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  inplace_ids: [0]
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
+
+remainder.Scalar_Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  out_ids: [1]
+  scalar_ids: [0]
+  type_promotion: true
+
+remainder.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  legacy_eager: true
+  type_promotion: true
+  broadcast: true
+
+remainder.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Short]
+  op_backend: RemainderOp
+  legacy_eager: true
+  scalar_ids: [1]
+  type_promotion: true
 
 replication_pad1d:
   custom_output_shape: ReplicationPad1dOutputShape
