@@ -117,6 +117,8 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
     auto type2 = (tensor2.scalar_type() == c10::ScalarType::Long)
         ? c10::ScalarType::Int
         : tensor2.scalar_type();
+    type1 = (type1 == c10::ScalarType::Double) ? c10::ScalarType::Float : type1;
+    type2 = (type2 == c10::ScalarType::Double) ? c10::ScalarType::Float : type2;
     // Generate key using input dtype(s)
     std::pair<ScalarType, ScalarType> type{type1, type2};
     // Check if we have this key to find the dtype to which smaller dtype
