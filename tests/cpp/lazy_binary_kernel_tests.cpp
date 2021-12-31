@@ -695,3 +695,63 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorInplace0DTest) {
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
+
+TEST_F(LazyBinaryKernelTest, Max2DFloat) {
+  at::Tensor self = at::randn({4, 100}, at::device(at::kCPU));
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
+  at::Tensor self =
+      at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
+  at::Tensor self = at::randint(
+      -50,
+      50,
+      {4, 10, 5, 3, 4, 5, 7, 2},
+      at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
+  auto self = at::randint(-50, 50, {}, at::device(at::kCPU));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}

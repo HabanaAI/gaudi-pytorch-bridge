@@ -72,7 +72,7 @@ class MaxOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   static std::vector<int64_t> compute_output_shape() {
-    std::vector<int64_t> shape_out{1};
+    std::vector<int64_t> shape_out{};
     return shape_out;
   };
 
