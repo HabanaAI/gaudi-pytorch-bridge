@@ -219,7 +219,7 @@ at::Tensor CreateHpuTensor(
     const at::Tensor& tensor,
     const c10::optional<c10::Device>& device) {
   if (tensor.defined() && device) {
-    return tensor.to(device.value());
+    return tensor.contiguous().to(device.value());
   }
   return tensor;
 }

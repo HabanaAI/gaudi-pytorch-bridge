@@ -68,3 +68,14 @@ TEST_F(FallbackTest, Inplace) {
 
   EXPECT_TRUE(allclose(Out, hOut.to("cpu"))) << Out << hOut.to("cpu");
 }*/
+
+TEST_F(FallbackTest, inverse) {
+  auto a = torch::randn({2, 2});
+  auto b = a.inverse();
+  auto out = torch::transpose(b, 0, 1);
+
+  auto ha = a.to("hpu");
+  auto hb = ha.inverse();
+  auto hout = torch::transpose(hb, 0, 1);
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
+}
