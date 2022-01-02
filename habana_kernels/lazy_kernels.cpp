@@ -584,8 +584,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   ir::NodePtr node;
   std::vector<at::Tensor> input_pt_vec;
-  HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
-  auto hlresult = GetOrCreateHbLazyTensor(self, src.device());
+  // pick the most recent version of src tensor
+  Tensor src_updated = get_recent_base_tensor(src);
+  HbLazyTensor hb_tensor =
+      GetOrCreateHbLazyTensor(src_updated, src_updated.device());
+  auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
   auto layout_format = hb_tensor.GetTensorLayout();
   hlresult.SetTensorLayout(layout_format);
   bool permuted = false;
@@ -596,7 +599,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     will handle the type conversion*/
   if ((self.scalar_type() == c10::ScalarType::Long) ||
       (self.scalar_type() == c10::ScalarType::Double) ||
-      (src.dtype() == self.dtype())) {
+      (src_updated.dtype() == self.dtype())) {
     // If both src and dst are already processed ,  go and do the DMA dont
     // wait Else , If we already have storage in dst, add memcopy node to lazy
     // graph and we want to copy to existing tensor and not a new one
@@ -624,7 +627,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // graph cycle happens in squad 8x with view table mechanism
       // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
       // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
-      auto src_parent = get_parent_tensor(src);
+      auto src_parent = get_parent_tensor(src_updated);
       auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
 
       if (src_parent_id == dst_id) {
@@ -640,7 +643,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
           updateDstDependencies(hlresult, self, true);
         }
 
-        AddMemcpy(src, self);
+        AddMemcpy(src_updated, self);
         updateDstDependencies(hlresult, self);
       }
     }
