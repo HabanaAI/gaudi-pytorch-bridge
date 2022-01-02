@@ -269,6 +269,13 @@ ENV_STRUCT_DEFINITION(PT_RECIPE_CACHE_DUMP_DEBUG, bool, false);
 ENV_STRUCT_DEFINITION(PT_ENABLE_MEMORY_DEFRAGMENTATION, bool, false);
 ENV_STRUCT_DEFINITION(PT_ENABLE_DEFRAGMENTATION_INFO, bool, false);
 
+// If ad-hoc groups are enabled (SW-69026), we always create a communicator
+// representing a world for each collective op. It is then destroyed upon op
+// completion and creation of a new world. It is also expected, that the calling
+// process sets HCL_CONFIG_PATH env var to the HCL config file describing the
+// world to be created.
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_ADHOC_GROUPS, bool, false);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

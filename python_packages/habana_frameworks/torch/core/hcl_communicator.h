@@ -65,6 +65,7 @@ class hcl_communicator : public std::enable_shared_from_this<hcl_communicator> {
   hcl_communicator& operator=(hcl_communicator&) = delete;
   hcl_communicator&& operator=(hcl_communicator&&) = delete;
   ~hcl_communicator();
+  void destroy_hcl();
 
   hcl_communicator_handle create_subcommunicator(const std::vector<int>& ranks);
 
@@ -276,6 +277,7 @@ class hcl_communicator : public std::enable_shared_from_this<hcl_communicator> {
   int size_{0};
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};
   HCL_Rank root_hcl_rank_{HCL_RANK_UNASSIGNED};
+  bool is_hcl_destroyed;
 };
 
 inline device_ptr hcl_communicator::reduction_buffer_addr() {
