@@ -64,6 +64,7 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Char, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
         {{c10::ScalarType::BFloat16, c10::ScalarType::Bool}, "cast_bf16_to_i8"},
         {{c10::ScalarType::BFloat16, c10::ScalarType::Char}, "cast_bf16_to_i8"},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Int}, "cast_bf16_to_i32"},
         {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
         {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
         {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},

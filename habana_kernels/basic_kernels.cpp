@@ -453,12 +453,30 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   // Insert the cast node - in case cast is to same type alias, insert an
   // identity op
   if (node_type.compare("cast_identity")) {
-    auto Op = make_operator<CastOperator>(self.device().index(), node_type);
-    Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    Op->SetOutputMetadata(output_metadata_);
-    Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-    p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
+    if (self.scalar_type() == c10::ScalarType::BFloat16 &&
+        type == c10::ScalarType::Int) {
+      auto bf_to_floatOp = make_operator<CastOperator>(
+          self.device().index(), "cast_bf16_to_f32");
+      auto float_to_intOp =
+          make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
+      bf_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      bf_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
+      float_to_intOp->SetSynapseInput(bf_to_floatOp->GetSynOutputs()[0]);
+      float_to_intOp->SetOutputMetadata(output_metadata_);
+      float_to_intOp->AllocateAndAddSynapseNode(
+          graph, inputs, is_output_persistent);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(float_to_intOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(float_to_intOp->GetOutputs()[0]));
+    } else {
+      auto Op = make_operator<CastOperator>(self.device().index(), node_type);
+      Op->SetSynapseInput(p_context_->syn_inputs_[0]);
+      Op->SetOutputMetadata(output_metadata_);
+      Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+      p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
+    }
   } else {
     auto identityOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
