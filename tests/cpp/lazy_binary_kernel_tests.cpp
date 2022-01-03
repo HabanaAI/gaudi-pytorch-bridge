@@ -216,6 +216,66 @@ TEST_F(LazyBinaryKernelTest, Maximum) {
   EXPECT_EQ(equal, true);
 }
 
+TEST_F(LazyBinaryKernelTest, Max2DFloat) {
+  at::Tensor self = at::randn({4, 100}, at::device(at::kCPU));
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
+  at::Tensor self =
+      at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
+  at::Tensor self = at::randint(
+      -50,
+      50,
+      {4, 10, 5, 3, 4, 5, 7, 2},
+      at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
+  auto self = at::randint(-50, 50, {}, at::device(at::kCPU));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::max(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::max(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
 TEST_F(LazyBinaryKernelTest, Minimum) {
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
@@ -225,6 +285,77 @@ TEST_F(LazyBinaryKernelTest, Minimum) {
       at::min(input1.to(torch::kHPU), input2.to(torch::kHPU));
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, Minimum8D) {
+  const std::vector<int64_t> dimentions{4, 5, 3, 2, 5, 2, 3, 6};
+  torch::Tensor input1 = torch::randn(dimentions);
+  torch::Tensor input2 = torch::randn(dimentions);
+
+  torch::Tensor out_cpu = at::min(input1, input2);
+  torch::Tensor out_hpu =
+      at::min(input1.to(torch::kHPU), input2.to(torch::kHPU));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, Min2DFloat) {
+  const std::vector<int64_t> dimentions{4, 5};
+  torch::Tensor input1 = torch::randn(dimentions);
+
+  torch::Tensor out_cpu = at::min(input1);
+  torch::Tensor out_hpu = at::min(input1.to(torch::kHPU));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, MinOneInput0DFloat) {
+  auto self = at::randint(-350, 350, {});
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::min(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::min(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MinOneInput8DLong) {
+  at::Tensor self = at::randint(
+      -50,
+      50,
+      {4, 10, 5, 3, 4, 5, 7, 2},
+      at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::min(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::min(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MinOneInput1DLong) {
+  at::Tensor self =
+      at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
+  auto dimValue = 0;
+  // CPU Run
+  at::Tensor output_ = at::min(self);
+  // Prepare HPU inputs
+  at::Tensor h_self = self.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::min(h_self);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
 }
 
 TEST_F(LazyBinaryKernelTest, DivOut) {
@@ -696,62 +827,3 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorInplace0DTest) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
-TEST_F(LazyBinaryKernelTest, Max2DFloat) {
-  at::Tensor self = at::randn({4, 100}, at::device(at::kCPU));
-  // CPU Run
-  at::Tensor output_ = at::max(self);
-  // Prepare HPU inputs
-  at::Tensor h_self = self.to(at::device(at::kHPU));
-  // HPU Run
-  at::Tensor h_output_ = at::max(h_self);
-  // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
-}
-
-TEST_F(LazyBinaryKernelTest, MaxOneInput1DLong) {
-  at::Tensor self =
-      at::randint(-50, 50, {4}, at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
-  // CPU Run
-  at::Tensor output_ = at::max(self);
-  // Prepare HPU inputs
-  at::Tensor h_self = self.to(at::device(at::kHPU));
-  // HPU Run
-  at::Tensor h_output_ = at::max(h_self);
-  // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
-}
-
-TEST_F(LazyBinaryKernelTest, MaxOneInput8DLong) {
-  at::Tensor self = at::randint(
-      -50,
-      50,
-      {4, 10, 5, 3, 4, 5, 7, 2},
-      at::device(at::kCPU).dtype(at::kLong));
-  auto dimValue = 0;
-  // CPU Run
-  at::Tensor output_ = at::max(self);
-  // Prepare HPU inputs
-  at::Tensor h_self = self.to(at::device(at::kHPU));
-  // HPU Run
-  at::Tensor h_output_ = at::max(h_self);
-  // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
-}
-
-TEST_F(LazyBinaryKernelTest, MaxOneInput0DFloat) {
-  auto self = at::randint(-50, 50, {}, at::device(at::kCPU));
-  auto dimValue = 0;
-  // CPU Run
-  at::Tensor output_ = at::max(self);
-  // Prepare HPU inputs
-  at::Tensor h_self = self.to(at::device(at::kHPU));
-  // HPU Run
-  at::Tensor h_output_ = at::max(h_self);
-  // Compare CPU vs HPU
-  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
-  EXPECT_EQ(allclose(h_output__cpu, output_, 0, 0, true), true);
-}

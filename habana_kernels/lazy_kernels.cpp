@@ -6731,13 +6731,7 @@ at::Tensor max_hpu_lazy(const at::Tensor& self) {
 
 at::Tensor min_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
-  // TODO: Need to make 0-dim output.
-  // With ... shape_out = {0}; following error reported
-  // Assertion (dst.nbytes() >= src.nbytes()) is false!
-  // ... /pytorch-integration/habana_kernels/basic_kernels.cpp:147 copy_hpu_
-  // terminate called without an active exception
-  // Aborted (core dumped)
-  LazyOp<at::Tensor> k{"aten::min", {self}, {}, {{1}}};
+  LazyOp<at::Tensor> k{"aten::min", {self}, {}, {{}}};
   return k.call();
 }
 
