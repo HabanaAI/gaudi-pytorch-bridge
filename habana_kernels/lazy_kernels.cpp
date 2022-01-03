@@ -2634,6 +2634,64 @@ Tensor gather2d_hpu_lazy(
   HABANA_ASSERT(0);
   return gather2d_hpu(input, indices, validCount);
 }
+
+Tensor slice_hpu_with_asstrided(
+    const Tensor& self,
+    int64_t dim,
+    c10::optional<int64_t> start,
+    c10::optional<int64_t> end,
+    int64_t step) {
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
+  }
+  dim = at::maybe_wrap_dim(dim, ndim);
+  DimVector sizes(self.sizes().begin(), self.sizes().end());
+  DimVector strides(self.strides().begin(), self.strides().end());
+
+  // handle optional parameters
+  int64_t start_val = start.has_value() ? start.value() : 0;
+  int64_t end_val = end.has_value() ? end.value() : INT64_MAX;
+
+  // TODO: support negative strides
+  TORCH_CHECK(step > 0, "slice step must be positive");
+
+  // INT64_MAX stands for default value.
+  if (start_val == INT64_MAX) {
+    start_val = 0;
+  }
+  if (start_val < 0) {
+    start_val += sizes[dim];
+  }
+  if (end_val < 0) {
+    end_val += sizes[dim];
+  }
+  if (start_val < 0) {
+    start_val = 0;
+  } else if (start_val >= sizes[dim]) {
+    start_val = sizes[dim];
+  }
+  if (end_val < start_val) {
+    end_val = start_val;
+  } else if (end_val >= sizes[dim]) {
+    end_val = sizes[dim];
+  }
+  auto storage_offset = self.storage_offset() + start_val * strides[dim];
+  auto len = end_val - start_val;
+  sizes[dim] = (len + step - 1) / step; // round-up
+  strides[dim] *= step;
+  // auto result = self.as_strided(sizes, strides, storage_offset);
+  auto result = add_strided_view_node(
+      self,
+      sizes,
+      strides,
+      storage_offset,
+      true /*is_update_view*/,
+      c10::nullopt);
+
+  return result;
+}
+
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
@@ -2642,7 +2700,7 @@ Tensor slice_hpu_lazy(
     int64_t step) {
   PT_LAZY_TRACE;
   if ((self_in.dim() <= 1) || (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE))) {
-    return at::native::slice(self_in, dim, start, end, step);
+    return slice_hpu_with_asstrided(self_in, dim, start, end, step);
   }
   // check if output tensor will be ZST
   auto sum_elm = habana_helpers::tensor_numel(self_in);

@@ -210,6 +210,20 @@ def test_hpu_lazy_slice_fwd_5D_bf16(N, C, D, H, W, bs):
     del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(t1_h, t1, atol=0, rtol=0)
 
+@pytest.mark.parametrize("N, C", test_case_list_1D)
+def test_hpu_autograd_slicefunction(N, C):
+    a = torch.randn([N, C, 2], requires_grad = True)
+    ha = a.to('hpu')
+    a2 = torch.relu(a)
+    b = torch.BoolTensor([N, C])
+    hb = b.to('hpu')
+    a2[b, :] = 0.0
+
+    ha2 = torch.relu(ha)
+    ha2[hb, :] = 0.0
+
+    compare_tensors(ha2, a2, atol=0.001, rtol=0.001)
+
 
 if __name__ == "__main__":
     test_hpu_st_tensor1()
