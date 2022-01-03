@@ -21,13 +21,18 @@
 
 #include <absl/types/variant.h>
 
-#include "habana_device/HPUCheck.h"
+#include "habana_bridge/kernel/ds_graph_recompile.h"
+#include "habana_bridge/kernel/hpu_habana_cache.h"
+
+#include "pytorch_helpers/habana_device/HPUCheck.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace synapse_helpers;
 namespace habana_helpers {
 
 constexpr int64_t DynamicBucketInfo::default_min_value_;
+constexpr uint64_t DynamicBucketInfo::min_iterations_to_split_;
+constexpr uint64_t DynamicBucketInfo::max_buckets_number_;
 
 std::mutex UniqueTokenGenerator::mutex_;
 UniqueTokenGenerator* UniqueTokenGenerator::instance_{nullptr};
@@ -314,37 +319,133 @@ uint64_t DynamicBucketInfo::GetBucketId(
 }
 
 absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
-  if (refine_enabled_ == false || buckets_.size() >= max_buckets_number_ ||
-      mfu_bucket_run_count < min_iterations_to_split_ || mfu_bucket_id == 0) {
+  if (refine_enabled_ == false) {
+    PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
+    return {};
+  }
+  if (buckets_.size() >= max_buckets_number_) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Maxed out total number=", max_buckets_number_, " of buckets");
+    return {};
+  }
+  if (mfu_bucket_run_count < min_iterations_to_split_) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Yet to reach ",
+        min_iterations_to_split_,
+        " for mfu bucket, currently at ",
+        mfu_bucket_run_count);
+    return {};
+  }
+
+  if (mfu_bucket_id == 0) {
+    PT_DYNAMIC_SHAPE_DEBUG("Can not refine static bucket");
     return {};
   }
 
   auto mfu_bucket = buckets_.at(mfu_bucket_id);
-
   if (mfu_bucket.IsRefinementCandidate() == false) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Bucket ", mfu_bucket_id, " is not a candidate for refinement");
     return {};
   }
-  buckets_.push_back(mfu_bucket.CreateNewBucket(split_policy_));
 
-  mfu_bucket.ResetRunCount();
+  auto rvpsh = buckets_.at(mfu_bucket_id).GetSynapseRecipePtr();
+  if (nullptr == rvpsh) {
+    PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");
+    return {};
+  }
 
-  uint64_t new_bucket_id = buckets_.size() - 1;
-  auto& new_bucket = buckets_.back();
-  new_bucket.SetIndex(new_bucket_id);
+  auto new_bucket = mfu_bucket.CreateNewBucket(split_policy_);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Created the bucket with following range after split::",
+      bucket_range_str(new_bucket));
+
+  ResultShapes result;
+
+  auto& ranges = new_bucket.getRanges();
+  auto& dynamic_dims = new_bucket.getDynamicDims();
+
+  for (auto& input : dynamic_dims) {
+    auto shape_min = shapes_.at(input.first);
+    auto shape_max = shape_min;
+
+    for (auto dim : input.second) {
+      shape_min.set_dim(dim.first, ranges[dim.second].first);
+      shape_max.set_dim(dim.first, ranges[dim.second].second);
+    }
+
+    result.min_shapes[input.first] = shape_min;
+    result.max_shapes[input.first] = shape_max;
+  }
+
+  for (auto p : shapes_) {
+    bool min_added{false}, max_added{false};
+    auto& tidx{p.first};
+    auto& tshape{p.second};
+    if (0 == result.min_shapes.count(tidx)) {
+      result.min_shapes.emplace(tidx, tshape);
+      min_added = true;
+    }
+    if (0 == result.max_shapes.count(p.first)) {
+      result.max_shapes.emplace(tidx, tshape);
+      max_added = true;
+    }
+
+    TORCH_CHECK(
+        min_added == max_added,
+        "Shape computation has gone wrong, min_added=",
+        min_added,
+        " and max_added=",
+        max_added,
+        " for input index=",
+        p.first);
+  }
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Bucket with id ",
-      mfu_bucket_id,
-      " is split and ",
-      " new bucket is created with id ",
-      new_bucket_id);
+      "Input range of new bucket:\n",
+      "Min\n",
+      result.min_shapes,
+      "Max\n",
+      result.max_shapes,
+      "--------------------");
 
-  // Reset MFU bucket details
-  mfu_bucket_id = 0;
-  mfu_bucket_run_count = 0;
-  UpdateMFUBucketDetails(new_bucket_id);
+  bool is_compiled{false};
+  try {
+    is_compiled = habana::CompileGraphWithRange(rvpsh, result, new_bucket);
+  } catch (std::exception& e) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Recipe compilation failed with exception '", e.what(), "'");
+    return {};
+  }
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Recipe compilation for new bucket: ",
+      (is_compiled ? "successful" : "failed"));
 
-  return new_bucket_id;
+  // Only push this bucket if the compilation is successful
+  if (is_compiled) {
+    buckets_.push_back(new_bucket);
+
+    mfu_bucket.ResetRunCount();
+
+    uint64_t new_bucket_id = buckets_.size() - 1;
+    auto& new_bucket = buckets_.back();
+    new_bucket.SetIndex(new_bucket_id);
+
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Bucket with id ",
+        mfu_bucket_id,
+        " is split and new bucket is created with id ",
+        new_bucket_id);
+
+    // Reset MFU bucket details
+    mfu_bucket_id = 0;
+    mfu_bucket_run_count = 0;
+    UpdateMFUBucketDetails(new_bucket_id);
+
+    return new_bucket_id;
+  }
+
+  return {};
 }
 
 bool DynamicBucketInfo::UpdateBucketWithPolicy(
@@ -783,6 +884,46 @@ bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
   return bucket < buckets_.size() && buckets_[bucket].GetKeepRunTime();
 }
 
+std::string DynamicBucketInfo::bucket_range_str(
+    const Bucket& bucket,
+    bool is_first) const {
+  if (is_first) {
+    return DebugString(ref_tensor_shapes_);
+  }
+
+  std::ostringstream O;
+  const auto& ranges{bucket.getRanges()};
+  const auto& dynamic_dims{bucket.getDynamicDims()};
+  for (auto tensor_it : ref_tensor_shapes_) {
+    const auto& tensor_idx{tensor_it.first};
+    std::string tensor_str_lo;
+    std::string tensor_str_hi;
+    O << '\n';
+    tensor_str_lo += " [";
+    tensor_str_hi += " [";
+    bool is_first{true};
+    for (auto dim_it : tensor_it.second) {
+      const auto& dim_idx{dim_it.first};
+      auto dim_lo{dim_it.second};
+      auto dim_hi{dim_it.second};
+      if (dynamic_dims.count(tensor_idx) &&
+          dynamic_dims.at(tensor_idx).count(dim_idx)) {
+        auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
+        dim_lo = ranges.at(range_idx).first;
+        dim_hi = ranges.at(range_idx).second;
+      }
+      tensor_str_lo += (is_first ? "" : ",") + std::to_string(dim_lo);
+      tensor_str_hi += (is_first ? "" : ",") + std::to_string(dim_hi);
+      is_first = false;
+    }
+    tensor_str_lo += "]";
+    tensor_str_hi += "]";
+    O << tensor_str_lo << " -" << tensor_str_hi;
+  }
+
+  return O.str();
+}
+
 std::string DynamicBucketInfo::digest_str() const {
   // Present summary stats
   std::ostringstream O;
@@ -802,44 +943,13 @@ std::string DynamicBucketInfo::digest_str() const {
       << " run time stat     : " << cumu_run_time_stat_ << '\n';
   }
   O << "Bucket details:" << '\n';
-  // for (const auto& b : buckets_) {
+
   for (size_t idx = 0; idx < buckets_.size(); idx++) {
     const auto& bucket{buckets_.at(idx)};
     O << "Bucket id: " << idx << '\n';
     O << bucket.digest_str();
     O << "Ranges:";
-    if (idx) {
-      const auto& ranges{bucket.getRanges()};
-      const auto& dynamic_dims{bucket.getDynamicDims()};
-      for (auto tensor_it : ref_tensor_shapes_) {
-        const auto& tensor_idx{tensor_it.first};
-        std::string tensor_str_lo;
-        std::string tensor_str_hi;
-        O << '\n';
-        tensor_str_lo += " [";
-        tensor_str_hi += " [";
-        bool is_first{true};
-        for (auto dim_it : tensor_it.second) {
-          const auto& dim_idx{dim_it.first};
-          auto dim_lo{dim_it.second};
-          auto dim_hi{dim_it.second};
-          if (dynamic_dims.count(tensor_idx) &&
-              dynamic_dims.at(tensor_idx).count(dim_idx)) {
-            auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
-            dim_lo = ranges.at(range_idx).first;
-            dim_hi = ranges.at(range_idx).second;
-          }
-          tensor_str_lo += (is_first ? "" : ",") + std::to_string(dim_lo);
-          tensor_str_hi += (is_first ? "" : ",") + std::to_string(dim_hi);
-          is_first = false;
-        }
-        tensor_str_lo += "]";
-        tensor_str_hi += "]";
-        O << tensor_str_lo << " -" << tensor_str_hi;
-      }
-    } else {
-      O << DebugString(ref_tensor_shapes_);
-    }
+    O << bucket_range_str(bucket, (0 == idx));
     O << '\n' << "--------------------" << '\n';
   }
   return O.str();

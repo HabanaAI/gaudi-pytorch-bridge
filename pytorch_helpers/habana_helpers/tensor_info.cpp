@@ -1,7 +1,51 @@
+/******************************************************************************
+ * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include "habana_helpers/tensor_info.h"
+
+#include <sstream>
+
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
+
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+std::string DebugString(const at::Tensor& t) {
+  std::stringstream O;
+
+  O << "dim=" << t.dim() << ", shape=" << t.sizes() << ", numel=" << t.numel()
+    << ", stride=" << t.strides() << ", layout=" << t.layout();
+
+  if (t.has_storage()) {
+    O << ", address=" << t.storage().data_ptr().get();
+    if (t.is_cpu()) {
+      O << ", contents:";
+    }
+  } else {
+    O << ", place_holder";
+  }
+
+  if (t.is_cpu()) {
+    O << t;
+  }
+
+  return O.str();
+}
+
+void print_pttensor(const at::Tensor& t, std::string tname) {
+  PT_TEST_DEBUG("PTI_DBG :: tensor ", tname, " : ", DebugString(t));
+}
 
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
@@ -200,14 +244,14 @@ void PrintATenTensor(const at::Tensor& a) {
   } else {
     O << " does not have storage";
   }
-  O << ',' << " use_count " << a.use_count() << '\n';
+  O << ',' << " use_count " << a.use_count() << std::endl;
 }
 
 void PrintATenTensor(const IVal& a) {
   if (a.isTensor()) {
     PrintATenTensor(a.toTensor());
   } else {
-    std::cout << "Non-tensor : ivalue :: " << a << '\n';
+    std::cout << "Non-tensor : ivalue :: " << a << std::endl;
   }
 }
 

@@ -312,6 +312,13 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
       O << a << '\n';
     }
   }
+  O << "---- jit graph :: begin" << '\n';
+  if (v.jit_graph_) {
+    O << v.jit_graph_->toString();
+  } else {
+    O << "empty jit graph" << '\n';
+  }
+  O << "---- jit graph :: end" << '\n';
   O << "---- recipe details :: end" << '\n';
 
   return O;
@@ -1263,6 +1270,19 @@ void DynamicBucketInfoMap::add(
     std::shared_ptr<habana_helpers::DynamicBucketInfo>& val) {
   std::lock_guard<std::mutex> lg(mutex_);
   map_.emplace(key, val);
+}
+
+void DynamicBucketInfoMap::refine() {
+  std::lock_guard<std::recursive_mutex> recursive_lg(
+      habana_lazy::HbContextArena::Get()->GetMutex());
+  std::lock_guard<std::mutex> lg(mutex_);
+  for (auto& p : map_) {
+    auto dbipsh = p.second;
+    PT_TEST_DEBUG_TH(
+        "Iterating over DynamicBucketInfo for graph with key=",
+        dbipsh->GetGraphKey());
+    dbipsh->CheckForSplitBucket();
+  }
 }
 
 DiskCache::DiskCache(std::string cache_path)

@@ -344,7 +344,6 @@ at::Tensor habana_helpers::createPTTensor(
     const at::Tensor& input,
     bool is_persistent) {
   at::Tensor t;
-
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());

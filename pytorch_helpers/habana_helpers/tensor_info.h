@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -26,6 +29,10 @@
 using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
 using ValPtr = torch::jit::Value*;
+
+std::string DebugString(const at::Tensor& t);
+void print_pttensor(const at::Tensor& t, std::string tname);
+#define PRINT_PTTENSOR(T) print_pttensor(T, std::string(#T))
 
 void PrintATenTensor(const at::Tensor& a);
 void PrintATenTensor(const IVal& a);
@@ -192,7 +199,7 @@ class PtTensorInfo {
   const c10::MemoryFormat& get_mf() const {
     return mf_;
   }
-  synTensorType tensor_type() {
+  synTensorType tensor_type() const {
     return tensor_type_;
   }
   const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() {

@@ -423,33 +423,6 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
   get_and_check_bucket(2, 1);
   get_and_check_bucket(3, 2);
 
-  uint64_t iter_cnt{0};
-  uint64_t max_iter_cnt{
-      habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 2};
-  while (iter_cnt++ < max_iter_cnt) {
-    get_and_check_bucket(4, 2, false);
-  }
-
-  std::cout << "PTI_DBG :: "
-            << "Collected info with the following for " << max_iter_cnt
-            << " times with input tensor shapes ::" << '\n'
-            << s[4];
-  get_and_check_bucket(4, 2, true);
-
-  auto new_bucket = bucket_info.CheckForSplitBucket();
-
-  ASSERT_TRUE(new_bucket.has_value());
-  ASSERT_EQ(new_bucket.value(), 3);
-
-  std::cout << "PTI_DBG :: "
-            << "New bucket id : " << new_bucket.value();
-  std::cout << '\n' << "====================" << '\n';
-  std::cout << "PTI_DBG :: " << bucket_info;
-  std::cout << "--------------------" << '\n';
-
-  get_and_check_bucket(5, 3);
-  get_and_check_bucket(6, 2);
-
   if (!refine_enabled) {
     UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   }

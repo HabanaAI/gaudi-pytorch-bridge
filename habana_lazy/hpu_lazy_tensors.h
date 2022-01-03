@@ -9,11 +9,16 @@
  */
 
 #pragma once
+#include <chrono>
+#include <future>
+#include <thread>
+#include <unordered_set>
+
 #include <ATen/Tensor.h>
 #include <c10/core/Device.h>
-#include <habana_device/hpu_cached_devices.h>
 #include <torch/csrc/jit/ir/ir.h>
-#include <unordered_set>
+
+#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/misc_utils.h"
 #include "ir.h"
 #include "ir_utils.h"
@@ -178,6 +183,7 @@ class HbLazyTensor {
 
   static void StepMarker(const std::string& device_str = {});
   static void StepMarkerBind(const std::string& device_str = {});
+  static void InitiateBucketRefinement();
   static void SetDynamicMode();
 
   static void RunSavedGraph(const std::string& device_str);
@@ -251,6 +257,12 @@ class HbLazyTensor {
       std::vector<ir::Value>& input_values,
       size_t optimized_lazy_eager_key = 0);
   static bool switch_dynamic_mode;
+
+  // The following handle is used to keep track of refinement thread.
+  // Every invocation of StepMarker first checks whether a refinement thread
+  // is running and creates one only when there is no refinement thread
+  // running.
+  static std::future<bool> refinement_handle_;
 };
 
 // The HbContextArena holds per device live information and statistics,

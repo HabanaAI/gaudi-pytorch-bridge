@@ -22,6 +22,9 @@
 #include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "habana_bridge/kernel/hpu_shape_inference.h"
+
+#include "habana_lazy/hpu_lazy_tensors.h"
+
 #include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
@@ -170,8 +173,9 @@ struct RecipeArgumentSpecEqual {
 // subgraph
 struct RecipeValueSpec {
   RecipeValueSpec(
-      std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
-      : recipe(r), dtensorinfos(nullptr), aten_outputs(nullptr) {
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr,
+      std::shared_ptr<torch::jit::Graph> g = nullptr)
+      : recipe(r), dtensorinfos(nullptr), aten_outputs(nullptr), jit_graph_(g) {
     count++;
     id = count;
   }
@@ -310,7 +314,9 @@ struct RecipeValueSpec {
   // Multiple recipes can be queued up, so each recipe would need
   // a dedicated time slot for itself
   std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
+  std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
 
+  static size_t current_id_;
   static size_t count;
   static size_t recipe_count;
   static size_t dynamic_recipe_count;
@@ -429,6 +435,8 @@ class DynamicBucketInfoMap {
       std::shared_ptr<habana_helpers::DynamicBucketInfo>& val);
   std::shared_ptr<habana_helpers::DynamicBucketInfo> get(
       std::shared_ptr<RecipeArgumentSpec>& key);
+
+  void refine();
 
   // Add print function for DynamicBucket
   // friend std::ostream& operator<<(std::ostream& O, const

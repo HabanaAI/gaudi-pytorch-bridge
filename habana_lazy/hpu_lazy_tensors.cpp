@@ -10,24 +10,28 @@
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
-#include "debug_utils.h"
+
+#include "habana_bridge/kernel/ds_graph_recompile.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ops/hpu_input.h"
-#include "hlexec.h"
-#include "hpu_lazy_cache.h"
-#include "synapse_helpers/env_flags.h"
+
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 
 using ValueList = std::vector<ir::Value>;
 
 bool HbLazyTensor::switch_dynamic_mode = false;
+std::future<bool> HbLazyTensor::refinement_handle_{};
 
 HbContextArena* HbContextArena::Get() {
   static HbContextArena* arena = new HbContextArena();
@@ -583,7 +587,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   stack.reserve(std::max(po_data.inputs.size(), po_data.outputs.size()));
 
   for (const auto& in : po_data.inputs) {
-    PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
+    // PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
     if (!in.DataPtrValidAndNotExpired()) {
       std::vector<ir::NodePtr> p_roots;
       p_roots.reserve(indices.size());
@@ -598,9 +602,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
       std::clog << error_message;
       HABANA_ASSERT(in.DataPtrValidAndNotExpired());
-    }
-    if (in.mp_node) {
-      PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
     }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     auto pt_tensor = Process0DTensor(d);
@@ -880,6 +881,10 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
 
 void HbLazyTensor::StepMarker(const std::string& device_str) {
   PT_LAZY_TRACE;
+
+  // Entry point of bucket refinement thread
+  InitiateBucketRefinement();
+
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
   HbLazyTensor::SyncLiveTensorsGraph(&device, /* is_cached*/ false);
@@ -887,6 +892,30 @@ void HbLazyTensor::StepMarker(const std::string& device_str) {
   if (switch_dynamic_mode) {
     UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     switch_dynamic_mode = false;
+  }
+}
+
+void HbLazyTensor::InitiateBucketRefinement() {
+  PT_LAZY_TRACE;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
+    // Start the separate compile thread
+    if (!HbLazyTensor::refinement_handle_.valid()) {
+      PT_TEST_DEBUG_TH(
+          "Bucket refine thread is not started. Starting a new thread ...");
+      HbLazyTensor::refinement_handle_ =
+          std::async(habana::RefineBucketDS, 0.9);
+    } else {
+      std::chrono::milliseconds span(0);
+      auto compile_status = HbLazyTensor::refinement_handle_.wait_for(span);
+      if (std::future_status::ready != compile_status) {
+        PT_TEST_DEBUG_TH("Bucket refine thread is running ...");
+      } else {
+        PT_TEST_DEBUG(
+            "Bucket refine thread is completed. Starting a new thread ...");
+        HbLazyTensor::refinement_handle_ =
+            std::async(habana::RefineBucketDS, 0.9);
+      }
+    }
   }
 }
 

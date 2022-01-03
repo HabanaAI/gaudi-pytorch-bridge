@@ -510,3 +510,16 @@ class PTFuncLog {
 #define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::TEST, __VA_ARGS__)
 #define PT_DYNAMIC_SHAPE_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
+
+#define PT_TEST_DEBUG_TH(...)     \
+  PT_TEST_DEBUG(                  \
+      "PTI_DBG :: ",              \
+      __FUNCTION__,               \
+      ":",                        \
+      __LINE__,                   \
+      " THR=",                    \
+      std::this_thread::get_id(), \
+      " :: ",                     \
+      __VA_ARGS__)
+
+// End of logging macros

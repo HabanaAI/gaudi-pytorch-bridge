@@ -386,23 +386,17 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, BucketRefinement) {
+TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
   int A = 50;
   const int C = 30;
-  std::vector<int> input_sizes{14, 16, 24, 16};
-  std::vector<int> rounds{1, 6, 6, 6};
+  std::vector<int> input_sizes{14, 16};
+  std::vector<int> rounds{1, 6};
   int num;
 
-  for (int input_idx = 0; input_idx < input_sizes.size(); input_idx++) {
-    for (int cur_input_round{}; cur_input_round < rounds[input_idx];
-         cur_input_round++) {
-      int B = input_sizes[input_idx];
-      PT_TEST_DEBUG(
-          "\nPTI_DBG :: TEST ",
-          input_idx,
-          ", round ",
-          cur_input_round,
-          "  START");
+  for (int i = 0; i < input_sizes.size(); i++) {
+    for (int j = 1; j <= rounds[i]; j++) {
+      int B = input_sizes[i];
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
 
       torch::Tensor h0 =
           torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
@@ -413,10 +407,35 @@ TEST_F(LazyDynamicShapesTest, BucketRefinement) {
       torch::Tensor h5 = torch::mul(h0, h1);
       torch::Tensor h6 = torch::mul(h4, h5);
       torch::Tensor h7 = torch::relu(h6);
+      HbLazyTensor::StepMarker({});
       torch::Tensor h7_c = h7.to(torch::kCPU);
 
-      PT_TEST_DEBUG(
-          "PTI_DBG :: TEST ", input_idx, ", round ", cur_input_round, "  END");
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", i + 1, ", round ", j, "  END");
+    }
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, RefineSlice) {
+  int N = 1;
+  int C = 4;
+  int H = 24;
+  std::vector<int> W_values{16, 36};
+  std::vector<int> rounds{1, 6};
+  for (int i = 0; i < W_values.size(); i++) {
+    for (int j = 1; j <= rounds[i]; j++) {
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
+      int W = W_values[i];
+      torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+      torch::Tensor hA = A.to(torch::kHPU);
+      int64_t dim = 2;
+      int64_t start_index = 0;
+      int64_t end = 3;
+      int64_t step = 1;
+
+      torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
+      HbLazyTensor::StepMarker({});
+      auto h_cout = h_out.to(torch::kCPU);
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", i + 1, ", round ", j, "  END");
     }
   }
 }
@@ -685,10 +704,10 @@ TEST_F(LazyDynamicShapesTest, ProdTest) {
 TEST_F(LazyDynamicShapesTest, SliceTest) {
   int N = 1;
   int C = 4;
-  int H = 4;
-  std::vector<int> in_sizes{16, 18, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
+  int H = 24;
+  std::vector<int> W_values{16, 18, 20};
+  for (int i = 0; i < W_values.size(); i++) {
+    int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
@@ -698,11 +717,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
     int64_t step = 1;
 
     torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
-
     auto h_cout = h_out.to(torch::kCPU);
-    auto cout = torch::slice(A, dim, start_index, end, step);
-
-    EXPECT_EQ(allclose(h_cout, cout), true);
   }
 }
 

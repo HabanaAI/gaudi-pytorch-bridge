@@ -123,6 +123,12 @@ class HabanaLaunchOpPT {
       const std::string& name);
   explicit HabanaLaunchOpPT(std::shared_ptr<torch::jit::Graph> graph);
   ~HabanaLaunchOpPT();
+
+  void CompileGraphWithRange(
+      torch::jit::Stack& stack,
+      habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
+      habana_helpers::Bucket& new_bucket);
+
   void run(torch::jit::Stack& stack);
 
   static std::unordered_set<std::string> watchlist_;
@@ -214,7 +220,7 @@ class HabanaLaunchOpPT {
   bool use_persistent_tensors{false};
 
   at::ArrayRef<torch::jit::IValue> input_refs;
-  torch::jit::Stack* pt_stack = nullptr;
+  torch::jit::Stack* pt_stack{nullptr};
   uint64_t t_compile_ns{0};
   std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
 
@@ -401,8 +407,8 @@ class HabanaLaunchOpPT {
   }
 
   // Member functions related to lowering IR to Synapse
-  void BackupInputStack(torch::jit::Stack& input_st);
   void Clear(bool is_shape_inference = false);
+  void CopyInputStack(torch::jit::Stack& input_st);
 
   // TODO: Check whether the swap destruct paradigm provides any performance
   // gain
@@ -421,6 +427,7 @@ class HabanaLaunchOpPT {
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
   void OrderOutputTinfos(RecipeValueSpec& rv);
+  void ProcessInputStack(torch::jit::Stack& input_st);
   void RestoreInputTensorMetadata();
   void UpdateOutputs();
   void UpdateOutputs(RecipeValueSpec& rv);

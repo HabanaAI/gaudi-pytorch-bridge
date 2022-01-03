@@ -14,6 +14,7 @@
 
 #include <cstdint>
 
+#include <algorithm>
 #include <atomic>
 #include <iostream>
 #include <limits>
@@ -25,11 +26,16 @@
 #include <utility>
 #include <vector>
 
-#include "habana_helpers/tensor_shape.h"
-#include "synapse_helpers/habana_tensor.h"
-#include "synapse_helpers/stream.h"
-#include "synapse_helpers/time_slot.h"
 #include "torch/csrc/jit/ir/ir.h"
+
+#include "pytorch_helpers/habana_helpers/tensor_shape.h"
+#include "pytorch_helpers/synapse_helpers/habana_tensor.h"
+#include "pytorch_helpers/synapse_helpers/stream.h"
+#include "pytorch_helpers/synapse_helpers/time_slot.h"
+
+namespace habana {
+class RecipeValueSpec;
+}
 
 namespace habana_helpers {
 const size_t max_elements_to_print = 64;
@@ -226,10 +232,27 @@ inline std::ostream& operator<<(
   for (const auto& a : t) {
     tensor_idx_vec.push_back(a.first);
   }
+  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
   for (const auto i : tensor_idx_vec) {
     O << "  " << i << ":" << t.at(i);
+    O << '\n';
   }
-  O << '\n';
+  return O;
+}
+
+inline std::ostream& operator<<(
+    std::ostream& O,
+    const std::unordered_map<uint64_t, habana_helpers::TensorShape>& t) {
+  std::vector<uint64_t> tensor_idx_vec;
+  tensor_idx_vec.reserve(t.size());
+  for (const auto& a : t) {
+    tensor_idx_vec.push_back(a.first);
+  }
+  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
+  for (const auto i : tensor_idx_vec) {
+    O << "  " << i << ":" << t.at(i);
+    O << '\n';
+  }
   return O;
 }
 
@@ -401,6 +424,9 @@ class Bucket {
       const std::vector<int64_t>& dims,
       const std::set<int64_t>& skipped_ranges) const;
   void IncStats(const std::vector<int64_t>& dims);
+  size_t GetIndex() {
+    return idx_;
+  }
   void SetIndex(size_t i) {
     idx_ = i;
   }
@@ -486,6 +512,13 @@ class Bucket {
     return O.str();
   }
 
+  void SetSynapseRecipePtr(std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
+    rvpwk_ = rvpsh;
+  }
+  std::shared_ptr<habana::RecipeValueSpec> GetSynapseRecipePtr() {
+    return rvpwk_.lock();
+  }
+
   static constexpr uint64_t uninitialized_token = 1000000006;
 
  private:
@@ -519,6 +552,7 @@ class Bucket {
 
   bool keep_time_{true};
   bool refine_candidate_{true};
+  std::weak_ptr<habana::RecipeValueSpec> rvpwk_;
 };
 
 class DynamicBucketInfo {
@@ -597,6 +631,8 @@ class DynamicBucketInfo {
   void add_token_for_input_shapes(size_t key, size_t val) {
     input_token_map_.emplace(key, val);
   }
+  std::string bucket_range_str(const Bucket& bucket, bool is_first = false)
+      const;
   std::string digest_str() const;
   friend inline std::ostream& operator<<(
       std::ostream& O,
@@ -661,14 +697,31 @@ class DynamicBucketInfo {
     min_policy_ = MIN_POLICY_DEFAULT;
     max_policy_ = MAX_POLICY_DEFAULT;
   }
+  size_t GetGraphKey() {
+    return graph_key_;
+  }
+  void SetGraphKey(size_t key) {
+    graph_key_ = key;
+  }
   DynamicDimsPolicy GetMinPolicy() {
     return min_policy_;
   }
   DynamicDimsPolicy GetMaxPolicy() {
     return max_policy_;
   }
+  std::shared_ptr<torch::jit::Graph> GetJitIRGraphPtr() {
+    return jitirpwk_.lock();
+  }
   void SetJitIRGraphPtr(std::shared_ptr<torch::jit::Graph> jirpsh) {
-    jit_ir_pwk = jirpsh;
+    jitirpwk_ = jirpsh;
+  }
+  void SetSynapseRecipePtr(
+      size_t bidx,
+      std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
+    buckets_.at(bidx).SetSynapseRecipePtr(rvpsh);
+  }
+  std::shared_ptr<habana::RecipeValueSpec> GetSynapseRecipePtr(size_t bidx) {
+    return buckets_.at(bidx).GetSynapseRecipePtr();
   }
   void IncrementHitCount(size_t bucket_idx) {
     cumu_hit_count_++;
@@ -795,7 +848,8 @@ class DynamicBucketInfo {
   DynamicDimsHelper dynamic_dims_;
 
   // Corresponding JIT IR graph
-  std::weak_ptr<torch::jit::Graph> jit_ir_pwk;
+  size_t graph_key_{};
+  std::weak_ptr<torch::jit::Graph> jitirpwk_;
 
   // TimeStat across all buckets
   TimeStat cumu_run_time_stat_;

@@ -17,7 +17,7 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
-void habana::HabanaLaunchOpPT::BackupInputStack(torch::jit::Stack& input_st) {
+void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
   pt_stack = &input_st;
 
@@ -119,7 +119,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
   RecipeValueSpec::increment_compile_count();
 
   auto cur_recipe = get_value(std::move(error_variant));
-  cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe);
+  cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe, jit_ir_graph);
   RecipeValueSpec& rv = *cur_rvalpsh;
 
   // Get workspace size of the compiled recipe
@@ -363,6 +363,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     // Add the <key,value> pair to the map
     if (refine_ds_enabled_) {
       rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
+      // Add the recipe to the corresponding bucket
+      current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, cur_rvalpsh);
     }
     RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
     PT_BRIDGE_DEBUG(
@@ -807,4 +809,39 @@ void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
   rv.aten_outputs = nullptr;
+}
+
+void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
+  num_inputs = jit_ir_graph->inputs().size();
+  TORCH_CHECK(
+      num_inputs == input_st.size(),
+      "Input stack size=",
+      num_inputs,
+      " is not matching with #graph_inputs=",
+      input_st.size());
+
+  num_tensor_inputs = 0;
+  input_refs = torch::jit::last(input_st, num_inputs);
+
+  // All tensors should be on Habana, we should assert otherwise
+  bool is_all_hpu = true;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HPU
+          ? false
+          : is_all_hpu;
+    }
+  }
+
+  // We dont support running some ops on CPU while running fused op on Habana
+  // All tensors should be alocated to habana before entering this phase
+  TORCH_CHECK(
+      is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
+
+  // Set the habana operators to capture data
+  if (refine_ds_enabled_) {
+    habana::ShapeInference::Capture(&m_map_shape);
+  }
+
+  CopyInputStack(input_st);
 }
