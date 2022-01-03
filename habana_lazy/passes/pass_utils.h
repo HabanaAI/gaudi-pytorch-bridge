@@ -28,6 +28,8 @@ bool isRetunrOut(
     std::shared_ptr<torch::jit::Graph>& graph,
     const torch::jit::Value* value_out);
 
+bool is_4d_5d_value(const torch::jit::Value* value_in);
+
 class WeightIdentificationPass {
  public:
   WeightIdentificationPass() {}

@@ -72,6 +72,13 @@ bool isRetunrOut(
   return false;
 }
 
+bool is_4d_5d_value(const torch::jit::Value* value_in) {
+  return (*value_in->type()->cast<TensorType>()->dim() == 4 ||
+          *value_in->type()->cast<TensorType>()->dim() == 5)
+      ? true
+      : false;
+}
+
 bool WeightIdentificationPass::isTensor(const torch::jit::Value* value) {
   HABANA_ASSERT(value->node());
   return !(value->node()->kind() == c10::prim::Constant);

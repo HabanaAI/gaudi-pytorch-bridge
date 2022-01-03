@@ -77,13 +77,6 @@ bool is_4d_5d_tensor(const at::Tensor tensor) {
   return (tensor.dim() == 4 || tensor.dim() == 5) ? true : false;
 }
 
-bool is_4d_5d_value(const torch::jit::Value* value_in) {
-  return (*value_in->type()->cast<TensorType>()->dim() == 4 ||
-          *value_in->type()->cast<TensorType>()->dim() == 5)
-      ? true
-      : false;
-}
-
 at::IntArrayRef getDimsForWeightLayout(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order,

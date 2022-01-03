@@ -299,11 +299,13 @@ void InsertPermute_graph(
 
   auto weight_values = weight_pass.getWeightTensors();
   for (auto win : weight_values) {
-    if (*win->type()->cast<TensorType>()->dim() == 4 ||
-        *win->type()->cast<TensorType>()->dim() == 5) {
-      value_to_tensor_layout[win].layout = habana::LayoutFormat::HWCK;
-      value_to_tensor_layout[win].layout_at_graph_entry =
-          habana::LayoutFormat::HWCK;
+    if (win->type()->kind() == c10::TypeKind::TensorType) {
+      if (*win->type()->cast<TensorType>()->dim() == 4 ||
+          *win->type()->cast<TensorType>()->dim() == 5) {
+        value_to_tensor_layout[win].layout = habana::LayoutFormat::HWCK;
+        value_to_tensor_layout[win].layout_at_graph_entry =
+            habana::LayoutFormat::HWCK;
+      }
     }
   }
 
@@ -750,9 +752,16 @@ void InsertPermute_graph(
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               origin_input_layout;
           if (assigned_input_layout == habana::LayoutFormat::HWCK) {
-            value_to_tensor_layout[value_out].layout = assigned_input_layout;
-            value_to_tensor_layout[value_out].layout_at_graph_entry =
-                assigned_input_layout;
+            if (is_4d_5d_value(value_out)) {
+              value_to_tensor_layout[value_out].layout = assigned_input_layout;
+              value_to_tensor_layout[value_out].layout_at_graph_entry =
+                  assigned_input_layout;
+            } else {
+              value_to_tensor_layout[value_out].layout =
+                  habana::LayoutFormat::NCHW;
+              value_to_tensor_layout[value_out].layout_at_graph_entry =
+                  habana::LayoutFormat::NCHW;
+            }
           }
           output_tensor_idx++;
         }
