@@ -115,17 +115,34 @@ std::vector<int64_t> DiagOutOperator::compute_output_shape(
     int64_t& diagonal) {
   auto sizes = self.sizes().vec();
   std::vector<int64_t> output_shape;
+
+  // https://jira.habana-labs.com/browse/SW-42950
+  TORCH_CHECK(
+      (self.dim() == 1 || self.dim() == 2),
+      "Invalid Input size",
+      self.sizes().vec())
   if (self.dim() == 1) {
     output_shape.push_back(self.sizes().vec()[0] + abs(diagonal));
     output_shape.push_back(self.sizes().vec()[0] + abs(diagonal));
   }
   if (self.dim() == 2) {
+    // https://pytorch.org/docs/stable/generated/torch.diag.html
     int64_t m = self.sizes().vec()[0];
     int64_t n = self.sizes().vec()[1];
     int size;
-    if (diagonal > 0) {
-      size = n - abs(diagonal);
-    } else {
+    if (diagonal == 1) { // diagonal=1
+      if (m >= n) { // R>=C
+        size = n - abs(diagonal);
+      } else { // R<C
+        size = m;
+      }
+    } else if (diagonal == 0) { // diagonal = 0 R>C/ R=C/ R<C
+      size = std::min(m, n) -
+          abs(diagonal); // https://jira.habana-labs.com/browse/SW-65273 (R>C)
+    } else if (diagonal > 0) { // diagonal > 0 R>C/ R=C/ R<C
+      size = std::max(m, n) -
+          abs(diagonal); // https://jira.habana-labs.com/browse/SW-65151 (R<C)
+    } else { // diagonal < 0 R>C/ R=C/ R<C
       size = m - abs(diagonal);
     }
     TORCH_CHECK(

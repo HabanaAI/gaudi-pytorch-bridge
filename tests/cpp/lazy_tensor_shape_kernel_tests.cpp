@@ -388,15 +388,152 @@ TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST_F(LazyTensorShapeKernelTest, DiagOut2DTest) {
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_GT_1_R_LT_C) {
   torch::Tensor tensor = torch::randn({3, 4});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
-  torch::Tensor out_tensor = torch::randn({1});
+  torch::Tensor out_tensor = torch::randn({});
   auto out_habana_tensor = out_tensor.to(torch::kHPU);
 
   auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
   auto out = torch::diag_out(out_tensor, tensor, 3);
 
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_GT_1_R_EQ_C) {
+  torch::Tensor tensor = torch::randn({4, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
+  auto out = torch::diag_out(out_tensor, tensor, 3);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_GT_1_R_GT_C) {
+  torch::Tensor tensor = torch::randn({4, 3});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
+  auto out = torch::diag_out(out_tensor, tensor, 3);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_0_R_LT_C) {
+  torch::Tensor tensor = torch::randn({3, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 0);
+  auto out = torch::diag_out(out_tensor, tensor, 0);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_0_R_EQ_C) {
+  torch::Tensor tensor = torch::randn({4, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 0);
+  auto out = torch::diag_out(out_tensor, tensor, 0);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_0_R_GT_C) {
+  torch::Tensor tensor = torch::randn({4, 3});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 0);
+  auto out = torch::diag_out(out_tensor, tensor, 0);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestNegativeDiagonalTest_R_LT_C) {
+  torch::Tensor tensor = torch::randn({3, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, -1);
+  auto out = torch::diag_out(out_tensor, tensor, -1);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestNegativeDiagonalTest_R_GT_C) {
+  torch::Tensor tensor = torch::randn({4, 3});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, -1);
+  auto out = torch::diag_out(out_tensor, tensor, -1);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestNegativeDiagonalTest_R_EQ_C) {
+  torch::Tensor tensor = torch::randn({4, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, -1);
+  auto out = torch::diag_out(out_tensor, tensor, -1);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_1_R_LT_C) {
+  torch::Tensor tensor = torch::randn({64, 128});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
+  auto out = torch::diag_out(out_tensor, tensor, 1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_1_R_EQ_C) {
+  torch::Tensor tensor = torch::randn({64, 64});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
+  auto out = torch::diag_out(out_tensor, tensor, 1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTestDiagonal_1_R_GT_C) {
+  torch::Tensor tensor = torch::randn({128, 64});
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
+  torch::Tensor out_tensor = torch::randn({});
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
+  auto out = torch::diag_out(out_tensor, tensor, 1);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
