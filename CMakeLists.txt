@@ -54,6 +54,7 @@ add_subdirectory(pytorch_helpers)
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
   habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
+  habana_bridge/kernel/hpu_habana_launch_op_pt_lowering.cpp
   habana_bridge/kernel/hpu_habna_launch_op_opt_pass.cpp
   habana_bridge/kernel/hpu_habana_cache.cpp
   habana_bridge/kernel/hpu_process_control_edges.cpp

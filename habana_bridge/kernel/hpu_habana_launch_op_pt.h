@@ -257,8 +257,6 @@ class HabanaLaunchOpPT {
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
-  void compile();
-  void clear(bool is_shape_inference = false);
   int64_t isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
@@ -272,12 +270,7 @@ class HabanaLaunchOpPT {
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
   bool IsValidNode(torch::jit::Node*);
-  void BuildSynapseGraph(
-      synapse_helpers::graph& syn_graph,
-      bool is_shape_inference = false);
-  void CompileSynapseGraph();
-  void ConstructPatchingTable();
-  void ExecuteSynapseGraph();
+
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
   ControlEdgeType nodeRequiresControlEdge(torch::jit::Node* node);
@@ -339,8 +332,6 @@ class HabanaLaunchOpPT {
   void PrintRecipeInputs();
   void UpdateOutputs();
   void UpdateOutputs(RecipeValueSpec& rv);
-  template <class T>
-  void clearMember(T& m_container);
 
   std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
@@ -350,12 +341,6 @@ class HabanaLaunchOpPT {
     rv.set_use_flag(false);
   }
 
-  void OrderInputs();
-  void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
-  void OrderOutputTinfos(RecipeValueSpec& rv);
-
-  void DumpTensors_pre(RecipeValueSpec& rv);
-  void DumpTensors(RecipeValueSpec& rv);
   void create_duplicate_syn_tensor(
       at::Tensor* tensor,
       torch::jit::Value* value_in,
@@ -391,22 +376,33 @@ class HabanaLaunchOpPT {
     std::string ir_name = "%" + vp->debugName();
     AddAtenIntermediate(ivpsh, syntensor_name, ir_name, tensor_id);
   }
-  void UpdateOutputPatching(
-      const IValPtrShared& ivpsh,
-      const IValPtrShared& ivpsh_updated,
-      const ValPtr& vp) {
-    if (enable_caching_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
-      auto a = output_tensorinfo_map.find(ivpsh);
-      auto ti = PtTensorInfo(
-          ivpsh_updated,
-          a->second.get_syn_name(),
-          vp,
-          watch_tensor_flag_,
-          a->second.get_tensor_id());
-      output_tensorinfo_map.erase(ivpsh);
-      output_tensorinfo_map.emplace(ivpsh_updated, ti);
-    }
+
+  // Member functions related to lowering IR to Synapse
+  void BuildSynapseGraph(
+      synapse_helpers::graph& syn_graph,
+      bool is_shape_inference = false);
+
+  void Clear(bool is_shape_inference = false);
+
+  // TODO: Check whether the swap destruct paradigm provides any performance
+  // gain
+  template <class T>
+  void ClearMember(T& m_container) {
+    T empty;
+    using std::swap;
+    swap(m_container, empty);
   }
+
+  void CompileSynapseGraph();
+  void ConstructPatchingTable();
+  void DumpTensors_pre(RecipeValueSpec& rv);
+  void DumpTensors(RecipeValueSpec& rv);
+  void ExecuteSynapseGraph();
+  void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
+  void OrderInputs();
+  void OrderOutputTinfos(RecipeValueSpec& rv);
+
+  // --------------------
 
   // Dynamic shape specific parts
   uint64_t current_bucket_id_{};
