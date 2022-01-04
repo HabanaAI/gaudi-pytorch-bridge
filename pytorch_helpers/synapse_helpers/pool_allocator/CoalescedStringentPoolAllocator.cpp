@@ -822,7 +822,10 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " memptr:: ",
       c1->memptr,
       " next:: ",
-      (c1->next ? c1->next->memptr : 0));
+      (c1->next ? c1->next->memptr : 0),
+      " size ",
+      c1->size);
+
   PT_DEVMEM_DEBUG(
       "Merge C2::",
       c2,
@@ -831,7 +834,10 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " memptr:: ",
       c2->memptr,
       " next:: ",
-      (c2->next ? c2->next->memptr : 0));
+      (c2->next ? c2->next->memptr : 0),
+      " size ",
+      c2->size);
+
   if (c1->used || c2->used) {
     PT_DEVMEM_FATAL(" Chunk is in use, cannot merge ");
   }
@@ -893,7 +899,9 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " memptr:: ",
       c1->memptr,
       " next:: ",
-      (c1->next ? c1->next->memptr : 0));
+      (c1->next ? c1->next->memptr : 0),
+      " size ",
+      c1->size);
 }
 
 Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c, bool ignore_freed)
@@ -928,6 +936,7 @@ bool CoalescedStringentPooling::defragment_chunks(uint64_t size) const {
   bool isFreeBlockAvailble = (size == 0);
   std::list<uint64_t> to_merge;
   std::deque<Chunk*> new_chunks_to_merge;
+
   while (!chunks_to_merge.empty()) {
     Chunk* c = chunks_to_merge.front();
     chunks_to_merge.pop_front();
@@ -956,17 +965,27 @@ bool CoalescedStringentPooling::defragment_chunks(uint64_t size) const {
   // All candidate chunks have been moved from chunks_to_merge to to_merge.
   // size == 0  : standard merge, merge them all,
   // otherwise  : merge just until a Chunk of the required size is produced.
+  Chunk* mergedChunk = nullptr;
+  Chunk* c = nullptr;
   for (auto& ptr : to_merge) {
     auto it = chunks.find(ptr);
-    if (it == chunks.end())
+    if (it != chunks.end()) {
+      c = it->second;
+    } else if (mergedChunk) {
+      // A case where chunk memptr (of c2) is part of merged chunk.
+      // c1->c2->c3 <=merge=> c1<->c3.
+      PT_DEVMEM_DEBUG(" A case where chunk memptr is a part of merged chunk ");
+      c = mergedChunk;
+    } else {
       continue;
-    Chunk* c = it->second;
+    }
 
     if (size == 0 || !isFreeBlockAvailble) {
       HABANA_ASSERT(c->bin_index != kInvalidBinNum);
       HABANA_ASSERT(!c->used);
       bin_utils->RemoveFreeChunkFromBin(c);
       Chunk* new_chunk = try_to_merge(c, (size > 0));
+      mergedChunk = new_chunk;
       bin_utils->InsertFreeChunkIntoBin(new_chunk);
       if (size > 0) {
         if (new_chunk->memptr != c->memptr && new_chunk->freed_counter > 0) {
