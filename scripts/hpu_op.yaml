@@ -1425,6 +1425,20 @@ maximum.out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
 
+median:
+  custom_output_shape: MedianOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: Median
+  op_frontend: LazyMedian
+  out_ids: [0]
+
+median.dim:
+  custom_output_shape: MediandimOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: Median
+  op_frontend: LazyMediandim
+  out_ids: [0,0]
+
 min.dim:
   custom_output_shape: MinOutputShape
   custom_fill_params: FillMinParams
