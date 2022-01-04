@@ -5837,6 +5837,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     float mom,
     bool nesterov) {
   PT_LAZY_TRACE;
+  HbLazyTensor::StepMarker({});
   ir::NodePtr node = std::make_shared<ir::OptimizerSparseSgdValidCount>(
       gradients,
       weights_in,
@@ -5862,7 +5863,9 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
       hlmoments.GetSizes(),
       hlmoments.dtype_optional(),
       1);
-  flush_op({weights_in, moments_in});
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    HbLazyTensor::StepMarker({});
+  }
   return std::tie(weights_in, moments_in);
 }
 std::tuple<torch::Tensor&, torch::Tensor&>
