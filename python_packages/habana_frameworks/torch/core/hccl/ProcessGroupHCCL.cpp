@@ -9,6 +9,8 @@
  */
 
 #include "ProcessGroupHCCL.hpp"
+#include <pybind11/chrono.h>
+#include <unistd.h>
 #include <future>
 #include <map>
 #include "hccl.h"
@@ -28,11 +30,11 @@ namespace c10d {
 
 namespace {
 
-#define HCL_SYNC()                               \
-  {                                              \
-    if (GET_ENV_FLAG_NEW(PT_HPU_USE_HCL_SYNC)) { \
-      HCL_Sync(HCL_COMM_WORLD, 555);             \
-    }                                            \
+#define HOST_SYNC()                                   \
+  {                                                   \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_PT_STORE_SYNC)) { \
+      hostBarrier();                                  \
+    }                                                 \
   }
 
 std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
@@ -216,6 +218,42 @@ void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
     std::memcpy(hcclID, vec.data(), vec.size());
   }
 }
+
+constexpr int64_t kSynchronizeBusyWaitMillis = 1;
+// Minumum three keys are required to avoid race condition
+constexpr int64_t kNumBarrierKeys = 3;
+
+void ProcessGroupHCCL::hostBarrier() {
+  PT_DISTRIBUTED_BEGIN;
+
+  auto hccl_rank = getRank();
+  std::string barrier_key = std::string("HOST_BARRIER:");
+  std::string storeKey = std::to_string(barrier_cnt_);
+  storeKey += barrier_key;
+  storeKey += std::to_string(size_);
+
+  auto first_count = store_->add(storeKey, 1);
+  TORCH_CHECK(first_count - 1 < size_, "Host barrier Key error");
+  auto worker_count = store_->add(storeKey, 0);
+  while (worker_count != size_) {
+    worker_count = store_->add(storeKey, 0);
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+  }
+
+  if (hccl_rank == 0) {
+    // Delete the previous key
+    std::string storeKey_pre = std::to_string(
+        barrier_cnt_ == 0 ? (kNumBarrierKeys - 1) : barrier_cnt_ - 1);
+    storeKey_pre += barrier_key;
+    storeKey_pre += std::to_string(size_);
+    store_->deleteKey(storeKey_pre);
+  }
+
+  barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
+  PT_DISTRIBUTED_END;
+}
+
 std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
   if (hccl_communicator_.find(deviceId) == hccl_communicator_.end()) {
     hcclUniqueId hccl_id;
@@ -259,8 +297,8 @@ ProcessGroupHCCL::ProcessGroupHCCL(
     : ProcessGroup(rank, size),
       store_(store),
       hcclCommCounter_(0),
-      stop_(false) {
-}
+      barrier_cnt_(0),
+      stop_(false) {}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
   destroy();
@@ -314,8 +352,6 @@ bool ProcessGroupHCCL::WorkHCCL::wait(
   // Always return true, because abort API is not implemented.
   return true;
 }
-
-constexpr int64_t kSynchronizeBusyWaitMillis = 1;
 
 void ProcessGroupHCCL::WorkHCCL::synchronize() {
   for (size_t i = 0; i < outputs_.size(); ++i) {
@@ -528,6 +564,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
+  HOST_SYNC()
   return collective(
       tensors,
       tensors,
@@ -540,7 +577,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           hcclStream_t stream) {
         auto tensor_data_type = getHCCLDataType(input.scalar_type());
         auto numel = input.numel();
-        HCL_SYNC()
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
@@ -564,6 +600,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
+  HOST_SYNC()
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
@@ -575,7 +612,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
         hcclResult_t hccl_result{hcclSuccess};
-        HCL_SYNC()
         size_t num_elements = input.numel();
         size_t element_size =
             c10::elementSize(getInternalScalarType(input.scalar_type()));
@@ -726,7 +762,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
     const AllgatherOptions& opts) {
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
-
+  HOST_SYNC()
   auto work = collective(
       inputTensors,
       outputFlattened,
@@ -736,7 +772,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
-        HCL_SYNC()
         auto work = hcclAllGather(
             send_buffer,
             recv_buffer,

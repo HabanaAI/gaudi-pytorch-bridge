@@ -35,13 +35,6 @@
 
 namespace hccl_integration {
 
-#define HCL_SYNC()                               \
-  {                                              \
-    if (GET_ENV_FLAG_NEW(PT_HPU_USE_HCL_SYNC)) { \
-      HCL_Sync(hcl_comm(), get_sync_tag());      \
-    }                                            \
-  }
-
 device_context::device_context(int device_id) {
   open_device(device_id);
 }
