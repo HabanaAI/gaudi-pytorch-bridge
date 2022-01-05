@@ -2939,6 +2939,9 @@ Tensor slice_backward_hpu_lazy(
         empty_hpu_lazy(grad_in_size, grad_output.options(), mf, true);
     grad_input = zero_hpu_lazy(grad_input);
 
+    auto hl_grad_output = GetHbLazyTensor(grad_output);
+    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
+
     result = add_strided_insert_node(
         grad_input, grad_output, strides, storage_offset);
   } else {
