@@ -111,8 +111,14 @@ synapse_error_v<graph> graph::create(
 
   PT_SYNHELPER_DEBUG("Graph Create.");
   graph::instance_lock_.lock();
-  auto status =
-      synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
+  synStatus status = synSuccess;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
+    status =
+        synGraphCreateEager(&syn_graph.graph_handle_, syn_graph.device_.type());
+  } else {
+    status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
+  }
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "Graph creation failed.", status, graph::instance_lock_.unlock())
   syn_graph.is_valid_ = true;
