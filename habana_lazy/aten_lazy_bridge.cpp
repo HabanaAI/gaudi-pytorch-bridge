@@ -49,6 +49,17 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   if (impl == nullptr) {
     return c10::nullopt;
   }
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  HbLazyTensor hl_t = impl->tensor();
+  // always fetch most recent version of the tensor
+  // TODO currently we assert if view handle is missing in any of the kernel.
+  // Try bringing it here
+  auto id = hl_t.getTensorUniqueId();
+  if (context->orig_tensor_map.find(id) != context->orig_tensor_map.end()) {
+    impl = GetHbLazyTensorImpl(context->orig_tensor_map[id]);
+  }
+
   return impl->tensor();
 }
 
