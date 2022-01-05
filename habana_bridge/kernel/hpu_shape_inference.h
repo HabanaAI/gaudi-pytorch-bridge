@@ -78,6 +78,16 @@ class ShapeInference {
    */
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
       const uint64_t tensor_id);
+  /*
+   * Returns wheter min-max exist for this tensor id
+   */
+  static bool HasMinMaxShape(const uint64_t tensor_id) {
+    if (ShapeInference::m_shape_info) {
+      return ShapeInference::m_shape_info->m_min_shapes.count(tensor_id) &&
+          ShapeInference::m_shape_info->m_max_shapes.count(tensor_id);
+    }
+    return false;
+  }
 
  private:
   /*

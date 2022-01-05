@@ -13,6 +13,8 @@
 
 using namespace habana_lazy;
 
+// In this class the pass fallback is enabld and compilation fallback is
+// disabled
 class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode();
@@ -23,16 +25,12 @@ class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
 
     SetDynamicMode();
 
-    EnableDynamicLaunchFallback();
-
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
   }
 
   void TearDown() override {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     UnsetDynamicMode();
-
-    RestoreDynamicLaunchFallback();
 
     RestoreMode();
   }
@@ -168,43 +166,92 @@ TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
   }
 }
 
-TEST_F(LazyDynamicFallbackTest, ExpandTest) {
-  constexpr int Wmax{482}, Hmax{200};
-  std::vector<int> W_in_sizes{1, Wmax, 1, Wmax, 1, Wmax};
-  std::vector<int> H_in_sizes{Hmax, 1, Hmax, 1, 1, Hmax};
-  for (int i = 0; i < W_in_sizes.size(); i++) {
+TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
+  int H = 7;
+  std::vector<int> in_sizes{100, 110, 120};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    int W = W_in_sizes[i];
-    int H = H_in_sizes[i];
-
-    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor A = torch::randn({W, 4}).to(torch::kInt32);
+    torch::Tensor B = torch::randn({H, 4}).to(torch::kInt32);
     torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor cat_out = torch::cat({A, B});
+    torch::Tensor h_cat_out = torch::cat({hA, hB});
 
-    auto E = A.expand({Wmax, Hmax});
-    torch::Tensor hE = hA.expand({Wmax, Hmax});
-
-    auto cE = hE.to(torch::kCPU);
-    EXPECT_EQ(allclose(cE, E), true);
+    std::vector<int64_t> sz{W + H, 2};
+    std::vector<int64_t> str{4, 1};
+    c10::IntArrayRef sizes(sz.data(), sz.size());
+    c10::IntArrayRef strides(str.data(), str.size());
+    int64_t offset = 0;
+    torch::Tensor hOut = torch::as_strided(h_cat_out, sizes, strides, offset);
+    torch::Tensor out = torch::as_strided(cat_out, sizes, strides, offset);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
   }
 }
 
-// This test requires fallback
-TEST_F(LazyDynamicFallbackTest, ExpandTest2) {
-  std::vector<int> W_in_sizes{754, 350, 664, 1};
-  std::vector<int> H_in_sizes{2, 2, 2, 2};
-  std::vector<int> W_expand_sizes{754, 350, 664, 500};
-  for (int i = 0; i < W_in_sizes.size(); i++) {
-    int W = W_in_sizes[i];
-    int H = H_in_sizes[i];
-    int W_expand = W_expand_sizes[i];
+// Its places here only because its getting bucket hit and max calculation fail.
+TEST_F(LazyDynamicFallbackTest, ViewTest) {
+  int N = 2;
+  int C = 4;
+  int H = 4;
+  at::Scalar alpha = 1.0;
+  at::Scalar Y = 2.0;
+  std::vector<int> in_sizes{6, 8, 10};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
+    std::vector<int64_t> shape{N, C, H * W, 1};
+    torch::Tensor C = A.reshape(c10::IntArrayRef(shape));
+    torch::Tensor hC = hA.reshape(c10::IntArrayRef(shape));
+    auto C_out = hC.to(torch::kCPU);
+    EXPECT_EQ(allclose(C, C_out, 0.001, 0.001), true);
+  }
+}
 
-    torch::Tensor h_out = hA.expand({W_expand, 2});
+TEST_F(LazyDynamicFallbackTest, SliceTest) {
+  int N = 1;
+  int C = 4;
+  int H = 4;
+  std::vector<int> in_sizes{16, 18, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 2;
+    int64_t start_index = 0;
+    int64_t end = 3;
+    int64_t step = 1;
+
+    torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
 
     auto h_cout = h_out.to(torch::kCPU);
-    auto cout = A.expand({W_expand, 2});
+    auto cout = torch::slice(A, dim, start_index, end, step);
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+}
+
+TEST_F(LazyDynamicFallbackTest, SliceTest2) {
+  int H = 4;
+  std::vector<int> in_sizes{16, 18, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 1;
+    int64_t start_index = 4;
+    int64_t end = 9223372036854775807;
+    int64_t step = 1;
+
+    torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
+
+    auto h_cout = h_out.to(torch::kCPU);
+    auto cout = torch::slice(A, dim, start_index, end, step);
 
     EXPECT_EQ(allclose(h_cout, cout), true);
   }

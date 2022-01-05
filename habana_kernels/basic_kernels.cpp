@@ -18,6 +18,7 @@
 #include <torch/script.h>
 
 #include <habana_device/PinnedMemoryAllocator.h>
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
@@ -766,6 +767,20 @@ void StridedInsertOperator::compute_params(
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, orig_t);
+      // For Dynamic case fill strides/offset params with max size
+      if (!graph.is_dry_run()) {
+        synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
+        std::vector<int64_t> min, max;
+        std::tie(min, max) =
+            habana::ShapeInference::GetMinMaxShape(stride_tensor.id());
+        strides = max;
+        synapse_helpers::tensor& offset_tensor = p_context_->syn_inputs_[3];
+        std::tie(min, max) =
+            habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
+        if (max.size()) {
+          offset = max[0];
+        }
+      }
     }
   }
 
@@ -797,8 +812,12 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       orig_t.suggest_memory_format(),
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
-
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  bool have_shape_tensors = inputs[2].isTensor();
+  if (have_shape_tensors) {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
@@ -819,7 +838,12 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
       habana_helpers::duplicate_tensor_in_memory_section(syn_t_vec[0], graph));
   p_context_->pt_outputs_.emplace_back(graph_input);
 
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  bool have_shape_tensors = inputs[2].isTensor();
+  if (have_shape_tensors) {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 /*************************************************************************
@@ -863,22 +887,75 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
+  // For Dynamic case fill strides/offset params with max size
+  if (graph.is_dynamic_graph()) {
+    synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
+    std::vector<int64_t> min, max;
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(stride_tensor.id());
+    strides = max;
+    synapse_helpers::tensor& offset_tensor = p_context_->syn_inputs_[3];
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
+    if (max.size()) {
+      offset = max[0];
+    }
+  }
+
+  // For dynamic shape max-inference, validate the input-output number of
+  // elements. If the calculation dosen't match fail here for inference fallback
+  // to kick in. This check is required to prevent same thing getting caught
+  // during compilation by GC where the fallback penalty would be large.
+  if (have_shape_tensors && graph.is_dynamic_graph() && graph.is_dry_run()) {
+    synapse_helpers::tensor& self_tensor = p_context_->syn_inputs_[0];
+    // This issue of mismatched calculation will only occur when frontend shape
+    // tensors are involved(for max-policy=CALCULATED). Hence the if condition
+    // above checks for if the shape tensors are created at frontend, the graph
+    // is dynamic and graph is in dry run meaning MAX_PASS. The if condition
+    // below establishes if it is MAX_PASS.
+    if (habana::ShapeInference::HasMinMaxShape(self_tensor.id())) {
+      // The code and check is referenced from file strided_op_node_utils.cpp
+      // function verifyStridedAccess
+      std::vector<int64_t> min, max;
+      std::tie(min, max) =
+          habana::ShapeInference::GetMinMaxShape(self_tensor.id());
+      uint64_t numOfInputElements = std::accumulate(
+          max.begin(), max.end(), 1, std::multiplies<int64_t>());
+      uint64_t lastElementOffset = 0;
+      synapse_helpers::tensor& output_tensor = p_context_->syn_outputs_.back();
+      std::tie(min, max) =
+          habana::ShapeInference::GetMinMaxShape(output_tensor.id());
+      for (unsigned d = 0; d < output.dim(); d++) {
+        lastElementOffset += strides[d] * (max[d] - 1);
+      }
+      // The main torch check to check fail if number of elements in output
+      // somehow exceeds number of elements in input. With exception if
+      // input/output are ZST
+      TORCH_CHECK(
+          self.numel() == 0 || output.numel() == 0 ||
+              ((offset + lastElementOffset) < numOfInputElements),
+          "offset + lastElementOffset >= numOfInputElements in AsStrided");
+    }
+  }
+  // If shape tensors are not created at frontend we need to create
+  // Shape tensor at backend and also pass the params. Otherwise no params are
+  // required.
   if (!have_shape_tensors) {
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, output);
     }
+    struct synStridedOpParams params;
+    params.baseOffset = static_cast<uint64_t>(offset);
+    size_t idx = 0;
+    // synapse expects strides in reverse order
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      params.strides[idx++] = static_cast<uint64_t>(*it);
+    }
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  } else {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
   }
-  struct synStridedOpParams params;
-  params.baseOffset = static_cast<uint64_t>(offset);
-
-  size_t idx = 0;
-  // synapse expects strides in reverse order
-  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-    params.strides[idx++] = static_cast<uint64_t>(*it);
-  }
-
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 static auto& KernelRegistry =

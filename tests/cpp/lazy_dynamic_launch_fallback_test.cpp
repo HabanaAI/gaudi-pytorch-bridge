@@ -1,0 +1,81 @@
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+
+#include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
+#include <torch/torch.h>
+
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy_test_infra.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
+
+using namespace habana_lazy;
+// In this class both the pass fallback and compilation fallback is enabled
+class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    SetLazyMode();
+
+    SetSeed();
+
+    DisableCpuFallback();
+
+    SetDynamicMode();
+
+    EnableDynamicLaunchFallback();
+
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+  }
+
+  void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+    UnsetDynamicMode();
+
+    RestoreDynamicLaunchFallback();
+
+    RestoreMode();
+  }
+};
+
+TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
+  constexpr int Wmax{482}, Hmax{200};
+  std::vector<int> W_in_sizes{1, Wmax, 1, Wmax, 1, Wmax};
+  std::vector<int> H_in_sizes{Hmax, 1, Hmax, 1, 1, Hmax};
+  for (int i = 0; i < W_in_sizes.size(); i++) {
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    int W = W_in_sizes[i];
+    int H = H_in_sizes[i];
+
+    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+
+    auto E = A.expand({Wmax, Hmax});
+    torch::Tensor hE = hA.expand({Wmax, Hmax});
+
+    auto cE = hE.to(torch::kCPU);
+    EXPECT_EQ(allclose(cE, E), true);
+  }
+}
+
+// This test requires fallback
+TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
+  std::vector<int> W_in_sizes{754, 350, 664, 1};
+  std::vector<int> H_in_sizes{2, 2, 2, 2};
+  std::vector<int> W_expand_sizes{754, 350, 664, 500};
+  for (int i = 0; i < W_in_sizes.size(); i++) {
+    int W = W_in_sizes[i];
+    int H = H_in_sizes[i];
+    int W_expand = W_expand_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({W, H}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+
+    torch::Tensor h_out = hA.expand({W_expand, 2});
+
+    auto h_cout = h_out.to(torch::kCPU);
+    auto cout = A.expand({W_expand, 2});
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+}

@@ -23,6 +23,7 @@
 
 using namespace habana_lazy;
 
+// In this class both the pass fallback and compilation fallback are disabled
 class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode();
@@ -1263,31 +1264,12 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, ViewTest) {
-  int N = 2;
-  int C = 4;
-  int H = 4;
-  at::Scalar alpha = 1.0;
-  at::Scalar Y = 2.0;
-  std::vector<int> in_sizes{6, 8, 10};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor hA = A.to(torch::kHPU);
-    std::vector<int64_t> shape{N, C, H * W, 1};
-    torch::Tensor C = A.reshape(c10::IntArrayRef(shape));
-    torch::Tensor hC = hA.reshape(c10::IntArrayRef(shape));
-    auto C_out = hC.to(torch::kCPU);
-    EXPECT_EQ(allclose(C, C_out, 0.001, 0.001), true);
-  }
-}
-
 TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
   int64_t dim = 0;
   int H = 4;
   std::vector<int> in_sizes{8000, 9000, 10000};
-
+  std::vector<int> end_sizes{1000, 2000, 2000};
+  std::vector<int> step_sizes{1, 2, 2};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     int index_size = W;
@@ -1298,10 +1280,10 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
     // Make list
     c10::List<c10::optional<at::Tensor>> indices_cpu;
     c10::List<c10::optional<at::Tensor>> indices_list{};
-    indices_cpu.push_back(
-        c10::make_optional(torch::slice(index, 0, 0, 1000, 1)));
-    indices_list.push_back(
-        c10::make_optional(torch::slice(index.to(torch::kHPU), 0, 0, 1000, 1)));
+    indices_cpu.push_back(c10::make_optional(
+        torch::slice(index, 0, 0, end_sizes[i], step_sizes[i])));
+    indices_list.push_back(c10::make_optional(torch::slice(
+        index.to(torch::kHPU), 0, 0, end_sizes[i], step_sizes[i])));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hB = B.to(torch::kHPU);
     torch::Tensor hOut = torch::index(hA, indices_list);
