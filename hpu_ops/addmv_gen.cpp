@@ -84,7 +84,7 @@ void AddMV::AddNode(
 
     addmv = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {addmv[0].get(), alpha.get()},
         {{matvecmul_outshape, ScalarType()}});
   }
@@ -104,7 +104,7 @@ void AddMV::AddNode(
 
       self_reshaped = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {self_reshaped[0].get(), beta.get()},
           {{matvecmul_outshape, ScalarType()}});
     }

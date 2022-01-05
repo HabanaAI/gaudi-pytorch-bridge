@@ -21,14 +21,14 @@ void Hypot::AddNode(
   // mul on input 0
   auto mul_1 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), syn_in(0)},
       {{outshape, ScalarType()}});
 
   // mul on input 1
   auto mul_2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), syn_in(1)},
       {{outshape, ScalarType()}});
 

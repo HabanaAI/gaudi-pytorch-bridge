@@ -54,7 +54,7 @@ void HuberLossBwdOperator::AddNode(
 
   auto t_mul = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), norm.get()},
       {{inputshape, ScalarType()}});
 
@@ -66,19 +66,19 @@ void HuberLossBwdOperator::AddNode(
 
   auto t_0 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_mul.at(0).get(), delta_const.get()},
       {{inputshape, ScalarType()}});
 
   auto t_1 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_0.at(0).get(), t_sign.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto t_2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_diff.at(0).get(), t_mul.at(0).get()},
       {{inputshape, ScalarType()}});
 
@@ -138,19 +138,19 @@ void HuberLossOperator::AddNode(
 
   auto sq_out = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {abs.at(0).get(), abs.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto result_true = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {sq_out.at(0).get(), const_05.get()},
       {{inputshape, ScalarType()}});
 
   auto mul_out = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {const_05.get(), delta_const.get()},
       {{inputshape, ScalarType()}});
 
@@ -162,7 +162,7 @@ void HuberLossOperator::AddNode(
 
   auto result_false = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {sub_out.at(0).get(), delta_const.get()},
       {{inputshape, ScalarType()}});
 

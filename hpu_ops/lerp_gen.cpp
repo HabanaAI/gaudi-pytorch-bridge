@@ -43,7 +43,7 @@ void Lerp::AddNode(
   // multiplication of weight and sub
   auto mult = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(2), sub[0].get()},
       {{outshape, ScalarType(), false}});
 

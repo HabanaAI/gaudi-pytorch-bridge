@@ -47,7 +47,7 @@ addcdiv.out:
 addcmul.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
-  guid: mult
+  guid: mult_fwd
   op_backend: AddCOpOut
   scalar_ids: [3]
 

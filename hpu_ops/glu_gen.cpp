@@ -63,7 +63,7 @@ void Glu::AddNode(
 
   auto mult = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {split[0].get(), sigmoid[0].get()},
       {{outshape, ScalarType(), is_output_persistent_list[0], true}});
 
@@ -109,19 +109,19 @@ void GluBwd::AddNode(
 
   auto grad_in1 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {syn_in(0), sigmoid[0].get()},
       {{outshape, ScalarType()}});
 
   auto t1 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {split[0].get(), grad_in1[0].get()},
       {{outshape, ScalarType()}});
 
   auto t2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {t1[0].get(), sigmoid[0].get()},
       {{outshape, ScalarType()}});
 

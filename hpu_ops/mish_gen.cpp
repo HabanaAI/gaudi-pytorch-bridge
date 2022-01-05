@@ -9,7 +9,6 @@
  */
 
 #include "generated/hpu_op.h"
-
 namespace habana {
 
 void Mish::AddNode(
@@ -31,7 +30,7 @@ void Mish::AddNode(
 
   auto output = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), tanh_out[0].get()},
       {{outshape, ScalarType(), is_output_persistent_list[0], true}});
   syn_out(0) = std::move(output[0]);
@@ -62,19 +61,19 @@ void Mishbackward::AddNode(
 
   auto mul_out1 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), sigmoid_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto sq_out = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {tanh_out[0].get(), tanh_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto mul_out2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {mul_out1[0].get(), sq_out[0].get()},
       {{outshape, ScalarType()}});
 
@@ -92,7 +91,7 @@ void Mishbackward::AddNode(
 
   auto grad_input = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), add_out[0].get()},
       {{outshape, ScalarType(), is_output_persistent_list[0], true}});
   syn_out(0) = std::move(grad_input[0]);

@@ -71,7 +71,7 @@ void AddMM::AddNode(
 
     addmm = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {addmm[0].get(), alpha.get()},
         {{addmm_reshaped_outshape, ScalarType()}});
   }
@@ -95,7 +95,7 @@ void AddMM::AddNode(
           graph, beta_val, ScalarType(), addmm_reshaped_outshape);
       self_reshaped = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {self_reshaped[0].get(), beta.get()},
           {{addmm_reshaped_outshape, ScalarType()}});
     }

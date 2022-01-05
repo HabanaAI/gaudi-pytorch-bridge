@@ -42,7 +42,7 @@ void NormHabanaOperator::AddNode(
     if (n_dims <= 1 || self.sizes()[0] == 1) {
       auto mul = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(dtype),
+          MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
           {input_tensor, input_tensor},
           {{outshape, dtype}});
 

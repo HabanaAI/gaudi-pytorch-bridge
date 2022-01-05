@@ -50,7 +50,7 @@ void XlogYOperator::AddNode(
 
     auto xlogy = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
         {{outshape, ScalarType(), is_output_persistent_list[0], true}});
     syn_out(0) = std::move(xlogy[0]);
@@ -61,7 +61,7 @@ void XlogYOperator::AddNode(
 
     auto xlogy = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
         {{outshape, ScalarType(), is_output_persistent_list[0], true}});
     syn_out(0) = std::move(xlogy[0]);

@@ -50,7 +50,7 @@ void BinaryOp::AddNode(
           ConstantHelper(graph, alpha, result_type));
       mul = BuildOp(
           graph,
-          "mult_fwd_" + habana_helpers::name_suffix_from_type(result_type),
+          MULT_GUID + habana_helpers::name_suffix_from_type(result_type),
           {syn_in(1), constant->get()},
           {{stack_tensor(stack, 1).sizes(), result_type}});
       binaryop_inputs = {syn_in(0), mul[0].get()};

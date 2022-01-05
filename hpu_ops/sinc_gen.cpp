@@ -34,7 +34,7 @@ void Sinc::AddNode(
 
   auto value = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), const_pi.get()},
       {{outshape, ScalarType()}});
 
@@ -52,7 +52,7 @@ void Sinc::AddNode(
 
   auto prod = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {sine[0].get(), reciprocal[0].get()},
       {{outshape, ScalarType()}});
 

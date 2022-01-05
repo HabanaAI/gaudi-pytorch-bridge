@@ -57,7 +57,7 @@ void Rrelu_with_noise::AddNode(
     // output
     auto output = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), is_output_persistent_list[0], true}});
     syn_out(0) = std::move(output[0]);
@@ -88,7 +88,7 @@ void Rrelu_with_noise_bwd::AddNode(
     // grad_out * noise
     auto output = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(2)},
         {{outshape, ScalarType(), is_output_persistent_list[0], true}});
     syn_out(0) = std::move(output[0]);

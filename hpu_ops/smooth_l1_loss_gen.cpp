@@ -57,7 +57,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
     auto t_mul = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), t_norm_factor.get()},
         {{inputshape, ScalarType()}});
 
@@ -70,7 +70,7 @@ void SmoothL1LossBwdOperator::AddNode(
     if (beta == 0) {
       t_l0 = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {t_mul.at(0).get(), t_sign.at(0).get()},
           {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
 
@@ -80,7 +80,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
     t_l0 = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {t_mul.at(0).get(), t_sign.at(0).get()},
         {{inputshape, ScalarType()}});
 
@@ -94,7 +94,7 @@ void SmoothL1LossBwdOperator::AddNode(
     if (beta == 0) {
       t_l0 = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {syn_in(0), t_sign.at(0).get()},
           {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
 
@@ -104,7 +104,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
     t_l0 = BuildOp(
         graph,
-        "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), t_sign.at(0).get()},
         {{inputshape, ScalarType()}});
   }
@@ -114,13 +114,13 @@ void SmoothL1LossBwdOperator::AddNode(
 
   auto t_l2_temp = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), t_mulfactor.get()},
       {{inputshape, ScalarType()}});
 
   auto t_l2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_diff.at(0).get(), t_l2_temp.at(0).get()},
       {{inputshape, ScalarType()}});
 
@@ -241,7 +241,7 @@ void SmoothL1LossOperator::AddNode(
 
   auto t_l2 = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_mse.at(0).get(), t_mse_scale.get()},
       {{inputshape, ScalarType()}});
 

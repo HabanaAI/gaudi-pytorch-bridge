@@ -38,7 +38,7 @@ void Log10::AddNode(
   // mul on log of input and constant value
   auto output = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant_value.get(), log[0].get()},
       {{outshape, ScalarType(), is_output_persistent_list[0], true}});
 

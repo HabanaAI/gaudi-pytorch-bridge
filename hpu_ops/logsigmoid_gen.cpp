@@ -156,7 +156,7 @@ void LogSigmoidBackward::AddNode(
   // mult(sing_vec, (sub(buffer, one_vec) / buffer))
   auto o_mult = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {sign_vec[0].get(), o_div[0].get()},
       {{inputshape, ScalarType()}});
 
@@ -177,7 +177,7 @@ void LogSigmoidBackward::AddNode(
   // mult(neg(o_add), grad_output)
   auto output = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {o_neg[0].get(), syn_in(0)},
       {{inputshape, ScalarType(), is_output_persistent_list[0], true}});
 

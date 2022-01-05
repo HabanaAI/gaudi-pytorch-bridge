@@ -185,7 +185,7 @@ Tensor& div_tensor_hpu_out(
 namespace habana {
 struct mul_out : OpBackend {
   mul_out(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(device_id, "mult_fwd_", scalar_type, {}, {}, {}, true) {}
+      : OpBackend(device_id, MULT_GUID, scalar_type, {}, {}, {}, true) {}
 };
 } // namespace habana
 

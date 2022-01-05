@@ -58,7 +58,7 @@ void AddCOpOut::AddNode(
     // Do the multiplication with Generated tensor
     mul = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {vectSynTensor.at(1), constant[0].get()},
         {{other1.sizes(), ScalarType()}});
     variable_op_inputs = {mul[0].get(), vectSynTensor.at(2)};

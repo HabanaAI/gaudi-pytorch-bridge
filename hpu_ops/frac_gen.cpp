@@ -41,7 +41,7 @@ void Frac::AddNode(
   // mul on output of floor & sign
   auto mul = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {floor_val[0].get(), sign[0].get()},
       {{outshape, ScalarType(), false}});
 

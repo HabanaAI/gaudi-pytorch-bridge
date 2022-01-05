@@ -66,7 +66,7 @@ void AddR::AddNode(
 
   auto addr_unsqueezed = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {vecmul[0].get(), alpha.get()},
       {{vecmul_outshape, ScalarType()}});
 
@@ -90,7 +90,7 @@ void AddR::AddNode(
 
       self_reshaped = BuildOp(
           graph,
-          "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {self_reshaped[0].get(), beta.get()},
           {{vecmul_outshape, ScalarType()}});
     }

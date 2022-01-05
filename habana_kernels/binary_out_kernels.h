@@ -43,7 +43,7 @@ class MulOutOperator : public BinaryOutOperator {
   MulOutOperator(int device_id, c10::ScalarType scalarType)
       : BinaryOutOperator(
             device_id,
-            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType),
+            MULT_GUID + habana_helpers::name_suffix_from_type(scalarType),
             scalarType) {}
 };
 

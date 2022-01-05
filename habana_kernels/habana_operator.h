@@ -39,6 +39,12 @@ const std::string NO_TPC = "[NoTPCKernel]";
 // For compound Ops, there is not GUID, so null string used
 const std::string NULL_GUID("");
 
+// mul_<dtype> does not support dynamic shapes. So use mult_fwd_<dtype> GUID
+// However, there is a disc on wherther the tpc GUID naming should have "fwd"
+// Use a common constant so that it can be changed at one place based on the
+// decision on naming the guid
+const std::string MULT_GUID = "mult_fwd_";
+
 // Utility Macros to handle 0d tensors input
 #define CONVERT_0D_TO_1D(self)                                   \
   if (0 == self.dim()) {                                         \

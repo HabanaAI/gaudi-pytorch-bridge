@@ -54,7 +54,7 @@ class MulInplaceOperator : public BinaryInplaceWrapperOperator {
   MulInplaceOperator(int device_id, c10::ScalarType scalarType)
       : BinaryInplaceWrapperOperator(
             device_id,
-            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            MULT_GUID + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }

@@ -28,7 +28,7 @@ void SpecialEntr::AddNode(
   // xlog on output of logx
   auto xlogx = BuildOp(
       graph,
-      "mult_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), logx[0].get()},
       {{outshape, ScalarType()}});
 

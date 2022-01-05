@@ -20,7 +20,7 @@ void Square::AddNode(
 
   auto square = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), syn_in(0)},
       {{outshape, ScalarType(), is_output_persistent_list[0], true}});
 
