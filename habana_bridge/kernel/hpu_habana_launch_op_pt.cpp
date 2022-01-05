@@ -2264,8 +2264,11 @@ void HabanaLaunchOpPT::handle_pass_exception(
   auto fallback_ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
 
-  // After calculating ranges reset bucket_info policy to default
-  current_dbipsh_->SetDefaultPolicy();
+  // After calculating ranges set bucket_info policy to HISTORIC
+  // so that for next bucket created the starting policy be HISTORIC to save
+  // fallback
+  current_dbipsh_->SetMinPolicy(habana_helpers::DynamicDimsPolicy::HISTORIC);
+  current_dbipsh_->SetMaxPolicy(habana_helpers::DynamicDimsPolicy::HISTORIC);
 
   switch (e.Pass()) {
     // In reruning min pass, clear the min name-shape map and rerun
