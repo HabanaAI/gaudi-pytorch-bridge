@@ -37,8 +37,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
         const std::vector<int>& devices,
         std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
         std::vector<std::shared_ptr<hccl_integration::device_context>>&
-            deviceCtxts_,
-        ProcessGroupHCCL& pg_);
+            deviceCtxts_);
     WorkHCCL(const WorkHCCL& w);
 
     virtual ~WorkHCCL();
@@ -68,7 +67,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
    private:
     c10::intrusive_ptr<Store> store_;
     c10::intrusive_ptr<at::ivalue::Future> future_;
-    ProcessGroupHCCL& pg_;
 
     friend class ProcessGroupHCCL;
   };
@@ -200,13 +198,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   }
 
  private:
-  std::thread mTh;
-  std::mutex mMut;
-  int mJobCounter = 0;
-  std::queue<std::function<bool()>> mFuncs;
-  std::condition_variable mCondVar;
-  void threadFunction();
-
   // Helper that encapsulates work shared across all collective communication
   template <typename Fn>
   c10::intrusive_ptr<ProcessGroup::Work> collective(

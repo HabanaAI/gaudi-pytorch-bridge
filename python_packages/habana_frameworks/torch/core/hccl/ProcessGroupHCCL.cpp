@@ -140,6 +140,65 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
   return flattened;
 }
 
+class JobThreadHCCL {
+ public:
+  static std::shared_ptr<JobThreadHCCL> getInstance() {
+    static std::shared_ptr<JobThreadHCCL> job(new JobThreadHCCL);
+    return job;
+  }
+
+  ~JobThreadHCCL() {
+    {
+      std::lock_guard<std::mutex> lock(mMut);
+      mFuncs.push([] { return false; });
+    }
+    mCondVar.notify_one();
+    mTh.join();
+    TORCH_CHECK(mJobCounter == 0, "Unfinished collectives");
+  }
+
+  void addJob(std::function<bool()> func) {
+    {
+      std::lock_guard<std::mutex> lock(mMut);
+      mFuncs.push(func);
+      ++mJobCounter;
+    }
+    mCondVar.notify_one();
+  }
+
+ private:
+  JobThreadHCCL() : mJobCounter{0} {
+    mTh = std::thread(&JobThreadHCCL::threadFunction, this);
+  }
+
+  void threadFunction() {
+    while (true) {
+      std::unique_lock<std::mutex> lock(mMut);
+      mCondVar.wait(lock, [this] { return !mFuncs.empty(); });
+
+      while (!mFuncs.empty()) {
+        auto func = mFuncs.front();
+        mFuncs.pop();
+        lock.unlock();
+        if (!func()) {
+          // func() returns False only when it is queued by Destructor
+          return;
+        }
+        lock.lock();
+        mJobCounter--;
+      }
+    }
+  }
+
+  std::thread mTh;
+  std::mutex mMut;
+  std::atomic<int> mJobCounter;
+  std::queue<std::function<bool()>> mFuncs;
+  std::condition_variable mCondVar;
+
+  friend class ProcessGroupHCCL::WorkHCCL;
+};
+
 } // namespace
 
 const int64_t ProcessGroupHCCL::kWatchdogThreadSleepMillis = 40000;
@@ -201,37 +260,10 @@ ProcessGroupHCCL::ProcessGroupHCCL(
       store_(store),
       hcclCommCounter_(0),
       stop_(false) {
-  mTh = std::thread(&ProcessGroupHCCL::threadFunction, this);
 }
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
-  {
-    std::lock_guard<std::mutex> lock(mMut);
-    mFuncs.push([] { return false; });
-  }
-  mCondVar.notify_one();
-  TORCH_CHECK(mJobCounter == 0, "Unfinished collectives");
-  mTh.join();
   destroy();
-}
-
-void ProcessGroupHCCL::threadFunction() {
-  while (true) {
-    std::unique_lock<std::mutex> lock(mMut);
-    mCondVar.wait(lock, [this] { return !mFuncs.empty(); });
-
-    while (!mFuncs.empty()) {
-      auto func = mFuncs.front();
-      mFuncs.pop();
-      lock.unlock();
-      if (!func()) {
-        // func() returns False only when it is queued by Destructor
-        return;
-      }
-      lock.lock();
-      mJobCounter--;
-    }
-  }
 }
 
 void ProcessGroupHCCL::destroy() {
@@ -249,16 +281,14 @@ ProcessGroupHCCL::WorkHCCL::WorkHCCL(
     const std::vector<at::Tensor>& outputs,
     const std::vector<int>& devices,
     std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
-    std::vector<std::shared_ptr<hccl_integration::device_context>>& deviceCtxts,
-    ProcessGroupHCCL& pg_)
+    std::vector<std::shared_ptr<hccl_integration::device_context>>& deviceCtxts)
     : outputs_(outputs),
       devices_(devices),
       hccl_comms_(hccl_comms),
       deviceCtxts_(deviceCtxts),
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
-          c10::ListType::create(c10::TensorType::get()))),
-      pg_(pg_) {
+          c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs_));
 }
 
@@ -292,11 +322,8 @@ void ProcessGroupHCCL::WorkHCCL::synchronize() {
     deviceCtxts_[i]->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
   }
-  while (pg_.mJobCounter != 0) {
-    PT_DISTRIBUTED_DEBUG(
-        "[PYT-DIST] Waiting for collectives jobs to complete",
-        "User rank (ID): ",
-        pg_.getRank());
+  while (JobThreadHCCL::getInstance()->mJobCounter != 0) {
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] Waiting for collectives jobs to complete");
     std::this_thread::sleep_for(
         std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
   }
@@ -318,7 +345,7 @@ c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
     std::vector<std::shared_ptr<hccl_integration::device_context>>&
         deviceCtxts) {
   return c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>(
-      outputs, devices, hccl_comms, deviceCtxts, *this);
+      outputs, devices, hccl_comms, deviceCtxts);
 }
 
 // Get the list of devices from list of tensors
@@ -473,13 +500,13 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
       pr->set_value(hccl_result == hcclSuccess);
       return true;
     };
-    {
-      std::lock_guard<std::mutex> lock(mMut);
-      mFuncs.push(func);
-      ++mJobCounter;
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+      func();
+    } else {
+      JobThreadHCCL::getInstance()->addJob(std::move(func));
+      deviceCtxt->submit_future(output_storage_ptr, std::move(fut));
     }
-    mCondVar.notify_one();
-    deviceCtxt->submit_future(output_storage_ptr, std::move(fut));
   }
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
