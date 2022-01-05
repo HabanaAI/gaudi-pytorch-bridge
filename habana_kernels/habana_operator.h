@@ -28,6 +28,8 @@
 #include <iostream>
 #include <memory>
 
+#define DATATYPE_OF_INDEX c10::ScalarType::Long
+
 // This prefix indicates no TPC kernel exists, but op name with
 // this prefix is used in eager. Null string avoided, since this
 // value is used in eager caching and so per op, unique string

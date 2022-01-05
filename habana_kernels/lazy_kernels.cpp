@@ -6698,7 +6698,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
       shape_out, self.options(), self.suggest_memory_format(), false);
   auto index = empty_hpu_lazy(
       shape_out,
-      self.options().dtype(c10::ScalarType::Int),
+      self.options().dtype(DATATYPE_OF_INDEX),
       self.suggest_memory_format(),
       false);
   auto hl_result1 = GetHbLazyTensor(result);

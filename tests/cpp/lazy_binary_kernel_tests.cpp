@@ -827,3 +827,44 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorInplace0DTest) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
+TEST_F(LazyBinaryKernelTest, MaxDim8DimDimNe7Keepdim) {
+  const std::vector<int64_t> dimentions{4, 5, 3, 4, 5, 2, 3, 2};
+  auto dim = -7;
+  auto keepdim = true;
+  torch::Tensor input1 = torch::randn(dimentions);
+  at::Tensor h_input1 = input1.to(at::device(at::kHPU));
+
+  auto out_cpu = at::max(input1, dim, keepdim);
+  auto out_hpu = at::max(h_input1, dim, keepdim);
+  EXPECT_TRUE(
+      allclose(std::get<0>(out_hpu).to(at::kCPU), std::get<0>(out_cpu)) &&
+      allclose(std::get<1>(out_hpu).to(at::kCPU), std::get<1>(out_cpu)));
+}
+
+TEST_F(LazyBinaryKernelTest, MaxDim8DimDim7) {
+  const std::vector<int64_t> dimentions{4, 5, 3, 4, 5, 2, 3, 2};
+  auto dim = 7;
+  auto keepdim = false;
+  torch::Tensor input1 = torch::randn(dimentions);
+  at::Tensor h_input1 = input1.to(at::device(at::kHPU));
+
+  auto out_cpu = at::max(input1, dim, keepdim);
+  auto out_hpu = at::max(h_input1, dim, keepdim);
+  EXPECT_TRUE(
+      allclose(std::get<0>(out_hpu).to(at::kCPU), std::get<0>(out_cpu)) &&
+      allclose(std::get<1>(out_hpu).to(at::kCPU), std::get<1>(out_cpu)));
+}
+
+TEST_F(LazyBinaryKernelTest, MaxDim2Dim1) {
+  const std::vector<int64_t> dimentions{4, 5};
+  auto dim = 1;
+  auto keepdim = false;
+  torch::Tensor input1 = torch::randn(dimentions);
+  at::Tensor h_input1 = input1.to(at::device(at::kHPU));
+
+  auto out_cpu = at::max(input1, dim, keepdim);
+  auto out_hpu = at::max(h_input1, dim, keepdim);
+  EXPECT_TRUE(
+      allclose(std::get<0>(out_hpu).to(at::kCPU), std::get<0>(out_cpu)) &&
+      allclose(std::get<1>(out_hpu).to(at::kCPU), std::get<1>(out_cpu)));
+}
