@@ -61,99 +61,134 @@ class OptPassCfg {
   }
 
   void SetDeadCodeElimination(const bool flag) {
-    enable_eliminate_dead_code = flag;
+    pass.enable_eliminate_dead_code = flag;
   }
   void SetCSEElimination(const bool flag) {
-    enable_eliminate_common_subexpression = flag;
+    pass.enable_eliminate_common_subexpression = flag;
   }
   void SetConstPooling(const bool flag) {
-    enable_constant_pooling = flag;
+    pass.enable_constant_pooling = flag;
   }
   void SetPeepholeOpt(const bool flag) {
-    enable_peephole_optimization = flag;
+    pass.enable_peephole_optimization = flag;
   }
   void SetSubgraphRewrite(const bool flag) {
-    enable_subgraph_rewrite = flag;
+    pass.enable_subgraph_rewrite = flag;
   }
   void SetFuseTMM(const bool flag) {
-    enable_fuse_t_mm_optimization = flag;
+    pass.enable_fuse_t_mm_optimization = flag;
   }
   void SetFuseBnRelu(const bool flag) {
-    enable_fuse_bn_relu_optimization = flag;
+    pass.enable_fuse_bn_relu_optimization = flag;
   }
   void SetPermutePass(const bool flag) {
-    enable_permute_pass = flag;
+    pass.enable_permute_pass = flag;
   }
   void SetWeightPermutePass(const bool flag) {
-    enable_weight_permute_pass = flag;
+    pass.enable_weight_permute_pass = flag;
   }
   void SetReplaceInplaceOps(const bool flag) {
-    enable_replace_inplace_ops = flag;
+    pass.enable_replace_inplace_ops = flag;
   }
   void SetReplaceViews(const bool flag) {
-    enable_replace_views = flag;
+    pass.enable_replace_views = flag;
   }
 
   bool IsEnabledDeadCodeElimination() const {
-    return enable_eliminate_dead_code;
+    return pass.enable_eliminate_dead_code;
   }
   bool IsEnabledCSEElimination() const {
-    return enable_eliminate_common_subexpression;
+    return pass.enable_eliminate_common_subexpression;
   }
   bool IsEnabledConstPooling() const {
-    return enable_constant_pooling;
+    return pass.enable_constant_pooling;
   }
   bool IsEnabledPeepholeOpt() const {
-    return enable_peephole_optimization;
+    return pass.enable_peephole_optimization;
   }
   bool IsEnabledSubgraphRewrite() const {
-    return enable_subgraph_rewrite;
+    return pass.enable_subgraph_rewrite;
   }
   bool IsEnabledFuseTMM() const {
-    return enable_fuse_t_mm_optimization;
+    return pass.enable_fuse_t_mm_optimization;
   }
   bool IsEnabledFuseBnRelu() const {
-    return enable_fuse_bn_relu_optimization;
+    return pass.enable_fuse_bn_relu_optimization;
   }
   bool IsEnabledPermutePass() const {
-    return enable_permute_pass;
+    return pass.enable_permute_pass;
   }
   bool IsEnabledWeightPermutePass() const {
-    return enable_weight_permute_pass;
+    return pass.enable_weight_permute_pass;
   }
   bool IsEnabledReplaceInplaceOps() const {
-    return enable_replace_inplace_ops;
+    return pass.enable_replace_inplace_ops;
   }
   bool IsEnabledReplaceViews() const {
-    return enable_replace_views;
+    return pass.enable_replace_views;
   }
 
   void SetDefaultOptFlags() {
-    enable_eliminate_dead_code = true;
-    enable_eliminate_common_subexpression = true;
-    enable_constant_pooling = true;
-    enable_peephole_optimization = true;
-    enable_subgraph_rewrite = true;
-    enable_fuse_t_mm_optimization = true;
-    enable_fuse_bn_relu_optimization = true;
-    enable_permute_pass = true;
-    enable_replace_inplace_ops = true;
-    enable_replace_views = true;
-    enable_weight_permute_pass = false;
+    pass.enable_eliminate_dead_code = true;
+    pass.enable_eliminate_common_subexpression = true;
+    pass.enable_constant_pooling = true;
+    pass.enable_peephole_optimization = true;
+    pass.enable_subgraph_rewrite = true;
+    pass.enable_fuse_t_mm_optimization = true;
+    pass.enable_fuse_bn_relu_optimization = true;
+    pass.enable_permute_pass = true;
+    pass.enable_replace_inplace_ops = true;
+    pass.enable_replace_views = true;
+    pass.enable_weight_permute_pass = false;
+  }
+
+  void BkupAndDisableAndAllOptPass() {
+    // Create a backup of the currently enabled passes and disable all
+    // optimization passes
+    if (!backup_available) {
+      pass_cfg_backup = pass;
+      backup_available = true;
+
+      // Disable the passes
+      pass.enable_eliminate_dead_code = false;
+      pass.enable_eliminate_common_subexpression = false;
+      pass.enable_constant_pooling = false;
+      pass.enable_peephole_optimization = false;
+      pass.enable_subgraph_rewrite = false;
+      pass.enable_fuse_t_mm_optimization = false;
+      pass.enable_fuse_bn_relu_optimization = false;
+      pass.enable_permute_pass = false;
+      pass.enable_replace_inplace_ops = false;
+      pass.enable_replace_views = false;
+      pass.enable_weight_permute_pass = false;
+    }
+  }
+
+  void RestoreOptPass() {
+    if (backup_available) {
+      pass = pass_cfg_backup;
+      backup_available = false;
+    }
   }
 
  private:
-  bool enable_eliminate_dead_code;
-  bool enable_eliminate_common_subexpression;
-  bool enable_constant_pooling;
-  bool enable_peephole_optimization;
-  bool enable_subgraph_rewrite;
-  bool enable_fuse_t_mm_optimization;
-  bool enable_fuse_bn_relu_optimization;
-  bool enable_permute_pass;
-  bool enable_weight_permute_pass;
-  bool enable_replace_inplace_ops;
-  bool enable_replace_views;
+  struct PassCfg {
+    bool enable_eliminate_dead_code;
+    bool enable_eliminate_common_subexpression;
+    bool enable_constant_pooling;
+    bool enable_peephole_optimization;
+    bool enable_subgraph_rewrite;
+    bool enable_fuse_t_mm_optimization;
+    bool enable_fuse_bn_relu_optimization;
+    bool enable_permute_pass;
+    bool enable_weight_permute_pass;
+    bool enable_replace_inplace_ops;
+    bool enable_replace_views;
+  };
+
+  struct PassCfg pass;
+  struct PassCfg pass_cfg_backup;
+  bool backup_available = false;
 };
 
 /**

@@ -88,6 +88,17 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
           // book keep view tensors to clear the ir nodes after mark step
           context->hb_tensors_out_view.emplace_back(hl_t);
         } else {
+          // TODO: SW-69618 JIT optimization passes are failing for
+          // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
+          // dont support tensorlist in lowering that matches kernel schema.
+          // Adding unpack will return TensorList, which is not supported as
+          // graph output.
+          if ((ir_value &&
+               (std::string(ir_value.mp_node->op().toQualString())
+                    .find("hpu::habanaOptimizerLambPhase") !=
+                std::string::npos))) {
+            exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+          }
           tensors.emplace_back(hl_t);
         }
       } // if (data != nullptr)
@@ -671,6 +682,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // clear the context
   context->clear();
+  // Restore the optimizations which are cleared forcefully in getlivetensors
+  exec::OptPassCfg::GetInstance()->RestoreOptPass();
 }
 
 void HbLazyTensor::SyncTensorsGraphInternalFast(
