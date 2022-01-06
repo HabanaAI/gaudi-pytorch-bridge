@@ -107,20 +107,16 @@ class SynapseLogger {
   SynapseLogger();
   ~SynapseLogger() { // NOLINT
     SLOG(S_TRACE) << "###SYN_LOG_DESTROY\n";
-    flush();
+    dump_trace_info();
   }
 
-  void flush() {
-    std::lock_guard<std::mutex> lock{log_lock_};
-    fout_ << std::flush;
-  }
   void log(absl::string_view payload);
-
   void dump_host_data(
       const void* ptr,
       int byte_size,
       data_dump_category data_category = data_dump_category::VAR_TENSOR_DATA);
   size_t dump_data(const void* ptr, int byte_size);
+  void dump_trace_info();
   void command(absl::string_view x);
   void restart();
   void disable();
@@ -248,6 +244,25 @@ class SynapseLogger {
     return synapse_lib_path_;
   }
 
+  struct TraceInfo {
+    int32_t trace_reserve_count;
+    int32_t pid;
+    std::vector<int32_t> tid;
+    std::vector<int64_t> dtime;
+    std::vector<std::string> payload;
+
+    TraceInfo() {
+      trace_reserve_count = 50000;
+      pid = getpid();
+      tid.reserve(trace_reserve_count);
+      dtime.reserve(trace_reserve_count);
+      payload.reserve(trace_reserve_count);
+    }
+  };
+  TraceInfo trace_info;
+
+  static thread_local pid_t threadId;
+
  private:
   // std::chrono::time_point<std::chrono::high_resolution_clock>
   // log_start_time_;
@@ -268,6 +283,7 @@ class SynapseLogger {
   std::atomic_bool eager_flush_{true};
   std::atomic_bool lazy_open_{false};
   std::atomic_bool use_null_backend_{false};
+  std::atomic_bool optimize_trace_{false};
   static void command_signal_handler(int);
   bool dev_attr_recorded;
 };

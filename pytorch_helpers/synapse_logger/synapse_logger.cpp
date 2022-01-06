@@ -91,6 +91,7 @@ SynapseLogger::SynapseLogger()
   synapse_lib_path_ = l_map->l_name;
 
   const char* c_commands = std::getenv("HBN_SYNAPSE_LOGGER_COMMANDS");
+
   if (c_commands != nullptr) {
     absl::string_view sv{c_commands};
     absl::string_view separator{":"};
@@ -134,16 +135,38 @@ void SynapseLogger::lazy_open() {
 
 static std::once_flag lazy_init_flag{};
 
+void SynapseLogger::dump_trace_info() {
+  std::lock_guard<std::mutex> lock{log_lock_};
+  if (optimize_trace_) {
+    for (long unsigned int i = 0; i < trace_info.payload.size(); i++) {
+      fout_ << R"({"tid":)" << trace_info.tid[i] << R"(, "pid":)"
+            << trace_info.pid << R"(, "ts":)" << trace_info.dtime[i] << ", "
+            << trace_info.payload[i] << "},\n";
+    }
+  }
+  fout_ << std::flush;
+}
+
+thread_local pid_t SynapseLogger::threadId = syscall(__NR_gettid);
+
 void SynapseLogger::log(absl::string_view payload) {
   std::call_once(lazy_init_flag, &SynapseLogger::lazy_open, logger);
   std::lock_guard<std::mutex> lock(log_lock_);
-  pid_t tid = syscall(__NR_gettid);
-  pid_t pid = getpid();
 
-  int64_t dtime = NowMicros();
+  if (optimize_trace_) {
+    trace_info.tid.push_back(SynapseLogger::threadId);
+    trace_info.dtime.push_back(NowMicros());
+    trace_info.payload.push_back(payload.data());
+  } else {
+    pid_t tid = syscall(__NR_gettid);
+    pid_t pid = getpid();
 
-  fout_ << R"({"tid":)" << tid << R"(, "pid":)" << pid << R"(, "ts":)" << dtime
-        << ", " << payload << "},\n";
+    int64_t dtime = NowMicros();
+
+    fout_ << R"({"tid":)" << tid << R"(, "pid":)" << pid << R"(, "ts":)"
+          << dtime << ", " << payload << "},\n";
+  }
+
   if (eager_flush_) {
     fout_ << std::flush;
   }
@@ -267,6 +290,12 @@ void SynapseLogger::command(absl::string_view cmd) {
     // make sure you send this before 'restart'
     log_file_name_ = absl::StrFormat("%s.%d.json", base_file_name, getpid());
     data_file_name_ = absl::StrFormat("%s.%d.data", base_file_name, getpid());
+  } else if (cmd_name == "optimize_trace") {
+    optimize_trace_ = true;
+    char* reserve_count_str = std::getenv("TRACE_RESERVE_COUNT");
+    trace_info.trace_reserve_count = reserve_count_str
+        ? atoi(reserve_count_str)
+        : trace_info.trace_reserve_count;
   } else if (cmd_name == "file_name") {
     std::lock_guard<std::mutex> lock(log_lock_);
     std::ostringstream log_file_name_ss, data_file_name_ss;

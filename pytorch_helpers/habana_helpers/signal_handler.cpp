@@ -10,6 +10,7 @@
 #include "habana_helpers/signal_handler.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_logger/synapse_logger.h"
 
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
@@ -149,6 +150,9 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
     }
 
     std::cerr << ss.str();
+
+    synapse_logger::logger.dump_trace_info();
+
     // Cleanup device related data
     // Within a try::catch, we have added masked all signals within
     // signal handler.
