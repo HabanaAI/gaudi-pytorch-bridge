@@ -6804,11 +6804,28 @@ Tensor masked_scale_hpu_lazy(
 
 Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+  Tensor self_cast = self;
+  Tensor other_cast = other;
+  // Check type promotion for lower precision data type to higher data precision
+  int pos = -1;
+  c10::ScalarType dst_dtype = c10::ScalarType::Float;
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
+  if (pos == 0) {
+    // Cast first tensor to dst_dtype
+    LazyOp<Tensor> k_{"hpu::cast", {self, dst_dtype}, {}, {self.sizes().vec()}};
+    self_cast = k_.call();
+  } else if (pos == 1) {
+    // Cast second tensor to dst_dtype
+    LazyOp<Tensor> k_{
+        "hpu::cast", {other, dst_dtype}, {}, {other.sizes().vec()}};
+    other_cast = k_.call();
+  }
   LazyOp<Tensor> k(
       "aten::matmul",
-      {self, other},
+      {self_cast, other_cast},
       {},
-      {MatMulOperator::compute_output_shape(self, other)});
+      {MatMulOperator::compute_output_shape(self_cast, other_cast)});
   return k.call();
 }
 
@@ -6817,11 +6834,28 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
+  Tensor self_cast = self;
+  Tensor other_cast = other;
+  // Check type promotion for lower precision data type to higher data precision
+  int pos = -1;
+  c10::ScalarType dst_dtype = c10::ScalarType::Float;
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
+  if (pos == 0) {
+    // Cast self tensor to dst_dtype
+    LazyOp<Tensor> k_{"hpu::cast", {self, dst_dtype}, {}, {self.sizes().vec()}};
+    self_cast = k_.call();
+  } else if (pos == 1) {
+    // Cast other tensor to dst_dtype
+    LazyOp<Tensor> k_{
+        "hpu::cast", {other, dst_dtype}, {}, {other.sizes().vec()}};
+    other_cast = k_.call();
+  }
   LazyOp<std::tuple<Tensor, Tensor>> k(
       "hpu::matmul_backward",
-      {grad_output, self, other},
+      {grad_output, self_cast, other_cast},
       {},
-      {self.sizes().vec(), other.sizes().vec()});
+      {self_cast.sizes().vec(), other_cast.sizes().vec()});
   return k.call();
 }
 
