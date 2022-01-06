@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "util.h"
+#define SIZE(...) __VA_ARGS__
 
 #define HPU_UNARY_USUAL_TEST(op)               \
   TEST_F(HpuOpTest, op) {                      \
@@ -36,6 +37,15 @@
     torch::op(GetCpuInput(0), expected);                                      \
     torch::op(GetHpuInput(0), result);                                        \
     Compare(expected, result);                                                \
+  }
+
+// "aten::is_floating_point(Tensor self) -> bool"
+#define HPU_UNARY_USUAL_BOOL_TEST(name, op, dtype, in_size) \
+  TEST_F(HpuOpTest, name) {                                 \
+    GenerateInputs(1, {in_size}, {dtype});                  \
+    auto expected = torch::op(GetCpuInput(0));              \
+    auto result = torch::op(GetHpuInput(0));                \
+    EXPECT_EQ(expected, result);                            \
   }
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -72,3 +82,26 @@ HPU_UNARY_OUT_TEST(sinh_outf)
 HPU_UNARY_OUT_TEST(tan_outf)
 HPU_UNARY_OUT_TEST(trunc_outf)
 HPU_UNARY_OUT_TEST(expm1_outf)
+
+HPU_UNARY_USUAL_BOOL_TEST(is_neg_float, is_neg, SIZE({4, 5, 6}), torch::kFloat)
+HPU_UNARY_USUAL_BOOL_TEST(is_neg_bf16, is_neg, SIZE({5, 6}), torch::kBFloat16)
+
+// is_nonzero expect only size of 1
+HPU_UNARY_USUAL_BOOL_TEST(is_nonzero, is_nonzero, SIZE({}), torch::kFloat)
+HPU_UNARY_USUAL_BOOL_TEST(is_nonzero_bool, is_nonzero, SIZE({1}), torch::kBool)
+HPU_UNARY_USUAL_BOOL_TEST(
+    is_nonzero_bf16,
+    is_nonzero,
+    SIZE({}),
+    torch::kBFloat16)
+
+HPU_UNARY_USUAL_BOOL_TEST(
+    is_float,
+    is_floating_point,
+    SIZE({4, 5, 6}),
+    torch::kFloat)
+HPU_UNARY_USUAL_BOOL_TEST(
+    is_float_bf16,
+    is_floating_point,
+    SIZE({5, 6}),
+    torch::kBFloat16)
