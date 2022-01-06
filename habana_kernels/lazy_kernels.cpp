@@ -4152,7 +4152,12 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
         IntArrayRef padding,
         IntArrayRef dilation,
         bool ceil_mode)
-        : LazyOp<T, U>(std::move(node), {}, {}, -1),
+        : LazyOp<T, U>(
+              std::move(node),
+              {input, kernel_size, stride, padding, dilation, ceil_mode},
+              {1, 2, 3, 4, 5},
+              {},
+              -1),
           input{std::move(input)},
           kernel_size{std::move(kernel_size)},
           stride{std::move(stride)},
@@ -4269,6 +4274,7 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
        dilation,
        ceil_mode,
        indices},
+      {2, 3, 4, 5, 6},
       {input.sizes().vec()}};
   return k.call();
 }
@@ -4313,6 +4319,7 @@ Tensor avg_pool2d_hpu_lazy(
        ceil_mode,
        count_include_pad,
        divisor_override},
+      {1, 2, 3, 4, 5, 6},
       {shape_out}};
   return k.call();
 }
@@ -4383,6 +4390,7 @@ Tensor avg_pool2d_backward_hpu_lazy(
        ceil_mode,
        count_include_pad,
        divisor_override},
+      {2, 3, 4, 5, 6, 7},
       {input.sizes().vec()}};
   return k.call();
 }
