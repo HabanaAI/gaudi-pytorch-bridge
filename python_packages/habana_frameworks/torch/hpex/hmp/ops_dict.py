@@ -1,4 +1,5 @@
 import torch
+import torchvision
 
 ops_dict = {
     # This dictionary contains the list of ops which can be considered for casting.
@@ -64,6 +65,7 @@ ops_dict = {
     "pow": [torch, torch.Tensor],
     "rsub": [torch, torch.Tensor],
     "rsqrt": [torch, torch.Tensor],
+    "sqrt": [torch, torch.Tensor],
     "sub": [torch, torch.Tensor],
     "max": [torch, torch.Tensor],
     "min": [torch, torch.Tensor],
@@ -90,4 +92,9 @@ ops_dict = {
     "index_put": [torch, torch.Tensor],
     "index_fill": [torch, torch.Tensor],
     "nonzero": [torch, torch.Tensor],
+    "stack": [torch, torch.Tensor],
+    # Torchvision ops
+    "nms": [torchvision.ops],
+    "batched_nms": [torchvision.ops],
+    "roi_align": [torchvision.ops],
 }

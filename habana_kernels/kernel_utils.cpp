@@ -35,6 +35,7 @@ const std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
         {{c10::ScalarType::BFloat16,  c10::ScalarType::Float},      c10::ScalarType::Float},
         {{c10::ScalarType::Float,     c10::ScalarType::BFloat16},   c10::ScalarType::Float},
         {{c10::ScalarType::Byte,      c10::ScalarType::Float},      c10::ScalarType::Float},
+        {{c10::ScalarType::Byte,      c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
         {{c10::ScalarType::Float,     c10::ScalarType::Byte},       c10::ScalarType::Float},
         {{c10::ScalarType::Float,     c10::ScalarType::Char},       c10::ScalarType::Float},
         {{c10::ScalarType::BFloat16,  c10::ScalarType::Char},       c10::ScalarType::BFloat16},
@@ -64,6 +65,8 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Char, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
         {{c10::ScalarType::BFloat16, c10::ScalarType::Bool}, "cast_bf16_to_i8"},
         {{c10::ScalarType::BFloat16, c10::ScalarType::Char}, "cast_bf16_to_i8"},
+        // TPC GUID doesn't support BF16->Int cast, hence using it
+        // to realize it through a 2 level cast internally
         {{c10::ScalarType::BFloat16, c10::ScalarType::Int}, "cast_bf16_to_i32"},
         {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
         {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
@@ -87,6 +90,9 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
         {{c10::ScalarType::Byte, c10::ScalarType::Bool}, "cast_u8_to_i8"},
         {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
+        // TPC GUID doesn't support Byte->BF16, hence using it
+        // to realize it through a 2 level cast internally
+        {{c10::ScalarType::Byte, c10::ScalarType::BFloat16}, "cast_u8_to_bf16"},
         {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
         {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
     };

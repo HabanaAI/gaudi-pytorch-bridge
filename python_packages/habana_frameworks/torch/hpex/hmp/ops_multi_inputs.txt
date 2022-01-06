@@ -9,3 +9,4 @@ pow
 sub
 iadd
 truediv
+stack

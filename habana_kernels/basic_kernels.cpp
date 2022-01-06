@@ -469,6 +469,23 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
           std::move(float_to_intOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(
           std::move(float_to_intOp->GetOutputs()[0]));
+    } else if (
+        self.scalar_type() == c10::ScalarType::Byte &&
+        type == c10::ScalarType::BFloat16) {
+      auto byte_to_floatOp =
+          make_operator<CastOperator>(self.device().index(), "cast_u8_to_f32");
+      auto float_to_bfOp = make_operator<CastOperator>(
+          self.device().index(), "cast_f32_to_bf16");
+      byte_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      byte_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
+      float_to_bfOp->SetSynapseInput(byte_to_floatOp->GetSynOutputs()[0]);
+      float_to_bfOp->SetOutputMetadata(output_metadata_);
+      float_to_bfOp->AllocateAndAddSynapseNode(
+          graph, inputs, is_output_persistent);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(float_to_bfOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(float_to_bfOp->GetOutputs()[0]));
     } else {
       auto Op = make_operator<CastOperator>(self.device().index(), node_type);
       Op->SetSynapseInput(p_context_->syn_inputs_[0]);

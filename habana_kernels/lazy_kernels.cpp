@@ -6800,6 +6800,36 @@ Tensor habana_nms_hpu_lazy(
     float iou_threshold,
     float score_threshold) {
   PT_LAZY_TRACE;
+  // Ensuring that the boxes and scores input to nms is always FP32
+  // This is required because when batched_nms is called
+  // it calls torch.ops.torhchvision.nms which is visible
+  // only internally through C++ flow. Instead of changing
+  // the call in torchvision to call torchvision.ops.nms(external
+  // facing API exposed via python), we chose to handle it
+  // internally in the bridge to ensure boxes input to NMS
+  // is always FP32. Also the topk operation does
+  // not run on BF16 which is used by NMS internally
+  // Consider removing this FP32 restriction once complex guid
+  // implementation for NMS is in place
+
+  Tensor boxes_cast = boxes;
+  Tensor scores_cast = scores;
+  if (boxes.scalar_type() == c10::ScalarType::BFloat16) {
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {boxes, c10::ScalarType::Float},
+        {boxes.sizes().vec()},
+        c10::ScalarType::Float};
+    boxes_cast = k_.call();
+  }
+  if (scores.scalar_type() == c10::ScalarType::BFloat16) {
+    LazyOp<at::Tensor> s_{
+        "hpu::cast",
+        {scores, c10::ScalarType::Float},
+        {scores.sizes().vec()},
+        c10::ScalarType::Float};
+    scores_cast = s_.call();
+  }
 
   struct HabanaNMSLazy
       : LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> {
@@ -6845,7 +6875,7 @@ Tensor habana_nms_hpu_lazy(
   std::vector<int64_t> valid_box_id_out_shape{1};
   std::vector<int64_t> shape_tensor_shape{5};
   HabanaNMSLazy k(
-      {boxes, scores, Scalar(iou_threshold), Scalar(score_threshold)},
+      {boxes_cast, scores_cast, Scalar(iou_threshold), Scalar(score_threshold)},
       {box_id_out_shape, valid_box_id_out_shape, shape_tensor_shape});
   auto result_nms = k.call();
   auto box_id_out = std::get<0>(result_nms);
