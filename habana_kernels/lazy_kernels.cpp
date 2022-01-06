@@ -5323,7 +5323,7 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   // out 1
   auto result_1 = empty_hpu_lazy(
       shape_out,
-      self.options().dtype(kInt),
+      self.options().dtype(kLong),
       self.suggest_memory_format(),
       false);
   auto hlresult_1 = GetHbLazyTensor(result_1);
