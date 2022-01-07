@@ -700,7 +700,7 @@ std::vector<int64_t> MSELossFwdOperator::compute_output_shape(
   if (reduction == at::Reduction::Reduction::None) {
     return self.sizes().vec();
   } else {
-    return {1};
+    return {};
   }
 }
 
@@ -768,7 +768,7 @@ Tensor mse_loss_forward_hpu(
       output = habana_helpers::createPTTensor(self, true);
     } else {
       output = habana_helpers::createPTTensor(
-          self, {1}, self.options(), self.suggest_memory_format(), true);
+          self, {}, self.options(), self.suggest_memory_format(), true);
     }
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
@@ -786,7 +786,6 @@ Tensor mse_loss_forward_hpu(
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
@@ -895,7 +894,7 @@ std::vector<int64_t> KlDivOperator::compute_output_shape(
   if (reduction == at::Reduction::Reduction::None) {
     return self.sizes().vec();
   } else {
-    return {1};
+    return {};
   }
 }
 
@@ -1027,7 +1026,7 @@ Tensor kl_div_hpu(
       output = habana_helpers::createPTTensor(self, true);
     } else {
       output = habana_helpers::createPTTensor(
-          self, {1}, self.options(), self.suggest_memory_format(), true);
+          self, {}, self.options(), self.suggest_memory_format(), true);
     }
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
@@ -1225,7 +1224,7 @@ std::vector<int64_t> BceFwdOperator::compute_output_shape(
   if (reduction == at::Reduction::Reduction::None) {
     return self.sizes().vec();
   } else {
-    return {1};
+    return {};
   }
 }
 
@@ -1523,6 +1522,16 @@ Tensor binary_cross_entropy_backward_hpu(
   return output;
 }
 
+std::vector<int64_t> BceLogitsFwdOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t reduction) {
+  if (reduction == at::Reduction::Reduction::None) {
+    return self.sizes().vec();
+  } else {
+    return {};
+  }
+}
+
 void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1562,14 +1571,9 @@ void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(param);
 
   Tensor output;
-  if (reduction == at::Reduction::Reduction::Mean ||
-      reduction == at::Reduction::Reduction::Sum) {
-    output = habana_helpers::createPTTensor(
-        self, {1}, self.options(), is_output_persistent);
-  } else {
-    output = habana_helpers::createPTTensor(
-        self, self.sizes(), self.options(), is_output_persistent);
-  }
+  auto sizes = BceLogitsFwdOperator::compute_output_shape(self, reduction);
+  output = habana_helpers::createPTTensor(
+      self, sizes, self.options(), is_output_persistent);
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
@@ -1606,7 +1610,7 @@ Tensor binary_cross_entropy_with_logits_hpu(
     Tensor output;
     if (reduction == at::Reduction::Reduction::Mean ||
         reduction == at::Reduction::Reduction::Sum) {
-      output = habana_helpers::createPTTensor(self, {1}, self.options(), true);
+      output = habana_helpers::createPTTensor(self, {}, self.options(), true);
     } else {
       output = habana_helpers::createPTTensor(
           self, self.sizes(), self.options(), true);

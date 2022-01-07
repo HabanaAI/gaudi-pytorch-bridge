@@ -339,8 +339,7 @@ at::Tensor habana_helpers::nonPersistentTensor(
   auto t =
       at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
           input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_contiguous(
-      (size.size() == 0) ? input.sizes() : size);
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(size);
 
   if (optional_memory_format.has_value()) {
     t.unsafeGetTensorImpl()->empty_tensor_restride(
@@ -366,8 +365,7 @@ at::Tensor habana_helpers::nonPersistentTensor(
   auto t =
       at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
           input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_and_strides(
-      (size.size() == 0) ? input.sizes() : size, strides);
+  t.unsafeGetTensorImpl()->set_sizes_and_strides(size, strides);
   if (optional_memory_format.has_value()) {
     t.unsafeGetTensorImpl()->empty_tensor_restride(
         optional_memory_format.value_or(MemoryFormat::Contiguous));

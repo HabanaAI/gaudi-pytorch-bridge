@@ -3783,10 +3783,8 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
     const c10::optional<Tensor>& pos_weight,
     int64_t reduction) {
   PT_LAZY_TRACE;
-  std::vector<int64_t> sizes = {1};
-  if (reduction == at::Reduction::Reduction::None) {
-    sizes = self.sizes().vec();
-  }
+
+  auto sizes = BceLogitsFwdOperator::compute_output_shape(self, reduction);
 
   LazyOp<at::Tensor> k(
       "aten::binary_cross_entropy_with_logits",
