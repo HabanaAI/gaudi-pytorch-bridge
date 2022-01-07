@@ -448,6 +448,10 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -497,6 +501,12 @@ void NLLLoss2dBwdOperator::AllocateAndAddSynapseNode(
       self.options(),
       c10::MemoryFormat::Contiguous,
       is_output_persistent);
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
+
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
