@@ -460,7 +460,7 @@ class LazyOp {
     }
   }
 
-  void viewUpdateInputsInplace() {
+  void viewUpdateInputsInplace(const at::Tensor& self) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     size_t idx = 0;
     for (auto ival : m_inputs) {
@@ -476,7 +476,10 @@ class LazyOp {
               context->orig_tensor_map.end()) {
             m_inputs[idx] = context->orig_tensor_map[id];
           } else {
-            if (is_inplace(m_symbol)) {
+            // add view node for all the inputs except self of out variant
+            // this is because, view of out variant is handled as a write to an
+            // empty tensor followed by strided insert
+            if (is_inplace(m_symbol) || (!t.is_same(self))) {
               HandleViews(t, hl_t);
             }
           }
@@ -492,10 +495,6 @@ class LazyOp {
     auto out_t = empty_hpu_lazy(
         self.sizes(), self.options(), self.suggest_memory_format(), false);
 
-    // optimization for 8x mul_out case. The below logic avoids extra out of
-    // place as_strided_lazy call
-    // TODO ideally we should also replace inplace op with out of place
-    // variant.
     if (!is_inplace(m_symbol)) {
       // out variant needs storage as it is a graph input
       out_t = empty_hpu_lazy(
@@ -534,9 +533,6 @@ class LazyOp {
     auto id = hl_self.getTensorUniqueId();
     auto is_self_view =
         context->view_table.find(id) != context->view_table.end();
-
-    // Handle views or fetch updated tensor for all the inputs
-    viewUpdateInputsInplace();
 
     // special handling for self tensor
     if (is_self_view == false) {
@@ -621,6 +617,10 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
+
+    // Handle views or fetch updated tensor for all the inputs
+    viewUpdateInputsInplace(self);
+
     size_t lazy_eager_key = 0;
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&

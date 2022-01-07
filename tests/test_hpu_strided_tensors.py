@@ -224,6 +224,23 @@ def test_hpu_autograd_slicefunction(N, C):
 
     compare_tensors(ha2, a2, atol=0.001, rtol=0.001)
 
+@pytest.mark.parametrize("N, C", test_case_list_1D)
+def test_hpu_autograd_divout(N, C):
+    a = torch.randn([C])
+    ha = a.to('hpu')
+    b = torch.randn([C])
+    hb = b.to('hpu')
+    c = torch.randn([C])
+    hc = c.to('hpu')
+
+    v = b.view(-1)
+    torch.div(a, v, out=c)
+
+    hv = hb.view(-1)
+    torch.div(ha, hv, out = hc)
+
+    compare_tensors(hc, c, atol=0.001, rtol=0.001)
+
 
 if __name__ == "__main__":
     test_hpu_st_tensor1()
