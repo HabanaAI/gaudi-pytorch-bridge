@@ -1484,6 +1484,65 @@ maximum.out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
 
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool2d_with_indices.out:
+#   custom_fill_params: FillSpatialReduction2DParamsFwd
+#   custom_output_shape: MaxPool2DOutputShape
+#   dtypes:
+#     self: [BFloat16, Float]
+#     out: [BFloat16, Float]
+#     indices: [BFloat16, Float]
+#   op_backend: MaxPool2DWithIndicesOut
+
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool2d_with_indices_backward.grad_input:
+#   custom_fill_params: FillSpatialReduction2DParamsBwd
+#   custom_output_shape: MaxPoolOutputShapeBwd
+#   dtypes:
+#     self: [BFloat16, Float]
+#     grad_output: [BFloat16, Float]
+#     indices: [Byte, Int]
+#   op_backend: MaxPool2DWithIndicesBwd
+
+max_pool3d_with_indices:
+  custom_fill_params: FillSpatialReduction3DParamsFwd
+  custom_output_shape: MaxPool3DIndicesOutputShape
+  dtypes:
+    self: [BFloat16, Float]
+    indices: [BFloat16, Float]
+  op_backend: MaxPool3DWithIndices
+  out_ids: [0,0]
+
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool3d_with_indices.out:
+#   custom_fill_params: FillSpatialReduction3DParamsFwd
+#   custom_output_shape: MaxPool3DIndicesOutputShape
+#   dtypes:
+#     self: [BFloat16, Float]
+#     out: [BFloat16, Float]
+#     indices: [BFloat16, Float]
+#   op_backend: MaxPool3DWithIndicesOut
+
+max_pool3d_with_indices_backward:
+  custom_fill_params: FillSpatialReduction3DParamsBwd
+  custom_output_shape: MaxPoolOutputShapeBwd
+  dtypes:
+    self: [BFloat16, Float]
+    grad_output: [BFloat16, Float]
+    indices: [BFloat16, Float]
+  op_backend: MaxPool3DWithIndicesBwd
+  out_ids: [0]
+
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool3d_with_indices_backward.grad_input:
+#   custom_fill_params: FillSpatialReduction3DParamsBwd
+#   custom_output_shape: MaxPoolOutputShapeBwd
+#   dtypes:
+#     self: [BFloat16, Float]
+#     grad_output: [BFloat16, Float]
+#     indices: [Byte, Int]
+#   op_backend: MaxPool3DWithIndicesBwd
+
 median:
   custom_output_shape: MedianOutputShape
   dtypes: [BFloat16, Float]
