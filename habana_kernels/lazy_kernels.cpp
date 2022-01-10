@@ -1799,7 +1799,17 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   if (context->view_table.find(id) != context->view_table.end()) {
     auto orig_out = out;
     auto temp = mul_tensor_hpu_lazy(self, other);
-    strided_insert_hpu_lazy(orig_out, temp);
+    Tensor temp_cast = temp;
+    if (temp.scalar_type() != orig_out.scalar_type()) {
+      // Cast temp tensor to orig_out tensor data type
+      LazyOp<Tensor> k_{
+          "hpu::cast",
+          {temp, orig_out.scalar_type()},
+          {},
+          {temp.sizes().vec()}};
+      temp_cast = k_.call();
+    }
+    strided_insert_hpu_lazy(orig_out, temp_cast);
   } else {
     std::vector<at::Tensor> metatens_tensors = {self, other, out};
     auto metatens = habana::GetMetaTensorList(metatens_tensors);

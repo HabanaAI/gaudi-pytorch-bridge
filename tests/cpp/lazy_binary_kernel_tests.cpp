@@ -205,6 +205,22 @@ TEST_F(LazyBinaryKernelTest, MulOutNarrow) {
   EXPECT_EQ(equal, true);
 }
 
+TEST_F(LazyBinaryKernelTest, MulOutCast) {
+  torch::Tensor input1 = torch::randn({3, 3}, torch::dtype(torch::kFloat));
+  torch::Tensor input2 = torch::randn({3, 3}, torch::dtype(torch::kBFloat16));
+
+  torch::Tensor A = torch::zeros({9}, torch::dtype(torch::kBFloat16));
+  torch::Tensor hA = A.to(torch::kHPU);
+  Tensor out_cpu = A.as_strided({3, 3}, {3, 1}, 0);
+  Tensor out_hpu = hA.as_strided({3, 3}, {3, 1}, 0);
+
+  at::mul_out(out_cpu, input1, input2);
+  at::mul_out(out_hpu, input1.to(torch::kHPU), input2.to(torch::kHPU));
+  HbLazyTensor::StepMarker({});
+  bool equal = A.allclose(hA.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}
+
 TEST_F(LazyBinaryKernelTest, Maximum) {
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
