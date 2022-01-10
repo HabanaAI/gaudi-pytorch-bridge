@@ -11,6 +11,22 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
+
+template <>
+LazySetDtypeBool<at::Tensor>::LazySetDtypeBool(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  set_scalar_type(c10::ScalarType::Bool);
+}
+
+template <>
+at::Tensor LazySetDtypeBool<at::Tensor>::get_result_overrideable() {
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return {};
+}
+
 void SignBit::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,

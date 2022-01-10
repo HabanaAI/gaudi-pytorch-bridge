@@ -2048,6 +2048,12 @@ sign.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
 
+signbit:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  op_backend: SignBit
+  op_frontend: LazySetDtypeBool
+  out_ids: [0]
+
 signbit.out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: SignBit
