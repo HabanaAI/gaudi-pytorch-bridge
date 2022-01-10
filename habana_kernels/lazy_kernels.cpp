@@ -2298,11 +2298,41 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
     return output;
   }
 
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  struct NonZero : LazyOp<T> {
+    explicit NonZero(
+        const std::vector<at::IValue>& inputs,
+        const std::set<size_t>& metadata_indices = {},
+        const std::vector<std::vector<int64_t>>& out_shapes = {})
+        : LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+              "hpu::nonzero",
+              inputs,
+              metadata_indices,
+              out_shapes,
+              -1) {}
+
+    std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto outputs = get_out_shapes();
+      auto self = inputs[0].toTensor();
+      auto where_tensor = empty_hpu_lazy(
+          outputs[0],
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          false);
+      auto shape_tensor = empty_hpu_lazy(
+          outputs[1],
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          false);
+      return {where_tensor, shape_tensor};
+    }
+  };
+
   // Add nonzero node
   std::vector<int64_t> output_shape{elements, dimensions};
   std::vector<int64_t> shape_tensor_shape{5};
-  using T = std::tuple<at::Tensor, at::Tensor>;
-  LazyOp<T> k("hpu::nonzero", {self}, {}, {output_shape, shape_tensor_shape});
+  NonZero k({self}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2343,18 +2373,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
 
   // Add a slice node to capture relevent elements from nonzero node
   // in case we have relevant elements
-  auto sliced_shape = DimVector{end, dimensions};
-  auto node = std::make_shared<ir::Slice>(where_tensor, 0, 0, end, 1);
-  auto result = empty_hpu_lazy(
-      sliced_shape, hb_options, self.suggest_memory_format(), true);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
+  auto result = slice_hpu_lazy(where_tensor, 0, 0, end, 1);
   flush_op(result);
   return result;
 }
@@ -6717,27 +6736,12 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   auto end = valid_count.item<int64_t>();
 
   // Add a slice node to capture relevent elements from feature_map
-  auto sliced_shape = DimVector{end};
-  auto node_slice = std::make_shared<ir::Slice>(feature_map, 0, 0, end, 1);
-  auto result = empty_hpu_lazy(
-      sliced_shape,
-      self.options().dtype(self.scalar_type()),
-      self.suggest_memory_format(),
-      false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node_slice,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
 
   // These are optional tensors which shall be populated only when we
   // start supporting return_inverse and return_counts
   Tensor inverse_indices;
   Tensor counts;
-
-  updateDstDependencies(hl_result, result);
   flush_op(result);
   return std::make_tuple(result, inverse_indices, counts);
 };
@@ -6987,21 +6991,7 @@ Tensor habana_nms_hpu_lazy(
 
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements
-  auto sliced_shape = DimVector{end};
-  auto node = std::make_shared<ir::Slice>(box_id_out, 0, 0, end, 1);
-  auto result = empty_hpu_lazy(
-      sliced_shape,
-      scores.options().dtype(c10::ScalarType::Int),
-      scores.suggest_memory_format(),
-      false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
+  auto result = slice_hpu_lazy(box_id_out, 0, 0, end, 1);
   flush_op(result);
   return result;
 }
