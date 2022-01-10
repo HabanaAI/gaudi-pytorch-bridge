@@ -194,7 +194,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       strNode_type,
       {makeIntegerOp.at(0).get()},
-      {{shape_out, computation_type, is_output_persistent_list[0], true}});
+      {{shape_out, final_result_type, is_output_persistent_list[0], true}});
   syn_out(0) = std::move(castToReturnTypeOp[0]);
 }
 
