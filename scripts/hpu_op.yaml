@@ -987,6 +987,18 @@ gt.Tensor:
   type_promotion: true
   legacy_eager: true
 
+hardshrink:
+  custom_fill_params: FillhardshrinkfwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_fwd
+  out_ids: [0]
+
+hardshrink_backward:
+  custom_fill_params: FillhardshrinkbwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_bwd
+  out_ids: [0]
+
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
   dtypes: [BFloat16, Float]
@@ -2127,6 +2139,18 @@ _softmax_backward_data.out:
   dtypes: [BFloat16, Float]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
+
+softshrink:
+  custom_fill_params: FillsoftshrinkfwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_fwd
+  out_ids: [0]
+
+softshrink_backward:
+  custom_fill_params: FillsoftshrinkbwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_bwd
+  out_ids: [0]
 
 special_xlog1py:
   dtypes: [BFloat16, Float]
