@@ -53,6 +53,8 @@ dist.all_reduce(a)
 print(a.to('cpu'))
 print(a.dtype)
 
+import habana_frameworks.torch.core as htcore
+print(htcore.get_device_name(rank))
 #Command to run the test
 #HCL_CONFIG_PATH=hls1.json python -um torch.distributed.launch --nproc_per_node=8 --use_env test.py
 

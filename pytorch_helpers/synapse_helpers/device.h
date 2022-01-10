@@ -127,6 +127,18 @@ class device {
     return id_;
   }
 
+  std::string name() const {
+    constexpr uint32_t maxStringLength = 1024;
+    char deviceName[maxStringLength] = "";
+    auto status = synDeviceGetName(deviceName, maxStringLength, id_);
+    if (status != synSuccess) {
+      PT_SYNHELPER_DEBUG(
+          "Failed to get device name for id ", id_, " Status: ", status);
+      return "";
+    }
+    return deviceName;
+  }
+
   friend std::ostream& operator<<(
       std::ostream& stream,
       const device& syn_device);

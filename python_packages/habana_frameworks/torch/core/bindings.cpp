@@ -83,6 +83,14 @@ intptr_t GetDataPtr(const at::Tensor& t) {
       habana_lazy::HbLazyTensor::lazyTensorDataPtr(t));
 }
 
+const std::string get_device_name(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  return device.name();
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   torch_hcl_init();
   // python API to report device memory live allocation details
@@ -93,6 +101,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HpuFallbackHelper::get()->get_op_count();
   });
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
+  m.def("current_device", []() { return GetCurrentThreadDevice(); });
   m.def("is_available", []() { return IsAvailable(); });
   m.def("get_device_type", []() { return GetDeviceType(); });
   m.def("is_enabled_weight_permute_pass", []() {
@@ -105,6 +114,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_device_count", []() {
     return synapse_helpers::HPURegistrar::get_total_device_count();
   });
+  m.def("get_device_name", [](int id) { return get_device_name(id); });
 
   // Lazy apis
   m.def(
