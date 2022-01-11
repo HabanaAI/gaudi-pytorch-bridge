@@ -1512,7 +1512,6 @@ Tensor add_tensor_hpu_lazy(
         {self, other, alpha},
         {},
         {BinaryOperator::compute_output_shape(self, other)}};
-    k.ConvertWrappedTensorToScalar();
     return k.call();
   }
 }
@@ -1552,7 +1551,6 @@ Tensor& add_tensor_hpu_lazy_(
     return add_tensor_hpu_lazy_(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
-    op.ConvertWrappedTensorToScalar();
     return op.call(self);
   }
 }

@@ -711,15 +711,6 @@ class LazyOp {
     return HandleLazy(lazy_eager_key);
   }
 
-  // wrapped_scalar_tensor in ATen/native/BinaryOps.cpp
-  void ConvertWrappedTensorToScalar() {
-    m_convert_wrapped_tensor_to_scalar = true;
-  }
-
-  bool IsConvertWrappedTensorToScalar() {
-    return m_convert_wrapped_tensor_to_scalar;
-  }
-
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isDevice() || input.isIntList() ||
@@ -887,8 +878,7 @@ class LazyOp {
         // If the CPU tensor is a wrapped number, then use
         // get_tensor_for_scalar method to retrieve cached HPU tensors for
         // the scalar value
-        if (!IsConvertWrappedTensorToScalar() &&
-            tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+        if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
           // is_wrapped_number: True if a tensor was auto-wrapped from a
           // C++ or Python number.
           auto dtype = tensor.scalar_type();
@@ -1019,47 +1009,43 @@ class LazyOp {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
           if (t.device().type() != c10::DeviceType::HPU) {
-            // DMA is default because aten schema may not be happy for most ops
-            if (m_convert_wrapped_tensor_to_scalar) {
-              continue;
+            at::Tensor tinput;
+            // If the CPU tensor is a wrapped number, then use
+            // get_tensor_for_scalar method to retrieve cached HPU tensors for
+            // the scalar value
+            if ((t.device().type() == c10::DeviceType::CPU)
+                // is_wrapped_number: True if a tensor was auto-wrapped from a
+                // C++ or Python number.
+                && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
+              // Set the dtype for the HPU tensor.
+              //   Double : Float
+              //   Long : Int
+              //   Everything else is passed with the dtype of CPU tensor
+              at::TensorOptions topt = {};
+              auto dtype = t.scalar_type();
+              switch (dtype) {
+                case at::ScalarType::Double:
+                  topt = at::TensorOptions().dtype(at::ScalarType::Float);
+                  break;
+                case at::ScalarType::Long:
+                  topt = at::TensorOptions().dtype(at::ScalarType::Int);
+                  break;
+                default:
+                  topt = at::TensorOptions().dtype(dtype);
+                  break;
+              }
+              tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
             } else {
-              at::Tensor tinput;
-              // If the CPU tensor is a wrapped number, then use
-              // get_tensor_for_scalar method to retrieve cached HPU tensors for
-              // the scalar value
-              if ((t.device().type() == c10::DeviceType::CPU)
-                  // is_wrapped_number: True if a tensor was auto-wrapped from a
-                  // C++ or Python number.
-                  && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
-                // Set the dtype for the HPU tensor.
-                //   Double : Float
-                //   Long : Int
-                //   Everything else is passed with the dtype of CPU tensor
-                at::TensorOptions topt = {};
-                auto dtype = t.scalar_type();
-                switch (dtype) {
-                  case at::ScalarType::Double:
-                    topt = at::TensorOptions().dtype(at::ScalarType::Float);
-                    break;
-                  case at::ScalarType::Long:
-                    topt = at::TensorOptions().dtype(at::ScalarType::Int);
-                    break;
-                  default:
-                    topt = at::TensorOptions().dtype(dtype);
-                    break;
-                }
-                tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
-              } else {
-                // Use non_blocking .to()
-                tinput = t.to(c10::kHPU, true);
-              }
-              auto val = GetHbLazyTensor(tinput).GetIrValue();
-              it = find(input_values.begin(), input_values.end(), val);
-              if (it == input_values.end()) {
-                input_values.emplace_back(val);
-                m_input_pt_tensors.emplace_back(tinput);
-              }
+              // Use non_blocking .to()
+              tinput = t.to(c10::kHPU, true);
             }
+            auto val = GetHbLazyTensor(tinput).GetIrValue();
+            it = find(input_values.begin(), input_values.end(), val);
+            if (it == input_values.end()) {
+              input_values.emplace_back(val);
+              m_input_pt_tensors.emplace_back(tinput);
+            }
+
           } else {
             auto val = GetHbLazyTensor(t).GetIrValue();
             it = find(input_values.begin(), input_values.end(), val);
@@ -1084,7 +1070,6 @@ class LazyOp {
 
  private:
   std::vector<at::Tensor> m_input_pt_tensors;
-  bool m_convert_wrapped_tensor_to_scalar = false;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
