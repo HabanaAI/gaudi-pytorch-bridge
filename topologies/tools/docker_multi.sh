@@ -14,7 +14,7 @@ fi
 
 if [ -z "$5" ]
 then
-PT_VER=1.10.0
+PT_VER=1.10.1
 else
 PT_VER=$5
 fi
