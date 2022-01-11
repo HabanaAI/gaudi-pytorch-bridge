@@ -83,7 +83,7 @@ target_link_libraries(_py_pytorch_synapse_logger
   absl::variant)
 
 set_target_properties(pytorch_synapse_logger _py_pytorch_synapse_logger py_pytorch_synapse_logger_wrap PROPERTIES
-  CXX_STANDARD 11
+  CXX_STANDARD 17
   CXX_STANDARD_REQUIRED ON
   # TODO: Add CXX_EXTENSIONS OFF
   )

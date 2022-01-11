@@ -21,7 +21,7 @@ namespace pool_allocator {
 class StaticCoalescedPooling : public PoolingStrategy {
  private:
   struct chunkcompare {
-    bool operator()(const Chunk* a, const Chunk* b) {
+    bool operator()(const Chunk* a, const Chunk* b) const {
       // sort by size, break ties with pointer
       if (a->size != b->size) {
         return a->size < b->size;

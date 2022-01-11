@@ -52,7 +52,7 @@ add_executable(Test test.cxx ../compare.cxx)
 target_include_directories(Test PRIVATE $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(Test PRIVATE Synapse)
 set_target_properties(Test PROPERTIES
-  CXX_STANDARD 11
+  CXX_STANDARD 17
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF)
 

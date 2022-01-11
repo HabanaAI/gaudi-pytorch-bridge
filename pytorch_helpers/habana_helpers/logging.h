@@ -57,6 +57,11 @@ inline std::string _str_wrapper(const Args&... args) {
   return ss.str();
 }
 
+template <typename... Args>
+inline void print(std::ostream& os, const Args&... args) {
+  (os << ... << args);
+}
+
 // Convert a list of string-like arguments into a single string.
 template <typename... Args>
 inline std::string str(const Args&... args) {
@@ -329,12 +334,13 @@ class PTFuncLog {
   PT_MOD_FATAL(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
 
 /************************WARNING MACROS************************/
-#define PT_MOD_WARN(MOD, ...)                                       \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
-       (PtLogger::getLogger()->getTypeMask() &                      \
-        (PtLogger::TypeMask::WARNING)))) {                          \
-    std::cerr << Logger::str(__VA_ARGS__) << " " << __FILE__ << ":" \
-              << __LINE__ << "\t" << __func__ << "\n";              \
+#define PT_MOD_WARN(MOD, ...)                                           \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \
+       (PtLogger::getLogger()->getTypeMask() &                          \
+        (PtLogger::TypeMask::WARNING)))) {                              \
+    Logger::print(std::cerr, __VA_ARGS__);                              \
+    std::cerr << " " << __FILE__ << ":" << __LINE__ << "\t" << __func__ \
+              << "\n";                                                  \
   }
 
 #define PT_MOD_WARN_WITHOUT_LINE_FILE(MOD, ...)            \
@@ -468,7 +474,8 @@ class PTFuncLog {
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
        (PtLogger::getLogger()->getTypeMask() &             \
         (PtLogger::TypeMask::DEBUG)))) {                   \
-    std::clog << Logger::str(__VA_ARGS__) << "\n";         \
+    Logger::print(std::clog, __VA_ARGS__);                 \
+    std::clog << "\n";                                     \
   };
 
 #define PT_PROFILE_DUMP(...)                            \

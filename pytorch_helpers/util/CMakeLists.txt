@@ -5,7 +5,7 @@ set(GRAPH_WRITER_SRCS
 add_library(graph_writer SHARED ${GRAPH_WRITER_SRCS})
 set_target_properties(graph_writer PROPERTIES
   PREFIX ""
-  CXX_STANDARD 11
+  CXX_STANDARD 17
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
   CXX_INCLUDE_WHAT_YOU_USE "")  # TODO: make IWYU work with this target

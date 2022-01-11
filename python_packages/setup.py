@@ -32,7 +32,7 @@ libraries = [
 ]
 
 extra_compile_args = [
-    "-std=c++14",
+    "-std=c++17",
     "-DMAX_DEVICES_PER_BOX=8",
     "-fopenmp",
     "-fpermissive",

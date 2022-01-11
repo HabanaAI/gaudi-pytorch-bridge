@@ -19,6 +19,7 @@ if (BUILD_DIST)
 
  include(SeparateDebugSymbols)
  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_CXX_STANDARD 17)
 
  add_subdirectory(cmake/absl_abi98)
  add_subdirectory(cmake/absl_abi11)
