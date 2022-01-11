@@ -2361,6 +2361,46 @@ uniform_:
   legacy_eager: true
   op_backend: RandomSeedTensorInput
 
+upsample_bicubic2d:
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpsampleBicubic2DFwdOperator
+  out_ids: [0]
+
+upsample_bicubic2d.out:
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpsampleBicubic2DFwdOperator
+
+upsample_bicubic2d.vec:
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  op_backend: UpsampleBicubic2DFwdOperator
+  out_ids: [0]
+
+upsample_bicubic2d_backward:
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpsampleBicubic2DBwdOperator
+  out_ids: [0]
+
+upsample_bicubic2d_backward.grad_input:
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpsampleBicubic2DBwdOperator
+
+upsample_bicubic2d_backward.vec:
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  op_backend: UpsampleBicubic2DBwdOperator
+  out_ids: [0]
+
 upsample_bilinear2d:
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]

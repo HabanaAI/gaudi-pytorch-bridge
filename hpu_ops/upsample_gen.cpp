@@ -272,6 +272,42 @@ sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack, bool) {
   upsample_2d_common_check(grad_in, out_size, scale);
   return {stack.at(2).toIntVector()};
 }
+// Forward Output Shape - Bicubic2D
+sizes_vec UpsampleBicubic2DFwdOutputShape(const at::Stack& stack, bool) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(3);
+  std::vector<int64_t> out_shape;
+  upsample_2d_common_check(self, out_size, scale);
+  CHECK_NULL_INPUT(out_size, scale);
+  if (!out_size.isNone()) {
+    out_shape = {
+        self.sizes()[0],
+        self.sizes()[1],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (!scale.isNone()) {
+    double scale_w = scale.toDoubleVector().at(1);
+    double scale_h = scale.toDoubleVector().at(0);
+    out_shape = {
+        self.sizes()[0],
+        self.sizes()[1],
+        static_cast<int64_t>(self.sizes()[2] * scale_h),
+        static_cast<int64_t>(self.sizes()[3] * scale_w)};
+  }
+  CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
+      self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
+  return {out_shape};
+}
+// Backward Output Shape - Bicubic2D
+sizes_vec UpsampleBicubic2DBwdOutputShape(const at::Stack& stack, bool) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(4);
+  CHECK_NULL_INPUT(out_size, scale);
+  upsample_2d_common_check(grad_in, out_size, scale);
+  return {stack.at(2).toIntVector()};
+}
 // Forward Output Shape - Nearest3D
 sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack, bool) {
   auto self = stack.at(0).toTensor();
@@ -317,11 +353,13 @@ sizes_vec UpsampleNearest3DBwdOutputShape(const at::Stack& stack, bool) {
   return {stack.at(2).toIntVector()};
 }
 
+enum modes { nearest, linear, bicubic };
+
 // Custom FillParams function
 std::shared_ptr<void> FillResizeParams(
     const int variant_type,
     size_t& size,
-    bool isLinear,
+    enum modes upsample_mode,
     c10::IValue out_size,
     c10::IValue scales,
     double scale_w,
@@ -329,11 +367,20 @@ std::shared_ptr<void> FillResizeParams(
     double scale_d,
     bool align_corner) {
   PARAMS_STUB(ns_ResizeKernel::Params);
-  params->mode = isLinear ? ResizeInterpolationMode_t::RESIZE_INTER_LINEAR
-                          : ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
   params->nearestMode = ResizeNearestMode_t::FLOOR;
+  if (upsample_mode == nearest) {
+    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
+  } else if (upsample_mode == linear) {
+    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_LINEAR;
+  } else if (upsample_mode == bicubic) {
+    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_CUBIC;
+    params->nearestMode = ResizeNearestMode_t::ROUND_DEFAULT;
+    params->cubicCoeffA =
+        -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for cubic
+               // interpolation is -0.75.
+  }
   params->excludeOutside = false;
-  if (isLinear) {
+  if (upsample_mode != nearest) {
     params->coordTransMode = align_corner
         ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
         : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
@@ -453,7 +500,7 @@ static std::vector<synapse_helpers::tensor> Slice(
 std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    bool isLinear,
+    enum modes upsample_mode,
     bool isForward,
     std::vector<synTensor> input,
     const at::IntArrayRef shape_in,
@@ -522,7 +569,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   const auto& params = FillResizeParams(
       variant_type,
       size,
-      isLinear,
+      upsample_mode,
       out_size,
       scales,
       scale_w,
@@ -591,7 +638,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      true, /*isLinear*/
+      linear, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -626,7 +673,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      true, /*isLinear*/
+      linear, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -660,7 +707,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -694,7 +741,7 @@ void UpsampleNearest1DBwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -731,7 +778,7 @@ void UpsampleBilinear2DFwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      true, /*isLinear*/
+      linear, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -768,7 +815,7 @@ void UpsampleBilinear2DBwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      true, /*isLinear*/
+      linear, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -804,7 +851,7 @@ void UpSampleNearest2DFwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -841,12 +888,86 @@ void UpSampleNearest2DBwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       shape_in,
       out_size,
       false, /*align_corners*/
+      scales,
+      scale_w,
+      scale_h,
+      1.0 /*scale_d*/,
+      output_shape,
+      self.dim(), /*variant_type - 2D*/
+      is_output_persistent_list);
+  syn_out(0) = std::move(result.at(0));
+}
+// AddNode FWD 2D Bicubic function
+void UpsampleBicubic2DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    const std::vector<bool>& is_output_persistent_list) {
+  auto output_shape = UpsampleBicubic2DFwdOutputShape(stack)[0];
+  auto self = stack.at(0).toTensor();
+  auto shape_in = self.sizes();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  // scales
+  auto scales = stack.at(3);
+  double scale_w = 1.0, scale_h = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(3).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(4).toDouble();
+  }
+  auto result = UpsampleCommonFunc(
+      this,
+      graph,
+      bicubic, /*upsample_mode*/
+      true, /*isForward*/
+      {syn_in(0)},
+      shape_in,
+      out_size,
+      align_corners,
+      scales,
+      scale_w,
+      scale_h,
+      1.0 /*scale_d*/,
+      output_shape,
+      self.dim(), /*variant_type - 2D*/
+      is_output_persistent_list);
+  syn_out(0) = std::move(result.at(0));
+}
+// AddNode BWD 2D Bicubic function
+void UpsampleBicubic2DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    at::Stack& stack,
+    const std::vector<bool>& is_output_persistent_list) {
+  auto output_shape = UpsampleBicubic2DBwdOutputShape(stack)[0];
+  auto self = stack.at(0).toTensor();
+  auto shape_in = self.sizes();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  // scales
+  auto scales = stack.at(4);
+  double scale_w = 1.0, scale_h = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(4).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(5).toDouble();
+  }
+  auto result = UpsampleCommonFunc(
+      this,
+      graph,
+      bicubic, /*upsample_mode*/
+      false, /*isForward*/
+      {syn_in(0)},
+      shape_in,
+      out_size,
+      align_corners,
       scales,
       scale_w,
       scale_h,
@@ -879,7 +1000,7 @@ void UpSampleNearest3DFwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
       shape_in,
@@ -918,7 +1039,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
   auto result = UpsampleCommonFunc(
       this,
       graph,
-      false, /*isLinear*/
+      nearest, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       shape_in,
