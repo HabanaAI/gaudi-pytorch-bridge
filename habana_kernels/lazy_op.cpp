@@ -33,23 +33,29 @@ LazyOpWithTypePromotion<at::Tensor&>::LazyOpWithTypePromotion(
 template <>
 at::Tensor LazyOpWithTypePromotion<at::Tensor>::get_result_overrideable() {
   const auto& inputs = LazyOp<at::Tensor>::get_inputs();
-  const auto& self = inputs.at(0).toTensor();
+  at::Tensor t;
   at::ScalarType result_type;
 
-  if (inputs.at(1).isTensor()) {
-    result_type = at::result_type(self, inputs.at(1).toTensor());
+  if (inputs.at(0).isTensor()) {
+    t = inputs.at(0).toTensor();
+    if (inputs.at(1).isTensor()) {
+      result_type = at::result_type(t, inputs.at(1).toTensor());
+    } else {
+      result_type = at::result_type(t, inputs.at(1).toScalar());
+    }
   } else {
-    result_type = at::result_type(self, inputs.at(1).toScalar());
+    t = inputs.at(1).toTensor();
+    result_type = at::result_type(inputs.at(0).toScalar(), t);
   }
 
   const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
-      ? self.sizes()
+      ? t.sizes()
       : LazyOp<at::Tensor>::get_out_shapes().at(0);
 
   return empty_hpu_lazy(
       outshape,
-      self.options().device(c10::kHPU).dtype(result_type),
-      self.suggest_memory_format(),
+      t.options().device(c10::kHPU).dtype(result_type),
+      t.suggest_memory_format(),
       false);
 }
 
