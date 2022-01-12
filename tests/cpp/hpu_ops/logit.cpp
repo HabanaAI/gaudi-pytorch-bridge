@@ -12,11 +12,6 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-/**
-eps=None is not supported on TPC as of now - Development in progress
-Relevant Jira: https://jira.habana-labs.com/browse/SW-60061
-**/
-
 TEST_F(HpuOpTest, logit) {
   GenerateInputs(1);
 
@@ -47,8 +42,8 @@ TEST_F(HpuOpTest, logit_out) {
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::logit_outf(GetCpuInput(0), /*eps*/ 3e-06, expected);
-  torch::logit_outf(GetHpuInput(0), /*eps*/ 3e-06, result);
+  torch::logit_outf(GetCpuInput(0), /*eps*/ c10::nullopt, expected);
+  torch::logit_outf(GetHpuInput(0), /*eps*/ c10::nullopt, result);
 
   Compare(expected, result);
 }
