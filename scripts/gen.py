@@ -258,19 +258,19 @@ class TensorFetcher(object):
 
     def generate_fetches_gather(self):
         code = ""
-        code += "    std::vector<at::Tensor> {} = {{{}}};\n".format(
+        code += "      std::vector<at::Tensor> {} = {{{}}};\n".format(
             self.tvar_name, ", ".join(self.tensors)
         )
-        code += ("    habana_lazy::HpuGatherLazyFallbackTensorList({}, tensors_to_execute);\n").format(
+        code += ("      habana_lazy::HpuGatherLazyFallbackTensorList({}, tensors_to_execute);\n").format(
             self.tvar_name
         )
         # Handles conversion of c10::optional<at::Tensor> if exists
         if self.opt_tensors:
-            code += "    std::vector<c10::optional<at::Tensor>> {} = {{{}}};\n".format(
+            code += "      std::vector<c10::optional<at::Tensor>> {} = {{{}}};\n".format(
                 self.toptvar_name, ", ".join(self.opt_tensors)
             )
             code += (
-                "    habana_lazy::HpuGatherLazyFallbackOptTensorList({}, tensors_to_execute);\n"
+                "      habana_lazy::HpuGatherLazyFallbackOptTensorList({}, tensors_to_execute);\n"
             ).format(self.toptvar_name)
         return code
 
@@ -843,8 +843,11 @@ def generate_aten_to_hpu(
     tfetcher = TensorFetcher("hputens")
     tfetcher_gather = TensorFetcher("hputens_gather")
     param_vars = []
-    code += "  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {\n"
-    code += "    std::vector<habana_lazy::HbLazyTensor> tensors_to_execute;\n"
+    code += "  if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {\n"
+    code += "    habana_lazy::HbLazyTensor::StepMarker({});\n"
+    code += "  } else {\n"
+    code += "    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {\n"
+    code += "      std::vector<habana_lazy::HbLazyTensor> tensors_to_execute;\n"
     for p in params:
         ptype = param_type(p)
         cptype = type_core(ptype)
@@ -853,18 +856,19 @@ def generate_aten_to_hpu(
             tfetcher_gather.add(pname, is_write_param(fnopts, pname, True))
         elif cptype == "TensorList":
             code += (
-                "    habana_lazy::HpuGatherLazyFallbackTensorList({}.vec(), tensors_to_execute);\n"
+                "      habana_lazy::HpuGatherLazyFallbackTensorList({}.vec(), tensors_to_execute);\n"
             ).format(pname)
         elif cptype == "c10::List":
             code += (
-                "    habana_lazy::HpuGatherLazyFallbackOptTensorList({}.vec(), tensors_to_execute);\n"
+                "      habana_lazy::HpuGatherLazyFallbackOptTensorList({}.vec(), tensors_to_execute);\n"
             ).format(pname)
         elif cptype == "c10::optional":
             wrapped_type = type_core(get_template_type_list(ptype)[0])
             if wrapped_type == "Tensor":
                 tfetcher_gather.add_opt(pname)
     code += tfetcher_gather.generate_fetches_gather()
-    code += ("    habana_lazy::HbLazyTensor::SyncTensorsGraph(&tensors_to_execute);\n")
+    code += ("      habana_lazy::HbLazyTensor::SyncTensorsGraph(&tensors_to_execute);\n")
+    code += "    }\n"
     code += "  }\n"
     for p in params:
         ptype = param_type(p)
