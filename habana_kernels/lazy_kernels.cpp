@@ -4537,12 +4537,32 @@ Tensor& randperm_hpu_lazy(
   THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
   output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
 
+  // Currently synapse support dynamic shape arange only for int datatypes.
+  // For any other output datatype, will fallback to normal flow.
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      (output.scalar_type() == c10::ScalarType::Int ||
+       output.scalar_type() == c10::ScalarType::Long)) {
+    std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
+    auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
+    auto params_shape = empty_hpu_lazy(
+        input_size,
+        output.options(),
+        output.suggest_memory_format(),
+        false,
+        INPUT_DESCRIBING_SHAPE_TENSOR);
+    LazyOp<Tensor&> op{
+        "hpu::randperm_out_ds",
+        {params_shape, std::move(gen), output},
+        {},
+        {},
+        2};
+    return op.call(output);
+  }
   LazyOp<Tensor&> op{
       "hpu::randperm_out",
       {Scalar((int32_t)n), std::move(gen), output},
       {1},
       {{n}}};
-
   return op.call(output);
 }
 

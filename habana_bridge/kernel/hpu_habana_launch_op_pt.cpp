@@ -587,17 +587,24 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       } // else
       input_idx++;
     } // if (value_to_ivalue[value_in] && ..
+    // input_idx is simply the index of 1st non-tensor input argument, which is
+    // the 1st time we come into else part. Since we want to generate the
+    // seed_tensor only once that is why the check on 1st non-tensor input
+    // argument.
     else if (
         (!strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
          1 == input_idx) ||
         (!strcmp("hpu::randperm_out", node->kind().toQualString()) &&
-         0 == input_idx)) {
+         0 == input_idx) ||
+        (!strcmp("hpu::randperm_out_ds", node->kind().toQualString()) &&
+         1 == input_idx)) {
       auto stack = getStackForNode(node);
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
       at::Tensor seed_tensor;
       // as an IValues
-      if (!strcmp("hpu::randperm_out", node->kind().toQualString()))
+      if (!strcmp("hpu::randperm_out", node->kind().toQualString()) ||
+          !strcmp("hpu::randperm_out_ds", node->kind().toQualString()))
         seed_tensor = RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
       else
         seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
