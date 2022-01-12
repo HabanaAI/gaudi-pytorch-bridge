@@ -264,6 +264,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
       rv.dtensorinfos->size());
 
   rv.populate_syn_tensor_ids();
+  rv.key = cur_rargpsh->hashCode();
 }
 
 void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
@@ -363,7 +364,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     if (refine_ds_enabled_) {
       rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
     }
-    rv.key = cur_rargpsh->hashCode();
     RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);

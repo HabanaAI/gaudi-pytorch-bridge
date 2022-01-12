@@ -1703,9 +1703,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         input_refs, jit_ir_graph, cur_ds_token_);
     current_dbipsh_->SetRecipeKeyForBucket(
         graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
-    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(cur_rargpsh);
+    cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
-    if (ABSL_PREDICT_TRUE(rvpsh)) {
+    if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
       // Cache hit for a dynamic bucket
       // Steps:
       // 1. Infer shapes of all persistent tensors which are not input
@@ -1714,7 +1714,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // 4. Update outputs
       current_dbipsh_->IncrementHitCount(current_bucket_id_);
 
-      RecipeValueSpec& rv = *rvpsh;
+      RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
 
       // Initiate recipe execution time collection
@@ -1756,6 +1756,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
       PT_DYNAMIC_SHAPE_DEBUG(
+          id_str,
+          ": ",
           "HabanaOp recipe cache hit :: key ",
           cur_rargpsh->hashCode(),
           "\n",
@@ -1775,7 +1777,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       return;
     } else {
       PT_DYNAMIC_SHAPE_DEBUG(
-          "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
+          id_str,
+          ": ",
+          "HabanaOp recipe cache miss :: key ",
+          cur_rargpsh->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
@@ -1879,9 +1884,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
 
   PT_BRIDGE_DEBUG(
-      "Lowering JIT IR Graph ====\n",
+      "Lowering:\n",
+      "JIT_IR_Graph_BEGIN\n",
       jit_ir_graph->toString(),
-      "JIT IR Graph ----\n");
+      "JIT_IR_Graph_END\n");
 
   // Handle everything related to graph when dynamic flag is set.
   if (refine_ds_enabled_) {
@@ -1894,14 +1900,18 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
         false, input_refs, jit_ir_graph, "");
 
-    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(cur_rargpsh);
+    cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
-    if (ABSL_PREDICT_TRUE(rvpsh)) {
-      RecipeValueSpec& rv = *rvpsh;
+    if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
+      RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
 
       PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache hit ::",
+          id_str,
+          ": ",
+          "HabanaOp recipe cache hit :: key ",
+          cur_rargpsh->hashCode(),
+          "\n",
           rv.header_str(),
           "\n",
           rv.digest_str());
@@ -1939,7 +1949,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       return;
     } else {
       PT_BRIDGE_DEBUG(
-          "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
+          id_str,
+          ": ",
+          "HabanaOp recipe cache miss :: key ",
+          cur_rargpsh->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
     }
   }

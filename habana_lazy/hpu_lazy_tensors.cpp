@@ -467,7 +467,9 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   ir::Utils::ComputePostOrder(p_roots, po_data);
   if (!GET_ENV_FLAG_NEW(PT_HPU_DUMP_IR_DOT_GRAPH)) {
     PT_LAZY_DEBUG(
-        IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
+        "Lazy_IR_Graph_BEGIN\n",
+        IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots),
+        "Lazy_IR_Graph_END");
     PT_IRGRAPH_DEBUG(IrGraphDumpUtil::PostOrderToText(
         po_data.post_order, p_roots, true, true));
   } else {

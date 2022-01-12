@@ -169,10 +169,8 @@ void HlExec::PruneDuplicateGraphInputs(
     std::vector<bool>& is_duplicate_vec) {
   PT_LAZY_TRACE;
 
-  PT_LAZY_DEBUG(
-      "Initial JIT IR Graph ====\n", mp_g_->toString(), "JIT IR Graph ----\n");
-
   auto jit_ir_graph_inputs = mp_g_->inputs();
+  bool is_pruned{false};
   for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
     if (is_duplicate_vec[i]) {
       size_t parent_idx = parent_vec[i];
@@ -194,6 +192,7 @@ void HlExec::PruneDuplicateGraphInputs(
 
   for (int64_t j = (int64_t)is_duplicate_vec.size() - 1; j >= 0; j--) {
     if (is_duplicate_vec[j]) {
+      is_pruned = true;
       PT_LAZY_DEBUG(
           "Deleting ",
           j,
@@ -204,10 +203,12 @@ void HlExec::PruneDuplicateGraphInputs(
     }
   }
 
-  PT_LAZY_DEBUG(
-      "After pruning duplicates, JIT IR Graph ====\n",
-      mp_g_->toString(),
-      "JIT IR Graph ----\n");
+  if (is_pruned) {
+    PT_LAZY_DEBUG(
+        "After pruning duplicates, JIT IR Graph ====\n",
+        mp_g_->toString(),
+        "JIT IR Graph ----\n");
+  }
 }
 
 /*
@@ -249,7 +250,11 @@ void HlExec::GetOrCreate(
   // Cache miss
   // ==========
   if (mp_g_ == nullptr) {
-    PT_LAZY_DEBUG("JIT Cache miss :: key ", m_g_hash_);
+    PT_LAZY_DEBUG(
+        "JIT Cache miss :: key ",
+        m_g_hash_,
+        ", graph_index ",
+        visualize::GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache miss");
     mp_g_ = std::make_shared<Graph>();
     // Cache miss handling
@@ -260,7 +265,11 @@ void HlExec::GetOrCreate(
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
     LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_);
   } else {
-    PT_LAZY_DEBUG("JIT Cache hit :: key ", m_g_hash_);
+    PT_LAZY_DEBUG(
+        "JIT Cache hit :: key ",
+        m_g_hash_,
+        ", graph_index ",
+        visualize::GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     visualize::DumpCachedGraph(mp_g_, m_g_hash_);
   }
