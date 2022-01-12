@@ -37,9 +37,9 @@ def get_version():
             print("Error getting version: {}".format(e), file=sys.stderr)
             return f"{HABANA_DEFAULT_VERSION}+unknown"
 
-setup(name='habana-torch-aeon-dataloader',
+setup(name='habana-torch-dataloader',
       version=get_version(),
-      description="Habana's Pytorch-specific dataloader based on Aeon dataloader",
+      description="Habana's Pytorch-specific optimized software dataloader",
       packages=["habana_dataloader"],
       ext_modules=[cpp_extension.CppExtension(  'habana_dataloader.habana_dl_app',
                                                 ['main.cpp'],
