@@ -1619,63 +1619,84 @@ void SliceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 5,
-      "Incorrect size of inputs expected for slice operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
-  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
-  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
-  TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be integer");
-
   auto self = inputs[0].toTensor();
-  auto dim = inputs[1].toInt();
-  auto start = inputs[2].toInt();
-  auto end = inputs[3].toInt();
-  auto step = inputs[4].toInt();
+  int64_t dim, start, end, step;
+  std::vector<int64_t> shape;
 
-  if (dim == self.dim() - 1) {
-    // check required due to GC limitation. Strided slice is possible on FCD
-    // only if there is another dimension with size 1 in the tensor.
-    TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
+  bool have_shape_tensor = inputs[2].isTensor();
+  if (have_shape_tensor) {
+    TORCH_CHECK(
+        inputs.size() == 4,
+        "Incorrect size of inputs expected for slice operator");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[1].ref().is_shape_tensor(),
+        "Synapse input2 type expected to be shape tensor");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[2].ref().is_shape_tensor(),
+        "Synapse input3 type expected to be shape tensor");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[3].ref().is_shape_tensor(),
+        "Synapse input4 type expected to be shape tensor");
+    shape = p_context_->syn_inputs_[1].ref().pt_shape();
+  } else {
+    TORCH_CHECK(
+        inputs.size() == 5,
+        "Incorrect size of inputs expected for slice operator");
+    TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+    TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
+    TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
+    TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be integer");
+    dim = inputs[1].toInt();
+    start = inputs[2].toInt();
+    end = inputs[3].toInt();
+    step = inputs[4].toInt();
+    shape = compute_output_shape(self, dim, start, end, step);
   }
 
-  bool needs_params_handling = false;
-  if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
-      end > self.sizes().vec()[dim]) {
-    needs_params_handling = true;
-  }
-
-  auto output =
-      AllocateOutputTensor(self, dim, start, end, step, is_output_persistent);
-  std::vector<const at::Tensor*> pt_outputs{&output};
-
-  synSliceParams params;
-  // set defaults
-  std::fill_n(params.axes, MAX_DIMENSIONS_NUM, 0);
-  std::fill_n(params.starts, MAX_DIMENSIONS_NUM, 0);
-  std::fill_n(params.ends, MAX_DIMENSIONS_NUM, 0);
-  std::fill_n(params.steps, MAX_DIMENSIONS_NUM, 1);
-  // slice triggered only on 1 dim, therefore use only index 0
-  params.axes[0] = self.dim() - dim - 1;
-  params.starts[0] = start;
-  params.ends[0] = end;
-  params.steps[0] = step;
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, output);
-  }
-
-  if (needs_params_handling) {
-    synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
-    auto tensor_id = syn_input_tensor.id();
-    std::vector<int64_t> min, max;
-    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-    params.ends[0] = static_cast<int>(max[dim]);
-  }
-
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+
+  if (have_shape_tensor) {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
+    }
+    synSliceParams params;
+    // set defaults
+    std::fill_n(params.axes, MAX_DIMENSIONS_NUM, 0);
+    std::fill_n(params.starts, MAX_DIMENSIONS_NUM, 0);
+    std::fill_n(params.ends, MAX_DIMENSIONS_NUM, 0);
+    std::fill_n(params.steps, MAX_DIMENSIONS_NUM, 1);
+    // slice triggered only on 1 dim, therefore use only index 0
+    params.axes[0] = self.dim() - dim - 1;
+    params.starts[0] = start;
+    params.ends[0] = end;
+    params.steps[0] = step;
+
+    bool needs_params_handling = false;
+    if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
+        end > self.sizes().vec()[dim]) {
+      needs_params_handling = true;
+    }
+
+    if (needs_params_handling) {
+      synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
+      auto tensor_id = syn_input_tensor.id();
+      std::vector<int64_t> min, max;
+      std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
+      params.ends[0] = static_cast<int>(max[dim]);
+    }
+
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 /*************************************************************************
@@ -2577,6 +2598,7 @@ static auto& KernelRegistry =
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))
         .add("aten::arange", KERNEL_FN(ArangeOperator))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
+        .add("hpu::slice", KERNEL_FN(SliceOperator))
         .add("aten::index_add", KERNEL_FN(IndexAddOperator))
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))

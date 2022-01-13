@@ -706,16 +706,18 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
   int C = 4;
   int H = 24;
   std::vector<int> W_values{16, 18, 20};
+  std::vector<int> in_start{0, 2, 3};
+  std::vector<int> in_end{8, 10, 12};
+  std::vector<int> in_step{1, 1, 1};
   for (int i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
-    int64_t dim = 2;
-    int64_t start_index = 0;
-    int64_t end = 3;
-    int64_t step = 1;
-
+    int64_t dim = 3;
+    int64_t start_index = in_start[i];
+    int64_t end = in_end[i];
+    int64_t step = in_step[i];
     torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
     auto h_cout = h_out.to(torch::kCPU);
   }
@@ -732,8 +734,36 @@ TEST_F(LazyDynamicShapesTest, SliceTest2) {
     int64_t dim = 1;
     int64_t start_index = 4;
     int64_t end = 9223372036854775807;
-    int64_t step = 1;
+    int64_t step = 2;
 
+    torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
+
+    auto h_cout = h_out.to(torch::kCPU);
+    auto cout = torch::slice(A, dim, start_index, end, step);
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, SliceTest3) {
+  int N = 1;
+  int C = 4;
+  int H = 4;
+
+  std::vector<int> in_sizes{16, 18, 20, 18, 20};
+  std::vector<int> in_start{0, 1, 3, 1, 2};
+  std::vector<int> in_step{1, 1, 1, 1, 1};
+  std::vector<int> in_end{8, 8, 12, 8, 8};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 3;
+    int64_t start_index = in_start[i];
+    int64_t end = in_end[i];
+    int64_t step = in_step[i];
     torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
 
     auto h_cout = h_out.to(torch::kCPU);

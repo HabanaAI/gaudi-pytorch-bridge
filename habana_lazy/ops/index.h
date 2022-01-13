@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
@@ -27,7 +28,10 @@ struct Slice : public ir::Node {
       int64_t start,
       int64_t end,
       int64_t step)
-      : Node(c10::Symbol::fromQualString("aten::slice")) {
+      : Node(
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+                ? c10::Symbol::fromQualString("hpu::slice")
+                : c10::Symbol::fromQualString("aten::slice")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
 
     hl_self = HandleViewsOrUpdate(self, hl_self);
@@ -35,12 +39,56 @@ struct Slice : public ir::Node {
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
+    /*
+     * For Dynamic Shape, in case of view tensor the start/step constant is
+     * converted to shape tensor. and added as input & hence we do
+     * not set the meta data here.
+     */
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
 
-    m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
-    m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
-    m_meta_data.set(end, static_cast<size_t>(SliceParms::END_INDEX));
-    m_meta_data.set(step, static_cast<size_t>(SliceParms::STEP_INDEX));
+      end = self.sizes().vec()[dim] < end ? self.sizes().vec()[dim] : end;
+      auto shape = habana::SliceOperator::compute_output_shape(
+          self, dim, start, end, step);
+      auto shape_t = empty_hpu_lazy(
+          shape,
+          self.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      auto hl_shape = GetOrCreateHbLazyTensor(shape_t, c10::kHPU);
+      AddInput(hl_shape.GetIrValue());
+      input_pt_vec.emplace_back(shape_t);
+      auto dims = self.dim();
+      std::vector<int64_t> step_vec(dims, 1);
+      step_vec[dim] = step;
+      auto step_t = empty_hpu_lazy(
+          c10::IntArrayRef(step_vec.data(), step_vec.size()),
+          self.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      auto hl_step = GetOrCreateHbLazyTensor(step_t, c10::kHPU);
+      AddInput(hl_step.GetIrValue());
+      input_pt_vec.emplace_back(step_t);
+      std::vector<int64_t> start_vec(dims, 0);
+      start_vec[dim] = start;
+      auto start_t = empty_hpu_lazy(
+          c10::IntArrayRef(start_vec.data(), start_vec.size()),
+          self.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      auto hl_start = GetOrCreateHbLazyTensor(start_t, c10::kHPU);
+      AddInput(hl_start.GetIrValue());
+      input_pt_vec.emplace_back(start_t);
+    } else {
+      m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
+      m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
+      m_meta_data.set(step, static_cast<size_t>(SliceParms::STEP_INDEX));
+      m_meta_data.set(end, static_cast<size_t>(SliceParms::END_INDEX));
+    }
+    AddInputPtTensors(input_pt_vec);
   }
 
   Slice(const at::Tensor& self, int64_t dim, int64_t index)
@@ -60,21 +108,35 @@ struct Slice : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", dim="
-       << m_meta_data.get(static_cast<size_t>(SliceParms::DIM_INDEX));
-
-    if (m_meta_data.count(static_cast<size_t>(SliceParms::END_INDEX))) {
-      ss << ", start="
-         << m_meta_data.get(static_cast<size_t>(SliceParms::START_INDEX))
-         << ", end="
-         << m_meta_data.get(static_cast<size_t>(SliceParms::END_INDEX))
-         << ", step="
-         << m_meta_data.get(static_cast<size_t>(SliceParms::STEP_INDEX));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      HABANA_ASSERT(m_inputs.size() == 4);
+      auto& shape = m_inputs[1];
+      HABANA_ASSERT(shape.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> data_shape = shape.m_data_ptr.lock();
+      ss << ", shape =" << data_shape->sizes;
+      auto& start = m_inputs[3];
+      HABANA_ASSERT(start.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
+      ss << ", start=" << data_start->sizes;
+      auto& step = m_inputs[2];
+      HABANA_ASSERT(step.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> data_step = step.m_data_ptr.lock();
+      ss << ", step=" << data_step->sizes;
     } else {
-      ss << ", index="
-         << m_meta_data.get(static_cast<size_t>(SliceParms::START_INDEX));
+      ss << Node::ToString() << ", dim="
+         << m_meta_data.get(static_cast<size_t>(SliceParms::DIM_INDEX));
+      if (m_meta_data.count(static_cast<size_t>(SliceParms::END_INDEX))) {
+        ss << ", start="
+           << m_meta_data.get(static_cast<size_t>(SliceParms::START_INDEX))
+           << ", end="
+           << m_meta_data.get(static_cast<size_t>(SliceParms::END_INDEX))
+           << ", step="
+           << m_meta_data.get(static_cast<size_t>(SliceParms::STEP_INDEX));
+      } else {
+        ss << ", index="
+           << m_meta_data.get(static_cast<size_t>(SliceParms::START_INDEX));
+      }
     }
-
     return ss.str();
   }
 };
