@@ -2563,12 +2563,9 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   // Force an exections here to capture second element of shape tensor.
   // This element is required to determine shape of next node's output
   updateDstDependencies(hl_end, end_tensor);
-  std::vector<HbLazyTensor> hl_flush_end = {
-      hl_end, GetHbLazyTensor(where_tensor), GetHbLazyTensor(shape_tensor)};
   PT_IRGRAPH_DEBUG("step marker due to non zero");
-  HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
-  auto cpu_end_tensor = end_tensor.to(c10::kCPU);
-  auto end = cpu_end_tensor.item<int64_t>();
+  // .item() internally triggers a mark_step
+  auto end = end_tensor.item<int64_t>();
 
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
@@ -7120,13 +7117,10 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   auto output = k.call();
   auto feature_map = std::get<0>(output);
   auto valid_count = std::get<1>(output);
-  auto hl_feature_map = GetHbLazyTensor(feature_map);
-  auto hl_valid = GetHbLazyTensor(valid_count);
 
   // Force an execution here because "unique" is a non shape inferable op.
-  std::vector<HbLazyTensor> hl_flush = {hl_feature_map, hl_valid};
+  // .item() internally triggers a mark_step
   PT_IRGRAPH_DEBUG("step marker due to unique");
-  HbLazyTensor::SyncTensorsGraph(&hl_flush);
   auto end = valid_count.item<int64_t>();
 
   // Add a slice node to capture relevent elements from feature_map
@@ -7335,15 +7329,11 @@ Tensor habana_nms_hpu_lazy(
   auto box_id_out = std::get<0>(result_nms);
   auto valid_box_id_out = std::get<1>(result_nms);
   auto shape_tensor = std::get<2>(result_nms);
-  auto hl_box = GetHbLazyTensor(box_id_out);
-  auto hl_valid = GetHbLazyTensor(valid_box_id_out);
-  auto hl_shape = GetHbLazyTensor(shape_tensor);
 
   // Force an execution here to capture valid_box_id_out.
   // This element is required to determine shape of next node's output
-  std::vector<HbLazyTensor> hl_flush = {hl_box, hl_valid, hl_shape};
   PT_IRGRAPH_DEBUG("step marker due to nms");
-  HbLazyTensor::SyncTensorsGraph(&hl_flush);
+  // .item() internally triggers a mark_step
   auto end = valid_box_id_out.item<int64_t>();
 
   if (end == 0) {
