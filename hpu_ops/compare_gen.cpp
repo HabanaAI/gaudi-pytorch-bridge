@@ -9,14 +9,25 @@
  */
 
 #include "generated/hpu_op.h"
-
 namespace habana {
 template <>
 LazyCmp<at::Tensor>::LazyCmp(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
+  auto x = get_inputs();
+  // convert scalar input to tensor to avoid cache misses in cases where scalar
+  // value changes across iterations
+  if (x[1].isScalar()) {
+    auto self = x[0].toTensor();
+    auto other = x[1].toScalar();
+    auto other_tensor =
+        habana_lazy::get_tensor_for_scalar(other.toFloat(), self.options());
+    x[1] = c10::IValue(other_tensor);
+    set_inputs(x);
+  }
+}
 
 template <>
 at::Tensor LazyCmp<at::Tensor>::get_result_overrideable() {
