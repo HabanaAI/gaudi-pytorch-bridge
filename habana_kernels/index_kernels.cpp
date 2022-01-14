@@ -1976,7 +1976,6 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(
         inputs[1].isTensor(),
         "Input arg1 expected to be tensor for Arange operator");
-
     TORCH_CHECK(p_context_->syn_inputs_[0].ref().is_input_shape_tensor());
 
     auto result = inputs[1].toTensor();
@@ -1984,10 +1983,12 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
     p_context_->syn_outputs_.emplace_back(
         std::move(p_context_->syn_inputs_[1]));
-
     p_context_->syn_inputs_.pop_back();
     p_context_->pt_outputs_.emplace_back(result);
-
+    // Since this case handles specific to IDST which requires
+    // output to be INT(in case of float a cast node is added in
+    // frontend) the guid is hardcoded to range_i32.
+    SetGuid("range_i32");
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     TORCH_CHECK(

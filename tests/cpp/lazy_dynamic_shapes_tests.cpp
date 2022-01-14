@@ -866,6 +866,32 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, ArangeTestFloat) {
+  std::vector<int> start_sizes{0, 2, 3, 4};
+  std::vector<int> end_sizes{5, 10, 15, 18};
+  std::vector<int> step_sizes{1, 2, 3, 2};
+  for (int i = 0; i < start_sizes.size(); i++) {
+    torch::Scalar start = start_sizes[i];
+    torch::Scalar end = end_sizes[i];
+    torch::Scalar step = step_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+
+    c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+
+    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    at::TensorOptions hb_options =
+        at::TensorOptions().dtype(dtype).device(hb_device);
+    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    at::TensorOptions cpu_options =
+        at::TensorOptions().dtype(dtype).device(cpu_device);
+
+    auto h_a = torch::arange(start, end, step, hb_options);
+    auto h_cout = h_a.to(torch::kCPU);
+    auto a = torch::arange(start, end, step, cpu_options);
+    EXPECT_EQ(allclose(h_cout, a), true);
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
