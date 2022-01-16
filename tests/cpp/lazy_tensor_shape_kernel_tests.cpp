@@ -147,6 +147,32 @@ TEST_F(LazyTensorShapeKernelTest, Permute6DTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, PermuteTest7D) {
+  torch::Tensor A =
+      torch::randn({3, 2, 2, 2, 2, 3, 1}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = hA.permute({2, 0, 1, 6, 3, 4, 5});
+  torch::Tensor Out = A.permute({2, 0, 1, 6, 3, 4, 5});
+
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, PermuteTest8D) {
+  torch::Tensor A =
+      torch::randn({3, 2, 2, 2, 2, 3, 1, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = hA.permute({1, 6, 7, 0, 5, 2, 3, 4});
+  torch::Tensor Out = A.permute({1, 6, 7, 0, 5, 2, 3, 4});
+
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, TTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
@@ -256,6 +282,36 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::transpose(hA, 1, 0);
   torch::Tensor Out = torch::transpose(A, 1, 0);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, TransposeTest6D) {
+  torch::Tensor A =
+      torch::randn({3, 2, 2, 2, 2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::transpose(hA, 1, 2);
+  torch::Tensor Out = torch::transpose(A, 1, 2);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, TransposeTest7D) {
+  torch::Tensor A =
+      torch::randn({3, 2, 2, 2, 2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::transpose(hA, 3, 2);
+  torch::Tensor Out = torch::transpose(A, 3, 2);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, TransposeTest8D) {
+  torch::Tensor A =
+      torch::randn({3, 2, 2, 2, 2, 3, 4, 5}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::transpose(hA, 4, 1);
+  torch::Tensor Out = torch::transpose(A, 4, 1);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
