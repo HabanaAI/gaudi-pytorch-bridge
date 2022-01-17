@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 #include "replace_inplace_ops.h"
-//#include "logging.h"
 #include <torch/csrc/jit/ir/irparser.h>
+#include "habana_helpers/logging.h"
 
 namespace habana_lazy {
 
@@ -47,7 +47,7 @@ bool isInList(const std::vector<Value*>& l, const Value* v) {
 
 bool checkOps(const Node* n) {
   std::string kind = n->kind().toQualString();
-  return isInplaceOp(n) || ("aten::view" == kind) || isControlNode(n);
+  return isInplaceOp(n) || isControlNode(n);
 }
 
 bool isGraphInput(const std::shared_ptr<Graph>& graph, const Value* v) {
@@ -134,6 +134,9 @@ void replace_inplace_ops(
 }
 
 void replace_inplace_ops(std::shared_ptr<Graph>& graph) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE),
+      "Expect view table to be enabled for correct functionality");
   std::vector<Node*> inplace_ops;
   for (auto node : graph->nodes()) {
     if (canReplaceOp(graph, node)) {
