@@ -51,14 +51,24 @@ void ScatterOperator::AddNode(
       }
     }
   }
-  auto src_or_val = stack.at(3).isTensor()
-      ? std::make_unique<synapse_helpers::tensor>(
-            std::move(p_context_->syn_inputs_.at(2).ref()))
-      : std::make_unique<synapse_helpers::tensor>(ConstantHelper(
-            graph,
-            (is_bool ? bool_val : stack.at(3).toScalar()),
-            ScalarType(),
-            outshape));
+
+  std::unique_ptr<synapse_helpers::tensor> src_or_val;
+  if (stack[3].isTensor()) {
+    src_or_val = std::make_unique<synapse_helpers::tensor>(
+        std::move(p_context_->syn_inputs_.at(2).ref()));
+  } else {
+    auto constOp =
+        make_operator<ConstantOperator>(p_context_->device_id_, ScalarType());
+    constOp->SetOutputMetadata(output_metadata_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        self, outshape, self.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {
+        const_shape_tensor, is_bool ? bool_val : stack.at(3).toScalar()};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    src_or_val = std::make_unique<synapse_helpers::tensor>(
+        std::move(constOp->GetSynOutputs()[0].ref()));
+  }
+
   std::set<c10::ScalarType> int_types = {
       c10::ScalarType::Bool,
       c10::ScalarType::Char,
