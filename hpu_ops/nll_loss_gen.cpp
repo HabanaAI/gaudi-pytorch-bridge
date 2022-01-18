@@ -11,7 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec NllLossOutputShape(const at::Stack& stack, bool) {
+sizes_vec NllLossFwdOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& target = stack_tensor(stack, 1);
   int64_t reduction = stack.at(3).toInt();
   if (reduction == at::Reduction::Reduction::None) {
@@ -20,10 +20,16 @@ sizes_vec NllLossOutputShape(const at::Stack& stack, bool) {
   return {{}, {}};
 }
 
-std::shared_ptr<void> FillNllLossParams(const at::Stack& stack, size_t& size) {
-  int64_t reduction = stack.at(3).toInt();
-  PARAMS_STUB(ns_NLLLossKernel::ParamsOptionalIgnoreIndex);
+sizes_vec NllLossBwdOutputShape(const at::Stack& stack, bool) {
+  const torch::Tensor& target = stack_tensor(stack, 1);
+  return {target.sizes().vec()};
+}
 
+static std::shared_ptr<void> FillNllLossParams(
+    size_t& size,
+    int64_t reduction,
+    int64_t ignore_index) {
+  PARAMS_STUB(ns_NLLLossKernel::ParamsOptionalIgnoreIndex);
   switch (reduction) {
     case at::Reduction::Reduction::None:
       params->mode = NLLLossMode_t::NLL_LOSS_MODE_NONE;
@@ -37,21 +43,158 @@ std::shared_ptr<void> FillNllLossParams(const at::Stack& stack, size_t& size) {
     default:
       TORCH_CHECK(false, "Unsupported reduction in nll_loss: ", reduction);
   }
-
-  params->ignoreIndexValue = stack.at(4).toInt();
+  params->ignoreIndexValue = ignore_index;
   return params;
 }
 
-void NllLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+std::shared_ptr<void> FillNllLossFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto ignore = stack.at(3).toInt();
+  auto reduction = stack.at(4).toInt();
+  return FillNllLossParams(size, ignore, reduction);
+}
+
+std::shared_ptr<void> FillNllLossBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto ignore = stack.at(4).toInt();
+  auto reduction = stack.at(5).toInt();
+  return FillNllLossParams(size, ignore, reduction);
+}
+enum modes { Fwd2D, Bwd2D };
+
+// Transpose NCHW to NHWC and vice versa
+static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    enum modes nll_loss_mode,
+    std::vector<synTensor> input,
+    const at::IntArrayRef input_shape,
+    c10::optional<int> final_index = c10::nullopt) {
+  synTransposeParams trans_params{};
+  trans_params.tensorDim = 4;
+  for (int i = 0; i < 4; ++i) {
+    trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+  if (nll_loss_mode == Fwd2D) { // 2D variant Fwd
+    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
+    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
+  } else if (nll_loss_mode == Bwd2D) { // 2D variant Bwd
+    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
+    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
+  }
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {"transpose",
+       std::move(input),
+       {{input_shape, op->ScalarType(), final_index}},
+       &trans_params,
+       sizeof(trans_params)});
+}
+
+static std::vector<synapse_helpers::tensor> NllLoss(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> input,
+    const at::IntArrayRef outshape,
+    std::shared_ptr<void> params,
+    size_t size,
+    c10::optional<int> final_index = c10::nullopt) {
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {op->GetGuid(),
+       std::move(input),
+       {{outshape, op->ScalarType(), final_index}},
+       params.get(),
+       size});
+}
+
+static void DummyOutput(
+    synapse_helpers::graph& graph,
+    PytorchKernelContextPtr& p_context_,
+    bool persistent) {
+  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+      p_context_->pt_outputs_.at(1), graph, persistent));
+}
+
+void NllLossFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  // remove total_weight from output as it is unsupported
+  // JIRA https://jira.habana-labs.com/browse/SW-73520
+  TORCH_CHECK(stack.at(2).isNone(), "NLL loss does not support weight.");
+  p_context_->syn_outputs_.pop_back();
+
+  OpBackend::AddNode(graph, stack);
+  // dummy output in place of total_weight
+  DummyOutput(graph, p_context_, IsOutputPersistent(1));
+}
+
+void NllLoss2DFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   TORCH_CHECK(stack.at(2).isNone(), "NLL loss does not support weight.");
 
   // remove total_weight from output as it is unsupported
   p_context_->syn_outputs_.pop_back();
-
-  OpBackend::AddNode(graph, stack);
-
   // dummy output in place of total_weight
-  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      p_context_->pt_outputs_.at(1), graph, IsOutputPersistent(1)));
+  DummyOutput(graph, p_context_, IsOutputPersistent(1));
+
+  auto input_shape = stack_tensor(stack, 0).sizes();
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  const auto outshape = ComputeOutputShapes(stack, true)[0];
+
+  std::vector<int64_t> tranpose_shape = {
+      input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+
+  auto transpose =
+      Transpose_MemFormat(this, graph, Fwd2D, {syn_in(0)}, tranpose_shape);
+
+  auto nll_loss = NllLoss(
+      this, graph, {transpose[0].get(), syn_in(1)}, outshape, params, size, 0);
+  syn_out(0) = std::move(nll_loss[0]);
+}
+
+void NllLossBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.at(3).isNone(), "NLL loss does not support weight.");
+
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  const auto outshape = ComputeOutputShapes(stack, true)[0];
+
+  // A JIRA is created for self input tensor not used
+  // https://jira.habana-labs.com/browse/SW-73878
+  auto nll_loss =
+      NllLoss(this, graph, {syn_in(0), syn_in(2)}, outshape, params, size, 0);
+  syn_out(0) = std::move(nll_loss[0]);
+}
+
+void NllLoss2DBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.at(3).isNone(), "NLL loss does not support weight.");
+
+  auto input_shape = stack_tensor(stack, 1).sizes();
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  const auto outshape = ComputeOutputShapes(stack, true)[0];
+
+  std::vector<int64_t> loss_shape = {
+      input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+
+  // A JIRA is created for self input tensor not used
+  // https://jira.habana-labs.com/browse/SW-73878
+  auto nll_loss =
+      NllLoss(this, graph, {syn_in(0), syn_in(2)}, loss_shape, params, size);
+
+  auto transpose =
+      Transpose_MemFormat(this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
+  syn_out(0) = std::move(transpose[0]);
 }
 } // namespace habana
