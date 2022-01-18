@@ -480,9 +480,9 @@ class LazyOp {
           // if it is base tensor, use the most recent version else check if
           // it is a view
           auto id = hl_t.getTensorUniqueId();
-          if (context->orig_tensor_map.find(id) !=
-              context->orig_tensor_map.end()) {
-            m_inputs[idx] = context->orig_tensor_map[id];
+          auto it = context->orig_tensor_map.find(id);
+          if (it != context->orig_tensor_map.end()) {
+            m_inputs[idx] = it->second;
           } else {
             HandleViews(t, hl_t);
           }
@@ -504,9 +504,9 @@ class LazyOp {
           // if it is base tensor, use the most recent version else check if
           // it is a view
           auto id = hl_t.getTensorUniqueId();
-          if (context->orig_tensor_map.find(id) !=
-              context->orig_tensor_map.end()) {
-            m_inputs[idx] = context->orig_tensor_map[id];
+          auto it = context->orig_tensor_map.find(id);
+          if (it != context->orig_tensor_map.end()) {
+            m_inputs[idx] = it->second;
           } else {
             // add view node for all the inputs except self of out variant
             // this is because, view of out variant is handled as a write to an

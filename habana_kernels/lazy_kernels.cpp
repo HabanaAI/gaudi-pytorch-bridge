@@ -485,10 +485,9 @@ void strided_insert_hpu_lazy(
   auto id = hl_self.getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  TORCH_CHECK(
-      context->view_table.find(id) != context->view_table.end(),
-      "incorrect tensor id");
-  StrideParams* params_ptr = &context->view_table[id];
+  auto it = context->view_table.find(id);
+  TORCH_CHECK(it != context->view_table.end(), "incorrect tensor id");
+  StrideParams* params_ptr = &it->second;
 
   // pick the most recent version
   Tensor recent_orig_t = get_recent_base_tensor(params_ptr->t);
@@ -526,9 +525,9 @@ const Tensor& get_recent_base_tensor(const Tensor& self) {
   auto id = GetHbLazyTensor(self).getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-
-  if (context->orig_tensor_map.find(id) != context->orig_tensor_map.end()) {
-    return context->orig_tensor_map[id];
+  auto it = context->orig_tensor_map.find(id);
+  if (it != context->orig_tensor_map.end()) {
+    return it->second;
   }
 
   return self;
@@ -541,7 +540,7 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
   auto id = hl_t.getTensorUniqueId();
   auto it = context->view_table.find(id);
   if (it != context->view_table.end()) {
-    StrideParams& params = context->view_table[id];
+    StrideParams& params = it->second;
 
     // pick the most recent version
     auto recent_orig_t = get_recent_base_tensor(params.t);
@@ -654,7 +653,7 @@ bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst) {
   if (it != context->view_table.end()) {
     is_view = true;
 
-    StrideParams* params_ptr = &context->view_table[id];
+    StrideParams* params_ptr = &it->second;
 
     // get the base tensor
     // check for most recent version of the original tensor
@@ -693,7 +692,7 @@ StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {
   auto id = hl_view_t.getTensorUniqueId();
   auto it = context->view_table.find(id);
   HABANA_ASSERT(it != context->view_table.end());
-  return context->view_table[id];
+  return it->second;
 }
 
 /**
@@ -810,8 +809,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     auto id = GetHbLazyTensor(self).getTensorUniqueId();
-
-    if (context->view_table.find(id) != context->view_table.end()) {
+    auto it = context->view_table.find(id);
+    if (it != context->view_table.end()) {
       // add strided insert at the cast output
       at::TensorOptions options = src.options().dtype(self.scalar_type());
       auto src_cast = empty_hpu_lazy(
@@ -1819,7 +1818,8 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   // place variant
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = GetHbLazyTensor(out).getTensorUniqueId();
-  if (context->view_table.find(id) != context->view_table.end()) {
+  auto it = context->view_table.find(id);
+  if (it != context->view_table.end()) {
     auto orig_out = out;
     auto temp = mul_tensor_hpu_lazy(self, other);
     Tensor temp_cast = temp;

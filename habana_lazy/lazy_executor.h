@@ -170,9 +170,9 @@ class HbExecutionContext {
       scalar_to_tensor_map;
 
   // maps tensor id corresponding to as_strided's o/p with its i/p stride params
-  std::map<int64_t, StrideParams> view_table;
+  std::unordered_map<int64_t, StrideParams> view_table;
   // maintains most recent version of the original tensor map
-  std::map<int64_t, at::Tensor> orig_tensor_map;
+  std::unordered_map<int64_t, at::Tensor> orig_tensor_map;
 
   // view tensors that occurs as graph outputs
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
