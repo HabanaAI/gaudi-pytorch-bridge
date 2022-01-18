@@ -148,7 +148,9 @@ class HbExecutionContext {
 
   void clear() {
     m_retained_tensor_list.clear();
-    scalar_to_tensor_map.clear();
+    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP)) {
+      scalar_to_tensor_map.clear();
+    }
     hb_tensors_out_view.clear();
   }
 

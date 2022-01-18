@@ -258,6 +258,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_LOG_TYPE_MASK, unsigned long, 1);
 ENV_STRUCT_DEFINITION(PT_HPU_LOG_NODE_MASK, unsigned long, 0);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_EAGER_SYN_API, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP, bool, false);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes
