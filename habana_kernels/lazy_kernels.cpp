@@ -1655,19 +1655,29 @@ Tensor add_tensor_hpu_lazy(
   PT_LAZY_TRACE;
   auto alpha_float = alpha.toFloat();
 
+  // Check result data type
+  auto res_dtype = at::result_type(self, other);
+  auto other_cast = other;
+  // If other is CPU tensor of size 0D and double data type
+  // cast it to expected result data type tensor
+  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
+      other.scalar_type() == c10::ScalarType::Double) {
+    other_cast = other.to(res_dtype);
+  }
+
   if (alpha_float != 1.0) {
     at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_float, other.options());
+        get_tensor_for_scalar(alpha_float, other_cast.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    auto mul_out = mul_tensor_hpu_lazy(other_cast, alpha_tensor);
     return add_tensor_hpu_lazy(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<at::Tensor> k{
         "aten::add",
-        {self, other, alpha},
+        {self, other_cast, alpha},
         {},
-        {BinaryOperator::compute_output_shape(self, other)}};
+        {BinaryOperator::compute_output_shape(self, other_cast)}};
     return k.call();
   }
 }
@@ -1783,11 +1793,22 @@ Tensor where_tensor_hpu_lazy(
 
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+
+  // Check result data type
+  auto res_dtype = at::result_type(self, other);
+  auto other_cast = other;
+  // If other is CPU tensor of size 0D and double data type
+  // cast it to expected result data type tensor
+  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
+      other.scalar_type() == c10::ScalarType::Double) {
+    other_cast = other.to(res_dtype);
+  }
+
   LazyBinaryOp<at::Tensor> k{
       "aten::mul",
-      {self, other},
+      {self, other_cast},
       {},
-      {BinaryOperator::compute_output_shape(self, other)}};
+      {BinaryOperator::compute_output_shape(self, other_cast)}};
   return k.call();
 }
 
@@ -1841,11 +1862,21 @@ Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
 
+  // Check result data type
+  auto res_dtype = at::result_type(self, other);
+  auto other_cast = other;
+  // If other is CPU tensor of size 0D and double data type
+  // cast it to expected result data type tensor
+  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
+      other.scalar_type() == c10::ScalarType::Double) {
+    other_cast = other.to(res_dtype);
+  }
+
   LazyBinaryOp<at::Tensor> k{
       "aten::div",
-      {self, other},
+      {self, other_cast},
       {},
-      {BinaryOperator::compute_output_shape(self, other)}};
+      {BinaryOperator::compute_output_shape(self, other_cast)}};
   return k.call();
 }
 Tensor& div_tensor_hpu_lazy_out(
@@ -7160,28 +7191,11 @@ Tensor masked_scale_hpu_lazy(
 
 Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  Tensor self_cast = self;
-  Tensor other_cast = other;
-  // Check type promotion for lower precision data type to higher data precision
-  int pos = -1;
-  c10::ScalarType dst_dtype = c10::ScalarType::Float;
-  torch::jit::Stack stack{IValue(self), IValue(other)};
-  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
-  if (pos == 0) {
-    // Cast first tensor to dst_dtype
-    LazyOp<Tensor> k_{"hpu::cast", {self, dst_dtype}, {}, {self.sizes().vec()}};
-    self_cast = k_.call();
-  } else if (pos == 1) {
-    // Cast second tensor to dst_dtype
-    LazyOp<Tensor> k_{
-        "hpu::cast", {other, dst_dtype}, {}, {other.sizes().vec()}};
-    other_cast = k_.call();
-  }
   LazyOp<Tensor> k(
       "aten::matmul",
-      {self_cast, other_cast},
+      {self, other},
       {},
-      {MatMulOperator::compute_output_shape(self_cast, other_cast)});
+      {MatMulOperator::compute_output_shape(self, other)});
   return k.call();
 }
 
@@ -7190,28 +7204,11 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
-  Tensor self_cast = self;
-  Tensor other_cast = other;
-  // Check type promotion for lower precision data type to higher data precision
-  int pos = -1;
-  c10::ScalarType dst_dtype = c10::ScalarType::Float;
-  torch::jit::Stack stack{IValue(self), IValue(other)};
-  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
-  if (pos == 0) {
-    // Cast self tensor to dst_dtype
-    LazyOp<Tensor> k_{"hpu::cast", {self, dst_dtype}, {}, {self.sizes().vec()}};
-    self_cast = k_.call();
-  } else if (pos == 1) {
-    // Cast other tensor to dst_dtype
-    LazyOp<Tensor> k_{
-        "hpu::cast", {other, dst_dtype}, {}, {other.sizes().vec()}};
-    other_cast = k_.call();
-  }
   LazyOp<std::tuple<Tensor, Tensor>> k(
       "hpu::matmul_backward",
-      {grad_output, self_cast, other_cast},
+      {grad_output, self, other},
       {},
-      {self_cast.sizes().vec(), other_cast.sizes().vec()});
+      {self.sizes().vec(), other.sizes().vec()});
   return k.call();
 }
 
