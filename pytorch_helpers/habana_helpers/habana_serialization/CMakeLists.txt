@@ -26,4 +26,4 @@ target_include_directories(habana_serialization
     PUBLIC  include/
 )
 
-target_link_libraries(habana_serialization PUBLIC "${TORCH_LIBRARIES}" pytorch_synapse_logger pytorch_synapse_helpers_abi11)
+target_link_libraries(habana_serialization PUBLIC "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)

@@ -324,6 +324,8 @@ class device {
 
   void synchronize();
 
+  void release();
+
   void cleanup_workspace_buffer();
 
  private:

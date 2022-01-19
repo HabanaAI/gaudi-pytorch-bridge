@@ -15,18 +15,40 @@
 #include <ATen/ATen.h>
 #include <absl/types/span.h>
 #include <dlfcn.h>
+#include <link.h>
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
-#include "synapse_logger/synapse_logger.h"
-
-#include <string>
-#include <vector>
 
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <string>
+#include <vector>
 
 extern char** environ;
+
+std::string get_synapse_lib_path(void) {
+  std::string map_file_name{"/proc/" + std::to_string(getpid()) + "/maps"};
+  std::ifstream proc_map_stream{map_file_name};
+  std::string line;
+  while (std::getline(proc_map_stream, line)) {
+    size_t name_start{line.rfind('/')};
+    size_t path_start{line.find('/')};
+    if (name_start == std::string::npos) {
+      continue;
+    }
+
+    absl::string_view soname{line.c_str() + name_start + 1};
+    absl::string_view sopath{line.c_str() + path_start};
+    // in docker the name is libSynapse.so.1
+    if (soname == "libSynapse.so" || soname == "libSynapse.so.1") {
+      return std::string{sopath};
+    }
+  }
+  HABANA_ASSERT("Synapse lib not loaded");
+  return "";
+}
 
 // quick trick function to retrieve full path to habana_device library
 // (ourselves)
@@ -103,8 +125,7 @@ std::string CacheVersion::libs_env_hash() {
   size_t hash{0};
 
   hash = at::hash_combine(hash, hash64_file_content(path_to_syn_helpers));
-  hash = at::hash_combine(
-      hash, hash64_file_content(synapse_logger::getSynapseLibPath()));
+  hash = at::hash_combine(hash, hash64_file_content(get_synapse_lib_path()));
 
   if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) {
     std::string gc_kernel_path = GET_ENV_FLAG_NEW(GC_KERNEL_PATH);

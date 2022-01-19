@@ -1032,6 +1032,7 @@ synStatus SYN_API_CALL synDeviceRelease(const synDeviceId deviceId) {
   API_LOG_CALL(ARG(deviceId));
   synStatus status = lib_synapse::synDeviceRelease(deviceId);
   API_LOG_RESULT();
+  synapse_logger::logger.dump_trace_info();
   synapse_logger::logger.last_acquired_id(
       synapse_logger::SynapseLogger::SYN_DEVICE_ID_UNASSIGNED);
   return status;

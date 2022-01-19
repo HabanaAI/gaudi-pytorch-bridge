@@ -795,6 +795,13 @@ void device::synchronize() {
   }
 }
 
+void device::release() {
+  auto status = synDeviceRelease(id_);
+  if (status != synSuccess) {
+    PT_SYNHELPER_FATAL("synDeviceRelease failed with. Status: ", status);
+  }
+}
+
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
     PT_SYNHELPER_DEBUG(
