@@ -846,6 +846,30 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   }
 }
 
+bool StridedViewOperator::verifiyViewMemoryAccess(
+    at::Tensor& real,
+    at::Tensor& view,
+    at::Tensor& strides,
+    at::Tensor& offset) {
+  auto rv = real.sizes().vec();
+  const uint64_t realTensorElements =
+      std::accumulate(rv.begin(), rv.end(), 1, std::multiplies<unsigned>());
+  if (realTensorElements == 0) {
+    return true;
+  }
+  uint64_t lastElementOffset = 0;
+  for (unsigned d = 0; d < view.dim(); d++) {
+    if (view.sizes()[d] == 0) {
+      return true;
+    }
+    lastElementOffset += strides.sizes()[d] * (view.sizes()[d] - 1);
+  }
+  if (offset.sizes()[0] + lastElementOffset >= realTensorElements) {
+    return false;
+  }
+  return true;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for strided view , used for tensor views
  * @param self - input which needs to be viewed
@@ -868,6 +892,17 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     size = p_context_->syn_inputs_[1].ref().pt_shape();
     strides = p_context_->syn_inputs_[2].ref().pt_shape();
     offset = p_context_->syn_inputs_[3].ref().pt_shape()[0];
+    // For dynamic min-max inference, validate the mem access of
+    // elements. If the calculation dosen't match, fail here for inference
+    // fallback to kick in. if GC compile fails, the fallback penalty is huge.
+    bool memAccessCheck = verifiyViewMemoryAccess(
+        inputs[0].toTensor(),
+        inputs[1].toTensor(),
+        inputs[2].toTensor(),
+        inputs[3].toTensor());
+    TORCH_CHECK(
+        self.numel() == 0 || memAccessCheck,
+        "Strided View will access memory outside of original tensor range!");
   } else {
     TORCH_CHECK(
         inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
@@ -902,41 +937,6 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     }
   }
 
-  // For dynamic shape max-inference, validate the input-output number of
-  // elements. If the calculation dosen't match fail here for inference fallback
-  // to kick in. This check is required to prevent same thing getting caught
-  // during compilation by GC where the fallback penalty would be large.
-  if (have_shape_tensors && graph.is_dynamic_graph() && graph.is_dry_run()) {
-    synapse_helpers::tensor& self_tensor = p_context_->syn_inputs_[0];
-    // This issue of mismatched calculation will only occur when frontend shape
-    // tensors are involved(for max-policy=CALCULATED). Hence the if condition
-    // above checks for if the shape tensors are created at frontend, the graph
-    // is dynamic and graph is in dry run meaning MAX_PASS. The if condition
-    // below establishes if it is MAX_PASS.
-    if (habana::ShapeInference::HasMinMaxShape(self_tensor.id())) {
-      // The code and check is referenced from file strided_op_node_utils.cpp
-      // function verifyStridedAccess
-      std::vector<int64_t> min, max;
-      std::tie(min, max) =
-          habana::ShapeInference::GetMinMaxShape(self_tensor.id());
-      uint64_t numOfInputElements = std::accumulate(
-          max.begin(), max.end(), 1, std::multiplies<int64_t>());
-      uint64_t lastElementOffset = 0;
-      synapse_helpers::tensor& output_tensor = p_context_->syn_outputs_.back();
-      std::tie(min, max) =
-          habana::ShapeInference::GetMinMaxShape(output_tensor.id());
-      for (unsigned d = 0; d < output.dim(); d++) {
-        lastElementOffset += strides[d] * (max[d] - 1);
-      }
-      // The main torch check to check fail if number of elements in output
-      // somehow exceeds number of elements in input. With exception if
-      // input/output are ZST
-      TORCH_CHECK(
-          self.numel() == 0 || output.numel() == 0 ||
-              ((offset + lastElementOffset) < numOfInputElements),
-          "offset + lastElementOffset >= numOfInputElements in AsStrided");
-    }
-  }
   // If shape tensors are not created at frontend we need to create
   // Shape tensor at backend and also pass the params. Otherwise no params are
   // required.

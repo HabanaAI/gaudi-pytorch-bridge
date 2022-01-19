@@ -222,6 +222,11 @@ class StridedViewOperator : public habana::HabanaOperator {
       bool is_output_persistent = false) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
+  bool verifiyViewMemoryAccess(
+      at::Tensor& real,
+      at::Tensor& view,
+      at::Tensor& strides,
+      at::Tensor& offset);
 };
 
 // As Strided for channels last
