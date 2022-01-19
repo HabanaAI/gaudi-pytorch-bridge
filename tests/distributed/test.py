@@ -6,11 +6,12 @@ import torch.distributed as c10d
 faulthandler.enable(all_threads=True)
 import os
 
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+load_habana_module()
+
 os.environ['ID'] = os.getenv('RANK')
 rank = int(os.getenv('RANK'))
 world_size = int(os.getenv('WORLD_SIZE'))
-torch.ops.load_library("/usr/lib/habanalabs/libhabana_pytorch_plugin.so")
-sys.path.insert(0, "/usr/lib/habanalabs")
 
 a = torch.tensor([1.0, 2.0]).to('hpu')
 
