@@ -209,8 +209,8 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     O << '\n';
     size_t idx{0};
     for (auto& a : *v.aten_outputs) {
-      O << idx++ << " : ";
-      PrintATenTensor(a);
+      O << "Tensor " << idx++ << ": ";
+      habana_helpers::DebugString(a);
     }
   }
 

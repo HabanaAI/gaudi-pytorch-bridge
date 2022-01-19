@@ -21,32 +21,6 @@
 
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-std::string DebugString(const at::Tensor& t) {
-  std::stringstream O;
-
-  O << "dim=" << t.dim() << ", shape=" << t.sizes() << ", numel=" << t.numel()
-    << ", stride=" << t.strides() << ", layout=" << t.layout();
-
-  if (t.has_storage()) {
-    O << ", address=" << t.storage().data_ptr().get();
-    if (t.is_cpu()) {
-      O << ", contents:";
-    }
-  } else {
-    O << ", place_holder";
-  }
-
-  if (t.is_cpu()) {
-    O << t;
-  }
-
-  return O.str();
-}
-
-void print_pttensor(const at::Tensor& t, std::string tname) {
-  PT_TEST_DEBUG("PTI_DBG :: tensor ", tname, " : ", DebugString(t));
-}
-
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
@@ -232,31 +206,4 @@ std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
     O << " nz offset view tensor ";
   }
   return O;
-}
-
-void PrintATenTensor(const at::Tensor& a) {
-  std::ostream& O = std::cout;
-  O << " Tensor -> ";
-  if (a.has_storage()) {
-    O << " @ " << (void*)a.storage().data_ptr().get() << " : " << a.data_ptr()
-      << " : "
-      << " dim " << a.dim() << " : " << a.sizes();
-  } else {
-    O << " does not have storage";
-  }
-  O << ',' << " use_count " << a.use_count() << std::endl;
-}
-
-void PrintATenTensor(const IVal& a) {
-  if (a.isTensor()) {
-    PrintATenTensor(a.toTensor());
-  } else {
-    std::cout << "Non-tensor : ivalue :: " << a << std::endl;
-  }
-}
-
-void PrintATenTensor(const IValPtrShared& a) {
-  if (a->isTensor()) {
-    PrintATenTensor(a->toTensor());
-  }
 }

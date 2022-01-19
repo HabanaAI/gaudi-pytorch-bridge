@@ -14,19 +14,60 @@
 #include <mutex>
 
 #include "habana_bridge/kernel/hpu_shape_inference.h"
+
 #include "habana_device/HPUCheck.h"
 #include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
+
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
+
 #include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
 using namespace torch;
+
+std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
+  std::stringstream O;
+
+  if (t.has_storage()) {
+    O << " @ " << (void*)t.storage().data_ptr().get() << " : " << t.data_ptr();
+  } else {
+    O << " STORAGE_LESS";
+  }
+  O << ", dim=" << t.dim() << ", shape=" << t.sizes() << ", numel=" << t.numel()
+    << ", stride=" << t.strides() << ", layout=" << t.layout() << ','
+    << " use_count " << t.use_count();
+
+  if (print_data && t.has_storage() && t.is_cpu()) {
+    O << ", contents:" << '\n' << t;
+  }
+
+  return O.str();
+}
+
+std::string habana_helpers::DebugString(const IVal& a) {
+  if (a.isTensor()) {
+    habana_helpers::DebugString(a.toTensor());
+  }
+  return std::string("Non tensor");
+}
+
+std::string habana_helpers::DebugString(const IValPtrShared& a) {
+  return habana_helpers::DebugString(*a);
+}
+
+void habana_helpers::PrintTensor(
+    const at::Tensor& t,
+    std::string tname,
+    bool print_data) {
+  PT_TEST_DEBUG("PTI_DBG :: tensor ", tname, " : ", DebugString(t, print_data));
+}
 
 /*************************************************************************
  * @brief compute number of elements in a tensor

@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include "habana_lazy_test_infra.h"
 
 #include <algorithm>
 #include <iostream>
@@ -17,8 +18,10 @@
 #include <torch/torch.h>
 
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_lazy_test_infra.h"
+
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/tensor_utils.h"
+
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -1041,7 +1044,7 @@ TEST_F(LazyDynamicShapesTest, UniqueOp) {
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
     auto out_hpu = std::get<0>(torch::_unique2(input_hpu, false, false, false));
     auto out_cpu = std::get<0>(torch::_unique2(input_cpu, false, false, false));
-    PRINT_TENSOR_DETAILS(out_cpu);
+    PRINT_TENSOR_WITH_DATA(out_cpu);
     auto h_cout = out_hpu.to(torch::kCPU);
     EXPECT_EQ(
         allclose(
@@ -1069,15 +1072,15 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
 
     torch::Tensor out_cpu = torch::nonzero(c0).to(torch::kInt32);
 
-    PRINT_TENSOR_DETAILS(c0);
-    PRINT_TENSOR_DETAILS(out_cpu);
+    PRINT_TENSOR_WITH_DATA(c0);
+    PRINT_TENSOR_WITH_DATA(out_cpu);
 
     torch::Tensor h0 = c0.to(torch::kHPU);
     torch::Tensor out_hpu = torch::nonzero(h0);
     torch::Tensor out_hpu_c = out_hpu.to(torch::kCPU);
 
-    PRINT_TENSOR_DETAILS(h0);
-    PRINT_TENSOR_DETAILS(out_hpu_c);
+    PRINT_TENSOR_WITH_DATA(h0);
+    PRINT_TENSOR_WITH_DATA(out_hpu_c);
 
     EXPECT_EQ(allclose(out_cpu, out_hpu_c, 0.01, 0.01), true);
     PT_TEST_DEBUG("TEST ", i, "  ========");
@@ -1216,7 +1219,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
       auto tlist = boxes.split(2, 1);
       tlist[1] = tlist[1] + tlist[0];
       auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-      // PRINT_TENSOR_DETAILS(valid_boxes);
+      // PRINT_TENSOR_WITH_DATA(valid_boxes);
 
       // Compute the iou scores
       // std::vector<std::vector<float>> iou_vec_2d;
@@ -1257,8 +1260,8 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
   torch::Tensor boxes_cur = torch::rand({num_boxes_cur, 4}) * 256;
 
   while (num_boxes_cur < 13) {
-    PRINT_TENSOR_DETAILS(boxes_cur);
-    PRINT_TENSOR_DETAILS(scores_cur);
+    PRINT_TENSOR_WITH_DATA(boxes_cur);
+    PRINT_TENSOR_WITH_DATA(scores_cur);
 
     auto num_expected_boxes{0};
     for (size_t i = 0; i < num_boxes_cur; i++) {
@@ -1275,7 +1278,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
       auto tlist = boxes_cur.split(2, 1);
       tlist[1] = tlist[1] + tlist[0];
       auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-      // PRINT_TENSOR_DETAILS(valid_boxes);
+      // PRINT_TENSOR_WITH_DATA(valid_boxes);
 
       // Compute the iou scores
       // std::vector<std::vector<float>> iou_vec_2d;
@@ -1291,8 +1294,8 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
           "D tensor");
-      // PRINT_TENSOR_DETAILS(scores_cur);
-      // PRINT_TENSOR_DETAILS(nms_boxid_c);
+      // PRINT_TENSOR_WITH_DATA(scores_cur);
+      // PRINT_TENSOR_WITH_DATA(nms_boxid_c);
       PT_TEST_DEBUG(
           "With score threshold=",
           score_th,
@@ -1384,7 +1387,7 @@ void runTopkDynamicTest(
 
     torch::Tensor input_cpu =
         torch::randn(dimentions, torch::requires_grad(false));
-    PRINT_TENSOR_DETAILS(input_cpu);
+    PRINT_TENSOR_WITH_DATA(input_cpu);
 
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 

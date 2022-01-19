@@ -9,19 +9,38 @@
  */
 #pragma once
 
+#include <tuple>
+#include <unordered_map>
+#include <vector>
+
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/util/ArrayRef.h>
+#include <torch/script.h>
 
 #include <synapse_common_types.h>
+#include <synapse_helpers/device_types.h>
 #include <synapse_helpers/graph.h>
 #include <synapse_helpers/habana_tensor.h>
-#include <torch/script.h>
-#include <tuple>
-#include <unordered_map>
-#include <vector>
-#include "synapse_helpers/device_types.h"
+
+using IVal = torch::jit::IValue;
+using IValPtrShared = std::shared_ptr<IVal>;
+using ValPtr = torch::jit::Value*;
+
+namespace habana_helpers {
+std::string DebugString(const at::Tensor& t, bool print_data = false);
+std::string DebugString(const IVal& a);
+std::string DebugString(const IValPtrShared& a);
+void PrintTensor(
+    const at::Tensor& t,
+    std::string tname,
+    bool print_data = false);
+} // namespace habana_helpers
+
+#define PRINT_TENSOR(T) habana_helpers::PrintTensor(T, std::string(#T))
+#define PRINT_TENSOR_WITH_DATA(T) \
+  habana_helpers::PrintTensor(T, std::string(#T), true)
 
 namespace habana_helpers {
 struct StorageLessWrapperTensorImpl : public c10::TensorImpl {

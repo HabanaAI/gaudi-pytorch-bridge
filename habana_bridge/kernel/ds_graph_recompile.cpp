@@ -61,7 +61,7 @@ void habana::PrintStack(torch::jit::Stack& st) {
 
   O << "aten_inputs #" << st.size() << "::" << '\n';
   for (size_t idx = 0; idx < st.size(); idx++) {
-    PrintATenTensor(st.at(idx));
+    habana_helpers::DebugString(st.at(idx));
   }
 }
 

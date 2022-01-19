@@ -21,22 +21,11 @@
 
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
-#include "synapse_helpers/habana_tensor.h"
+#include "habana_helpers/tensor_utils.h"
 
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
-
-using IVal = torch::jit::IValue;
-using IValPtrShared = std::shared_ptr<IVal>;
-using ValPtr = torch::jit::Value*;
-
-std::string DebugString(const at::Tensor& t);
-void print_pttensor(const at::Tensor& t, std::string tname);
-#define PRINT_PTTENSOR(T) print_pttensor(T, std::string(#T))
-
-void PrintATenTensor(const at::Tensor& a);
-void PrintATenTensor(const IVal& a);
-void PrintATenTensor(const IValPtrShared& a);
+#include "synapse_helpers/habana_tensor.h"
 
 class PtTensorInfo;
 

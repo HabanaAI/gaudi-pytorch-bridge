@@ -1797,7 +1797,7 @@ void HabanaLaunchOpPT::PrintRecipeInputs() {
        i++) {
     auto vp = jit_ir_graph->inputs().at(i);
     O << idx++ << " : %" << vp->debugName() << " : ";
-    PrintATenTensor(pt_stack_sh.at(i));
+    habana_helpers::DebugString(pt_stack_sh.at(i));
   }
 }
 

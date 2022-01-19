@@ -21,13 +21,6 @@
 #define COMMON_RTOL_FLOAT 0.001
 
 namespace habana_lazy_test {
-void print_tensor_details(torch::Tensor& t, std::string tname);
-}
-
-#define PRINT_TENSOR_DETAILS(T) \
-  habana_lazy_test::print_tensor_details(T, std::string(#T))
-
-namespace habana_lazy_test {
 
 const char* const place_on_cpu_env = getenv("PT_HPU_PLACE_ON_CPU");
 
