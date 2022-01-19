@@ -26,7 +26,19 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             self.eDeviceType = hpuDeviceType(DeviceType)
             print("HabanaDataLoader device type ", self.eDeviceType)
 
-            if self.eDeviceType == hpuDeviceType.synDeviceGaudi:
+            self.aeon_fallback_activated = False
+
+            # Try aeon when HPUMediaPipe is not available
+            if self.eDeviceType == hpuDeviceType.synDeviceGaudi2:
+                try:
+
+                    from torchmedialoader.media_dataloader_mediapipe import HPUMediaPipe
+
+                except (ImportError) as e:
+                    print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
+                    self.aeon_fallback_activated = True
+
+            if (self.eDeviceType == hpuDeviceType.synDeviceGaudi) or (self.aeon_fallback_activated == True):
                 from .aeon_config import get_aeon_config
                 from .aeon_transformers import HabanaAeonTransforms
                 from .aeon_manifest import generate_aeon_manifest
@@ -50,8 +62,6 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                 print("Running with Habana aeon DataLoader")
 
             elif self.eDeviceType == hpuDeviceType.synDeviceGaudi2:
-
-                from torchmedialoader.media_dataloader_mediapipe import HPUMediaPipe
 
                 self._media_dl_handle_vars(keyword_args)
                 if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
@@ -78,7 +88,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         if self.fallback_activated:
             return super().__len__()
-        elif self.eDeviceType == hpuDeviceType.synDeviceGaudi:
+        elif (self.eDeviceType == hpuDeviceType.synDeviceGaudi) or (self.aeon_fallback_activated == True):
             return len(self.aeon)
         elif self.eDeviceType == hpuDeviceType.synDeviceGaudi2:
             return len(self.iterator)
@@ -88,7 +98,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         if self.fallback_activated:
             return super().__iter__()
-        elif self.eDeviceType == hpuDeviceType.synDeviceGaudi:
+        elif (self.eDeviceType == hpuDeviceType.synDeviceGaudi) or (self.aeon_fallback_activated == True):
             return iter(self.aeon)
         elif self.eDeviceType == hpuDeviceType.synDeviceGaudi2:
             return iter(self.iterator)
