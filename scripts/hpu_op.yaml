@@ -370,9 +370,8 @@ channel_shuffle:
   out_ids: [0]
 
 clamp:
-  custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
-  guid: clamp_fwd
+  op_frontend: LazyClamp
   out_ids: [0]
   legacy_eager: true
 
@@ -382,9 +381,8 @@ clamp.Tensor:
   out_ids: [0]
 
 clamp_:
-  custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
-  guid: clamp_fwd
+  op_frontend: LazyClamp
   inplace_ids: [0]
   legacy_eager: true
 

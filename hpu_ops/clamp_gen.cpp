@@ -12,6 +12,57 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
+static void convert_params_to_tensors(std::vector<at::IValue>& inputs) {
+  auto self = inputs[0].toTensor();
+  // Scalar values always extracted as float irrespective of the type of
+  // original value contained in Scalar. This is ok since the widest tensor type
+  // which is supported on device is float so there is no chance of precision
+  // loss.
+  float min = inputs[1].isScalar() ? inputs[1].toScalar().to<float>()
+                                   : -std::numeric_limits<float>::max();
+  float max = inputs[2].isScalar() ? inputs[2].toScalar().to<float>()
+                                   : std::numeric_limits<float>::max();
+  auto min_tr = habana_lazy::get_tensor_for_scalar(min, self.options());
+  auto max_tr = habana_lazy::get_tensor_for_scalar(max, self.options());
+  inputs[1] = c10::IValue(min_tr);
+  inputs[2] = c10::IValue(max_tr);
+}
+
+template <>
+LazyClamp<at::Tensor>::LazyClamp(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  auto x = get_inputs();
+  convert_params_to_tensors(x);
+  set_inputs(x);
+}
+
+template <>
+LazyClamp<at::Tensor&>::LazyClamp(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  auto x = get_inputs();
+  convert_params_to_tensors(x);
+  set_inputs(x);
+}
+
+template <>
+at::Tensor LazyClamp<at::Tensor>::get_result_overrideable() {
+  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+  const auto& t = inputs.at(0).toTensor();
+  return habana_lazy::empty_hpu_lazy(
+      t.sizes(), t.options(), t.suggest_memory_format(), false);
+}
+
+template <>
+at::Tensor& LazyClamp<at::Tensor&>::get_result_overrideable() {
+  return LazyOp<at::Tensor&>::get_result_overrideable();
+}
+
 template <typename ScalarType>
 static std::shared_ptr<void> ClampParams(
     ScalarType min,
