@@ -108,8 +108,8 @@ struct Slice : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-      HABANA_ASSERT(m_inputs.size() == 4);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+        (m_inputs.size() == 4)) {
       auto& shape = m_inputs[1];
       HABANA_ASSERT(shape.DataPtrValidAndNotExpired());
       std::shared_ptr<Data> data_shape = shape.m_data_ptr.lock();
