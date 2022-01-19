@@ -420,8 +420,15 @@ void InsertPermute_graph(
           }
         }
 
+        // aten::slice used for static shapes and hpu:slice used for dynamic
+        // shapes. aten::slice is optimized for permute pass by having special
+        // check for dimBasedOps to reduce number of permutes. hpu::slice cannot
+        // be optimized because contiguous shape vectors are prepared at the
+        // front end by assuming that the inputs are always contiguous.
+
         // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
+            (strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
@@ -562,6 +569,7 @@ void InsertPermute_graph(
         }
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
+          (strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||

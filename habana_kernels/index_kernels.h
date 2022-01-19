@@ -37,7 +37,11 @@ class SliceOperator : public HabanaOperator {
       : HabanaOperator("slice") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY,
+         LayoutFormat::NCHW,
+         LayoutFormat::NCHW,
+         LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -61,6 +65,9 @@ class SliceOperator : public HabanaOperator {
       int64_t& start,
       int64_t& end,
       int64_t& step);
+  void ValidateSliceInputs(
+      std::vector<int64_t>& inp_shape,
+      std::vector<int64_t>& start);
 };
 
 //

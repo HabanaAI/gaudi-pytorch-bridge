@@ -1615,6 +1615,16 @@ void SliceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
+void SliceOperator::ValidateSliceInputs(
+    std::vector<int64_t>& inp_shape,
+    std::vector<int64_t>& start) {
+  for (unsigned i = 0; i < inp_shape.size(); i++) {
+    TORCH_CHECK(
+        (start[i] < inp_shape[i]),
+        "Slice invalid starts param, which is greater or equal to the dimension");
+  }
+}
+
 void SliceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1639,6 +1649,9 @@ void SliceOperator::AllocateAndAddSynapseNode(
         p_context_->syn_inputs_[3].ref().is_shape_tensor(),
         "Synapse input4 type expected to be shape tensor");
     shape = p_context_->syn_inputs_[1].ref().pt_shape();
+    auto inp_shape = self.sizes().vec();
+    auto start = inputs[3].toTensor().sizes().vec();
+    ValidateSliceInputs(inp_shape, start);
   } else {
     TORCH_CHECK(
         inputs.size() == 5,

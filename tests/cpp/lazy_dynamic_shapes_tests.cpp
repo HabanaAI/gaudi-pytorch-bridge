@@ -1426,3 +1426,44 @@ TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
   roi_align_test({10}, {2, 3, 35, 35});
   roi_align_test({12}, {2, 3, 50, 50});
 }
+
+TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
+  int kH = 3;
+  int kW = 3;
+  const int C = 1;
+  const int N = 4;
+  int H = 16;
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+    torch::Tensor weight_tensor =
+        torch::randn({C, C, kW, kH}, torch::requires_grad(false)).contiguous();
+    torch::Tensor h_weight_tensor = weight_tensor.to(torch::kHPU);
+    torch::Tensor in_tensor =
+        torch::randn({N, C, H, W}, torch::requires_grad(false))
+            .contiguous(c10::MemoryFormat::ChannelsLast);
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
+    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+
+    // conv2d
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    // Slice
+    auto h_slice_out = torch::slice(h_out_conv, 3, 1, 4, 1);
+    auto slice_out = torch::slice(out_conv, 3, 1, 4, 1);
+
+    // Relu
+    torch::Tensor h_relu_out = torch::relu(h_slice_out);
+    torch::Tensor relu_out = torch::relu(slice_out);
+
+    torch::Tensor out_hpu = h_relu_out.to(torch::kCPU);
+    EXPECT_EQ(allclose(out_hpu, relu_out, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+}
