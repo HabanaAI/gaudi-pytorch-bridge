@@ -1334,7 +1334,6 @@ Tensor add_strided_view_node(
   params.strides = stride.vec();
   params.offset = storage_offset;
   params.optype = kStridedOpDefault;
-
   if (is_update_view) {
     updateViewTable(hb_result, params);
   } else {
@@ -5556,6 +5555,11 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
     IntArrayRef split_sizes,
     int64_t dim) {
   PT_LAZY_TRACE;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+    return at::native::split_with_sizes(self, split_sizes, dim);
+  }
+
   auto node =
       std::make_shared<habana_lazy::ir::SplitWithSize>(self, split_sizes, dim);
   auto shapes =

@@ -439,6 +439,629 @@ TEST_F(LazyTensorShapeKernelTest, SplitTest) {
   }
 }
 
+// Test case to check the basic split with a 6D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitTest6D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({4, 3, 4, 5, 2, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 1);
+  auto cpu_out = torch::split(input, 2, 1);
+
+  std::vector<at::Tensor> hpu_out;
+  hpu_out.reserve(result.size());
+  for (const auto& ht : result) {
+    hpu_out.push_back(ht.to(torch::kCPU));
+  }
+
+  for (size_t i = 0; i < result.size(); i++) {
+    EXPECT_EQ(allclose(cpu_out[i], hpu_out[i], rtol, atol), true);
+  }
+}
+
+// Test case to check the split with ChannelLast mem format.
+TEST_F(LazyTensorShapeKernelTest, SplitViewContgCLTest) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input =
+      torch::randn({4, 3, 2, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 1);
+  auto cpu_out = torch::split(input, 2, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add(1);
+  splitCout1.add(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with a add op - on a view, created out
+// of a 2D tensor with 3 splits along axis 1.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({4, 2});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 1);
+  auto cpu_out = torch::split(input, 2, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with a add op - on a view(2nd), created out
+// of a 2D tensor with 3 splits.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with a add op - on a view, created out
+// of a 2D tensor with 2 splits.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_3) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 3, 1);
+  auto cpu_out = torch::split(input, 3, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with a mul op - on a view (3rd), created out
+// of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_4) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[2];
+  auto splitCout1 = cpu_out[2];
+
+  splitRes1.mul_(2);
+  splitCout1.mul_(2);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with add and mul combination ops - on a view
+// (2nd), created out of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_5) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.add_(1);
+  splitRes1.mul_(4);
+  splitCout1.add_(1);
+  splitCout1.mul_(4);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with div op - on a view (2nd), created out
+// of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_6) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.div_(2);
+  splitCout1.div_(2);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with sub op - on a view (2nd), created out
+// of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_7) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.sub_(1);
+  splitCout1.sub_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates with add op - on views (1st 2nd), created out
+// of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_8) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(2);
+  splitCout1.add_(2);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto splitRes2 = result[1];
+  auto splitCout2 = cpu_out[1];
+
+  splitRes2.add_(2);
+  splitCout2.add_(2);
+
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes2.cpu(), splitCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+// Test case to check the updates with add, sub, mul ops - on views (1st 2nd and
+// 3rd), created out of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_9) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(2);
+  splitCout1.add_(2);
+
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+
+  auto splitRes2 = result[1];
+  auto splitCout2 = cpu_out[1];
+
+  splitRes2.sub_(1);
+  splitCout2.sub_(1);
+
+  EXPECT_EQ(allclose(splitRes2.cpu(), splitCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+
+  auto splitRes3 = result[2];
+  auto splitCout3 = cpu_out[2];
+
+  splitRes3.mul_(2);
+  splitCout3.mul_(2);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes3.cpu(), splitCout3, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes2.cpu(), splitCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views (2nd and 1st), created out of 2D
+// tensor with two different (2 and 3) splits in axis 0 and 1.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_10) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 4});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto result1 = torch::split(h_input, 3, 1);
+  auto cpu_out1 = torch::split(input, 3, 1);
+
+  auto splitRes2 = result1[0];
+  auto splitCout2 = cpu_out1[0];
+
+  splitRes2.add_(2);
+  splitCout2.add_(2);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes2.cpu(), splitCout2, rtol, atol), true);
+}
+
+// Test case to check the updates on a view (1st), created out of 4D tensor
+// 3 splits in axis 1.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest4D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({4, 2, 3, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 1);
+  auto cpu_out = torch::split(input, 2, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on a view, created out of 4D tensor
+// 2 splits in axis 1.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest4D_2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({4, 2, 3, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 3, 1);
+  auto cpu_out = torch::split(input, 3, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on a view, created out of 6D tensor split.
+TEST_F(LazyTensorShapeKernelTest, SplitViewTest6D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({4, 2, 3, 2, 2, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 1);
+  auto cpu_out = torch::split(input, 2, 1);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split the tensor
+// in to 3 parts and cat (which is inverse of split) all of them
+// resulting in original tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewCatTest) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  auto splitRes2 = result[1];
+  auto splitCout2 = cpu_out[1];
+
+  auto splitRes3 = result[2];
+  auto splitCout3 = cpu_out[2];
+
+  auto exp = torch::cat({splitCout1, splitCout2, splitCout3});
+
+  torch::Tensor cat_out = torch::cat({splitRes1, splitRes2, splitRes3});
+  auto cat_result = cat_out.to(torch::kCPU);
+  EXPECT_EQ(allclose(cat_result, exp), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split and
+// cat (which is inverse of split) on two different 2D tensor
+// created out of a same parent 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewCatTest_2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  auto exp = torch::cat({splitCout1, input});
+
+  torch::Tensor cat_out = torch::cat({splitRes1, h_input});
+  auto cat_result = cat_out.to(torch::kCPU);
+  EXPECT_EQ(allclose(cat_result, exp), true);
+
+  exp.add_(2);
+  cat_out.add_(2);
+
+  auto exp1 = torch::cat({input, splitCout1});
+
+  torch::Tensor cat_out1 = torch::cat({h_input, splitRes1});
+  auto cat_result1 = cat_out1.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(cat_result1, exp1), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split and
+// slice created out of a 2D tensor with same shape.
+TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest2D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto cout = torch::slice(input, 0, 0, 2);
+  Tensor h_out = torch::slice(h_input, 0, 0, 2);
+
+  auto sliceCout2 = cout;
+  auto sliceRes2 = h_out;
+
+  sliceRes2.add_(2);
+  sliceCout2.add_(2);
+
+  EXPECT_EQ(allclose(h_out.to(torch::kCPU), cout), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(sliceRes2.cpu(), sliceCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views with single elements(slice view) of a
+// 2D tensor resulting from split and slice created out of a 2D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest2D_2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto cout = torch::slice(input, 0, 0, 3);
+  Tensor h_out = torch::slice(h_input, 0, 0, 3);
+
+  auto sliceCout2 = cout[1, 1];
+  auto sliceRes2 = h_out[1, 1];
+
+  sliceRes2.add_(2);
+  sliceCout2.add_(2);
+
+  EXPECT_EQ(allclose(h_out.to(torch::kCPU), cout), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(sliceRes2.cpu(), sliceCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split and a column
+// selected (different shape) from the slice of a 2D tensor operations.
+TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest2D_3) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[0];
+  auto splitCout1 = cpu_out[0];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto cout = torch::slice(input, 0, 0, 5);
+  Tensor h_out = torch::slice(h_input, 0, 0, 5);
+
+  auto sliceCout2 = cout;
+  auto sliceRes2 = h_out;
+
+  sliceCout2 = torch::select(sliceCout2, 1, 1);
+  sliceRes2 = torch::select(sliceRes2, 1, 1);
+
+  sliceRes2.add_(2);
+  sliceCout2.add_(2);
+
+  EXPECT_EQ(allclose(h_out.to(torch::kCPU), cout), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(sliceRes2.cpu(), sliceCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split and
+// slice out of a 4D tensor operations.
+TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest4D) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto cout = torch::slice(input, 0, 0, 2);
+  Tensor h_out = torch::slice(h_input, 0, 0, 2);
+
+  auto sliceCout2 = cout;
+  auto sliceRes2 = h_out;
+
+  sliceRes2.add_(2);
+  sliceCout2.add_(2);
+
+  EXPECT_EQ(allclose(h_out.to(torch::kCPU), cout), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(sliceRes2.cpu(), sliceCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
+// Test case to check the updates on views resulting from split and
+// slice with single elements (different shape) of a 4D tensor.
+TEST_F(LazyTensorShapeKernelTest, SplitViewSliceTest4D_2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  auto input = torch::randn({6, 2, 3, 1});
+  auto h_input = input.to(torch::kHPU);
+
+  auto result = torch::split(h_input, 2, 0);
+  auto cpu_out = torch::split(input, 2, 0);
+
+  auto splitRes1 = result[1];
+  auto splitCout1 = cpu_out[1];
+
+  splitRes1.add_(1);
+  splitCout1.add_(1);
+
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+
+  auto cout = torch::slice(input, 0, 0, 3);
+  Tensor h_out = torch::slice(h_input, 0, 0, 3);
+
+  auto sliceCout2 = cout[0, 1, 2];
+  auto sliceRes2 = h_out[0, 1, 2];
+
+  sliceRes2.add_(2);
+  sliceCout2.add_(2);
+
+  EXPECT_EQ(allclose(h_out.to(torch::kCPU), cout), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(sliceRes2.cpu(), sliceCout2, rtol, atol), true);
+  EXPECT_EQ(allclose(splitRes1.cpu(), splitCout1, rtol, atol), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, Resize) {
   auto h_input = torch::arange(10).to(torch::kHPU);
 
