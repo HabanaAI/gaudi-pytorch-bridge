@@ -550,15 +550,16 @@ void HabanaLaunchOpPT::GetSynapseInputs(
   auto node_ins = node->inputs();
   int input_idx = 0;
   for (const auto value_in : node_ins) {
-    if (value_to_ivalue[value_in] &&
-        (value_to_ivalue[value_in]->isTensor() ||
-         value_to_ivalue[value_in]->isTensorList())) {
+    auto value_exists = value_to_ivalue.find(value_in);
+    HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
+    auto ivalue = value_exists->second;
+    if ((ivalue->isTensor() || ivalue->isTensorList())) {
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
       // note: else path is only of listcontruct is fused with another op like
       // cat. This case occurs in lazy eval but not in torch trace mode
-      if (value_to_ivalue[value_in]->isTensor() ||
+      if (ivalue->isTensor() ||
           (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
         SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
             std::make_shared<SynTensorOrRefList>();
