@@ -599,10 +599,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           p_roots.push_back(ir_value.mp_node);
         }
       }
-      std::string error_message = std::string(" Node = ") + in.ToString() +
-          std::string("\n Failing IR graph = ") +
-          IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
-      std::clog << error_message;
+      PT_LAZY_DEBUG(
+          " Node = ",
+          in.ToString(),
+          "\n Failing IR graph = ",
+          IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
       HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
