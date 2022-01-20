@@ -41,11 +41,12 @@ def ca_tensor_error_stats(a,b):
 def ca_cosine_similarity(a, b, cos_sim_thld,rms_threshold):
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
-    if (na.item() == 0.0) and (nb.item() == 0.0):
-        nr = np.array(1.0, dtype=np.float64)
-        angle = np.array(0.0, dtype=np.float64)
-        cos_sim_ok=True
-        return na.item(),nb.item(),nr.item(), angle.item(), cos_sim_ok
+    if (na.item() == 0.0) or (nb.item() == 0.0):
+        l2_norm = np.linalg.norm(np.array(a)-np.array(b))
+        cos_sim_ok = np.greater(rms_threshold, l2_norm/np.sqrt(a.size))
+        angle = 0 if cos_sim_ok else 90
+        nr = 1.0 if cos_sim_ok else 100
+        return na.item(),nb.item(),nr, angle, cos_sim_ok
     else:
         nr =  np.divide(na,nb)
         angle = np.arccos(min(np.dot(a, b) / na / nb, 1.0))/np.pi*180
@@ -73,7 +74,7 @@ def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_
     if ('unet3d' in topology or 'unet2d' in topology) and t_dev1_torch.size() == t_dev2_torch.size() and 'bkwd' in tensor_name:
         print(f"not permuting as same shape - {tensor_name}")
         permute_required = False
-    if ('resnet' in topology or 'mobilenetv2' in topology or 'googlenet' in topology or 'maskrcnn' in topology) and same_device is False and t_dev1_torch.ndim == 4:
+    if ('resnet' in topology or 'mobilenetv2' in topology or 'googlenet' in topology or 'maskrcnn' in topology or 'mlpmixer' in topology) and same_device is False and t_dev1_torch.ndim == 4:
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
             if not (tail == "input.pt"):
