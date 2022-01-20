@@ -5325,23 +5325,41 @@ void adjustPTSizesLazy(Tensor& t) {
     }
   }
 }
-Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
+Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::PermuteCL>(self, dims_);
-  std::vector<int64_t> new_sizes, new_strides;
-  std::tie(new_sizes, new_strides) =
-      PermuteOperator::compute_output_shape(self, dims_.vec());
-  auto result =
-      empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
-  adjustPTSizesLazy(result);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  return result;
+  auto dims_vec = dims_in.vec();
+  for (unsigned i = 0; i < dims_in.size(); i++) {
+    dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
+  }
+  IntArrayRef dims_(dims_vec);
+
+  std::vector<at::IValue> vector_of_inputs;
+
+  vector_of_inputs = {self, dims_};
+
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("hpu::permute_cl", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dims = inputs[1].toIntList();
+      std::vector<int64_t> new_sizes, new_strides;
+      std::tie(new_sizes, new_strides) =
+          PermuteOperator::compute_output_shape(self, dims.vec());
+      auto result =
+          empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
+      adjustPTSizesLazy(result);
+      return result;
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
