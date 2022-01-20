@@ -29,7 +29,7 @@
     Compare(std::get<0>(expected), std::get<0>(result));         \
     Compare(std::get<1>(expected), std::get<1>(result));         \
   }
-
+/*
 class HpuOpTest : public HpuOpTestUtil {};
 
 HPU_MEDIAN_TEST(median_float, SIZE({8, 24, 24, 24, 5}), torch::kFloat)
@@ -76,3 +76,4 @@ HPU_MEDIAN_DIM_TEST(
     1,
     false,
     torch::kBFloat16)
+*/

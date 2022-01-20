@@ -283,7 +283,7 @@ TEST_F(LazyBasicKernelTest, allreduce) {
   EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, allreducewithcontroledge) {
+TEST_F(LazyBasicKernelTest, DISABLED_allreducewithcontroledge) {
   torch::Tensor A = torch::randn({4});
   auto b = torch::relu(A);
   auto v1 = A.view(-1);

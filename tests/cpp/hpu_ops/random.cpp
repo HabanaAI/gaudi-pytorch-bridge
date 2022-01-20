@@ -133,7 +133,7 @@ TEST_F(HpuOpTest, random_to) {
       << "Seed=" << GetSeed() << "\n";
 }
 
-TEST_F(HpuOpTest, multinomial) {
+TEST_F(HpuOpTest, DISABLED_multinomial) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 2;
   SetSeed();
@@ -144,7 +144,7 @@ TEST_F(HpuOpTest, multinomial) {
   Compare(result1, result2);
 }
 
-TEST_F(HpuOpTest, multinomial_replacement) {
+TEST_F(HpuOpTest, DISABLED_multinomial_replacement) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
   SetSeed();
