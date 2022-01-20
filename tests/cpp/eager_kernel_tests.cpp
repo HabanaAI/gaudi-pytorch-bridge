@@ -6,11 +6,30 @@
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
+#include "habana_lazy_test_infra.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 
-TEST(EagerKernelTest, LinspaceOutCache) {
+class EagerKernelTest : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    SetLazyMode(2);
+  }
+  void TearDown() override {
+    RestoreMode();
+  }
+};
+
+class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    SetLazyMode(2);
+  }
+  void TearDown() override {
+    RestoreMode();
+  }
+};
+
+TEST_F(EagerKernelTest, LinspaceOutCache) {
   const int64_t constStepsValue = 11;
   torch::Scalar start = 0.0f;
   torch::Scalar end = 10.0f;
@@ -31,7 +50,7 @@ TEST(EagerKernelTest, LinspaceOutCache) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST(EagerKernelTest, LinspaceOutNeToPosStep1) {
+TEST_F(EagerKernelTest, LinspaceOutNeToPosStep1) {
   const int64_t constStepsValue = 12; // set incorrect size
   torch::Scalar start = -100.0f;
   torch::Scalar end = 200.0f;
@@ -47,7 +66,7 @@ TEST(EagerKernelTest, LinspaceOutNeToPosStep1) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST(EagerKernelTest, DISABLED_MinTest0D) {
+TEST_F(EagerKernelTest, DISABLED_MinTest0D) {
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHPU);
 
@@ -59,7 +78,7 @@ TEST(EagerKernelTest, DISABLED_MinTest0D) {
 }
 
 // TODO: Add test dim from actual model's data
-TEST(EagerKernelTest, MinTest) {
+TEST_F(EagerKernelTest, MinTest) {
   torch::Tensor A = torch::randn({2, 3, 4, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   auto hOut = torch::min(hA);
@@ -67,7 +86,7 @@ TEST(EagerKernelTest, MinTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
-TEST(EagerKernelTest, Cumsum0D) {
+TEST_F(EagerKernelTest, Cumsum0D) {
   torch::Tensor A = torch::tensor(9.03);
   auto hinput = A.to(torch::kHPU);
 
@@ -78,7 +97,7 @@ TEST(EagerKernelTest, Cumsum0D) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, CumsumDim3AxisNe1) {
+TEST_F(EagerKernelTest, CumsumDim3AxisNe1) {
   auto A = torch::randn({2, 3, 2}, torch::requires_grad(false));
 
   auto hA = A.to(torch::kHPU);
@@ -90,7 +109,7 @@ TEST(EagerKernelTest, CumsumDim3AxisNe1) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, CumsumDim3Axis2) {
+TEST_F(EagerKernelTest, CumsumDim3Axis2) {
   torch::Tensor A = torch::randn({2, 3, 2});
 
   auto hA = A.to(torch::kHPU);
@@ -102,7 +121,7 @@ TEST(EagerKernelTest, CumsumDim3Axis2) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, CumsumDim2Axis1Int) {
+TEST_F(EagerKernelTest, CumsumDim2Axis1Int) {
   auto options = torch::TensorOptions().dtype(torch::kFloat32);
   torch::Tensor A = torch::randint(-330, 330, {2, 3}, options);
 
@@ -115,7 +134,7 @@ TEST(EagerKernelTest, CumsumDim2Axis1Int) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, ReluTest) {
+TEST_F(EagerKernelTest, ReluTest) {
   torch::Tensor tensor = torch::randn({2, 3});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::relu(tHabana);
@@ -124,7 +143,7 @@ TEST(EagerKernelTest, ReluTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, LeakyReluTest) {
+TEST_F(EagerKernelTest, LeakyReluTest) {
   auto A = torch::tensor({-1.0, 5.0, -1.0});
   auto ha = A.to(torch::kHPU);
 
@@ -135,7 +154,7 @@ TEST(EagerKernelTest, LeakyReluTest) {
   EXPECT_TRUE(allclose(cpu_out, hpu_out.to("cpu")));
 }
 
-TEST(EagerKernelTest, LeakyRelu0DTest) {
+TEST_F(EagerKernelTest, LeakyRelu0DTest) {
   auto A = torch::tensor(-1.0);
   auto ha = A.to(torch::kHPU);
 
@@ -146,7 +165,7 @@ TEST(EagerKernelTest, LeakyRelu0DTest) {
   EXPECT_TRUE(allclose(cpu_out, hpu_out.to("cpu")));
 }
 
-TEST(EagerKernelTest, LeakyReluInplaceTest) {
+TEST_F(EagerKernelTest, LeakyReluInplaceTest) {
   auto A = torch::tensor({-1.0, 5.0});
   auto ha = A.to(torch::kHPU);
 
@@ -157,7 +176,7 @@ TEST(EagerKernelTest, LeakyReluInplaceTest) {
   EXPECT_TRUE(allclose(A, hA.to("cpu")));
 }
 
-TEST(EagerKernelTest, LeakyReluBackwardTest) {
+TEST_F(EagerKernelTest, LeakyReluBackwardTest) {
   const std::vector<int64_t> dimentions{2, 3};
 
   auto grad = torch::randn(dimentions, torch::requires_grad(false));
@@ -172,7 +191,7 @@ TEST(EagerKernelTest, LeakyReluBackwardTest) {
   EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
 }
 
-TEST(EagerKernelTest, LeakyReluBackward0DTest) {
+TEST_F(EagerKernelTest, LeakyReluBackward0DTest) {
   auto grad = torch::tensor(6.0);
   auto A = torch::tensor(-1.0);
 
@@ -185,7 +204,7 @@ TEST(EagerKernelTest, LeakyReluBackward0DTest) {
   EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
 }
 
-TEST(EagerKernelTest, AddTest) {
+TEST_F(EagerKernelTest, AddTest) {
   torch::Tensor tensor = torch::randn({2, 3});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::add(tHabana, 4.0);
@@ -194,7 +213,7 @@ TEST(EagerKernelTest, AddTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, MatMulTest) {
+TEST_F(EagerKernelTest, MatMulTest) {
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     torch::Tensor tensor1 = torch::randn(size1);
     torch::Tensor tensor2 =
@@ -223,7 +242,7 @@ TEST(EagerKernelTest, MatMulTest) {
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
 }
 
-TEST(EagerKernelTest, WhereTest) {
+TEST_F(EagerKernelTest, WhereTest) {
   torch::Tensor x = torch::randn({2, 3});
   torch::Tensor y = torch::randn({2, 3});
   auto out = torch::_s_where(x > 0, x, y);
@@ -238,7 +257,7 @@ TEST(EagerKernelTest, WhereTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, WhereBroadcastTest) {
+TEST_F(EagerKernelTest, WhereBroadcastTest) {
   torch::Tensor cond = torch::randint(0, 2, {2, 3});
   torch::Tensor condBool = cond > 0;
   torch::Tensor x = torch::randn({2, 3});
@@ -257,7 +276,7 @@ TEST(EagerKernelTest, WhereBroadcastTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, MatmulBackwardTest) {
+TEST_F(EagerKernelTest, MatmulBackwardTest) {
   torch::manual_seed(0);
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1);
@@ -291,7 +310,7 @@ TEST(EagerKernelTest, MatmulBackwardTest) {
   matmul_test({2, 2, 3, 4}, {2, 4, 3});
 }
 
-TEST(EagerKernelTest, IsfiniteTest) {
+TEST_F(EagerKernelTest, IsfiniteTest) {
   auto input_tensor = torch::Tensor(torch::zeros({5}));
   input_tensor[0] = input_tensor[0] / 0.0;
   input_tensor[1] = 2.0 / 0.0;
@@ -307,7 +326,7 @@ TEST(EagerKernelTest, IsfiniteTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, IsnanTest) {
+TEST_F(EagerKernelTest, IsnanTest) {
   auto input_tensor = torch::tensor({2.0, sqrt(-1.0), 1.0});
 
   torch::Tensor cpu_out = torch::isnan(input_tensor);
@@ -318,7 +337,7 @@ TEST(EagerKernelTest, IsnanTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, Isnan0DTest) {
+TEST_F(EagerKernelTest, Isnan0DTest) {
   auto input_tensor = torch::tensor(sqrt(-1.0));
 
   torch::Tensor cpu_out = torch::isnan(input_tensor);
@@ -333,7 +352,7 @@ TEST(EagerKernelTest, Isnan0DTest) {
 //the direct call of an eager kernel function instead of through
 //torch:: interface poses issue with the Lazy mode check being done
 //inside PT_KERNEL_BEGIN macro.
-TEST(EagerKernelTest, RandomShuffleTest) {
+TEST_F(EagerKernelTest, RandomShuffleTest) {
   torch::Tensor x = torch::randint(0, 10, {8}, torch::dtype(torch::kInt32));
   torch::Tensor seed =
       torch::Tensor(torch::ones({1}, torch::dtype(torch::kInt32)));
@@ -350,11 +369,11 @@ TEST(EagerKernelTest, RandomShuffleTest) {
   EXPECT_EQ(equal, false);
 }
 */
-TEST(EagerKernelTest, AdamwOptTest) {
+TEST_F(EagerKernelTest, AdamwOptTest) {
   torch::manual_seed(0);
   int num_params = 2;
-  int M = 4;
-  int N = 4;
+  int M = 1;
+  int N = 1;
 
   std::vector<torch::Tensor> grad_vec;
   std::vector<torch::Tensor> wt_vec;
@@ -457,7 +476,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
   }
 }
 
-TEST(EagerKernelCacheTest, AdamwOptTest) {
+TEST_F(EagerKernelCacheTest, AdamwOptTest) {
   torch::manual_seed(0);
   int num_params = 2;
   int M = 4;
@@ -575,7 +594,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
   }
 }
 
-TEST(EagerKernelTest, LayerNormForwardExecute) {
+TEST_F(EagerKernelTest, LayerNormForwardExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 1, 3, 4, 4}); // nchw
@@ -598,7 +617,7 @@ TEST(EagerKernelTest, LayerNormForwardExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
-TEST(EagerKernelTest, FusedNormTest) {
+TEST_F(EagerKernelTest, FusedNormTest) {
   // torch::manual_seed(0);
   std::vector<torch::Tensor> grad_vec;
   std::vector<torch::Tensor> grad_vec_h;
@@ -667,7 +686,7 @@ TEST(EagerKernelTest, FusedNormTest) {
   }
 }
 
-TEST(EagerKernelTest, LambOptPh1Test) {
+TEST_F(EagerKernelTest, LambOptPh1Test) {
   torch::manual_seed(0);
   int num_params = 2;
   int M = 4;
@@ -830,7 +849,7 @@ TEST(EagerKernelTest, LambOptPh1Test) {
   }
 }
 
-TEST(EagerKernelTest, IndexTest) {
+TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -860,7 +879,7 @@ TEST(EagerKernelTest, IndexTest) {
   EXPECT_EQ(equal, true);
 };
 
-TEST(EagerKernelTest, BroadCastIndexTest) {
+TEST_F(EagerKernelTest, BroadCastIndexTest) {
   torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -890,7 +909,7 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   EXPECT_EQ(equal, true);
 };
 
-/*TEST(EagerKernelTest, IndexTest1) {
+/*TEST_F(EagerKernelTest, IndexTest1) {
   torch::Tensor input_cpu = torch::arange(12).reshape({3, 1, 2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -907,7 +926,7 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   EXPECT_EQ(equal, true);
 };*/
 
-TEST(EagerKernelTest, Silu) {
+TEST_F(EagerKernelTest, Silu) {
   const std::vector<int64_t> dimentions{7, 3};
   auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
   auto hinput = input_tensor.to(torch::kHPU);
@@ -919,7 +938,7 @@ TEST(EagerKernelTest, Silu) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, Silu0Dim) {
+TEST_F(EagerKernelTest, Silu0Dim) {
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHPU);
 
@@ -930,7 +949,7 @@ TEST(EagerKernelTest, Silu0Dim) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
-TEST(EagerKernelTest, RepeatTest) {
+TEST_F(EagerKernelTest, RepeatTest) {
   torch::Tensor A = torch::randn({4, 5});
 
   torch::Tensor hA = A.to(torch::kHPU);
@@ -940,7 +959,7 @@ TEST(EagerKernelTest, RepeatTest) {
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
-TEST(EagerKernelTest, FlipTest) {
+TEST_F(EagerKernelTest, FlipTest) {
   torch::Tensor tensor = torch::rand({2, 3, 4});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::flip(tHabana, {2, 1});
@@ -949,7 +968,7 @@ TEST(EagerKernelTest, FlipTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, FlipNegativeTest) {
+TEST_F(EagerKernelTest, FlipNegativeTest) {
   torch::Tensor tensor = torch::randn({2, 2, 2});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::flip(tHabana, {-1, 1});
@@ -958,7 +977,7 @@ TEST(EagerKernelTest, FlipNegativeTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, Diag2DTest) {
+TEST_F(EagerKernelTest, Diag2DTest) {
   torch::Tensor tensor = torch::randn({4, 4});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::diag(tHabana, 3);
@@ -967,7 +986,7 @@ TEST(EagerKernelTest, Diag2DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, Diag1DTest) {
+TEST_F(EagerKernelTest, Diag1DTest) {
   torch::Tensor tensor = torch::randn({3});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::diag(tHabana, 1);
@@ -976,7 +995,7 @@ TEST(EagerKernelTest, Diag1DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, DiagOut2DTest) {
+TEST_F(EagerKernelTest, DiagOut2DTest) {
   torch::Tensor tensor = torch::randn({4, 4});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
 
@@ -989,7 +1008,7 @@ TEST(EagerKernelTest, DiagOut2DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, DiagOut1DTest) {
+TEST_F(EagerKernelTest, DiagOut1DTest) {
   torch::Tensor tensor = torch::randn({3});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
 
@@ -1002,7 +1021,7 @@ TEST(EagerKernelTest, DiagOut1DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, BatchNormBackwardAdd) {
+TEST_F(EagerKernelTest, BatchNormBackwardAdd) {
   auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
   auto tHabanaGrad = grad_tensor.to(torch::kHPU);
 
@@ -1065,7 +1084,7 @@ TEST(EagerKernelTest, BatchNormBackwardAdd) {
   EXPECT_EQ(allclose(tWeight.to(torch::kCPU), weight, 0.0001), true);
 }
 
-TEST(EagerKernelTest, LogSoftMaxTestBackward) {
+TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
   torch::Tensor input = torch::rand({64, 10}, torch::requires_grad(false));
   torch::Tensor grad = torch::rand({64, 10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64, 10}, torch::requires_grad(false));
@@ -1085,7 +1104,7 @@ TEST(EagerKernelTest, LogSoftMaxTestBackward) {
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
 
-TEST(EagerKernelTest, SumDimIntOut) {
+TEST_F(EagerKernelTest, SumDimIntOut) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
 

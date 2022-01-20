@@ -39,7 +39,7 @@ TEST(EnvFlags, GetEnv) {
   // Env var not defined get default value
   auto env_val = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
   PT_TEST_DEBUG("PT_HPU_LAZY_MODE=", env_val);
-  EXPECT_EQ(env_val, 2);
+  EXPECT_EQ(env_val, 1);
 
   SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 1, 1);
 
