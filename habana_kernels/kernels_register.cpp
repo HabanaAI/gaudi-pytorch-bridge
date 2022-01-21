@@ -3479,6 +3479,12 @@ Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
   return at::native::stack(tensors, dim);
 }
 
+// Issue with cat_out, see SW-76145
+// Remove this when fixed
+Tensor& hpu_wrap::stack_out(TensorList tensors, int64_t dim, Tensor& out) {
+  return AtenHpuTypeDefault::stack_out(tensors, dim, out);
+}
+
 Tensor hpu_wrap::alias(const at::Tensor& self) {
   return hpu_wrap::as_strided(
       self, self.sizes(), self.strides(), self.storage_offset());

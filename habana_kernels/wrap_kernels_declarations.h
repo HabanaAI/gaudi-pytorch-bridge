@@ -778,6 +778,10 @@ struct hpu_wrap {
   static at::Tensor& log2_(at::Tensor& self);
   static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
   static at::Tensor stack(at::TensorList tensors, int64_t dim);
+  static at::Tensor& stack_out(
+      at::TensorList tensors,
+      int64_t dim,
+      at::Tensor& out);
   static at::Tensor alias(const at::Tensor& self);
   static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
   static at::Tensor squeeze(const at::Tensor& self);

@@ -1105,7 +1105,7 @@ def generate_registrations(fgens, overrides):
 
 
 def requires_registration(fgen, overrides):
-    requires_lowering = fgen.dispatch
+    requires_lowering = fgen.dispatch and not fgen.default
     has_hpu_lowering = get_mapsig_key(fgen.mapsig) in overrides
     has_autograd = fgen.mapsig in _FN_AUTOGRAD_HPU or fgen.func in _FN_AUTOGRAD_HPU
     return requires_lowering or has_hpu_lowering or has_autograd
@@ -1114,7 +1114,7 @@ def requires_registration(fgen, overrides):
 def generate_functions(fgens, overrides):
     code = ""
     for fgen in fgens:
-        if fgen.code and requires_registration(fgen, overrides):
+        if fgen.code: # and requires_registration(fgen, overrides):
             code += "{}\n\n".format(fgen.code)
     return code
 
@@ -1122,7 +1122,7 @@ def generate_functions(fgens, overrides):
 def generate_class_functions(fgens, overrides):
     code = ""
     for fgen in fgens:
-        if fgen.code and requires_registration(fgen, overrides):
+        if fgen.code: # and requires_registration(fgen, overrides):
             code += "  static {};\n".format(fgen.rwsig)
     return code
 

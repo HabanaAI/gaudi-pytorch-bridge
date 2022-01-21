@@ -836,7 +836,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
 
 
 def requires_registration(fgen):
-    return fgen.dispatch
+    return fgen.dispatch #and not fgen.default
 
 
 def get_aten_opname(aten_sig):
