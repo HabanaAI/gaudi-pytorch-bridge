@@ -564,7 +564,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
-  HOST_SYNC()
   return collective(
       tensors,
       tensors,
@@ -600,7 +599,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
-  HOST_SYNC()
+
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
@@ -762,7 +761,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
     const AllgatherOptions& opts) {
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
-  HOST_SYNC()
+
   auto work = collective(
       inputTensors,
       outputFlattened,
@@ -906,14 +905,23 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recvAnysource(
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
     const BarrierOptions& opts) {
-  std::vector<std::shared_ptr<hcclComm_t>> comms;
+  std::vector<int> devices;
+  for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
+       it++) {
+    devices.push_back(it->first);
+  }
+
+  auto comms = getCommList(devices);
+  auto commStreams = getCommStreams(devices);
+
+  HOST_SYNC()
+  for (size_t i = 0; i < comms.size(); i++) {
+    hcclBarrier(*comms[i], commStreams[i]);
+  }
+
   std::vector<int> res;
   std::vector<at::Tensor> outputs;
-  std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts;
-
-  for (size_t i = 0; i < comms.size(); i++) {
-    deviceCtxts[i]->barrier();
-  }
+  auto deviceCtxts = getDeviceCtxtList(devices);
   auto work = initWork(outputs, res, comms, deviceCtxts);
 
   return work;
