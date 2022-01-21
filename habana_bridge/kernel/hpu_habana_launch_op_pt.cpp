@@ -1756,10 +1756,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       visualize::GetGraphIndex(rargpsh_graph->graphHashCode()),
       current_dbipsh_->getCount()));
 
+  cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+      input_refs, graph_key, op_strs, cur_ds_token_);
   // Check for cached recipe
   if (enable_caching_) {
-    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        input_refs, graph_key, op_strs, cur_ds_token_);
     current_dbipsh_->SetRecipeKeyForBucket(
         graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
@@ -1922,11 +1922,11 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     return;
   }
 
+  cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+      false, input_refs, jit_ir_graph, graph_key, op_strs);
+
   // caching :: begin
   if (enable_caching_) {
-    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        false, input_refs, jit_ir_graph, graph_key, op_strs);
-
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
@@ -2152,6 +2152,9 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     try {
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
+      cur_ds_token_ = new_bucket.getToken();
+      cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+          input_refs, graph_key, op_strs, cur_ds_token_);
       ConstructPatchingTable();
     } catch (std::exception& e) {
       error_str = e.what();
@@ -2163,21 +2166,19 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   }
   PT_DYNAMIC_SHAPE_DEBUG("Compilation completed");
 
-  cur_ds_token_ = new_bucket.getToken();
-  if (enable_caching_) {
-    // Add the <key,value> pair to the map
-    std::shared_ptr<RecipeArgumentSpec> rargpsh =
-        std::make_shared<RecipeArgumentSpec>(
-            input_refs, graph_key, op_strs, cur_ds_token_);
-    cur_rvalpsh->key = rargpsh->hashCode();
-    cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
-    RecipeCacheLRU::get_cache().add(rargpsh, cur_rvalpsh);
-    // Add the recipe to the corresponding bucket
-    new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "HabanaOp recipe cache :: adding new recipe to cache ::\n",
-        *cur_rvalpsh);
-  }
+  // Add the <key,value> pair to the map
+  cur_rvalpsh->key = cur_rargpsh->hashCode();
+  cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
+  RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
+  // Add the recipe to the corresponding bucket
+  new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "HabanaOp recipe cache :: adding new recipe to cache ::\n",
+      cur_rvalpsh->header_str(),
+      "\n",
+      cur_rvalpsh->digest_str(),
+      "\n",
+      "--------------------");
 
   Clear();
 

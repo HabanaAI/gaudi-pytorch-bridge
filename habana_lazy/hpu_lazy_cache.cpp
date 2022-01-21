@@ -238,12 +238,8 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
     const at::ArrayRef<torch::jit::IValue>& input_refs)
     : jit_graph_to_lowering(JitGraphToLowering) {
-  // Compute the graph hash only if recipe cache is enabled or dynamic shape is
-  // enabled.
-  if (GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
-  }
+  // Compute the graph hash
+  ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
 }
 
 // LazyGraphCache Functions

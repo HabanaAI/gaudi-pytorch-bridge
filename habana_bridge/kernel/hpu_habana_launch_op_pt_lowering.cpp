@@ -243,8 +243,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
 
   TORCH_CHECK(
       total_tinfos == rv.dtensorinfos->size(),
-      __LINE__,
-      " ::",
       " num_inputs ",
       rv.num_inputs,
       " num_induplicates ",
@@ -267,6 +265,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
       rv.dtensorinfos->size());
 
   rv.populate_syn_tensor_ids();
+  TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
   rv.key = cur_rargpsh->hashCode();
 }
 

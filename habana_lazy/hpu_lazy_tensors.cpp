@@ -919,7 +919,8 @@ void HbLazyTensor::StepMarker(
 
 void HbLazyTensor::InitiateBucketRefinement() {
   PT_LAZY_TRACE;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
     // Start the separate compile thread
     if (!HbLazyTensor::refinement_handle_.valid()) {
       PT_TEST_DEBUG_TH(
