@@ -24,7 +24,6 @@ enum class EmitStatus {
 };
 
 using NodeSet = std::unordered_set<ir::NodePtr>;
-using NodeValueMap = std::map<ir::NodePtr, ir::Value>;
 using EmissionMap = std::unordered_map<NodePtr, EmitStatus>;
 using ValueNodeListMap = std::unordered_map<
     ir::Value,

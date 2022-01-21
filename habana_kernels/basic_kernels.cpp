@@ -49,7 +49,7 @@ static void print_stride_warning(const Tensor& src, const Tensor& dst) {
 }
 
 // Add new src->dst cast mappings to this
-std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
+std::unordered_map<c10::ScalarType, std::vector<c10::ScalarType>> const
     d2d_copy_supported_casts{
         {c10::ScalarType::Byte, {c10::ScalarType::Int, c10::ScalarType::Float}},
         {c10::ScalarType::Float,

@@ -297,7 +297,8 @@ class HabanaLaunchOpPT {
       "hpu::habanaOptimizerLambPhase2"};
 
   // TODO collect the control edge structures in a child class
-  std::map<torch::jit::Node*, std::pair<size_t, size_t>> dfs_time_in_out_map;
+  std::unordered_map<torch::jit::Node*, std::pair<size_t, size_t>>
+      dfs_time_in_out_map;
   size_t dfs_cnt = 0;
 
   // Main function responsible for constructing a synapse graph from

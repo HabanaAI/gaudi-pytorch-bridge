@@ -364,7 +364,7 @@ struct HabanaGraphFuser {
         }
         // Deduplicate inputs, but use their unique() values to ensure
         // this process only depends on the graph.
-        std::map<size_t, Value*> unique_to_value;
+        std::unordered_map<size_t, Value*> unique_to_value;
         for (Value* input : node->inputs()) {
           unique_to_value.emplace(input->unique(), input);
         }

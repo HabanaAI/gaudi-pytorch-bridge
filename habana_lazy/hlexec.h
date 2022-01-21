@@ -292,7 +292,6 @@ class HlExec {
   GraphPtr mp_g_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_;
   size_t m_g_hash_;
-  std::map<HabanaLazyTensorPtr, JitValuePtr> m_tensorbind_;
   std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyInfo = nullptr;
 };
 

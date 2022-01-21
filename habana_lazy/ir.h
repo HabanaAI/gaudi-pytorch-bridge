@@ -38,7 +38,7 @@ using NodePtrList = std::vector<NodePtr>;
 using ValueList = std::vector<Value>;
 using ValuePtr = std::shared_ptr<Value>;
 using ValuePtrList = std::vector<ValuePtr>;
-using IndexToIvalMap = std::map<size_t, torch::jit::IValue>;
+using IndexToIvalMap = std::unordered_map<size_t, torch::jit::IValue>;
 
 size_t StdHashCombine(uint64_t a, uint64_t b);
 
