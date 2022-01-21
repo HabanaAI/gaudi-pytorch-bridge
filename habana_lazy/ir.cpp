@@ -61,6 +61,18 @@ std::string Use::ToString() const {
   return ss.str();
 }
 
+bool Use::operator==(const Use& other) const {
+  return mp_node == other.mp_node && m_index == other.m_index &&
+      m_operand_index == other.m_operand_index;
+};
+
+size_t Use::operator()(const Use& in) const {
+  size_t hash = in.m_index;
+  hash = at::hash_combine(hash, in.m_operand_index);
+  hash = at::hash_combine(hash, reinterpret_cast<size_t>(in.mp_node));
+  return hash;
+};
+
 std::string Node::ToString() const {
   std::stringstream ss;
   ss << m_op.toQualString() << "{";

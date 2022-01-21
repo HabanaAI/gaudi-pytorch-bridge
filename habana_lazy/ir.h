@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include <absl/container/flat_hash_set.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <climits>
 #include <iostream>
@@ -56,6 +57,10 @@ struct Use {
       : mp_node(node), m_operand_index(operand_index), m_index(index) {}
 
   bool operator<(const Use& rhs) const;
+
+  bool operator==(const Use& other) const;
+
+  size_t operator()(const Use& in) const;
 
   std::string ToString() const;
 
@@ -309,7 +314,7 @@ class Node {
       size_t operand_index,
       const at::Tensor& tensor);
 
-  std::set<Use>& GetUses() {
+  absl::flat_hash_set<Use, Use>& GetUses() {
     return m_uses;
   }
 
@@ -379,7 +384,7 @@ class Node {
   bool m_is_output_tensor_list = false;
   ValueList m_inputs;
   OutputList m_outputs;
-  std::set<Use> m_uses;
+  absl::flat_hash_set<Use, Use> m_uses;
   NodePtrList m_uses_reverse_nodes;
   MetaData m_meta_data;
   size_t m_node_hash = 0;
