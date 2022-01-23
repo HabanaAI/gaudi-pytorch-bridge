@@ -105,34 +105,8 @@ constexpr const char* const kRankExchangeStoreKey = "RANK_EXCHANGE_STORE_KEY";
 } // namespace
 
 std::shared_ptr<hcl_communicator> ProcessGroupHCL::getComm(int deviceId) {
-  char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-
-  // If ad-hoc groups are enabled (SW-69026), we always create
-  // a communicator representing a world for each collective op.
-  // It is then destroyed upon op completion and creation of
-  // a new world. It is also expected, that the calling process
-  // sets HCL_CONFIG_PATH env var to the HCL config file
-  // describing the world to be created.
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_ADHOC_GROUPS)) {
-    // Creating a world for each subgroup
-    static char* id = std::getenv("ID");
-    auto size = getSize();
-    PT_DISTRIBUTED_DEBUG(
-        "User rank: ",
-        id,
-        ", deviceId: ",
-        deviceId,
-        "Create world for deviceId,  Size: ",
-        size,
-        ", config path:",
-        config_json_path);
-    auto global_comm =
-        hcl_communicator::get_or_create_world(deviceId, config_json_path ?: "");
-
-    return global_comm;
-  }
-
   if (hcl_communicator_.find(deviceId) == hcl_communicator_.end()) {
+    char* config_json_path = std::getenv("HCL_CONFIG_PATH");
     auto global_comm =
         hcl_communicator::get_or_create_world(deviceId, config_json_path ?: "");
     auto world_size = global_comm->size();

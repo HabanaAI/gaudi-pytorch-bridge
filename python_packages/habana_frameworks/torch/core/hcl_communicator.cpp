@@ -65,17 +65,12 @@ hcl_communicator_handle hcl_communicator::get_or_create_world(
   std::lock_guard<std::mutex> lock(world_mtx);
   hcl_communicator_handle world_handle{nullptr};
 
-  // Always overwrite the current communicator (and let
-  // the current one be automatically destroyed) if
-  // ad-hoc groups are enabled.
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_ADHOC_GROUPS)) {
-    if (hcl_world.end() != hcl_world.find(device_id)) {
-      world_handle = hcl_world[device_id].lock();
-    }
+  if (hcl_world.end() != hcl_world.find(device_id)) {
+    world_handle = hcl_world[device_id].lock();
+  }
 
-    if (world_handle != nullptr) {
-      return world_handle;
-    }
+  if (world_handle != nullptr) {
+    return world_handle;
   }
 
   world_handle = std::shared_ptr<hcl_communicator>(
@@ -105,9 +100,7 @@ hcl_communicator_handle hcl_communicator::create_subcommunicator(
 hcl_communicator::hcl_communicator(
     synDeviceId device_id,
     std::string config_path)
-    : hcl_comm_(HCL_COMM_WORLD),
-      using_streams_(false),
-      is_hcl_destroyed(false) {
+    : hcl_comm_(HCL_COMM_WORLD), using_streams_(false) {
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {
     char* config_path = std::getenv("HCL_CONFIG_PATH");
@@ -120,13 +113,8 @@ hcl_communicator::hcl_communicator(
 
   using_streams_ = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
 
-  char* id = std::getenv("ID");
   PT_DISTRIBUTED_DEBUG(
-      "[PYT-DIST] Opening communication. device_id:",
-      device_id,
-      ".",
-      "User rank (ID): ",
-      id);
+      "[PYT-DIST] Opening communication. device_id:", device_id, ".");
 
   auto device_get_result{synapse_helpers::device::get_by_id(device_id)};
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
@@ -146,7 +134,7 @@ hcl_communicator::hcl_communicator(
 hcl_communicator::hcl_communicator(
     hcl_communicator_handle parent,
     const std::vector<int>& ranks)
-    : parent_(std::move(parent)), is_hcl_destroyed(false) {
+    : parent_(std::move(parent)) {
   // Copy some basic fields from parent communicator
   HABANA_ASSERT(parent_ != nullptr);
   using_streams_ = parent_->using_streams_;
@@ -168,7 +156,6 @@ hcl_communicator::hcl_communicator(
 void hcl_communicator::setup_rank_and_size() {
   HCLStatus hcl_status{eHCLSuccess};
 
-  char* id = std::getenv("ID");
   hcl_status = HCL_Comm_Size(hcl_comm_, &size_);
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(size_ != 0);
@@ -177,45 +164,25 @@ void hcl_communicator::setup_rank_and_size() {
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 
   PT_DISTRIBUTED_DEBUG(
-      "[PYT-DIST] setup_rank_and_size, User rank:",
-      id,
-      ", HCL Rank: ",
-      my_hcl_rank_,
-      " Size: ",
-      size_,
-      ".");
-}
-
-void hcl_communicator::destroy_hcl() {
-  char* id = std::getenv("ID");
-  if (!is_hcl_destroyed) {
-    PT_DISTRIBUTED_DEBUG("[PYT-DIST] Destroying HCL... User rank (ID): ", id);
-    HCLStatus hcl_status{eHCLSuccess};
-    if (is_world()) {
-      get_collective_stream()->synchronize();
-      HCL_Sync(hcl_comm_, get_sync_tag());
-      hcl_status = HCL_Destroy();
-      HABANA_ASSERT(hcl_status == eHCLSuccess);
-    } else {
-      PT_DISTRIBUTED_DEBUG("[PYT_DIST] Destroying comm group");
-      if (hcl_comm_ != HCL_COMM_UNASSIGNED) {
-        hcl_status = HCL_Comm_Free(hcl_comm_);
-        HABANA_ASSERT(hcl_status == eHCLSuccess);
-      }
-    }
-    is_hcl_destroyed = true;
-  }
+      "[PYT-DIST] Init done. Rank: ", my_hcl_rank_, " Size: ", size_, ".");
 }
 
 hcl_communicator::~hcl_communicator() {
-  char* id = std::getenv("ID");
-  PT_DISTRIBUTED_DEBUG(
-      "[PYT-DIST] ~hcl_communicator() entry. User rank: ",
-      id,
-      ", HCL Rank: ",
-      my_hcl_rank_);
-
-  destroy_hcl();
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] ~hcl_communicator() entry.");
+  HCLStatus hcl_status{eHCLSuccess};
+  if (is_world()) {
+    get_collective_stream()->synchronize();
+    HCL_Sync(hcl_comm_, get_sync_tag());
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] Destroying HCL..");
+    hcl_status = HCL_Destroy();
+    HABANA_ASSERT(hcl_status == eHCLSuccess);
+  } else {
+    PT_DISTRIBUTED_DEBUG("[PYT_DIST] Destroying comm group");
+    if (hcl_comm_ != HCL_COMM_UNASSIGNED) {
+      hcl_status = HCL_Comm_Free(hcl_comm_);
+      HABANA_ASSERT(hcl_status == eHCLSuccess);
+    }
+  }
 }
 
 synapse_error_o hcl_communicator::allreduce(
