@@ -3944,7 +3944,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& save_invstd,
     bool train,
     double eps,
-    UNUSED std::array<bool, 3> output_mask) {
+    std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
 
   Tensor running_mean, running_var;
@@ -3984,72 +3984,44 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     running_var = running_var_;
   }
 
-  ir::NodePtr node = std::make_shared<ir::BatchNormBackward>(
-      grad_out,
-      input,
-      weight,
-      running_mean,
-      running_var,
-      save_mean,
-      save_invstd,
-      train,
-      eps,
-      output_mask);
+  // aten::native_batch_norm_backward
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  struct BN : LazyOp<T> {
+    BN(const Stack& inputs)
+        : LazyOp<T>("aten::native_batch_norm_backward", inputs, {}, -1) {}
+    T get_result_overrideable() override {
+      const auto& inputs = get_inputs();
+      auto output_mask = inputs.back().toListRef();
+      auto input = inputs[1].toTensor();
+      auto running_mean = inputs[3].toTensor();
+      auto running_var = inputs[4].toTensor();
+      auto create_res = [&](int i, Tensor in) {
+        Tensor res;
+        if (output_mask[i].toBool()) {
+          res = empty_hpu_lazy(
+              in.sizes(), in.options(), in.suggest_memory_format(), false);
+        }
+        return res;
+      };
 
-  auto output_sizes = input.sizes().vec();
-  auto sizes = std::make_tuple(
-      output_sizes, running_mean.sizes().vec(), running_var.sizes().vec());
-
-  at::Tensor result_1, result_2, result_3;
-  if (output_mask[0]) {
-    result_1 = empty_hpu_lazy(
-        std::get<0>(sizes),
-        input.options(),
-        input.suggest_memory_format(),
-        false);
-    const auto hlresult_1 = GetHbLazyTensor(result_1);
-    ir::Value& out_1 = hlresult_1.CurrentIrValue();
-    out_1.SetNode(
-        node,
-        hlresult_1.GetDevice(),
-        hlresult_1.GetSizes(),
-        hlresult_1.dtype_optional());
-  }
-
-  if (output_mask[1]) {
-    result_2 = empty_hpu_lazy(
-        std::get<1>(sizes),
-        weight.options(),
-        weight.suggest_memory_format(),
-        false);
-    const auto hlresult_2 = GetHbLazyTensor(result_2);
-    ir::Value& out_2 = hlresult_2.CurrentIrValue();
-    out_2.SetNode(
-        node,
-        hlresult_2.GetDevice(),
-        hlresult_2.GetSizes(),
-        hlresult_2.dtype_optional(),
-        1);
-  }
-
-  if (output_mask[2]) {
-    result_3 = empty_hpu_lazy(
-        std::get<2>(sizes),
-        save_mean.options(),
-        save_mean.suggest_memory_format(),
-        false);
-    const auto hlresult_3 = GetHbLazyTensor(result_3);
-    ir::Value& out_3 = hlresult_3.CurrentIrValue();
-    out_3.SetNode(
-        node,
-        hlresult_3.GetDevice(),
-        hlresult_3.GetSizes(),
-        hlresult_3.dtype_optional(),
-        2);
-  }
-
-  flush_op({result_1, result_2, result_3});
-  return std::make_tuple(result_1, result_2, result_3);
+      return {
+          create_res(0, input),
+          create_res(1, running_mean),
+          create_res(2, running_var)};
+    }
+  };
+  BN op(
+      {grad_out,
+       input,
+       weight,
+       running_mean,
+       running_var,
+       save_mean,
+       save_invstd,
+       train,
+       eps,
+       output_mask});
+  return op.call();
 }
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
