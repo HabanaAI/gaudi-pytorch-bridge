@@ -895,7 +895,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTestFloat) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeInplaceTest2) {
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
   int num;
