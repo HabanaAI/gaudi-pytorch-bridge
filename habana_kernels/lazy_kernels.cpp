@@ -920,9 +920,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
         "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
   }
 
-  // Handle non-contiguous src
-  // TODO is this needed anymore
-  auto _src = maybe_contiguous(src_view);
+  auto _src = src_view;
 
   // If _src is a lazy tensor make sure the execution till the point of _src
   // If src is a lazy tensor make sure the execution till the point of src
@@ -976,6 +974,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // can upscale it and send it back. For now we just send the 32bit
   // tensor that Habana holds
 
+  self = self.contiguous(self.suggest_memory_format());
   if (type != typeMetaToScalarType(_src.dtype())) {
     // If we need to upscale the CPU tensor using the .to for now
     // It rebinds the self reference to the new tensor
@@ -993,10 +992,16 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   return self;
 }
 
-Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
-
+  auto src = src_.contiguous(src_.suggest_memory_format());
+  InitSizesAndStrides(
+      self,
+      c10::nullopt,
+      self.sizes(),
+      c10::nullopt,
+      self.suggest_memory_format());
   auto context =
       habana_lazy_executor.getDeviceExecutionContext(self.device().index());
   auto exec_mode = context->getExecutionMode();

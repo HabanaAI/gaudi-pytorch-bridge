@@ -181,12 +181,20 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
 
+  Tensor src_contiguous;
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HPU) {
     // CPU/source tensor should have same dtype as dst & should be contiguous
     // before H2D DMA is triggered
-    auto src_contiguous =
-        src.to(dst.scalar_type()).contiguous(src.suggest_memory_format());
+    // Backend kernels should not trigger contiguous call
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+      TORCH_CHECK(src.is_contiguous(src.suggest_memory_format()));
+      src_contiguous = src.to(dst.scalar_type());
+    } else {
+      src_contiguous =
+          src.to(dst.scalar_type()).contiguous(src.suggest_memory_format());
+    }
+
     TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
     habana_helpers::copy_data_to_device(src_contiguous, dst, non_blocking);
     print_stride_warning(src_contiguous, dst);
@@ -194,7 +202,14 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       src_device == c10::DeviceType::HPU &&
       dst_device == c10::DeviceType::CPU) {
     // HPU/source tensor should be contiguous before D2H DMA is triggered
-    auto src_contiguous = src.contiguous(src.suggest_memory_format());
+    // Backend kernels should not trigger contiguous call
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+      TORCH_CHECK(src.is_contiguous(src.suggest_memory_format()));
+      src_contiguous = src;
+    } else {
+      src_contiguous = src.contiguous(src.suggest_memory_format());
+    }
+
     if (src_contiguous.scalar_type() != dst.scalar_type()) {
       // if src & dst dtypes different, create an intermediate CPU tensor of
       // same dtype as src

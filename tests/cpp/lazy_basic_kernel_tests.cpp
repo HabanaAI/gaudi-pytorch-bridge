@@ -85,6 +85,98 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyBasicKernelTest, permuteTest) {
+  torch::Tensor A = torch::randn({5, 6, 24, 24});
+  auto hA = A.to(torch::kHPU);
+
+  auto hOut = hA.permute({0, 2, 3, 1});
+  auto out = A.permute({0, 2, 3, 1});
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteContCLTest) {
+  torch::Tensor A =
+      torch::randn({5, 6, 24, 24}).contiguous(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.to(torch::kHPU);
+
+  auto hOut = hA.permute({0, 2, 3, 1});
+  auto out = A.permute({0, 2, 3, 1});
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteCLTest) {
+  torch::Tensor A =
+      torch::randn({5, 6, 24, 24}).to(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.to(torch::kHPU);
+
+  auto hOut = hA.permute({0, 2, 3, 1});
+  auto out = A.permute({0, 2, 3, 1});
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteTest2) {
+  torch::Tensor A = torch::randn({5, 6, 24, 24});
+  auto hA = A.permute({0, 2, 3, 1}).to(torch::kHPU);
+  auto out = A.permute({0, 2, 3, 1});
+  auto hOut_cpu = hA.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteContCLTest2) {
+  torch::Tensor A =
+      torch::randn({5, 6, 24, 24}).contiguous(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.permute({0, 2, 3, 1}).to(torch::kHPU);
+  auto out = A.permute({0, 2, 3, 1});
+  auto hOut_cpu = hA.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteCLTest2) {
+  torch::Tensor A =
+      torch::randn({5, 6, 24, 24}).to(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.permute({0, 2, 3, 1}).to(torch::kHPU);
+  auto out = A.permute({0, 2, 3, 1});
+  auto hOut_cpu = hA.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, noncontigD2H) {
+  torch::Tensor A = torch::randn({2, 2});
+  auto hA = A.to(torch::kHPU);
+  std::vector<int64_t> sz{2, 2};
+  std::vector<int64_t> str{1, 2};
+  c10::IntArrayRef sizes(sz.data(), sz.size());
+  c10::IntArrayRef strides(str.data(), str.size());
+
+  auto out = torch::as_strided(A, sz, str);
+  auto hout = torch::as_strided(hA, sz, str);
+
+  auto hout_cpu = hout.cpu();
+  EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, noncontigD2H_test2) {
+  torch::Tensor A = torch::randn({1, 2, 2});
+  auto hA = A.to(torch::kHPU);
+  std::vector<int64_t> sz{2, 2};
+  std::vector<int64_t> str{1, 2};
+  c10::IntArrayRef sizes(sz.data(), sz.size());
+  c10::IntArrayRef strides(str.data(), str.size());
+
+  auto out = torch::as_strided(A, sz, str);
+  auto hout = torch::as_strided(hA, sz, str);
+
+  auto hout_cpu = hout.cpu();
+  EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);
+}
+
 TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
   SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({20});
