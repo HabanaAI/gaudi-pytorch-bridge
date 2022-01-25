@@ -170,8 +170,7 @@ void OpBackend::HandleScalarToTensor(
 
 void OpBackend::HandleFn(
     synapse_helpers::graph& graph,
-    const at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   if (m_res_ids.empty()) {
     return;
   }
@@ -179,19 +178,19 @@ void OpBackend::HandleFn(
   const auto& outshapes = ComputeOutputShapes(stack, true);
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      outshapes.empty() || outshapes.size() == is_output_persistent_list.size(),
+      outshapes.empty() || outshapes.size() == m_persistence_list.size(),
       "Num outputs and num outshapes does not match ",
-      is_output_persistent_list.size(),
+      m_persistence_list.size(),
       " != ",
       outshapes.size());
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      m_res_ids.size() == is_output_persistent_list.size(),
+      m_res_ids.size() == m_persistence_list.size(),
       "Num outputs defined (",
       m_res_ids.size(),
       ") as out_ids is not matching with actual num outputs (",
-      is_output_persistent_list.size());
-  for (unsigned i = 0; i < is_output_persistent_list.size(); ++i) {
+      m_persistence_list.size());
+  for (unsigned i = 0; i < m_persistence_list.size(); ++i) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         stack.at(m_res_ids.at(i)).isTensor(),
         "Index in out_ids[",
@@ -206,7 +205,7 @@ void OpBackend::HandleFn(
         ? ComputePromotedScalarType(stack, true)
         : t.scalar_type();
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
-    bool is_output_persistent = is_output_persistent_list[i];
+    bool is_output_persistent = m_persistence_list[i];
 
     const auto& output = habana_helpers::createPTTensor(
         t, outshape, t.options().dtype(dtype), is_output_persistent);
@@ -343,7 +342,6 @@ synapse_helpers::tensor OpBackend::CastHelper(
     at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    bool persistent,
     c10::optional<int> final_result_index) {
   return OpBackend::BuildCast(
       this,
@@ -353,7 +351,6 @@ synapse_helpers::tensor OpBackend::CastHelper(
       from,
       to,
       CAST_ROUND_HALF_NE,
-      persistent,
       final_result_index);
 }
 
@@ -362,22 +359,12 @@ synapse_helpers::tensor OpBackend::ConstantHelper(
     const at::Scalar& val,
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
-    bool persistent,
     c10::optional<int> final_result_index) {
   return OpBackend::BuildConstant(
-      this,
-      graph,
-      val,
-      force_type,
-      constant_outshape,
-      persistent,
-      final_result_index);
+      this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
-void OpBackend::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>&) {
+void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   AddNodeToSynapseGraph(graph, params.get(), size);
@@ -387,9 +374,11 @@ void OpBackend::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     std::vector<bool> is_output_persistent_list) {
+  m_persistence_list = std::move(is_output_persistent_list);
+
   CustomHandler(graph, stack);
 
-  HandleFn(graph, stack, is_output_persistent_list);
+  HandleFn(graph, stack);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
 
@@ -397,7 +386,7 @@ void OpBackend::AllocateAndAddSynapseNode(
   HandleTypePromotion(graph, stack);
   HandleIntToFloatPromotion(graph, stack);
 
-  AddNode(graph, stack, is_output_persistent_list);
+  AddNode(graph, stack);
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
@@ -407,7 +396,6 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   auto ctx = op->p_context_;
   std::vector<synapse_helpers::tensor> outputs;
   std::vector<synTensor> node_outputs;
-  int i = 0;
 
   for (const auto& attr : node_attr.output_attrs) {
     if (attr.final_result_index.has_value() and op->IsOutputAvailable()) {
@@ -415,6 +403,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       outputs.emplace_back(
           std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
     } else {
+      bool is_persistent = attr.final_result_index.has_value() and
+          op->m_persistence_list[attr.final_result_index.value()];
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{
               at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
@@ -422,9 +412,10 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
           c10::Device(c10::kHPU, 0));
       t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
       outputs.emplace_back(
-          habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
-      if (attr.persistent) {
-        const auto& impl = ctx->pt_outputs_.at(i++).unsafeGetTensorImpl();
+          habana_helpers::create_tensor(t, graph, is_persistent, attr.dtype));
+      if (is_persistent) {
+        const auto& impl =
+            ctx->pt_outputs_.at(*attr.final_result_index).unsafeGetTensorImpl();
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
@@ -459,7 +450,6 @@ synapse_helpers::tensor OpBackend::BuildCast(
     const at::ScalarType& from,
     const at::ScalarType& to,
     CastF32RoundMode_t round_mode,
-    bool persistent,
     c10::optional<int> final_result_index) {
   const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
       "_to_" + habana_helpers::name_suffix_from_type(to);
@@ -467,7 +457,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
   NodeAttr castnode{
       guid,
       {syn_in},
-      {{sizes, to, persistent, final_result_index}},
+      {{sizes, to, final_result_index}},
       &params,
       sizeof(params)};
   auto cast = BuildNode(op, graph, std::move(castnode));
@@ -481,7 +471,6 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     const at::Scalar& val,
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
-    bool persistent,
     c10::optional<int> final_result_index) {
   const at::ScalarType& valtype =
       force_type.has_value() ? force_type.value() : val.type();
@@ -507,7 +496,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
       graph,
       {"constant_" + habana_helpers::name_suffix_from_type(valtype),
        {},
-       {{constant_outshape, valtype, persistent, final_result_index}},
+       {{constant_outshape, valtype, final_result_index}},
        &params,
        sizeof(params)});
   return std::move(constant.at(0));

@@ -31,10 +31,7 @@ std::shared_ptr<void> FillAmaxAminParams(
   return params;
 }
 
-void AmaxAmin::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AmaxAmin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto new_shape = AmaxAminOutputShape(stack)[0];
 
   auto self = stack.at(0).toTensor();
@@ -88,10 +85,8 @@ void AmaxAmin::AddNode(
           graph,
           guid_,
           {syn_in(0)},
-          {{parameters[0].shape_list,
-            ScalarType(),
-            is_output_persistent_list[0]},
-           {self_shape[0], ScalarType(), is_output_persistent_list[1]}},
+          {{parameters[0].shape_list, ScalarType(), 0},
+           {self_shape[0], ScalarType()}},
           parameters[0].param_list.get(),
           parameters[0].size_list);
 
@@ -127,7 +122,7 @@ void AmaxAmin::AddNode(
               graph,
               "reshape",
               {AmaxAmin_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+              {{new_shape, ScalarType(), 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -166,7 +161,7 @@ void AmaxAmin::AddNode(
               graph,
               "reshape",
               {AmaxAmin_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+              {{new_shape, ScalarType(), 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -180,7 +175,7 @@ void AmaxAmin::AddNode(
           graph,
           "reshape",
           {AmaxAmin[0].get()},
-          {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+          {{new_shape, ScalarType(), 0}});
 
       // output of reshape is the output of this op
       syn_out(0) = std::move(reshape[0]);

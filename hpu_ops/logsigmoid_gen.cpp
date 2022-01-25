@@ -19,8 +19,7 @@ sizes_vec LogSigmoidfwdOutputShape(const at::Stack& stack, bool) {
 
 void LogSigmoidForward::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 0).sizes();
 
   // negitive(input)
@@ -73,7 +72,7 @@ void LogSigmoidForward::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {buffer_right[0].get(), buffer_left[0].get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[1], 1}});
+      {{inputshape, ScalarType(), 1}});
 
   // log(buffer)
   auto log = BuildOp(
@@ -94,7 +93,7 @@ void LogSigmoidForward::AddNode(
       graph,
       "neg_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {max_vec_log[0].get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(buffer[0]);
@@ -102,8 +101,7 @@ void LogSigmoidForward::AddNode(
 
 void LogSigmoidBackward::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 1).sizes();
 
   auto zero_vec = ConstantHelper(graph, 0, ScalarType(), inputshape);
@@ -179,7 +177,7 @@ void LogSigmoidBackward::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {o_neg[0].get(), syn_in(0)},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(output[0]);
 }

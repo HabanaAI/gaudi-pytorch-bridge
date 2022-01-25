@@ -23,8 +23,7 @@ std::shared_ptr<void> FillDivModParams(size_t& size) {
 
 void RemainderOp::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto outshape = BinaryOutputShape(stack, true)[0];
 
   if (ScalarType() == c10::ScalarType::BFloat16 ||
@@ -34,7 +33,7 @@ void RemainderOp::AddNode(
         graph,
         "rem_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(remainder[0]);
 
   } else {
@@ -45,8 +44,7 @@ void RemainderOp::AddNode(
         graph,
         "div_mod_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), false},
-         {outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType()}, {outshape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(divMod[1]);

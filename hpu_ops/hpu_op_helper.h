@@ -75,7 +75,6 @@ struct NodeAttr {
   struct NodeOutputAttr {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
-    bool persistent{false};
     c10::optional<int> final_result_index{c10::nullopt};
   };
 
@@ -120,6 +119,11 @@ class OpBackend : public HabanaOperator {
 
   bool IsOutputAvailable() const {
     return m_is_outfn or m_inplace_ids.size();
+  }
+
+  bool IsOutputPersistent(int i) const {
+    // Reuse from HabanaOperator::OutputMetaData when available
+    return m_persistence_list[i];
   }
 
   void SetLayouts(
@@ -170,10 +174,7 @@ class OpBackend : public HabanaOperator {
   void HandleScalarToTensor(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
-  void HandleFn(
-      synapse_helpers::graph& graph,
-      const at::Stack& stack,
-      const std::vector<bool>& is_output_persistent_list);
+  void HandleFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleInplaceFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleOutFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleTypePromotion(
@@ -219,7 +220,6 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      bool persistent = false,
       c10::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor ConstantHelper(
@@ -227,13 +227,9 @@ class OpBackend : public HabanaOperator {
       const at::Scalar& val,
       c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
-      bool persistent = false,
       c10::optional<int> final_result_index = c10::nullopt);
 
-  virtual void AddNode(
-      synapse_helpers::graph&,
-      at::Stack&,
-      const std::vector<bool>&);
+  virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
  public:
   static std::vector<synapse_helpers::tensor> BuildNode(
@@ -249,7 +245,6 @@ class OpBackend : public HabanaOperator {
       const at::ScalarType& from,
       const at::ScalarType& to,
       CastF32RoundMode_t round_mode = CAST_ROUND_HALF_NE,
-      bool persistent = false,
       c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(
@@ -258,7 +253,6 @@ class OpBackend : public HabanaOperator {
       const at::Scalar& val,
       c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
-      bool persistent = false,
       c10::optional<int> final_result_index = c10::nullopt);
 
  private:
@@ -275,6 +269,9 @@ class OpBackend : public HabanaOperator {
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
+  std::vector<bool>
+      m_persistence_list; // Reuse from HabanaOperator::OutputMetaData when
+                          // available
 };
 
 #define PARAMS_STUB(structname) \
@@ -286,27 +283,24 @@ class OpBackend : public HabanaOperator {
   const size_t& params_size = sizeof(structname);         \
   auto params = std::make_shared<structname>()
 
-#define HPU_OP_BACKEND(op)                  \
-  struct op : OpBackend {                   \
-    op(int device_id,                       \
-       const std::string& guid,             \
-       c10::ScalarType scalar_type,         \
-       const std::vector<int>& res_ids,     \
-       const std::vector<int>& inplace_ids, \
-       const std::vector<int>& scalar_ids,  \
-       bool is_outfn)                       \
-        : OpBackend(                        \
-              device_id,                    \
-              guid,                         \
-              scalar_type,                  \
-              res_ids,                      \
-              inplace_ids,                  \
-              scalar_ids,                   \
-              is_outfn){};                  \
-    void AddNode(                           \
-        synapse_helpers::graph&,            \
-        at::Stack&,                         \
-        const std::vector<bool>&) override; \
+#define HPU_OP_BACKEND(op)                                            \
+  struct op : OpBackend {                                             \
+    op(int device_id,                                                 \
+       const std::string& guid,                                       \
+       c10::ScalarType scalar_type,                                   \
+       const std::vector<int>& res_ids,                               \
+       const std::vector<int>& inplace_ids,                           \
+       const std::vector<int>& scalar_ids,                            \
+       bool is_outfn)                                                 \
+        : OpBackend(                                                  \
+              device_id,                                              \
+              guid,                                                   \
+              scalar_type,                                            \
+              res_ids,                                                \
+              inplace_ids,                                            \
+              scalar_ids,                                             \
+              is_outfn){};                                            \
+    void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 
 } // namespace habana

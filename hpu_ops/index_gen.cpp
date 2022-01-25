@@ -132,8 +132,7 @@ at::Tensor LazyIndex<at::Tensor>::get_result_overrideable() {
 
 void IndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   c10::List<at::Tensor> indices = stack.at(1).toTensorList();
 
@@ -157,7 +156,7 @@ void IndexHabanaOperator::AddNode(
         graph,
         "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType(), 0}},
         gather_params.get(),
         size);
     syn_out(0) = std::move(gatherOp[0]);
@@ -226,11 +225,8 @@ void IndexHabanaOperator::AddNode(
     std::string cast_guid_2 = "cast_" +
         habana_helpers::name_suffix_from_type(dtype) + "_to_" +
         habana_helpers::name_suffix_from_type(out_type);
-    castOp = BuildOp(
-        graph,
-        cast_guid_2,
-        {indexOp[0].get()},
-        {{shape, out_type, is_output_persistent_list[0], 0}});
+    castOp =
+        BuildOp(graph, cast_guid_2, {indexOp[0].get()}, {{shape, out_type, 0}});
     syn_out(0) = std::move(castOp[0]);
     return;
   }
@@ -239,7 +235,7 @@ void IndexHabanaOperator::AddNode(
       "gather_nd_mxnet_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), arg2_syn_tensor.get()},
-      {{shape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{shape, ScalarType(), 0}});
   syn_out(0) = std::move(indexOp[0]);
 }
 

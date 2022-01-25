@@ -34,10 +34,7 @@ sizes_vec AddMVOutshape(const at::Stack& stack, bool) {
   return {outshape};
 }
 
-void AddMV::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto mat = stack_tensor(stack, 1);
   auto vec = stack_tensor(stack, 2);
   const float alpha_val = stack.at(4).toScalar().toFloat();
@@ -118,10 +115,7 @@ void AddMV::AddNode(
 
   // Output
   auto addmv_out = BuildOp(
-      graph,
-      "squeeze",
-      {addmv[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      graph, "squeeze", {addmv[0].get()}, {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(addmv_out[0]);
 }

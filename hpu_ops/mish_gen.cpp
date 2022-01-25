@@ -11,10 +11,7 @@
 #include "generated/hpu_op.h"
 namespace habana {
 
-void Mish::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Mish::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto softplus_out = BuildOp(
       graph,
@@ -32,14 +29,13 @@ void Mish::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), tanh_out[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
   syn_out(0) = std::move(output[0]);
 }
 
 void Mishbackward::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto sigmoid_out = BuildOp(
       graph,
@@ -93,7 +89,7 @@ void Mishbackward::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), add_out[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
   syn_out(0) = std::move(grad_input[0]);
 }
 } // namespace habana

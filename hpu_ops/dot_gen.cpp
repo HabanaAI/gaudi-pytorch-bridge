@@ -32,10 +32,7 @@ sizes_vec DotOutputShape(const at::Stack& stack, bool) {
   return {{}};
 }
 
-void Dot::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Dot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto mat1 = stack.at(0).toTensor();
   auto mat2 = stack.at(1).toTensor();
 
@@ -53,11 +50,7 @@ void Dot::AddNode(
       {reshape_m1[0].get(), reshape_m2[0].get()},
       {{{1, 1}, ScalarType()}});
 
-  auto dot = BuildOp(
-      graph,
-      "reshape",
-      {mm[0].get()},
-      {{1, ScalarType(), is_output_persistent_list[0], 0}});
+  auto dot = BuildOp(graph, "reshape", {mm[0].get()}, {{1, ScalarType(), 0}});
   syn_out(0) = std::move(dot[0]);
 }
 } // namespace habana

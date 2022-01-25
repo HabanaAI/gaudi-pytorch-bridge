@@ -48,8 +48,7 @@ std::shared_ptr<void> FillSoftmaxBackwardParams(
 
 void SoftmaxBackward::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   constexpr size_t selfPositionInArgList = 0;
   const auto& outshape = stack_tensor(stack, selfPositionInArgList).sizes();
 
@@ -60,7 +59,7 @@ void SoftmaxBackward::AddNode(
       graph,
       "softmax_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
 

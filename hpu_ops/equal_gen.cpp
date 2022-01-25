@@ -12,10 +12,7 @@
 
 namespace habana {
 
-void Equal::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
   auto self_size = self.sizes();
@@ -57,19 +54,12 @@ void Equal::AddNode(
         size);
 
     auto cast_f32_to_i8 = CastHelper(
-        graph,
-        reduce_prod[0].get(),
-        1,
-        c10::ScalarType::Float,
-        result_type,
-        is_output_persistent_list[0],
-        0);
+        graph, reduce_prod[0].get(), 1, c10::ScalarType::Float, result_type, 0);
 
     syn_out(0) = std::move(cast_f32_to_i8);
 
   } else { // inputs with different shape
-    auto false_tensor = ConstantHelper(
-        graph, false, result_type, 1, is_output_persistent_list[0], 0);
+    auto false_tensor = ConstantHelper(graph, false, result_type, 1, 0);
 
     syn_out(0) = std::move(false_tensor);
   }

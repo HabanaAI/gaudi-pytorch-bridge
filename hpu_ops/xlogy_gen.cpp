@@ -42,28 +42,27 @@ at::Tensor LazyXlogY<at::Tensor>::get_result_overrideable() {
 
 void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto outshape = XlogYOutputShape(stack)[0];
   if (stack.at(1).isScalar()) {
-    auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{1, ScalarType(), false}});
+    auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{1, ScalarType()}});
 
     auto xlogy = BuildOp(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(xlogy[0]);
   } else {
     auto other_shape = stack_tensor(stack, 1).sizes();
-    auto logy = BuildOp(
-        graph, guid_, {syn_in(1)}, {{other_shape, ScalarType(), false}});
+    auto logy =
+        BuildOp(graph, guid_, {syn_in(1)}, {{other_shape, ScalarType()}});
 
     auto xlogy = BuildOp(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), logy[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(xlogy[0]);
   }
 }

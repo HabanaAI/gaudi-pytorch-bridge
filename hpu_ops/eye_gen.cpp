@@ -21,10 +21,7 @@ sizes_vec EyeOutputShape(const at::Stack& stack, bool) {
   return {{n, n}};
 }
 
-void EyeOpOut::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<synapse_helpers::tensor> eye_out;
   auto outshape = EyeOutputShape(stack)[0];
 
@@ -35,7 +32,7 @@ void EyeOpOut::AddNode(
       "matrix_diagonal_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(eye_out[0]);
 }

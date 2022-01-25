@@ -15,8 +15,7 @@ namespace habana {
 
 void TakeOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
@@ -32,7 +31,7 @@ void TakeOperator::AddNode(
       graph,
       "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {reshape[0].get(), syn_in(1)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       &params,
       sizeof(params));
 

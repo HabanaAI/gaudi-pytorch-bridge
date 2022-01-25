@@ -15,10 +15,7 @@ sizes_vec TraceOutputShape(const at::Stack&, bool) {
   return {{}};
 }
 
-void Trace::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Trace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> inputshape(self.dim());
   inputshape = self.sizes().vec();
@@ -47,7 +44,7 @@ void Trace::AddNode(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {diag[0].get()},
-        {{1, ScalarType(), is_output_persistent_list[0], 0}},
+        {{1, ScalarType(), 0}},
         &reduce_params,
         sizeof(reduce_params));
 
@@ -69,7 +66,7 @@ void Trace::AddNode(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {diag[0].get()},
-        {{1, ScalarType(), is_output_persistent_list[0], 0}},
+        {{1, ScalarType(), 0}},
         &reduce_params,
         sizeof(reduce_params));
 

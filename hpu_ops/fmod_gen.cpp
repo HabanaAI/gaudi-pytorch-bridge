@@ -12,14 +12,11 @@
 
 namespace habana {
 
-void Fmod::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Fmod::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& result_type = ScalarType();
 
   if (result_type == at::kFloat or result_type == at::kBFloat16) {
-    return OpBackend::AddNode(graph, stack, is_output_persistent_list);
+    return OpBackend::AddNode(graph, stack);
   }
   // TPC supports only float and bfloat, for other types cast to float and
   // perform fmod and then, cast back to original type
@@ -44,14 +41,8 @@ void Fmod::AddNode(
       {cast0.get(), cast1.get()},
       {{outshape, torch::kFloat}});
 
-  auto final_cast = CastHelper(
-      graph,
-      fmod[0].get(),
-      outshape,
-      torch::kFloat,
-      result_type,
-      is_output_persistent_list[0],
-      0);
+  auto final_cast =
+      CastHelper(graph, fmod[0].get(), outshape, torch::kFloat, result_type, 0);
   syn_out(0) = std::move(final_cast);
 }
 } // namespace habana

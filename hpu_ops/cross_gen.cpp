@@ -119,10 +119,7 @@ static std::vector<synapse_helpers::tensor> Concat(
        &concat_params,
        sizeof(concat_params)});
 }
-void Cross::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Cross::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto other = stack.at(1).toTensor();
   auto outshape = self.sizes().vec();
@@ -267,7 +264,6 @@ void Cross::AddNode(
       {concat1[0].get(), concat2[0].get()},
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),
-        !is_scd ? false : is_output_persistent_list[0],
         is_scd ? c10::make_optional<int>(0) : c10::nullopt}});
 
   // if syn_dim is scd, move the output of sub
@@ -290,7 +286,7 @@ void Cross::AddNode(
       graph,
       "transpose",
       {sub[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       &trans_params,
       sizeof(trans_params));
   syn_out(0) = std::move(transpose_output[0]);

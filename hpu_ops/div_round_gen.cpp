@@ -90,11 +90,7 @@ at::Tensor LazyDiv<at::Tensor>::get_result_overrideable() {
 
 void DivRoundModeOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
-  static_cast<void>(is_output_persistent_list);
-  static_cast<void>(graph);
-
+    const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   at::Tensor other;
   if (stack.at(1).isTensor()) {
@@ -117,9 +113,6 @@ void DivRoundModeOperator::AddNode(
       : COMMON_COMPUTATION_TYPE_TPC;
   const std::string opStringSuffix =
       "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
-
-  // Remove the additional input from stack
-  stack.pop_back();
 
   // Initialization
   const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
@@ -166,7 +159,6 @@ void DivRoundModeOperator::AddNode(
       binaryop_inputs,
       {{shape_out,
         computation_type,
-        bOtherThanTrueMode ? false : is_output_persistent_list[0],
         bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}});
   if (!bOtherThanTrueMode) {
     syn_out(0) = std::move(divOp[0]);
@@ -180,7 +172,6 @@ void DivRoundModeOperator::AddNode(
       {divOp.at(0).get()},
       {{shape_out,
         computation_type,
-        bNeedToCastFinalResult ? false : is_output_persistent_list[0],
         bNeedToCastFinalResult ? c10::nullopt : c10::make_optional<int>(0)}});
   if (!bNeedToCastFinalResult) {
     syn_out(0) = std::move(makeIntegerOp[0]);
@@ -194,7 +185,7 @@ void DivRoundModeOperator::AddNode(
       graph,
       strNode_type,
       {makeIntegerOp.at(0).get()},
-      {{shape_out, final_result_type, is_output_persistent_list[0], 0}});
+      {{shape_out, final_result_type, 0}});
   syn_out(0) = std::move(castToReturnTypeOp[0]);
 }
 

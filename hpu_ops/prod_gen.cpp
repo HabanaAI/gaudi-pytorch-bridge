@@ -20,10 +20,7 @@ sizes_vec ProdOutputShape(const at::Stack& stack, bool) {
   shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
   return {shape};
 }
-void ProdOut::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void ProdOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
   auto dim_ = stack.at(1).toInt();
@@ -46,10 +43,7 @@ void ProdOut::AddNode(
         params.get(),
         size);
     auto reshape = BuildOp(
-        graph,
-        "reshape",
-        {reduce_prod[0].get()},
-        {{shape, ScalarType(), is_output_persistent_list[0], 0}});
+        graph, "reshape", {reduce_prod[0].get()}, {{shape, ScalarType(), 0}});
     syn_out(0) = std::move(reshape[0]);
 
     // keepdim is true directly mapping to the tpc kernel.
@@ -58,7 +52,7 @@ void ProdOut::AddNode(
         graph,
         "reduce_prod_fwd",
         {syn_in(0)},
-        {{shape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{shape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(reduce_prod[0]);

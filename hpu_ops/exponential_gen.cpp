@@ -29,8 +29,7 @@ std::shared_ptr<void> FillExponentialParams(
 
 void ExponentialIntSeedInput::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
   size_t size = 0;
   auto params = FillExponentialParams(stack, size);
@@ -39,7 +38,7 @@ void ExponentialIntSeedInput::AddNode(
       "random_exponential_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
   syn_out(0) = std::move(exponential[0]);

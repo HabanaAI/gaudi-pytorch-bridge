@@ -12,10 +12,7 @@
 
 namespace habana {
 
-void Log10::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Log10::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   // log on input 0
@@ -34,7 +31,7 @@ void Log10::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant_value.get(), log[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(output[0]);
 }

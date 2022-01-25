@@ -11,10 +11,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-void Frac::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Frac::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   // sign on input 0
@@ -50,7 +47,7 @@ void Frac::AddNode(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), mul[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   // output of sub is the output of this op
   syn_out(0) = std::move(sub[0]);

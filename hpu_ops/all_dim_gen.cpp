@@ -28,10 +28,7 @@ sizes_vec AllDimOutputShape(const at::Stack& stack, bool) {
   return {shape};
 }
 
-void AllDim::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto outshape = self.sizes().vec();
 
@@ -66,15 +63,12 @@ void AllDim::AddNode(
       graph,
       "reshape",
       {cast_i8.get()},
-      {{out_shape, c10::ScalarType::Bool, is_output_persistent_list[0], 0}});
+      {{out_shape, c10::ScalarType::Bool, 0}});
 
   syn_out(0) = std::move(reshape[0]);
 }
 
-void All::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
@@ -114,7 +108,6 @@ void All::AddNode(
       out_shape,
       c10::ScalarType::Float,
       c10::ScalarType::Bool,
-      is_output_persistent_list[0],
       0);
 
   syn_out(0) = std::move(cast_i8);

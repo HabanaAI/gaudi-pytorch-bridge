@@ -19,8 +19,7 @@ sizes_vec NormOutputShape(const at::Stack&, bool) {
 
 void NormHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto p = stack.at(1).toScalar();
   const auto dtype = stack.at(2).toScalarType();
@@ -70,7 +69,7 @@ void NormHabanaOperator::AddNode(
           graph,
           "sqrt_fwd_" + habana_helpers::name_suffix_from_type(dtype),
           {sum[0].get()},
-          {{1, dtype, is_output_persistent_list[0], 0}});
+          {{1, dtype, 0}});
 
       syn_out(0) = std::move(sqrt[0]);
 
@@ -79,7 +78,7 @@ void NormHabanaOperator::AddNode(
           graph,
           "frobenius_norm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
           {input_tensor},
-          {{1, dtype, is_output_persistent_list[0], 0}});
+          {{1, dtype, 0}});
 
       syn_out(0) = std::move(norm[0]);
     }
@@ -120,7 +119,7 @@ void NormHabanaOperator::AddNode(
         graph,
         "slice_" + habana_helpers::name_suffix_from_type(dtype),
         {reciprocal[0].get()},
-        {{1, dtype, is_output_persistent_list[0], 0}},
+        {{1, dtype, 0}},
         &slice_params,
         sizeof(slice_params));
 

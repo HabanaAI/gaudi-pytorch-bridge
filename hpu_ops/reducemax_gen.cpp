@@ -12,10 +12,7 @@
 
 namespace habana {
 
-void MaxOut::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void MaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
@@ -41,16 +38,10 @@ void MaxOut::AddNode(
         size);
 
     auto reshape1 = BuildOp(
-        graph,
-        "reshape",
-        {reduce_max[0].get()},
-        {{shape, ScalarType(), is_output_persistent_list[0], 0}});
+        graph, "reshape", {reduce_max[0].get()}, {{shape, ScalarType(), 0}});
 
-    auto reshape2 = BuildOp(
-        graph,
-        "reshape",
-        {reduce_max[1].get()},
-        {{shape, dtype, is_output_persistent_list[1], 1}});
+    auto reshape2 =
+        BuildOp(graph, "reshape", {reduce_max[1].get()}, {{shape, dtype, 1}});
 
     syn_out(0) = std::move(reshape1[0]);
     syn_out(1) = std::move(reshape2[0]);
@@ -59,8 +50,7 @@ void MaxOut::AddNode(
         graph,
         guid_,
         {syn_in(0)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0},
-         {outshape, dtype, is_output_persistent_list[1], 1}},
+        {{outshape, ScalarType(), 0}, {outshape, dtype, 1}},
         params.get(),
         size);
 

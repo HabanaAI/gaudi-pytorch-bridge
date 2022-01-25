@@ -15,8 +15,7 @@ namespace habana {
 
 void ScatterOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto index = stack.at(2).toTensor();
   const auto dim_ = stack.at(1).toInt();
@@ -106,7 +105,6 @@ void ScatterOperator::AddNode(
         outshape,
         torch::kInt,
         self.scalar_type(),
-        is_output_persistent_list[0],
         0);
     syn_out(0) = std::move(result_bool);
   } else {
@@ -116,7 +114,7 @@ void ScatterOperator::AddNode(
         graph,
         "scatter_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         syn_input_tensors,
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType(), 0}},
         &params,
         sizeof(params));
 

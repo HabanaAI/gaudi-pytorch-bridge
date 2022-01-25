@@ -60,10 +60,7 @@ sizes_vec ArgMinMaxOutputShape(const at::Stack& stack, bool) {
   }
 }
 
-void ArgMinMax::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto isEmptyDim = stack.at(1).isNone();
   const bool keepdim = stack.at(2).toBool();
@@ -94,7 +91,7 @@ void ArgMinMax::AddNode(
           graph,
           guid_,
           {reshape[0].get()},
-          {{shape, dtype, is_output_persistent_list[0], 0}},
+          {{shape, dtype, 0}},
           params.get(),
           size);
       syn_out(0) = std::move(op[0]);
@@ -107,32 +104,21 @@ void ArgMinMax::AddNode(
           {{op_shape, dtype}},
           params.get(),
           size);
-      auto output = BuildOp(
-          graph,
-          "reshape",
-          {op[0].get()},
-          {{shape, dtype, is_output_persistent_list[0], 0}});
+      auto output =
+          BuildOp(graph, "reshape", {op[0].get()}, {{shape, dtype, 0}});
       syn_out(0) = std::move(output[0]);
     }
   } else if (!keepdim) { // reduce dim when keepdim is false using reshape.
     outshape[dim] = 1;
     auto op = BuildOp(
         graph, guid_, {syn_in(0)}, {{outshape, dtype}}, params.get(), size);
-    auto reshape = BuildOp(
-        graph,
-        "reshape",
-        {op[0].get()},
-        {{shape, dtype, is_output_persistent_list[0], 0}});
+    auto reshape =
+        BuildOp(graph, "reshape", {op[0].get()}, {{shape, dtype, 0}});
 
     syn_out(0) = std::move(reshape[0]);
   } else { // Direct TPC kernel call when keepdim is true.
     auto op = BuildOp(
-        graph,
-        guid_,
-        {syn_in(0)},
-        {{shape, dtype, is_output_persistent_list[0], 0}},
-        params.get(),
-        size);
+        graph, guid_, {syn_in(0)}, {{shape, dtype, 0}}, params.get(), size);
     syn_out(0) = std::move(op[0]);
   }
 }

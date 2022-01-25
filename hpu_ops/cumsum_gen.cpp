@@ -43,13 +43,12 @@ std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
 
 void CumsumHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const at::ScalarType& dtype =
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
 
   if (dtype == ScalarType()) {
-    return OpBackend::AddNode(graph, stack, is_output_persistent_list);
+    return OpBackend::AddNode(graph, stack);
   }
 
   const auto& outshape = stack_tensor(stack, 0).sizes();
@@ -69,7 +68,7 @@ void CumsumHabanaOperator::AddNode(
       graph,
       guid + cast_to,
       {cast.at(0).get()},
-      {{outshape, dtype, is_output_persistent_list[0], 0}},
+      {{outshape, dtype, 0}},
       params.get(),
       size);
   syn_out(0) = std::move(op.at(0));

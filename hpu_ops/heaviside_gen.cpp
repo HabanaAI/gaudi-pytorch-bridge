@@ -26,10 +26,7 @@ std::shared_ptr<void> FillConstantParams(
   return params;
 }
 
-void Heaviside::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Heaviside::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   size_t size = 0;
@@ -78,7 +75,7 @@ void Heaviside::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {less_than_zero[0].get(), const_zero[0].get(), where_inner[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   // output of where_outer is the output of this op
   syn_out(0) = std::move(where_outer[0]);

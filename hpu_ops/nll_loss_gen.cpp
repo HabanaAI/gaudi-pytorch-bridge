@@ -42,19 +42,16 @@ std::shared_ptr<void> FillNllLossParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-void NllLoss::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void NllLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.at(2).isNone(), "NLL loss does not support weight.");
 
   // remove total_weight from output as it is unsupported
   p_context_->syn_outputs_.pop_back();
 
-  OpBackend::AddNode(graph, stack, is_output_persistent_list);
+  OpBackend::AddNode(graph, stack);
 
   // dummy output in place of total_weight
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      p_context_->pt_outputs_.at(1), graph, is_output_persistent_list[1]));
+      p_context_->pt_outputs_.at(1), graph, IsOutputPersistent(1)));
 }
 } // namespace habana

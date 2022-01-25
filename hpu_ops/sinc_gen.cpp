@@ -13,10 +13,7 @@
 
 namespace habana {
 
-void Sinc::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Sinc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   auto const_pi = ConstantHelper(graph, c10::pi<float>, ScalarType(), outshape);
@@ -60,7 +57,7 @@ void Sinc::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask[0].get(), const_one.get(), prod[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   // output of where_outer is the output of this op
   syn_out(0) = std::move(out[0]);

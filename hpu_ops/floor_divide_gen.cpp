@@ -21,8 +21,7 @@ namespace habana {
 
 void FloorDivideOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   _TORCH_WARN_ONCE(
       "floor_divide is deprecated, and will be removed in a future version of pytorch."
       "It currently rounds toward 0 (like the \'trunc\' function NOT \'floor\')."
@@ -56,7 +55,7 @@ void FloorDivideOperator::AddNode(
       graph,
       rounding_mode + opStringSuffix,
       {divOp.at(0).get()},
-      {{shape_out, computation_type, is_output_persistent_list[0], 0}});
+      {{shape_out, computation_type, 0}});
 
   syn_out(0) = std::move(makeIntegerOp[0]);
 }

@@ -114,8 +114,7 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
 
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const auto& outshape = stack_tensor(stack, 0).sizes();
   bool minTensorDefined = stack.at(1).isTensor();
@@ -131,7 +130,7 @@ void clampTensor::AddNode(
         graph,
         "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {maxOut[0].get(), syn_in(2)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
+        {{outshape, self.scalar_type(), 0}});
 
     syn_out(0) = std::move(minOut[0]);
   } else if (minTensorDefined) {
@@ -139,7 +138,7 @@ void clampTensor::AddNode(
         graph,
         "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
+        {{outshape, self.scalar_type(), 0}});
 
     syn_out(0) = std::move(maxOut[0]);
   } else {
@@ -149,7 +148,7 @@ void clampTensor::AddNode(
         graph,
         "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), is_output_persistent_list[0], 0}});
+        {{outshape, self.scalar_type(), 0}});
 
     syn_out(0) = std::move(minOut[0]);
   }

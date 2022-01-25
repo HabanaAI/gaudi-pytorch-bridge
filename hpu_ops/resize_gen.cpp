@@ -16,8 +16,7 @@ sizes_vec ResizeOutputShape(const at::Stack& stack, bool) {
 
 void ResizeHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   p_context_->syn_outputs_.clear();
   p_context_->pt_outputs_.clear();
 
@@ -29,12 +28,8 @@ void ResizeHabanaOperator::AddNode(
       ? at::nullopt
       : at::make_optional(stack.at(2).toMemoryFormat());
   const auto& output = habana_helpers::createPTTensor(
-      t,
-      sizes,
-      t.options(),
-      memory_format_opt,
-      is_output_persistent_list.at(0));
-  AllocateSynapseOutput(graph, output, is_output_persistent_list.at(0));
+      t, sizes, t.options(), memory_format_opt, IsOutputPersistent(0));
+  AllocateSynapseOutput(graph, output, IsOutputPersistent(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 

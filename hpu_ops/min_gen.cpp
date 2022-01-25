@@ -67,10 +67,7 @@ std::shared_ptr<void> FillMinParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-void Min::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Min::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
 
@@ -89,8 +86,7 @@ void Min::AddNode(
       graph,
       "reduce_min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0},
-       {outshape, dtype, is_output_persistent_list[1], 1}},
+      {{outshape, ScalarType(), 0}, {outshape, dtype, 1}},
       params.get(),
       size);
 

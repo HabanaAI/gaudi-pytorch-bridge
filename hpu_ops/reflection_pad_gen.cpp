@@ -95,8 +95,7 @@ std::shared_ptr<void> FillReflectionPadBackwardParams(
 
 void ReflectionPad::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 1).sizes();
   size_t size = 0;
   const auto& params = FillReflectionPadBackwardParams(stack, size);
@@ -106,7 +105,7 @@ void ReflectionPad::AddNode(
       graph,
       "pad_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
 

@@ -12,10 +12,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-void Hypot::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Hypot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape_self = stack_tensor(stack, 0).sizes();
   const auto& outshape_other = stack_tensor(stack, 1).sizes();
   auto result_outshape = BinaryOutputShape(stack, true)[0];
@@ -46,7 +43,7 @@ void Hypot::AddNode(
       graph,
       "sqrt_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {add[0].get()},
-      {{result_outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{result_outshape, ScalarType(), 0}});
 
   // output of sqrt is the output of this op
   syn_out(0) = std::move(sqrt[0]);

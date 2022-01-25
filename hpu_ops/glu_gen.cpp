@@ -25,10 +25,7 @@ sizes_vec GluBwdOutputShape(const at::Stack& stack, bool) {
   return {out_shape};
 }
 
-void Glu::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Glu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto in_shape = self.sizes().vec();
   const int64_t axis = stack.at(1).toInt();
@@ -65,15 +62,12 @@ void Glu::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(self.scalar_type()),
       {split[0].get(), sigmoid[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(mult[0]);
 }
 
-void GluBwd::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void GluBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
   auto outshape = self.sizes().vec();
   const int64_t axis = stack.at(2).toInt();
@@ -139,7 +133,7 @@ void GluBwd::AddNode(
       graph,
       "concat",
       {grad_in1[0].get(), grad_in2[0].get()},
-      {{out_shape[0], ScalarType(), is_output_persistent_list[0], 0}},
+      {{out_shape[0], ScalarType(), 0}},
       &concat_params,
       sizeof(concat_params));
 

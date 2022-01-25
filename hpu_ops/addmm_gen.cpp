@@ -35,10 +35,7 @@ sizes_vec AddMMOutshape(const at::Stack& stack, bool) {
   return {outshape};
 }
 
-void AddMM::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = AddMMOutshape(stack)[0];
 
   auto mat1 = stack_tensor(stack, 1);
@@ -108,10 +105,7 @@ void AddMM::AddNode(
 
   // Output
   auto addmm_out = BuildOp(
-      graph,
-      "squeeze",
-      {addmm[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      graph, "squeeze", {addmm[0].get()}, {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(addmm_out[0]);
 }

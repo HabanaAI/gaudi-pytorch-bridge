@@ -25,10 +25,7 @@ sizes_vec LerpOutputShape(const at::Stack& stack, bool) {
   return {at::infer_size(self.sizes(), end.sizes())};
 }
 
-void Lerp::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Lerp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = LerpOutputShape(stack)[0];
   auto sub_outshape = at::infer_size(
       stack_tensor(stack, 0).sizes(), stack_tensor(stack, 1).sizes());
@@ -52,7 +49,7 @@ void Lerp::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), mult[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   // output of lerp is the output of this op
   syn_out(0) = std::move(lerp[0]);

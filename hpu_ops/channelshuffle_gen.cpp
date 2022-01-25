@@ -14,8 +14,7 @@
 namespace habana {
 void ChannelShuffle::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
 
   TORCH_CHECK(self.dim() > 2, "channel shuffle expects input with > 2 dim");
@@ -63,10 +62,7 @@ void ChannelShuffle::AddNode(
       sizeof(trans_params));
 
   auto output_tensor = BuildOp(
-      graph,
-      "reshape",
-      {transpose[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      graph, "reshape", {transpose[0].get()}, {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(output_tensor[0]);
 }

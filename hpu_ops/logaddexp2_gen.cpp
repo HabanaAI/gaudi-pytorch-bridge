@@ -13,11 +13,11 @@
 namespace habana {
 void LogAddExp2::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& outshape_self = stack_tensor(stack, 0).sizes();
   const auto& outshape_other = stack_tensor(stack, 1).sizes();
   auto result_outshape = ComputeOutputShapes(stack, true)[0];
+
   // pow on input 0
   auto pow_out_1 = BuildOp(
       graph,
@@ -44,7 +44,7 @@ void LogAddExp2::AddNode(
       graph,
       "log2_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {add[0].get()},
-      {{result_outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{result_outshape, ScalarType(), 0}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(log[0]);

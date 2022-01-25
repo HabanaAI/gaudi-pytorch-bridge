@@ -44,10 +44,7 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   return params;
 }
 
-void Geometric::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   size_t size = 0;
@@ -72,7 +69,7 @@ void Geometric::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {random_neg_binomial[0].get(), constant.get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(geometric[0]);
 }

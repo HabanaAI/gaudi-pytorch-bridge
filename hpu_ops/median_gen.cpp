@@ -79,10 +79,7 @@ sizes_vec MediandimOutputShape(const at::Stack& stack, bool) {
   return {outshape, outshape};
 }
 
-void Median::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, selfPositionInArgList);
   auto self_size = self.sizes().vec();
   int64_t reduction_axis = 0;
@@ -102,7 +99,7 @@ void Median::AddNode(
         graph,
         "reshape",
         {syn_in(selfPositionInArgList)},
-        {{reshape_outshape, ScalarType(), false}});
+        {{reshape_outshape, ScalarType()}});
   }
 
   synBeamParams Topk_params{};
@@ -170,7 +167,7 @@ void Median::AddNode(
       graph,
       "slice",
       {Topk[0].get()},
-      {{Slice_outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{Slice_outshape, ScalarType(), 0}},
       &Slice_params,
       sizeof(Slice_params));
   syn_out(0) = std::move(median_value[0]);
@@ -180,7 +177,7 @@ void Median::AddNode(
         graph,
         "slice",
         {Topk[1].get()},
-        {{Slice_outshape, ScalarType(), is_output_persistent_list[0], 1}},
+        {{Slice_outshape, ScalarType(), 1}},
         &Slice_params,
         sizeof(Slice_params));
     syn_out(1) = std::move(median_index[0]);

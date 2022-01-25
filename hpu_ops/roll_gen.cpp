@@ -14,8 +14,7 @@
 namespace habana {
 void RollHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   constexpr int64_t inputIndex = 0;
   constexpr int64_t shiftIndex = 1;
   constexpr int64_t axisIndex = 2;
@@ -68,8 +67,6 @@ void RollHabanaOperator::AddNode(
 
     auto is_final_output =
         i == axisElementsCount - 1 ? c10::make_optional<int>(0) : c10::nullopt;
-    auto is_output_persistent =
-        is_final_output ? is_output_persistent_list[0] : false;
 
     if (to_shift != 0 && remain_shift != 0) {
       // Calculate the output shape
@@ -94,7 +91,7 @@ void RollHabanaOperator::AddNode(
           graph,
           "concat",
           {split_out.at(1).get(), split_out.at(0).get()},
-          {{input_shape, ScalarType(), is_output_persistent, is_final_output}},
+          {{input_shape, ScalarType(), is_final_output}},
           &dim,
           sizeof(dim));
 
@@ -103,7 +100,7 @@ void RollHabanaOperator::AddNode(
           graph,
           "identity",
           {intermediate_input},
-          {{input_shape, ScalarType(), is_output_persistent, is_final_output}});
+          {{input_shape, ScalarType(), is_final_output}});
     }
     intermediate_input = intermediate_output.at(0).get();
   }

@@ -27,10 +27,7 @@ sizes_vec AddROutshape(const at::Stack& stack, bool) {
   return {outshape};
 }
 
-void AddR::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto vec1 = stack_tensor(stack, 1);
   auto vec2 = stack_tensor(stack, 2);
   const float alpha_val = stack.at(4).toScalar().toFloat();
@@ -106,7 +103,7 @@ void AddR::AddNode(
       graph,
       "squeeze",
       {addr_unsqueezed[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(addr_out[0]);
 }

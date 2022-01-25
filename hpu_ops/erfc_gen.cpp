@@ -12,17 +12,14 @@
 
 namespace habana {
 
-void Erfc::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Erfc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   auto erf = BuildOp(
       graph,
       "erf_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), false}});
+      {{outshape, ScalarType()}});
 
   auto constant = ConstantHelper(graph, 1, ScalarType(), outshape);
 
@@ -30,7 +27,7 @@ void Erfc::AddNode(
       graph,
       "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get(), erf[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(erfc[0]);
 }

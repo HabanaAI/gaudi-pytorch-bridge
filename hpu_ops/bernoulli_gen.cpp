@@ -21,10 +21,7 @@ std::shared_ptr<void> FillBernoulliParams(
   return params;
 }
 
-void Bernoulli::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& persistent_list) {
+void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // When p is a scalar, convert to a tensor since tpc kernel takes probability
   // as the first and only input
   auto outshape = stack_tensor(stack, 0).sizes();
@@ -43,7 +40,7 @@ void Bernoulli::AddNode(
       graph,
       guid_,
       {p->get()},
-      {{outshape, ScalarType(), persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
   syn_out(0) = std::move(op[0]);

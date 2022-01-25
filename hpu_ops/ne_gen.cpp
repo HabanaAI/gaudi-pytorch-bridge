@@ -11,10 +11,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-void NE::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void NE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   auto outshape = BinaryOutputShape(stack)[0];
 
@@ -27,11 +24,8 @@ void NE::AddNode(
       {{outshape, result_type}});
 
   // not on output of equal
-  auto not_equal = BuildOp(
-      graph,
-      "not_fwd_i8",
-      {eq[0].get()},
-      {{outshape, result_type, is_output_persistent_list[0], 0}});
+  auto not_equal =
+      BuildOp(graph, "not_fwd_i8", {eq[0].get()}, {{outshape, result_type, 0}});
 
   // output of not is the output of this op
   syn_out(0) = std::move(not_equal[0]);

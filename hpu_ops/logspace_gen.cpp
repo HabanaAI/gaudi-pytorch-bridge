@@ -42,10 +42,7 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-void LogSpace::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = LogspaceOutputShape(stack)[0];
   size_t size = 0;
   auto params = RangeParams(stack, size);
@@ -64,7 +61,7 @@ void LogSpace::AddNode(
       graph,
       "pow_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {constant.get(), range[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(pow[0]);
 }

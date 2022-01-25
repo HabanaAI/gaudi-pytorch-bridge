@@ -12,10 +12,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-void NantoNum::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const auto outshape = stack_tensor(stack, 0).sizes();
 
@@ -25,7 +22,7 @@ void NantoNum::AddNode(
         graph,
         "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(copy[0]);
   } else {
     auto nan_constant = stack.at(1).isNone() ? 0.0 : stack.at(1).toDouble();
@@ -107,7 +104,7 @@ void NantoNum::AddNode(
         graph,
         "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {neginf_mask[0].get(), const_neginf.get(), where_pos[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(where_neg[0]);
   }
 }

@@ -27,10 +27,7 @@ at::Tensor LazySetDtypeBool<at::Tensor>::get_result_overrideable() {
   return {};
 }
 
-void SignBit::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void SignBit::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   const at::ScalarType& result_type = stack_tensor(stack, 0).scalar_type();
 
@@ -52,7 +49,7 @@ void SignBit::AddNode(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), const_zero[0].get()},
-      {{outshape, result_type2, is_output_persistent_list[0], 0}});
+      {{outshape, result_type2, 0}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(output[0]);

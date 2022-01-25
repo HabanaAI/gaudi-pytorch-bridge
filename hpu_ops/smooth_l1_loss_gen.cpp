@@ -30,8 +30,7 @@ sizes_vec SmoothL1LossBackwardOutputShape(const at::Stack& stack, bool) {
 
 void SmoothL1LossBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 1).sizes();
 
   float beta = stack.at(4).toScalar().to<float>();
@@ -72,7 +71,7 @@ void SmoothL1LossBwdOperator::AddNode(
           graph,
           MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {t_mul.at(0).get(), t_sign.at(0).get()},
-          {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+          {{inputshape, ScalarType(), 0}});
 
       syn_out(0) = std::move(t_l0.at(0));
       return;
@@ -96,7 +95,7 @@ void SmoothL1LossBwdOperator::AddNode(
           graph,
           MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {syn_in(0), t_sign.at(0).get()},
-          {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+          {{inputshape, ScalarType(), 0}});
 
       syn_out(0) = std::move(t_l0.at(0));
       return;
@@ -142,7 +141,7 @@ void SmoothL1LossBwdOperator::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask.at(0).get(), t_l2.at(0).get(), t_l0.at(0).get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
   return;
@@ -150,8 +149,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
 void SmoothL1LossOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 0).sizes();
   auto mode = stack.at(2).toInt();
   float beta = stack.at(3).toScalar().to<float>();
@@ -170,7 +168,7 @@ void SmoothL1LossOperator::AddNode(
           graph,
           "abs_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
           {sub.at(0).get()},
-          {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+          {{inputshape, ScalarType(), 0}});
 
       syn_out(0) = std::move(t_absdiff.at(0));
       return;
@@ -204,7 +202,7 @@ void SmoothL1LossOperator::AddNode(
         graph,
         reduction_guid + habana_helpers::name_suffix_from_type(ScalarType()),
         reduction_inputs,
-        {{1, ScalarType(), is_output_persistent_list[0], 0}},
+        {{1, ScalarType(), 0}},
         &node_params,
         sizeof(node_params));
 
@@ -258,7 +256,7 @@ void SmoothL1LossOperator::AddNode(
         graph,
         "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {mask.at(0).get(), t_l2.at(0).get(), t_l1.at(0).get()},
-        {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{inputshape, ScalarType(), 0}});
 
     syn_out(0) = std::move(t_wh.at(0));
     return;
@@ -292,7 +290,7 @@ void SmoothL1LossOperator::AddNode(
       graph,
       reduction_guid + habana_helpers::name_suffix_from_type(ScalarType()),
       reduction_inputs,
-      {{1, ScalarType(), is_output_persistent_list[0], 0}},
+      {{1, ScalarType(), 0}},
       &node_params,
       sizeof(node_params));
 

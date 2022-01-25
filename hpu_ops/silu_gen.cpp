@@ -2,10 +2,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-void Silu::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Silu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   auto sigmoid = BuildOp(
@@ -18,7 +15,7 @@ void Silu::AddNode(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
       {sigmoid[0].get(), syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(mul[0]);
 }

@@ -37,8 +37,7 @@ std::shared_ptr<void> FillLogSoftmaxBackwardParams(
 
 void LogSoftmaxBackward::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   constexpr int inputTensorPos = 3;
   const auto& outshape = stack_tensor(stack, inputTensorPos).sizes();
 
@@ -48,7 +47,7 @@ void LogSoftmaxBackward::AddNode(
       graph,
       guid_,
       {syn_in(1), syn_in(0)},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
 

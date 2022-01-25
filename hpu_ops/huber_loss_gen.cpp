@@ -29,8 +29,7 @@ sizes_vec HuberLossBackwardOutputShape(const at::Stack& stack, bool) {
 
 void HuberLossBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 1).sizes();
 
   float delta = stack.at(4).toScalar().to<float>();
@@ -98,7 +97,7 @@ void HuberLossBwdOperator::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask_bwd.at(0).get(), t_2.at(0).get(), t_1.at(0).get()},
-      {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
   return;
@@ -106,8 +105,7 @@ void HuberLossBwdOperator::AddNode(
 
 void HuberLossOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& inputshape = stack_tensor(stack, 0).sizes();
   auto mode = stack.at(2).toInt();
   double delta = stack.at(3).toScalar().to<double>();
@@ -171,7 +169,7 @@ void HuberLossOperator::AddNode(
         graph,
         "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {mask.at(0).get(), result_true.at(0).get(), result_false.at(0).get()},
-        {{inputshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{inputshape, ScalarType(), 0}});
 
     syn_out(0) = std::move(condition_out.at(0));
     return;
@@ -205,7 +203,7 @@ void HuberLossOperator::AddNode(
       graph,
       reduction_guid + habana_helpers::name_suffix_from_type(ScalarType()),
       reduction_inputs,
-      {{1, ScalarType(), is_output_persistent_list[0], 0}},
+      {{1, ScalarType(), 0}},
       &node_params,
       sizeof(node_params));
 

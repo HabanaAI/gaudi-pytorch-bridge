@@ -124,8 +124,7 @@ std::shared_ptr<void> FillUniformParams(const at::Stack& stack, size_t& size) {
 
 void RandomSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   // Discard self tensor, input is seed tensor only
   p_context_->syn_inputs_.pop_front();
   HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
@@ -148,13 +147,13 @@ void RandomSeedTensorInput::AddNode(
         graph,
         "cast_f32_to_i32",
         {rand[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(cast[0]);
     return;
   }
 
-  OpBackend::AddNode(graph, stack, is_output_persistent_list);
+  OpBackend::AddNode(graph, stack);
 }
 } // namespace habana

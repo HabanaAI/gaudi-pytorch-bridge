@@ -76,10 +76,7 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack, bool) {
   return {outshape};
 }
 
-void Avgpool2d::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void Avgpool2d::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto input_shape = self.sizes();
   std::vector<int64_t> out_shape_4d = {
@@ -122,7 +119,7 @@ void Avgpool2d::AddNode(
       graph,
       "transpose",
       {resize[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+      {{outshape, ScalarType(), 0}},
       &trans_params,
       sizeof(trans_params));
   syn_out(0) = std::move(transpose_nchw[0]);

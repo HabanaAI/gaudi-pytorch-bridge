@@ -13,8 +13,7 @@
 namespace habana {
 void SpecialEntr::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
@@ -70,7 +69,7 @@ void SpecialEntr::AddNode(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {mask_neg[0].get(), ninf.get(), prod_term[0].get()},
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
   syn_out(0) = std::move(output[0]);
 }
 } // namespace habana

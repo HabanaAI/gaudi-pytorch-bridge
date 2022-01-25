@@ -448,7 +448,7 @@ static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
       graph,
       {"transpose",
        std::move(input),
-       {{outshape, op->ScalarType(), persistant, final_index}},
+       {{outshape, op->ScalarType(), final_index}},
        &trans_params,
        sizeof(trans_params)});
 }
@@ -511,8 +511,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     double scale_h,
     double scale_d,
     const at::IntArrayRef outshape,
-    const int variant_type,
-    const std::vector<bool>& is_output_persistent_list) {
+    const int variant_type) {
   std::vector<int64_t> out_shape_temp;
   // Transpose MemLayout
   if (variant_type == 3) { // 1D - N,C,W to N,W,C
@@ -610,20 +609,13 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
 
   // Transpose to Pytorch MemLayout
   return Transpose_MemFormat(
-      op,
-      graph,
-      variant_type,
-      {resize[0].get()},
-      outshape,
-      is_output_persistent_list[0],
-      0);
+      op, graph, variant_type, {resize[0].get()}, outshape, true, 0);
 }
 
 // AddNode FWD 1D Linear function
 void UpsampleLinear1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleLinear1DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -649,16 +641,15 @@ void UpsampleLinear1DFwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 1D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 1D*/
+  );
 
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 1D Linear function
 void UpsampleLinear1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleLinear1DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -684,15 +675,14 @@ void UpsampleLinear1DBwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 1D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 1D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 1D Nearest function
 void UpsampleNearest1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleNearest1DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -718,15 +708,14 @@ void UpsampleNearest1DFwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 1D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 1D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 1D Nearest function
 void UpsampleNearest1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleNearest1DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -752,15 +741,14 @@ void UpsampleNearest1DBwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 1D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 1D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 2D Bilinear function
 void UpsampleBilinear2DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleBilinear2DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -789,15 +777,14 @@ void UpsampleBilinear2DFwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 2D Bilinear function
 void UpsampleBilinear2DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleBilinear2DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -826,15 +813,14 @@ void UpsampleBilinear2DBwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 2D Nearest function
 void UpSampleNearest2DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleNearest2DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -862,15 +848,14 @@ void UpSampleNearest2DFwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 2D Nearest function
 void UpSampleNearest2DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   // outshape
   auto output_shape = UpsampleNearest2DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
@@ -899,15 +884,14 @@ void UpSampleNearest2DBwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 2D Bicubic function
 void UpsampleBicubic2DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleBicubic2DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -936,15 +920,14 @@ void UpsampleBicubic2DFwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 2D Bicubic function
 void UpsampleBicubic2DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleBicubic2DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -973,15 +956,14 @@ void UpsampleBicubic2DBwdOperator::AddNode(
       scale_h,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim(), /*variant_type - 2D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 2D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   auto output_shape = UpsampleNearest3DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
@@ -1011,15 +993,14 @@ void UpSampleNearest3DFwdOperator::AddNode(
       scale_h,
       scale_d,
       output_shape,
-      self.dim(), /*variant_type - 3D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 3D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 3D Nearest function
 void UpSampleNearest3DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   // outshape
   auto output_shape = UpsampleNearest3DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
@@ -1050,8 +1031,8 @@ void UpSampleNearest3DBwdOperator::AddNode(
       scale_h,
       scale_d,
       output_shape,
-      self.dim(), /*variant_type - 3D*/
-      is_output_persistent_list);
+      self.dim() /*variant_type - 3D*/
+  );
   syn_out(0) = std::move(result.at(0));
 }
 } // namespace habana

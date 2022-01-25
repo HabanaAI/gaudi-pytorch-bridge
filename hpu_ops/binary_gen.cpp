@@ -23,10 +23,7 @@ sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
   return {at::infer_size(self.sizes(), other.sizes())};
 }
 
-void BinaryOp::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void BinaryOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, 0);
   const at::Tensor& other = stack_tensor(stack, 1);
   const at::ScalarType& result_type = at::result_type(self, other);
@@ -65,11 +62,8 @@ void BinaryOp::AddNode(
   guid_ = guid_.substr(0, guid_.find_last_of('_') + 1) +
       habana_helpers::name_suffix_from_type(result_type);
 
-  auto op = BuildOp(
-      graph,
-      guid_,
-      binaryop_inputs,
-      {{outshape, result_type, is_output_persistent_list[0], 0}});
+  auto op =
+      BuildOp(graph, guid_, binaryop_inputs, {{outshape, result_type, 0}});
 
   syn_out(0) = std::move(op[0]);
 }

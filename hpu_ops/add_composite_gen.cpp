@@ -20,10 +20,7 @@ sizes_vec AddCOpsOutputShape(const at::Stack& stack, bool) {
   return {at::infer_size(tmp, other2.sizes())};
 }
 
-void AddCOpOut::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void AddCOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other1 = stack_tensor(stack, 1);
   const at::Tensor other2 = stack_tensor(stack, 2);
@@ -68,10 +65,7 @@ void AddCOpOut::AddNode(
   // Based on the guid_, do mult/div/other binary op
   auto outsize_variable_op = at::infer_size(other1.sizes(), other2.sizes());
   variable_op = BuildOp(
-      graph,
-      guid_,
-      variable_op_inputs,
-      {{outsize_variable_op, ScalarType(), false}});
+      graph, guid_, variable_op_inputs, {{outsize_variable_op, ScalarType()}});
 
   // Finally add op with self
   std::vector<synTensor> add_op_inputs{
@@ -82,7 +76,7 @@ void AddCOpOut::AddNode(
       graph,
       "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
       add_op_inputs,
-      {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+      {{outshape, ScalarType(), 0}});
 
   // output
   syn_out(0) = std::move(add_op[0]);

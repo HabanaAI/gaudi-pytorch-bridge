@@ -41,10 +41,7 @@ struct Parameters {
   std::vector<int64_t> shape_list;
 };
 
-void LogSumExp::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void LogSumExp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
 
   const bool keepdim = stack.at(2).toBool();
@@ -92,10 +89,8 @@ void LogSumExp::AddNode(
           graph,
           GUID + habana_helpers::name_suffix_from_type(ScalarType()),
           {syn_in(0)},
-          {{parameters[0].shape_list,
-            ScalarType(),
-            is_output_persistent_list[0]},
-           {self_shape[0], ScalarType(), is_output_persistent_list[1]}},
+          {{parameters[0].shape_list, ScalarType(), 0},
+           {self_shape[0], ScalarType()}},
           parameters[0].param_list.get(),
           parameters[0].size_list);
 
@@ -131,7 +126,7 @@ void LogSumExp::AddNode(
               graph,
               "reshape",
               {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+              {{new_shape, ScalarType(), 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -170,7 +165,7 @@ void LogSumExp::AddNode(
               graph,
               "reshape",
               {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+              {{new_shape, ScalarType(), 0}});
 
           // output of reshape is the output of this op
           syn_out(0) = std::move(reshape[0]);
@@ -184,7 +179,7 @@ void LogSumExp::AddNode(
           graph,
           "reshape",
           {logsumexp[0].get()},
-          {{new_shape, ScalarType(), is_output_persistent_list[0], 0}});
+          {{new_shape, ScalarType(), 0}});
 
       // output of reshape is the output of this op
       syn_out(0) = std::move(reshape[0]);

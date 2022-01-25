@@ -20,8 +20,7 @@ at::Tensor& LazyRreluOutInplace<at::Tensor&>::get_result_overrideable() {
 
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
@@ -59,7 +58,7 @@ void Rrelu_with_noise::AddNode(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), noise[0].get()},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);
@@ -69,7 +68,7 @@ void Rrelu_with_noise::AddNode(
         graph,
         "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(output[0]);
@@ -78,8 +77,7 @@ void Rrelu_with_noise::AddNode(
 
 void Rrelu_with_noise_bwd::AddNode(
     synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+    const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(5).toBool();
   auto lower = stack.at(3).toScalar().to<float>();
@@ -90,7 +88,7 @@ void Rrelu_with_noise_bwd::AddNode(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(2)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}});
+        {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
   } else {
     size_t size = 0;
@@ -101,7 +99,7 @@ void Rrelu_with_noise_bwd::AddNode(
         graph,
         "leakyrelu_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), is_output_persistent_list[0], 0}},
+        {{outshape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(output[0]);

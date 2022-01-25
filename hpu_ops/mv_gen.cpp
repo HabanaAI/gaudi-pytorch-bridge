@@ -17,10 +17,7 @@ sizes_vec MvOpsOutputShape(const at::Stack& stack, bool) {
   sizes_vec shape = std::vector<std::vector<int64_t>>{{mat1.sizes()[0]}};
   return shape;
 }
-void MvOpOut::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
+void MvOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor mat1 = stack_tensor(stack, 0);
   const at::Tensor mat2 = stack_tensor(stack, 1);
 
@@ -42,11 +39,8 @@ void MvOpOut::AddNode(
   int64_t data_3[] = {mat1.sizes()[0]};
   c10::IntArrayRef shape_3(data_3, 1);
 
-  auto reshapeOp2 = BuildOp(
-      graph,
-      "reshape",
-      {mmOp[0].get()},
-      {{shape_3, ScalarType(), is_output_persistent_list[0], 0}});
+  auto reshapeOp2 =
+      BuildOp(graph, "reshape", {mmOp[0].get()}, {{shape_3, ScalarType(), 0}});
 
   // output
   syn_out(0) = std::move(reshapeOp2[0]);
