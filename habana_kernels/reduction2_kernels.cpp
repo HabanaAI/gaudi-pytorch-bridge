@@ -381,7 +381,4 @@ Tensor min_hpu(const at::Tensor& self) {
 }
 
 static auto& KernelRegistry =
-    habana::KernelRegistry()
-        .add("hpu::max_dim", KERNEL_FN(MaxDimOperator))
-        .add("aten::max", KERNEL_FN(MaxOperator))
-        .add("aten::min", KERNEL_FN(MinOperator));
+    habana::KernelRegistry().add("aten::min", KERNEL_FN(MinOperator));

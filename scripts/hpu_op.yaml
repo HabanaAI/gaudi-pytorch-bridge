@@ -148,6 +148,16 @@ any.all_out:
   dtypes: [Char]
   op_backend: Any
 
+argmax:
+  custom_output_shape: ArgMinMaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16, Int]
+  guid: argmax_fwd
+  legacy_eager: true
+  op_backend: ArgMinMax
+  op_frontend: LazyArgMinMax
+  out_ids: [0]
+
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
@@ -161,7 +171,7 @@ argmin:
   dtypes: [Float, BFloat16]
   op_backend: ArgMinMax
   guid: argmin_fwd
-  op_frontend: LazyArgmin
+  op_frontend: LazyArgMinMax
   out_ids: [0]
 
 argmin.out:
@@ -1465,12 +1475,30 @@ lt.Tensor:
   type_promotion: true
   legacy_eager: true
 
-max.dim_max:
-  custom_output_shape: MinOutputShape
-  custom_fill_params: FillMinParams
+max:
+  custom_output_shape: MinMaxFlattenInputOutputShape
   dtypes: [BFloat16, Float, Int]
   guid: reduce_max_fwd
-  op_backend: MaxOut
+  legacy_eager: true
+  op_backend: MinMaxFlattenInput
+  out_ids: [0]
+
+max.dim:
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_max_fwd
+  legacy_eager: true
+  op_backend: MinMax
+  op_frontend: LazyMinMax
+  out_ids: [0, 0]
+
+max.dim_max:
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_max_fwd
+  op_backend: MinMax
 
 maximum:
   broadcast: true
@@ -1498,11 +1526,12 @@ median.dim:
   out_ids: [0,0]
 
 min.dim:
-  custom_output_shape: MinOutputShape
-  custom_fill_params: FillMinParams
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
   dtypes: [BFloat16, Float]
-  op_backend: Min
-  op_frontend: LazyMin
+  guid: reduce_min_fwd
+  op_backend: MinMax
+  op_frontend: LazyMinMax
   out_ids: [0,0]
 
 minimum:

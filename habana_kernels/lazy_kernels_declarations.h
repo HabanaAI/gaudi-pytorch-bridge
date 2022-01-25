@@ -560,11 +560,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
     bool sorted,
     bool return_inverse,
     bool return_counts);
-std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim);
-at::Tensor max_hpu_lazy(const at::Tensor& self);
 at::Tensor min_hpu_lazy(const at::Tensor& self);
 at::Tensor& any_dim_out_hpu_lazy(
     const at::Tensor& self,
@@ -573,10 +568,6 @@ at::Tensor& any_dim_out_hpu_lazy(
     at::Tensor& output);
 at::Tensor any_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor any_hpu_lazy(const at::Tensor& self);
-at::Tensor argmax_hpu_lazy(
-    const at::Tensor& self,
-    c10::optional<int64_t> dim,
-    bool keepdim);
 at::Tensor& bitwise_and_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& self,

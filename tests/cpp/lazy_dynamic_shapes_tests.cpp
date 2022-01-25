@@ -1331,10 +1331,10 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
 
     torch::Tensor hA = A.to(torch::kHPU);
 
-    torch::Tensor out_hpu = torch::argmax(hA, 2);
-    torch::Tensor out_cpu = torch::argmax(A, 2);
+    torch::Tensor out_hpu = torch::argmax(hA, 2, true);
+    torch::Tensor out_cpu = torch::argmax(A, 2, true);
     auto out = out_hpu.to(torch::kCPU);
-    EXPECT_TRUE(allclose(out, out_cpu.to(torch::kInt), 0.0001, 0.0001));
+    EXPECT_TRUE(allclose(out, out_cpu, 0, 0));
   }
 }
 

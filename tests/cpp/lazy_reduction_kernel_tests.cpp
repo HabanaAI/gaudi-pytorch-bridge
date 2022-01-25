@@ -127,8 +127,7 @@ TEST_F(LazyReductionKernelTest, ArgMaxTest) {
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::argmax(hA, 2, true);
   torch::Tensor Out = torch::argmax(A, 2, true);
-  auto cOut = Out.to(torch::dtype(torch::kInt));
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
 TEST_F(LazyReductionKernelTest, ArgMaxTestNe1) {
@@ -138,8 +137,7 @@ TEST_F(LazyReductionKernelTest, ArgMaxTestNe1) {
 
   torch::Tensor Out = torch::argmax(A, dimReduction, true);
   torch::Tensor hOut = torch::argmax(hA, dimReduction, true);
-  auto cOut = Out.to(torch::dtype(torch::kInt));
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
 TEST_F(LazyReductionKernelTest, AllTensorTest) {

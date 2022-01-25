@@ -14,6 +14,15 @@ class MaxHpuOpTest
     : public HpuOpTestUtil,
       public testing::WithParamInterface<std::tuple<c10::ScalarType>> {};
 
+TEST_P(MaxHpuOpTest, max) {
+  const auto& testParams = GetParam();
+  const auto dtype = std::get<0>(testParams);
+  GenerateInputs(1, {dtype});
+  auto exp = torch::max(GetCpuInput(0));
+  auto res = torch::max(GetHpuInput(0));
+  Compare(exp, res, 0, 0);
+}
+
 TEST_P(MaxHpuOpTest, max_other) {
   const auto& testParams = GetParam();
   const auto dtype = std::get<0>(testParams);
