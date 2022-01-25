@@ -4096,8 +4096,23 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const c10::optional<Tensor>& bias_opt,
     double eps) {
   PT_LAZY_TRACE;
+  auto sizes_vec = input.sizes().vec();
+  sizes_vec.erase(sizes_vec.begin());
+
   auto weight = weight_opt.value_or(Tensor());
+  if (!weight.defined()) {
+    weight =
+        torch::ones(sizes_vec, torch::dtype(input.dtype()).requires_grad(false))
+            .to(torch::kHPU);
+  }
+
   auto bias = bias_opt.value_or(Tensor());
+  if (!bias.defined()) {
+    bias = torch::zeros(
+               sizes_vec, torch::dtype(input.dtype()).requires_grad(false))
+               .to(torch::kHPU);
+  }
+
   const auto input_shape = input.sizes();
   const auto input_ndim = input.dim();
   const int normalized_ndim = normalized_shape.size();
@@ -4107,11 +4122,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   // const int64_t n =
   //     multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
   ir::NodePtr node = std::make_shared<ir::LayerNormForward>(
-      input, normalized_shape, weight_opt, bias_opt, eps);
+      input, normalized_shape, weight, bias, eps);
 
   auto sizes = LayerNormOperator::getOutputSizes(input, m);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
-      node, {input, normalized_shape, weight_opt, bias_opt, eps}, sizes};
+      node, {input, normalized_shape, weight, bias, eps}, sizes};
   return k.call();
 }
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
