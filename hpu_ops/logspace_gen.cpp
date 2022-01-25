@@ -58,7 +58,7 @@ void LogSpace::AddNode(
       params.get(),
       size);
 
-  auto constant = ConstantHelper(graph, stack[3].toScalar().to<float>());
+  auto constant = ConstantHelper(graph, stack[3].toScalar(), ScalarType());
 
   auto pow = BuildOp(
       graph,
