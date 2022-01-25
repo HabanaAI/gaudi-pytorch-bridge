@@ -237,10 +237,15 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);
-  auto out_hpu = at::index(input_hpu, indices_list);
+  auto A = torch::randint(0, 5, {2}, torch::dtype(torch::kInt64));
+  auto add_out = at::add(out_cpu, A);
 
+  auto out_hpu = at::index(input_hpu, indices_list);
+  auto add_out_hpu = at::add(out_hpu, A.to(torch::kHPU));
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
+  bool equal_add = add_out.allclose(add_out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal_add, true);
 }
 
 TEST_F(LazyIndexKernelTest, ArangeLongOutTest) {

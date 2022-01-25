@@ -43,46 +43,12 @@ static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   return size;
 }
 
-sizes_vec IndexOutputShape(const at::Stack& stack, bool) {
+sizes_vec IndexOutputShape(const at::Stack& stack, bool lowering) {
+  if (!lowering) {
+    return {};
+  }
   const at::Tensor input = stack_tensor(stack, 0);
-  c10::ArrayRef<c10::IValue> indices_in = stack.at(1).toListRef();
-  std::vector<at::Tensor> indices_vec_out{};
-
-  std::vector<at::Tensor> indices_vec;
-  for (auto input : indices_in) {
-    auto o1 = input.toOptional<at::Tensor>();
-    if (!(o1.has_value() && !o1->defined())) {
-      indices_vec.push_back(o1.value());
-    } else {
-      HABANA_ASSERT(
-          0 &&
-          "None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
-    }
-  }
-
-  /*for (size_t i = 0; i < indices_vec.size(); i++) {
-    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-      indices_vec[i] = indices_vec[i].to(c10::kHPU);
-    }
-  }
-
-  // handle views for tensorlist indices
-  at::TensorList indices_in_list(indices_vec);
-  indices_vec = habana_lazy::HandleViewsTensorList(indices_in_list);*/
-
-  // for case where indices are Boolean tensor(s), convert these to integer
-  // indices using nonzero operator before calling index
-  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
-    for (size_t i = 0; i < indices_vec.size(); i++) {
-      auto list = torch::nonzero_numpy(indices_vec.at(i));
-      indices_vec_out.insert(
-          indices_vec_out.cend(), list.cbegin(), list.cend());
-    }
-  }
-
-  at::TensorList indices =
-      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
-                                                              : indices_vec;
+  auto indices = stack.at(1).toTensorList().vec();
   sizes_vec shape = std::vector<std::vector<int64_t>>{
       {IndexOperator::compute_output_shape(input, indices)}};
   return shape;
@@ -93,13 +59,11 @@ LazyIndex<at::Tensor>::LazyIndex(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, 0) {
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   c10::ArrayRef<c10::IValue> indices_in = sub_inputs.at(1).toListRef();
-
   std::vector<at::Tensor> indices_vec_out{};
-
   std::vector<at::Tensor> indices_vec;
   for (auto input : indices_in) {
     auto o1 = input.toOptional<at::Tensor>();
@@ -145,8 +109,13 @@ LazyIndex<at::Tensor>::LazyIndex(
 
 template <>
 at::Tensor LazyIndex<at::Tensor>::get_result_overrideable() {
-  HABANA_ASSERT(false, "Shouldn't be reachable");
-  return {};
+  auto inputs = get_inputs();
+  const at::Tensor input = inputs[0].toTensor();
+  auto indices = inputs[1].toTensorList().vec();
+
+  auto shape = IndexOperator::compute_output_shape(input, indices);
+  return habana_lazy::empty_hpu_lazy(
+      shape, input.options(), input.suggest_memory_format(), false);
 }
 
 void IndexHabanaOperator::AddNode(
