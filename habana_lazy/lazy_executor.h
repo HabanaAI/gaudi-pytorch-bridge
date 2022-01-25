@@ -164,7 +164,24 @@ class HbExecutionContext {
 
   void clear() {
     m_retained_tensor_list.clear();
-    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP)) {
+    // The scalar_to_tensor_map caches {scalar value, target dtype} -> device
+    // tensor This cache avoids repeated H2D DMAs for scalars with target dtype.
+    // Hence, the default strategy is to retain the cache across executions and
+    // model training iterations. However, if the cache grows too large, due to
+    // frequently changing scalar values in any model, the lookup time increases
+    // and the host overhead increases on the lazy op accumulation side. To
+    // avoid this, PT_HPU_SCALAR_MAP_MAXSIZE sets a max size limit on the cache.
+    // Once the cache reaches this size, it gets cleared after an execution. The
+    // max value for PT_HPU_SCALAR_MAP_MAXSIZE is heuristically set at 500
+    // entries as of now, and can be fine tuned based on performance profiling
+    // feedback from model runs.
+    PT_LAZY_DEBUG(
+        "scalar_to_tensor_map size at HbExecutionContext::clear = ",
+        scalar_to_tensor_map.size());
+    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP) ||
+        scalar_to_tensor_map.size() >
+            GET_ENV_FLAG_NEW(PT_HPU_SCALAR_MAP_MAXSIZE)) {
+      PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
       scalar_to_tensor_map.clear();
     }
     hb_tensors_out_view.clear();

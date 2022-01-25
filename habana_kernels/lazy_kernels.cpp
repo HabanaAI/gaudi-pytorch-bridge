@@ -707,6 +707,7 @@ at::Tensor get_tensor_for_scalar(
   at::Tensor alpha_tensor;
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  static uint64_t hit_count, miss_count;
 
   auto map_it = context->scalar_to_tensor_map.find(
       std::make_pair(alpha, options.dtype().toScalarType()));
@@ -714,8 +715,22 @@ at::Tensor get_tensor_for_scalar(
     alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
     context->scalar_to_tensor_map[std::make_pair(
         alpha, options.dtype().toScalarType())] = alpha_tensor;
+    PT_LAZY_DEBUG(
+        "scalar_to_tensor_map #miss: ",
+        ++miss_count,
+        " alpha = ",
+        alpha,
+        " map size = ",
+        context->scalar_to_tensor_map.size());
   } else {
     alpha_tensor = map_it->second;
+    PT_LAZY_DEBUG(
+        "scalar_to_tensor_map #hit: ",
+        ++hit_count,
+        " alpha = ",
+        alpha,
+        " map size = ",
+        context->scalar_to_tensor_map.size());
   }
 
   return alpha_tensor;
