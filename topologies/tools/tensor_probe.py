@@ -194,7 +194,7 @@ class ModelParamsDump(object):
             path = os.path.join(path, 'cpu')
         elif (device == torch.device("cuda")):
             path = os.path.join(path, 'cuda')
-        elif (device == torch.device("hpu")):
+        elif (device == torch.device("hpu") or device == torch.device('hpu:0')):
             path = os.path.join(path, 'hpu')
 
         if path_modifier is not None:
@@ -323,7 +323,7 @@ class Hook():
             path = os.path.join(path, 'cpu')
         elif (device == torch.device("cuda")):
             path = os.path.join(path, 'cuda')
-        elif (device == torch.device("hpu")):
+        elif (device == torch.device("hpu") or device == torch.device('hpu:0')):
             path = os.path.join(path, 'hpu')
 
         if path_modifier is not None:

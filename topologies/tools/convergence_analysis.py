@@ -73,7 +73,7 @@ def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_
     if ('unet3d' in topology or 'unet2d' in topology) and t_dev1_torch.size() == t_dev2_torch.size() and 'bkwd' in tensor_name:
         print(f"not permuting as same shape - {tensor_name}")
         permute_required = False
-    if ('resnet' in topology or 'mobilenetv2' in topology or 'googlenet' in topology) and same_device is False and t_dev1_torch.ndim == 4:
+    if ('resnet' in topology or 'mobilenetv2' in topology or 'googlenet' in topology or 'maskrcnn' in topology) and same_device is False and t_dev1_torch.ndim == 4:
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
             if not (tail == "input.pt"):
@@ -220,7 +220,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
         if tid != 0 : # Need permute
             t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
-            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology) and 'bkwd' in tensor_info:
+            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology or 'resnet' in topology) and ('bkwd' in tensor_info or 'frwd' in tensor_info):
                 print(f"because of view, after permute also shape didn't match.. {t_dev1.size()}, {t_dev2.size()} ....\n permute back and do reshape with cpu size")
                 tensor_to_perm = None
                 if tid == 1:
