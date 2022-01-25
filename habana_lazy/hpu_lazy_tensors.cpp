@@ -23,6 +23,7 @@
 #include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ops/hpu_input.h"
+#include "habana_lazy/sbs_debug.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -701,10 +702,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
   context->MarkTensorsExecuted(executing_indices);
 
-  // Compare Tensors
-  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
-    SBSDebug::getInstance().CompareTensors(*tensors);
-  }
+  SBSDebug::getInstance().CompareTensors(*tensors);
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

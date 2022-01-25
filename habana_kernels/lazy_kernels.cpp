@@ -2162,8 +2162,7 @@ Tensor convolution_hpu_lazy(
           c10::MemoryFormat::Contiguous,
           false,
           is_weight_hwck)},
-      0,
-      bFalse /*run_sbs*/);
+      0);
   return k.call();
 }
 
@@ -2224,8 +2223,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
                output_mask},
               {3, 4, 5, 6, 7, 8, 9},
               {},
-              -1,
-              bFalse /*run_sbs*/),
+              -1),
           grad_output{std::move(grad_output)},
           input{std::move(input)},
           weight{std::move(weight)} {}
@@ -2608,8 +2606,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
               inputs,
               metadata_indices,
               out_shapes,
-              -1,
-              bFalse /*run_sbs*/) {}
+              -1) {}
 
     std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
       auto inputs = get_inputs();
@@ -2701,12 +2698,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   std::vector<int64_t> shape_tensor_shape{5};
   using T = std::tuple<at::Tensor, at::Tensor>;
   LazyOp<T> k(
-      "hpu::nonzero",
-      {self},
-      {},
-      {output_shape, shape_tensor_shape},
-      0,
-      bFalse /*run_sbs*/);
+      "hpu::nonzero", {self}, {}, {output_shape, shape_tensor_shape}, 0);
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -6322,8 +6314,7 @@ at::Tensor ones_like_hpu_lazy(
       {self, dtype, layout, device, pin_memory, memory_format},
       {1, 2, 3, 4, 5},
       {},
-      0,
-      bFalse /*run_sbs*/);
+      0);
   return op.call();
 }
 

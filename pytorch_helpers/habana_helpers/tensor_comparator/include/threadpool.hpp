@@ -10,6 +10,10 @@
 #include <thread>
 #include <vector>
 
+/**
+ * @brief Used to run different compares in different threads
+ *
+ */
 class ThreadPool {
  public:
   ThreadPool(size_t);

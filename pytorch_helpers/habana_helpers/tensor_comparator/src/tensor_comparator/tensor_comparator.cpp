@@ -1,4 +1,5 @@
 #include <tensor_comparator.hpp>
+#include <future>
 #include <memory>
 #include <string>
 #include <utility>
@@ -39,6 +40,24 @@ bool TensorValidator::compare(
   if (blocking) {
     waitResults();
   }
+  return true;
+}
+
+bool TensorValidator::addComment(
+    const std::string& name,
+    const std::string& comment) {
+  FutureResult future = std::async(
+      std::launch::async,
+      [](std::string comment) {
+        ComparisonResult res;
+        res.SetComment(comment);
+
+        return res;
+      },
+      comment);
+
+  m_resultsWarehouse.add(name, std::move(future));
+
   return true;
 }
 

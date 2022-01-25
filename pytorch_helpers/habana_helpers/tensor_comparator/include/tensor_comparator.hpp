@@ -24,6 +24,8 @@ class TensorValidator {
       ComparisonMethods compareMethods,
       bool blocking = false);
 
+  bool addComment(const std::string& name, const std::string& comment);
+
   // bool validate(bool generate = false,  const std::string &out = "");
   void makeReport(const std::string& fileName, ExportType exportType = JSON);
 

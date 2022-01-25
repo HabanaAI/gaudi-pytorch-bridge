@@ -115,26 +115,24 @@ class LazyOp {
       const std::vector<at::IValue>& inputs,
       std::set<size_t> metadata_indices = {},
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0,
-      Bool run_sbs = bTrue) noexcept
+      int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     set_inputs(inputs);
   }
 
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes,
-      Bool run_sbs = bTrue) noexcept
+      std::vector<std::vector<int64_t>> out_shapes) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     set_inputs(inputs);
   }
 
@@ -144,12 +142,11 @@ class LazyOp {
       const std::function<
           std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
           out_shapes_fn,
-      int out_index = 0,
-      Bool run_sbs = bTrue) noexcept
+      int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_index{out_index},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     if (out_shapes_fn) {
       m_out_shapes = out_shapes_fn(inputs, false);
     }
@@ -160,12 +157,11 @@ class LazyOp {
       ir::NodePtr node,
       const std::vector<at::IValue>& inputs,
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0,
-      Bool run_sbs = bTrue)
+      int out_index = 0)
       : m_node{std::move(node)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -177,13 +173,12 @@ class LazyOp {
       const std::vector<at::IValue>& inputs,
       std::set<size_t> metadata_indices,
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0,
-      Bool run_sbs = bTrue)
+      int out_index = 0)
       : m_node{std::move(node)},
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -193,12 +188,11 @@ class LazyOp {
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      const at::TensorList& output_meta_tensors,
-      Bool run_sbs = bTrue) noexcept
+      const at::TensorList& output_meta_tensors) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{},
         m_out_meta_tensors{output_meta_tensors},
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     set_inputs(inputs);
 
     for (const auto& out : m_out_meta_tensors) {
@@ -210,14 +204,13 @@ class LazyOp {
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       std::vector<std::vector<int64_t>> out_shapes,
-      const c10::ScalarType scalar_type,
-      Bool run_sbs = bTrue) noexcept
+      const c10::ScalarType scalar_type) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
         m_scalar_type(scalar_type),
-        m_run_sbs{run_sbs == bTrue} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     set_inputs(inputs);
   }
 
@@ -648,17 +641,8 @@ class LazyOp {
       // Special handling for SBS in inplace, before the inplace op will
       // override the tensor
       if (is_inplace(m_symbol)) {
-        if (m_run_sbs &&
-            GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
-          auto inputs = get_inputs();
-          PT_LAZY_DEBUG(
-              "HandleLazy inplace: runSBS: inputs size=", inputs.size());
-          SBSRunner::populateInputForCPUOp(
-              inputs, node->GetMetaData(), sbs_stack);
-          PT_LAZY_DEBUG(
-              "HandleLazy inplace: runSBS: input stack size=",
-              sbs_stack.size());
-        }
+        m_sbs_runner->populateInputForCPUOp(
+            get_inputs(), node->GetMetaData(), sbs_stack);
       }
     } else {
       HandleViewsInplace(self, hl_self, force_flush);
@@ -844,8 +828,8 @@ class LazyOp {
       const at::TensorList results,
       const std::vector<at::IValue>& preallocated_stack =
           std::vector<at::IValue>()) {
-    if (m_run_sbs) {
-      SBSRunner::run(results, get_inputs(), preallocated_stack);
+    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
     }
   }
 
@@ -998,50 +982,6 @@ class LazyOp {
     return m_inputs;
   }
 
-  void handleTensorForCPUInput(
-      const at::Tensor& input,
-      std::vector<at::IValue>& inputs_modified) {
-    if (!input.defined()) {
-      // setting this undefined tensor, it's meant to be that way
-      inputs_modified.push_back(input);
-      return;
-    }
-    if (input.device().type() != c10::DeviceType::HPU) {
-      // a special case when tensor is still on CPU - see set_inputs()
-      inputs_modified.push_back(std::move(input.to(c10::kHPU)));
-      return;
-    }
-    auto hl_input = GetHbLazyTensor(input);
-    c10::optional<at::Tensor> pTensor = hl_input.GetCPUTensorData();
-    if ((pTensor != c10::nullopt) && hl_input.GetSBSLiveTensorIndication()) {
-      inputs_modified.push_back(std::move(pTensor.value().to(c10::kHPU)));
-    } else {
-      if (hl_input.GetSBSLiveTensorIndication()) {
-        PT_LAZY_WARN(
-            "SBS: Tensor is live (decision point), but has no CPU (SBS is not supported). Name: ",
-            hl_input.CurrentIrValue().ToString())
-      }
-      // There's no CPU input or this is not a decision point
-      // >> we'll take the HPU data
-      inputs_modified.push_back(std::move(input));
-    }
-  }
-
-  void setCPUInputs(const std::vector<at::IValue>& inputs) {
-    std::vector<at::IValue> inputs_modified;
-    for (auto& input : inputs) {
-      if (input.isTensor()) {
-        handleTensorForCPUInput(input.toTensor(), inputs_modified);
-      } else if (input.isTensorList()) {
-        for (const at::Tensor& tensor : input.toTensorList()) {
-          handleTensorForCPUInput(tensor, inputs_modified);
-        }
-      } else {
-        inputs_modified.push_back(std::move(input));
-      }
-    }
-  }
-
   void set_inputs(const std::vector<at::IValue>& inputs) {
     auto inputsHpu = inputs;
     for (auto& t : inputsHpu) { // Any tensor on CPU needs to be moved to HPU
@@ -1065,11 +1005,7 @@ class LazyOp {
         t = c10::IValue(tinput);
       }
     }
-    // PT_SBS=2 means inject CPU inputs to HPU
-    if (m_run_sbs &&
-        GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_USE_CPU_INPUT) {
-      setCPUInputs(inputsHpu);
-    }
+    m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
   }
 
@@ -1257,7 +1193,7 @@ class LazyOp {
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
-  const bool m_run_sbs;
+  const std::shared_ptr<SBSInterface> m_sbs_runner;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {

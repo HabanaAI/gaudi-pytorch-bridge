@@ -27,18 +27,70 @@ enum SBSModes : unsigned {
   SBS_MODE_USE_HPU_INPUT = 3
 };
 
-class SBSRunner {
+class SBSInterface {
  public:
-  static void populateInputForCPUOp(
+  static std::shared_ptr<SBSInterface> getSBSHandler(std::string op_type);
+
+  virtual void populateInputForCPUOp(
       const std::vector<at::IValue>& inputs,
       const ir::MetaData& metadata,
-      std::vector<at::IValue>& stack);
+      std::vector<at::IValue>& stack) = 0;
 
-  static void run(
+  virtual void setCPUInputs(const std::vector<at::IValue>& inputs) = 0;
+
+  virtual void run(
       at::TensorList results,
       const std::vector<at::IValue>& inputs,
       const std::vector<at::IValue>& prealloc_stack =
-          std::vector<at::IValue>());
+          std::vector<at::IValue>()) = 0;
+
+  bool LogError(
+      const std::string& op_name,
+      const std::string& message_short,
+      const std::string& message_detailed = "");
+
+ private:
+  static std::map<std::string, std::shared_ptr<SBSInterface>> m_special_sbs_ops;
 };
 
+class SBSDisabledOp : public SBSInterface {
+ public:
+  void populateInputForCPUOp(
+      UNUSED const std::vector<at::IValue>& inputs,
+      UNUSED const ir::MetaData& metadata,
+      UNUSED std::vector<at::IValue>& stack) override {}
+
+  void setCPUInputs(UNUSED const std::vector<at::IValue>& inputs) override {}
+
+  void run(
+      at::TensorList results,
+      UNUSED const std::vector<at::IValue>& inputs,
+      UNUSED const std::vector<at::IValue>& prealloc_stack) override;
+};
+
+class SBSRunner : public SBSInterface {
+ public:
+  void populateInputForCPUOp(
+      const std::vector<at::IValue>& inputs,
+      const ir::MetaData& metadata,
+      std::vector<at::IValue>& stack) override;
+
+  void setCPUInputs(const std::vector<at::IValue>& inputs) override;
+
+  void run(
+      at::TensorList results,
+      const std::vector<at::IValue>& inputs,
+      const std::vector<at::IValue>& prealloc_stack =
+          std::vector<at::IValue>()) override;
+
+ private:
+  at::IValue gatherInputForCPUOp(const at::Tensor& input, size_t index);
+  virtual at::Tensor prepareCPUTensor(const at::Tensor& tensor, size_t index);
+  virtual c10::Symbol buildCPUOpSymbol(const c10::Symbol& hpu_op);
+
+  std::shared_ptr<torch::jit::Operator> createCPUOperator(
+      std::string ir_name,
+      ir::NodePtr node,
+      const std::vector<at::IValue>& inputs);
+};
 } // namespace habana_lazy

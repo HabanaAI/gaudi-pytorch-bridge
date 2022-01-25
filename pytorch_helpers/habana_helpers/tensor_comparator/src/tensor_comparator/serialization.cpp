@@ -72,6 +72,8 @@ std::ostream& operator<<(std::ostream& stream, const ComparisonResult& result) {
     stream << e;
   }
 
+  stream << result.GetComment();
+
   return stream;
 }
 
@@ -80,6 +82,7 @@ std::ostream& operator<<(std::ostream& stream, const ResultMap& result) {
   for (auto& n : ComparisonMethodsNames) {
     stream << "," << n;
   }
+  stream << ",comment";
   stream << "\n";
 
   for (auto& e : result) {
@@ -94,6 +97,7 @@ std::ostream& operator<<(std::ostream& stream, const ResultVec& result) {
   for (auto& n : ComparisonMethodsNames) {
     stream << "," << n;
   }
+  stream << ",comment";
   stream << "\n";
 
   for (auto& e : result) {

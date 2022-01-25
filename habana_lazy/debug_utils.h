@@ -10,7 +10,6 @@
 #pragma once
 #include "aten_lazy_bridge.h"
 #include "hpu_lazy_tensors.h"
-#include "sbs_runner.h"
 #include "synapse_helpers/env_flags.h"
 #include "tensor_impl.h"
 // namespace habana_lazy
@@ -73,27 +72,4 @@ class DebugHelper {
   const size_t max_number_of_accumulated_ops;
 };
 
-class SBSDebug {
- public:
-  static SBSDebug& getInstance() {
-    static SBSDebug instance;
-    return instance;
-  }
-
-  void compare_tensors_cos(
-      at::Tensor hpu_res,
-      at::Tensor cpu_res,
-      const std::string& op_type);
-
-  void CompareTensors(std::vector<HbLazyTensor>& tensors);
-
- private:
-  SBSDebug();
-
-  const std::string m_report_file_name = "sbs_tensor_compare.csv";
-
- public:
-  SBSDebug(SBSDebug const&) = delete;
-  void operator=(SBSDebug const&) = delete;
-};
 } // namespace habana_lazy

@@ -85,8 +85,56 @@ class Optional {
   T m_val;
 };
 
+class ComparisonResult {
+  using ComparisonResultList = std::array<Optional, METHODS_MAX>;
+
+ public:
+  ComparisonResult() = default;
+
+  void SetComment(const std::string& comment) {
+    m_comment = comment;
+  }
+  const std::string& GetComment() const {
+    return m_comment;
+  }
+
+  ComparisonResultList::reference operator[](size_t index) {
+    return m_result[index];
+  }
+  ComparisonResultList::const_reference operator[](size_t index) const {
+    return m_result[index];
+  }
+  ComparisonResultList::pointer data() noexcept {
+    return m_result.data();
+  }
+  ComparisonResultList::const_pointer data() const noexcept {
+    return m_result.data();
+  }
+  ComparisonResultList::iterator begin() noexcept {
+    return m_result.begin();
+  }
+  ComparisonResultList::iterator end() noexcept {
+    return m_result.end();
+  }
+  ComparisonResultList::const_iterator begin() const noexcept {
+    return m_result.begin();
+  }
+  ComparisonResultList::const_iterator end() const noexcept {
+    return m_result.end();
+  }
+  ComparisonResultList::const_iterator cbegin() const noexcept {
+    return m_result.cbegin();
+  }
+  ComparisonResultList::const_iterator cend() const noexcept {
+    return m_result.cend();
+  }
+
+ private:
+  ComparisonResultList m_result;
+  std::string m_comment;
+};
+
 using ComparisonMethods = std::bitset<METHODS_MAX>;
-using ComparisonResult = std::array<Optional, METHODS_MAX>;
 using ResultKey = std::pair<int, std::string>;
 using ResultMap = std::map<std::string, ComparisonResult>;
 using ResultElem = std::pair<std::string, ComparisonResult>;
