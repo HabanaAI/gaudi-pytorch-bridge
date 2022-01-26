@@ -151,8 +151,6 @@ void WeightIdentificationPass::markInOutputs(const torch::jit::Value* in) {
     if (StridedKernels.count(node_str))
       continue;
     if (0 == kernelWeightIdx.count(node_str) &&
-        !(strcmp(node->kind().toQualString(), "hpu::control_edge_other_") ==
-          0) &&
         !(strcmp(node->kind().toQualString(), "prim::ListConstruct") == 0) &&
         !(strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0)) {
       for (auto& in1 : node->inputs()) {

@@ -64,6 +64,51 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
       ->run(*hlexec->get_graph());
 }
 
+TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
+  auto grad = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto wts = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto moments = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto epoch_num = torch::tensor({1});
+  auto lr = torch::tensor({0.01});
+
+  auto hgrad = grad.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
+    hgrad = grad_hwck.to(torch::kHPU);
+  }
+  auto hwts = wts.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
+    hwts = wts_hwck.to(torch::kHPU);
+  }
+  auto hmoments = moments.to(torch::kHPU);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
+    hmoments = moments_hwck.to(torch::kHPU);
+  }
+  auto hepoch_num = epoch_num.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+
+  TensorList hlgradients(hgrad);
+  TensorList hlweights(hwts);
+  TensorList hlmoments(hmoments);
+
+  torch::Tensor out1, out2;
+  auto t = optimizer_sgd_momentum_hpu_wrap(
+      hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
+
+  auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
+  auto h_in = in.to(torch::kHPU);
+  torch::Tensor result =
+      torch::conv2d(h_in, hwts, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+  // Sample optimizer+forward graph
+  HbLazyTensor::StepMarker({});
+}
+
 TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));

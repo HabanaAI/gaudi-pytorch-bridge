@@ -70,7 +70,7 @@ class WeightIdentificationPass {
 
   void weightMarker(const torch::jit::Value* weight_value) {
     weightTensors.insert(weight_value);
-    markInOutputs(weight_value);
+    markWeights(weight_value);
   }
 
  private:

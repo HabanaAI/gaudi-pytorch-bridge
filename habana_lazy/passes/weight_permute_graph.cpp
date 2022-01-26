@@ -393,16 +393,6 @@ void InsertWeightRestride_graph(
             0) {
           for (auto list_input_val : in_val->node()->inputs()) {
             torch::jit::Value* value_in = list_input_val;
-            if (isInGraphInputs(graph, list_input_val)) {
-              value_in = list_input_val;
-            } else if ((strcmp(
-                            value_in->node()->kind().toQualString(),
-                            "hpu::control_edge_") == 0)) {
-              auto list_input_node = list_input_val->node();
-              if (isInGraphInputs(graph, list_input_node->input(0))) {
-                value_in = list_input_node->input(0);
-              }
-            }
             if (value_in) {
               if (*value_in->type()->cast<TensorType>()->dim() == 4 ||
                   *value_in->type()->cast<TensorType>()->dim() == 5) {

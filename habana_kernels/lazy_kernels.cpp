@@ -6873,36 +6873,21 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
-  std::vector<at::Tensor> pweights;
   for (size_t i = 0; i < weights.size(); i++) {
-    auto weight_hwck = permute_wt_hpu(weights[i]);
-    pweights.push_back(weight_hwck);
-  }
-  TensorList weights_hwck(pweights);
-
-  for (size_t i = 0; i < weights_hwck.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights_hwck[i]);
-    updateDstDependencies(hlweight, weights_hwck[i], true);
+    auto hlweight = GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hlweight, weights[i], true);
 
     auto hlmomentum = GetHbLazyTensor(momentum[i]);
     updateDstDependencies(hlmomentum, momentum[i], true);
   }
 
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedSGDMomentum>(
-      gradients,
-      weights_hwck,
-      momentum,
-      epoch_num,
-      lr,
-      wd,
-      mom,
-      damp,
-      nesterov);
+      gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
 
   int64_t out_index = 0;
-  HABANA_ASSERT(weights_hwck.size() == momentum.size());
+  HABANA_ASSERT(weights.size() == momentum.size());
 
-  auto hlweight = GetHbLazyTensor(weights_hwck[0]);
+  auto hlweight = GetHbLazyTensor(weights[0]);
   ir::Value& out = hlweight.CurrentIrValue();
   node->set_as_output_tensor_list();
   out.SetNode(
@@ -6913,8 +6898,8 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
 
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
-  for (size_t i = 0; i < weights_hwck.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights_hwck[i]);
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = GetHbLazyTensor(weights[i]);
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.SetNode(
         node_unpack,
