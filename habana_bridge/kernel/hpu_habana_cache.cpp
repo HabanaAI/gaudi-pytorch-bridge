@@ -520,6 +520,8 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
+      } else {
+        dtensorinfos->at(ridx)->set_host_ptr(impl->get_host_ptr());
       }
       ridx++;
     } else if (input.isTensorList()) {
@@ -818,6 +820,15 @@ void RecipeValueSpec::patch_launch_info(
             0,
             ti.tensor_type(),
             {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+            tensor_ids[tensor_idx++]});
+        break;
+      }
+      case HOST_TO_DEVICE_TENSOR: {
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+            ti.get_syn_namec_str(),
+            ti.get_host_ptr(),
+            ti.tensor_type(),
+            {},
             tensor_ids[tensor_idx++]});
         break;
       }

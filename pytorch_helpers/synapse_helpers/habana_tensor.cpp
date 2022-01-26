@@ -63,6 +63,9 @@ std::ostream& operator<<(
     case DEVICE_SHAPE_TENSOR:
       out << "DEVICE_SHAPE_TENSOR";
       break;
+    case HOST_TO_DEVICE_TENSOR:
+      out << "HOST_TO_DEVICE_TENSOR";
+      break;
     case TENSOR_TYPE_MAX:
     default:
       HABANA_ASSERT(false);
@@ -294,6 +297,7 @@ synapse_error_o tensor::create() {
   if (GET_ENV_FLAG_NEW(PT_HPU_INTERNAL_OLD_SYNAPI)) {
     return create_old_synapi();
   }
+
   synStatus status;
   // Create the synTensor handle, with the given tensor type and name
   status = synTensorHandleCreate(
@@ -317,6 +321,12 @@ synapse_error_o tensor::create() {
   status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetGeometry failed.", status, cleanup());
+
+  if (is_host_to_device_tensor()) {
+    status = synTensorSetHostPtr(
+        tensor_, host_ptr_, total_size_bytes_ * 2, data_type_, false);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
+  }
 
   // Add strides and datatype.
   // As of now synapse supports only default strides -

@@ -272,6 +272,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_DYNAMIC_MIN_POLICY_DEFAULT, unsigned, 3);
 ENV_STRUCT_DEFINITION(PT_HPU_DYNAMIC_MAX_POLICY_DEFAULT, unsigned, 2);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, bool, false);
 
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes

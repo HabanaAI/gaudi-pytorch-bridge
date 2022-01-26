@@ -37,6 +37,7 @@ class TensorShape {
   std::vector<int64_t> get_dims() const {
     return m_sizes;
   }
+
   bool empty() const {
     return (m_dim == 0);
   }
@@ -45,6 +46,7 @@ class TensorShape {
     m_sizes[dim] = size;
   }
   void set_size(const std::vector<int64_t>& sizes);
+
   void set_scalar_type(at::ScalarType scalar_type) {
     is_scalar_initialized = true;
     scalar_type_ = scalar_type;

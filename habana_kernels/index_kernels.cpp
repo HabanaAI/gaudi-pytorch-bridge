@@ -31,6 +31,8 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/tensor_impl.h"
 #include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
@@ -2520,6 +2522,195 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   }
 }
 
+template <typename T>
+std::vector<T> get_start_step_end(const IntArrayRef& shape) {
+  HABANA_ASSERT(shape.size() == 1);
+  std::vector<int32_t> data = {0, static_cast<int32_t>(shape[0]), 1};
+  std::vector<T> d;
+  for (size_t i = 0; i < 3; ++i) {
+    d.emplace_back(static_cast<T>(data[i]));
+  }
+  return d;
+}
+
+void ArangeOperatorHT::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4 || inputs.size() == 3,
+      "Incorrect size of inputs expected for Arange operator");
+  // inputs size == 2 when the idst tensor is added from frontend.
+  if (inputs.size() == 3) {
+    TORCH_CHECK(
+        inputs[0].isTensor(),
+        "Input arg0 expected to be tensor for Arange operator");
+    TORCH_CHECK(
+        inputs[1].isTensor(),
+        "Input arg1 expected to be tensor for Arange operator");
+    TORCH_CHECK(
+        inputs[2].isTensor(),
+        "Input arg2 expected to be tensor for Arange operator");
+    TORCH_CHECK(p_context_->syn_inputs_[0].ref().is_host_to_device_tensor());
+    kernel_meta_data_.tpc_input_order = {0};
+    auto output_shape_tensor = inputs[2].toTensor();
+
+    auto result = inputs[1].toTensor();
+    if (result.scalar_type() == ScalarType::Float) {
+      SetGuid("range_f32");
+    } else {
+      SetGuid("range_i32");
+    }
+
+    at::Tensor host_tensor = inputs[0].toTensor();
+    auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+    HABANA_ASSERT(impl);
+
+    if (impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T) {
+      if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+        auto data = get_start_step_end<int32_t>(output_shape_tensor.sizes());
+        impl->set_min<int32_t>(data);
+      } else if (
+          habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+        auto data = get_start_step_end<int32_t>(output_shape_tensor.sizes());
+        impl->set_max<int32_t>(data);
+      }
+    } else if (impl->get_host_dt_type() == habana_lazy::HostDataType::FLOAT_T) {
+      if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+        auto data = get_start_step_end<float>(result.sizes());
+        impl->set_min<float>(data);
+      } else if (
+          habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+        auto data = get_start_step_end<float>(result.sizes());
+        impl->set_max<float>(data);
+      }
+    }
+
+    HABANA_ASSERT(
+        result.scalar_type() == ScalarType::Int ||
+        result.scalar_type() == ScalarType::Float ||
+        result.scalar_type() == ScalarType::BFloat16);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(p_context_->syn_inputs_[1]));
+    p_context_->syn_inputs_.pop_back();
+    p_context_->pt_outputs_.emplace_back(result);
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    TORCH_CHECK(
+        inputs[3].isTensor(),
+        "Input arg0 expected to be tensor for Arange operator");
+    TORCH_CHECK(
+        inputs[0].isScalar(),
+        "Input arg1 expected to be Scalar for Arange operator");
+    TORCH_CHECK(
+        inputs[1].isScalar(),
+        "Input arg2 expected to be Scalar for Arange operator");
+    TORCH_CHECK(
+        inputs[2].isScalar(),
+        "Input arg3 expected to be Scalar for Arange operator");
+
+    auto result = inputs[3].toTensor();
+    auto start = inputs[0].toScalar();
+    auto end = inputs[1].toScalar();
+    auto step = inputs[2].toScalar();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(p_context_->syn_inputs_[0]));
+    p_context_->pt_outputs_.emplace_back(result);
+
+    // Adding a clear for inputs as arange TPC kernel expects no inputs
+    // but graph mode call creates a syn tensor anyway, which causes a
+    // synapse graph compilation failure
+    p_context_->syn_inputs_.clear();
+
+    ns_RangeKernel::Params param;
+    if (result.scalar_type() == ScalarType::Float ||
+        result.scalar_type() == ScalarType::BFloat16) {
+      param.start.f = static_cast<float>(start.to<double>());
+      param.limit.f = static_cast<float>(end.to<double>());
+      param.delta.f = static_cast<float>(step.to<double>());
+    } else {
+      param.start.i = static_cast<int>(start.to<int>());
+      param.limit.i = static_cast<int>(end.to<int>());
+      param.delta.i = static_cast<int>(step.to<int>());
+      SetGuid("range_i32");
+
+      // Allocate idst if its not added from frontend.
+      if (graph.is_dynamic_graph()) {
+        std::vector<int64_t> sizes_vec{
+            step.toInt(), end.toInt(), start.toInt()};
+        IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
+        auto idst_tensor = habana_helpers::createPTTensor(
+            result,
+            idst_sizes,
+            result.options(),
+            result.suggest_memory_format(),
+            c10::ScalarType::Int,
+            false);
+        AllocateSynapseShapeTensor(
+            graph, idst_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
+      }
+    }
+
+    // If datatype is int/bf16/fp32 , no cast node is required
+    if (result.scalar_type() == ScalarType::Int ||
+        result.scalar_type() == ScalarType::Float ||
+        result.scalar_type() == ScalarType::BFloat16) {
+      AddNodeToSynapseGraph(graph, &param, sizeof(param));
+    } else {
+      // For datatypes Char, Bool one additional cast node is
+      // required. Arange kernel return i32 output node Cast kernel will convert
+      // i32 -> (i8)
+
+      auto output_range = habana_helpers::createPTTensor(
+          result,
+          result.sizes(),
+          result.options(),
+          result.suggest_memory_format(),
+          c10::ScalarType::Int,
+          false);
+
+      AllocateSynapseOutput(graph, output_range, OutputMetaData());
+      synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
+
+      std::vector<synTensor> syn_in{};
+      std::vector<synTensor> syn_out{synOutput.get()};
+
+      // range_i32
+      graph.add_node(
+          std::move(syn_in),
+          std::move(syn_out),
+          &param,
+          sizeof(param),
+          std::move(guid_));
+
+      // respective cast node
+      std::string node_type = "cast_i32_to_i8";
+
+      // Create cast operator
+      auto castOp = make_operator<CastOutOperator>(
+          this->p_context_->device_id_, node_type);
+
+      // Build Params for the graph
+      torch::jit::Stack stack = {IValue(output_range), IValue(result)};
+      // syn_output_[1] is the output of range node
+      castOp->SetSynapseInput(p_context_->syn_outputs_[1]);
+      // syn_output_[0] is the original Out result tensor
+      castOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+
+      castOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+      // There are 2 outputs {result, rangeOut}, we need only one {result}
+      p_context_->syn_outputs_.pop_back();
+      p_context_->pt_outputs_.pop_back();
+      p_context_->pt_outputs_[0] = std::move(castOp->GetOutputs()[0]);
+    }
+  }
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.arange operator
  * @param output - output tensor
@@ -3030,4 +3221,5 @@ static auto& KernelRegistry =
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
+        .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
         .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator));

@@ -222,4 +222,94 @@ HbInternalTensorImpl::HbInternalTensorImpl(
               at::DispatchKey::HPU,
               at::DispatchKey::AutogradHPU},
           data_type) {}
+
+void HbInternalTensorImpl::set_host_data(
+    void* d,
+    int size,
+    int el_size,
+    HostDataType dt_type) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  id_ = device.id();
+  int total_elem = 2 * size * el_size;
+  int data_size = size * el_size;
+  auto err = synHostMalloc(id_, total_elem, 0, &host_ptr_);
+  HABANA_ASSERT(err != synOutOfHostMemory);
+  err = synHostMalloc(id_, total_elem, 0, &compile_host_ptr_);
+  HABANA_ASSERT(err != synOutOfHostMemory);
+  memcpy(host_ptr_, d, data_size);
+  char* ptr = static_cast<char*>(host_ptr_) + data_size;
+  memcpy(ptr, d, data_size);
+  memcpy(
+      static_cast<char*>(compile_host_ptr_),
+      static_cast<char*>(host_ptr_),
+      total_elem);
+
+  total_elem_ = total_elem;
+  size_ = size;
+  el_size_ = el_size;
+  dt_type_ = dt_type;
+}
+
+void* HbInternalTensorImpl::get_host_ptr() const {
+  return host_ptr_;
+}
+
+void* HbInternalTensorImpl::get_compile_host_ptr() const {
+  return compile_host_ptr_;
+}
+
+size_t HbInternalTensorImpl::get_host_size() const {
+  return total_elem_;
+}
+
+size_t HbInternalTensorImpl::get_host_el_size() const {
+  return el_size_;
+}
+
+HostDataType HbInternalTensorImpl::get_host_dt_type() const {
+  return dt_type_;
+}
+
+template <typename T>
+void HbInternalTensorImpl::get_host_data(std::vector<T>& data) {
+  uint64_t host_ptr = reinterpret_cast<uint64_t>(host_ptr_);
+  for (size_t i = 0; i < size_; ++i) {
+    T* d = reinterpret_cast<T*>(host_ptr);
+    data.emplace_back(*d);
+    host_ptr += el_size_;
+  }
+}
+
+template void HbInternalTensorImpl::get_host_data(std::vector<int64_t>& data);
+template void HbInternalTensorImpl::get_host_data(std::vector<uint64_t>& data);
+template void HbInternalTensorImpl::get_host_data(std::vector<int32_t>& data);
+template void HbInternalTensorImpl::get_host_data(std::vector<float>& data);
+
+template <typename T>
+void HbInternalTensorImpl::set_max(const std::vector<T>& d) {
+  HABANA_ASSERT(d.size() == size_);
+  HABANA_ASSERT(sizeof(T) == el_size_);
+  size_t data_size = size_ * el_size_;
+  memcpy(compile_host_ptr_, (void*)d.data(), data_size);
+}
+
+template <typename T>
+void HbInternalTensorImpl::set_min(const std::vector<T>& d) {
+  HABANA_ASSERT(d.size() == size_);
+  HABANA_ASSERT(sizeof(T) == el_size_);
+  size_t data_size = size_ * el_size_;
+  char* ptr = static_cast<char*>(compile_host_ptr_) + data_size;
+  memcpy(ptr, (void*)d.data(), data_size);
+}
+
+template void HbInternalTensorImpl::set_min(const std::vector<int64_t>& d);
+template void HbInternalTensorImpl::set_min(const std::vector<uint64_t>& d);
+template void HbInternalTensorImpl::set_min(const std::vector<int32_t>& d);
+template void HbInternalTensorImpl::set_min(const std::vector<float>& d);
+
+template void HbInternalTensorImpl::set_max(const std::vector<int64_t>& d);
+template void HbInternalTensorImpl::set_max(const std::vector<uint64_t>& d);
+template void HbInternalTensorImpl::set_max(const std::vector<int32_t>& d);
+template void HbInternalTensorImpl::set_max(const std::vector<float>& d);
+
 } // namespace habana_lazy

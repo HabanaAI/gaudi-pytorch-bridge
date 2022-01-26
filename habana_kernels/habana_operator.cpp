@@ -134,7 +134,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    synTensorType shape_tensor_type) {
+    synTensorType shape_tensor_type,
+    void* host_ptr) {
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
 
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {
@@ -158,7 +159,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     }
   } else {
     auto syn_shape_input = habana_helpers::create_shape_tensor(
-        input, graph, is_persistent, shape_tensor_type);
+        input, graph, is_persistent, shape_tensor_type, "", host_ptr);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
   if (!graph.is_dry_run()) {
@@ -184,12 +185,14 @@ void habana::HabanaOperator::AllocateSynapseInputs(
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
-    synTensorType shape_tensor_type) {
+    synTensorType shape_tensor_type,
+    void* host_ptr) {
   HABANA_ASSERT(
       shape_tensor_type == SHAPE_TENSOR ||
+      shape_tensor_type == HOST_TO_DEVICE_TENSOR ||
       shape_tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR);
   auto syn_shape_input = habana_helpers::create_shape_tensor(
-      input, graph, false, shape_tensor_type);
+      input, graph, false, shape_tensor_type, "", host_ptr);
   p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   if (!graph.is_dry_run()) {
     PT_DYNAMIC_SHAPE_DEBUG(

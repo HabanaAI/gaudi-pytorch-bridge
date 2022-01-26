@@ -158,7 +158,8 @@ synapse_helpers::tensor create_shape_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
-    const std::string& name = std::string());
+    const std::string& name = std::string(),
+    void* host_ptr = nullptr);
 
 /**
 @brief This function can be used to create an intermediate

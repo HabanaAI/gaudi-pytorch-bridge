@@ -458,8 +458,9 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
+    void* host_ptr = impl->get_compile_host_ptr();
     auto& syn_tensor = habana_op->AllocateSynapseInput(
-        *syn_graph_ptr, pt_tensor, true, impl->getTensorType());
+        *syn_graph_ptr, pt_tensor, true, impl->getTensorType(), host_ptr);
     return syn_tensor;
   } else {
     habana_helpers::TensorShape min_shape, max_shape;
@@ -523,6 +524,11 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         watch_tensor_flag_,
         syn_tensor.id(),
         syn_tensor.tensor_type());
+
+    auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+    if (impl) {
+      ti->set_host_ptr(impl->get_host_ptr());
+    }
     tiv.push_back(ti);
     ivalue_to_tensor_info_map[ivalue] = ti;
 
@@ -1674,7 +1680,6 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
           dynamic_shapes.at(i).get_dims(),
           tensor.options(),
           tensor.suggest_memory_format());
-
       /*
        * Every new tensor is created using Habana Tensor Implementer.
        * Ensure propogation of shape tensor information for the new
@@ -2175,6 +2180,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
     std::string error_str;
     try {
+      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
       cur_ds_token_ = new_bucket.getToken();
@@ -2239,6 +2245,7 @@ void HabanaLaunchOpPT::run_shape_inference(
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   std::vector<IValPtrShared> old_pt_stack_sh;
+  m_map_shape.m_pass = pass;
   if ((pass == ShapeInfo::InferencePass::MIN_SHAPE) ||
       (pass == ShapeInfo::InferencePass::MAX_SHAPE)) {
     old_stack = pt_stack;
@@ -2257,7 +2264,6 @@ void HabanaLaunchOpPT::run_shape_inference(
       pt_stack_sh.push_back(ivpsh);
     }
   }
-  m_map_shape.m_pass = pass;
   bool throw_exception = false;
   std::string error_str;
   try {
@@ -2481,6 +2487,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       handle_pass_exception(graph_input_info, p);
     }
   } else {
+    m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
     auto syn_graph =
         habana_helpers::create_graph(device.id(), GetSynapseGraphName());
     syn_graph.set_dynamic_graph(is_dynamic_graph);

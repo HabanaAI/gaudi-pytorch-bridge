@@ -216,7 +216,8 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& input,
       bool is_persistent = false,
-      synTensorType shape_tensor_type = DATA_TENSOR);
+      synTensorType shape_tensor_type = DATA_TENSOR,
+      void* host_ptr = nullptr);
 
   //
   // Method to add a single shape tensor to graph builder context, also
@@ -225,7 +226,8 @@ class HabanaOperator {
   virtual synapse_helpers::tensor& AllocateSynapseShapeTensor(
       synapse_helpers::graph& graph,
       const at::Tensor& input,
-      synTensorType shape_tensor_type = SHAPE_TENSOR);
+      synTensorType shape_tensor_type = SHAPE_TENSOR,
+      void* host_ptr = nullptr);
 
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add

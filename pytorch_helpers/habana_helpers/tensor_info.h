@@ -228,6 +228,14 @@ class PtTensorInfo {
     return is_external_;
   }
 
+  void set_host_ptr(void* host_ptr) {
+    host_ptr_ = host_ptr;
+  }
+
+  uint64_t get_host_ptr() const {
+    return reinterpret_cast<uint64_t>(host_ptr_);
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};
@@ -265,6 +273,8 @@ class PtTensorInfo {
   size_t dma_tensor_idx_{ULONG_MAX};
   getDMAInputTensorCBType dma_cb_{nullptr};
   uint64_t tensor_id_{synapse_helpers::INVALID_SYN_TENSOR_ID};
+
+  void* host_ptr_{nullptr};
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,

@@ -89,6 +89,10 @@ class ShapeInference {
     return false;
   }
 
+  static ShapeInfo::InferencePass GetCurrentPass() {
+    return m_shape_info->m_pass;
+  }
+
  private:
   /*
    * Stores all the shape information

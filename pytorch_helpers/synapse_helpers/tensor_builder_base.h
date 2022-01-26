@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #pragma once
-
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <algorithm>
@@ -224,6 +223,15 @@ class tensor_builder_base {
     data_type_ = syn_type_uint32;
     // device shape tensors are still 5-element (SYN_MAX_TENSOR_DIM)
     return with_shape(tensor::shape_t(1_D, {SYN_MAX_TENSOR_DIM}));
+  }
+
+  ConcreteBuilder& mark_host_to_device_tensor(void* host_ptr) {
+    HABANA_ASSERT(host_ptr != nullptr);
+    tensor_type_ = HOST_TO_DEVICE_TENSOR;
+    host_ptr_ = host_ptr;
+    data_type_ = syn_type_int32;
+    is_persistent_ = true;
+    return static_cast<ConcreteBuilder&>(*this);
   }
 
   // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove

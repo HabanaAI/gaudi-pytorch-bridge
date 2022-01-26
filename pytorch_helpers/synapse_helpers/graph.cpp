@@ -358,17 +358,33 @@ synapse_error_o graph::launch(
   auto workspace_buffer = device.get_workspace_buffer(workspace_size);
   std::vector<device_ptr> addresses(
       inputs_and_outputs_info.size(), device_nullptr);
+  std::unordered_map<uint64_t, uint64_t> host_address_map;
+  uint64_t index = 0;
   std::transform(
       inputs_and_outputs_info.begin(),
       inputs_and_outputs_info.end(),
       addresses.begin(),
-      [](const synLaunchTensorInfo& info) { return info.pTensorAddress; });
+      [&](const synLaunchTensorInfo& info) {
+        if (info.tensorType != HOST_TO_DEVICE_TENSOR) {
+          return info.pTensorAddress;
+        } else {
+          host_address_map[index] = info.pTensorAddress;
+          return static_cast<uint64_t>(0);
+        }
+        index++;
+      });
   {
     address_lock = absl::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
     auto iter = inputs_and_outputs_info.begin();
+    size_t index = 0;
     for (auto address : *address_lock) {
-      iter->pTensorAddress = address;
+      if (host_address_map.count(index)) {
+        iter->pTensorAddress = host_address_map[index];
+      } else {
+        iter->pTensorAddress = address;
+      }
+      ++index;
       ++iter;
     }
 

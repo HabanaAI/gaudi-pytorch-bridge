@@ -419,6 +419,19 @@ class ArangeOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
+//
+// Arange Operator
+class ArangeOperatorHT : public ArangeOperator {
+ public:
+  ArangeOperatorHT(int device_id, c10::ScalarType scalarType)
+      : ArangeOperator(device_id, scalarType) {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 class IndexOperator : public HabanaOperator {
  public:
   IndexOperator(int device_id, c10::ScalarType scalarType)

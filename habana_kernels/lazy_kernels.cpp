@@ -3692,12 +3692,148 @@ bool can_convert(const Scalar& value) {
   return true;
 }
 
+Tensor& arange_hpu_lazy_ht(
+    Tensor& output,
+    const Scalar& start,
+    const Scalar& end,
+    const Scalar& step) {
+  PT_LAZY_TRACE;
+  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
+
+  // resizing the output as it is coming as empty from model
+  int out_depth = ArangeOperator::GetOutputSize(start, end, step);
+  auto out_shape = DimVector({out_depth});
+  auto out_reshaped = hl_result.getAttachedTensorImpl();
+  THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+
+  ir::NodePtr node;
+  std::vector<at::Tensor> input_pt_vec;
+
+  // Currently synapse support dynamic shape arange only for int datatypes.
+  // For any other output datatype, will fallback to normal flow.
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      ((start.isIntegral(false) || can_convert(start)) &&
+       (end.isIntegral(false) || can_convert(end)) &&
+       (step.isIntegral(false) || can_convert(step)))) {
+    std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
+    auto params_shape = empty_hpu_lazy(
+        params_vec.size(),
+        output.options(),
+        output.suggest_memory_format(),
+        false,
+        HOST_TO_DEVICE_TENSOR);
+    auto hl_params_shape = GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
+
+    auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+    habana_lazy::HbInternalTensorImpl* impl =
+        habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+    HABANA_ASSERT(impl);
+    impl->set_host_data(
+        params_vec.data(),
+        params_vec.size(),
+        sizeof(int),
+        HostDataType::INT32_T);
+
+    // Create a dummy shape tensor for the output, this shape tensor is not
+    // added to synapse graph, but only ensures that when we match in bucket
+    // we are restricted by the size of the output
+    auto result_shape = empty_hpu_lazy(
+        out_shape,
+        output.options(),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+    auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
+
+    if (output.scalar_type() == c10::ScalarType::Int ||
+        output.scalar_type() == c10::ScalarType::Long) {
+      node = ir::Node::Create(
+          Symbol::fromQualString("hpu::arange_out_ds_ht"),
+          {hl_params_shape.GetIrValue(),
+           hl_result.GetIrValue(),
+           hl_result_shape.GetIrValue()});
+      ir::Value& out = hl_result.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional());
+      input_pt_vec.emplace_back(output);
+      input_pt_vec.emplace_back(params_shape);
+      input_pt_vec.emplace_back(result_shape);
+      node->AddInputPtTensors(input_pt_vec);
+    } else {
+      // If result is not int, capture the result in int and add cast node
+      auto int_output = empty_hpu_lazy(
+          IntArrayRef(out_shape),
+          output.options().dtype(c10::ScalarType::Int),
+          output.suggest_memory_format(),
+          true);
+      auto hl_int_output = GetOrCreateHbLazyTensor(int_output, c10::kHPU);
+      node = ir::Node::Create(
+          Symbol::fromQualString("hpu::arange_out_ds_ht"),
+          {hl_params_shape.GetIrValue(),
+           hl_int_output.GetIrValue(),
+           hl_result_shape.GetIrValue()});
+      ir::Value& out = hl_int_output.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_int_output.GetDevice(),
+          hl_int_output.GetSizes(),
+          hl_int_output.dtype_optional());
+      input_pt_vec.emplace_back(int_output);
+      input_pt_vec.emplace_back(params_shape);
+      input_pt_vec.emplace_back(result_shape);
+      node->AddInputPtTensors(input_pt_vec);
+
+      // Add cast node to cast int_output as required
+      ir::Value& out_cast = hl_result.CurrentIrValue();
+      ir::NodePtr node_cast =
+          std::make_shared<ir::Cast>(int_output, output.scalar_type(), true);
+      out_cast.SetNode(
+          node_cast,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional());
+    }
+    // updatet the view if any
+    updateDstDependencies(hl_result, output);
+    flush_op(output);
+    return output;
+  }
+  auto hl_start = GetIrValueForScalar(start);
+  auto hl_end = GetIrValueForScalar(end);
+  auto hl_step = GetIrValueForScalar(step);
+  node = ir::Node::Create(
+      Symbol::fromQualString("hpu::arange_out"),
+      {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
+
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  input_pt_vec.emplace_back(output);
+  node->AddInputPtTensors(input_pt_vec);
+  // updatet the view if any
+  updateDstDependencies(hl_result, output);
+  flush_op(output);
+  return output;
+}
+
 Tensor& arange_hpu_lazy(
     Tensor& output,
     const Scalar& start,
     const Scalar& end,
     const Scalar& step) {
   PT_LAZY_TRACE;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)) {
+    return arange_hpu_lazy_ht(output, start, end, step);
+  }
+
   auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
 
   // resizing the output as it is coming as empty from model

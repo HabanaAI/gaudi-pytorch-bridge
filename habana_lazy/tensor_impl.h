@@ -73,12 +73,27 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   HbLazyTensor m_tensor;
 };
 
+enum class HostDataType {
+  INVALID_T = 0,
+  INT32_T = 1,
+  UINT32_T = 2,
+  UINT64_T = 3,
+  FLOAT_T = 4
+};
+
 // Habana internal TensorImpl
 class HbInternalTensorImpl : public c10::TensorImpl {
  public:
   HbInternalTensorImpl(
       c10::Storage&& tensor_storage,
       const caffe2::TypeMeta& data_type);
+
+  ~HbInternalTensorImpl() {
+    if (host_ptr_ || compile_host_ptr_) {
+      synHostFree(id_, host_ptr_, 0);
+      synHostFree(id_, compile_host_ptr_, 0);
+    }
+  }
 
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
@@ -102,9 +117,34 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     return m_tensor_type;
   }
 
+  void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
+  // void set_host_data(std::vector<int32_t> d);
+  void* get_host_ptr() const;
+  void* get_compile_host_ptr() const;
+  size_t get_host_size() const;
+  size_t get_host_el_size() const;
+  HostDataType get_host_dt_type() const;
+
+  template <typename T>
+  void set_min(const std::vector<T>& d);
+  template <typename T>
+  void set_max(const std::vector<T>& d);
+  template <typename T>
+  void get_host_data(std::vector<T>& data);
+  /*template <typename T>
+  void set_min_max(const std::vector<T>& min, const std::vector<T>& max);*/
+
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
+
+  void* host_ptr_ = nullptr;
+  void* compile_host_ptr_ = nullptr;
+  size_t size_;
+  size_t total_elem_;
+  size_t el_size_;
+  int id_;
+  HostDataType dt_type_;
 };
 
 } // namespace habana_lazy

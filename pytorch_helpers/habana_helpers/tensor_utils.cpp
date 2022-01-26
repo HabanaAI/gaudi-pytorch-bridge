@@ -582,6 +582,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   if (min.size() && max.size() && (min != max)) {
+    // if the min represents the max value and if the max represents the min
+    // value, swap them during tensor creation
+    if (min > max) {
+      std::swap(min, max);
+    }
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -646,6 +651,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   if (min.size() && max.size() && (min != max)) {
+    // if the min represents the max value and if the max represents the min
+    // value, swap them during tensor creation
+    if (min > max) {
+      std::swap(min, max);
+    }
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -724,6 +734,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   if (min.size() && max.size() && (min != max)) {
+    // if the min represents the max value and if the max represents the min
+    // value, swap them during tensor creation
+    if (min > max) {
+      std::swap(min, max);
+    }
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -765,7 +780,8 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
-    const std::string& name) {
+    const std::string& name,
+    void* host_ptr) {
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -789,6 +805,11 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   }
 
   if (min.size() && max.size() && (min != max)) {
+    // if the min represents the max value and if the max represents the min
+    // value, swap them during tensor creation
+    if (min > max) {
+      std::swap(min, max);
+    }
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     auto builder = synapse_helpers::tensor_builder(
@@ -804,6 +825,9 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         break;
       case INPUT_DESCRIBING_SHAPE_TENSOR:
         builder.mark_input_describing_shape_tensor();
+        break;
+      case HOST_TO_DEVICE_TENSOR:
+        builder.mark_host_to_device_tensor(host_ptr);
         break;
       default:
         HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -835,6 +859,9 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
       break;
     case INPUT_DESCRIBING_SHAPE_TENSOR:
       builder.mark_input_describing_shape_tensor();
+      break;
+    case HOST_TO_DEVICE_TENSOR:
+      builder.mark_host_to_device_tensor(host_ptr);
       break;
     default:
       HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -1445,6 +1472,7 @@ bool habana_helpers::is_shape_tensor(synTensorType shape_tensor) {
     case INPUT_DESCRIBING_SHAPE_TENSOR:
     case DEVICE_SHAPE_TENSOR:
     case HOST_SHAPE_TENSOR:
+    case HOST_TO_DEVICE_TENSOR:
       return true;
     default:
       return false;
