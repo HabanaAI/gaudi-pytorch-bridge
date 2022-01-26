@@ -81,13 +81,29 @@ class HbExecutionContext {
   void UnregisterTensor(Data* data);
   const LazyExecutionMode& getExecutionMode();
   void setExecutionMode(LazyExecutionMode mode);
-  void MarkTensorsExecuted(bool check_executing = true) {
-    for (auto& tensor : m_tensor_execution_status) {
-      // Mark all the tensors in executing state as done
-      if (!check_executing || tensor.second == kEXECUTING) {
-        tensor.second = kEXECUTION_COMPLETE;
-      }
+  void MarkTensorsExecuted() {
+    std::for_each(
+        m_tensor_execution_status.begin(),
+        m_tensor_execution_status.end(),
+        [](std::pair<const int64_t, LazyTensorExecutionStatus>& p) {
+          if (p.second == kEXECUTING)
+            p.second = kEXECUTION_COMPLETE;
+        });
+  }
+  void MarkTensorsExecuted(const std::vector<uint64_t>& indices) {
+    std::lock_guard<std::recursive_mutex> lock(
+        HbContextArena::Get()->GetMutex());
+    for (const auto& k : indices) {
+      m_tensor_execution_status.at(k) = kEXECUTION_COMPLETE;
     }
+  }
+  void MarkAllTensorsExecuted() {
+    std::for_each(
+        m_tensor_execution_status.begin(),
+        m_tensor_execution_status.end(),
+        [](std::pair<const int64_t, LazyTensorExecutionStatus>& p) {
+          p.second = kEXECUTION_COMPLETE;
+        });
   }
   void MarkTensorExecuting(int64_t tensor_id);
   void MarkTensorExecuted(int64_t tensor_id);

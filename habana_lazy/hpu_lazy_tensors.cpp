@@ -264,7 +264,7 @@ void HbLazyTensor::MarkStep(const c10::Device& device) {
   HbContextArena::Get()->MarkStep(device);
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       device.index());
-  context->MarkTensorsExecuted(false);
+  context->MarkAllTensorsExecuted();
 }
 
 bool HbLazyTensor::isStorageAttached() {
@@ -588,7 +588,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // synapse lowering, therefore allocate memory which is max of input
   // and output size.
   stack.reserve(std::max(po_data.inputs.size(), po_data.outputs.size()));
-
+  std::vector<uint64_t> executing_indices;
   for (const auto& in : po_data.inputs) {
     // PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
     if (!in.DataPtrValidAndNotExpired()) {
@@ -613,6 +613,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d->unique_id);
+    executing_indices.push_back(d->unique_id);
   }
 
   hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
@@ -636,6 +637,12 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         ir::Value val = tensor.createIrValueFromData();
         tensor.AssignIrValue(val);
         context->MarkTensorExecuted(data->unique_id);
+        executing_indices.erase(
+            std::remove(
+                executing_indices.begin(),
+                executing_indices.end(),
+                data->unique_id),
+            executing_indices.end());
 
         po_data.outputs.erase(po_data.outputs.begin() + vec_index);
         indices.erase(indices.begin() + vec_index);
@@ -664,10 +671,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     auto out_tensor = (*tensors)[indices[i++]];
-    context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
+    executing_indices.push_back(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
   }
-  context->MarkTensorsExecuted();
+  context->MarkTensorsExecuted(executing_indices);
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {
@@ -710,6 +717,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
 
   torch::jit::Stack stack;
   stack.reserve(std::max(input_values.size(), indices.size()));
+  std::vector<uint64_t> executing_indices;
   for (const auto& in : input_values) {
     HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
@@ -718,6 +726,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d->unique_id);
+    executing_indices.push_back(d->unique_id);
   }
 
   HABANA_ASSERT(lazyFrontEndInfo != nullptr);
@@ -740,8 +749,6 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     out_tensor.SetTensorData(at::Tensor());
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto hl_context = habana_lazy_executor.getDeviceExecutionContext(device.id());
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
   // mode kernel registration We will move to using shape utilities instead and
@@ -752,7 +759,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   // dry run. Hence not setting this would cause synpase graph to be not be
   // created. This needs to be optimized.
   SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
-  hl_context->setExecutionMode(kLOWERING);
+  context->setExecutionMode(kLOWERING);
 
   habana::HabanaLaunchOpPT launch{
       fast_path_jit_ir_and_mdata->get_cached_graph(),
@@ -772,8 +779,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     throw;
   }
 
-  hl_context->setExecutionMode(kLAZY);
-  hl_context->MarkTensorsExecuted();
+  context->setExecutionMode(kLAZY);
   UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
   HABANA_ASSERT(stack.size() == indices.size());
 
@@ -781,10 +787,10 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     auto out_tensor = (*tensors)[indices[i++]];
-    context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
+    executing_indices.push_back(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
   }
-  context->MarkTensorsExecuted();
+  context->MarkTensorsExecuted(executing_indices);
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

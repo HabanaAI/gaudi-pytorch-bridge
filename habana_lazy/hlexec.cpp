@@ -84,7 +84,6 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   }
 
   context->setExecutionMode(kLAZY);
-  context->MarkTensorsExecuted();
   UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
 }
 
