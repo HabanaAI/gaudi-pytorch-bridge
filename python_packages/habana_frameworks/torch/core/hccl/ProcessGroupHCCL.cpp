@@ -305,6 +305,7 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 }
 
 void ProcessGroupHCCL::destroy() {
+  HOST_SYNC()
   for (auto element : hccl_communicator_) {
     hcclCommDestroy(*(element.second));
   }
