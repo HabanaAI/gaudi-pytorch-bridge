@@ -217,12 +217,12 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   }
 
   if (v.dtensorinfos) {
-    O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
+    O << "\ndtensorinfos #" << v.dtensorinfos->size() << "::";
     O << '\n';
     size_t idx{0};
     for (auto& a : *v.dtensorinfos) {
       O << idx++ << " : ";
-      O << a << '\n';
+      O << *a << '\n';
     }
   }
   O << "---- jit graph :: begin" << '\n';
