@@ -1793,14 +1793,22 @@ Tensor where_tensor_hpu_lazy(
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
 
-  // Check result data type
-  auto res_dtype = at::result_type(self, other);
+  /*
+   * Added special check for scalar data promotion for bfloat16 tensor
+   * and double scalar. This is must needed for transfomer model.
+   * at::result_type check is causing regression on resnet model.
+   * auto res_dtype = at::result_type(self, other);
+   *
+   * ToDo: Add more generic fix for scalar data type promotion.
+   */
+
   auto other_cast = other;
-  // If other is CPU tensor of size 0D and double data type
-  // cast it to expected result data type tensor
-  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
+  // If self tensor is bfloat16 other tensor is CPU tensor of size 0D and double
+  // data type, Cast other tensor to bfloat16 data type tensor.
+  if (self.scalar_type() == c10::ScalarType::BFloat16 &&
+      other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
       other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = other.to(res_dtype);
+    other_cast = other.to(c10::ScalarType::BFloat16);
   }
 
   LazyBinaryOp<at::Tensor> k{
