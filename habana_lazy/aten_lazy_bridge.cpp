@@ -24,19 +24,29 @@ at::Tensor HbLazyToAtenTensor(
   return tensor.to(tensor_options, /*non_blocking=*/false, /*copy=*/true);
 }
 
-at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
+at::Tensor AtenFromHbLazyTensor(
+    HbLazyTensor HbLazy_tensor,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format) {
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   at::Tensor tensor = at::Tensor(
       c10::make_intrusive<HbLazyTensorImpl>(std::move(HbLazy_tensor)));
-
+  InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   return tensor;
 }
 
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
-    const caffe2::TypeMeta& data_type) {
+    const caffe2::TypeMeta& data_type,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format) {
   at::Tensor tensor = at::Tensor(
       c10::make_intrusive<HbInternalTensorImpl>(std::move(storage), data_type));
+  InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   return tensor;
 }
 
@@ -141,7 +151,12 @@ at::Tensor CreateHbLazyTensor(
     HbLazyTensor hblazy_tensor =
         HbLazyTensor::Create(std::move(tensor), *device);
     if (!is_input_lazy) {
-      tensor = AtenFromHbLazyTensor(hblazy_tensor);
+      tensor = AtenFromHbLazyTensor(
+          hblazy_tensor,
+          c10::nullopt,
+          c10::nullopt,
+          c10::nullopt,
+          c10::nullopt);
     } else {
       return tensor;
     }

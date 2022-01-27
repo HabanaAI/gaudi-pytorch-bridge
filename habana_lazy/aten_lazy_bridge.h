@@ -22,10 +22,19 @@ at::Tensor HbLazyToAtenTensor(
     const at::TensorOptions& tensor_options);
 
 // Creates an ATen tensor with HbLazy type id from an HbLazyTensor.
-at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor);
+at::Tensor AtenFromHbLazyTensor(
+    HbLazyTensor HbLazy_tensor,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format);
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
-    const caffe2::TypeMeta& data_type);
+    const caffe2::TypeMeta& data_type,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format);
 
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor);
 

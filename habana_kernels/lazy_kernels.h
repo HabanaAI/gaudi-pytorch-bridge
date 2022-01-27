@@ -49,6 +49,19 @@ const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
 
 void flushWithMarkStep();
 
+void InitSizesAndStrides(
+    at::Tensor& at_tensor,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format);
+std::vector<int64_t> CalculateStrides(
+    const c10::IntArrayRef sizes,
+    c10::MemoryFormat format);
+std::vector<int64_t> CalculateStrides5d(
+    const c10::IntArrayRef sizes,
+    c10::MemoryFormat format);
+
 at::Tensor get_tensor_for_scalar(
     float alpha,
     const at::TensorOptions& options = {});

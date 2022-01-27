@@ -1014,22 +1014,15 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
           allocator->allocate(nelements * elem_size),
           allocator,
           /*resizeable=*/true);
-      Tensor at_internal_tensor =
-          AtenInternalHbTensor(std::move(storage_impl), self.dtype());
+      Tensor at_internal_tensor = AtenInternalHbTensor(
+          std::move(storage_impl),
+          self.dtype(),
+          c10::nullopt,
+          src.sizes(),
+          c10::nullopt,
+          src.suggest_memory_format());
       // Setup the tensor sizes & strides for tensor with dim = 4, else for
       // now assuming contiguous
-      if (4 == self.dim()) {
-        at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            src.sizes(),
-            CalculateStrides(src.sizes(), src.suggest_memory_format()));
-      } else if (5 == self.dim()) {
-        at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            src.sizes(),
-            CalculateStrides5d(src.sizes(), src.suggest_memory_format()));
-      } else {
-        at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-            src.sizes());
-      }
       self_hb_tensor.SetTensorData(at_internal_tensor);
     }
   }
@@ -1117,10 +1110,13 @@ Tensor empty_as_strided_lazy(
     c10::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
   auto storage_impl = self.unsafeGetTensorImpl();
-  Tensor at_internal_tensor =
-      AtenInternalHbTensor(c10::Storage(storage_impl->storage()), self.dtype());
-  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  Tensor at_internal_tensor = AtenInternalHbTensor(
+      c10::Storage(storage_impl->storage()),
+      self.dtype(),
+      c10::nullopt,
+      size,
+      stride,
+      c10::nullopt);
   if (storage_offset) {
     at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
         storage_offset.value());
@@ -4961,6 +4957,32 @@ Tensor softmax_backward_hpu_lazy(
   return result;
 }
 
+void InitSizesAndStrides(
+    at::Tensor& at_tensor,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<IntArrayRef> size,
+    c10::optional<IntArrayRef> stride,
+    c10::optional<MemoryFormat> mem_format) {
+  IntArrayRef tensor_size = size.value_or(at_tensor.sizes());
+
+  if (stride.has_value()) {
+    at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+        tensor_size, stride.value());
+  } else if (
+      tensor_type.has_value() && (tensor_type.value() == DEVICE_SHAPE_TENSOR)) {
+    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
+        device_shape_tensor_size);
+  } else if ((4 == tensor_size.size()) && mem_format.has_value()) {
+    at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+        tensor_size, CalculateStrides(tensor_size, mem_format.value()));
+  } else if ((5 == tensor_size.size()) && mem_format.has_value()) {
+    at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+        tensor_size, CalculateStrides5d(tensor_size, mem_format.value()));
+  } else {
+    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(tensor_size);
+  }
+}
+
 Tensor empty_hpu_lazy(
     IntArrayRef size,
     const TensorOptions& options,
@@ -5009,22 +5031,13 @@ Tensor empty_hpu_lazy(
         allocator->allocate(nelements * elem_size),
         allocator,
         /*resizeable=*/true);
-    Tensor at_internal_tensor =
-        AtenInternalHbTensor(std::move(storage_impl), new_dtype);
-    // Setup the tensor sizes & strides for tensor with dim = 4, else for
-    // now assuming contiguous
-    if (tensor_type == DEVICE_SHAPE_TENSOR) {
-      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-          device_shape_tensor_size);
-    } else if ((4 == size.size()) && mem_format.has_value()) {
-      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          size, CalculateStrides(size, mem_format.value()));
-    } else if ((5 == size.size()) && mem_format.has_value()) {
-      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          size, CalculateStrides5d(size, mem_format.value()));
-    } else {
-      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-    }
+    Tensor at_internal_tensor = AtenInternalHbTensor(
+        std::move(storage_impl),
+        new_dtype,
+        tensor_type,
+        size,
+        c10::nullopt,
+        mem_format);
 
     // set metadata that its a shape tensor
     if (shape_tensor) {
@@ -5049,25 +5062,11 @@ Tensor empty_hpu_lazy(
     if (!is_in_lowering_mode) {
       HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
           size, 0, options.device(), typeMetaToScalarType(original_dtype));
-      at_tensor = AtenFromHbLazyTensor(hb_tensor);
+      at_tensor = AtenFromHbLazyTensor(
+          hb_tensor, tensor_type, size, c10::nullopt, mem_format);
 
       // The lazy tensor will have a reference to the internal tensor
       hb_tensor.SetTensorData(at_internal_tensor);
-
-      // Setup the tensor sizes & strides for tensor with dim = 4, else for
-      // now assuming contiguous
-      if (tensor_type == DEVICE_SHAPE_TENSOR) {
-        at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-            device_shape_tensor_size);
-      } else if ((4 == size.size()) && mem_format.has_value()) {
-        at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            size, CalculateStrides(size, mem_format.value()));
-      } else if ((5 == size.size()) && mem_format.has_value()) {
-        at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            size, CalculateStrides5d(size, mem_format.value()));
-      } else {
-        at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-      }
 
       // Keep a pointer to the storageless tensor from the internal tensor
       auto at_internal_impl = GetHbInternalTensorImpl(at_internal_tensor);
@@ -5095,18 +5094,8 @@ Tensor empty_hpu_lazy(
   } else {
     HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
         size, 0, options.device(), typeMetaToScalarType(original_dtype));
-    Tensor at_tensor = AtenFromHbLazyTensor(hb_tensor);
-    // Setup the tensor sizes & strides for tensor with dim = 4, else for
-    // now assuming contiguous
-    if ((4 == size.size()) && mem_format.has_value()) {
-      at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          size, CalculateStrides(size, mem_format.value()));
-    } else if ((5 == size.size()) && mem_format.has_value()) {
-      at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          size, CalculateStrides5d(size, mem_format.value()));
-    } else {
-      at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-    }
+    Tensor at_tensor = AtenFromHbLazyTensor(
+        hb_tensor, tensor_type, size, c10::nullopt, mem_format);
     return at_tensor;
   }
 }

@@ -383,7 +383,8 @@ void HbLazyTensor::ClearAndAssignNewIrValue() {
         // value is proper.
         ir::NodePtr inp_node = std::make_shared<ir::Input>(*this);
         val.SetNode(inp_node, GetDevice(), GetSizes(), dtype_optional());
-        auto tensor = AtenFromHbLazyTensor(*this);
+        auto tensor = AtenFromHbLazyTensor(
+            *this, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
         for (ir::Use use : uses) {
           if (use.mp_node) {
             use.mp_node->ReplaceInput(val, use.m_operand_index, tensor);
