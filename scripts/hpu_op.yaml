@@ -1274,20 +1274,24 @@ log2_:
   legacy_eager: true
 
 logaddexp:
+  broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
   out_ids: [0]
 
 logaddexp.out:
+  broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
 
 logaddexp2:
+  broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
   out_ids: [0]
 
 logaddexp2.out:
+  broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
 
