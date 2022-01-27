@@ -37,6 +37,13 @@ class tensor_builder : public tensor_builder_base<tensor_builder> {
             to_stride_t(stride, shape, data_type),
             data_type) {}
 
+  // tensor builder constructor specific for shape tensors
+  explicit tensor_builder(const c10::IntArrayRef& shape, synDataType data_type)
+      : tensor_builder(
+            to_shape_t(shape.vec()),
+            to_shape_tensor_stride_t(shape.size()),
+            data_type) {}
+
   explicit tensor_builder(
       const tensor::shape_t& shape,
       const tensor::shape_t& stride,

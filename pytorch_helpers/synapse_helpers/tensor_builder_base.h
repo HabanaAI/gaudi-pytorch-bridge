@@ -34,6 +34,8 @@ tensor::shape_t to_shape_t(
     const std::vector<int64_t>& shape,
     bool reverse = true);
 
+tensor::shape_t to_shape_tensor_stride_t(const int64_t& stride_rank);
+
 tensor::shape_t to_stride_t(
     const std::vector<int64_t>& stride,
     const std::vector<int64_t>& shape,

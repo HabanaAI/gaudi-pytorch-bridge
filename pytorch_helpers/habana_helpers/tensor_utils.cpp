@@ -777,16 +777,9 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   if (min.size() && max.size() && (min != max)) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
-    // Create the max stride
-    std::vector<int64_t> max_stride(max.size());
-    max_stride[max.size() - 1] = 1;
-    for (size_t d = max.size() - 1; d > 0; --d) {
-      max_stride[d - 1] = max_stride[d] * max[d];
-    }
-    auto builder =
-        synapse_helpers::tensor_builder(
-            tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
-            .with_dynamic_shape(dynamic_shape);
+    auto builder = synapse_helpers::tensor_builder(
+                       tensor.sizes(), synDataType::syn_type_uint32)
+                       .with_dynamic_shape(dynamic_shape);
     switch (shape_tensor_type) {
       case SHAPE_TENSOR:
         builder.mark_shape_tensor();
@@ -807,15 +800,16 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
+    // GC requires strides to be 0 for shape tensors though this should not
+    // affect our tensor shape patching.
     syn_tensor.set_pt_info(tensor.sizes().vec(), tensor.strides().vec());
 
     return syn_tensor;
   }
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
-  auto builder =
-      synapse_helpers::tensor_builder(
-          tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
-          .set_offset(syn_offset);
+  auto builder = synapse_helpers::tensor_builder(
+                     tensor.sizes(), synDataType::syn_type_uint32)
+                     .set_offset(syn_offset);
   switch (shape_tensor_type) {
     case SHAPE_TENSOR:
       builder.mark_shape_tensor();

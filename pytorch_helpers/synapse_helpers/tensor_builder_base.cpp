@@ -31,6 +31,18 @@ tensor::shape_t to_shape_t(const std::vector<int64_t>& shape, bool reverse) {
   return dimensions;
 }
 
+// Stride calculation routine specific for shape tensors
+tensor::shape_t to_shape_tensor_stride_t(const int64_t& stride_rank) {
+  auto stride_size = stride_rank > 0 ? stride_rank : 1;
+  tensor::shape_t dimensions{
+      tensor::shape_t::dimension_count_t{static_cast<unsigned>(stride_size)}};
+  // For shape tensors GC mandates strides to be 0
+  for (uint i = 0; i < stride_size; i++) {
+    dimensions[i] = 0;
+  }
+  return dimensions;
+}
+
 tensor::shape_t to_stride_t(
     const std::vector<int64_t>& stride,
     const std::vector<int64_t>& shape,
@@ -58,6 +70,7 @@ tensor::shape_t to_stride_t(
   }
   str += "}";
   PT_SYNHELPER_DEBUG(str);
+
   // write strides backwards
   // Synapse supports strides on FCD to be element size only
   if (stride.size() == 0) {
