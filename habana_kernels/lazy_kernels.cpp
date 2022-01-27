@@ -880,8 +880,8 @@ Tensor as_strided_layout_hpu_lazy(
   IntArrayRef dims_ = dim_out_pos;
   if (self.dim() == 5)
     dims_ = dim_out_pos_3d;
-  auto node =
-      std::make_shared<ir::Permute>(self, dims_, "hpu::as_strided_layout");
+  auto node = std::make_shared<ir::AsStridedLayout>(
+      self, dims_, "hpu::as_strided_layout");
   auto result = empty_strided_hpu_lazy(size, stride, self.options(), false);
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
@@ -1983,38 +1983,50 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
 }
 
 Tensor permute_wt_hpu(const Tensor& self) {
-  Tensor result = self;
+  at::Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass() &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
     if (self.dim() == 4 || self.dim() == 5) {
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       auto layout_format = hb_tensor.GetTensorLayout();
-      ir::NodePtr node;
-      // IntArrayRef dims_ = {2, 3, 1, 0};
+
       int64_t dim_out_pos[] = {2, 3, 1, 0};
       int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
       IntArrayRef dims_ = dim_out_pos;
       if (self.dim() == 5)
         dims_ = dim_out_pos_3d;
 
+      std::string op_name;
+
       if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
-        node =
-            std::make_shared<ir::Permute>(self, dims_, "hpu::permute_weight");
+        op_name = "hpu::permute_weight";
       } else {
-        node = std::make_shared<ir::Permute>(
-            self, dims_, "hpu::permuted_weight_restride");
+        op_name = "hpu::permuted_weight_restride";
       }
-      result = empty_strided_hpu_lazy(
-          self.sizes(), self.strides(), self.options(), false);
-      auto hl_result = GetHbLazyTensor(result);
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+
       hb_tensor.SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+      std::vector<at::IValue> vector_of_inputs;
+      vector_of_inputs = {self, dims_};
+
+      using T = at::Tensor;
+      class Kernel : public LazyOp<T> {
+       public:
+        Kernel(
+            const std::string& op_name,
+            const std::vector<at::IValue>& vector_of_inputs)
+            : LazyOp<T>(op_name, vector_of_inputs, {}, {}, -1) {}
+
+       private:
+        T get_result_overrideable() override {
+          auto inputs = get_inputs();
+          auto self = inputs[0].toTensor();
+          return empty_strided_hpu_lazy(
+              self.sizes(), self.strides(), self.options(), false);
+        }
+      };
+      Kernel kernel{op_name, vector_of_inputs};
+      return kernel.call();
     }
   }
   return result;

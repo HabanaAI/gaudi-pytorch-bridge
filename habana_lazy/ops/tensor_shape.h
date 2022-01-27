@@ -18,11 +18,11 @@
 namespace habana_lazy {
 namespace ir {
 
-class Permute : public ir::Node {
+class AsStridedLayout : public ir::Node {
  public:
-  enum class PermuteIdx { kDimIdx = 1 };
-  Permute() = delete;
-  Permute(
+  enum class AsStridedLayoutIdx { kDimIdx = 1 };
+  AsStridedLayout() = delete;
+  AsStridedLayout(
       const at::Tensor& self,
       at::IntArrayRef dims,
       std::string op = "aten::permute")
@@ -36,13 +36,13 @@ class Permute : public ir::Node {
     std::vector<at::Tensor> input_pt_vec{self};
     AddInputPtTensors(input_pt_vec);
 
-    m_meta_data.set(dims, static_cast<size_t>(PermuteIdx::kDimIdx));
+    m_meta_data.set(dims, static_cast<size_t>(AsStridedLayoutIdx::kDimIdx));
   }
 
   std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString() << ", dims="
-       << m_meta_data.get(static_cast<size_t>(PermuteIdx::kDimIdx));
+       << m_meta_data.get(static_cast<size_t>(AsStridedLayoutIdx::kDimIdx));
     return ss.str();
   }
 };
