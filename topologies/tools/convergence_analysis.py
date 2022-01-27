@@ -52,7 +52,8 @@ def ca_cosine_similarity(a, b, cos_sim_thld,rms_threshold):
         angle = np.around(angle,2)
         cos_sim_ok =  np.greater(cos_sim_thld , angle) or np.greater(rms_threshold,na/np.sqrt(a.size))
         if np.greater(angle,cos_sim_thld) and cos_sim_ok:
-            print('Cosine similarity marked True as RMS was below threshold')
+            angle = np.float32(0.99)
+            print(f'Cosine similarity marked True as RMS was below threshold, calculated angle is {angle.item()} set to 0.99')
         return na.item(),nb.item(),nr.item(), angle.item(), cos_sim_ok
 
 # Keys for individual tensor stats
