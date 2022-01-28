@@ -1094,11 +1094,13 @@ heaviside_:
   inplace_ids: [0]
 
 hypot:
+  broadcast: true
   dtypes: [BFloat16,Float]
   op_backend: Hypot
   out_ids: [0]
 
 hypot.out:
+  broadcast: true
   dtypes: [BFloat16,Float]
   op_backend: Hypot
 
