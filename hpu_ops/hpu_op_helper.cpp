@@ -411,8 +411,14 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
           c10::scalarTypeToTypeMeta(attr.dtype),
           c10::Device(c10::kHPU, 0));
       t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
+
       outputs.emplace_back(
-          habana_helpers::create_tensor(t, graph, is_persistent, attr.dtype));
+          habana_helpers::is_shape_tensor(attr.tensor_type)
+              ? habana_helpers::create_shape_tensor(
+                    t, graph, is_persistent, attr.tensor_type)
+              : habana_helpers::create_tensor(
+                    t, graph, is_persistent, attr.dtype));
+
       if (is_persistent) {
         const auto& impl =
             ctx->pt_outputs_.at(*attr.final_result_index).unsafeGetTensorImpl();

@@ -76,6 +76,7 @@ struct NodeAttr {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
     c10::optional<int> final_result_index{c10::nullopt};
+    synTensorType tensor_type{DATA_TENSOR};
   };
 
   std::string guid;
