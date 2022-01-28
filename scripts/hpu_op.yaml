@@ -119,29 +119,42 @@ all.out:
 
 amax:
   custom_output_shape: AmaxAminOutputShape
-  dtype: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int]
   guid:  reduce_max_fwd
   out_ids: [0]
   op_backend: AmaxAmin
 
 amax.out:
   custom_output_shape: AmaxAminOutputShape
-  dtype: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int]
   guid:  reduce_max_fwd
   op_backend: AmaxAmin
 
 amin:
   custom_output_shape: AmaxAminOutputShape
-  dtype: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int]
   guid:  reduce_min_fwd
   out_ids: [0]
   op_backend: AmaxAmin
 
 amin.out:
   custom_output_shape: AmaxAminOutputShape
-  dtype: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int]
   guid:  reduce_min_fwd
   op_backend: AmaxAmin
+
+aminmax:
+  custom_output_shape: AminmaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16, Int, Char]
+  op_backend: Aminmax
+  out_ids: [0, 0]
+
+aminmax.out:
+  custom_output_shape: AminmaxOutputShape
+  custom_fill_params: FillArgMinMaxParams
+  dtypes: [Float, BFloat16, Int, Char]
+  op_backend: Aminmax
 
 any.all_out:
   custom_output_shape: AllAnyOutputShape
