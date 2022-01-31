@@ -100,35 +100,6 @@ class Expand : public ir::Node {
   }
 };
 
-class Transpose : public ir::Node {
- public:
-  enum class TransposeIdx { kDim0Idx = 1, kDim1Idx = 2 };
-  Transpose() = delete;
-  Transpose(const at::Tensor& self, int64_t dim0, int64_t dim1)
-      : Node(c10::Symbol::fromQualString("aten::transpose")) {
-    HbLazyTensor hl_self = GetHbLazyTensor(self);
-
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-
-    AddInput(hl_self.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dim0, static_cast<size_t>(TransposeIdx::kDim0Idx));
-    m_meta_data.set(dim1, static_cast<size_t>(TransposeIdx::kDim1Idx));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", dim0="
-       << m_meta_data.get(static_cast<size_t>(TransposeIdx::kDim0Idx))
-       << ", dim1="
-       << m_meta_data.get(static_cast<size_t>(TransposeIdx::kDim1Idx));
-    return ss.str();
-  }
-};
-
 class PermuteCL : public ir::Node {
  public:
   enum class PermuteIdx { kDimIdx = 1 };

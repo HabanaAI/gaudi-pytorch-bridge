@@ -5244,22 +5244,33 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::Transpose>(self, dim0_, dim1_);
-  std::vector<int64_t> new_sizes, new_strides;
-  std::tie(new_sizes, new_strides) =
-      TransposeOperator::compute_output_shape(self, dim0_, dim1_);
-  auto result =
-      empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self, dim0_, dim1_};
+
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::transpose", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dim0_ = inputs[1].toInt();
+      auto dim1_ = inputs[2].toInt();
+
+      std::vector<int64_t> new_sizes, new_strides;
+      std::tie(new_sizes, new_strides) =
+          TransposeOperator::compute_output_shape(self, dim0_, dim1_);
+      return empty_strided_hpu_lazy(
+          new_sizes, new_strides, self.options(), false);
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
@@ -5269,29 +5280,29 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  hl_self = HandleViewsOrUpdate(self, hl_self);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
 
-  std::vector<int64_t> new_sizes, new_strides;
-  std::tie(new_sizes, new_strides) = TOperator::compute_output_shape(self);
-  auto result =
-      empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self};
 
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::t", vector_of_inputs, {}, {}, -1) {}
 
-  flush_op(result);
-  return result;
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      std::vector<int64_t> new_sizes, new_strides;
+      std::tie(new_sizes, new_strides) = TOperator::compute_output_shape(self);
+      return empty_strided_hpu_lazy(
+          new_sizes, new_strides, self.options(), false);
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor& t_hpu_lazy_(Tensor& self) {
