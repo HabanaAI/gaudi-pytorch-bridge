@@ -27,6 +27,8 @@ class HcclCommunicator {
  public:
   HcclCommunicator() = delete;
   int64_t GetId() const;
+  int64_t GetRank() const;
+  int64_t GetSize() const;
   virtual ~HcclCommunicator();
 
   std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(

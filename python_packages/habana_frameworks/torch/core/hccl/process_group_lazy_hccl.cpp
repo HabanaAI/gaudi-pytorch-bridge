@@ -15,6 +15,51 @@
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 namespace c10d {
+
+namespace {
+// Flatten each list in `tensor_lists' for a gather or scatter operation, and
+// ensure compatibility with the corresponding tensor in `other'.
+std::vector<at::Tensor> flatten_for_scatter_gather(
+    std::vector<std::vector<at::Tensor>>& tensor_lists,
+    std::vector<at::Tensor>& other,
+    size_t world_size) {
+  if (tensor_lists.size() != other.size()) {
+    throw std::runtime_error(
+        "Tensor list operands to scatter/gather must have the same length");
+  }
+  const auto num_devices = tensor_lists.size();
+
+  std::vector<at::Tensor> flattened;
+  flattened.resize(num_devices);
+
+  for (auto i = size_t{}; i < num_devices; ++i) {
+    if (tensor_lists[i].size() != world_size * num_devices) {
+      throw std::runtime_error(
+          "Tensor list input to scatter/gather must match number of collective"
+          " participants");
+    }
+
+    // Only check device match for the first tensor in the list; the call to
+    // newLikeFlat() below will check the rest.
+    if (tensor_lists[i].front().get_device() != other[i].get_device()) {
+      throw std::runtime_error(
+          "Corresponding input/output tensors to scatter/gather must all reside"
+          " on the same device");
+    }
+
+    for (const auto& t : tensor_lists[i]) {
+      if (t.numel() != other[i].numel()) {
+        throw std::runtime_error(
+            "All tensor operands to scatter/gather must have the same size");
+      }
+    }
+    // Flatten the tensors (from all ranks) into a single big tensor.
+    flattened[i] = newLikeFlat(tensor_lists, i);
+  }
+  return flattened;
+}
+
+} // namespace
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
@@ -94,7 +139,21 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   for (auto& t : tensors) {
-    habana_lazy::allreduce_hpu_lazy_(t, (uint8_t)opts.reduceOp, comm_->GetId());
+    auto data_type = t.scalar_type();
+    bool cast_tensor =
+        !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::BFloat16);
+    at::Tensor t_updated;
+    if (!cast_tensor) {
+      t_updated = t;
+    } else {
+      t_updated = t.to(c10::ScalarType::Float);
+    }
+    habana_lazy::allreduce_hpu_lazy_(
+        t_updated, (uint8_t)opts.reduceOp, comm_->GetId());
+    if (cast_tensor) {
+      t.copy_(t_updated.to(data_type));
+    }
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
@@ -111,8 +170,23 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  at::TensorList at_tensors(tensors);
+  for (auto& t : tensors) {
+    auto data_type = t.scalar_type();
+    bool cast_tensor =
+        !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::BFloat16);
+    at::Tensor t_updated;
+    if (!cast_tensor) {
+      t_updated = t;
+    } else {
+      t_updated = t.to(c10::ScalarType::Float);
+    }
+    habana_lazy::reduce_hpu_lazy_(
+        t_updated, opts.rootRank, (uint8_t)opts.reduceOp, comm_->GetId());
+    if (cast_tensor) {
+      t.copy_(t_updated.to(data_type));
+    }
+  }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
@@ -120,9 +194,28 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  at::TensorList at_tensors(inputTensors);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputTensors);
+  auto output_flattened =
+      flatten_for_scatter_gather(outputTensors, inputTensors, size_);
+
+  for (size_t index = 0; index < output_flattened.size(); ++index) {
+    habana_lazy::allgather_hpu_lazy_out(
+        inputTensors.at(index), comm_->GetId(), output_flattened.at(index));
+  }
+
+  // Record even for outputFlattened on ncclStream
+  std::vector<at::Tensor> output_list_flat;
+  if (!outputTensors.empty()) {
+    output_list_flat.reserve(outputTensors.size() * outputTensors.at(0).size());
+  }
+
+  for (size_t i = 0; i < outputTensors.size(); ++i) {
+    for (size_t j = 0; j < outputTensors.at(0).size(); ++j) {
+      outputTensors[i][j].copy_(output_flattened[i][j], true);
+      output_list_flat.push_back(outputTensors[i][j]);
+    }
+  }
+
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::_allgather_base(
@@ -130,9 +223,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::_allgather_base(
     at::Tensor& inputBuffer,
     const AllgatherOptions& opts) {
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  at::TensorList at_tensors({inputBuffer});
-  std::vector<at::Tensor> tensors;
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  throw std::runtime_error(
+      "allgather_base is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::
@@ -140,17 +232,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::
         std::vector<std::vector<at::Tensor>>& outputTensorLists,
         std::vector<at::Tensor>& inputTensors,
         const AllgatherOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  at::TensorList at_tensors(inputTensors);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputTensors);
+  throw std::runtime_error(
+      "allgather_coalesced is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputTensors);
+  throw std::runtime_error("gather is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::alltoall_base(
@@ -159,25 +249,54 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::alltoall_base(
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  std::vector<at::Tensor> tensors;
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  // TODO: current implementation ignores split sizes and assumes an even split
+  // of input/output tensor between ranks
+  habana_lazy::alltoall_hpu_lazy_out(inputTensor, comm_->GetId(), outputTensor);
+  std::vector<at::Tensor> out_tensors = {outputTensor};
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ScatterOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(
-      inputTensors.at(0));
+  throw std::runtime_error("scatter is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
+  auto input_flattened =
+      flatten_for_scatter_gather(inputTensors, outputTensors, size_);
+  for (size_t i = 0; i < inputTensors.size(); ++i) {
+    for (size_t j = 0; j < inputTensors[0].size(); ++j) {
+      input_flattened[i][j].copy_(inputTensors[i][j], true);
+    }
+  }
+
+  for (size_t index = 0; index < input_flattened.size(); ++index) {
+    auto data_type = input_flattened.at(index).scalar_type();
+    bool cast_tensor =
+        !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::BFloat16);
+    at::Tensor t_updated;
+    if (!cast_tensor) {
+      habana_lazy::reduce_scatter_hpu_lazy_out(
+          input_flattened.at(index),
+          (uint8_t)opts.reduceOp,
+          comm_->GetId(),
+          outputTensors.at(index));
+    } else {
+      t_updated = input_flattened.at(index).to(c10::ScalarType::Float);
+      auto output =
+          at::empty_like(outputTensors.at(index), c10::ScalarType::Float);
+      habana_lazy::reduce_scatter_hpu_lazy_out(
+          t_updated, (uint8_t)opts.reduceOp, comm_->GetId(), output);
+      outputTensors.at(index).copy_(output.to(data_type));
+    }
+  }
+
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
 };
 
@@ -185,7 +304,10 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
     int tag) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
+  for (size_t index = 0; index < tensors.size(); ++index) {
+    habana_lazy::send_hpu_lazy_(
+        tensors.at(index), dstRank, tag, comm_->GetId());
+  }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
@@ -193,22 +315,23 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
     int tag) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
+  for (size_t index = 0; index < tensors.size(); ++index) {
+    habana_lazy::recv_hpu_lazy_(
+        tensors.at(index), srcRank, tag, comm_->GetId());
+  }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recvAnysource(
     std::vector<at::Tensor>& tensors,
     int tag) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  throw std::runtime_error(
+      "recvAnysource is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  std::vector<at::Tensor> tensors;
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  throw std::runtime_error("barrier is currently not supported with HCCL");
 };
 
 } // namespace c10d

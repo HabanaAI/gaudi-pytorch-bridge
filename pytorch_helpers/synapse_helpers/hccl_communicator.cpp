@@ -21,7 +21,15 @@ namespace habana {
 
 int64_t HcclCommunicator::GetId() const {
   return id_;
-};
+}
+
+int64_t HcclCommunicator::GetRank() const {
+  return rank_;
+}
+
+int64_t HcclCommunicator::GetSize() const {
+  return size_;
+}
 
 HcclCommunicator::~HcclCommunicator() {
   PT_LAZY_DEBUG("HcclCommunicator destroy. id = ", id_);

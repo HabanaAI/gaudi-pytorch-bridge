@@ -876,5 +876,33 @@ at::Tensor& allreduce_hpu_lazy_(
     at::Tensor& tensor,
     uint8_t reduce_op,
     int64_t comm_id);
+at::Tensor& reduce_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t dst_rank,
+    uint8_t reduce_op,
+    int64_t comm_id);
+at::Tensor& alltoall_hpu_lazy_out(
+    const at::Tensor& input_tensor,
+    int64_t comm_id,
+    at::Tensor& output_tensor);
+at::Tensor& allgather_hpu_lazy_out(
+    const at::Tensor& inputTensor,
+    int64_t comm_id,
+    at::Tensor& output_tensor);
+at::Tensor& reduce_scatter_hpu_lazy_out(
+    const at::Tensor& input_tensor,
+    uint8_t reduce_op,
+    int64_t comm_id,
+    at::Tensor& output_tensor);
+at::Tensor& send_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t dst_rank,
+    int64_t tag,
+    int64_t comm_id);
+at::Tensor& recv_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t src_rank,
+    int64_t tag,
+    int64_t comm_id);
 
 } // namespace habana_lazy

@@ -13,6 +13,7 @@
               // c10d::ReduceOp enum from c10d/Types.hpp
 #include <c10d/Types.hpp>
 #include "habana_helpers/logging.h"
+#include "habana_kernels/basic_kernels.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 #include <hccl.h>
@@ -105,15 +106,77 @@ void collective(
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
     deviceCtxt->lock_address(inputs.at(i)->get_buffer(), &input_address);
     deviceCtxt->lock_address(outputs.at(i)->get_buffer(), &output_address);
+
+    PT_LAZY_DEBUG(
+        "Collective call. input = ",
+        inputs.at(i),
+        ", output = ",
+        outputs.at(i),
+        ", input_address = ",
+        input_address,
+        ", ouptput_address = ",
+        output_address,
+        ", comm_id = ",
+        comm->GetId(),
+        ", stream = ",
+        collective_stream);
     hccl_result =
         fn(inputs.at(i),
            outputs.at(i),
            input_address,
            output_address,
-           *(comm->GetHcclHandle()),
+           comm,
            collective_stream);
     TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
     deviceCtxt->submit_events(collective_stream, output_storage_ptr, done_cb);
+    if (!async) {
+      synStatus syn_result = synSuccess;
+      syn_result = synStreamSynchronize(collective_stream);
+      TORCH_CHECK(
+          syn_result == synSuccess,
+          "synStreamSynchronize for synchronized collective call failed");
+    }
+  }
+}
+
+template <typename Fn>
+void pointToPoint(
+    std::vector<PtTensorInfoShared>& tensors,
+    std::vector<int64_t> devices,
+    std::vector<int64_t> communicator_ids,
+    bool async,
+    synapse_helpers::event_done_callback done_cb,
+    Fn fn,
+    int peerRank) {
+  hcclResult_t hccl_result{hcclSuccess};
+
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    auto comm = HcclCommunicator::Get(communicator_ids.at(i));
+    auto deviceCtxt = comm->getDeviceCtxt(devices.at(i));
+    hcclStream_t collective_stream = comm->getCommStream(devices.at(i));
+
+    void* tensor_address;
+    synapse_helpers::device_ptr tensor_storage_ptr =
+        (synapse_helpers::device_ptr)tensors.at(i)->get_buffer_start();
+    deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
+    deviceCtxt->lock_address(tensors.at(i)->get_buffer(), &tensor_address);
+
+    PT_LAZY_DEBUG(
+        "pointToPoint call. input = ",
+        tensors.at(i),
+        ", input_address = ",
+        tensor_address,
+        ", comm_id = ",
+        comm->GetId(),
+        ", stream = ",
+        collective_stream,
+        ", peerRank = ",
+        peerRank);
+
+    hccl_result =
+        fn(tensors.at(i), tensor_address, comm, collective_stream, peerRank);
+    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+    deviceCtxt->submit_events(collective_stream, tensor_storage_ptr, done_cb);
     if (!async) {
       synStatus syn_result = synSuccess;
       syn_result = synStreamSynchronize(collective_stream);
@@ -162,28 +225,15 @@ void HcclBroadcastOperator::RunCollective(
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
-          hcclComm_t& hccl_comm,
+          std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream) {
-        PT_LAZY_DEBUG(
-            "Calling hccl broadcast, send_buffer = ",
-            send_buffer,
-            " recv_buffer = ",
-            recv_buffer,
-            " num_elements = ",
-            input->get_numel(),
-            " data_type = ",
-            data_type_,
-            " root_rank = ",
-            root_rank_,
-            " comm_id = ",
-            comm_id_);
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
             input->get_numel(),
             getHCCLDataType(data_type_),
             root_rank_,
-            hccl_comm,
+            *comm->GetHcclHandle(),
             stream);
       });
 }
@@ -200,7 +250,8 @@ void HcclAllreduceOperator::AllocateAndAddSynapseNode(
   auto inputTensor = inputs.at(0).toTensor();
   device_ = inputTensor.get_device();
   data_type_ = inputTensor.scalar_type();
-  reduce_op_ = inputs.at(1).toInt();
+  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  reduce_op_ = (uint8_t)inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
   if (p_context_->pt_inputs_.size() == 0)
@@ -212,9 +263,9 @@ void HcclAllreduceOperator::RunCollective(
     std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
-  // TODO: SW-68569 verify input data type is supported, cast in allocate and
-  // add synapse node if needed
-  HABANA_ASSERT(is_valid_reduction_dtype(getHCCLDataType(data_type_)));
+  HABANA_ASSERT(
+      is_valid_reduction_dtype(getHCCLDataType(data_type_)),
+      "HCCL supports only float or bfloat16 reduction");
 
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   collective(
@@ -228,7 +279,7 @@ void HcclAllreduceOperator::RunCollective(
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
-          hcclComm_t& hccl_comm,
+          std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream) {
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
@@ -239,30 +290,13 @@ void HcclAllreduceOperator::RunCollective(
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
               (num_elements > chunk_size) ? chunk_size : num_elements;
-
-          PT_LAZY_DEBUG(
-              "Calling hccl allreduce, send_buffer = ",
-              send_buffer,
-              " recv_buffer = ",
-              recv_buffer,
-              " data_offset = ",
-              data_offset,
-              " num_elements = ",
-              num_elements_in_current_chunk,
-              " data_type = ",
-              data_type_,
-              " reduce_op = ",
-              reduce_op_,
-              " comm_id = ",
-              comm_id_);
-
           auto hccl_result = hcclAllReduce(
               (void*)((uint64_t)send_buffer + data_offset),
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
               getHCCLDataType(data_type_),
               getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
-              hccl_comm,
+              *comm->GetHcclHandle(),
               stream);
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
@@ -271,6 +305,350 @@ void HcclAllreduceOperator::RunCollective(
         }
         return hccl_result;
       });
+}
+
+void HcclReduceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
+
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = inputTensor.scalar_type();
+  dst_rank_ = inputs.at(1).toInt();
+  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  reduce_op_ = (uint8_t)inputs.at(2).toInt();
+  comm_id_ = inputs.at(3).toInt();
+
+  if (p_context_->pt_inputs_.size() == 0)
+    p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
+  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
+}
+
+void HcclReduceOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  HABANA_ASSERT(
+      is_valid_reduction_dtype(getHCCLDataType(data_type_)),
+      "HCCL supports only float or bfloat16 reduction");
+
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+  collective(
+      tensor_inputs,
+      tensor_inputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](__attribute__((unused)) PtTensorInfoShared& input,
+          __attribute__((unused)) PtTensorInfoShared& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream) {
+        hcclResult_t hccl_result{hcclSuccess};
+        size_t num_elements = input->get_numel();
+        size_t element_size =
+            c10::elementSize(getInternalScalarType(data_type_));
+        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t data_offset = 0;
+        while (num_elements > 0) {
+          size_t num_elements_in_current_chunk =
+              (num_elements > chunk_size) ? chunk_size : num_elements;
+          auto hccl_result = hcclReduce(
+              (void*)((uint64_t)send_buffer + data_offset),
+              (void*)((uint64_t)recv_buffer + data_offset),
+              num_elements_in_current_chunk,
+              getHCCLDataType(data_type_),
+              getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
+              dst_rank_,
+              *comm->GetHcclHandle(),
+              stream);
+          TORCH_CHECK(
+              hcclSuccess == hccl_result, "Collective call returned error");
+          data_offset += num_elements_in_current_chunk * element_size;
+          num_elements -= num_elements_in_current_chunk;
+        }
+        return hccl_result;
+      });
+}
+
+void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg 2 needs to be of tensor type");
+
+  auto outputTensor = inputs.at(2).toTensor();
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = inputTensor.scalar_type();
+  comm_id_ = inputs.at(1).toInt();
+
+  if (p_context_->pt_inputs_.size() == 0)
+    p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
+  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
+}
+
+void HcclAllToAllOutOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+  std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(2)};
+  collective(
+      tensor_inputs,
+      tensor_outputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](PtTensorInfoShared& input,
+          __attribute__((unused)) PtTensorInfoShared& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream) {
+        int numRanks = comm->GetSize();
+        size_t count = input->get_numel() / numRanks;
+        size_t rank_offset =
+            count * c10::elementSize(getInternalScalarType(data_type_));
+        auto type = getHCCLDataType(data_type_);
+
+        hcclGroupStart();
+        hcclResult_t hccl_result{hcclSuccess};
+        for (auto r = 0; r < numRanks; r++) {
+          hcclSend(
+              reinterpret_cast<const unsigned char*>(send_buffer) +
+                  r * rank_offset,
+              count,
+              type,
+              r,
+              *comm->GetHcclHandle(),
+              stream);
+          hcclRecv(
+              reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
+              count,
+              type,
+              r,
+              *comm->GetHcclHandle(),
+              stream);
+        }
+        hcclGroupEnd();
+
+        return hccl_result;
+      });
+}
+void HcclAllgatherOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.at(0).isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(
+      inputs.at(1).isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(
+      inputs.at(2).isTensor(), "Input arg 2 needs to be of tensor type");
+
+  auto outputTensor = inputs.at(2).toTensor();
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = inputTensor.scalar_type();
+  comm_id_ = inputs.at(1).toInt();
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_.at(1),
+          graph,
+          output_metadata.at(0).external));
+  p_context_->pt_outputs_.emplace_back(outputTensor);
+}
+
+void HcclAllgatherOutOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+  std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(2)};
+  collective(
+      tensor_inputs,
+      tensor_outputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](PtTensorInfoShared& input,
+          __attribute__((unused)) PtTensorInfoShared& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream) {
+        hcclResult_t hccl_result = hcclAllGather(
+            send_buffer,
+            recv_buffer,
+            input->get_numel(),
+            getHCCLDataType(data_type_),
+            *comm->GetHcclHandle(),
+            stream);
+        return hccl_result;
+      });
+}
+void HcclReduceScatterOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg 3 needs to be of tensor type");
+
+  auto outputTensor = inputs.at(3).toTensor();
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = outputTensor.scalar_type();
+  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  reduce_op_ = (uint8_t)inputs.at(1).toInt();
+  comm_id_ = inputs.at(2).toInt();
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
+  p_context_->pt_outputs_.emplace_back(outputTensor);
+}
+
+void HcclReduceScatterOutOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+  std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(3)};
+  collective(
+      tensor_inputs,
+      tensor_outputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](__attribute__((unused)) PtTensorInfoShared& input,
+          PtTensorInfoShared& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream) {
+        hcclResult_t hccl_result = hcclReduceScatter(
+            send_buffer,
+            recv_buffer,
+            output->get_numel(),
+            getHCCLDataType(data_type_),
+            getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
+            *comm->GetHcclHandle(),
+            stream);
+        return hccl_result;
+      });
+}
+
+void HcclSendOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
+  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 needs to be of scalar type");
+
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = inputTensor.scalar_type();
+  dst_rank_ = inputs.at(1).toInt();
+  tag_ = inputs.at(2).toInt();
+  comm_id_ = inputs.at(3).toInt();
+
+  if (p_context_->pt_inputs_.size() == 0)
+    p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
+  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
+}
+
+void HcclSendOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+
+  pointToPoint(
+      tensor_inputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](PtTensorInfoShared& input,
+          const void* send_buff,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream,
+          int peerRank) {
+        return hcclSend(
+            send_buff,
+            input->get_numel(),
+            getHCCLDataType(data_type_),
+            peerRank,
+            *comm->GetHcclHandle(),
+            stream);
+      },
+      dst_rank_);
+}
+
+void HcclRecvOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
+  TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
+  TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
+  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 needs to be of scalar type");
+
+  auto inputTensor = inputs.at(0).toTensor();
+  device_ = inputTensor.get_device();
+  data_type_ = inputTensor.scalar_type();
+  src_rank_ = inputs.at(1).toInt();
+  tag_ = inputs.at(2).toInt();
+  comm_id_ = inputs.at(3).toInt();
+
+  if (p_context_->pt_inputs_.size() == 0)
+    p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
+  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
+}
+
+void HcclRecvOperator::RunCollective(
+    std::vector<PtTensorInfoShared>& inputs,
+    bool async,
+    synapse_helpers::event_done_callback done_cb) {
+  std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
+
+  pointToPoint(
+      tensor_inputs,
+      {device_},
+      {comm_id_},
+      async,
+      done_cb,
+      [&](PtTensorInfoShared& input,
+          void* recv_buff,
+          std::shared_ptr<HcclCommunicator> comm,
+          hcclStream_t stream,
+          int peerRank) {
+        return hcclRecv(
+            recv_buff,
+            input->get_numel(),
+            getHCCLDataType(data_type_),
+            peerRank,
+            *comm->GetHcclHandle(),
+            stream);
+      },
+      src_rank_);
 }
 
 } // namespace habana
@@ -288,4 +666,38 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::HcclAllreduceOperator>(
                   device_id, node_type);
-            });
+            })
+        .add(
+            "hccl::reduce_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::HcclReduceOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hccl::alltoall_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::HcclAllToAllOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hccl::allgather_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::HcclAllgatherOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hccl::reduce_scatter_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::HcclReduceScatterOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hccl::send_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::HcclSendOperator>(
+                  device_id, node_type);
+            })
+        .add("hccl::recv_", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<habana::HcclRecvOperator>(
+              device_id, node_type);
+        });

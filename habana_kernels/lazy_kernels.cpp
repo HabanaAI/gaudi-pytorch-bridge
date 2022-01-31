@@ -7411,4 +7411,93 @@ at::Tensor& allreduce_hpu_lazy_(
   return k.call(t_updated, true);
 }
 
+at::Tensor& reduce_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t dst_rank,
+    uint8_t reduce_op,
+    int64_t comm_id) {
+  PT_LAZY_TRACE;
+  auto t_updated = habana_lazy::HandleViewsD2H(tensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::reduce_",
+      {t_updated, dst_rank, reduce_op, comm_id},
+      {1, 2, 3},
+      {},
+      0);
+  return k.call(t_updated, true);
+}
+
+at::Tensor& alltoall_hpu_lazy_out(
+    const at::Tensor& inputTensor,
+    int64_t comm_id,
+    at::Tensor& outputTensor) {
+  PT_LAZY_TRACE;
+  auto output_updated = habana_lazy::HandleViewsD2H(outputTensor);
+  auto input_updated = habana_lazy::HandleViewsD2H(inputTensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::alltoall_out",
+      {input_updated, comm_id, output_updated},
+      {1},
+      {},
+      2);
+  return k.call(output_updated, true);
+}
+
+at::Tensor& allgather_hpu_lazy_out(
+    const at::Tensor& inputTensor,
+    int64_t comm_id,
+    at::Tensor& outputTensor) {
+  PT_LAZY_TRACE;
+  auto output_updated = habana_lazy::HandleViewsD2H(outputTensor);
+  auto input_updated = habana_lazy::HandleViewsD2H(inputTensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::allgather_out",
+      {input_updated, comm_id, output_updated},
+      {1},
+      {},
+      2);
+  return k.call(output_updated, true);
+}
+
+at::Tensor& reduce_scatter_hpu_lazy_out(
+    const at::Tensor& inputTensor,
+    uint8_t reduce_op,
+    int64_t comm_id,
+    at::Tensor& outputTensor) {
+  PT_LAZY_TRACE;
+  auto output_updated = habana_lazy::HandleViewsD2H(outputTensor);
+  auto input_updated = habana_lazy::HandleViewsD2H(inputTensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::reduce_scatter_out",
+      {input_updated, reduce_op, comm_id, output_updated},
+      {1, 2},
+      {},
+      3);
+  return k.call(output_updated, true);
+}
+
+at::Tensor& send_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t dst_rank,
+    int64_t tag,
+    int64_t comm_id) {
+  PT_LAZY_TRACE;
+  auto t_updated = habana_lazy::HandleViewsD2H(tensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::send_", {t_updated, dst_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
+  return k.call(t_updated, true);
+}
+
+at::Tensor& recv_hpu_lazy_(
+    at::Tensor& tensor,
+    int64_t src_rank,
+    int64_t tag,
+    int64_t comm_id) {
+  PT_LAZY_TRACE;
+  auto t_updated = habana_lazy::HandleViewsD2H(tensor);
+  LazyOp<at::Tensor&> k(
+      "hccl::recv_", {t_updated, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
+  return k.call(t_updated, true);
+}
+
 } // namespace habana_lazy
