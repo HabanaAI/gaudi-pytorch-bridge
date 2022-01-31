@@ -10,17 +10,37 @@
 #include "permute_graph.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_kernels/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pass_utils.h"
 using namespace torch::jit;
 namespace habana_lazy {
+static const std::unordered_set<std::string> view_and_index_nodes{
+    "aten::view",
+    "hpu::view",
+    "aten::expand",
+    "hpu::expand",
+    "aten::index",
+    "hpu::index"};
 
-bool IsNodeLayoutAgnostic(const Node* node) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  synDeviceId device_id = device.id();
-  habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
-      device_id, node->schema().operator_name(), c10::ScalarType::Float);
-  auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
+static const std::unordered_set<std::string> dim_based_nodes{
+    "aten::mean",
+    "hpu::slice",
+    "aten::permute",
+    "aten::select",
+    "aten::transpose",
+    "aten::argmax",
+    "aten::split_with_sizes",
+    "aten::_softmax",
+    "hpu::sum_dim_IntList",
+    "aten::_softmax_backward_data",
+    "hpu::max_dim",
+    "aten::_log_softmax_backward_data",
+    "aten::_log_softmax"};
+
+bool IsNodeLayoutAgnostic(
+    const Node* node,
+    const habana::KernelMetaData& habana_kernel_meta_data) {
   auto node_ins = node->inputs();
 
   size_t tensor_idx = 0;
@@ -52,59 +72,6 @@ bool IsNodeLayoutAgnostic(const Node* node) {
     output_tensor_idx++;
   }
   return true;
-}
-
-at::IntArrayRef getDimsForLayout5d(
-    habana::LayoutFormat channel_order,
-    habana::LayoutFormat current_order) {
-  at::IntArrayRef dims;
-
-  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
-  // is not clear. Note that for 5d layout channel dim is 1 for
-  // NCDHW and 4 for NDHWC
-  if (current_order == habana::LayoutFormat::NCHW) {
-    if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {0, 2, 3, 4, 1};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {2, 3, 4, 1, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermute_graph: permute called for unsupported channel order");
-    }
-  } else if (current_order == habana::LayoutFormat::NHWC) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {0, 4, 1, 2, 3};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {1, 2, 3, 4, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermute_graph: permute called for unsupported channel order");
-    }
-  } else if (current_order == habana::LayoutFormat::HWCK) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {4, 3, 0, 1, 2};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {4, 0, 1, 2, 3};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermute_graph: permute called for unsupported channel order");
-    }
-  } else {
-    TORCH_CHECK(
-        0,
-        " InsertPermute_graph: permute called for unsupported channel order");
-  }
-
-  return dims;
 }
 
 using ValuePtrTensorLayoutMap =
@@ -179,73 +146,19 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
   RemoveRedundantOp(graph, "hpu::restride_cl");
 }
 
-static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {
+static const std::unordered_map<std::string, size_t> dimBasedOptimOpsIdx = {
     {"aten::slice", 1}};
 
-bool isDimBasedOp(const Node* node) {
-  return node ? dimBasedOpsIdx.count(node->kind().toQualString()) != 0 : false;
+bool isDimBasedOptimOp(const Node* node) {
+  return node ? dimBasedOptimOpsIdx.count(node->kind().toQualString()) != 0
+              : false;
 }
 
-int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
-  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
-  // is not clear. Note that for 5d layout channel dim is 1 for
-  // NCDHW and 4 for NDHWC
-  int layout_dim = dim;
-  if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {0, 1, 2, 3, 4};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {0, 4, 1, 2, 3};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {4, 3, 0, 1, 2};
-    layout_dim = dimarr[dim];
-  } else {
-    HABANA_ASSERT(0);
-  }
-  return layout_dim;
-}
-
-int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
-  int layout_dim = dim;
-  if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {0, 1, 2, 3};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {0, 3, 1, 2};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {3, 2, 0, 1};
-    layout_dim = dimarr[dim];
-  } else {
-    HABANA_ASSERT(0);
-  }
-  return layout_dim;
-}
-
-/*Layout optimization pass
-  1. Parse each node inputs and add permutes only for layout non-agnostic nodes
-  2. ChannelsLast nodes should return restrided output since PT expects
-     format in except in NCHW format.
-  3. Node layout info is passed to output Value
-     a. Assign layout format as per kernel meta data
-     b. Single input/output nodes should pass input layout info
-     c. Existing permute nodes in the graph should pass dims Layout info to
-  output d. Non layout agnostic nodes pass first input layout info this is the
-  assumption and in most cases this should be sufficient and any corner cases
-  should be added as special cases like hpu::cast, hpu::habana_d2d_memcpy_other
-  etc
-  4. Graph return outputs should add permutes if entry and config layout
-  mismatch
-  5. Graph return outputs add restride node if inputs are ChannelsLast
-  6. Finally remove duplicate permutes in the graph
-*/
-
-void InsertPermute_graph(
+void InsertPermuteAtGraphInputs(
     std::shared_ptr<Graph>& graph,
-    torch::jit::Stack& stack) {
+    torch::jit::Stack& stack,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout) {
   auto graph_inputs = graph->inputs();
-  ValuePtrTensorLayoutMap value_to_tensor_layout;
   size_t idx = stack.size() - graph->inputs().size();
   for (size_t j = 0; j < graph_inputs.size(); j++) {
     auto value_input = graph_inputs[j];
@@ -294,7 +207,12 @@ void InsertPermute_graph(
       }
     }
   }
-  WeightIdentificationPass weight_pass;
+}
+
+void PopulateWeightsLayoutInfo(
+    std::shared_ptr<Graph>& graph,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    WeightIdentificationPass& weight_pass) {
   weight_pass.markWeightTensors(graph);
 
   auto weight_values = weight_pass.getWeightTensors();
@@ -319,17 +237,92 @@ void InsertPermute_graph(
     str.append("\n");
   }
   PT_LAZY_DEBUG(str);
+}
 
-  std::unordered_map<
-      torch::jit::Node*,
-      std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>
-      anchor_nodes_;
-  std::unordered_map<
-      torch::jit::Node*,
-      std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>
-      anchor_restride_nodes_;
-  torch::jit::graph_node_list graph_nodes = graph->nodes();
-  for (auto* node : graph_nodes) {
+void HandleReturnNode(
+    std::shared_ptr<Graph>& graph,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    NodePtrVecIndxDimsMap& anchor_nodes_,
+    NodePtrVecIndxDimsMap& anchor_restride_nodes_) {
+  auto node_return = graph->return_node();
+  for (auto value_out : node_return->inputs()) {
+    auto prev_layout = value_to_tensor_layout[value_out].layout_at_graph_entry;
+    auto cur_layout = value_to_tensor_layout[value_out].layout;
+    auto is_5d_layout = *value_out->type()->cast<TensorType>()->dim() == 5;
+    if (value_out->type()->kind() == c10::TypeKind::TensorType) {
+      if (prev_layout == habana::LayoutFormat::NHWC) {
+        if (cur_layout == habana::LayoutFormat::NHWC) {
+          std::string node_str = value_out->node()->kind().toQualString();
+          if (node_str == "aten::select") {
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {2, 0, 1};
+            dims = dimarr;
+            anchor_restride_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          } else if (is_5d_layout) {
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {0, 4, 1, 2, 3};
+            dims = dimarr;
+            anchor_restride_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          } else {
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {0, 3, 1, 2};
+            dims = dimarr;
+            if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+              anchor_restride_nodes_[node_return].push_back(
+                  std::make_pair(value_out, dims));
+            }
+          }
+        }
+      } else {
+        if (prev_layout != cur_layout) {
+          if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+            auto dims = getDimsForLayout(prev_layout, cur_layout);
+            anchor_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          }
+
+          if (is_5d_layout) {
+            auto dims = getDimsForLayout5d(prev_layout, cur_layout);
+            anchor_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          }
+        }
+      }
+    }
+  }
+}
+
+/*Layout optimization pass
+  1. Parse each node inputs and add permutes only for layout non-agnostic nodes
+  2. ChannelsLast nodes should return restrided output since PT expects
+     format in except in NCHW format.
+  3. Node layout info is passed to output Value
+     a. Assign layout format as per kernel meta data
+     b. Single input/output nodes should pass input layout info
+     c. Existing permute nodes in the graph should pass dims Layout info to
+  output d. Non layout agnostic nodes pass first input layout info this is the
+  assumption and in most cases this should be sufficient and any corner cases
+  should be added as special cases like hpu::cast, hpu::habana_d2d_memcpy_other
+  etc
+  4. Graph return outputs should add permutes if entry and config layout
+  mismatch
+  5. Graph return outputs add restride node if inputs are ChannelsLast
+  6. Finally remove duplicate permutes in the graph
+*/
+void InsertPermute_graph(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Stack& stack) {
+  ValuePtrTensorLayoutMap value_to_tensor_layout;
+  WeightIdentificationPass weight_pass;
+  NodePtrVecIndxDimsMap anchor_nodes_;
+  NodePtrVecIndxDimsMap anchor_restride_nodes_;
+
+  InsertPermuteAtGraphInputs(graph, stack, value_to_tensor_layout);
+  PopulateWeightsLayoutInfo(graph, value_to_tensor_layout, weight_pass);
+
+  for (auto* node : graph->nodes()) {
     if (node == graph->param_node() ||
         node->kind() == torch::jit::prim::Constant ||
         node->kind() == torch::jit::prim::ListConstruct ||
@@ -355,17 +348,18 @@ void InsertPermute_graph(
     }
 
     // Get kernel MetaData
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    synDeviceId device_id = device.id();
     habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
-        device_id, node->schema().operator_name(), c10::ScalarType::Float);
+        synapse_helpers::HPURegistrar::get_device().id(),
+        node->schema().operator_name(),
+        c10::ScalarType::Float);
     TORCH_CHECK(
         habana_kernel, node->schema().operator_name(), " is not registered!");
-    auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
-    bool isLayoutAgnostic = IsNodeLayoutAgnostic(node);
+    const auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
+    bool isLayoutAgnostic = IsNodeLayoutAgnostic(node, habana_kernel_meta_data);
 
     // permute Loop
     auto node_ins = node->inputs();
+
     size_t tensor_idx = 0;
     habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
     size_t meta_size = habana_kernel_meta_data.input_layout.size();
@@ -407,45 +401,17 @@ void InsertPermute_graph(
         auto perm_layout = in_layout;
 
         // View and Index as per original PT layout
-        if ((strcmp(node->kind().toQualString(), "aten::view") == 0) ||
-            (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
-            (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
-            (strcmp(node->kind().toQualString(), "hpu::index") == 0)) {
-          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
-              tensor_layout != habana::LayoutFormat::HWCK) {
-            permute_required = true;
-            perm_layout = habana::LayoutFormat::NCHW;
-          }
-        }
+        // dim based Ops as per original PT layout NCHW
 
         // aten::slice used for static shapes and hpu:slice used for dynamic
         // shapes. aten::slice is optimized for permute pass by having special
         // check for dimBasedOps to reduce number of permutes. hpu::slice cannot
         // be optimized because contiguous shape vectors are prepared at the
         // front end by assuming that the inputs are always contiguous.
-
-        // dim based Ops as per original PT layout NCHW
-        if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
-            (strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::permute") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::transpose") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
-             0) ||
-            (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
-            (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
-             0) ||
-            (strcmp(
-                 node->kind().toQualString(), "aten::_softmax_backward_data") ==
-             0) ||
-            (strcmp(node->kind().toQualString(), "hpu::max_dim") == 0) ||
-            (strcmp(
-                 node->kind().toQualString(),
-                 "aten::_log_softmax_backward_data") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
+        if (view_and_index_nodes.find(node->kind().toQualString()) !=
+                view_and_index_nodes.end() ||
+            dim_based_nodes.find(node->kind().toQualString()) !=
+                dim_based_nodes.end()) {
           if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               (tensor_layout != habana::LayoutFormat::HWCK)) {
             permute_required = true;
@@ -570,30 +536,10 @@ void InsertPermute_graph(
               in_layout_entry;
         }
       } else if (
-          (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
-          (strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::permute") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::select") == 0) ||
-          (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::transpose") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
-          (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
-           0) ||
-          (strcmp(node->kind().toQualString(), "hpu::index") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
-          (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
-          (strcmp(
-               node->kind().toQualString(), "aten::_softmax_backward_data") ==
-           0) ||
-          (strcmp(node->kind().toQualString(), "hpu::max_dim") == 0) ||
-          (strcmp(
-               node->kind().toQualString(),
-               "aten::_log_softmax_backward_data") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
+          dim_based_nodes.find(node->kind().toQualString()) !=
+              dim_based_nodes.end() ||
+          view_and_index_nodes.find(node->kind().toQualString()) !=
+              view_and_index_nodes.end()) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
         // %1 = aten::permute_cl(...)
@@ -607,9 +553,9 @@ void InsertPermute_graph(
                 value_to_tensor_layout[value_in].layout_at_graph_entry;
           }
         }
-      } else if (isDimBasedOp(node)) {
+      } else if (isDimBasedOptimOp(node)) {
         auto value_in = node->input(0);
-        auto dimIdx = dimBasedOpsIdx.at(node->kind().toQualString());
+        auto dimIdx = dimBasedOptimOpsIdx.at(node->kind().toQualString());
         auto dim = toIValue(node->input(dimIdx))->toInt();
         auto value_layout_entry =
             value_to_tensor_layout[value_in].layout_at_graph_entry;
@@ -714,22 +660,18 @@ void InsertPermute_graph(
           if (value_to_tensor_layout[value_in0].layout ==
               habana::LayoutFormat::NHWC) {
             auto const padIdx = 1;
-            auto pad = toIValue(node->input(padIdx))->toIntList().vec();
-            std::vector<int64_t> pad_including_C(pad.size() + 2);
-            pad_including_C[0] = pad_including_C[1] = 0;
-            for (unsigned int i = 0; i < pad.size(); i++) {
-              pad_including_C[i + 2] = pad[i];
-            }
+            std::vector<int64_t> pad =
+                toIValue(node->input(padIdx))->toIntList().vec();
+            pad.insert(pad.begin(), 2, 0);
             WithInsertPoint insert_point(node);
             auto value_dim =
-                graph->insertConstant(IValue(at::IntArrayRef(pad_including_C)));
+                graph->insertConstant(IValue(at::IntArrayRef(pad)));
             node->replaceInputWith(node->input(padIdx), value_dim);
           }
         }
 
         // Multi input and single output pass layout info from input to output
         auto node_outs = node->outputs();
-        meta_size = habana_kernel_meta_data.output_layout.size();
         size_t output_tensor_idx = 0, node_idx = 0;
         habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
         habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
@@ -783,56 +725,8 @@ void InsertPermute_graph(
   }
 
   // permutes on return as per original PT layout
-  auto node_return = graph->return_node();
-  size_t ret_idx = 0;
-  for (auto value_out : node_return->inputs()) {
-    auto prev_layout = value_to_tensor_layout[value_out].layout_at_graph_entry;
-    auto cur_layout = value_to_tensor_layout[value_out].layout;
-    auto is_5d_layout = *value_out->type()->cast<TensorType>()->dim() == 5;
-    if (value_out->type()->kind() == c10::TypeKind::TensorType) {
-      if (prev_layout == habana::LayoutFormat::NHWC) {
-        if (cur_layout == habana::LayoutFormat::NHWC) {
-          std::string node_str = value_out->node()->kind().toQualString();
-          if (node_str == "aten::select") {
-            at::IntArrayRef dims;
-            static const int64_t dimarr[] = {2, 0, 1};
-            dims = dimarr;
-            anchor_restride_nodes_[node_return].push_back(
-                std::make_pair(value_out, dims));
-          } else if (is_5d_layout) {
-            at::IntArrayRef dims;
-            static const int64_t dimarr[] = {0, 4, 1, 2, 3};
-            dims = dimarr;
-            anchor_restride_nodes_[node_return].push_back(
-                std::make_pair(value_out, dims));
-          } else {
-            at::IntArrayRef dims;
-            static const int64_t dimarr[] = {0, 3, 1, 2};
-            dims = dimarr;
-            if (*value_out->type()->cast<TensorType>()->dim() == 4) {
-              anchor_restride_nodes_[node_return].push_back(
-                  std::make_pair(value_out, dims));
-            }
-          }
-        }
-      } else {
-        if (prev_layout != cur_layout) {
-          if (*value_out->type()->cast<TensorType>()->dim() == 4) {
-            auto dims = getDimsForLayout(prev_layout, cur_layout);
-            anchor_nodes_[node_return].push_back(
-                std::make_pair(value_out, dims));
-          }
-
-          if (is_5d_layout) {
-            auto dims = getDimsForLayout5d(prev_layout, cur_layout);
-            anchor_nodes_[node_return].push_back(
-                std::make_pair(value_out, dims));
-          }
-        }
-      }
-    }
-    ret_idx++;
-  }
+  HandleReturnNode(
+      graph, value_to_tensor_layout, anchor_nodes_, anchor_restride_nodes_);
 
   // insert permute nodes and Restride nodes in graph
   InsertPermuteNodes(graph, anchor_nodes_);

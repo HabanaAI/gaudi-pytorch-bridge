@@ -11,6 +11,96 @@
 using namespace torch::jit;
 namespace habana_lazy {
 
+int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
+  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
+  // is not clear. Note that for 5d layout channel dim is 1 for
+  // NCDHW and 4 for NDHWC
+  int layout_dim = dim;
+  if (layout == habana::LayoutFormat::NCHW) {
+    int64_t dimarr[] = {0, 1, 2, 3, 4};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::NHWC) {
+    int64_t dimarr[] = {0, 4, 1, 2, 3};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::HWCK) {
+    int64_t dimarr[] = {4, 3, 0, 1, 2};
+    layout_dim = dimarr[dim];
+  } else {
+    HABANA_ASSERT(0);
+  }
+  return layout_dim;
+}
+
+int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
+  int layout_dim = dim;
+  if (layout == habana::LayoutFormat::NCHW) {
+    int64_t dimarr[] = {0, 1, 2, 3};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::NHWC) {
+    int64_t dimarr[] = {0, 3, 1, 2};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::HWCK) {
+    int64_t dimarr[] = {3, 2, 0, 1};
+    layout_dim = dimarr[dim];
+  } else {
+    HABANA_ASSERT(0);
+  }
+  return layout_dim;
+}
+
+at::IntArrayRef getDimsForLayout5d(
+    habana::LayoutFormat channel_order,
+    habana::LayoutFormat current_order) {
+  at::IntArrayRef dims;
+
+  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
+  // is not clear. Note that for 5d layout channel dim is 1 for
+  // NCDHW and 4 for NDHWC
+  if (current_order == habana::LayoutFormat::NCHW) {
+    if (channel_order == habana::LayoutFormat::NHWC) {
+      static const int64_t dimarr[] = {0, 2, 3, 4, 1};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::HWCK) {
+      static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else if (current_order == habana::LayoutFormat::NHWC) {
+    if (channel_order == habana::LayoutFormat::NCHW) {
+      static const int64_t dimarr[] = {0, 4, 1, 2, 3};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::HWCK) {
+      static const int64_t dimarr[] = {1, 2, 3, 4, 0};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else if (current_order == habana::LayoutFormat::HWCK) {
+    if (channel_order == habana::LayoutFormat::NCHW) {
+      static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::NHWC) {
+      static const int64_t dimarr[] = {4, 0, 1, 2, 3};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else {
+    TORCH_CHECK(
+        0,
+        " InsertPermute_graph: permute called for unsupported channel order");
+  }
+
+  return dims;
+}
+
 at::IntArrayRef getDimsForLayout(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order) {
