@@ -150,7 +150,6 @@ void HbExecutionContext::setExecutionMode(LazyExecutionMode mode) {
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
   index = 0;
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   // Force everything to use index 0. Need to remove device index as
   // a whole
   index = 0;
@@ -164,6 +163,7 @@ HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
 
 HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
   index = 0;
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   m_execution_context_list[index] = new HbExecutionContext;
   // m_execution_context_list[index]->setDevice(device);
   return m_execution_context_list[index];
