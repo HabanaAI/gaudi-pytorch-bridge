@@ -5144,57 +5144,7 @@ Tensor clone_hpu_lazy(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
   PT_LAZY_TRACE;
-  static_cast<void>(memory_format);
-  TORCH_CHECK(self.defined(), "src is undefined");
-  TORCH_CHECK(
-      self.device().type() == c10::DeviceType::HPU,
-      "Lazy kernel only supports clone on Habana Device");
-  TORCH_CHECK(
-      IsHbLazyTensor(self),
-      "src is not a Habana Lazy Tensor, currently NOT supported in cloning");
-
-  auto is_5d_tensor = self.dim() == 5;
-  if (memory_format == c10::MemoryFormat::ChannelsLast ||
-      memory_format == c10::MemoryFormat::ChannelsLast3d) {
-    if (is_5d_tensor) {
-      int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
-      at::IntArrayRef chl_pos = dim_chl_pos;
-      return permute_cl_hpu_lazy(self, chl_pos);
-
-    } else {
-      int64_t dim_chl_pos[] = {0, 2, 3, 1};
-      at::IntArrayRef chl_pos = dim_chl_pos;
-      return permute_cl_hpu_lazy(self, chl_pos);
-    }
-  } else {
-    // We need to add device to device copy kernel here
-    // As d2D copies may not mean trigger execution, we just need to add the
-    // nodes like memcopy to our lazy graph that we are creating
-    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-    hb_tensor = HandleViewsOrUpdate(self, hb_tensor);
-    auto node = ir::Node::Create(
-        Symbol::fromQualString("hpu::habana_d2d_memcpy"),
-        {hb_tensor.GetIrValue()});
-    auto result = empty_hpu_lazy(
-        self.sizes(),
-        self.options(),
-        self.suggest_memory_format(),
-        /*storage=*/false);
-    auto hlresult = GetHbLazyTensor(result);
-    auto layout_format = hb_tensor.GetTensorLayout();
-    hlresult.SetTensorLayout(layout_format);
-    ir::Value& out = hlresult.CurrentIrValue();
-    out.SetNode(
-        node,
-        hlresult.GetDevice(),
-        hlresult.GetSizes(),
-        hlresult.dtype_optional());
-    updateDstDependencies(hlresult, result);
-    std::vector<at::Tensor> input_pt_vec{self};
-    node->AddInputPtTensors(input_pt_vec);
-    flush_op(result);
-    return result;
-  }
+  return at::native::clone(self, memory_format);
 }
 
 Tensor& zero_hpu_lazy(Tensor& self) {

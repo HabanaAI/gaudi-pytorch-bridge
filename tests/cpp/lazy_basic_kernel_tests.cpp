@@ -348,3 +348,14 @@ TEST_F(LazyBasicKernelTest, DISABLED_InplaceViewonChlast3d) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
+
+TEST_F(LazyBasicKernelTest, FlattenChlast) {
+  int N = 2, C = 3, D = 4, H = 5;
+  torch::Tensor A =
+      torch::randn({N, C, D, H}).contiguous(c10::MemoryFormat::ChannelsLast);
+  auto hA = A.to(torch::kHPU);
+  A = torch::flatten(A, 1);
+
+  hA = torch::flatten(hA, 1);
+  EXPECT_EQ(allclose(A, hA.cpu()), true);
+}
