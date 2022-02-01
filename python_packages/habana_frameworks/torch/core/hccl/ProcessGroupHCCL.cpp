@@ -358,11 +358,6 @@ void ProcessGroupHCCL::WorkHCCL::synchronize() {
     deviceCtxts_[i]->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
   }
-  while (JobThreadHCCL::getInstance()->mJobCounter != 0) {
-    PT_DISTRIBUTED_DEBUG("[PYT-DIST] Waiting for collectives jobs to complete");
-    std::this_thread::sleep_for(
-        std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
-  }
 }
 
 c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupHCCL::WorkHCCL::
