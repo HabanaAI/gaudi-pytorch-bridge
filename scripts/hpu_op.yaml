@@ -1322,6 +1322,28 @@ index.Tensor:
   schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
   out_ids: [0]
 
+l1_loss:
+  custom_output_shape: L1LossOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: L1LossOperator
+  out_ids: [0]
+
+l1_loss.out:
+  custom_output_shape: L1LossOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: L1LossOperator
+
+l1_loss_backward:
+  custom_output_shape: L1LossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: L1LossBwdOperator
+  out_ids: [0]
+
+l1_loss_backward.grad_input:
+  custom_output_shape: L1LossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: L1LossBwdOperator
+
 le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
