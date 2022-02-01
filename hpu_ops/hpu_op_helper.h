@@ -142,6 +142,10 @@ class OpBackend : public HabanaOperator {
     return m_persistence_list[i];
   }
 
+  bool IsInplace() const {
+    return m_inplace_ids.size();
+  }
+
   void SetLayouts(
       std::vector<LayoutFormat> in_layouts,
       std::vector<LayoutFormat> out_layouts) {

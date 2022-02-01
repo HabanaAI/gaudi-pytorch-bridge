@@ -53,6 +53,26 @@ T LazyIntSeed<T>::get_result_overrideable() {
 template struct LazyIntSeed<at::Tensor&>;
 template struct LazyIntSeed<at::Tensor>;
 
+template <typename T>
+LazyIntOutSeed<T>::LazyIntOutSeed(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
+  // Generators can't be represented in JIT graph
+  // https://github.com/pytorch/pytorch/issues/64005
+  LazyIntOutSeed<T>::get_inputs().at(1) = static_cast<int64_t>(
+      get_seed_hpu(inputs.at(1).toOptional<at::Generator>()));
+}
+
+template <typename T>
+T LazyIntOutSeed<T>::get_result_overrideable() {
+  return stack_tensor(LazyIntOutSeed<T>::get_inputs(), 0);
+}
+
+template struct LazyIntOutSeed<at::Tensor&>;
+template struct LazyIntOutSeed<at::Tensor>;
+
 static std::shared_ptr<void> RandomUniformParams(
     at::ScalarType type,
     at::optional<float> from,

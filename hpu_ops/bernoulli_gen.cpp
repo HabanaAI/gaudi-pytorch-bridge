@@ -21,13 +21,20 @@ std::shared_ptr<void> FillBernoulliParams(
   return params;
 }
 
+std::shared_ptr<void> FillBernoulliOutParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_RandomBernoulli::Params);
+  params->seed = stack.at(1).toInt();
+  return params;
+}
+
 void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // When p is a scalar, convert to a tensor since tpc kernel takes probability
   // as the first and only input
   auto outshape = stack_tensor(stack, 0).sizes();
-
-  // For "outplace" variant, self tensor is the probability input
-  int p_index = IsOutputAvailable() ? 1 : 0;
+  // For "outplace" and "out" variant, self tensor is the probability input
+  int p_index = IsInplace() ? 1 : 0;
   auto p = stack.at(p_index).isTensor()
       ? std::make_unique<synapse_helpers::tensor>(
             std::move(p_context_->syn_inputs_.at(p_index).ref()))
@@ -35,7 +42,7 @@ void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
             graph, stack.at(1).toDouble(), ScalarType(), outshape));
 
   size_t size = 0;
-  auto params = FillBernoulliParams(stack, size);
+  auto params = FillParams(stack, size);
   auto op = BuildOp(
       graph,
       guid_,
