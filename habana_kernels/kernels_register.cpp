@@ -1921,10 +1921,12 @@ Tensor hpu_wrap::norm(
   if (!hpu_check_inputs_impl("norm", {self}))
     return AtenHpuTypeDefault::norm(self, p, dim, keepdim);
 
-  // TODO Implement correct variant
-  static_cast<void>(dim);
-  static_cast<void>(keepdim);
-  return hpu_wrap::norm(self, p.value_or(2));
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return norm_scalar_dim_hpu_lazy(self, p, dim, keepdim);
+  } else {
+    TORCH_CHECK(0, "Legacy Eager mode not supported for norm scalar with dims");
+    // return norm_scalar_hpu(self, p);
+  }
 }
 
 Tensor hpu_wrap::norm(const Tensor& self, const c10::Scalar& p) {
@@ -1947,10 +1949,23 @@ Tensor hpu_wrap::norm(
     at::ScalarType dtype) {
   if (!hpu_check_inputs_impl("norm", {self}))
     return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
-  // when both dtype and grad are float avoid fallback
-  if (dtype == c10::ScalarType::Float &&
-      self.scalar_type() == c10::ScalarType::Float) {
-    return hpu_wrap::norm(self, p, dim, keepdim);
+  // norm is supported on HPU only if either self's type or dtype param is Float
+  // we do self's cast here to Float to avoid special case casts in lowering
+  // part of norm op.
+  if (c10::isFloatingType(dtype) || c10::isFloatingType(self.scalar_type())) {
+    Tensor self_cast = self;
+    if (self.scalar_type() != c10::ScalarType::Float &&
+        dtype == c10::ScalarType::Float) {
+      self_cast = self.to(c10::ScalarType::Float);
+    } else if (
+        self.scalar_type() != c10::ScalarType::BFloat16 &&
+        dtype == c10::ScalarType::BFloat16) {
+      self_cast = self.to(c10::ScalarType::BFloat16);
+    } else {
+      // self type is Float or BFloat, but dtype is non FP
+      return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+    }
+    return hpu_wrap::norm(self_cast, p, dim, keepdim);
   } else {
     return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
   }
@@ -1964,7 +1979,7 @@ Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
     static at::Tensor forward(
         torch::autograd::AutogradContext*,
         const at::Tensor& self) {
-      return frobenius_norm_hpu_lazy(self);
+      return frobenius_norm_hpu_lazy(self, std::vector<int64_t>{}, false);
     }
 
     // Implemented for convention, not to be invoked
@@ -1987,14 +2002,14 @@ Tensor hpu_wrap::frobenius_norm(
     bool keepdim) {
   if (!hpu_check_inputs_impl("frobenius_norm", {self}))
     return AtenHpuTypeDefault::frobenius_norm(self);
-  static_cast<void>(dim);
-  static_cast<void>(keepdim);
 
   struct FrobeniusNorm : public torch::autograd::Function<FrobeniusNorm> {
     static at::Tensor forward(
         torch::autograd::AutogradContext*,
-        const at::Tensor& self) {
-      return frobenius_norm_hpu_lazy(self);
+        const at::Tensor& self,
+        at::IntArrayRef dim,
+        bool keepdim) {
+      return frobenius_norm_hpu_lazy(self, dim, keepdim);
     }
 
     // Implemented for convention, not to be invoked
@@ -2008,7 +2023,7 @@ Tensor hpu_wrap::frobenius_norm(
     }
   };
 
-  return FrobeniusNorm::apply(self);
+  return FrobeniusNorm::apply(self, dim, keepdim);
 }
 
 Tensor hpu_wrap::instance_norm(

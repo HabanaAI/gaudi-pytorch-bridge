@@ -27,6 +27,7 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
+#include "habana_kernels/lowering_util.h"
 #include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
@@ -4405,12 +4406,93 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   return k.call();
 }
 
+Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
+  std::vector<int64_t> size = {};
+  at::Tensor empty_tensor =
+      empty_hpu_lazy(size, self.options(), self.suggest_memory_format(), true);
+  return fill_hpu_lazy_(empty_tensor, val);
+}
 Tensor norm_scalar_hpu_lazy(const Tensor& self, const Scalar& p) {
   PT_LAZY_TRACE;
+  if (self.numel() == 0) {
+    return fill_0d_val(self, 0);
+  }
   LazyOp<at::Tensor> k{
-      "aten::norm", {self, p}, {}, {NormOperator::compute_output_shape()}};
+      "aten::norm",
+      {self, p},
+      {},
+      {NormOperator::compute_output_shape(self, std::vector<int64_t>{}, 0)}};
   Tensor out = k.call();
   out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  return out;
+}
+
+Tensor norm_scalar_dim_hpu_lazy(
+    const Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim) {
+  PT_LAZY_TRACE;
+  if (self.numel() == 0) {
+    return fill_0d_val(self, 0);
+  }
+  if (!self.dim())
+    return self;
+
+  // NOTE: Casting a large integer to a double/float will introduce some error,
+  // but for practical purposes, it won't matter since a large order/p.value()
+  // will usually give an infinite result
+  // Checks when input has zero sized dimensions using the same checks from
+  // aten/src/ATen/native/LinearAlgebra.cpp
+  Tensor input_t = self;
+  Tensor out;
+  std::vector<int64_t> wrapped_dims;
+  for (unsigned i = 0; i < dim.size(); i++)
+    wrapped_dims.emplace_back(dim[i]);
+  LoweringUtil::SortAndRemoveDuplicateDims(wrapped_dims, self.dim());
+  if (p.has_value() &&
+      (p.value().toFloat() == 0.0 ||
+       p.value().toFloat() == LoweringUtil::FP_INFINITY ||
+       p.value().toFloat() == LoweringUtil::FP_NEG_INFINITY)) { // L0 Norm
+    auto out_shape =
+        NormOperator::compute_output_shape(input_t, wrapped_dims, keepdim);
+    LazyOp<at::Tensor> k{
+        "aten::norm",
+        {input_t, p.value(), wrapped_dims, keepdim, input_t.scalar_type()},
+        {},
+        {out_shape}};
+    return k.call();
+  }
+  // handle other values of 'p'
+  for (unsigned i = 0; i < dim.size(); i++) {
+    // the dim list given to lowering (wrapped_dims[0]) has only one element now
+    // because lowering can handle only one dim at a time due to tpc
+    // limitations. Keeping it a list for future when lowering starts supporting
+    // multiple dims. wrapped_dims - the dimlist used in the current iteration.
+    // This depends on the input shape for the current iteration. E.g., consider
+    // we start with changed_dims = [1,3,4] for a 5-D input. In second
+    // iteration, after norm has been computed on dim=1 in previous iteration,
+    // the iteration input would be 4-D and the dimlist cannot be [3, 4]. It has
+    // to be modified to [2,3]
+    auto out_shape = NormOperator::compute_output_shape(
+        input_t, std::vector<int64_t>{wrapped_dims[0]}, keepdim);
+    LazyOp<at::Tensor> k{
+        "aten::norm",
+        {input_t,
+         p.value_or(2.0),
+         std::vector<int64_t>{wrapped_dims[0]},
+         keepdim,
+         input_t.scalar_type()},
+        {},
+        {out_shape}};
+    out = k.call();
+    input_t = out; // next iterations input is current output
+    wrapped_dims.erase(wrapped_dims.cbegin());
+    if (wrapped_dims.size() && !keepdim)
+      for (unsigned j = 0; j < wrapped_dims.size(); j++)
+        wrapped_dims[j]--;
+  }
+
   return out;
 }
 
@@ -7072,12 +7154,20 @@ Tensor cumsum_hpu_lazy(
   return k.call();
 }
 
-at::Tensor frobenius_norm_hpu_lazy(const Tensor& self) {
+at::Tensor frobenius_norm_hpu_lazy(
+    const Tensor& self,
+    at::IntArrayRef dim,
+    bool keepdim) {
   PT_LAZY_TRACE;
   Scalar p(2.0); // p = 2.0 for Frobenius Norm
-  std::vector<int64_t> shape = {};
-  LazyOp<at::Tensor> k{"aten::norm", {self, p}, {}, {shape}};
-  return k.call();
+  if (!dim.size()) { // this case uses a more optimized lowering and TPC
+                     // implementation
+    std::vector<int64_t> shape = {};
+    LazyOp<at::Tensor> k{"aten::norm", {self, p}, {}, {shape}};
+    return k.call();
+  } else {
+    return norm_scalar_dim_hpu_lazy(self, p, dim, keepdim);
+  }
 }
 
 Tensor floor_divide_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {

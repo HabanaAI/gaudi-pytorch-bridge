@@ -26,11 +26,14 @@
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/lowering_util.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
+#include "hpu_ops/generated/hpu_op.h"
+
 using namespace torch;
 using namespace habana;
 
@@ -1772,13 +1775,31 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
       std::move(ln_outputs[2]));
 }
 
-std::vector<int64_t> NormOperator::compute_output_shape() {
-  return {1};
+std::vector<int64_t> NormOperator::compute_output_shape(
+    const Tensor& self,
+    at::IntArrayRef dim,
+    bool keepdim) {
+  if (dim.size() == 0)
+    return {};
+  auto sizes = self.sizes().vec();
+  std::vector<int64_t> wrapped_dims;
+  for (unsigned i = 0; i < dim.size(); i++)
+    wrapped_dims.emplace_back(at::maybe_wrap_dim(dim[i], self.dim()));
+  unsigned removed_count = 0;
+  for (unsigned i = 0; i < wrapped_dims.size(); i++) {
+    if (keepdim) {
+      sizes[wrapped_dims[i]] = 1;
+    } else {
+      sizes.erase(sizes.cbegin() + wrapped_dims[i] - removed_count);
+      removed_count++;
+    }
+  }
+  return sizes;
 }
 
 void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() >= 2 && inputs.size() <= 4,
       "Incorrect size of inputs expected for Norm Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -1788,16 +1809,118 @@ void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
-  auto shape = NormOperator::compute_output_shape();
+  auto shape = NormOperator::compute_output_shape(self, {}, 0);
   auto output = at::empty(shape, self.options(), c10::nullopt);
   HabanaOperator::SetPTOutput(output);
 }
+
+struct NotEqualScalar : NE {
+  NotEqualScalar(int device_id, c10::ScalarType scalar_type)
+      : NE(device_id, "None_", scalar_type, {0}, {}, {1}, false) {
+    EnableTypePromotion();
+  }
+};
+
+void NormOperator::AddL0NormNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  std::vector<int64_t> dims;
+  bool keepdim;
+  if (inputs.size() == 2) { // reduce along all dims
+    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++)
+      dims.emplace_back(i);
+    keepdim = false;
+  } else { // reduce along given dims
+    dims = inputs[2].toIntList().vec();
+    keepdim = inputs[3].toBool();
+  }
+  auto device_id = self.device().index();
+  auto scalar_type = self.scalar_type();
+  torch::jit::Stack stack;
+  auto ne_op = make_operator<NotEqualScalar>(device_id, scalar_type);
+  ne_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  stack.emplace_back(IValue(self));
+  stack.emplace_back(IValue(0.0));
+  ne_op->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+  std::string node_type =
+      "cast_i8_to_" + habana_helpers::name_suffix_from_type(scalar_type);
+  auto cast1 = make_operator<CastOperator>(device_id, node_type);
+  cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
+  stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
+  stack.emplace_back(IValue(scalar_type));
+  cast1->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+  // Reduction operation - Create the operator
+  auto sum_dim_op =
+      make_operator<SumDimOperator>(this->p_context_->device_id_, scalar_type);
+  sum_dim_op->SetSynapseInput(cast1->GetSynOutputs()[0]);
+  stack.emplace_back(IValue(cast1->GetOutputs()[0]));
+  stack.emplace_back(IValue(dims));
+  stack.emplace_back(IValue(keepdim));
+  stack.emplace_back(IValue(scalar_type));
+  sum_dim_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  stack.clear();
+  p_context_->syn_outputs_.emplace_back(
+      std::move(sum_dim_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(sum_dim_op->GetOutputs()[0]);
+}
+
+void NormOperator::AddLInfNormNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  auto p = inputs[1].toScalar();
+  std::vector<int64_t> dims;
+  bool keepdim;
+  if (inputs.size() == 2) { // reduce along all dims
+    for (unsigned i = 0; i < inputs[0].toTensor().sizes().size(); i++)
+      dims.emplace_back(i);
+    keepdim = false;
+  } else { // reduce along given dims
+    dims = inputs[2].toIntList().vec();
+    keepdim = inputs[3].toBool();
+  }
+  auto device_id = self.device().index();
+  auto scalar_type = self.scalar_type();
+  torch::jit::Stack stack;
+  auto abs_op = make_operator<AbsOperator>(device_id, scalar_type);
+  abs_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  stack.emplace_back(IValue(self));
+  abs_op->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+  // Reduction operation - Create the operator
+  std::shared_ptr<ReduceOperator> reduce_op;
+  if (p.toFloat() == LoweringUtil::FP_INFINITY) {
+    reduce_op = make_operator<ReduceMultiOutputOperator>(
+        this->p_context_->device_id_, scalar_type, "max");
+  } else if (p.toFloat() == LoweringUtil::FP_NEG_INFINITY) {
+    reduce_op = make_operator<ReduceMultiOutputOperator>(
+        this->p_context_->device_id_, scalar_type, "min");
+  } else {
+    HABANA_ASSERT(0, "Call to AddLInfNormNode with invalid p value");
+  }
+  reduce_op->SetSynapseInput(abs_op->GetSynOutputs()[0]);
+  stack.emplace_back(IValue(abs_op->GetOutputs()[0]));
+  stack.emplace_back(IValue(dims));
+  stack.emplace_back(IValue(keepdim));
+  stack.emplace_back(IValue(scalar_type));
+  reduce_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  stack.clear();
+  p_context_->syn_outputs_.emplace_back(
+      std::move(reduce_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(reduce_op->GetOutputs()[0]);
+}
+
 void NormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() >= 2 && inputs.size() <= 5,
       "Incorrect size of inputs expected for Norm Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -1805,11 +1928,20 @@ void NormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for Norm Operator");
-
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();
-
-  if (p.toFloat() == 2.0) {
+  if (p.toFloat() == 0.0) {
+    // L0 Norm
+    AddL0NormNode(graph, inputs, is_output_persistent);
+    return;
+  } else if (
+      p.toFloat() == LoweringUtil::FP_INFINITY ||
+      p.toFloat() == LoweringUtil::FP_NEG_INFINITY) {
+    // LInf and LNegInf Norms
+    AddLInfNormNode(graph, inputs, is_output_persistent);
+    return;
+  }
+  if ((p.toFloat() == 2.0) && (inputs.size() < 3)) {
     if (self.dim() <= 1 || self.sizes()[0] == 1) {
       auto device_id = self.device().index();
       auto scalar_type = self.scalar_type();
@@ -1852,7 +1984,6 @@ void NormOperator::AllocateAndAddSynapseNode(
     } else {
       at::ScalarType scalar_type = self.scalar_type();
       std::vector<c10::IValue> stack{};
-
       // LpNorm Operator
       // Create the operator
       auto LpNormFrobeniusOp = make_operator<LpNormFrobeniusOperator>(
@@ -1870,78 +2001,79 @@ void NormOperator::AllocateAndAddSynapseNode(
           std::move(LpNormFrobeniusOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(LpNormFrobeniusOp->GetOutputs()[0]);
     }
-  } else {
+  } else if (inputs.size() < 3) { // no dims given - reduce all dims
     // ReShape Operator
     at::ScalarType scalar_type = self.scalar_type();
     auto shape = {self.numel()};
-
-    // Create the operator
     auto ReShapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, scalar_type);
     ReShapeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::IntArrayRef(shape))};
     ReShapeOp->AllocateAndAddSynapseNode(graph, stack, false);
-
     auto output_reshape = ReShapeOp->GetOutputs()[0];
     stack.clear();
-
     // LpNorm Operator
     // Create the operator
     auto LpNormOp = make_operator<LpNormOperator>(
         this->p_context_->device_id_, scalar_type);
     LpNormOp->SetSynapseInput(ReShapeOp->GetSynOutputs()[0]);
-
     // Build Params for the graph
     stack.emplace_back(IValue(output_reshape));
     stack.emplace_back(IValue(p));
-    LpNormOp->AllocateAndAddSynapseNode(graph, stack, {false, false});
-
-    auto output_norm = LpNormOp->GetOutputs()[1];
-    stack.clear();
-
-    // Reciprocal Operator
-    // Create the operator
-    auto reciprocalOp = make_operator<ReciprocalOperator>(
-        this->p_context_->device_id_, scalar_type);
-    reciprocalOp->SetSynapseInput(LpNormOp->GetSynOutputs()[1]);
-
-    // Build Params for the graph
-    stack.emplace_back(IValue(output_norm));
-    reciprocalOp->AllocateAndAddSynapseNode(graph, stack, false);
-    stack.clear();
-
-    // take just the first element of Reciprocal since all values would be
-    // repeated
-    auto slice_op =
-        make_operator<SliceOperator>(this->p_context_->device_id_, scalar_type);
-    slice_op->SetSynapseInput(reciprocalOp->GetSynOutputs()[0]);
-    slice_op->SetOutputMetadata(output_metadata_);
-    stack.emplace_back(IValue(reciprocalOp->GetOutputs()[0]));
-    int dim = 0;
-    int start = 0;
-    int end = 1;
-    int step = 1;
-    stack.emplace_back(IValue(dim));
-    stack.emplace_back(IValue(start));
-    stack.emplace_back(IValue(end));
-    stack.emplace_back(IValue(step));
-    slice_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
+    stack.emplace_back(IValue(0)); // dim
+    LpNormOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     p_context_->syn_outputs_.emplace_back(
-        std::move(slice_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(slice_op->GetOutputs()[0]));
+        std::move(LpNormOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(LpNormOp->GetOutputs()[0]));
+  } else { // reduce along specified dim
+    at::ScalarType scalar_type = self.scalar_type();
+    std::vector<int64_t> dims = inputs[2].toIntList().vec();
+    bool keepdim = inputs[3].toBool();
+    std::vector<c10::IValue> stack;
+    if (dims.size() == 1) {
+      auto LpNormOp = make_operator<LpNormOperator>(
+          this->p_context_->device_id_, scalar_type);
+      LpNormOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      stack = {IValue(self), IValue(p), IValue(dims[0])};
+      LpNormOp->AllocateAndAddSynapseNode(
+          graph, stack, keepdim ? is_output_persistent : false);
+
+      if (!keepdim) {
+        auto new_sizes = LpNormOp->GetOutputs()[0].sizes().vec();
+        new_sizes.erase(new_sizes.cbegin() + dims[0]);
+        auto reshape_op = make_operator<ReshapeOperator>(
+            this->p_context_->device_id_, scalar_type);
+        reshape_op->SetSynapseInput(LpNormOp->GetSynOutputs()[0]);
+        stack = {IValue(LpNormOp->GetOutputs()[0]), IValue(new_sizes)};
+        reshape_op->AllocateAndAddSynapseNode(
+            graph, stack, is_output_persistent);
+        p_context_->syn_outputs_.emplace_back(
+            std::move(reshape_op->GetSynOutputs()[0]));
+        p_context_->pt_outputs_.emplace_back(
+            std::move(reshape_op->GetOutputs()[0]));
+      } else {
+        p_context_->syn_outputs_.emplace_back(
+            std::move(LpNormOp->GetSynOutputs()[0]));
+        p_context_->pt_outputs_.emplace_back(
+            std::move(LpNormOp->GetOutputs()[0]));
+      }
+    } else {
+      HABANA_ASSERT(
+          0, "NormOperator doesn't support more than single dim reduction");
+    }
+
+    return;
   }
 }
 
 void LpNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 3,
       "Incorrect size of inputs expected for LpNorm Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -1949,26 +2081,54 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for LpNorm Operator");
-  TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "LpNormOperator: #is_output_persistent should be 2");
-
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();
+  auto dim = inputs[2].toInt();
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
 
-  auto output = habana_helpers::createPTTensor(self, is_output_persistent[0]);
-  auto retain = habana_helpers::createPTTensor(self, is_output_persistent[1]);
+  auto lpnorm_output = habana_helpers::createPTTensor(self, false);
+  auto retain = habana_helpers::createPTTensor(self, false);
 
   ns_LpNormKernel::Params params{};
   params.p = p.to<float>();
-  params.dim = 0;
-  params.eps = 1e-5;
+  params.dim = self.dim() - dim - 1;
+  params.eps = 1e-5; // arbitrarily small value
 
-  std::vector<at::Tensor> outputs{output, retain};
-  AllocateSynapseOutputs(graph, outputs, is_output_persistent, {true, true});
+  std::vector<at::Tensor> outputs{lpnorm_output, retain};
+  AllocateSynapseOutputs(graph, outputs, {false, false}, {true, true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  std::vector<c10::IValue> stack;
+  // Reciprocal Operator is used since what we require is reciprocal of retain
+  auto reciprocalOp = make_operator<ReciprocalOperator>(
+      this->p_context_->device_id_, self.scalar_type());
+  reciprocalOp->SetSynapseInput(p_context_->syn_outputs_[1]);
+  // Build Params for the graph
+  stack.emplace_back(IValue(retain));
+  reciprocalOp->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+  // take just the first element of Reciprocal since all values would be
+  // repeated
+  auto slice_op = make_operator<SliceOperator>(
+      this->p_context_->device_id_, self.scalar_type());
+  slice_op->SetSynapseInput(reciprocalOp->GetSynOutputs()[0]);
+  slice_op->SetOutputMetadata(output_metadata_);
+  stack.emplace_back(IValue(reciprocalOp->GetOutputs()[0]));
+  int start = 0;
+  int end = 1;
+  int step = 1;
+  stack.emplace_back(IValue(dim));
+  stack.emplace_back(IValue(start));
+  stack.emplace_back(IValue(end));
+  stack.emplace_back(IValue(step));
+  slice_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  p_context_->syn_outputs_.erase(p_context_->syn_outputs_.begin());
+  p_context_->syn_outputs_.insert(
+      p_context_->syn_outputs_.begin(),
+      std::move(slice_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.erase(p_context_->pt_outputs_.begin());
+  p_context_->pt_outputs_.insert(
+      p_context_->pt_outputs_.begin(), std::move(slice_op->GetOutputs()[0]));
 }
 
 void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
@@ -2518,6 +2678,8 @@ static auto& KernelRegistry =
             "aten::native_layer_norm_backward",
             KERNEL_FN(LayerNormBackwardOperator))
         .add("aten::norm.Scalar", KERNEL_FN(NormOperator))
+        .add("aten::norm.ScalarOpt_dim", KERNEL_FN(NormOperator))
+        .add("aten::norm.ScalarOpt_dim_dtype", KERNEL_FN(NormOperator))
         .add("hpu::instance_norm", KERNEL_FN(InstanceNormOperator))
         .add(
             "hpu::instance_norm_backward",

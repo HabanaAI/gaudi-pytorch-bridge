@@ -64,6 +64,7 @@ class ReduceOperator : public HabanaOperator {
       synapse_helpers::tensor_or_ref syn_tensor_out,
       c10::IntArrayRef in_dim,
       bool keepdim);
+  int get_num_tpc_outputs();
 };
 
 //
@@ -358,6 +359,25 @@ class ReduceMeanBwdOperator : public HabanaOperator {
   }
 
   void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class ReduceMultiOutputOperator : public ReduceOperator {
+ public:
+  ReduceMultiOutputOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      const std::string variant)
+      : ReduceOperator(
+            device_id,
+            "reduce_" + variant + "_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;

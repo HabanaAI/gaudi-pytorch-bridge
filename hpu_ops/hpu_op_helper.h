@@ -100,6 +100,15 @@ class OpBackend : public HabanaOperator {
   const c10::ScalarType& ScalarType() const {
     return m_scalar_type;
   }
+  // keeping AllocateAndAddSynapseNode public to help with calling autogen ops
+  // from manually written ops
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      at::Stack& stack,
+      bool is_output_persistent) override {
+    std::vector<bool> is_output_persistent_list{is_output_persistent};
+    AllocateAndAddSynapseNode(graph, stack, is_output_persistent_list);
+  }
 
   const auto& GetShapeTensors() const {
     return m_shape_tensors;
@@ -190,15 +199,6 @@ class OpBackend : public HabanaOperator {
   void HandleIntToFloatPromotion(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      at::Stack& stack,
-      bool is_output_persistent) override {
-    std::vector<bool> is_output_persistent_list{is_output_persistent};
-    AllocateAndAddSynapseNode(graph, stack, is_output_persistent_list);
-  }
-
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       at::Stack& stack,

@@ -34,6 +34,10 @@ class LoweringUtil {
       bool promote_integers = false);
 
   static DimMask MakeDimMask(at::IntArrayRef dims, int64_t ndim);
+
+  static constexpr float FP_INFINITY = std::numeric_limits<float>::infinity();
+  static constexpr float FP_NEG_INFINITY =
+      -std::numeric_limits<float>::infinity();
 };
 
 } // namespace habana

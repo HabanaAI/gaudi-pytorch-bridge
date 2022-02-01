@@ -423,6 +423,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
 at::Tensor norm_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& p);
+at::Tensor norm_scalar_dim_hpu_lazy(
+    const at::Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight_opt,
@@ -858,7 +863,10 @@ at::Tensor& diag_hpu_lazy_out(
     const at::Tensor& self,
     int64_t diagonal,
     at::Tensor& out);
-at::Tensor frobenius_norm_hpu_lazy(const at::Tensor& self);
+at::Tensor frobenius_norm_hpu_lazy(
+    const at::Tensor& self,
+    at::IntArrayRef dim,
+    bool keepdim);
 
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,

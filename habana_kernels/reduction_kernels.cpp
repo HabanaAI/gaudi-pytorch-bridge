@@ -267,6 +267,17 @@ void ReduceOperator::AllocateAndAddSynapseNode(
   }
 }
 
+static std::vector<std::string> multi_output_reduce_ops = {
+    "reduce_min_fwd",
+    "reduce_max_fwd"};
+int ReduceOperator::get_num_tpc_outputs() {
+  for (size_t i = 0; i < multi_output_reduce_ops.size(); i++) {
+    if (guid_.find(multi_output_reduce_ops[i]) != std::string::npos) {
+      return 2;
+    }
+  }
+  return 1;
+}
 std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
 ReduceOperator::CreateReductionGraph(
     synapse_helpers::graph& graph,
@@ -284,6 +295,8 @@ ReduceOperator::CreateReductionGraph(
   std::vector<int64_t> pyt_shape = pyt_tensor.sizes().vec();
   auto pyt_stride = pyt_tensor.strides().vec();
   ScalarType dtype = output.scalar_type();
+  auto num_tpc_outputs = get_num_tpc_outputs();
+  int first_input_pos = 1 - num_tpc_outputs;
   // add syn_input tensor
   synapse_helpers::tensor& synInput = syn_tensor_in;
   syn_helper_intermediate.emplace_back(synInput);
@@ -301,18 +314,50 @@ ReduceOperator::CreateReductionGraph(
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape, pyt_stride, graph, false, pyt_tensor.device().index(), dtype));
+    if (num_tpc_outputs != 1) {
+      // create second tensor for index
+      syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
+          shape,
+          pyt_stride,
+          graph,
+          false,
+          pyt_tensor.device().index(),
+          c10::ScalarType::Int));
+    }
   }
   // add syn_output tensor
   synapse_helpers::tensor& synOutput = syn_tensor_out;
   syn_helper_intermediate.emplace_back(synOutput);
-
+  if (keepdim && num_tpc_outputs != 1) {
+    // create second tensor for index
+    syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
+        output.sizes(),
+        output.strides(),
+        graph,
+        false,
+        pyt_tensor.device().index(),
+        c10::ScalarType::Int));
+  }
+  /*
+  i=0, o=1,2
+  i=1, o=3,4
+  i=3, o=5,6
+  i=5, o=7,8
+  i=7, o=9,10
+  */
   // add reduction nodes corresponding to intermediate stages
-  for (unsigned i = 0; i < in_dim.size(); i++) {
+  for (unsigned i = 0, j = 0; i < num_tpc_outputs * in_dim.size();
+       i += num_tpc_outputs, j++) {
     std::string node_type = this->guid_;
     ns_Reduction::Params params{};
-    params.reductionDimension = pyt_tensor.dim() - in_dim[i] - 1;
-    std::vector<synTensor> syn_in{syn_helper_intermediate[i].ref().get()};
+    params.reductionDimension = pyt_tensor.dim() - in_dim[j] - 1;
+    auto input_index_offset = i + (i != 0) * first_input_pos;
+    std::vector<synTensor> syn_in{
+        syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{syn_helper_intermediate[i + 1].ref().get()};
+    if (num_tpc_outputs != 1) {
+      syn_out.emplace_back(syn_helper_intermediate[i + 2].ref().get());
+    }
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -324,10 +369,15 @@ ReduceOperator::CreateReductionGraph(
   // dims
   if (!keepdim) {
     std::string node_type = "reshape";
+    auto input_index_offset = (num_tpc_outputs > 1)
+        ? num_tpc_outputs * in_dim.size() - 1
+        : in_dim.size();
     std::vector<synTensor> syn_in{
-        syn_helper_intermediate[in_dim.size()].ref().get()};
+        syn_helper_intermediate[input_index_offset].ref().get()};
     std::vector<synTensor> syn_out{
-        syn_helper_intermediate[in_dim.size() + 1].ref().get()};
+        syn_helper_intermediate[num_tpc_outputs * in_dim.size() + 1]
+            .ref()
+            .get()};
 
     auto reshapeOp =
         make_operator<ReshapeOperator>(p_context_->device_id_, dtype);
@@ -344,7 +394,6 @@ ReduceOperator::CreateReductionGraph(
         0,
         std::move(node_type));
   }
-
   return std::make_tuple(std::move(syn_tensor_in), std::move(syn_tensor_out));
 }
 
@@ -1879,6 +1928,31 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutputs(graph, {output}, {is_output_persistent}, {true});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for MaxDimOperator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for MaxDimOperator");
+
+  Tensor self = inputs[0].toTensor();
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      compute_output_shape(
+          self, inputs[1].toIntList().vec(), inputs[2].toBool()), //{},
+      self.options(),
+      at::MemoryFormat::Contiguous,
+      is_output_persistent);
+  inputs.insert(inputs.begin(), IValue(output));
+
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 
 static auto& KernelRegistry =
