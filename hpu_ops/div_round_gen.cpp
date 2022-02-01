@@ -9,6 +9,7 @@
  */
 
 #include "../habana_kernels/lazy_kernels_declarations.h"
+#include "div_mod_util.h"
 #include "generated/hpu_op.h"
 #include "habana_kernels/binary_kernels.h"
 
@@ -101,92 +102,118 @@ void DivRoundModeOperator::AddNode(
 
   std::vector<at::Tensor> tensors = {self, other};
 
+  // Check if mode is other than default "true", i.e. "floor" or "trunc"
+  bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);
+
   // Find the result type
   const at::ScalarType& final_result_type = stack.at(1).isScalar()
       ? ComputePromotedScalarType(stack, true)
       : at::result_type(self, other);
 
-  // Computation is always done in float
-  const at::ScalarType& computation_type =
-      (c10::ScalarType::BFloat16 == final_result_type)
-      ? c10::ScalarType::BFloat16
-      : COMMON_COMPUTATION_TYPE_TPC;
-  const std::string opStringSuffix =
-      "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
-
-  // Initialization
-  const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
-  std::vector<synapse_helpers::tensor> divOp, cast[cNoOfInputTensors],
-      makeIntegerOp, castToReturnTypeOp;
-
-  std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
-
-  // Convert each tensor to float/bfloat16 (if not already in)
-  std::pair<c10::ScalarType, c10::ScalarType> type_key;
-  std::string strNode_type;
-
-  for (unsigned char i = 0; i < cNoOfInputTensors; ++i) {
-    if (tensors.at(i).scalar_type() == computation_type) {
-      continue;
-    }
-
-    type_key = std::make_pair(tensors.at(i).scalar_type(), computation_type);
-    auto iter = habana_helpers::cast_map.find(type_key);
-    strNode_type = iter->second;
-    cast[i] = BuildOp(
-        graph,
-        strNode_type,
-        {syn_in(i)},
-        // Sizes of "self" and "other" tensors may differ, so
-        // use own size as output size for cast op
-        {{stack_tensor(stack, i).sizes(), computation_type}});
-    binaryop_inputs.at(i) = cast[i].at(0).get();
-  }
-
   auto shape_out = stack.at(1).isScalar()
       ? self.sizes().vec()
       : BinaryOperator::compute_output_shape(self, other);
 
-  // Check if mode is other than default "true", i.e. "floor" or "trunc"
-  bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);
+  std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
 
-  // Final cast is required, if result type is not float
-  bool bNeedToCastFinalResult = (final_result_type != computation_type);
+  // Handle integral cases differently using div_mod, else floating point
+  // convertion yields error after truncation in some cases.
+  if (bOtherThanTrueMode && (isIntegralType(final_result_type, true))) {
+    size_t size = 0;
 
-  divOp = BuildOp(
-      graph,
-      "div" + opStringSuffix,
-      binaryop_inputs,
-      {{shape_out,
-        computation_type,
-        bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}});
-  if (!bOtherThanTrueMode) {
+    // The second argument of "FillDivModParams", pyCompatible is false
+    // for 'trunc' mode and true for 'floor' case
+    const auto& params =
+        FillDivModParams(size, (StrModeFloor == rounding_mode));
+
+    const std::string opStringSuffix =
+        habana_helpers::name_suffix_from_type(final_result_type);
+    auto divOp = BuildOp(
+        graph,
+        "div_mod_fwd_" + opStringSuffix,
+        binaryop_inputs,
+        {{shape_out, final_result_type, 0}, {shape_out, final_result_type}},
+        params.get(),
+        size);
     syn_out(0) = std::move(divOp[0]);
     return;
-  }
+  } else { // if (isIntegralType(final_result_type, true))
 
-  // If in "floor" or "trunc" mode, need to apply that
-  makeIntegerOp = BuildOp(
-      graph,
-      rounding_mode + opStringSuffix,
-      {divOp.at(0).get()},
-      {{shape_out,
-        computation_type,
-        bNeedToCastFinalResult ? c10::nullopt : c10::make_optional<int>(0)}});
-  if (!bNeedToCastFinalResult) {
-    syn_out(0) = std::move(makeIntegerOp[0]);
-    return;
-  }
+    // Computation is always done in float
+    const at::ScalarType& computation_type =
+        (c10::ScalarType::BFloat16 == final_result_type)
+        ? c10::ScalarType::BFloat16
+        : COMMON_COMPUTATION_TYPE_TPC;
+    const std::string opStringSuffix =
+        "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 
-  type_key = std::make_pair(computation_type, final_result_type);
-  auto iter = habana_helpers::cast_map.find(type_key);
-  strNode_type = iter->second;
-  castToReturnTypeOp = BuildOp(
-      graph,
-      strNode_type,
-      {makeIntegerOp.at(0).get()},
-      {{shape_out, final_result_type, 0}});
-  syn_out(0) = std::move(castToReturnTypeOp[0]);
+    // Initialization
+    const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
+    std::vector<synapse_helpers::tensor> divOp, cast[cNoOfInputTensors],
+        makeIntegerOp, castToReturnTypeOp;
+
+    // Convert each tensor to float/bfloat16 (if not already in)
+    std::pair<c10::ScalarType, c10::ScalarType> type_key;
+    std::string strNode_type;
+
+    for (unsigned char i = 0; i < cNoOfInputTensors; ++i) {
+      if (tensors.at(i).scalar_type() == computation_type) {
+        continue;
+      }
+
+      type_key = std::make_pair(tensors.at(i).scalar_type(), computation_type);
+      auto iter = habana_helpers::cast_map.find(type_key);
+      strNode_type = iter->second;
+      cast[i] = BuildOp(
+          graph,
+          strNode_type,
+          {syn_in(i)},
+          // Sizes of "self" and "other" tensors may differ, so
+          // use own size as output size for cast op
+          {{stack_tensor(stack, i).sizes(), computation_type}});
+      binaryop_inputs.at(i) = cast[i].at(0).get();
+    }
+
+    // Final cast is required, if result type is not float
+    // when those are same, and following flag bNeedToCastFinalResult is false
+    // we used computation_type for output type to avoid multiple branches
+    bool bNeedToCastFinalResult = (final_result_type != computation_type);
+
+    divOp = BuildOp(
+        graph,
+        "div" + opStringSuffix,
+        binaryop_inputs,
+        {{shape_out,
+          computation_type,
+          bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}});
+    if (!bOtherThanTrueMode) {
+      syn_out(0) = std::move(divOp[0]);
+      return;
+    }
+
+    // If in "floor" or "trunc" mode, need to apply that
+    makeIntegerOp = BuildOp(
+        graph,
+        rounding_mode + opStringSuffix,
+        {divOp.at(0).get()},
+        {{shape_out,
+          computation_type,
+          bNeedToCastFinalResult ? c10::nullopt : c10::make_optional<int>(0)}});
+    if (!bNeedToCastFinalResult) {
+      syn_out(0) = std::move(makeIntegerOp[0]);
+      return;
+    }
+
+    type_key = std::make_pair(computation_type, final_result_type);
+    auto iter = habana_helpers::cast_map.find(type_key);
+    strNode_type = iter->second;
+    castToReturnTypeOp = BuildOp(
+        graph,
+        strNode_type,
+        {makeIntegerOp.at(0).get()},
+        {{shape_out, final_result_type, 0}});
+    syn_out(0) = std::move(castToReturnTypeOp[0]);
+  } // else { //if (isIntegralType(final_result_type, true))
 }
 
 } // namespace habana

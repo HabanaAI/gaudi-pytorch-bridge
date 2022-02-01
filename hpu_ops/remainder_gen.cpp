@@ -8,18 +8,11 @@
  ******************************************************************************
  */
 
+#include "div_mod_util.h"
 #include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
-
-std::shared_ptr<void> FillDivModParams(size_t& size) {
-  PARAMS_STUB(ns_DivModKernel::Params);
-  // Python div_mod is enabled where remainder returns the same sign of the
-  // divisor, except for the zero remainder
-  params->isPyCompatible = true;
-  return params;
-}
 
 void RemainderOp::AddNode(
     synapse_helpers::graph& graph,

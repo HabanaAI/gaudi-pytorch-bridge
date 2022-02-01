@@ -97,6 +97,116 @@ TEST_F(HpuOpTest, divroundTruncateTypePromoInt8Int8) {
   Compare(expected, result);
 }
 
+TEST_F(HpuOpTest, divroundTruncateTypePromoIntInt) {
+  const std::vector<int64_t> tensor_size = {4, 6, 5, 3};
+  auto A = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto B = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+  auto expected = torch::div(A, B, "trunc");
+  auto result = torch::div(hA, hB, "trunc");
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, divroundFloorTypePromoIntInt) {
+  const std::vector<int64_t> tensor_size = {3, 2, 6, 4};
+  auto A = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto B = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+  auto expected = torch::div(A, B, "floor");
+  auto result = torch::div(hA, hB, "floor");
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, divroundNoneTypePromoIntInt) {
+  const std::vector<int64_t> tensor_size = {2, 3, 2, 4};
+  auto A = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto B = torch::randint(
+      MIN_INT_VALUE_GENERATED,
+      MAX_INT_VALUE_GENERATED,
+      tensor_size,
+      torch::dtype(torch::kInt));
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto expected = torch::div(A, B, mode);
+  auto result = torch::div(hA, hB, mode);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, divroundTrueTypePromoIntInt1D) {
+  std::vector<int> tensorDataA = {29, 73, -37, -317, 99, 81, -98, -72};
+  std::vector<int> tensorDataB = {-10, 3, -7, 17, -11, 3, -7, 6};
+  auto A = torch::from_blob(
+      tensorDataA.data(), tensorDataA.size(), dtype(torch::kInt));
+  auto B = torch::from_blob(
+      tensorDataB.data(), tensorDataB.size(), dtype(torch::kInt));
+
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  auto expected = torch::div(A, B, mode);
+  auto result = torch::div(hA, hB, mode);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, divroundTruncTypePromoIntInt1D) {
+  std::vector<int> tensorDataA = {29, 73, -37, -317, 99, 81, -98, -72};
+  std::vector<int> tensorDataB = {-10, 3, -7, 17, -11, 3, -7, 6};
+  auto A = torch::from_blob(
+      tensorDataA.data(), tensorDataA.size(), dtype(torch::kInt));
+  auto B = torch::from_blob(
+      tensorDataB.data(), tensorDataB.size(), dtype(torch::kInt));
+
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+
+  auto expected = torch::div(A, B, "trunc");
+  auto result = torch::div(hA, hB, "trunc");
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, divroundFloorTypePromoIntInt1D) {
+  std::vector<int> tensorDataA = {29, 73, -37, -317, 99, 81, -98, -72};
+  std::vector<int> tensorDataB = {-10, 3, -7, 17, -11, 3, -7, 6};
+  auto A = torch::from_blob(
+      tensorDataA.data(), tensorDataA.size(), dtype(torch::kInt));
+  auto B = torch::from_blob(
+      tensorDataB.data(), tensorDataB.size(), dtype(torch::kInt));
+
+  auto hA = A.to("hpu");
+  auto hB = B.to("hpu");
+
+  auto expected = torch::div(A, B, "floor");
+  auto result = torch::div(hA, hB, "floor");
+
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, div_inplace_f32) {
   GenerateInputs(1, torch::kFloat);
   c10::optional<c10::string_view> mode = c10::nullopt;
