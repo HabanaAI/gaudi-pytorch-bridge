@@ -298,6 +298,7 @@ class device {
 
   int get_count_by_current_type();
 
+  static std::shared_ptr<session> get_or_create_session();
   static int get_total_device_count();
 
   host_memory& get_host_memory() {

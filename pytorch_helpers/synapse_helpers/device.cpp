@@ -294,12 +294,31 @@ int device::get_count_by_current_type() {
   return count;
 }
 
+std::shared_ptr<session> device::get_or_create_session() {
+  auto synapse_session_create_result{synapse_helpers::session::get_or_create()};
+  if (absl::holds_alternative<synapse_helpers::synapse_error>(
+          synapse_session_create_result)) {
+    auto error = absl::get<synapse_helpers::synapse_error>(
+        synapse_session_create_result);
+    PT_SYNHELPER_WARN("Fail to create session. error: ", error.error);
+    return nullptr;
+  }
+  auto synapse_session =
+      synapse_helpers::get_value(std::move(synapse_session_create_result));
+  return synapse_session;
+}
+
 int device::get_total_device_count() {
-  int count = 0;
+  int count = -1;
+
+  // This call can be made prior to device acquire so
+  // creating a synapse session, so SynApi will become available
+  auto sessionPtr = get_or_create_session();
+
   synStatus status{synStatus::synSuccess};
   status = synDeviceGetCount((uint32_t*)&count);
   if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG("Fail to get device count. Status: ", status);
+    PT_SYNHELPER_WARN("Fail to get device count. Status: ", status);
   }
 
   return count;
