@@ -63,7 +63,6 @@
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
-#include "habana_lazy/ops/topk.h"
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
@@ -5799,39 +5798,7 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     bool descending) {
   PT_LAZY_TRACE;
   int64_t size_dim = self.dim() ? self.size(dim) : 1;
-  ir::NodePtr node =
-      std::make_shared<ir::TopK>(self, size_dim, dim, descending, true);
-  auto shape_out = self.sizes().vec();
-
-  // out 0
-  auto result_0 = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-
-  auto hlresult_0 = GetHbLazyTensor(result_0);
-  ir::Value& out_0 = hlresult_0.CurrentIrValue();
-  out_0.SetNode(
-      node,
-      hlresult_0.GetDevice(),
-      hlresult_0.GetSizes(),
-      hlresult_0.dtype_optional());
-
-  // out 1
-  auto result_1 = empty_hpu_lazy(
-      shape_out,
-      self.options().dtype(kLong),
-      self.suggest_memory_format(),
-      false);
-  auto hlresult_1 = GetHbLazyTensor(result_1);
-  ir::Value& out_1 = hlresult_1.CurrentIrValue();
-  out_1.SetNode(
-      node,
-      hlresult_1.GetDevice(),
-      hlresult_1.GetSizes(),
-      hlresult_1.dtype_optional(),
-      1);
-
-  flush_op({result_0, result_1});
-  return std::make_tuple(result_0, result_1);
+  return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
 at::Tensor elu_hpu_lazy(
