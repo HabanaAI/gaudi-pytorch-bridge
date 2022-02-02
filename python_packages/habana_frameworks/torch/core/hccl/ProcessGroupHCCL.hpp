@@ -145,6 +145,10 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
       int srcRank,
       int tag) override;
 
+  static void groupStart();
+
+  static void groupEnd();
+
   c10::intrusive_ptr<ProcessGroup::Work> recvAnysource(
       std::vector<at::Tensor>& tensor,
       int tag) override;
@@ -221,6 +225,10 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
           py::arg("size"),
           py::arg("timeout") =
               std::chrono::milliseconds(kWatchdogThreadSleepMillis));
+      processGroupHCCL.def_static(
+          "_group_start", []() { ::c10d::ProcessGroupHCCL::groupStart(); });
+      processGroupHCCL.def_static(
+          "_group_end", []() { ::c10d::ProcessGroupHCCL::groupEnd(); });
     }
   }
 

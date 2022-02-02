@@ -270,7 +270,6 @@ std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
     TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
     std::lock_guard<std::mutex> lock(mutex_);
     hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
-
     auto deviceCtxt =
         std::make_shared<hccl_integration::device_context>(deviceId);
     device_contexts_[deviceId] = deviceCtxt;
@@ -438,6 +437,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
   auto tensors = habana_lazy::UpdateViewDistributed(tensors_);
 
   hcclResult_t hccl_result{hcclSuccess};
+
   const auto devices = getDeviceList(tensors);
   auto comms = getCommList(devices);
   auto deviceCtxts = getDeviceCtxtList(devices);
@@ -452,10 +452,32 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
     deviceCtxt->lock_address(tensors[i].data_ptr(), &tensor_address);
-    hccl_result = fn(
-        tensors[i], tensor_address, *(comms[i]), collective_stream, peerRank);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
-    deviceCtxt->submit_events(collective_stream, tensor_storage_ptr);
+
+    auto pr = std::make_shared<std::promise<bool>>();
+    std::future<bool> fut = pr->get_future();
+    auto func = [fn = fn,
+                 tensor = tensors[i],
+                 tensor_address = tensor_address,
+                 comm = comms[i],
+                 collective_stream = collective_stream,
+                 deviceCtxt = deviceCtxt,
+                 tensor_storage_ptr = tensor_storage_ptr,
+                 peerRank = peerRank,
+                 pr = pr]() mutable {
+      hcclResult_t hccl_result =
+          fn(tensor, tensor_address, *comm, collective_stream, peerRank);
+      TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+      deviceCtxt->submit_events(collective_stream, tensor_storage_ptr);
+      pr->set_value(hccl_result == hcclSuccess);
+      return true;
+    };
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+      func();
+    } else {
+      JobThreadHCCL::getInstance()->addJob(std::move(func));
+      deviceCtxt->submit_future(tensor_storage_ptr, std::move(fut));
+    }
   }
   return work;
 }
@@ -889,6 +911,32 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
             stream);
       },
       srcRank);
+}
+
+void ProcessGroupHCCL::groupStart() {
+  auto func = []() {
+    hcclResult_t hccl_result = hcclGroupStart();
+    TORCH_CHECK(hcclSuccess == hccl_result, "Group Start returned error");
+    return true;
+  };
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+    func();
+  } else {
+    JobThreadHCCL::getInstance()->addJob(std::move(func));
+  }
+}
+
+void ProcessGroupHCCL::groupEnd() {
+  auto func = []() {
+    hcclResult_t hccl_result = hcclGroupEnd();
+    TORCH_CHECK(hcclSuccess == hccl_result, "Group End returned error");
+    return true;
+  };
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+    func();
+  } else {
+    JobThreadHCCL::getInstance()->addJob(std::move(func));
+  }
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recvAnysource(
