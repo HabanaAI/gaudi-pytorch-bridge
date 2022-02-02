@@ -934,7 +934,6 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   if ((hl_tensor_data->GetTensorLayout() == habana_lazy::LayoutFormat::kHWCK) &&
       (habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass())) {
-    hl_tensor_data->SetTensorLayout(habana_lazy::LayoutFormat::kNCHW);
     auto sizes = src.sizes().vec();
     std::vector<int> out_pos = {2, 3, 1, 0};
     std::vector<long int> swapped_sizes = {

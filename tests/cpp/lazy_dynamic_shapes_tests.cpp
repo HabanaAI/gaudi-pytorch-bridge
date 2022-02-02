@@ -1449,7 +1449,10 @@ TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
             .contiguous(c10::MemoryFormat::ChannelsLast);
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-    h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    }
 
     // conv2d
     torch::Tensor h_out_conv = torch::conv2d(
