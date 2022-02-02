@@ -248,6 +248,9 @@ class Op(object):
         if args:
             return self.opname + args
 
+    def get_fallback_check(self):
+        return self.op.get("fallback_check", None)
+
 
 class Context(object):
     def __init__(self, functions, yamlfile):
@@ -555,6 +558,17 @@ def lazyop(
                     fname,
                     ", ".join(param_vars),
                 )
+        code += "\n"
+
+    fallback_check = ctxop.get_fallback_check()
+    if fallback_check:
+        # TODO: Absorb this inside the macro
+        code += "  extern std::function<bool({})> {};\n".format(
+            ", ".join(["decltype(" + p + ")" for p in param_vars]), fallback_check
+        )
+        code += "  FALLBACK_IF_UNSUPPORTED_INPUTS({}, {}, {})\n".format(
+            fallback_check, fname, ", ".join(param_vars)
+        )
         code += "\n"
 
     if ctxop.is_legacy_reqd():

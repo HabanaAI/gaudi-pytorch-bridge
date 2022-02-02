@@ -345,3 +345,12 @@ class OpBackend : public HabanaOperator {
           !fn##tensor##_supported_dtypes.count(tensor.scalar_type()))) { \
     return AtenHpuTypeDefault::fn(args);                                 \
   }
+
+#define FALLBACK_IF_UNSUPPORTED_INPUTS(check_fn, op, args...) \
+  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                  \
+    return AtenHpuTypeDefault::op(args);                      \
+  }
+
+#define FALLBACK_CHECK(check_fn, signature...)          \
+  extern const std::function<bool(signature)> check_fn; \
+  const std::function<bool(signature)> check_fn = [](signature)

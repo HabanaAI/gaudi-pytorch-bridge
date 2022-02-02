@@ -11,19 +11,29 @@
 
 namespace habana {
 
-// Copied from habana_kernels/threshold_kernels.cpp
-void ThresholdBackwardHabanaOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  // TODO: Remove this base class once [SW-65399] is resolved
-  auto threshold = stack[2].toScalar();
+FALLBACK_CHECK(
+    threshold_backward_fallback,
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Scalar& threshold) {
+  static_cast<void>(grad_output);
+  static_cast<void>(self);
+  // Threshold values other than 0 are not supported
+  return threshold.toDouble() == 0;
+};
 
-  TORCH_CHECK(
-      threshold.to<float>() == 0.0,
-      "Threshold values other than 0 are not supported")
-
-  OpBackend::AddNode(graph, stack);
-}
+FALLBACK_CHECK(
+    threshold_backward_out_fallback,
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Scalar& threshold,
+    const at::Tensor& grad_input) {
+  static_cast<void>(grad_output);
+  static_cast<void>(self);
+  static_cast<void>(grad_input);
+  // Threshold values other than 0 are not supported
+  return threshold.toDouble() == 0;
+};
 
 void Threshold::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const float threshold = stack.at(1).toScalar().toFloat();
