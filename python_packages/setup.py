@@ -112,7 +112,7 @@ setup(
     author_email="support@habana.ai",
     version=get_version(),
     zip_safe=False,
-    packages=find_namespace_packages(include=["habana_frameworks.*"]),
+    packages=find_namespace_packages(include=["habana_frameworks.*", "torch_hpu"]),
     package_data={
         "habana_frameworks.torch.hpex.hmp": ["*.txt"],
         "habana_frameworks.torch": ["lib/*.so"],
