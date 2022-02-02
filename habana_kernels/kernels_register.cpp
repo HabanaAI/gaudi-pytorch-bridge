@@ -4018,9 +4018,11 @@ Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& scores,
     double iou_threshold) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return habana_nms_hpu_lazy(boxes, scores, iou_threshold, .0f);
+    return habana_nms_hpu_lazy(
+        boxes, scores, iou_threshold, -std::numeric_limits<float>::max());
   } else {
-    return habana_nms_hpu(boxes, scores, iou_threshold, .0f);
+    return habana_nms_hpu(
+        boxes, scores, iou_threshold, -std::numeric_limits<float>::max());
   }
 }
 

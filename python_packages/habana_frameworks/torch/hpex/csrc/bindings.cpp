@@ -148,7 +148,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   //////////////////////////// Kernels ////////////////////////////////////////
   m.def(
       "custom_nms",
-      &habana_nms_hpu_wrap,
+      &torchvision_nms_hpu_wrap,
       "NMS operation for boxes of a single class");
   m.def(
       "embedding_bag_sum_fwd",

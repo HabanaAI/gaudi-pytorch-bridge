@@ -7295,10 +7295,6 @@ Tensor habana_nms_hpu_lazy(
   // .item() internally triggers a mark_step
   auto end = valid_box_id_out.item<int64_t>();
 
-  if (end == 0) {
-    return box_id_out;
-  }
-
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements
   auto result = slice_hpu_lazy(box_id_out, 0, 0, end, 1);

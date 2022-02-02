@@ -976,6 +976,10 @@ at::Tensor habana_nms_hpu_wrap(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+at::Tensor torchvision_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    double iou_threshold);
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
