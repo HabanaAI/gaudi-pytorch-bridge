@@ -3659,13 +3659,11 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     int64_t ignore_index) {
   PT_LAZY_TRACE;
 
-  std::vector<int64_t> out_shape;
+  std::vector<int64_t> out_shape{};
   if (reduction ==
       at::Reduction::Reduction::None) { // consider input in nchw format
     out_shape.emplace_back(self.sizes()[0]);
-  } else {
-    out_shape.emplace_back(1);
-  }
+  } // else out_shape will be {} i.e, 0-d shape
   using T = std::tuple<at::Tensor, at::Tensor>;
   LazyOp<T> k(
       "aten::nll_loss_forward",
@@ -4763,7 +4761,7 @@ Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::mean", {self, dtype}, {}, {{1}}};
+  LazyOp<at::Tensor> k{"aten::mean", {self, dtype}, {}, {{}}};
   return k.call();
 }
 
