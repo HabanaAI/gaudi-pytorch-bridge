@@ -355,9 +355,8 @@ void SBSDebug::compare_tensors_cos(
 
 void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
   for (auto& hb_tensor : tensors) {
-    at::Tensor at_tensor = AtenFromHbLazyTensor(hb_tensor);
-    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-        at_tensor.sizes()); // This is a work around bug fix, see [SW-66837]
+    at::Tensor at_tensor = AtenFromHbLazyTensor(
+        hb_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
     c10::optional<at::Tensor> cpu_ref = hb_tensor.GetCPUTensorData();
     if (cpu_ref == c10::nullopt) {
       PT_LAZY_DEBUG(
