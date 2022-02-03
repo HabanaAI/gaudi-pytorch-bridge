@@ -308,8 +308,8 @@ def main(args):
         except ImportError:
             assert False, "Could Not import habana_dataloader"
 
-    if args.run_lazy_mode:
-        os.environ["PT_HPU_LAZY_MODE"] = "1"
+    if args.device == 'hpu' and not args.run_lazy_mode:
+        os.environ["PT_HPU_LAZY_MODE"] = "2"
     if args.is_hmp:
         from habana_frameworks.torch.hpex import hmp
         hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
@@ -568,7 +568,7 @@ def main(args):
         if (trainMetaData.end_train_n_eval()):
             break
 
-    if args.run_lazy_mode:
+    if args.device == 'hpu' and not args.run_lazy_mode:
         os.environ.pop("PT_HPU_LAZY_MODE")
 
     total_time = time.time() - start_time
