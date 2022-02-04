@@ -5762,30 +5762,6 @@ at::Tensor& diag_hpu_lazy_out(
   return k.call(out);
 }
 
-Tensor sign_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::sign", {input}};
-  return k.call();
-}
-
-Tensor& sign_hpu_lazy_(Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::sign", {input}};
-  return k.call(input);
-}
-
-Tensor sgn_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  TORCH_CHECK(!input.is_complex(), "Unsupported complex data type provided");
-  return sign_hpu_lazy(input);
-}
-
-Tensor& sgn_hpu_lazy_(Tensor& input) {
-  PT_LAZY_TRACE;
-  TORCH_CHECK(!input.is_complex(), "Unsupported complex data type provided");
-  return sign_hpu_lazy_(input);
-}
-
 at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   PT_LAZY_TRACE;
   auto shape = self.sizes().vec();

@@ -2123,6 +2123,16 @@ sgn.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
 
+sgn:
+  dtypes: [BFloat16, Float]
+  guid: sign_fwd
+  out_ids: [0]
+
+sgn_:
+  dtypes: [BFloat16, Float]
+  guid: sign_fwd
+  inplace_ids: [0]
+
 sigmoid.out:
   dtypes: [BFloat16, Float]
   guid: sigmoid_fwd
@@ -2151,6 +2161,16 @@ sigmoid_backward.grad_input:
 sign.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
+
+sign:
+  dtypes: [BFloat16, Float]
+  guid: sign_fwd
+  out_ids: [0]
+
+sign_:
+  dtypes: [BFloat16, Float]
+  guid: sign_fwd
+  inplace_ids: [0]
 
 signbit:
   dtypes: [BFloat16, Float, Int, Char, Byte]

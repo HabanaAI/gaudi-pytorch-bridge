@@ -1814,75 +1814,6 @@ Tensor& round_hpu_(Tensor& self) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for output = torch.sign(self)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] self - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor sign_hpu(const Tensor& self) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "sign_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  SignOperator Op(device_id, scalar_type);
-
-  auto out = unary_op_hpu(self, node_type, &Op);
-
-  PT_KERNEL_END;
-  return out;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for output = torch.sign_(input)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] input - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor& sign_hpu_(Tensor& self) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "sign_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  size_t device_id = self.device().index();
-
-  // Create the operator
-  SignInplaceOperator Op(device_id, scalar_type);
-  unary_inplace_op_hpu(self, node_type, &Op);
-
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for output = torch.sgn(self)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] self - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor sgn_hpu(const Tensor& self) {
-  PT_KERNEL_BEGIN;
-  TORCH_CHECK(!self.is_complex(), "Unsupported complex data type provided");
-  auto out = sign_hpu(self);
-  PT_KERNEL_END;
-  return out;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for output = torch.sgn_(input)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] input - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor& sgn_hpu_(Tensor& self) {
-  PT_KERNEL_BEGIN;
-  TORCH_CHECK(!self.is_complex(), "Unsupported complex data type provided");
-  auto& out = sign_hpu_(self);
-  PT_KERNEL_END;
-  return out;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for output = torch.rsqrt(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
@@ -2506,7 +2437,6 @@ static auto& KernelRegistry =
         .add("aten::abs_", KERNEL_FN(AbsInplaceOperator))
         .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
         .add("aten::neg", KERNEL_FN(NegOperator))
-        .add("aten::sign", KERNEL_FN(SignOperator))
         .add("aten::reciprocal", KERNEL_FN(ReciprocalOperator))
         .add("aten::reciprocal_", KERNEL_FN(ReciprocalInplaceOperator))
         .add("aten::gelu", KERNEL_FN(GeluOperator))

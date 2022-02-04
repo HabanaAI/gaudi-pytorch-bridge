@@ -1244,12 +1244,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "sgn",
-                {{at::ScalarType::Double,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16}},
-            },
-            {
                 "unbind",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
@@ -1979,18 +1973,6 @@ static const std::
             },
             {
                 "rsqrt_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "sign",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "sign_",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},

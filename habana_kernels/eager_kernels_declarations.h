@@ -666,10 +666,6 @@ at::Tensor leaky_relu_backward_hpu(
     const at::Tensor& self,
     const at::Scalar& negative_slope,
     bool self_is_result);
-at::Tensor sign_hpu(const at::Tensor& self);
-at::Tensor& sign_hpu_(at::Tensor& self);
-at::Tensor sgn_hpu(const at::Tensor& self);
-at::Tensor& sgn_hpu_(at::Tensor& self);
 at::Tensor sigmoid_hpu(const at::Tensor& input);
 at::Tensor sigmoid_backward_hpu(
     const at::Tensor& grad_in,

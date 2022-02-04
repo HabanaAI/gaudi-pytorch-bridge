@@ -3207,38 +3207,6 @@ Tensor hpu_wrap::exp(const Tensor& self) {
     return exp_hpu(self);
   }
 };
-Tensor hpu_wrap::sign(const Tensor& self) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sign_hpu_lazy(self);
-
-  } else {
-    return sign_hpu(self);
-  }
-}
-Tensor& hpu_wrap::sign_(at::Tensor& self) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sign_hpu_lazy_(self);
-
-  } else {
-    return sign_hpu_(self);
-  }
-}
-Tensor hpu_wrap::sgn(const Tensor& self) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sgn_hpu_lazy(self);
-
-  } else {
-    return sgn_hpu(self);
-  }
-}
-Tensor& hpu_wrap::sgn_(at::Tensor& self) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sgn_hpu_lazy_(self);
-
-  } else {
-    return sgn_hpu_(self);
-  }
-}
 Tensor& hpu_wrap::neg_out(const Tensor& input, Tensor& result) {
   if (!hpu_check_inputs_impl("neg_out", {result, input}))
     return AtenHpuTypeDefault::neg_out(input, result);
