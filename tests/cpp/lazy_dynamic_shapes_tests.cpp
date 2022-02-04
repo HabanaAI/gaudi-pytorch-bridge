@@ -1559,7 +1559,7 @@ TEST_F(LazyDynamicShapesTest, MaxTest) {
   max_test({2, 15});
 }
 
-TEST_F(LazyDynamicShapesTest, DS_PadTest) {
+TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
   auto pad_test = [](std::vector<int64_t> pad_sizes,
                      std::vector<int64_t> input_shape) {
     torch::Tensor tensor = torch::randn(input_shape).to(torch::kInt);
@@ -1574,10 +1574,33 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest) {
     bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
     EXPECT_EQ(equal, true);
   };
-  pad_test({0, 14, 0, 0}, {3, 800, 1202});
-  pad_test({0, 0, 0, 22}, {3, 874, 800});
-  pad_test({0, 28, 0, 0}, {3, 800, 1060});
-  pad_test({0, 0, 0, 20}, {3, 1196, 800});
+  pad_test({0, 14, 0, 0}, {3, 80, 122});
+  pad_test({0, 0, 0, 22}, {3, 87, 80});
+  pad_test({0, 28, 0, 0}, {3, 80, 106});
+  pad_test({0, 0, 0, 20}, {3, 119, 80});
+}
+
+TEST_F(LazyDynamicShapesTest, DS_PadTest_IDST) {
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR, false, 1);
+  auto pad_test = [](std::vector<int64_t> pad_sizes,
+                     std::vector<int64_t> input_shape) {
+    torch::Tensor tensor = torch::randn(input_shape).to(torch::kInt);
+    torch::Tensor tensorHabana = tensor.to(torch::kHPU);
+
+    namespace F = torch::nn::functional;
+    auto outHabana = F::pad(
+        tensorHabana,
+        F::PadFuncOptions(pad_sizes).mode(torch::kConstant).value(0.0));
+    auto out = F::pad(
+        tensor, F::PadFuncOptions(pad_sizes).mode(torch::kConstant).value(0.0));
+    bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+    EXPECT_EQ(equal, true);
+  };
+  pad_test({0, 14, 0, 0}, {3, 80, 122});
+  pad_test({0, 0, 0, 22}, {3, 87, 80});
+  pad_test({0, 28, 0, 0}, {3, 80, 106});
+  pad_test({0, 0, 0, 20}, {3, 119, 80});
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR);
 }
 
 void runIndexPutDynamicTestBool(int N, bool acc) {

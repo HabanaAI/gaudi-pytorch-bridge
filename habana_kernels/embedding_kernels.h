@@ -155,6 +155,18 @@ class PadOperator : public HabanaOperator {
       c10::IntArrayRef pad_after);
 };
 
+// Pad (Host2Device Tensor) Operator
+class PadOperatorHT : public PadOperator {
+ public:
+  PadOperatorHT(int device_id, c10::ScalarType scalarType)
+      : PadOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 //
 // Embedding Operator
 class EmbeddingOperator : public HabanaOperator {

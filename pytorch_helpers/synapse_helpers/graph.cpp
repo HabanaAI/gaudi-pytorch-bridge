@@ -333,21 +333,20 @@ synapse_error_o graph::launch(
           recipe_handle.recipe_name_,
           to_string(inputs_and_outputs_info)));
 
-  auto table_checker{
-      [&recipe_handle](const synLaunchTensorInfo& info) -> bool {
-        if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
-          PT_SYNHELPER_WARN(
-              recipe_handle.recipe_name_,
-              " null address:",
-              (info.pTensorAddress == 0),
-              " null name:",
-              (info.tensorName == nullptr),
-              " ",
-              ((info.tensorName == nullptr) ? "" : info.tensorName));
-          return true;
-        }
-        return false;
-      }};
+  auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
+    if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
+      PT_SYNHELPER_WARN(
+          recipe_handle.recipe_name_,
+          " null address:",
+          (info.pTensorAddress == 0),
+          " null name:",
+          (info.tensorName == nullptr),
+          " ",
+          ((info.tensorName == nullptr) ? "" : info.tensorName));
+      return true;
+    }
+    return false;
+  }};
   PT_SYNHELPER_DEBUG("checking input_output patching table");
   SYNAPSE_RETURN_IF_ERROR(
       std::find_if(

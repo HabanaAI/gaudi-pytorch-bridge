@@ -284,11 +284,13 @@ void HbInternalTensorImpl::set_min(const std::vector<T>& d) {
 template void HbInternalTensorImpl::set_min(const std::vector<int64_t>& d);
 template void HbInternalTensorImpl::set_min(const std::vector<uint64_t>& d);
 template void HbInternalTensorImpl::set_min(const std::vector<int32_t>& d);
+template void HbInternalTensorImpl::set_min(const std::vector<uint32_t>& d);
 template void HbInternalTensorImpl::set_min(const std::vector<float>& d);
 
 template void HbInternalTensorImpl::set_max(const std::vector<int64_t>& d);
 template void HbInternalTensorImpl::set_max(const std::vector<uint64_t>& d);
 template void HbInternalTensorImpl::set_max(const std::vector<int32_t>& d);
+template void HbInternalTensorImpl::set_max(const std::vector<uint32_t>& d);
 template void HbInternalTensorImpl::set_max(const std::vector<float>& d);
 
 } // namespace habana_lazy

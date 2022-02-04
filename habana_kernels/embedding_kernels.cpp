@@ -12,6 +12,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -24,6 +25,8 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/tensor_impl.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -172,6 +175,75 @@ void PadOperator::AllocateAndAddSynapseNode(
           graph, pad_after_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
     }
   }
+
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+void PadOperatorHT::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for PadOperatorHT Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for PadOperatorHT Operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be of type Tensor for PadOperatorHT operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg3 expected to be of type Tensor for PadOperatorHT operator");
+  TORCH_CHECK(
+      inputs[3].isScalar(),
+      "Input arg4 expected to be of type Scalar for PadOperatorHT operator");
+
+  std::vector<int64_t> shape;
+  auto self = inputs[0].toTensor();
+
+  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+  shape = inputs[2].toTensor().sizes().vec();
+  at::Tensor host_tensor = inputs[1].toTensor();
+  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+  HABANA_ASSERT(impl);
+  auto output_shape = inputs[2].toTensor().sizes().vec();
+  auto input_shape = self.sizes().vec();
+  TORCH_CHECK(
+      impl->get_host_dt_type() == habana_lazy::HostDataType::UINT32_T,
+      "Incorrect datatype of HOST");
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    auto ndim = self.dim();
+    auto in_data = self.sizes().vec();
+    std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
+    for (unsigned int i = 0; i < ndim; i++) {
+      // order of dims is reversed in H2D tensor
+      data[ndim - i - 1] = output_shape[i] - input_shape[i];
+    }
+    impl->set_min<uint32_t>(data);
+  } else if (
+      habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    auto ndim = self.dim();
+    auto in_data = self.sizes().vec();
+    std::vector<uint32_t> data(MAX_DIMENSIONS_NUM * 2, 0);
+    for (unsigned int i = 0; i < ndim; i++) {
+      // order of dims is reversed in H2D tensor
+      data[ndim - i - 1] = output_shape[i] - input_shape[i];
+    }
+    impl->set_max<uint32_t>(data);
+  }
+
+  ns_PadKernelEx::Params param;
+  param.mode = PadMode_t::PAD_MODE_CONSTANT;
+  param.value.f = inputs[3].toScalar().to<float>();
+  // pads value shall be picked from H2D tensor, set this to 0's to be safe
+  memset(param.pads, 0, sizeof(param.pads));
+  auto output = at::empty(shape, self.options());
+  // throw away shape tensor before adding synapse node
+  p_context_->syn_inputs_.pop_back();
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -1186,6 +1258,7 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::constant_pad_nd", KERNEL_FN(PadOperator))
         .add("hpu::constant_pad_nd", KERNEL_FN(PadOperator))
+        .add("hpu::constant_pad_nd_ht", KERNEL_FN(PadOperatorHT))
         .add("aten::embedding", KERNEL_FN(EmbeddingOperator))
         .add(
             "aten::embedding_bag_sum_fwd",
