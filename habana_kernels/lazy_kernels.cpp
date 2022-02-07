@@ -3051,26 +3051,30 @@ Tensor index_select_hpu_lazy(
     const Tensor& index) {
   PT_LAZY_TRACE;
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  auto node = std::make_shared<ir::IndexSelect>(self, dim, index);
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self, dim, index};
 
-  auto shape = GatherOperator::compute_output_shape(self, dim, index);
-  auto result = empty_hpu_lazy(
-      shape, self.options(), self.suggest_memory_format(), false);
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::index_select", vector_of_inputs, {}, {}, -1) {}
 
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dim = inputs[1].toInt();
+      auto index = inputs[2].toTensor();
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self, index};
-  node->AddInputPtTensors(input_pt_vec);
+      auto shape = GatherOperator::compute_output_shape(self, dim, index);
+      return empty_hpu_lazy(
+          shape, self.options(), self.suggest_memory_format(), false);
+    }
+  };
 
-  flush_op(result);
-  return result;
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 Tensor gather2d_hpu_lazy(
     const Tensor& input,

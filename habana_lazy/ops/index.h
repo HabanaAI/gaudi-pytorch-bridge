@@ -141,32 +141,6 @@ struct Slice : public ir::Node {
   }
 };
 
-struct IndexSelect : public ir::Node {
-  enum class IndexSelectParams { DIM_INDEX = 1 };
-  IndexSelect() = delete;
-  IndexSelect(const at::Tensor& self, int64_t dim, const at::Tensor& index)
-      : Node(c10::Symbol::fromQualString("aten::index_select")) {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
-    auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
-
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    hl_index = HandleViewsOrUpdate(index, hl_index);
-
-    AddInput(hl_self.GetIrValue());
-    AddInput(hl_index.GetIrValue());
-
-    m_meta_data.set(dim, static_cast<size_t>(IndexSelectParams::DIM_INDEX));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", dim="
-       << m_meta_data.get(static_cast<size_t>(IndexSelectParams::DIM_INDEX));
-
-    return ss.str();
-  }
-};
-
 struct ScatterAdd : public ir::Node {
   enum class ScatterAdd_Params { DIM_INDEX = 1 };
   ScatterAdd() = delete;
