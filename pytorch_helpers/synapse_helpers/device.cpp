@@ -711,10 +711,10 @@ device_ptr device::get_workspace_buffer(size_t size) {
   }
   void* buffer = device_memory_.workspace_alloc(
       (void*)workspace_buffer_, workspace_size_, size);
+  workspace_buffer_ = reinterpret_cast<device_ptr>(buffer);
   if (buffer == nullptr) {
     PT_SYNHELPER_FATAL("workspace Allocation of size ::", size, " failed!");
   }
-  workspace_buffer_ = reinterpret_cast<device_ptr>(buffer);
   PT_SYNHELPER_DEBUG(
       "Allocated workspace buffer at",
       (void*)workspace_buffer_,

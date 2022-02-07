@@ -239,7 +239,6 @@ synStatus device_memory::free(void* free_ptr) {
 
     auto h = mem_handle::reinterpret_from_pointer(
         reinterpret_cast<uint64_t>(free_ptr));
-
     if (h.offset() != 0) {
       PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
     }
@@ -334,8 +333,12 @@ void* device_memory::workspace_alloc(
         v_ptr = extend_high_memory_alloc(req_size);
       }
 
-      workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
-      ws_size = req_size;
+      if (v_ptr != nullptr) {
+        workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
+        ws_size = req_size;
+      } else {
+        workspace_allocation_ = 0;
+      }
 
       return v_ptr;
     }
