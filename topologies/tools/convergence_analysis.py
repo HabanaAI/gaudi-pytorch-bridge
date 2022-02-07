@@ -221,7 +221,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
         if tid != 0 : # Need permute
             t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
-            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology or 'resnet' in topology) and ('bkwd' in tensor_info or 'frwd' in tensor_info):
+            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology or 'maskrcnn' in topology) and ('bkwd' in tensor_info or 'frwd' in tensor_info):
                 print(f"because of view, after permute also shape didn't match.. {t_dev1.size()}, {t_dev2.size()} ....\n permute back and do reshape with cpu size")
                 tensor_to_perm = None
                 if tid == 1:
@@ -237,12 +237,15 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
                 else:
                     t_dev2 = tensor_to_perm.reshape(t_dev1.size())
 
-        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2,rms_threshold)
-        max_angle = max(tensor_cmp_stat_dict['angle'], max_angle)
-        find_max_angle_per_iter(max_angle_per_iter, tensor_cmp_stat_dict)
-        writer.writerow(tensor_cmp_stat_dict)
+        if  t_dev1.numel() == 0:
+            equal = True
+        else:
+            tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2,rms_threshold)
+            max_angle = max(tensor_cmp_stat_dict['angle'], max_angle)
+            find_max_angle_per_iter(max_angle_per_iter, tensor_cmp_stat_dict)
+            writer.writerow(tensor_cmp_stat_dict)
 
-        equal = torch.allclose(t_dev1, t_dev2, rtol=rtol,atol=atol)
+            equal = torch.allclose(t_dev1, t_dev2, rtol=rtol,atol=atol)
 
         if equal is False:
             error = torch.isclose(t_dev1, t_dev2, rtol=rtol, atol=atol)
@@ -255,6 +258,8 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             if 'loss' in tensor_info:
                 print("device1 loss = ", t_dev1.item(), "device2 loss = ", t_dev2.item())
         else:
+            if  t_dev1.numel() == 0:
+                print("SKIPPING DIFF : ZERO SIZE tensor", tensor_info,  " with rtol : ", rtol, " atol : ", atol)
             print("NO-DIFF : for tensor: ", tensor_info,  " with rtol : ", rtol, " atol : ", atol)
             if 'loss' in tensor_info:
                 print("device1 loss = ", t_dev1.item(), "device2 loss = ", t_dev2.item())
