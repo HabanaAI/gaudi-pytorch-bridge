@@ -521,6 +521,31 @@ Tensor add_t_lazy(const Tensor& self, c10::optional<Tensor> out_t) {
   return result;
 }
 
+Tensor add_permute_lazy(
+    const Tensor& self,
+    std::vector<int64_t> dims_vec,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  for (unsigned i = 0; i < dims_vec.size(); i++) {
+    dims_vec[i] =
+        at::maybe_wrap_dim(dims_vec[i], self.dim(), /*wrap_scalar=*/true);
+  }
+  IntArrayRef dims_(dims_vec);
+  ir::NodePtr node = std::make_shared<ir::Permute>(self, dims_);
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  updateDstDependencies(hl_result, result);
+  flush_op(result);
+  return result;
+}
+
 void strided_insert_hpu_lazy(
     const Tensor& self,
     const Tensor& insert_t,
@@ -620,6 +645,9 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
           break;
         case kStridedOpT:
           add_t_lazy(recent_orig_t, t_opt);
+          break;
+        case kStridedOpPermute:
+          add_permute_lazy(recent_orig_t, params.sizes, t_opt);
           break;
         case kStridedOpDefault:
           add_asstrided_node = true;
@@ -6007,38 +6035,56 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
 
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
-  auto dims_vec = dims_in.vec();
-  for (unsigned i = 0; i < dims_in.size(); i++) {
-    dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
-  }
-  IntArrayRef dims_(dims_vec);
-
-  std::vector<at::IValue> vector_of_inputs;
-
-  vector_of_inputs = {self, dims_};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::permute", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dims = inputs[1].toIntList();
-      std::vector<int64_t> new_sizes, new_strides;
-      std::tie(new_sizes, new_strides) =
-          PermuteOperator::compute_output_shape(self, dims.vec());
-      auto result =
-          empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
-      return result;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
+    auto hl_self = GetHbLazyTensor(self);
+    HandleViewsOrUpdate(self, hl_self);
+    auto out = at::native::permute(self, dims_in);
+    if (is_fallback_original_op(self, out)) {
+      auto hb_result = GetHbLazyTensor(out);
+      auto& strided_param = getViewTableParams(hb_result);
+      strided_param.optype = kStridedOpPermute;
+      strided_param.sizes = dims_in.vec();
+      PT_VIEWTABLE_DEBUG(
+          "permute fallback tensor id ",
+          hl_self.getTensorUniqueId(),
+          " dims_in ",
+          dims_in.vec());
     }
-  };
+    return out;
+  } else {
+    auto dims_vec = dims_in.vec();
+    for (unsigned i = 0; i < dims_in.size(); i++) {
+      dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
+    }
+    IntArrayRef dims_(dims_vec);
 
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
+    std::vector<at::IValue> vector_of_inputs;
+
+    vector_of_inputs = {self, dims_};
+
+    using T = at::Tensor;
+    class Kernel : public LazyOp<T> {
+     public:
+      Kernel(const std::vector<at::IValue>& vector_of_inputs)
+          : LazyOp<T>("aten::permute", vector_of_inputs, {}, {}, -1) {}
+
+     private:
+      T get_result_overrideable() override {
+        auto inputs = get_inputs();
+        auto self = inputs[0].toTensor();
+        auto dims = inputs[1].toIntList();
+        std::vector<int64_t> new_sizes, new_strides;
+        std::tie(new_sizes, new_strides) =
+            PermuteOperator::compute_output_shape(self, dims.vec());
+        auto result = empty_strided_hpu_lazy(
+            new_sizes, new_strides, self.options(), false);
+        return result;
+      }
+    };
+
+    Kernel kernel{vector_of_inputs};
+    return kernel.call();
+  }
 }
 
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {

@@ -147,6 +147,17 @@ TEST_F(LazyBasicKernelTest, permuteCLTest2) {
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
 }
 
+TEST_F(LazyBasicKernelTest, permuteTest5D) {
+  torch::Tensor A = torch::randn({5, 2, 6, 24, 24});
+  auto hA = A.to(torch::kHPU);
+
+  auto hOut = hA.permute({0, 2, 3, 4, 1});
+  auto out = A.permute({0, 2, 3, 4, 1});
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
 TEST_F(LazyBasicKernelTest, noncontigD2H) {
   torch::Tensor A = torch::randn({2, 2});
   auto hA = A.to(torch::kHPU);

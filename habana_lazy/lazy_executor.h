@@ -27,7 +27,8 @@ enum StrideOPType {
   kStridedOpSlice,
   kStridedOpSelect,
   kStridedOpTranspose,
-  kStridedOpT
+  kStridedOpT,
+  kStridedOpPermute
 };
 
 struct StridedOpSliceParams {

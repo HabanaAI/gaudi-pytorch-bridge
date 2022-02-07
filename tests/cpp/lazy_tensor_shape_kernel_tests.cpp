@@ -162,6 +162,19 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, PermuteInplaceTest) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
+    torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = hA.permute({1, 0});
+    hOut.add_(1.0);
+    torch::Tensor Out = A.permute({1, 0});
+    Out.add_(1.0);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+    EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  }
+}
+
 TEST_F(LazyTensorShapeKernelTest, Permute6DTest) {
   torch::Tensor A =
       torch::randn({2, 3, 4, 3, 2, 6}, torch::requires_grad(false));
