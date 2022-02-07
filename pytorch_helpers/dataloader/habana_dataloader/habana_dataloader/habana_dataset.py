@@ -11,8 +11,8 @@ from enum import Enum
 import torch.hpu
 
 class hpuDeviceType(Enum):
-    synDeviceGaudi = 2
-    synDeviceGaudi2 = 4
+    synDeviceGaudi = 3
+    synDeviceGaudi2 = 5
 
 class HabanaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
