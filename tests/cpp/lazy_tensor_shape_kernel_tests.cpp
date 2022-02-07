@@ -449,6 +449,27 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest8D) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, TTest2d) {
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::t(hA);
+  torch::Tensor Out = torch::t(A);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, TTestAddInplace) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
+    torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::t(hA);
+    hOut.add_(1.0);
+    torch::Tensor Out = torch::t(A);
+    Out.add_(1.0);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+    EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  }
+}
+
 TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
   torch::Tensor A = torch::randn({3, 1}, torch::requires_grad(false));
 

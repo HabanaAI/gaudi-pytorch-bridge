@@ -500,6 +500,27 @@ Tensor add_transpose_lazy(
   return result;
 }
 
+Tensor add_t_lazy(const Tensor& self, c10::optional<Tensor> out_t) {
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
+  auto node = ir::Node::Create(
+      Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  flush_op(result);
+  return result;
+}
+
 void strided_insert_hpu_lazy(
     const Tensor& self,
     const Tensor& insert_t,
@@ -596,6 +617,9 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
         case kStridedOpTranspose:
           add_transpose_lazy(
               recent_orig_t, params.params.transpose_param, t_opt);
+          break;
+        case kStridedOpT:
+          add_t_lazy(recent_orig_t, t_opt);
           break;
         case kStridedOpDefault:
           add_asstrided_node = true;
@@ -789,7 +813,10 @@ StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {
 /* checks if fallback to original op is possible*/
 bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
   PT_LAZY_TRACE;
-
+  // PT_HPU_FCD_STRIDE_OPT is disabled by default as a workaround for
+  // transformer accuracy issues. Disabling this flag will merge consecutive
+  // strided ops to single strided_view op. Enable this flag for improving the
+  // perf in case of back to back as_strided ops.
   if (GET_ENV_FLAG_NEW(PT_HPU_FCD_STRIDE_OPT)) {
     bool is_fallback = true;
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
@@ -5774,8 +5801,11 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+  // PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW is disabled by default. if there
+  // is back-to-back asstrided ops, it will be merged together into single
+  // as_strided. But the perf there is degrade compared to ops executing
+  // individually.
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
     auto hl_self = GetHbLazyTensor(self);
     HandleViewsOrUpdate(self, hl_self);
     auto out = at::native::transpose(self, dim0_, dim1_);
@@ -5837,29 +5867,39 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::t", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      std::vector<int64_t> new_sizes, new_strides;
-      std::tie(new_sizes, new_strides) = TOperator::compute_output_shape(self);
-      return empty_strided_hpu_lazy(
-          new_sizes, new_strides, self.options(), false);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
+    auto out = at::native::t(self);
+    if (is_fallback_original_op(self, out)) {
+      auto hb_result = GetHbLazyTensor(out);
+      auto& strided_param = getViewTableParams(hb_result);
+      strided_param.optype = kStridedOpT;
     }
-  };
+    return out;
+  } else {
+    std::vector<at::IValue> vector_of_inputs;
+    vector_of_inputs = {self};
 
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
+    using T = at::Tensor;
+    class Kernel : public LazyOp<T> {
+     public:
+      Kernel(const std::vector<at::IValue>& vector_of_inputs)
+          : LazyOp<T>("aten::t", vector_of_inputs, {}, {}, -1) {}
+
+     private:
+      T get_result_overrideable() override {
+        auto inputs = get_inputs();
+        auto self = inputs[0].toTensor();
+        std::vector<int64_t> new_sizes, new_strides;
+        std::tie(new_sizes, new_strides) =
+            TOperator::compute_output_shape(self);
+        return empty_strided_hpu_lazy(
+            new_sizes, new_strides, self.options(), false);
+      }
+    };
+
+    Kernel kernel{vector_of_inputs};
+    return kernel.call();
+  }
 }
 
 Tensor& t_hpu_lazy_(Tensor& self) {

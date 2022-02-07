@@ -36,6 +36,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   auto result = torch::sigmoid(hl_tensor_in);
   auto result_t = torch::t(result);
   auto result_t_t = torch::t(result_t);
+  result_t_t = torch::add(result_t_t, 1.0);
   auto hl_result = GetHbLazyTensor(result_t_t);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
