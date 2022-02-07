@@ -206,18 +206,8 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " #output_to_outduplicates       : " << v.num_output_to_outduplicates
     << '\n';
 
-  if (v.aten_outputs) {
-    O << "aten_outputs #" << v.aten_outputs->size() << " ::";
-    O << '\n';
-    size_t idx{0};
-    for (auto& a : *v.aten_outputs) {
-      O << "Tensor " << idx++ << ": ";
-      habana_helpers::DebugString(a);
-    }
-  }
-
   if (v.dtensorinfos) {
-    O << "\ndtensorinfos #" << v.dtensorinfos->size() << "::";
+    O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
     O << '\n';
     size_t idx{0};
     for (auto& a : *v.dtensorinfos) {
@@ -855,13 +845,62 @@ void RecipeValueSpec::patch_launch_info(
   }
 }
 
+void RecipeValueSpec::PrintDebugInfo(
+    at::ArrayRef<torch::jit::IValue>& input_refs,
+    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr) {
+  PT_BRIDGE_DEBUG(
+      "Details of recipe",
+      ", #inputs=",
+      input_refs.size(),
+      ", #intermediates=",
+      intermediate_tensors_ptr->size(),
+      ", #outputs=",
+      aten_outputs->size());
+
+  for (size_t idx{0}; idx < input_refs.size(); idx++) {
+    ValPtr vp = (jit_graph_ ? jit_graph_->inputs().at(idx) : nullptr);
+    PT_BRIDGE_DEBUG(
+        "Input[",
+        idx,
+        "]",
+        (vp ? (": %" + vp->debugName()) : std::string()),
+        " -> ",
+        habana_helpers::DebugString(input_refs[idx]));
+  }
+  if (intermediate_tensors_ptr) {
+    size_t idx{0};
+    for (auto& a : *intermediate_tensors_ptr) {
+      PT_BRIDGE_DEBUG(
+          "Intermediate[", idx, "] -> ", habana_helpers::DebugString(a));
+      idx += 1;
+    }
+  }
+  if (aten_outputs) {
+    size_t idx{0};
+    for (auto& a : *aten_outputs) {
+      ValPtr vp = (jit_graph_ ? jit_graph_->outputs().at(idx) : nullptr);
+      PT_BRIDGE_DEBUG(
+          "Output[",
+          idx,
+          "]",
+          (vp ? (": %" + vp->debugName()) : std::string()),
+          " -> ",
+          habana_helpers::DebugString(a));
+      idx += 1;
+    }
+  }
+  PT_BRIDGE_DEBUG(*this);
+}
+
 void RecipeValueSpec::launch(
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+    at::ArrayRef<torch::jit::IValue>& input_refs,
+    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
   SelfCheck();
 
-  PT_BRIDGE_DEBUG("RecipeValueSpec::launch\n", *this);
+  if (IS_BRIDGE_DEBUG_ENABLED) {
+    PrintDebugInfo(input_refs, intermediate_tensors_ptr);
+  }
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_compute_stream();

@@ -53,7 +53,7 @@ std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
 
 std::string habana_helpers::DebugString(const IVal& a) {
   if (a.isTensor()) {
-    habana_helpers::DebugString(a.toTensor());
+    return habana_helpers::DebugString(a.toTensor());
   }
   return std::string("Non tensor");
 }

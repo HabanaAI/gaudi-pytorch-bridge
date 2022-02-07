@@ -470,12 +470,14 @@ class PTFuncLog {
   PT_MOD_TRACE(PtLogger::ModuleMask::DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
-#define PT_MOD_DEBUG(MOD, ...)                             \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
-       (PtLogger::getLogger()->getTypeMask() &             \
-        (PtLogger::TypeMask::DEBUG)))) {                   \
-    Logger::print(std::clog, __VA_ARGS__);                 \
-    std::clog << "\n";                                     \
+#define IS_MOD_DEBUG_ENABLED(MOD)                      \
+  ((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
+   (PtLogger::getLogger()->getTypeMask() & (PtLogger::TypeMask::DEBUG)))
+
+#define PT_MOD_DEBUG(MOD, ...)             \
+  if (IS_MOD_DEBUG_ENABLED(MOD)) {         \
+    Logger::print(std::clog, __VA_ARGS__); \
+    std::clog << "\n";                     \
   };
 
 #define PT_PROFILE_DUMP(...)                            \
@@ -492,6 +494,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::KERNEL, __VA_ARGS__)
 #define PT_BRIDGE_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
+#define IS_BRIDGE_DEBUG_ENABLED \
+  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
 #define PT_HABHELPER_DEBUG(...) \

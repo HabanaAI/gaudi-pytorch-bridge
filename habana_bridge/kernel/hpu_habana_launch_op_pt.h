@@ -406,7 +406,11 @@ class HabanaLaunchOpPT {
 
   std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
-    return RecipeCacheLRU::get_cache().get(spec_key);
+    auto rvpsh{RecipeCacheLRU::get_cache().get(spec_key)};
+    if (nullptr != rvpsh && nullptr == rvpsh->jit_graph_) {
+      rvpsh->jit_graph_ = jit_ir_graph;
+    }
+    return rvpsh;
   }
   void ReturnCachedRecipe(RecipeValueSpec& rv) {
     rv.set_use_flag(false);

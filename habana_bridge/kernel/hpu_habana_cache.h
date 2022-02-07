@@ -216,9 +216,12 @@ struct RecipeValueSpec {
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec);
+  void PrintDebugInfo(
+      at::ArrayRef<torch::jit::IValue>& input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr);
   void launch(
-      at::ArrayRef<torch::jit::IValue> input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+      at::ArrayRef<torch::jit::IValue>& input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr = nullptr);
 
   void create_outdup(
