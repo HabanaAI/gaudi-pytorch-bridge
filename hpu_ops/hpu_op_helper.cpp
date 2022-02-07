@@ -69,6 +69,16 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   return type;
 }
 
+static at::Tensor GetProxyTensor(at::ScalarType dtype, at::IntArrayRef sizes) {
+  const auto& t = at::detail::make_tensor<c10::TensorImpl>(
+      c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
+      c10::scalarTypeToTypeMeta(dtype),
+      c10::Device(c10::kHPU, 0));
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+
+  return t;
+}
+
 OpBackend::OpBackend(
     int device_id,
     const std::string& guid,
@@ -405,12 +415,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     } else {
       bool is_persistent = attr.final_result_index.has_value() and
           op->m_persistence_list[attr.final_result_index.value()];
-      const auto& t = at::detail::make_tensor<c10::TensorImpl>(
-          c10::DispatchKeySet{
-              at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
-          c10::scalarTypeToTypeMeta(attr.dtype),
-          c10::Device(c10::kHPU, 0));
-      t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
+      const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
 
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
@@ -497,11 +502,25 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     get<float>(params.constant) = val.to<float>();
   }
 
+  std::vector<synTensor> input;
+  std::unique_ptr<synapse_helpers::tensor> shape_input;
+
+  // No inputs for non dynamic graph
+  if (graph.is_dynamic_graph()) {
+    shape_input = std::make_unique<synapse_helpers::tensor>(
+        habana_helpers::create_shape_tensor(
+            GetProxyTensor(valtype, constant_outshape),
+            graph,
+            false,
+            SHAPE_TENSOR));
+    input = {shape_input->get()};
+  }
+
   auto constant = BuildNode(
       op,
       graph,
       {"constant_" + habana_helpers::name_suffix_from_type(valtype),
-       {},
+       input,
        {{constant_outshape, valtype, final_result_index}},
        &params,
        sizeof(params)});

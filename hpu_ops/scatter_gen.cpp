@@ -52,6 +52,16 @@ void ScatterOperator::AddNode(
     }
   }
 
+#if 1
+  auto src_or_val = stack.at(3).isTensor()
+      ? std::make_unique<synapse_helpers::tensor>(
+            std::move(p_context_->syn_inputs_.at(2).ref()))
+      : std::make_unique<synapse_helpers::tensor>(ConstantHelper(
+            graph,
+            (is_bool ? bool_val : stack.at(3).toScalar()),
+            ScalarType(),
+            outshape));
+#else
   std::unique_ptr<synapse_helpers::tensor> src_or_val;
   if (stack[3].isTensor()) {
     src_or_val = std::make_unique<synapse_helpers::tensor>(
@@ -68,6 +78,7 @@ void ScatterOperator::AddNode(
     src_or_val = std::make_unique<synapse_helpers::tensor>(
         std::move(constOp->GetSynOutputs()[0].ref()));
   }
+#endif
 
   std::set<c10::ScalarType> int_types = {
       c10::ScalarType::Bool,
