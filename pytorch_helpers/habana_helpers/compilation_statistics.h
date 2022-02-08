@@ -17,6 +17,7 @@
 #include <atomic>
 #include <memory>
 #include "dynamic_bucket_info.h"
+#include "dynamic_bucket_info_utils.h"
 
 namespace habana_helpers {
 
@@ -37,7 +38,7 @@ class CompilationStatistics {
    * object
    */
   static std::unique_ptr<CompilationStatistics> Create(
-      size_t id,
+      const std::string& id,
       uint64_t count);
 
   virtual ~CompilationStatistics();
@@ -57,6 +58,10 @@ class CompilationStatistics {
       const habana_helpers::TensorShape& shape,
       const std::string& kind,
       uint64_t step = 0);
+
+  virtual void LogShapes(
+      habana_helpers::InpTensorShapes& shape_map,
+      uint64_t step = 0);
   /**
    * @brief Adds compilation details to iteration compilation list
    *
@@ -71,6 +76,7 @@ class CompilationStatistics {
    * assigned to current iteration
    */
   virtual void LogCompilation(
+      const std::string& jit_ir,
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy,
       ResultShapes ranges,
@@ -154,12 +160,12 @@ class CompilationStatistics {
   std::string path_;
   std::atomic<uint64_t> step_;
   nlohmannV340::json json_file_;
-
+  std::ofstream file_handle;
   std::string GetStep(uint64_t step);
-  nlohmannV340::json GetRanges(ResultShapes ranges);
-  CompilationStatistics(absl::string_view path, uint64_t global_count);
-
-  // TF_DISALLOW_COPY_AND_ASSIGN(CompilationStatistics);
+  nlohmannV340::json GetRanges(habana_helpers::ResultShapes ranges);
+  CompilationStatistics(std::string path, uint64_t global_count);
+  CompilationStatistics(const CompilationStatistics&) = delete;
+  void operator=(const CompilationStatistics&) = delete;
 };
 
 /**
@@ -178,6 +184,5 @@ class CompilationStatisticsScope {
 
  private:
   std::shared_ptr<CompilationStatistics>& compilation_statistics;
-  // TF_DISALLOW_COPY_AND_ASSIGN(CompilationStatisticsScope);
 };
 }; // namespace habana_helpers

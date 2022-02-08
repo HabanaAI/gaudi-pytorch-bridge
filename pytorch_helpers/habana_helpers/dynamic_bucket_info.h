@@ -33,6 +33,9 @@ class RecipeValueSpec;
 }
 
 namespace habana_helpers {
+
+class CompilationStatistics;
+
 enum class SplitPolicy { UNSPECIFIED, DYNAMIC };
 
 enum class CompilationPass {
@@ -501,6 +504,9 @@ class DynamicBucketInfo {
   uint64_t getCount() {
     return global_count;
   }
+  std::shared_ptr<habana_helpers::CompilationStatistics> get_statistics();
+  void create_statistics(
+      std::unique_ptr<habana_helpers::CompilationStatistics> sptr);
 
   void split_history(
       const std::vector<size_t>& input_hist_idxes,
@@ -572,6 +578,7 @@ class DynamicBucketInfo {
   uint64_t mfu_bucket_run_count{0};
   uint64_t current_run_count{0};
 
+  std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
   InpTensorShapes shapes_;
   DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
   DynamicDimsPolicy max_policy_{MAX_POLICY_DEFAULT};

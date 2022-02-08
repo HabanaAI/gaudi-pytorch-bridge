@@ -83,10 +83,6 @@ struct PT_HCCL_MEMORY_ALLOWANCE_MB : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 200;
 };
 
-struct PT_COMPILATION_STATS_PATH {
-  static constexpr const char* default_value = "";
-};
-
 // Overloads for different type of default value
 
 template <class T>
@@ -200,6 +196,7 @@ ENV_STRING_STRUCT_DEFINITION(PT_HPU_GRAPH_DUMP_PREFIX, ".");
 // Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.
 // If proper path is set, disk cache is enabled for all compiled recipes.
 ENV_STRING_STRUCT_DEFINITION(PT_RECIPE_CACHE_PATH, "");
+ENV_STRING_STRUCT_DEFINITION(PT_COMPILATION_STATS_PATH, "");
 
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_MODE, unsigned, 1);
 ENV_STRUCT_DEFINITION(PT_HPU_LAZY_LOWERING, bool, false);
@@ -294,7 +291,7 @@ const char* getenv_by_type_new(
     const char* name,
     bool& is_cached,
     bool& is_defined,
-    const char* act_val,
+    const char*& act_val,
     const char* def_val);
 
 // Method for bool env variables to handle "true"/"false" and 1/0

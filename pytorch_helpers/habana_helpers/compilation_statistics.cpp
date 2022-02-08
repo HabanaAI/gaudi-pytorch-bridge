@@ -11,12 +11,16 @@
  *******************************************************************************
  */
 #include "compilation_statistics.h"
+#include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <utility>
+#include <vector>
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_helpers;
 using json = nlohmannV340::json;
+namespace fs = std::filesystem;
 namespace {
 std::string stringify(DynamicDimsPolicy policy) {
   switch (policy) {
@@ -61,7 +65,9 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       const habana_helpers::TensorShape&,
       const std::string&,
       uint64_t) override{};
+  void LogShapes(habana_helpers::InpTensorShapes&, uint64_t) override{};
   void LogCompilation(
+      const std::string&,
       DynamicDimsPolicy,
       DynamicDimsPolicy,
       ResultShapes,
@@ -82,15 +88,22 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
 };
 
 std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
-    size_t id,
+    const std::string& id,
     uint64_t global_count) {
   std::unique_ptr<CompilationStatistics> result;
-  // https://jira.habana-labs.com/browse/SW-69265
-  std::string path_ = GET_ENV_FLAG(PT_COMPILATION_STATS_PATH);
-  if (path_ != "") {
-    path_ += std::string("/JIT_IR_") + std::to_string(id) + ".json";
+  std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
+  if (path != "") {
+    if (fs::exists(fs::path(path)) == false) {
+      try {
+        fs::create_directories(path);
+      } catch (std::filesystem::filesystem_error const& ex) {
+        std::cerr << ex.what() << std::endl;
+        UNSET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
+      }
+    }
+    path += std::string("/") + std::string(id) + ".json";
     result = std::unique_ptr<CompilationStatistics>(
-        new CompilationStatistics{path_, global_count});
+        new CompilationStatistics{path, global_count});
   } else {
     result = std::unique_ptr<CompilationStatistics>(
         new CompilationStatisticsNoOp{"", global_count});
@@ -99,13 +112,21 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
 }
 
 CompilationStatistics::~CompilationStatistics() {
-  DumpAndNextStep();
+  file_handle << "\n]";
+  file_handle.flush();
+  file_handle.close();
 }
 
 CompilationStatistics::CompilationStatistics(
-    absl::string_view path,
+    const std::string path,
     uint64_t global_count)
-    : path_{path}, step_{global_count} {}
+    : path_{path}, step_{global_count}, file_handle(path_, std::ios::trunc) {
+  if (file_handle.is_open()) {
+    file_handle << "[\n";
+    file_handle.flush();
+  }
+}
+
 void CompilationStatistics::LogShape(
     int index,
     const habana_helpers::TensorShape& shape,
@@ -114,7 +135,16 @@ void CompilationStatistics::LogShape(
   json_file_[GetStep(step)]["shapes"][std::to_string(index)] =
       shape.DebugString() + (kind.empty() ? "" : " " + kind);
 }
+
+void CompilationStatistics::LogShapes(
+    habana_helpers::InpTensorShapes& shape_map,
+    uint64_t step) {
+  for (size_t i = 0; i < shape_map.size(); i++) {
+    LogShape(i, shape_map[i], "", step);
+  }
+}
 void CompilationStatistics::LogCompilation(
+    const std::string& jit_ir,
     DynamicDimsPolicy min_policy,
     DynamicDimsPolicy max_policy,
     ResultShapes ranges,
@@ -122,7 +152,16 @@ void CompilationStatistics::LogCompilation(
     const std::string& result,
     CompilationPass last_compilation_pass,
     uint64_t step) {
+  std::stringstream ss(jit_ir);
+  std::vector<std::string> ir_vector;
+
+  while (ss.good()) {
+    std::string substr;
+    getline(ss, substr, '\n');
+    ir_vector.push_back(substr);
+  }
   json compilation;
+  compilation["jit ir graph"] = ir_vector;
   compilation["min policy"] = stringify(min_policy);
   compilation["max policy"] = stringify(max_policy);
   compilation["ranges"] = GetRanges(ranges);
@@ -183,9 +222,12 @@ uint64_t CompilationStatistics::GetCurrentStep() {
   return step_;
 }
 void CompilationStatistics::DumpAndNextStep() {
-  std::ofstream out(path_, std::ofstream::app);
-  out << std::setw(4) << json_file_ << '\n';
-  out.flush();
+  if (step_) {
+    file_handle << ",\n";
+  }
+  file_handle << std::setw(4) << json_file_;
+  file_handle.flush();
+  json_file_.clear();
   step_++;
 }
 

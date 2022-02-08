@@ -249,7 +249,7 @@ const char* getenv_by_type_new(
     const char* name,
     bool& is_cached,
     bool& is_defined,
-    const char* act_val,
+    const char*& act_val,
     const char* def_val) {
   // Conversion to string:
   //   |    env var      |   returned value
@@ -460,6 +460,7 @@ ENV_STRING_STRUCT_STATIC_DEFINITION(GC_KERNEL_PATH);
 ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HABANA_MEM_LOG_FILENAME);
 ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HPU_GRAPH_DUMP_PREFIX);
 ENV_STRING_STRUCT_STATIC_DEFINITION(PT_RECIPE_CACHE_PATH);
+ENV_STRING_STRUCT_STATIC_DEFINITION(PT_COMPILATION_STATS_PATH);
 
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_MODE, unsigned);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_LOWERING, bool);

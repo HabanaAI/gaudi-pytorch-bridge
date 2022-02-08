@@ -25,6 +25,7 @@
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 
 #include "pytorch_helpers/habana_device/HPUCheck.h"
+#include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace synapse_helpers;
@@ -1169,6 +1170,16 @@ void DynamicBucketInfo::DynamicDimsHelper::FindOrAdd(
     DynamicDimsElement item(num, pos, val);
     flat_dd_.emplace_back(num, pos, val);
   }
+}
+
+std::shared_ptr<habana_helpers::CompilationStatistics> DynamicBucketInfo::
+    get_statistics() {
+  return statistics_;
+}
+
+void DynamicBucketInfo::create_statistics(
+    std::unique_ptr<habana_helpers::CompilationStatistics> sptr) {
+  statistics_ = std::move(sptr);
 }
 
 } // namespace habana_helpers

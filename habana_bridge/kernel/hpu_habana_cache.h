@@ -445,10 +445,8 @@ class DynamicBucketInfoMap {
  public:
   static DynamicBucketInfoMap& get_instance() {
     std::lock_guard<std::mutex> lg(mutex_);
-    if (!instance_) {
-      instance_ = new DynamicBucketInfoMap();
-    }
-    return *instance_;
+    static DynamicBucketInfoMap instance_;
+    return instance_;
   }
 
   bool empty() {
@@ -474,7 +472,6 @@ class DynamicBucketInfoMap {
   DynamicBucketInfoMap& operator=(const DynamicBucketInfoMap&) = delete;
 
   static std::mutex mutex_;
-  static DynamicBucketInfoMap* instance_;
 
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,

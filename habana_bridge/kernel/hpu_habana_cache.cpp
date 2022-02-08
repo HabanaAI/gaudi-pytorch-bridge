@@ -48,7 +48,6 @@ size_t RecipeValueSpec::compile_count = 0;
 size_t RecipeValueSpec::launch_count = 0;
 
 std::mutex DynamicBucketInfoMap::mutex_;
-DynamicBucketInfoMap* DynamicBucketInfoMap::instance_ = nullptr;
 
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   std::unordered_map<size_t, std::vector<int64_t>> shape_tensor_map;
