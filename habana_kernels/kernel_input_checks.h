@@ -117,6 +117,11 @@ class OpAttributeCheck {
         {"threshold_backward", {{3, {c10::IValue(0), c10::IValue(0.0)}}}},
         // checking for sorted = true
         {"topk", {{5, {c10::IValue(true)}}}},
+        // checking sorted, return_inverse, return_counts = false
+        {"unique",
+         {{2, {c10::IValue(false)}},
+          {3, {c10::IValue(false)}},
+          {4, {c10::IValue(false)}}}},
     };
   }
 

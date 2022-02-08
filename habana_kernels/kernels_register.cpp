@@ -3417,6 +3417,18 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
     bool sorted,
     bool return_inverse,
     bool return_counts) {
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self),
+      IValue(sorted),
+      IValue(return_inverse),
+      IValue(return_counts)};
+  check_handle->hpu_check_ivalues("unique", op_stack);
+
+  if (!(hpu_check_inputs_impl("unique", {self}) && check_handle->get_status()))
+    return AtenHpuTypeDefault::_unique2(
+        self, sorted, return_inverse, return_counts);
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
   } else {
