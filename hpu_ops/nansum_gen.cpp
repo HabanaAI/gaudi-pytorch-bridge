@@ -14,7 +14,6 @@
 #include "hpu_op_helper.h"
 
 #define guidReducesum "reduce_sum_fwd_"
-#define guidReshape "reshape"
 
 namespace habana {
 sizes_vec NanSumOutputShape(const at::Stack& stack, bool) {
@@ -144,13 +143,10 @@ void NansumList::AddNode(
 
         // Reshape the last node to final output shape
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              guidReshape,
-              {reduce_sum_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, reduce_sum_itr[0].get(), new_shape, ScalarType(), 0);
 
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         reduce_sum_list.emplace_back(reduce_sum_itr[0].get());
       }
@@ -178,25 +174,19 @@ void NansumList::AddNode(
 
         // Reshape the last node to final output shape
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              guidReshape,
-              {reduce_sum_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, reduce_sum_itr[0].get(), new_shape, ScalarType(), 0);
 
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         reduce_sum_list.emplace_back(reduce_sum_itr[0].get());
       }
     }
     if (len == 1) {
-      auto reshape = BuildOp(
-          graph,
-          guidReshape,
-          {reduce_sum[0].get()},
-          {{new_shape, ScalarType(), 0}});
+      auto reshape =
+          ReshapeHelper(graph, reduce_sum[0].get(), new_shape, ScalarType(), 0);
 
-      syn_out(0) = std::move(reshape[0]);
+      syn_out(0) = std::move(reshape);
     }
   }
 }
@@ -271,26 +261,20 @@ void Nansum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
       // Reshape the last node to final output shape
       if (i == len - 1) {
-        auto reshape = BuildOp(
-            graph,
-            guidReshape,
-            {reduce_sum_itr[0].get()},
-            {{new_shape, ScalarType(), 0}});
+        auto reshape = ReshapeHelper(
+            graph, reduce_sum_itr[0].get(), new_shape, ScalarType(), 0);
 
-        syn_out(0) = std::move(reshape[0]);
+        syn_out(0) = std::move(reshape);
       }
       reduce_sum_list.push_back(reduce_sum_itr[0].get());
     }
   }
 
   if (len == 1) {
-    auto reshape = BuildOp(
-        graph,
-        guidReshape,
-        {reduce_sum[0].get()},
-        {{new_shape, ScalarType(), 0}});
+    auto reshape =
+        ReshapeHelper(graph, reduce_sum[0].get(), new_shape, ScalarType(), 0);
 
-    syn_out(0) = std::move(reshape[0]);
+    syn_out(0) = std::move(reshape);
   }
 }
 } // namespace habana

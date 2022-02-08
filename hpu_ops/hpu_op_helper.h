@@ -229,6 +229,13 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef constant_outshape = 1,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  synapse_helpers::tensor ReshapeHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
  public:
@@ -253,6 +260,14 @@ class OpBackend : public HabanaOperator {
       const at::Scalar& val,
       c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildReshape(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
  private:

@@ -374,6 +374,16 @@ synapse_helpers::tensor OpBackend::ConstantHelper(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
+synapse_helpers::tensor OpBackend::ReshapeHelper(
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildReshape(
+      this, graph, syn_in, sizes, dtype, final_result_index);
+}
+
 void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
@@ -506,6 +516,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   std::unique_ptr<synapse_helpers::tensor> shape_input;
 
   // No inputs for non dynamic graph
+  // Do we really need this condition?
   if (graph.is_dynamic_graph()) {
     shape_input = std::make_unique<synapse_helpers::tensor>(
         habana_helpers::create_shape_tensor(
@@ -525,5 +536,43 @@ synapse_helpers::tensor OpBackend::BuildConstant(
        &params,
        sizeof(params)});
   return std::move(constant.at(0));
+}
+
+synapse_helpers::tensor OpBackend::BuildReshape(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  /*
+    Inputs:
+    * The tensor to reshape : T
+        Input Tensor of type T with dimensionality 1-5D.
+    * Shape tensor describing output : T
+        Input Tensor of type T with dimensionality 1-5D.
+
+    Outputs:
+    * The reshaped tensor : T
+        Output tensor with the same type as input.
+
+    Types:
+    * T : tensor(float32), tensor(bfloat16), tensor(int32)
+        A 1D, 2D, 3D, 4D or 5D tensor with the elements of type specified in
+        the definition.
+  */
+  std::vector<synTensor> inputs = {syn_in};
+  std::unique_ptr<synapse_helpers::tensor> shape_input;
+
+  // Do we really need this condition?
+  if (graph.is_dynamic_graph()) {
+    shape_input = std::make_unique<synapse_helpers::tensor>(
+        habana_helpers::create_shape_tensor(
+            GetProxyTensor(dtype, sizes), graph, false, SHAPE_TENSOR));
+    inputs.emplace_back(shape_input->get());
+  }
+  auto reshape = BuildNode(
+      op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});
+  return std::move(reshape.at(0));
 }
 } // namespace habana

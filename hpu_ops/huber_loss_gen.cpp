@@ -187,11 +187,12 @@ void HuberLossOperator::AddNode(
 
   if (n_dims > 1) {
     auto reshape_outshape = stack_tensor(stack, 0).numel();
-    condition_out_flat = BuildOp(
+    condition_out_flat.emplace_back(BuildReshape(
+        this,
         graph,
-        "reshape",
-        {condition_out.at(0).get()},
-        {{reshape_outshape, ScalarType()}});
+        condition_out.at(0).get(),
+        reshape_outshape,
+        ScalarType()));
     reduction_inputs = {condition_out_flat[0].get()};
   }
 
