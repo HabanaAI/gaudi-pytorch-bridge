@@ -9,7 +9,7 @@ import os
 import torch.utils.data
 import torchvision.datasets
 from enum import Enum
-import torch.hpu
+import torch_hpu
 import habana_frameworks.torch.core as htcore
 
 def isGaudi(device):
@@ -23,7 +23,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
         keyword_args = copy.deepcopy(kwargs)
         keyword_args.update(dict(zip(inspect.getfullargspec(super(HabanaDataLoader, self).__init__).args[1:], args)))
 
-        self.DeviceType = torch.hpu.get_device_type()
+        self.DeviceType = torch_hpu.get_device_type()
 
         self.fallback_activated = False
         try:
