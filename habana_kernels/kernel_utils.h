@@ -25,6 +25,13 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/habana_operator.h"
 
+// Incase of F32 to BF16 use round to nearest even. Use truncation for all F32
+// to any int type conversion. Rounding mode is not relevant for other cases
+// like integral  to integral or integral to floating type conversion.
+#define SET_CAST_ROUNDING_MODE(guid)                            \
+  params.round_mode = (guid == std::string("cast_f32_to_bf16")) \
+      ? CAST_ROUND_HALF_NE                                      \
+      : CAST_ROUND_ZERO;
 namespace habana_helpers {
 extern const std::
     map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>

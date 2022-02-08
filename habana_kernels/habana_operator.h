@@ -177,6 +177,11 @@ class HabanaOperator {
   void SetGuid(std::string guid) {
     guid_ = guid;
   }
+
+  // Get the op guid - Incase guid specific actions needs to be taken
+  const std::string& GetGuid() const {
+    return guid_;
+  }
   //
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);

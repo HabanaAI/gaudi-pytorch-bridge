@@ -67,15 +67,6 @@ class CastLazyOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
-  /**
-   * @brief CastKernel params structure
-   */
-  ns_CastKernel::Params synapse_cast_params_builder() {
-    ns_CastKernel::Params cast_params{};
-    cast_params.round_mode = CAST_ROUND_HALF_NE;
-    return cast_params;
-  }
 };
 
 //

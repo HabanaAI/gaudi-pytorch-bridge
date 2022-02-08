@@ -354,14 +354,7 @@ synapse_helpers::tensor OpBackend::CastHelper(
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
   return OpBackend::BuildCast(
-      this,
-      graph,
-      syn_in,
-      sizes,
-      from,
-      to,
-      CAST_ROUND_HALF_NE,
-      final_result_index);
+      this, graph, syn_in, sizes, from, to, final_result_index);
 }
 
 synapse_helpers::tensor OpBackend::ConstantHelper(
@@ -470,11 +463,12 @@ synapse_helpers::tensor OpBackend::BuildCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    CastF32RoundMode_t round_mode,
     c10::optional<int> final_result_index) {
   const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
       "_to_" + habana_helpers::name_suffix_from_type(to);
-  ns_CastKernel::Params params{round_mode};
+
+  ns_CastKernel::Params params{};
+  SET_CAST_ROUNDING_MODE(guid);
   NodeAttr castnode{
       guid,
       {syn_in},

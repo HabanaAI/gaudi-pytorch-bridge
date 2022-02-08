@@ -315,10 +315,9 @@ size_t habana_helpers::getRecipeKey(
  * @brief CastKernel params structure
  */
 ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
-  ns_CastKernel::Params cast_params{};
-  cast_params.round_mode = CAST_ROUND_HALF_NE;
-
-  return cast_params;
+  ns_CastKernel::Params params{};
+  SET_CAST_ROUNDING_MODE(GetGuid());
+  return params;
 }
 
 void CastOperator::AllocateAndAddSynapseNode(

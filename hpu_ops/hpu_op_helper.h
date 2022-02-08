@@ -100,9 +100,6 @@ class OpBackend : public HabanaOperator {
   const c10::ScalarType& ScalarType() const {
     return m_scalar_type;
   }
-  const std::string& GetGuid() const {
-    return guid_;
-  }
 
  protected:
   c10::ScalarType ComputePromotedScalarType(
@@ -251,7 +248,6 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      CastF32RoundMode_t round_mode = CAST_ROUND_HALF_NE,
       c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(
