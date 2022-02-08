@@ -73,6 +73,13 @@ class ShapeInference {
       synapse_helpers::graph& graph,
       const std::vector<int64_t>& sizes);
   /*
+   * Method to update values for a tensor id with new shapes
+   */
+  static uint64_t UpdateShapeInfo(
+      synapse_helpers::graph& graph,
+      const uint64_t tensor_id,
+      const std::vector<int64_t>& sizes);
+  /*
    * Get the shape of the Min & Max tensor values for the specified
    * tensor name
    */

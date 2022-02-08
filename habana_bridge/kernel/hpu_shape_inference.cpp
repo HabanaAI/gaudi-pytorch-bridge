@@ -66,7 +66,42 @@ uint64_t ShapeInference::UpdateShapeInfo(
          */
         break;
       default:
-        HABANA_ASSERT(0);
+        HABANA_ASSERT("Unidentidied Shape inference pass");
+    }
+  }
+  return tensor_id;
+}
+
+uint64_t ShapeInference::UpdateShapeInfo(
+    synapse_helpers::graph& graph,
+    const uint64_t tensor_id,
+    const std::vector<int64_t>& sizes) {
+  if (graph.is_dynamic_graph()) {
+    HABANA_ASSERT(ShapeInference::m_shape_info);
+    // We only care about the shape during shape inference, hence
+    // passing a dummy type of Undefined when creating the shape tensor
+    auto shape = habana_helpers::TensorShape(sizes, c10::ScalarType::Undefined);
+    switch (ShapeInference::m_shape_info->m_pass) {
+      case ShapeInfo::InferencePass::MIN_SHAPE:
+        ShapeInference::m_shape_info->m_min_shapes.insert_or_assign(
+            tensor_id, shape);
+        break;
+      case ShapeInfo::InferencePass::MAX_SHAPE:
+        ShapeInference::m_shape_info->m_max_shapes.insert_or_assign(
+            tensor_id, shape);
+        break;
+      case ShapeInfo::InferencePass::OUTPUT_SHAPE:
+        ShapeInference::m_shape_info->m_actual_shapes.insert_or_assign(
+            tensor_id, shape);
+        break;
+      case ShapeInfo::InferencePass::INVALID:
+        /*
+         * Incase we set to invalid, then we dont need to do anything
+         * just dont need to update any info
+         */
+        break;
+      default:
+        HABANA_ASSERT("Unidentidied Shape inference pass");
     }
   }
   return tensor_id;

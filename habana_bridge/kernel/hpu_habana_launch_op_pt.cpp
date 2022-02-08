@@ -31,6 +31,7 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/tensor_builder.h"
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
@@ -1105,12 +1106,16 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
     auto& syn_tensor_vec = pt_to_synapse_tensors[ivpsh];
     synapse_helpers::tensor& syn_tensor = syn_tensor_vec->at(0);
+    habana::ShapeInference::UpdateShapeInfo(
+        *syn_graph_ptr, syn_tensor.id(), tensor.sizes().vec());
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         ivpsh_restrided,
         syn_tensor.name(),
         value_in,
         watch_tensor_flag_,
-        syn_tensor.id());
+        syn_tensor.id(),
+        syn_tensor.tensor_type());
+    ti->set_restrided(true);
 
     value_to_ivalue.erase(value_in);
 
@@ -2551,6 +2556,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
           current_dbipsh_->GetRecipeKeyForBucket(
               graph_input_info.current_bucket_id),
           0);
+      RestoreInputTensorMetadata();
       handle_pass_exception(graph_input_info, p);
     }
   } else {

@@ -524,11 +524,13 @@ class HabanaLaunchOpPT {
       try {
         run_shape_inference(pass, graph_input_info);
       } catch (const PassException& e) {
+        RestoreInputTensorMetadata();
         handle_pass_exception(graph_input_info, e);
       }
     } else {
       run_shape_inference(pass, graph_input_info);
     }
+    RestoreInputTensorMetadata();
   }
 };
 

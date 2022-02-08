@@ -573,7 +573,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        devid, shape.vec(), calculate_strides(shape.vec()), name);
+        devid, shape.vec(), calculate_strides(shape.vec()), persistent, name);
   }
 
   std::vector<int64_t> min, max;
@@ -640,9 +640,9 @@ synapse_helpers::tensor habana_helpers::create_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         calculate_strides(tensor.sizes().vec()),
+        persistent,
         name,
-        DATA_TENSOR,
-        persistent);
+        DATA_TENSOR);
   }
 
   std::vector<int64_t> min, max;
@@ -725,6 +725,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         calculate_strides(tensor.sizes().vec()),
+        persistent,
         name);
   }
 
@@ -795,6 +796,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         calculate_strides(tensor.sizes().vec()),
+        persistent,
         name,
         shape_tensor_type);
   }
@@ -940,7 +942,10 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
   if (graph.is_dry_run()) {
     // In case of dry run mode, just create a place holder
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device_id(), tensor.pt_shape(), tensor.pt_strides());
+        tensor.device_id(),
+        tensor.pt_shape(),
+        tensor.pt_strides(),
+        tensor.is_persistent());
   }
 
   if (external) {
@@ -980,7 +985,7 @@ synapse_helpers::tensor habana_helpers::
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device_id(), sizes, strides);
+        tensor.device_id(), sizes, strides, tensor.is_persistent());
   }
 
   TORCH_CHECK(
@@ -994,8 +999,14 @@ synapse_helpers::tensor habana_helpers::
                      .mark_external(external);
 
   if (tensor.has_dynamic_shape()) {
-    if (synapse_helpers::to_shape_t(sizes) == tensor.dynamic_shape().min()) {
-      builder.with_dynamic_shape(tensor.dynamic_shape());
+    std::vector<int64_t> min, max;
+    auto tensor_id =
+        synapse_helpers::detail::tensor_name_generator::get_tensor_id();
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
+    if (min.size() && max.size() && (min != max)) {
+      auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+          synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+      builder.with_dynamic_shape(dynamic_shape);
     }
   }
 

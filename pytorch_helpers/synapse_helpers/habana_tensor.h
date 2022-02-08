@@ -239,9 +239,9 @@ class tensor final {
       synDeviceId device_id,
       const std::vector<int64_t>& pt_shape,
       const std::vector<int64_t>& pt_stride,
+      bool persistent = false,
       const std::string& suffix = std::string(),
-      synTensorType tensor_type = DATA_TENSOR,
-      bool persistent = false);
+      synTensorType tensor_type = DATA_TENSOR);
 
   synTensor& get() {
     return tensor_;
