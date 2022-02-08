@@ -7187,13 +7187,21 @@ at::Tensor roi_align_fwd_hpu_lazy(
     float spatial_scale,
     bool aligned) {
   PT_LAZY_TRACE;
-  // TBD: add out_shape computation for NHWC inputs also.
+  // Assuming outshape to be NCHW
   std::vector<int64_t> out_shape{
       num_rois.sizes()[0], images.sizes()[1], output_h, output_w};
+  auto rois_f32 = rois;
+  // TPC expects rois to be always fp32, therefore adding this cast
+  if (rois.scalar_type() == c10::ScalarType::BFloat16) {
+    // Cast temp tensor to orig_out tensor data type
+    LazyOp<Tensor> k_{
+        "hpu::cast", {rois, c10::ScalarType::Float}, {}, {rois.sizes().vec()}};
+    rois_f32 = k_.call();
+  }
   LazyOp<at::Tensor> k(
       "hpu::roi_align_fwd",
       {images,
-       rois,
+       rois_f32,
        num_rois,
        output_h,
        output_w,
