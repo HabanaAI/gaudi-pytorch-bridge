@@ -116,7 +116,7 @@ using NodePtrVecIndxDimsMap = std::unordered_map<
 bool IsPermuteNode(const Node* node) {
   return (
       (strcmp(node->kind().toQualString(), "hpu::permute_cl") == 0) ||
-      (strcmp(node->kind().toQualString(), "aten::permute") == 0));
+      (strcmp(node->kind().toQualString(), "hpu::permute") == 0));
 }
 
 void InsertNodes(
@@ -142,7 +142,7 @@ void InsertNodes(
 void InsertPermuteNodes(
     std::shared_ptr<Graph>& graph,
     NodePtrVecIndxDimsMap node_indxmap) {
-  InsertNodes(graph, "aten::permute", node_indxmap);
+  InsertNodes(graph, "hpu::permute", node_indxmap);
 }
 void InsertRestrideNodes(
     std::shared_ptr<Graph>& graph,
@@ -173,7 +173,7 @@ void RemoveRedundantOp(std::shared_ptr<Graph>& graph, const char* op) {
 }
 
 void RemoveRedundantPermutes(std::shared_ptr<Graph>& graph) {
-  RemoveRedundantOp(graph, "aten::permute");
+  RemoveRedundantOp(graph, "hpu::permute");
 }
 void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
   RemoveRedundantOp(graph, "hpu::restride_cl");

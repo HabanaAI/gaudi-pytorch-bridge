@@ -884,17 +884,40 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   return self;
 }
 
-Tensor maybe_contiguous(const Tensor& self) {
-  auto output = self;
-  if (!self.is_contiguous()) {
-    if ((self.suggest_memory_format() != c10::MemoryFormat::ChannelsLast) &&
-        (self.suggest_memory_format() != c10::MemoryFormat::ChannelsLast3d)) {
-      PT_LAZY_DEBUG("Changing src tensor to contiguous before D2H");
-      output = self.contiguous();
-    }
+Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
+  PT_LAZY_TRACE;
+  auto dims_vec = dims_in.vec();
+  for (unsigned i = 0; i < dims_in.size(); i++) {
+    dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
   }
+  IntArrayRef dims_(dims_vec);
 
-  return output;
+  std::vector<at::IValue> vector_of_inputs;
+
+  vector_of_inputs = {self, dims_};
+
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("hpu::permute", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dims = inputs[1].toIntList();
+      std::vector<int64_t> new_sizes, new_strides;
+      std::tie(new_sizes, new_strides) =
+          PermuteOperator::compute_output_shape(self, dims.vec());
+      auto result =
+          empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
+      return result;
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor as_strided_layout_hpu_lazy(
@@ -978,7 +1001,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes_5d, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes_5d, new_strides);
-      auto permute_tensor = permute_hpu_lazy(strided_tensor, {4, 3, 0, 1, 2});
+      auto permute_tensor =
+          permute_hpu_lazy_internal(strided_tensor, {4, 3, 0, 1, 2});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
       tensor_data = hb_tensor.GetHbLazyTensorData();
     } else {
@@ -987,7 +1011,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes, new_strides);
-      auto permute_tensor = permute_hpu_lazy(strided_tensor, {3, 2, 0, 1});
+      auto permute_tensor =
+          permute_hpu_lazy_internal(strided_tensor, {3, 2, 0, 1});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
       tensor_data = hb_tensor.GetHbLazyTensorData();
     }

@@ -272,7 +272,7 @@ bool HabanaLaunchOpPT::IsOutputToPermute(torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
     auto permute_node = u.user;
-    if (strcmp(permute_node->kind().toQualString(), "aten::permute") == 0) {
+    if (strcmp(permute_node->kind().toQualString(), "hpu::permute") == 0) {
       return true;
     }
   }
@@ -283,7 +283,7 @@ torch::jit::Value* HabanaLaunchOpPT::GetPermuteOutvalue(
     torch::jit::Value* val) {
   for (auto u : val->uses()) {
     auto restride_node = u.user;
-    if (strcmp(restride_node->kind().toQualString(), "aten::permute") == 0) {
+    if (strcmp(restride_node->kind().toQualString(), "hpu::permute") == 0) {
       return restride_node->output(0);
     }
   }

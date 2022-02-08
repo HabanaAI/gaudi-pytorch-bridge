@@ -265,7 +265,7 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
         0) {
       auto value_in = node->input(1);
       WithInsertPoint insert_point(node);
-      auto op_permute = c10::Symbol::fromQualString("aten::permute");
+      auto op_permute = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims1 = nullptr;
       if (*value_in->type()->cast<TensorType>()->dim() == 4) {
         static const int64_t dimarr[] = {2, 3, 1, 0};
@@ -288,7 +288,7 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       // input
       auto value_in = node->input(2);
       WithInsertPoint insert_point(node);
-      auto op_permute = c10::Symbol::fromQualString("aten::permute");
+      auto op_permute = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims1 = nullptr;
       if (*value_in->type()->cast<TensorType>()->dim() == 4) {
         static const int64_t dimarr[] = {2, 3, 1, 0};
@@ -306,7 +306,7 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       node->replaceInputWith(value_in, permute_node->output(0));
 
       auto value_out = node->output(1);
-      auto op_permute2 = c10::Symbol::fromQualString("aten::permute");
+      auto op_permute2 = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims2 = nullptr;
       if (*value_out->type()->cast<TensorType>()->dim() == 4) {
         static const int64_t dimarr[] = {3, 2, 0, 1};
@@ -459,7 +459,7 @@ void InsertWeightRestride_graph(
         if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
           auto value_in = const_cast<torch::jit::Value*>(weight_value);
 
-          auto op_permute = c10::Symbol::fromQualString("aten::permute");
+          auto op_permute = c10::Symbol::fromQualString("hpu::permute");
           auto dims1 = getDimsForWeightLayout(
               habana::LayoutFormat::HWCK,
               habana::LayoutFormat::NCHW,

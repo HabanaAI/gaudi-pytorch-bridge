@@ -4417,6 +4417,7 @@ TORCH_LIBRARY(hpu, m) {
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def(
       "gather_elements(Tensor self, Tensor index, Tensor? opt, int64_t dim_, bool sorted) -> Tensor");
+  m.def("permute(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride(Tensor(a) self, int[] dims) -> Tensor(a)");
