@@ -4090,8 +4090,8 @@ Tensor kl_div_backward_hpu_lazy(
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
+    const Tensor& weight_tensor,
+    const Tensor& bias_tensor,
     const Tensor& running_mean_,
     const Tensor& running_var_,
     bool training,
@@ -4103,6 +4103,39 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   // if RMV are undefined, create zero mean and unit variance tensors for
   // numerical stability of BN. Note that they should have same
   // dtype as weight
+
+  auto weight = weight_tensor;
+  auto bias = bias_tensor;
+  if (!weight.defined()) {
+    IntArrayRef rm_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rm_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rm_size = input.sizes()[4];
+    } else {
+      rm_size = input.sizes()[1];
+    }
+    weight = empty_hpu_lazy(
+        rm_size, input.options(), input.suggest_memory_format(), true);
+    fill_hpu_lazy_(weight, 1);
+  }
+
+  if (!bias.defined()) {
+    IntArrayRef rm_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rm_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rm_size = input.sizes()[4];
+    } else {
+      rm_size = input.sizes()[1];
+    }
+
+    bias = empty_hpu_lazy(
+        rm_size, input.options(), input.suggest_memory_format(), true);
+    fill_hpu_lazy_(bias, 0);
+  }
 
   if (!running_mean_.defined()) {
     IntArrayRef rm_size;

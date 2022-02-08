@@ -1741,10 +1741,10 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
     bool training,
     double momentum,
     double eps) {
-  auto weight = weight_opt.value();
-  auto bias = bias_opt.value();
-  auto running_mean = running_mean_opt.value();
-  auto running_var = running_var_opt.value();
+  auto weight = weight_opt.value_or(Tensor());
+  auto bias = bias_opt.value_or(Tensor());
+  auto running_mean = running_mean_opt.value_or(Tensor());
+  auto running_var = running_var_opt.value_or(Tensor());
 
   if (!hpu_check_inputs_impl(
           "native_batch_norm",
