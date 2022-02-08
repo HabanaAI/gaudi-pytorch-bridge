@@ -414,8 +414,7 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
-          nullptr,
-      bool force_flush = false) {
+          nullptr) {
     const auto& node = create_node();
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result);
@@ -428,11 +427,6 @@ class LazyOp {
     updateDstDependencies(hl_result, result, false);
     runSBS(result);
     flush_op(result, info_to_lazy_backend);
-    // force flush after hccl ops
-    if (force_flush) {
-      PT_LAZY_DEBUG("Triggering mark_step due to force_flush");
-      HbLazyTensor::StepMarker();
-    }
     return result;
   }
 
@@ -451,8 +445,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call(
-      bool force_flush = false) {
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
     viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -471,7 +464,7 @@ class LazyOp {
       }
     }
 
-    return HandleLazy(infoToBackEnd, force_flush);
+    return HandleLazy(infoToBackEnd);
   }
 
   bool is_inplace(at::Symbol symbol) {
@@ -552,8 +545,7 @@ class LazyOp {
 
   void HandleViewsInplace(
       const at::Tensor& self,
-      habana_lazy::HbLazyTensor& hl_self,
-      bool force_flush) {
+      habana_lazy::HbLazyTensor& hl_self) {
     auto out_t = empty_hpu_lazy(
         self.sizes(), self.options(), self.suggest_memory_format(), false);
 
@@ -580,11 +572,6 @@ class LazyOp {
         hl_self.dtype_optional());
 
     flush_op(out_t);
-    // force flush after hccl ops
-    if (force_flush) {
-      PT_LAZY_DEBUG("Triggering mark_step due to force_flush");
-      HbLazyTensor::StepMarker();
-    }
     // add strided insert node and update most recent version of original
     // tensor
     strided_insert_hpu_lazy(self, out_t);
@@ -596,8 +583,7 @@ class LazyOp {
   HandleLazy(
       at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
-          nullptr,
-      bool force_flush = false) {
+          nullptr) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     auto hl_self = GetHbLazyTensor(self);
 
@@ -634,11 +620,6 @@ class LazyOp {
           hl_self.GetSizes(),
           hl_self.dtype_optional());
 
-      if (force_flush) {
-        PT_LAZY_DEBUG("Triggering mark_step due to force_flush");
-        HbLazyTensor::StepMarker();
-      }
-
       // Special handling for SBS in inplace, before the inplace op will
       // override the tensor
       if (is_inplace(m_symbol)) {
@@ -646,7 +627,7 @@ class LazyOp {
             get_inputs(), node->GetMetaData(), sbs_stack);
       }
     } else {
-      HandleViewsInplace(self, hl_self, force_flush);
+      HandleViewsInplace(self, hl_self);
     }
 
     // numel == 0 is the correct check, need the size check until pytorch
@@ -702,8 +683,7 @@ class LazyOp {
   // For inplace/out variants
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
-      at::Tensor& self,
-      bool force_flush = false) {
+      at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
 
     // Handle views or fetch updated tensor for all the inputs
@@ -725,7 +705,7 @@ class LazyOp {
       }
     }
 
-    return HandleLazy(self, infoToBackEnd, force_flush);
+    return HandleLazy(self, infoToBackEnd);
   }
 
   template <typename T = ReturnType>

@@ -85,4 +85,6 @@ inline std::ostream& operator<<(std::ostream& O, const LayoutFormat& l) {
   return O << DebugString(l);
 }
 
+bool IsCollective(const c10::Symbol& symbol);
+
 } // namespace habana_lazy

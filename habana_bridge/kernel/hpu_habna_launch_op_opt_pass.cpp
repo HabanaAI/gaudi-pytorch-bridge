@@ -33,6 +33,7 @@
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
 #include "habana_device/tensor_builder.h"
+#include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 
@@ -86,7 +87,8 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
-    if (isControlEdge(node) || isInplace(node) || isCollective(node)) {
+    if (isControlEdge(node) || isInplace(node) ||
+        habana_lazy::IsCollective(node->kind())) {
       set_persistence_input(node);
       set_persistence_output(node);
     }
@@ -138,7 +140,7 @@ void HabanaLaunchOpPT::externalMarkingPass(
 
     // collective inputs must be set external in order to
     // trigger before graph execution ends
-    if (isCollective(node)) {
+    if (habana_lazy::IsCollective(node->kind())) {
       set_external_input(node);
     }
 

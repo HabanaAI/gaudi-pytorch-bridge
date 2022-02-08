@@ -34,6 +34,7 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/hccl_kernels.h"
@@ -301,10 +302,6 @@ torch::jit::Value* HabanaLaunchOpPT::GetPermuteOutvalue(
     }
   }
   return nullptr;
-}
-
-bool HabanaLaunchOpPT::isCollective(torch::jit::Node* node) {
-  return std::string(node->kind().toQualString()).rfind("hccl", 0) == 0;
 }
 
 bool HabanaLaunchOpPT::isPermuteInGraphOutputs(torch::jit::Value* value) {
@@ -1626,7 +1623,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       }
     }
 
-    if (!is_shape_inference && isCollective(node)) {
+    if (!is_shape_inference && habana_lazy::IsCollective(node->kind())) {
       // save indexes of kernel input stack in graph input stack
       // when launching provide new input stack to RunCollective
       std::shared_ptr<habana_helpers::collective_kernel_info> kernel_info =

@@ -420,7 +420,6 @@ class HabanaLaunchOpPT {
   bool isPermuteInGraphOutputs(torch::jit::Value* value);
   bool IsOutputToPermute(torch::jit::Value* value);
   torch::jit::Value* GetPermuteOutvalue(torch::jit::Value* val);
-  bool isCollective(torch::jit::Node* node);
 
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
