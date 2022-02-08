@@ -1352,6 +1352,12 @@ l1_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   op_backend: L1LossBwdOperator
 
+index_select.out:
+  custom_output_shape: IndexSelectOutShape
+  dtypes: [BFloat16, Float, Int, Char]
+  guid: gather_fwd
+  custom_fill_params: FillIndexSelectParams
+
 le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
