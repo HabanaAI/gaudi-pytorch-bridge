@@ -151,7 +151,7 @@ any.all_out:
 argmax:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
-  dtypes: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int, Char]
   guid: argmax_fwd
   legacy_eager: true
   op_backend: ArgMinMax
@@ -161,7 +161,7 @@ argmax:
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
-  dtypes: [Float, BFloat16]
+  dtypes: [Float, BFloat16, Int, Char]
   guid: argmax_fwd
   op_backend: ArgMinMax
 
