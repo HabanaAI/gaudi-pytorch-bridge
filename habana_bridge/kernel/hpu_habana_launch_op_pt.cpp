@@ -1514,7 +1514,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         node, syn_graph_ptr->get_node_indices());
     syn_graph_ptr->clear_node_indices();
 
-    if (!is_shape_inference) {
+    if (refine_ds_enabled_ && (!is_shape_inference)) {
       ProcessSynapseShapeTensors(HabanaKernel, node);
     }
 
