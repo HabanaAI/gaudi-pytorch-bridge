@@ -1858,7 +1858,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
       statistics_->LogSelectedRecipe(cur_rargpsh->hashCode(), 0);
       statistics_->LogLaunch(current_dbipsh_->GetTime(current_bucket_id_), 0);
-      Clear();
+      ClearMembers();
+      ClearStatics();
       PT_BRIDGE_END;
       return;
     } else {
@@ -1868,7 +1869,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     }
   }
   CompileAndRunDynamicGraph(graph_input_info);
-  Clear();
+  ClearMembers();
+  ClearStatics();
   PT_BRIDGE_END;
 }
 
@@ -1995,7 +1997,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
 
-      Clear();
+      ClearStatics();
       PT_BRIDGE_END;
       return;
     } else {
@@ -2027,7 +2029,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   // Fetch the output shape tensors for cache miss cases??
 
-  Clear();
+  ClearStatics();
 
   PT_BRIDGE_END;
 }
@@ -2205,7 +2207,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       "\n",
       "--------------------");
 
-  Clear();
+  ClearMembers();
+  ClearStatics();
 
   PT_BRIDGE_END;
 }
@@ -2224,7 +2227,8 @@ void HabanaLaunchOpPT::run_pass() {
   //
   // clear the data that has been setup as part of the above
   // method
-  Clear(true);
+  ClearMembers(true);
+  ClearStatics(true);
   PT_BRIDGE_END;
 }
 
@@ -2471,7 +2475,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_WARN("Exception in BuildSynapseGraph");
       PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
-      Clear(true);
+      ClearMembers(true);
+      ClearStatics(true);
       PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
       handle_pass_exception(graph_input_info, p);
     }

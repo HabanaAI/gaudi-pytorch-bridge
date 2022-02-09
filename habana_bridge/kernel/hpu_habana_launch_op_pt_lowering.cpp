@@ -41,16 +41,14 @@ void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   }
 }
 
-void habana::HabanaLaunchOpPT::Clear(bool is_shape_inference) {
+void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   if (is_shape_inference == false) {
     pt_stack = nullptr;
     pt_stack_sh.clear();
     num_tensor_inputs = 0;
-    habana::ShapeInference::Reset();
   }
 
   value_to_ivalue.clear();
-  watchlist_.clear();
   syn_graph_ptr = nullptr;
   cur_rvalpsh = nullptr;
 
@@ -85,6 +83,14 @@ void habana::HabanaLaunchOpPT::Clear(bool is_shape_inference) {
 
   jit_to_synapse_node_idx_map.clear();
   collective_kernels_info.clear();
+}
+
+void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
+  if (is_shape_inference == false) {
+    habana::ShapeInference::Reset();
+  }
+
+  watchlist_.clear();
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph() {

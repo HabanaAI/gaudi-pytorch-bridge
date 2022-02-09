@@ -464,7 +464,10 @@ class HabanaLaunchOpPT {
   }
 
   // Member functions related to lowering IR to Synapse
-  void Clear(bool is_shape_inference = false);
+  // To clear the non static members
+  void ClearMembers(bool is_shape_inference = false);
+  // To clear the static variables
+  void ClearStatics(bool is_shape_inference = false);
   void CopyInputStack(torch::jit::Stack& input_st);
 
   // TODO: Check whether the swap destruct paradigm provides any performance
