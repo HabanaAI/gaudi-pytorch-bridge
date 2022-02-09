@@ -363,7 +363,8 @@ class HabanaLaunchOpPT {
       SharedSynTensorOrRefListPtr& tensorList);
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
-      torch::jit::Node* node);
+      torch::jit::Node* node,
+      torch::jit::Stack& stack);
   const std::string& GetSynapseGraphName() {
     return SetAndGetSynapseGraphName(name, graph_index);
   }

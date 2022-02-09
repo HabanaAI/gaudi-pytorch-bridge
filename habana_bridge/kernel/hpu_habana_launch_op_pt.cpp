@@ -553,7 +553,8 @@ void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
 
 void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr& habana_op,
-    torch::jit::Node* node) {
+    torch::jit::Node* node,
+    torch::jit::Stack& stack) {
   auto node_ins = node->inputs();
   int input_idx = 0;
   for (const auto value_in : node_ins) {
@@ -599,7 +600,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
          0 == input_idx) ||
         (!strcmp("hpu::randperm_out_ds", node->kind().toQualString()) &&
          1 == input_idx)) {
-      auto stack = getStackForNode(node);
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
       at::Tensor seed_tensor;
@@ -1494,10 +1494,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           syn_graph, node->s(c10::attr::debug_name));
     }
 
-    // Create/attach the synapse inputs from aten tensors
-    GetSynapseInputs(HabanaKernel, node);
-
     torch::jit::Stack input_stack = getStackForNode(node);
+
+    // Create/attach the synapse inputs from aten tensors
+    GetSynapseInputs(HabanaKernel, node, input_stack);
 
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
