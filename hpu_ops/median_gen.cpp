@@ -95,11 +95,8 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<int64_t> reshape_outshape = {reshape_size};
 
   if (stack.size() == 1) {
-    reshaped_inp = BuildOp(
-        graph,
-        "reshape",
-        {syn_in(selfPositionInArgList)},
-        {{reshape_outshape, ScalarType()}});
+    reshaped_inp.emplace_back(ReshapeHelper(
+        graph, syn_in(selfPositionInArgList), reshape_outshape, ScalarType()));
   }
 
   synBeamParams Topk_params{};

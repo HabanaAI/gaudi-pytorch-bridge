@@ -186,11 +186,8 @@ void SmoothL1LossOperator::AddNode(
 
     if (n_dims > 1) {
       auto reshape_outshape = stack_tensor(stack, 0).numel();
-      t_absdiff_flat = BuildOp(
-          graph,
-          "reshape",
-          {t_absdiff.at(0).get()},
-          {{reshape_outshape, ScalarType()}});
+      t_absdiff_flat.emplace_back(ReshapeHelper(
+          graph, t_absdiff.at(0).get(), reshape_outshape, ScalarType()));
       reduction_inputs = {t_absdiff_flat[0].get()};
     }
 
@@ -274,11 +271,8 @@ void SmoothL1LossOperator::AddNode(
 
   if (n_dims > 1) {
     auto reshape_outshape = stack_tensor(stack, 0).numel();
-    t_wh_flat = BuildOp(
-        graph,
-        "reshape",
-        {t_wh.at(0).get()},
-        {{reshape_outshape, ScalarType()}});
+    t_wh_flat.emplace_back(
+        ReshapeHelper(graph, t_wh.at(0).get(), reshape_outshape, ScalarType()));
     reduction_inputs = {t_wh_flat[0].get()};
   }
 

@@ -37,18 +37,15 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto cast_i8_to_f32 = CastHelper(
         graph, eq[0].get(), self_size, result_type, c10::ScalarType::Float);
 
-    auto reshape = BuildOp(
-        graph,
-        "reshape",
-        {cast_i8_to_f32.get()},
-        {{reshape_outshape, c10::ScalarType::Float}});
+    auto reshape = ReshapeHelper(
+        graph, cast_i8_to_f32.get(), reshape_outshape, c10::ScalarType::Float);
 
     PARAMS_STUB(ns_Reduction::Params);
     params->reductionDimension = 0;
     auto reduce_prod = BuildOp(
         graph,
         "reduce_prod_fwd_f32",
-        {reshape[0].get()},
+        {reshape.get()},
         {{1, c10::ScalarType::Float}},
         params.get(),
         size);

@@ -50,20 +50,19 @@ void ChannelShuffle::AddNode(
     trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
   std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-  auto inp_reshaped =
-      BuildOp(graph, "reshape", {syn_in(0)}, {{{reshaped}, ScalarType()}});
+  auto inp_reshaped = ReshapeHelper(graph, syn_in(0), reshaped, ScalarType());
 
   auto transpose = BuildOp(
       graph,
       "transpose",
-      {inp_reshaped[0].get()},
+      {inp_reshaped.get()},
       {{{reshaped1}, ScalarType()}},
       &trans_params,
       sizeof(trans_params));
 
-  auto output_tensor = BuildOp(
-      graph, "reshape", {transpose[0].get()}, {{outshape, ScalarType(), 0}});
+  auto output_tensor =
+      ReshapeHelper(graph, transpose[0].get(), outshape, ScalarType(), 0);
 
-  syn_out(0) = std::move(output_tensor[0]);
+  syn_out(0) = std::move(output_tensor);
 }
 } // namespace habana

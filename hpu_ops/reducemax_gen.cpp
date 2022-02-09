@@ -37,14 +37,14 @@ void MaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         params.get(),
         size);
 
-    auto reshape1 = BuildOp(
-        graph, "reshape", {reduce_max[0].get()}, {{shape, ScalarType(), 0}});
+    auto reshape1 =
+        ReshapeHelper(graph, reduce_max[0].get(), shape, ScalarType(), 0);
 
     auto reshape2 =
-        BuildOp(graph, "reshape", {reduce_max[1].get()}, {{shape, dtype, 1}});
+        ReshapeHelper(graph, reduce_max[1].get(), shape, ScalarType(), 1);
 
-    syn_out(0) = std::move(reshape1[0]);
-    syn_out(1) = std::move(reshape2[0]);
+    syn_out(0) = std::move(reshape1);
+    syn_out(1) = std::move(reshape2);
   } else {
     auto reduce_max = BuildOp(
         graph,

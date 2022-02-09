@@ -59,13 +59,10 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       c10::ScalarType::Bool);
 
   auto out_shape = AllDimOutputShape(stack, true)[0];
-  auto reshape = BuildOp(
-      graph,
-      "reshape",
-      {cast_i8.get()},
-      {{out_shape, c10::ScalarType::Bool, 0}});
+  auto reshape =
+      ReshapeHelper(graph, cast_i8.get(), out_shape, c10::ScalarType::Bool, 0);
 
-  syn_out(0) = std::move(reshape[0]);
+  syn_out(0) = std::move(reshape);
 }
 
 void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -83,11 +80,8 @@ void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       std::multiplies<int64_t>());
 
   std::vector<int64_t> reshape_outshape = {reshape_size};
-  auto reshape = BuildOp(
-      graph,
-      "reshape",
-      {cast_f32.get()},
-      {{reshape_outshape, c10::ScalarType::Float}});
+  auto reshape = ReshapeHelper(
+      graph, cast_f32.get(), reshape_outshape, c10::ScalarType::Float);
 
   size_t size = 0;
   PARAMS_STUB(ns_Reduction::Params);
@@ -96,7 +90,7 @@ void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto reduce_prod = BuildOp(
       graph,
       "reduce_prod_fwd_f32",
-      {reshape[0].get()},
+      {reshape.get()},
       {{1, c10::ScalarType::Float}},
       params.get(),
       size);

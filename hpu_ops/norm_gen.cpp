@@ -50,8 +50,8 @@ void NormHabanaOperator::AddNode(
 
       if (n_dims > 1) {
         auto reshape_outshape = self.numel();
-        reshape = BuildOp(
-            graph, "reshape", reduction_inputs, {{reshape_outshape, dtype}});
+        reshape.emplace_back(
+            ReshapeHelper(graph, reduction_inputs[0], reshape_outshape, dtype));
         reduction_inputs = {reshape[0].get()};
       }
 
@@ -84,11 +84,11 @@ void NormHabanaOperator::AddNode(
     }
 
   } else {
-    std::vector<synapse_helpers::tensor> reshape;
     auto reshape_outshape = self.numel();
+    std::vector<synapse_helpers::tensor> reshape;
     if (n_dims > 1) {
-      reshape = BuildOp(
-          graph, "reshape", {input_tensor}, {{reshape_outshape, dtype}});
+      reshape.emplace_back(
+          ReshapeHelper(graph, input_tensor, reshape_outshape, dtype));
       input_tensor = reshape[0].get();
     }
 

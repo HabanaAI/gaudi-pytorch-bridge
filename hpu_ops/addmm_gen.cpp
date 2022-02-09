@@ -56,11 +56,11 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   std::vector<int64_t> addmm_reshaped_outshape{
       1, mat1.sizes()[0], mat2.sizes()[1]};
-  addmm = BuildOp(
+  addmm.front() = ReshapeHelper(
       graph,
-      "reshape",
-      {addmm[0].get()},
-      {{addmm_reshaped_outshape, ScalarType()}}); // (n, p) -> (1, n, p)
+      addmm[0].get(),
+      addmm_reshaped_outshape,
+      ScalarType()); // (n, p) -> (1, n, p)
 
   if (alpha_val != 1.0) {
     auto alpha =
@@ -81,11 +81,12 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     } else {
       self_reshaped_outshape = {1, 1, self.sizes()[0]};
     }
-    auto self_reshaped = BuildOp(
+    std::vector<synapse_helpers::tensor> self_reshaped;
+    self_reshaped.emplace_back(ReshapeHelper(
         graph,
-        "reshape",
-        {syn_in(0)},
-        {{self_reshaped_outshape, ScalarType()}}); // (n, p) -> (1, n, p)
+        syn_in(0),
+        self_reshaped_outshape,
+        ScalarType())); // (n, p) -> (1, n, p)
 
     if (beta_val != 1.0) {
       auto beta = ConstantHelper(

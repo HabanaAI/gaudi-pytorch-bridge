@@ -530,12 +530,8 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   if (variant_type == 3) {
     out_shape_temp = {
         shape_in[0], static_cast<int64_t>(1), shape_in[2], shape_in[1]};
-    transpose = OpBackend::BuildNode(
-        op,
-        graph,
-        {"reshape",
-         {transpose[0].get()},
-         {{out_shape_temp, op->ScalarType()}}});
+    transpose.front() = OpBackend::BuildReshape(
+        op, graph, transpose[0].get(), out_shape_temp, op->ScalarType());
   }
 
   // Resize
@@ -601,10 +597,8 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   if (variant_type == 3) {
     std::vector<int64_t> out_shape_3d = {
         shape_in[0], outshape.at(2), shape_in[1]};
-    resize = OpBackend::BuildNode(
-        op,
-        graph,
-        {"reshape", {resize[0].get()}, {{out_shape_3d, op->ScalarType()}}});
+    resize.front() = OpBackend::BuildReshape(
+        op, graph, resize[0].get(), out_shape_3d, op->ScalarType());
   }
 
   // Transpose to Pytorch MemLayout

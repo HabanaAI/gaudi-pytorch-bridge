@@ -23,14 +23,14 @@ void TakeOperator::AddNode(
 
   // (M, N) -> (MN)
   auto reshape_outshape = self.numel();
-  auto reshape = BuildOp(
-      graph, "reshape", {syn_in(0)}, {{reshape_outshape, ScalarType()}});
+  auto reshape =
+      ReshapeHelper(graph, syn_in(0), reshape_outshape, ScalarType());
 
   // Gathers values along an axis
   auto gatherkernel = BuildOp(
       graph,
       "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {reshape[0].get(), syn_in(1)},
+      {reshape.get(), syn_in(1)},
       {{outshape, ScalarType(), 0}},
       &params,
       sizeof(params));

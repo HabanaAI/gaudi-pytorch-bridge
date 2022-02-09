@@ -79,18 +79,17 @@ void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   // If dim is None, find max/min from the flattened input tensor.
   if (isEmptyDim) {
-    for (size_t i = 0; i < outshape.size(); ++i) {
-      shape_val *= outshape[i];
+    for (long i : outshape) {
+      shape_val *= i;
     } // flattened input shape
 
     std::vector<int64_t> output_shape{shape_val};
-    auto reshape =
-        BuildOp(graph, "reshape", {syn_in(0)}, {{output_shape, ScalarType()}});
+    auto reshape = ReshapeHelper(graph, syn_in(0), output_shape, ScalarType());
     if (!keepdim) {
       auto op = BuildOp(
           graph,
           guid_,
-          {reshape[0].get()},
+          {reshape.get()},
           {{shape, dtype, 0}},
           params.get(),
           size);
@@ -100,22 +99,20 @@ void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       auto op = BuildOp(
           graph,
           guid_,
-          {reshape[0].get()},
+          {reshape.get()},
           {{op_shape, dtype}},
           params.get(),
           size);
-      auto output =
-          BuildOp(graph, "reshape", {op[0].get()}, {{shape, dtype, 0}});
-      syn_out(0) = std::move(output[0]);
+      auto output = ReshapeHelper(graph, op[0].get(), shape, dtype, 0);
+      syn_out(0) = std::move(output);
     }
   } else if (!keepdim) { // reduce dim when keepdim is false using reshape.
     outshape[dim] = 1;
     auto op = BuildOp(
         graph, guid_, {syn_in(0)}, {{outshape, dtype}}, params.get(), size);
-    auto reshape =
-        BuildOp(graph, "reshape", {op[0].get()}, {{shape, dtype, 0}});
+    auto reshape = ReshapeHelper(graph, op[0].get(), shape, dtype, 0);
 
-    syn_out(0) = std::move(reshape[0]);
+    syn_out(0) = std::move(reshape);
   } else { // Direct TPC kernel call when keepdim is true.
     auto op = BuildOp(
         graph, guid_, {syn_in(0)}, {{shape, dtype, 0}}, params.get(), size);

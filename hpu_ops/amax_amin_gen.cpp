@@ -137,14 +137,11 @@ void AmaxAmin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
         // Reshape occurs when multiple dim values are passed
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              "reshape",
-              {AmaxAmin_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, AmaxAmin_itr[0].get(), new_shape, ScalarType(), 0);
 
           // output of reshape is the output of this op
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         AmaxAmin_list.emplace_back(AmaxAmin_itr[0].get());
       }
@@ -176,28 +173,22 @@ void AmaxAmin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
         // Reshape occurs when multiple dim values are passed
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              "reshape",
-              {AmaxAmin_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, AmaxAmin_itr[0].get(), new_shape, ScalarType(), 0);
 
           // output of reshape is the output of this op
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         AmaxAmin_list.emplace_back(AmaxAmin_itr[0].get());
       }
     }
     // Reshape occurs when single dim value is passed
     if (len == 1) {
-      auto reshape = BuildOp(
-          graph,
-          "reshape",
-          {AmaxAmin[0].get()},
-          {{new_shape, ScalarType(), 0}});
+      auto reshape =
+          ReshapeHelper(graph, AmaxAmin[0].get(), new_shape, ScalarType(), 0);
 
       // output of reshape is the output of this op
-      syn_out(0) = std::move(reshape[0]);
+      syn_out(0) = std::move(reshape);
     }
   }
 }

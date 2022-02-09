@@ -122,14 +122,11 @@ void LogSumExp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
         // Reshape occurs when multiple dim values are passed
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              "reshape",
-              {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, logsumexp_itr[0].get(), new_shape, ScalarType(), 0);
 
           // output of reshape is the output of this op
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         logsumexp_list.emplace_back(logsumexp_itr[0].get());
       }
@@ -161,28 +158,22 @@ void LogSumExp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
         // Reshape occurs when multiple dim values are passed
         if (i == len - 1) {
-          auto reshape = BuildOp(
-              graph,
-              "reshape",
-              {logsumexp_itr[0].get()},
-              {{new_shape, ScalarType(), 0}});
+          auto reshape = ReshapeHelper(
+              graph, logsumexp_itr[0].get(), new_shape, ScalarType(), 0);
 
           // output of reshape is the output of this op
-          syn_out(0) = std::move(reshape[0]);
+          syn_out(0) = std::move(reshape);
         }
         logsumexp_list.emplace_back(logsumexp_itr[0].get());
       }
     }
     // Reshape occurs when single dim value is passed
     if (len == 1) {
-      auto reshape = BuildOp(
-          graph,
-          "reshape",
-          {logsumexp[0].get()},
-          {{new_shape, ScalarType(), 0}});
+      auto reshape =
+          ReshapeHelper(graph, logsumexp[0].get(), new_shape, ScalarType(), 0);
 
       // output of reshape is the output of this op
-      syn_out(0) = std::move(reshape[0]);
+      syn_out(0) = std::move(reshape);
     }
   }
 }

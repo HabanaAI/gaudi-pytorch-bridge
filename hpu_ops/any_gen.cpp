@@ -27,16 +27,13 @@ void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       std::multiplies<int64_t>());
   std::vector<int64_t> reshape_outshape = {reshape_size};
 
-  auto reshape = BuildOp(
-      graph,
-      "reshape",
-      {cast_f32.get()},
-      {{reshape_outshape, c10::ScalarType::Float}});
+  auto reshape = ReshapeHelper(
+      graph, cast_f32.get(), reshape_outshape, c10::ScalarType::Float);
 
   auto abs = BuildOp(
       graph,
       "abs_fwd_f32",
-      {reshape[0].get()},
+      {reshape.get()},
       {{reshape_outshape, c10::ScalarType::Float}});
 
   size_t size = 0;

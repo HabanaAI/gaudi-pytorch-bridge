@@ -42,9 +42,9 @@ void ProdOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {{outshape, ScalarType()}},
         params.get(),
         size);
-    auto reshape = BuildOp(
-        graph, "reshape", {reduce_prod[0].get()}, {{shape, ScalarType(), 0}});
-    syn_out(0) = std::move(reshape[0]);
+    auto reshape =
+        ReshapeHelper(graph, reduce_prod[0].get(), shape, ScalarType(), 0);
+    syn_out(0) = std::move(reshape);
 
     // keepdim is true directly mapping to the tpc kernel.
   } else {

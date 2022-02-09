@@ -24,26 +24,22 @@ void MvOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   int64_t data_1[] = {mat2.numel(), 1};
   c10::IntArrayRef shape_1(data_1, 2);
 
-  auto reshapeOp =
-      BuildOp(graph, "reshape", {syn_in(1)}, {{shape_1, ScalarType()}});
+  auto reshapeOp = ReshapeHelper(graph, syn_in(1), shape_1, ScalarType());
 
   int64_t data_2[] = {mat1.sizes()[0], 1};
   c10::IntArrayRef shape_2(data_2, 2);
 
   auto mmOp = BuildOp(
-      graph,
-      "gemm",
-      {syn_in(0), reshapeOp[0].get()},
-      {{shape_2, ScalarType()}});
+      graph, "gemm", {syn_in(0), reshapeOp.get()}, {{shape_2, ScalarType()}});
 
   int64_t data_3[] = {mat1.sizes()[0]};
   c10::IntArrayRef shape_3(data_3, 1);
 
   auto reshapeOp2 =
-      BuildOp(graph, "reshape", {mmOp[0].get()}, {{shape_3, ScalarType(), 0}});
+      ReshapeHelper(graph, mmOp[0].get(), shape_3, ScalarType(), 0);
 
   // output
-  syn_out(0) = std::move(reshapeOp2[0]);
+  syn_out(0) = std::move(reshapeOp2);
 }
 
 } // namespace habana

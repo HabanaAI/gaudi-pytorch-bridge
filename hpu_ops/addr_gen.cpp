@@ -33,17 +33,17 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const float alpha_val = stack.at(4).toScalar().toFloat();
   const float beta_val = stack.at(3).toScalar().toFloat();
 
-  auto vec1_reshaped = BuildOp(
+  auto vec1_reshaped = ReshapeHelper(
       graph,
-      "reshape",
-      {syn_in(1)},
-      {{{1, vec1.sizes()[0], 1}, ScalarType()}}); // (n,) -> (1, n, 1)
+      syn_in(1),
+      {1, vec1.sizes()[0], 1},
+      ScalarType()); // (n,) -> (1, n, 1)
 
-  auto vec2_reshaped = BuildOp(
+  auto vec2_reshaped = ReshapeHelper(
       graph,
-      "reshape",
-      {syn_in(2)},
-      {{{1, 1, vec2.sizes()[0]}, ScalarType()}}); // (m,) -> (1, 1, m)
+      syn_in(2),
+      {1, 1, vec2.sizes()[0]},
+      ScalarType()); // (m,) -> (1, 1, m)
 
   synGEMMParams vecmul_params{};
 
@@ -54,7 +54,7 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto vecmul = BuildOp(
       graph,
       "batch_gemm",
-      {vec1_reshaped[0].get(), vec2_reshaped[0].get()},
+      {vec1_reshaped.get(), vec2_reshaped.get()},
       {{vecmul_outshape, ScalarType()}},
       &vecmul_params,
       sizeof(vecmul_params));
@@ -75,11 +75,12 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     } else {
       self_reshaped_outshape = {1, 1, self.sizes()[0]};
     }
-    auto self_reshaped = BuildOp(
+    std::vector<synapse_helpers::tensor> self_reshaped;
+    self_reshaped.emplace_back(ReshapeHelper(
         graph,
-        "reshape",
-        {syn_in(0)},
-        {{self_reshaped_outshape, ScalarType()}}); // (n,m) -> (1, n, m)
+        syn_in(0),
+        self_reshaped_outshape,
+        ScalarType())); // (n,m) -> (1, n, m)
 
     if (beta_val != 1.0) {
       auto beta =

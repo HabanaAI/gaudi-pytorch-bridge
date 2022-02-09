@@ -47,18 +47,17 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (alpha_val == 0.0) {
     addmv = BuildOp(graph, "memset", {}, {{matvecmul_outshape, ScalarType()}});
   } else {
-    auto mat_reshaped = BuildOp(
+    auto mat_reshaped = ReshapeHelper(
         graph,
-        "reshape",
-        {syn_in(1)},
-        {{{1, mat.sizes()[0], mat.sizes()[1]},
-          ScalarType()}}); // (n, m) -> (1, n, m)
+        syn_in(1),
+        {1, mat.sizes()[0], mat.sizes()[1]},
+        ScalarType()); // (n, m) -> (1, n, m)
 
-    auto vec_reshaped = BuildOp(
+    auto vec_reshaped = ReshapeHelper(
         graph,
-        "reshape",
-        {syn_in(2)},
-        {{{1, vec.sizes()[0], 1}, ScalarType()}}); // (m,) -> (1, m, 1)
+        syn_in(2),
+        {1, vec.sizes()[0], 1},
+        ScalarType()); // (m,) -> (1, m, 1)
 
     synGEMMParams matvecmul_params{};
 
@@ -69,7 +68,7 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     addmv = BuildOp(
         graph,
         "batch_gemm",
-        {mat_reshaped[0].get(), vec_reshaped[0].get()},
+        {mat_reshaped.get(), vec_reshaped.get()},
         {{matvecmul_outshape, ScalarType()}},
         &matvecmul_params,
         sizeof(matvecmul_params));
@@ -89,11 +88,12 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (beta_val != 0.0) {
     auto self = stack_tensor(stack, 0);
     std::vector<int64_t> self_reshaped_outshape{1, self.sizes()[0], 1};
-    auto self_reshaped = BuildOp(
+    std::vector<synapse_helpers::tensor> self_reshaped;
+    self_reshaped.emplace_back(ReshapeHelper(
         graph,
-        "reshape",
-        {syn_in(0)},
-        {{self_reshaped_outshape, ScalarType()}}); // (n,) -> (1, n, 1)
+        syn_in(0),
+        self_reshaped_outshape,
+        ScalarType())); // (n,) -> (1, n, 1)
 
     if (beta_val != 1.0) {
       auto beta =
