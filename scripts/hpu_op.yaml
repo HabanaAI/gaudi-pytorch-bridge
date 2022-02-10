@@ -1963,10 +1963,18 @@ multinomial:
   custom_fill_params: FillMultinomialParams
   custom_output_shape: MultinomialOutputShape
   dtypes: [BFloat16, Float]
-  guid: random_multinomial_fwd
   out_ids: [0]
   op_frontend: LazyRandomMulti
+  op_backend: MultinomialIntSeedInput
   schema_args: "(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor"
+
+multinomial.out:
+  custom_fill_params: FillMultinomialParams
+  custom_output_shape: MultinomialOutputShape
+  dtypes: [BFloat16, Float]
+  op_frontend: LazyRandomMultiOut
+  op_backend: MultinomialIntSeedInput
+  schema_args: "(Tensor self, int num_samples, bool replacement, int seed,  Tensor(a!) out) -> Tensor"
 
 mv.out:
   force_default: false

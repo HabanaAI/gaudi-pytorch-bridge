@@ -165,7 +165,7 @@ TEST_F(HpuOpTest, random_to) {
       << "Seed=" << GetSeed() << "\n";
 }
 
-TEST_F(HpuOpTest, DISABLED_multinomial) {
+TEST_F(HpuOpTest, multinomial) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 2;
   SetSeed();
@@ -176,7 +176,18 @@ TEST_F(HpuOpTest, DISABLED_multinomial) {
   Compare(result1, result2);
 }
 
-TEST_F(HpuOpTest, DISABLED_multinomial_replacement) {
+TEST_F(HpuOpTest, multinomial_without_replacement) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 4;
+  SetSeed();
+  auto result1 = torch::multinomial(GetHpuInput(0), c_sample, false);
+  SetSeed();
+  auto result2 = torch::multinomial(GetHpuInput(0), c_sample, false);
+
+  Compare(result1, result2);
+}
+
+TEST_F(HpuOpTest, multinomial_with_replacement) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
   SetSeed();
@@ -185,4 +196,96 @@ TEST_F(HpuOpTest, DISABLED_multinomial_replacement) {
   auto result2 = torch::multinomial(GetHpuInput(0), c_sample, true);
 
   Compare(result1, result2);
+}
+
+// Expected hpu results are different for different seed run
+TEST_F(HpuOpTest, multinomial_with_replacement_and_different_seed) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 4;
+  torch::manual_seed(10);
+  auto result1 = torch::multinomial(GetHpuInput(0), c_sample, true);
+  torch::manual_seed(20);
+  auto result2 = torch::multinomial(GetHpuInput(0), c_sample, true);
+  EXPECT_FALSE(result1.equal(result2));
+}
+
+// Expected hpu results are different for different seed run
+TEST_F(HpuOpTest, multinomial_without_replacement_and_different_seed) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 4;
+  torch::manual_seed(10);
+  auto result1 = torch::multinomial(GetHpuInput(0), c_sample, false);
+  torch::manual_seed(20);
+  auto result2 = torch::multinomial(GetHpuInput(0), c_sample, false);
+  EXPECT_FALSE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, multinomial_out) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 2;
+  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  SetSeed();
+  auto result1 = torch::multinomial_outf(
+      GetHpuInput(0),
+      c_sample,
+      false,
+      at::detail::getDefaultCPUGenerator(),
+      result);
+  SetSeed();
+  auto result2 = torch::multinomial_outf(
+      GetHpuInput(0),
+      c_sample,
+      false,
+      at::detail::getDefaultCPUGenerator(),
+      result);
+  Compare(result1, result2);
+}
+
+TEST_F(HpuOpTest, multinomial_out_with_replacement) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 2;
+  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  SetSeed();
+  auto result1 = torch::multinomial_outf(
+      GetHpuInput(0),
+      c_sample,
+      true,
+      at::detail::getDefaultCPUGenerator(),
+      result);
+  SetSeed();
+  auto result2 = torch::multinomial_outf(
+      GetHpuInput(0),
+      c_sample,
+      true,
+      at::detail::getDefaultCPUGenerator(),
+      result);
+  Compare(result1, result2);
+}
+
+// Expected hpu results are different for different seed run
+TEST_F(HpuOpTest, DISABLED_multinomial_out_with_replacement_different_seed) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 4;
+  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
+  auto result1 =
+      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen1, result);
+  auto result2 =
+      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen2, result);
+  EXPECT_FALSE(result1.equal(result2));
+}
+
+// Expected hpu results are different for different seed run
+TEST_F(HpuOpTest, DISABLED_multinomial_out_without_replacement_different_seed) {
+  GenerateInputs(1, {{64, 64}});
+  auto c_sample = 4;
+  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
+  auto result1 =
+      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen1, result);
+  auto result2 =
+      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen2, result);
+  EXPECT_FALSE(result1.equal(result2));
 }
