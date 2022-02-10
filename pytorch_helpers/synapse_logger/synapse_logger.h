@@ -107,7 +107,6 @@ class SynapseLogger {
   SynapseLogger();
   ~SynapseLogger() { // NOLINT
     SLOG(S_TRACE) << "###SYN_LOG_DESTROY\n";
-    dump_trace_info();
   }
 
   void log(absl::string_view payload);
