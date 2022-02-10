@@ -941,53 +941,25 @@ Tensor as_strided_layout_hpu_lazy(
   return result;
 }
 
-Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
-  PT_LAZY_TRACE;
+c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
+  static std::vector<int> out_pos = {2, 3, 1, 0};
+  static std::vector<int> out_pos_5d = {2, 3, 4, 1, 0};
 
-  // This situation should not occur
-  // Throwing an exception here for now to catch any cases that arise
-  TORCH_CHECK(
-      IsHbLazyTensor(src),
-      "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
-
+  auto sizes = src.sizes().vec();
   auto is_5d_tensor = src.dim() == 5;
-
-  // handle views
-  auto src_view = HandleViewsD2H(src);
-
-  auto src_hb_tensor = GetHbLazyTensor(src_view);
-  auto src_hb_tensor_data = src_hb_tensor.GetHbLazyTensorData();
-  if (!src_hb_tensor_data) {
-    TORCH_CHECK(
-        false,
-        "Habana copy_hpu_lazy_: no storage tensor attached for copy lazy source");
-  }
-  if (!src_hb_tensor_data.value().has_storage()) {
-    TORCH_CHECK(
-        false,
-        "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
-  }
-
-  auto _src = src_view;
-
-  // If _src is a lazy tensor make sure the execution till the point of _src
-  // If src is a lazy tensor make sure the execution till the point of src
-  // getting flled has finished before we start copying
-  auto hb_tensor = GetHbLazyTensor(_src);
+  auto hb_tensor = GetHbLazyTensor(src);
   auto tensor_data = hb_tensor.GetHbLazyTensorData();
   auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(*tensor_data);
+
   // weights HWCK -> NCHW
   if ((hl_tensor_data->GetTensorLayout() == habana_lazy::LayoutFormat::kHWCK) &&
       (habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass())) {
-    auto sizes = src.sizes().vec();
-    std::vector<int> out_pos = {2, 3, 1, 0};
     std::vector<long int> swapped_sizes = {
         sizes[out_pos[0]],
         sizes[out_pos[1]],
         sizes[out_pos[2]],
         sizes[out_pos[3]]};
-    std::vector<int> out_pos_5d = {2, 3, 4, 1, 0};
     std::vector<long int> swapped_sizes_5d = {
         sizes[out_pos_5d[0]],
         sizes[out_pos_5d[1]],
@@ -1016,6 +988,38 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       tensor_data = hb_tensor.GetHbLazyTensorData();
     }
   }
+  return tensor_data;
+}
+
+void validateHbTensorData(HbLazyTensor& hb_tensor) {
+  auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
+  if (!hb_tensor_data) {
+    TORCH_CHECK(
+        false, "Habana Lazy: no storage tensor attached to lazy tensor");
+  }
+  if (!hb_tensor_data.value().has_storage()) {
+    TORCH_CHECK(false, "Habana Lazy: lazy tensor doesn't has a storage");
+  }
+}
+
+Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
+
+  // This situation should not occur
+  // Throwing an exception here for now to catch any cases that arise
+  TORCH_CHECK(
+      IsHbLazyTensor(src),
+      "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
+
+  // handle views
+  auto _src = HandleViewsD2H(src);
+  auto hb_tensor = GetHbLazyTensor(_src);
+  validateHbTensorData(hb_tensor);
+
+  // If _src is a lazy tensor make sure the execution till the point of _src
+  // getting flled has finished before we start copying
+  auto tensor_data = handleWeightTensorLayout(_src);
+
   TORCH_CHECK(
       tensor_data, "Trying to copy from lazy tensor with no backend memory");
   auto type = hb_tensor.getTensorOriginalType();
