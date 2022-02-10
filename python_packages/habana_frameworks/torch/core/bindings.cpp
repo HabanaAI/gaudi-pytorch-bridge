@@ -10,6 +10,7 @@
 #include "process_group_hcl.h" // "UNUSED" conflict in synapse_helpers/util.h & torch/include/c10d/Types.hpp
 
 #include <pybind11/chrono.h>
+#include <synapse_common_types.h>
 #include <torch/extension.h>
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
@@ -213,5 +214,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     }
     return reinterpret_cast<intptr_t>(nullptr);
   });
+  py::enum_<synDeviceType>(m, "synDeviceType")
+      .value("synDeviceGaudi", synDeviceGaudi)
+      .value("synDeviceGaudi2", synDeviceGaudi2)
+      .export_values();
+
   m.doc() = "This module registers hpu backend.";
 }
