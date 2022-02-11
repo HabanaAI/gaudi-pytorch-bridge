@@ -38,6 +38,7 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 
 #include "habana_kernels/habana_operator.h"
+#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/visualize.h"
 #include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 
@@ -113,6 +114,8 @@ struct HabanaMetaDataToLowering {
       const std::string OpName,
       const std::string& op_strs,
       const size_t graph_key,
+      std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+          jit_graph_and_meta_data_to_lowering = nullptr,
       bool is_optimized_lazy_eager = false);
 
   std::string GetOpStrs() {
@@ -139,12 +142,19 @@ struct HabanaMetaDataToLowering {
     return isOptimizedLazyEager;
   }
 
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+  GetOptimizedJITGraphAndMetaData() {
+    return jitGraphAndMetaData;
+  }
+
  private:
   bool dbg = false;
   size_t graph_index = 0;
   std::string op_name = std::string();
   std::string opstrs = std::string();
   size_t graphKey = 0;
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      jitGraphAndMetaData = nullptr;
   bool isOptimizedLazyEager = false;
 };
 
@@ -174,6 +184,8 @@ class HabanaLaunchOpPT {
   std::string id_str = std::string();
   std::string op_strs = std::string();
   size_t graph_key = 0;
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      jit_graph_and_meta_data = nullptr;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   std::vector<TensorMetaData> input_tms;

@@ -11,6 +11,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
+#include "habana_kernels/habana_operator.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
 
@@ -146,10 +147,22 @@ struct OptimizedJITGraphAndMetaData {
     return graphKey;
   }
 
+  void set_jit_cached_graph_info_available_flag(bool flag);
+
+  bool get_jit_cached_graph_info_available_flag();
+
+  void set_outputs_metadata(habana::OutputMetaDataVector meta_data);
+
+  habana::OutputMetaDataVector& get_outputs_metadata(size_t index);
+
+  void clear_cached_graph_info();
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
   size_t graphKey = 0;
+  bool isJITCachedGraphInfoAvailable = false;
+  std::vector<habana::OutputMetaDataVector> outputs_metadata{};
 };
 
 /**

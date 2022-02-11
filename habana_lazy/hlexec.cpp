@@ -73,7 +73,8 @@ void HlExec::Launch(torch::jit::Stack& stack) {
           graphIndex,
           opName,
           mp_g_and_meta_data_->get_cached_opstrs(),
-          mp_g_and_meta_data_->get_cached_graph_key())};
+          mp_g_and_meta_data_->get_cached_graph_key(),
+          mp_g_and_meta_data_)};
   try {
     launch.run(stack);
   } catch (std::exception& e) {

@@ -242,6 +242,30 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
   ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
 }
 
+void OptimizedJITGraphAndMetaData::set_jit_cached_graph_info_available_flag(
+    bool flag) {
+  isJITCachedGraphInfoAvailable = flag;
+}
+
+bool OptimizedJITGraphAndMetaData::get_jit_cached_graph_info_available_flag() {
+  return isJITCachedGraphInfoAvailable;
+}
+
+void OptimizedJITGraphAndMetaData::set_outputs_metadata(
+    habana::OutputMetaDataVector meta_data) {
+  outputs_metadata.emplace_back(meta_data);
+}
+
+habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
+    get_outputs_metadata(size_t index) {
+  HABANA_ASSERT(index < outputs_metadata.size());
+  return outputs_metadata[index];
+}
+
+void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
+  outputs_metadata.clear();
+}
+
 // LazyGraphCache Functions
 //==========================
 LazyGraphCache::LazyGraphCache() : m_mutex{} {}

@@ -1669,7 +1669,7 @@ Tensor all_hpu(const Tensor& self) {
   HabanaLaunchOpPT launch{
       graph,
       std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "all", "", 0, false)};
+          false, 0, "all", "", 0, nullptr, false)};
   launch.run(stack);
 
   // Pop output from stack
@@ -1698,7 +1698,7 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   HabanaLaunchOpPT launch{
       graph,
       std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "all_dim", "", 0, false)};
+          false, 0, "all_dim", "", 0, nullptr, false)};
   launch.run(stack);
 
   // Pop output from stack

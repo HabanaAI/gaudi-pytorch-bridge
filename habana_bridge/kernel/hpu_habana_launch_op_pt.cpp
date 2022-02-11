@@ -81,12 +81,15 @@ HabanaMetaDataToLowering::HabanaMetaDataToLowering(
     const std::string OpName,
     const std::string& op_strs,
     const size_t graph_key,
+    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+        jit_graph_and_meta_data_to_lowering,
     bool is_optimized_lazy_eager)
     : dbg(debug),
       graph_index(graphIndex),
       op_name(OpName),
       opstrs(op_strs),
       graphKey(graph_key),
+      jitGraphAndMetaData(jit_graph_and_meta_data_to_lowering),
       isOptimizedLazyEager(is_optimized_lazy_eager) {}
 
 std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
@@ -127,6 +130,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   graph_key = hb_meta_data_to_lowering->GetGraphKey();
   bool is_optimized_lazy_eager =
       hb_meta_data_to_lowering->GetOptimizedLazyEagerFlag();
+  jit_graph_and_meta_data =
+      hb_meta_data_to_lowering->GetOptimizedJITGraphAndMetaData();
 
   SetOpName(name);
 
@@ -1467,16 +1472,25 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   syn_graph_ptr = &syn_graph;
 
+  if (refine_ds_enabled_) {
+    jit_graph_and_meta_data->clear_cached_graph_info();
+  }
+
   // for each node in IR graph, at this point the graph is a list with nodes
   // topoloically sorted
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
   // This is an optimization pass to mark all the nodes with sepcial layout
   // like weights which have HWCK Only activated in lazy mode for now
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
+  bool is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+  if (is_jit_cached_graph_info_available == false) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+      runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
+    }
   }
 
+  size_t outputs_metadata_index = 0;
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;
     std::string opname(node->kind().toQualString());
@@ -1536,8 +1550,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     GetSynapseInputs(HabanaKernel, node, input_stack);
 
     // setup the config params for the kernels
-    OutputMetaDataVector outputs_metadata = nodeOutputMetaData(node);
+    if (is_jit_cached_graph_info_available == false) {
+      auto outputs_metadata = nodeOutputMetaData(node);
+      jit_graph_and_meta_data->set_outputs_metadata(outputs_metadata);
+    }
     PT_BRIDGE_DEBUG(DumpNodeInputs(node));
+    OutputMetaDataVector& outputs_metadata =
+        jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
+    outputs_metadata_index++;
+
     if ((outputs_metadata.size() == 1) && (!is_shape_inference) &&
         (outputs_metadata.at(0).persistent == true) &&
         (std::string(node->kind().toQualString()).find("strided_insert") !=
@@ -1959,6 +1980,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   // Handle everything related to graph when dynamic flag is set.
   if (refine_ds_enabled_) {
+    jit_graph_and_meta_data->clear_cached_graph_info();
+    jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(
+        false); // Disable Optimized Lowering based on Cached precalculated
+                // graph information.
     ProcessHabanaFusedOpWithDS();
     return;
   }
@@ -2026,6 +2051,12 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   }
   // caching :: end
 
+  bool is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+  if (is_jit_cached_graph_info_available == false) {
+    jit_graph_and_meta_data->clear_cached_graph_info();
+  }
+
   CreateValueToIvalueMapForInputs();
 
   //<Decription> This is the main function that
@@ -2037,6 +2068,12 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   CompileSynapseGraph();
   ConstructPatchingTable();
   ExecuteSynapseGraph();
+
+  is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+  if (is_jit_cached_graph_info_available == false) {
+    jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
+  }
 
   // clear the context
   // TODO : See if we need to add a contect to this object pointer or clearing

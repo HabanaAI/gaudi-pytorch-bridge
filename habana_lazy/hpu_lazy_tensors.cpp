@@ -804,6 +804,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
           lazyFrontEndInfo->get_lazy_op_name(),
           fast_path_jit_ir_and_mdata->get_cached_opstrs(),
           fast_path_jit_ir_and_mdata->get_cached_graph_key(),
+          fast_path_jit_ir_and_mdata,
           true)};
   try {
     launch.run(stack);

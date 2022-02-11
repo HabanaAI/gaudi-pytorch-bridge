@@ -522,7 +522,7 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
   HabanaLaunchOpPT launch{
       graph,
       std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "ne_tensor", "", 0, false)};
+          false, 0, "ne_tensor", "", 0, nullptr, false)};
   launch.run(stack);
 
   // Pop output from stack
@@ -564,7 +564,7 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
   HabanaLaunchOpPT launch{
       graph,
       std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "ne_scalar", "", 0, false)};
+          false, 0, "ne_scalar", "", 0, nullptr, false)};
   launch.run(stack);
 
   // Pop output from stack
