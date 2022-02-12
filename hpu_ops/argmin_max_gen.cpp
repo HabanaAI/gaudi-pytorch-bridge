@@ -14,14 +14,14 @@
 namespace habana {
 
 template <>
-LazyArgMinMax<at::Tensor>::LazyArgMinMax(
+LazyArgmin<at::Tensor>::LazyArgmin(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
-at::Tensor LazyArgMinMax<at::Tensor>::get_result_overrideable() {
+at::Tensor LazyArgmin<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
   auto shape = ArgMinMaxOutputShape(inputs)[0];

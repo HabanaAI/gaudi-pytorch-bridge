@@ -2570,12 +2570,22 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
     bool keepdim) {
   if (!hpu_check_inputs_impl("max", {self}))
     return AtenHpuTypeDefault::max(self, dim, keepdim);
-  return max_dim_hpu(self, dim, keepdim);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return max_dim_hpu_lazy(self, dim, keepdim);
+  } else {
+    return max_dim_hpu(self, dim, keepdim);
+  }
 };
 at::Tensor hpu_wrap::max(const at::Tensor& self) {
   if (!hpu_check_inputs_impl("max", {self}))
     return AtenHpuTypeDefault::max(self);
-  return max_hpu(self);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return max_hpu_lazy(self);
+  } else {
+    return max_hpu(self);
+  }
 };
 
 at::Tensor hpu_wrap::min(const at::Tensor& self) {
@@ -3409,7 +3419,11 @@ Tensor hpu_wrap::argmax(
     const at::Tensor& self,
     c10::optional<int64_t> dim,
     bool keepdim) {
-  return argmax_hpu(self, dim, keepdim);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return argmax_hpu_lazy(self, dim, keepdim);
+  } else {
+    return argmax_hpu(self, dim, keepdim);
+  }
 }
 
 std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(

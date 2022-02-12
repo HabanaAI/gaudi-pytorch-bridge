@@ -4933,6 +4933,40 @@ Tensor any_hpu_lazy(const Tensor& self) {
   return kernel.call();
 }
 
+Tensor argmax_hpu_lazy(
+    const Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim) {
+  PT_LAZY_TRACE;
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  ir::NodePtr node = std::make_shared<ir::ArgMax>(self, dim, keepdim);
+  std::vector<int64_t> shape_out;
+
+  if (dim.has_value()) {
+    shape_out =
+        ReduceOperator::compute_output_shape(self, dim.value(), keepdim);
+  } else {
+    shape_out.push_back(1);
+  }
+
+  auto result = empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(c10::ScalarType::Int),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = GetHbLazyTensor(result);
+
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  updateDstDependencies(hl_result, result);
+  flush_op(result);
+  return result;
+}
+
 Tensor softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,
@@ -6504,6 +6538,72 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   flush_op(result);
   return std::make_tuple(result, inverse_indices, counts);
 };
+
+std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    bool keepdim) {
+  PT_LAZY_TRACE;
+  ir::NodePtr node = std::make_shared<ir::MaxDim>(self, dim, keepdim);
+
+  // Infer Output shape
+  auto shape_out = MaxDimOperator::compute_output_shape(self, dim, keepdim);
+
+  auto result = empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto index = empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(DATATYPE_OF_INDEX),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result1 = GetHbLazyTensor(result);
+  auto hl_result2 = GetHbLazyTensor(index);
+  ir::Value& out1 = hl_result1.CurrentIrValue();
+  ir::Value& out2 = hl_result2.CurrentIrValue();
+  out1.SetNode(
+      node,
+      hl_result1.GetDevice(),
+      hl_result1.GetSizes(),
+      hl_result1.dtype_optional());
+  out2.SetNode(
+      node,
+      hl_result2.GetDevice(),
+      hl_result2.GetSizes(),
+      hl_result2.dtype_optional(),
+      1);
+  updateDstDependencies(hl_result1, result);
+  updateDstDependencies(hl_result2, index);
+  flush_op({result, index});
+  return std::make_tuple(result, index);
+}
+
+at::Tensor max_hpu_lazy(const at::Tensor& self) {
+  PT_LAZY_TRACE;
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
+
+  auto node = ir::Node::Create(
+      Symbol::fromQualString("aten::max"), {hl_self.GetIrValue()});
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  // Infer Output shape
+  auto shape_out = MaxOperator::compute_output_shape();
+
+  auto result = empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  updateDstDependencies(hl_result, result);
+  flush_op(result);
+  return result;
+}
 
 at::Tensor min_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
