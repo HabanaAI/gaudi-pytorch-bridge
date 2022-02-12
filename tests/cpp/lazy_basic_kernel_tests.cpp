@@ -451,3 +451,19 @@ TEST_F(LazyBasicKernelTest, FlattenChlast) {
   hA = torch::flatten(hA, 1);
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
+
+TEST_F(LazyBasicKernelTest, d2hsync) {
+  torch::Tensor A = torch::randn({3, 3});
+  auto hA = A.to(torch::kHPU);
+  auto B = A.as_strided({2, 2}, {1, 2}, 1);
+  auto C = B.add(1.0);
+
+  auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hB)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  auto hC = hB.add(1.0);
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}

@@ -660,6 +660,51 @@ Tensor HandleViewsD2H(const Tensor& src) {
   return out;
 }
 
+/* treat collectives as inplace operations
+    add strided insert node to update the parent tensor
+    example:
+    b = view(a)
+    dist.allreduce(b)
+    Here b will be updated by the collective
+    c = strided_insert_node(a, b); -> this will ensure that subsequent view
+    operations will fetch the updated values
+*/
+std::vector<at::Tensor> UpdateViewDistributed(std::vector<at::Tensor>& in_vec) {
+  PT_LAZY_TRACE;
+  std::vector<at::Tensor> out_vec;
+  std::vector<HbLazyTensor> hl_t_vec;
+
+  for (auto t : in_vec) {
+    // auto out = src;
+    auto hl_t = GetHbLazyTensor(t);
+
+    auto is_view = HandleViews(t, hl_t);
+    auto t_updated = t;
+    if (is_view) {
+      hl_t = GetHbLazyTensor(t);
+      std::vector<HbLazyTensor> tensors = {hl_t};
+      // TODO SW-74972 Need to add duplicate removal functionality within
+      // syncTensorsGraph before moving it outside the for loop
+      HbLazyTensor::SyncTensorsGraph(&tensors);
+
+      // the storage offset of view output is always 0 as per the definition of
+      // strided_view kernel set it to 0 before initiating collectives. Refer
+      // test case in test_hpu_views_distributed.py
+      t_updated.unsafeGetTensorImpl()->set_storage_offset(0);
+
+      // note: this strided insert will be executed lazily after the execution
+      // of collectives
+      strided_insert_hpu_lazy(t, t);
+    } else {
+      // check for updated version
+      t_updated = get_recent_base_tensor(t);
+    }
+
+    out_vec.emplace_back(t_updated);
+  }
+  return out_vec;
+}
+
 bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst) {
   PT_LAZY_TRACE;
   bool is_view = false;

@@ -424,11 +424,13 @@ std::vector<std::shared_ptr<hccl_integration::device_context>> ProcessGroupHCCL:
 
 template <typename Fn, typename PreProcess, typename PostProcess>
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
-    std::vector<at::Tensor>& tensors,
+    std::vector<at::Tensor>& tensors_,
     Fn fn,
     int peerRank,
     PreProcess pre,
     PostProcess post) {
+  auto tensors = habana_lazy::UpdateViewDistributed(tensors_);
+
   hcclResult_t hccl_result{hcclSuccess};
   const auto devices = getDeviceList(tensors);
   auto comms = getCommList(devices);
@@ -476,17 +478,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
   habana_lazy::HbLazyTensor::StepMarker();
 
   // Handle views
-  std::vector<at::Tensor> in_view_vec, out_view_vec;
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  for (auto t : inputs) {
-    auto t_updated = habana_lazy::HandleViewsD2H(t);
-    in_view_vec.emplace_back(t_updated);
-  }
-
-  for (auto t : outputs) {
-    auto t_updated = habana_lazy::HandleViewsD2H(t);
-    out_view_vec.emplace_back(t_updated);
-  }
+  auto in_view_vec = habana_lazy::UpdateViewDistributed(inputs);
+  auto out_view_vec = habana_lazy::UpdateViewDistributed(outputs);
 
   const auto devices = getDeviceList(in_view_vec);
   auto comms = getCommList(devices);

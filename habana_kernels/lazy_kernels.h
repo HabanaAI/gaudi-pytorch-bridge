@@ -38,6 +38,7 @@ habana_lazy::HbLazyTensor HandleViewsOrUpdate(
     const at::Tensor& t,
     habana_lazy::HbLazyTensor& hl_t);
 at::Tensor HandleViewsD2H(const at::Tensor& t);
+std::vector<at::Tensor> UpdateViewDistributed(std::vector<at::Tensor>&);
 bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst);
 std::vector<at::Tensor> HandleViewsTensorList(const at::TensorList&);
 at::Tensor add_strided_view_node(
