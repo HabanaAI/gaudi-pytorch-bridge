@@ -3022,6 +3022,69 @@ Tensor index_put_frontend_impl_hpu_lazy(
   }
 }
 
+std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  auto input_shape = self.sizes();
+  int dimensions = input_shape.size();
+  int elements = self.numel();
+  at::TensorOptions hb_options = self.options();
+  hb_options = hb_options.dtype(c10::ScalarType::Int);
+
+  // Handle case for empty tensor where we return empty tensor with size
+  if (elements == 0) {
+    auto shape = DimVector{0, dimensions};
+    auto output =
+        empty_hpu_lazy(shape, hb_options, self.suggest_memory_format(), true);
+    auto hl_output = GetHbLazyTensor(output);
+    updateDstDependencies(hl_output, output);
+    flush_op(output);
+    return {output, output};
+  }
+
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  struct NonZero : LazyOp<T> {
+    explicit NonZero(
+        const std::vector<at::IValue>& inputs,
+        const std::set<size_t>& metadata_indices = {},
+        const std::vector<std::vector<int64_t>>& out_shapes = {})
+        : LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+              "hpu::nonzero",
+              inputs,
+              metadata_indices,
+              out_shapes,
+              -1) {}
+
+    std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto outputs = get_out_shapes();
+      auto self = inputs[0].toTensor();
+      auto where_tensor = empty_hpu_lazy(
+          outputs[0],
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          true);
+      auto shape_tensor = empty_hpu_lazy(
+          outputs[1],
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          true);
+      flush_op(where_tensor);
+      flush_op(shape_tensor);
+      return {where_tensor, shape_tensor};
+    }
+  };
+
+  // Add nonzero node
+  std::vector<int64_t> output_shape{elements, dimensions};
+  std::vector<int64_t> shape_tensor_shape{5};
+  NonZero k({self}, {}, {output_shape, shape_tensor_shape});
+  // nonzero returns 2 output where and shape tensor
+  auto result_nonzero = k.call();
+  auto where_tensor = std::get<0>(result_nonzero);
+  auto shape_tensor = std::get<1>(result_nonzero);
+  return {where_tensor, shape_tensor};
+}
+
 Tensor index_put_hpu_lazy(
     const Tensor& self,
     TensorList indices_in,
@@ -3034,6 +3097,46 @@ Tensor index_put_hpu_lazy(
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
+  }
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      (indices_in[0].scalar_type() == c10::ScalarType::Bool &&
+       value_in.dim() <= 1) &&
+      !accumulate) {
+    TensorList indices_in_list(indices_vec);
+    indices_vec = HandleViewsTensorList(indices_in_list);
+    at::TensorList indices = indices_vec;
+    auto nonzero_outputs = nonzero_ip_hpu_lazy(indices[0]);
+    // Calculate the dimensionality of updates for broadcasting
+    auto rank_inp = self.ndimension();
+    auto rank_idx = nonzero_outputs[0].sizes().vec()[1];
+    std::vector<int64_t> value_upd_dim;
+
+    if ((value_in.numel() >
+         1)) { // if values has more than 1 elem, we have to assume the valid
+               // count in indices will match values numel
+      for (int i = 0; i < value_in.dim(); i++)
+        value_upd_dim.push_back(value_in.sizes().vec()[i]);
+    } else { // We are assuming uses passes value shapes correctly for scatter
+      value_upd_dim.push_back(nonzero_outputs[0].sizes().vec()[0]);
+      for (int i = rank_idx; i < rank_inp; i++)
+        value_upd_dim.push_back(self.sizes().vec()[i]);
+    }
+
+    auto value_dim_tensor = empty_hpu_lazy(
+        value_upd_dim,
+        self.options(),
+        self.suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
+    LazyOp<at::Tensor> index_put_op{
+        "hpu::index_put",
+        {self,
+         nonzero_outputs[0],
+         nonzero_outputs[1],
+         value_in,
+         value_dim_tensor,
+         accumulate}};
+    return index_put_op.call();
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
@@ -3105,10 +3208,12 @@ Tensor& index_put_hpu_lazy_(
       hl_self.dtype_optional());
 
   HandleViewsD2D(index_put_result, self);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
-      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
-      (isIndicesBool && (accumulate || value.dim()))) {
+  // In DS case changing shapes will not cause a cache miss, therefore no need
+  // to break index_put op from subsequent graph whereas in other cases changing
+  // shapes will cause cache misses therefore breaking graph.
+  if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
+      (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+       isIndicesBool && (accumulate || value.dim()))) {
     std::vector<HbLazyTensor> hl_flush_end = {GetHbLazyTensor(self)};
     HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   } else {

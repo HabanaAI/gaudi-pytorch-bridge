@@ -356,6 +356,26 @@ class IndexPutOperator : public HabanaOperator {
       bool is_output_persistent = false);
 };
 
+// IndexPutOperator for DS frontend
+class IndexPutOperator2 : public HabanaOperator {
+ public:
+  IndexPutOperator2(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "index_put2_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
 // IndexAddOperator
 class IndexAddOperator : public HabanaOperator {
  public:

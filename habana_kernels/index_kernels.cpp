@@ -1325,6 +1325,60 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   return;
 }
 
+void IndexPutOperator2::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  auto where_tensor = inputs[1].toTensor();
+  auto shape_tensor = inputs[2].toTensor();
+  auto values = inputs[3].toTensor();
+  auto value_dim_tensor = inputs[4].toTensor();
+  auto accumulate = inputs[5].toBool();
+
+  auto device_id = this->p_context_->device_id_;
+  Stack stack;
+  auto values_scalar_type = values.scalar_type();
+  auto bcastOp =
+      make_operator<BroadcastOperator>(device_id, values_scalar_type);
+  stack = {IValue(values), IValue(value_dim_tensor), IValue(false)};
+  bcastOp->SetSynapseInput(p_context_->syn_inputs_[3]);
+  bcastOp->SetSynapseInput(p_context_->syn_inputs_[4]);
+
+  bcastOp->AllocateAndAddSynapseNode(graph, stack, false);
+
+  auto broadcasted_values = bcastOp->GetOutputs()[0];
+  stack.clear();
+
+  std::shared_ptr<HabanaOperator> scatter_op;
+  auto self_scalar_type = self.scalar_type();
+  scatter_op =
+      make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+
+  if (!accumulate) {
+    stack = {
+        IValue(self),
+        IValue(where_tensor),
+        IValue(bcastOp->GetOutputs()[0]),
+        IValue(shape_tensor)};
+
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(scatter_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(scatter_op->GetOutputs()[0]));
+  } else {
+    HABANA_ASSERT(!accumulate)
+  }
+  return;
+}
+
 void IndexPutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -2820,6 +2874,7 @@ static auto& KernelRegistry =
         .add("aten::select.int", KERNEL_FN(SelectOperator))
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))
         .add("aten::index_put.hacked_twin", KERNEL_FN(IndexPutOperator))
+        .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
         .add("aten::arange", KERNEL_FN(ArangeOperator))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))
