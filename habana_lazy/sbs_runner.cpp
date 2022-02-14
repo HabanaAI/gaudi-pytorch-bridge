@@ -13,7 +13,8 @@
 #include <sstream>
 #include "aten_lazy_bridge.h"
 #include "debug_utils.h"
-#include "passes/permute_graph.h"
+#include "lazy_executor.h"
+#include "passes/pass_utils.h"
 #include "sbs_debug.h"
 
 namespace habana_lazy {
@@ -22,7 +23,7 @@ std::map<std::string, std::shared_ptr<SBSInterface>>
     SBSInterface::m_special_sbs_ops = {
         {"aten::convolution_overrideable",
          std::static_pointer_cast<SBSInterface>(
-             std::make_shared<SBSDisabledOp>())},
+             std::make_shared<SBSPermutable>(1 /*weight index*/))},
         {"hpu::nonzero",
          std::static_pointer_cast<SBSInterface>(
              std::make_shared<SBSDisabledOp>())},
@@ -35,6 +36,12 @@ std::map<std::string, std::shared_ptr<SBSInterface>>
              std::make_shared<SBSDisabledOp>())},
 };
 
+size_t SBSInterface::m_number_of_handled_ops = 0;
+size_t SBSInterface::m_number_of_op_tries = 0;
+size_t SBSInterface::m_number_of_tensor_runs = 0;
+size_t SBSInterface::m_number_of_errors = 0;
+size_t SBSInterface::m_number_of_tensor_copies = 0;
+
 std::shared_ptr<SBSInterface> SBSInterface::getSBSHandler(std::string op_type) {
   auto iter = m_special_sbs_ops.find(op_type);
   if (iter != m_special_sbs_ops.end()) {
@@ -43,10 +50,42 @@ std::shared_ptr<SBSInterface> SBSInterface::getSBSHandler(std::string op_type) {
   return std::make_shared<SBSRunner>();
 }
 
+size_t SBSInterface::getNumberOfHandledOps() {
+  return m_number_of_handled_ops;
+}
+size_t SBSInterface::getNumberOfOpTries() {
+  return m_number_of_op_tries;
+}
+size_t SBSInterface::getNumberOfHandledOpTensors() {
+  return m_number_of_errors + m_number_of_tensor_runs;
+}
+size_t SBSInterface::getNumberOfErrors() {
+  return m_number_of_errors;
+}
+size_t SBSInterface::getNumberOfRuns() {
+  return m_number_of_tensor_runs;
+}
+size_t SBSInterface::getNumberOfTensorCopies() {
+  return m_number_of_tensor_copies;
+}
+
+void SBSInterface::reset() {
+  PT_LAZY_DEBUG("SBS: Resetting runner");
+  m_number_of_handled_ops = 0;
+  m_number_of_op_tries = 0;
+  m_number_of_tensor_runs = 0;
+  m_number_of_errors = 0;
+  m_number_of_tensor_copies = 0;
+}
+
 bool SBSInterface::LogError(
     const std::string& op_name,
     const std::string& message_short,
     const std::string& message_detailed) {
+  ++m_number_of_errors;
+  ++m_number_of_op_tries;
+  PT_LAZY_DEBUG(
+      __FUNCTION__, " SBS: Current number of op errors: ", m_number_of_errors);
   return SBSDebug::getInstance().LogError(
       op_name, message_short, message_detailed);
 }
@@ -54,7 +93,8 @@ bool SBSInterface::LogError(
 void SBSDisabledOp::run(
     at::TensorList results,
     UNUSED const std::vector<at::IValue>& inputs,
-    UNUSED const std::vector<at::IValue>& prealloc_stack) {
+    UNUSED const std::vector<at::IValue>& prealloc_stack,
+    UNUSED const ir::NodePtr& prealloc_node) {
   auto hl_result = GetHbLazyTensor(results[0]);
   LogError(hl_result.CurrentIrValue().ToString(), "SBS is disabled for op");
 }
@@ -71,16 +111,17 @@ at::IValue SBSRunner::gatherInputForCPUOp(
         (hl_input.GetSBSLiveTensorIndication())) {
       PT_LAZY_DEBUG(
           "SBS: HPU input, decision point. Type: ", input.scalar_type());
-      return std::move(prepareCPUTensor(input.to(c10::kCPU), index));
+      return std::move(prepareTensorToCPU(input, index));
     } else {
+      const auto& cpu_tensor = pTensor.value();
       PT_LAZY_DEBUG(
           "SBS: CPU input, or not decision point. Type: ",
-          pTensor.value().scalar_type());
-      return std::move(pTensor.value());
+          cpu_tensor.scalar_type());
+      return std::move(cpu_tensor);
     }
   } else {
     PT_LAZY_DEBUG("SBS: pTensor == c10::nullopt");
-    return std::move(prepareCPUTensor(input.to(c10::kCPU), index));
+    return std::move(prepareTensorToCPU(input, index));
   }
 }
 
@@ -144,7 +185,7 @@ void SBSRunner::populateInputForCPUOp(
   PT_LAZY_DEBUG("SBS: populateInputForCPUOp: input stack size=", stack.size());
 }
 
-void handleTensorForCPUInput(
+void SBSRunner::handleTensorForCPUInput(
     const at::Tensor& input,
     std::vector<at::IValue>& inputs_modified) {
   if (!input.defined()) {
@@ -155,12 +196,16 @@ void handleTensorForCPUInput(
   if (input.device().type() != c10::DeviceType::HPU) {
     // a special case when tensor is still on CPU - see set_inputs()
     inputs_modified.push_back(std::move(input.to(c10::kHPU)));
+    ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
+    // validate sbs run in test
     return;
   }
   auto hl_input = GetHbLazyTensor(input);
   c10::optional<at::Tensor> pTensor = hl_input.GetCPUTensorData();
   if ((pTensor != c10::nullopt) && hl_input.GetSBSLiveTensorIndication()) {
     inputs_modified.push_back(std::move(pTensor.value().to(c10::kHPU)));
+    ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
+    // validate sbs run in test
   } else {
     if (hl_input.GetSBSLiveTensorIndication()) {
       PT_LAZY_WARN(
@@ -195,19 +240,25 @@ void SBSRunner::setCPUInputs(const std::vector<at::IValue>& inputs) {
 void SBSRunner::run(
     at::TensorList results,
     const std::vector<at::IValue>& inputs,
-    const std::vector<at::IValue>& prealloc_stack) {
+    const std::vector<at::IValue>& prealloc_stack,
+    const ir::NodePtr& prealloc_node) {
   PT_LAZY_TRACE;
   // Get the CPU Op
   // getting ir node, we'll need it to make the jit node
-  auto hl_result = GetHbLazyTensor(results[0]);
-  auto node = hl_result.CurrentIrValue().mp_node;
-  auto ir_name = hl_result.CurrentIrValue().ToString();
+  ir::NodePtr node = prealloc_node;
+  std::string ir_name;
 
-  if (!node) {
-    LogError(ir_name, "IR Node doesn't exist");
+  if (!node && (!getNodeInfo(results[0], node, ir_name))) {
     return;
   }
-  PT_LAZY_DEBUG("SBS: Trying SBS for op ", node->GetName());
+
+  PT_LAZY_DEBUG("Checking node. IR name: ", ir_name, " node=", node);
+
+  if (!node) {
+    LogError(ir_name, "IR Node doesn't exist (runSBS)");
+    return;
+  }
+  PT_LAZY_DEBUG("SBS: Trying SBS for op tensor ", node->GetName());
   auto jit_op = createCPUOperator(ir_name, node, inputs);
   if (!jit_op) {
     return;
@@ -215,6 +266,7 @@ void SBSRunner::run(
 
   std::vector<at::IValue> stack = prealloc_stack;
   if (stack.empty()) {
+    PT_LAZY_DEBUG("runSBS calling populateInputForCPUOp. IR name: ", ir_name);
     populateInputForCPUOp(inputs, node->GetMetaData(), stack);
   }
 
@@ -239,12 +291,8 @@ void SBSRunner::run(
     return;
   }
 
-  PT_LAZY_DEBUG(
-      "SBS: CPU Op Schema: ",
-      torch::jit::canonicalSchemaString(jit_op->schema()),
-      " finished, output stack size: ",
-      stack.size());
-
+  std::string op_name = node->op().toQualString();
+  PT_LAZY_DEBUG("SBS: CPU Op output stack size: ", stack.size());
   TORCH_CHECK(
       stack.size() == results.size(),
       "SBS: HPU and CPU output size should equal");
@@ -261,31 +309,84 @@ void SBSRunner::run(
       auto cpu_res = output.toTensor();
       auto hl_result = GetHbLazyTensor(result);
       PT_LAZY_DEBUG(
-          "SBS: Setting CPU tensor. ID: ",
+          "SBS: Setting CPU tensor to HPU (single). id=",
           hl_result.getTensorUniqueId(),
           " (op name: ",
           node->GetName(),
           " type: ",
           node->op().toQualString(),
-          ")");
+          ") ir name=",
+          hl_result.CurrentIrValue().ToString(),
+          " version: ",
+          hl_result.GetSBSTensorVersion());
       hl_result.SetCPUTensorData(cpu_res);
+      // Treating an inplace tensor as non-live until set
+      // otherwise, to save graph flushes when the HPU tensor is not
+      // yet available
+      hl_result.SetSBSLiveTensorIndication(false);
+      hl_result.UpdateSBSTensorVersion();
+      ++m_number_of_tensor_runs;
+      PT_LAZY_DEBUG(
+          __FUNCTION__,
+          " SBS: Current number of op tensors runs: ",
+          m_number_of_tensor_runs,
+          " current tensor name: ",
+          hl_result.CurrentIrValue().ToString(),
+          " id=",
+          hl_result.getTensorUniqueId(),
+          " version: ",
+          hl_result.GetSBSTensorVersion());
+      if (hl_result.CurrentTensorData() != c10::nullopt) {
+        PT_LAZY_DEBUG(
+            "SBS: HPU tensor is available, calling CompareTensors (single)");
+        std::vector<habana_lazy::HbLazyTensor> resultVec = {hl_result};
+        SBSDebug::getInstance().CompareTensors(resultVec);
+      }
     } else if (output.isTensorList()) {
       for (const at::Tensor& tensor : output.toTensorList()) {
         // TODO: Are we sure this is the right thing?
         auto cpu_res = tensor;
         auto hl_result = GetHbLazyTensor(result);
         PT_LAZY_DEBUG(
-            "SBS: Setting CPU tensor. ID: ",
+            "SBS: Setting CPU tensor to HPU (from list). id=",
             hl_result.getTensorUniqueId(),
             " (op name: ",
             node->GetName(),
             " type: ",
             node->op().toQualString(),
-            ")");
+            ") ir name=",
+            hl_result.CurrentIrValue().ToString(),
+            " version: ",
+            hl_result.GetSBSTensorVersion());
         hl_result.SetCPUTensorData(cpu_res);
+        // Treating an inplace tensor as non-live until set
+        // otherwise, to save graph flushes when the HPU tensor is not
+        // yet available
+        hl_result.SetSBSLiveTensorIndication(false);
+        hl_result.UpdateSBSTensorVersion();
+        ++m_number_of_tensor_runs;
+        PT_LAZY_DEBUG(
+            __FUNCTION__,
+            " SBS: Current number of op tensors runs: ",
+            m_number_of_tensor_runs,
+            " current tensor name: ",
+            hl_result.CurrentIrValue().ToString(),
+            " id=",
+            hl_result.getTensorUniqueId(),
+            " version: ",
+            hl_result.GetSBSTensorVersion());
+        if (hl_result.CurrentTensorData() != c10::nullopt) {
+          PT_LAZY_DEBUG(
+              "SBS: HPU tensor is available, calling CompareTensors (from list)");
+          std::vector<habana_lazy::HbLazyTensor> resultVec = {hl_result};
+          SBSDebug::getInstance().CompareTensors(resultVec);
+        }
       }
     }
   }
+  ++m_number_of_handled_ops;
+  PT_LAZY_DEBUG(
+      "SBS: finished run for op: ", op_name, " results[0] name: ", ir_name);
 }
 
 std::shared_ptr<torch::jit::Operator> SBSRunner::createCPUOperator(
@@ -337,13 +438,26 @@ std::shared_ptr<torch::jit::Operator> SBSRunner::createCPUOperator(
   if (!node->GetName().empty()) {
     jit_node->s_(c10::attr::debug_name, node->GetName());
   }
+  graph->insertNode(jit_node);
+  PT_LAZY_DEBUG("SBS: Candidate CPU JIT graph: ", graph->toString());
 
-  auto op = std::make_shared<torch::jit::Operator>(jit_node->getOperator());
+  // PT_LAZY_DEBUG("creating jit op");
+  std::shared_ptr<torch::jit::Operator> op = nullptr;
+  try {
+    op = std::make_shared<torch::jit::Operator>(jit_node->getOperator());
+  } catch (std::exception& e) {
+    std::string error_str = e.what();
+    std::stringstream ss;
+    ss << "Failed to create CPU Op. Details :\n" << error_str;
+    LogError(
+        ir_name,
+        "Failed to create CPU Op. Check lazy log for details and call stack",
+        ss.str());
+    return nullptr;
+  }
   if (op) {
     PT_LAZY_DEBUG(
-        "SBS: CPU Op was found for: " + std::string(node->op().toQualString()),
-        " Schema: ",
-        torch::jit::canonicalSchemaString(op->schema()));
+        "SBS: CPU Op was found for: " + std::string(node->op().toQualString()));
   } else {
     LogError(ir_name, "CPU Op was not found (jit op is null)");
   }
@@ -355,10 +469,132 @@ c10::Symbol SBSRunner::buildCPUOpSymbol(const c10::Symbol& hpu_op) {
   return hpu_op;
 }
 
-at::Tensor SBSRunner::prepareCPUTensor(
+c10::Symbol SBSPermutable::buildCPUOpSymbol(const c10::Symbol& hpu_op) {
+  c10::Symbol cpu_op = hpu_op;
+  std::string qualstring(cpu_op.toQualString());
+  std::map<std::string, std::string> to_replace_map = {
+      {"aten::convolution_overrideable", "aten::convolution"},
+  };
+  for (auto& to_replace : to_replace_map) {
+    size_t pos = qualstring.find(to_replace.first);
+    if (pos != std::string::npos) {
+      std::string qualstring_old = qualstring;
+      qualstring.replace(pos, to_replace.first.length(), to_replace.second);
+      PT_LAZY_DEBUG(
+          "SBS: Replacing hpu op ", qualstring_old, " with ", qualstring);
+      cpu_op = at::Symbol::fromQualString(qualstring);
+    }
+  }
+  return cpu_op;
+}
+
+at::Tensor SBSRunner::prepareTensorToCPU(
     const at::Tensor& tensor,
     UNUSED size_t index) {
-  return tensor;
+  PT_LAZY_DEBUG("SBSRunner::", __FUNCTION__, " index=", index);
+  auto hb_tensor = GetHbLazyTensor(tensor);
+
+  // Special handling for view tensors - we need to sync before we copy to CPU
+  auto id = hb_tensor.getTensorUniqueId();
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+  auto it = context->view_table.find(id);
+  if (it != context->view_table.end()) // we need to sync view tensors
+  {
+    PT_LAZY_DEBUG(
+        "SBSRunner::",
+        __FUNCTION__,
+        " calling sync for view tensor id=",
+        hb_tensor.getTensorUniqueId(),
+        " name: ",
+        hb_tensor.CurrentIrValue().ToString(),
+        " version: ",
+        hb_tensor.GetSBSTensorVersion());
+    std::vector<habana_lazy::HbLazyTensor> tens = {hb_tensor};
+    HbLazyTensor::SyncTensorsGraph(&tens);
+  }
+  auto tens_cpu = tensor.to(c10::kCPU);
+
+  return tens_cpu;
+}
+
+at::Tensor SBSPermutable::prepareTensorToCPU(
+    const at::Tensor& tensor,
+    size_t index) {
+  PT_LAZY_DEBUG("SBSPermutable::", __FUNCTION__);
+  at::Tensor out = SBSRunner::prepareTensorToCPU(tensor, index);
+  if (index == m_index_to_permute) {
+    PT_LAZY_DEBUG(
+        "SBS: ",
+        __FUNCTION__,
+        " Replacing HPU tensor sizes: ",
+        tensor.sizes(),
+        " strides: ",
+        tensor.strides(),
+        " index: ",
+        index);
+    // taken from convolution_hpu_lazy()
+    auto is_5d_layout = out.dim() == 5;
+
+    // function call taken from habana_lazy/passes/permute_graph.cpp
+    auto dims = is_5d_layout
+        ? getDimsForLayout5d(
+              habana::LayoutFormat::NCHW, habana::LayoutFormat::HWCK)
+        : getDimsForLayout(
+              habana::LayoutFormat::NCHW, habana::LayoutFormat::HWCK);
+    PT_LAZY_DEBUG("SBS: ", __FUNCTION__, " Dims to permute: ", dims);
+
+    out = out.permute(dims);
+    PT_LAZY_DEBUG("SBS: ", __FUNCTION__, " New tensor sizes: ", out.sizes());
+  }
+  return out;
+}
+
+bool SBSRunner::getNodeInfo(
+    const at::Tensor& result,
+    ir::NodePtr& node,
+    std::string& ir_name) {
+  auto hl_result = GetHbLazyTensor(result);
+  node = hl_result.CurrentIrValue().mp_node;
+  ir_name = hl_result.CurrentIrValue().ToString();
+  if (ir_name.empty()) {
+    // ir_name = std::string("Op Name N/A. ID ") +
+    ir_name = std::string("Op Name N/A. id=") +
+        std::to_string(hl_result.getTensorUniqueId());
+  }
+
+  PT_LAZY_DEBUG(
+      "Tensor id=",
+      hl_result.getTensorUniqueId(),
+      " ir name ",
+      ir_name,
+      " version: ",
+      hl_result.GetSBSTensorVersion());
+  if (!node) {
+    LogError(ir_name, "IR Node doesn't exist (getNodeInfo)");
+    return false;
+  }
+
+  return true;
+}
+
+// logic taken from strided_insert_hpu_lazy()
+bool SBSViews::getNodeInfo(
+    const at::Tensor& result,
+    UNUSED ir::NodePtr& node,
+    UNUSED std::string& ir_name) {
+  auto hl_result = GetHbLazyTensor(result);
+  auto id = hl_result.getTensorUniqueId();
+  PT_LAZY_DEBUG(
+      __FUNCTION__,
+      " result id=",
+      id,
+      " name=",
+      hl_result.CurrentIrValue().ToString(),
+      " version: ",
+      hl_result.GetSBSTensorVersion());
+
+  return false;
 }
 
 } // namespace habana_lazy

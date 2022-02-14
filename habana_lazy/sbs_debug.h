@@ -9,7 +9,6 @@
  */
 #pragma once
 #include "hpu_lazy_tensors.h"
-#include "tensor_comparator.hpp"
 
 // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
 // between tensors that are calculated by HPU to tensors that are calculated
@@ -18,6 +17,10 @@
 // here: debug_utils.h :: SBSModes
 // See more here:
 // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
+
+namespace TensorComparison {
+class TensorValidator;
+}
 
 namespace habana_lazy {
 
@@ -35,18 +38,45 @@ class SBSDebug {
       const std::string& message_short,
       const std::string& message_detailed = "");
 
+  size_t GetNumberOfReportLines();
+  size_t GetNumberOfErrorLines();
+  size_t GetNumberOfCompareLines();
+
+  size_t GetNumberOfAccumulatedOps() {
+    return m_number_of_accumulated_ops;
+  }
+
+  size_t GetNumberOfAccumulatedOpOutputTensors() {
+    return m_number_of_accumulated_op_output_tensors;
+  }
+
+  void IncreaseOpsAndTensors(size_t tensor_count) {
+    ++m_number_of_accumulated_ops;
+    m_number_of_accumulated_op_output_tensors += tensor_count;
+  }
+
+  void reset();
+
+  static bool NeedToCompare(const HbLazyTensor& hb_tensor, bool update = false);
+
  private:
   SBSDebug();
 
+  void report(const std::string& log_message, size_t& log_counter);
+
   void compare_tensors_cos(
-      at::Tensor hpu_res,
-      at::Tensor cpu_res,
+      const at::Tensor& hpu_res,
+      const at::Tensor& cpu_res,
       const std::string& op_type);
 
   const std::string m_report_file_name = "sbs_tensor_compare.csv";
   const std::string m_error_file_name = "sbs_error.csv";
   std::ofstream m_error_file;
-  TensorComparison::TensorValidator m_tc;
+  std::shared_ptr<TensorComparison::TensorValidator> mp_tc;
+  size_t m_number_of_successful_compares;
+  size_t m_number_of_errors;
+  size_t m_number_of_accumulated_ops;
+  size_t m_number_of_accumulated_op_output_tensors;
 
  public:
   SBSDebug(SBSDebug const&) = delete;

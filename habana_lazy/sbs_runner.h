@@ -23,6 +23,13 @@ namespace habana_lazy {
 class SBSInterface {
  public:
   static std::shared_ptr<SBSInterface> getSBSHandler(std::string op_type);
+  static size_t getNumberOfHandledOps();
+  static size_t getNumberOfOpTries();
+  static size_t getNumberOfHandledOpTensors();
+  static size_t getNumberOfErrors();
+  static size_t getNumberOfRuns();
+  static size_t getNumberOfTensorCopies();
+  static void reset();
 
   virtual void populateInputForCPUOp(
       const std::vector<at::IValue>& inputs,
@@ -34,13 +41,20 @@ class SBSInterface {
   virtual void run(
       at::TensorList results,
       const std::vector<at::IValue>& inputs,
-      const std::vector<at::IValue>& prealloc_stack =
-          std::vector<at::IValue>()) = 0;
+      const std::vector<at::IValue>& prealloc_stack = std::vector<at::IValue>(),
+      const ir::NodePtr& node = nullptr) = 0;
 
   bool LogError(
       const std::string& op_name,
       const std::string& message_short,
       const std::string& message_detailed = "");
+
+ protected:
+  static size_t m_number_of_handled_ops;
+  static size_t m_number_of_op_tries;
+  static size_t m_number_of_tensor_runs;
+  static size_t m_number_of_errors;
+  static size_t m_number_of_tensor_copies;
 
  private:
   static std::map<std::string, std::shared_ptr<SBSInterface>> m_special_sbs_ops;
@@ -58,7 +72,8 @@ class SBSDisabledOp : public SBSInterface {
   void run(
       at::TensorList results,
       UNUSED const std::vector<at::IValue>& inputs,
-      UNUSED const std::vector<at::IValue>& prealloc_stack) override;
+      UNUSED const std::vector<at::IValue>& prealloc_stack,
+      UNUSED const ir::NodePtr& node) override;
 };
 
 class SBSRunner : public SBSInterface {
@@ -73,17 +88,50 @@ class SBSRunner : public SBSInterface {
   void run(
       at::TensorList results,
       const std::vector<at::IValue>& inputs,
-      const std::vector<at::IValue>& prealloc_stack =
-          std::vector<at::IValue>()) override;
+      const std::vector<at::IValue>& prealloc_stack = std::vector<at::IValue>(),
+      const ir::NodePtr& node = nullptr) override;
+
+ protected:
+  void handleTensorForCPUInput(
+      const at::Tensor& input,
+      std::vector<at::IValue>& inputs_modified);
+  virtual at::Tensor prepareTensorToCPU(const at::Tensor& tensor, size_t index);
 
  private:
   at::IValue gatherInputForCPUOp(const at::Tensor& input, size_t index);
-  virtual at::Tensor prepareCPUTensor(const at::Tensor& tensor, size_t index);
   virtual c10::Symbol buildCPUOpSymbol(const c10::Symbol& hpu_op);
+
+  virtual bool getNodeInfo(
+      const at::Tensor& result,
+      ir::NodePtr& node,
+      std::string& ir_name);
 
   std::shared_ptr<torch::jit::Operator> createCPUOperator(
       std::string ir_name,
       ir::NodePtr node,
       const std::vector<at::IValue>& inputs);
 };
+
+class SBSPermutable : public SBSRunner {
+ public:
+  SBSPermutable(size_t index_to_permute)
+      : SBSRunner(), m_index_to_permute(index_to_permute) {}
+
+ protected:
+  at::Tensor prepareTensorToCPU(const at::Tensor& tensor, size_t index)
+      override;
+
+ private:
+  size_t m_index_to_permute;
+
+  c10::Symbol buildCPUOpSymbol(const c10::Symbol& hpu_op) override;
+};
+
+class SBSViews : public SBSRunner {
+  bool getNodeInfo(
+      const at::Tensor& result,
+      ir::NodePtr& node,
+      std::string& ir_name) override;
+};
+
 } // namespace habana_lazy

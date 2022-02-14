@@ -23,6 +23,26 @@ class ResultsWarehouse {
     m_futureResults.emplace(n, std::move(r));
   }
 
+  void addComment(const std::string& n, const std::string& comment) {
+    waitResults();
+    std::string key = n;
+    auto itRes = std::find_if(
+        m_results.begin(),
+        m_results.end(),
+        [&key](const std::pair<std::string, ComparisonResult>& element) {
+          return element.first == key;
+        });
+    // result already exists
+    if (itRes != m_results.end()) {
+      itRes->second.SetComment(comment);
+    } else {
+      ComparisonResult res;
+      res.SetComment(comment);
+      ResultElem elem = {n, res};
+      m_results.emplace_back(elem);
+    }
+  }
+
   ResultVec&& getResults() {
     waitResults();
 

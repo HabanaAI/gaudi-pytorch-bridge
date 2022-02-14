@@ -10,19 +10,22 @@
 #include "sbs_debug.h"
 #include "aten_lazy_bridge.h"
 #include "debug_utils.h"
+#include "sbs_runner.h"
+#include "tensor_comparator.hpp"
 
 class float16;
 class bfloat16;
 namespace habana_lazy {
 
-#define TENSOR_COMPARE_TYPE(primitive_type) \
-  success = tc.compare(                     \
-      tensor_name,                          \
-      (primitive_type*)hpu_data,            \
-      (primitive_type*)cpu_data,            \
-      cpu_res.numel(),                      \
-      compare_method,                       \
-      true);                                \
+#define TENSOR_COMPARE_TYPE(primitive_type)                                   \
+  PT_LAZY_DEBUG("SBS: comparing tensors with type: ", cpu_res.scalar_type()); \
+  success = mp_tc->compare(                                                   \
+      tensor_name,                                                            \
+      (primitive_type*)hpu_data,                                              \
+      (primitive_type*)cpu_data,                                              \
+      cpu_res.numel(),                                                        \
+      compare_method,                                                         \
+      true);                                                                  \
   break;
 
 #define CASE_TENSOR_COMPARE_TYPE(scalar_type, primitive_type) \
@@ -30,7 +33,7 @@ namespace habana_lazy {
     TENSOR_COMPARE_TYPE(primitive_type)
 
 // handling duplicate names (adding a counter suffix)
-static std::string handle_duplicates(const std::string& op_type) {
+static std::string handle_name_duplicates(const std::string& op_type) {
   std::string tensor_name = op_type;
   static std::map<std::string, int> checked_tensors_occurences;
   auto it = checked_tensors_occurences.find(tensor_name);
@@ -43,34 +46,123 @@ static std::string handle_duplicates(const std::string& op_type) {
   return tensor_name;
 }
 
-void SBSDebug::compare_tensors_cos(
-    at::Tensor hpu_res,
-    at::Tensor cpu_res,
-    const std::string& op_type) {
-  std::string tensor_name = handle_duplicates(op_type);
+bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
+  static std::map<int64_t, int> checked_tensors_versions;
+  auto id = hb_tensor.getTensorUniqueId();
+  auto it = checked_tensors_versions.find(id);
+  if (it != checked_tensors_versions.end()) {
+    auto prev_compared_version = it->second;
+    PT_LAZY_DEBUG(
+        "SBS: Tensor name: ",
+        hb_tensor.CurrentIrValue().ToString(),
+        " id: ",
+        id,
+        " previously compared version: ",
+        prev_compared_version);
+    if (hb_tensor.GetSBSTensorVersion() == prev_compared_version) {
+      return false;
+    }
+  }
+  if (update) {
+    PT_LAZY_DEBUG(
+        "SBS: Updating compared tensor version to ",
+        hb_tensor.GetSBSTensorVersion());
+    checked_tensors_versions[id] = hb_tensor.GetSBSTensorVersion();
+  }
+  return true;
+}
 
-  static TensorComparison::TensorValidator tc;
-  auto hpu_res_on_host = hpu_res.to("cpu");
-  if (hpu_res_on_host.dtype() == cpu_res.dtype()) {
-    auto scalarType = cpu_res.scalar_type();
+void SBSDebug::report(const std::string& log_message, size_t& log_counter) {
+  mp_tc->makeReport(m_report_file_name, TensorComparison::ExportType::CSV);
+  ++log_counter;
+  PT_LAZY_DEBUG(
+      "SBS: Current number of ", log_message, " reported: ", log_counter);
+}
+
+void SBSDebug::compare_tensors_cos(
+    const at::Tensor& hpu_res,
+    const at::Tensor& cpu_res,
+    const std::string& op_type) {
+  std::string tensor_name = handle_name_duplicates(op_type);
+
+  PT_LAZY_DEBUG(
+      __FUNCTION__,
+      " flushing tensor name=",
+      GetHbLazyTensor(hpu_res).CurrentIrValue().ToString(),
+      " id=",
+      GetHbLazyTensor(hpu_res).getTensorUniqueId(),
+      " version: ",
+      GetHbLazyTensor(hpu_res).GetSBSTensorVersion());
+  const auto& hpu_res_on_host = hpu_res.to(c10::kCPU);
+  PT_LAZY_DEBUG(
+      __FUNCTION__,
+      " after flush, comparing tensor name=",
+      GetHbLazyTensor(hpu_res).CurrentIrValue().ToString(),
+      " id=",
+      GetHbLazyTensor(hpu_res).getTensorUniqueId(),
+      " version: ",
+      GetHbLazyTensor(hpu_res).GetSBSTensorVersion());
+  if (hpu_res_on_host.scalar_type() == cpu_res.scalar_type()) {
+    auto cpu_res_compare = cpu_res.contiguous();
+    auto hpu_res_on_host_compare = hpu_res_on_host.contiguous();
+
+    std::stringstream ss;
+    ss << "HPU Shape: " << hpu_res.sizes();
+    ss << " Strides: " << hpu_res.strides();
+    ss << " Channel last: "
+       << hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+        hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
+    ss << " HPU comparison Shape: " << hpu_res_on_host_compare.sizes();
+    ss << " Strides: " << hpu_res_on_host_compare.strides();
+    ss << " Channel last: "
+       << hpu_res_on_host_compare.is_contiguous(
+              c10::MemoryFormat::ChannelsLast) ||
+        hpu_res_on_host_compare.is_contiguous(
+            c10::MemoryFormat::ChannelsLast3d);
+    ss << " CPU Shape: " << cpu_res_compare.sizes();
+    ss << " Strides: " << cpu_res_compare.strides();
+    ss << " Channel last: "
+       << cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+        cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
+    std::string shapes_string(ss.str());
+    if ((!hpu_res_on_host_compare.strides().empty()) &&
+        (!cpu_res_compare.strides().empty()) &&
+        (hpu_res_on_host_compare.strides() != cpu_res_compare.strides())) {
+      std::stringstream ss;
+      ss << "Could not compare this tensor: Different strides structure. "
+         << shapes_string;
+      LogError(tensor_name, ss.str());
+      return;
+    }
+    if ((!hpu_res_on_host_compare.sizes().empty()) &&
+        (!cpu_res_compare.sizes().empty()) &&
+        (hpu_res_on_host_compare.sizes() != cpu_res_compare.sizes())) {
+      std::stringstream ss;
+      ss << "Could not compare this tensor: Different shape structure. "
+         << shapes_string;
+      LogError(tensor_name, ss.str());
+      return;
+    }
+    auto scalarType = cpu_res_compare.scalar_type();
     TensorComparison::ComparisonMethods compare_method;
     compare_method.set(); // all test methods
 
-    void* hpu_data = hpu_res_on_host.data_ptr();
-    void* cpu_data = cpu_res.data_ptr();
+    void* hpu_data = hpu_res_on_host_compare.data_ptr();
+    void* cpu_data = cpu_res_compare.data_ptr();
     bool success = true;
     switch (scalarType) {
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Byte, unsigned char)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Char, signed char)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Short, short)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Long, long)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Half, float16)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Float, float)
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::BFloat16, bfloat16)
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Byte, unsigned char);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Char, signed char);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Short, short);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Long, long);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Half, float16);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Float, float);
+      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::BFloat16, bfloat16);
       default:
-        PT_LAZY_WARN(
-            "sbs could not run on this op due to unsupported dtype. dtype: ",
-            hpu_res_on_host.dtype());
+        LogError(
+            tensor_name,
+            std::string("Could not compare this tensor: Unsupported type: ") +
+                c10::toString(hpu_res_on_host_compare.scalar_type()));
         return;
     }
 
@@ -78,14 +170,35 @@ void SBSDebug::compare_tensors_cos(
       PT_LAZY_WARN("Tensor Comparator failed to execute");
       return;
     }
-    tc.makeReport(m_report_file_name, TensorComparison::ExportType::CSV);
+
+    PT_LAZY_DEBUG("SBS: Adding shapes data: ", shapes_string);
+    mp_tc->addComment(tensor_name, shapes_string);
+    PT_LAZY_DEBUG("SBS: printing compare result for tensor: ", tensor_name);
+    report("successful compares", m_number_of_successful_compares);
   } else {
-    PT_LAZY_WARN(
-        "sbs could not run on this op due to different dtype. hpu dtype: ",
-        hpu_res_on_host.dtype(),
-        " cpu dtype:",
-        cpu_res.dtype());
+    LogError(
+        tensor_name,
+        std::string(
+            "Could not compare this tensor: Different types. HPU type: ") +
+            c10::toString(hpu_res_on_host.scalar_type()) +
+            " CPU type: " + c10::toString(cpu_res.scalar_type()));
   }
+}
+
+at::Tensor FetchAtenFromHbLazyTensor(HbLazyTensor hb_tensor) {
+  auto attached_tensor = hb_tensor.CurrentTensorAttached();
+  // getting real memory format from backend tensor
+  c10::optional<c10::MemoryFormat> memory_format = c10::nullopt;
+  if (attached_tensor.has_value()) {
+    memory_format = attached_tensor.value().suggest_memory_format();
+  }
+  at::Tensor at_tensor = AtenFromHbLazyTensor(
+      hb_tensor,
+      /*tensor_type*/ c10::nullopt,
+      /*size*/ c10::nullopt,
+      /*stride*/ c10::nullopt,
+      memory_format);
+  return at_tensor;
 }
 
 void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
@@ -93,17 +206,12 @@ void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
     return;
   }
   for (auto& hb_tensor : tensors) {
-    at::Tensor at_tensor = AtenFromHbLazyTensor(
-        hb_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
     c10::optional<at::Tensor> cpu_ref = hb_tensor.GetCPUTensorData();
     if (cpu_ref == c10::nullopt) {
       PT_LAZY_DEBUG(
           "SBS: Tensor is live (comparison point), but has no CPU (SBS is not supported). Name: ",
-          hb_tensor.CurrentIrValue().ToString())
-    } else if (!hb_tensor
-                    .GetSBSLiveTensorIndication()) // We'll avoid tensors that
-                                                   // we've already checked
-    {
+          hb_tensor.CurrentIrValue().ToString());
+    } else if (NeedToCompare(hb_tensor, /*update*/ true)) {
       std::string name = hb_tensor.CurrentIrValue().ToString();
       if (name.empty()) {
         name = std::string("Op Name N/A. ID ") +
@@ -115,10 +223,15 @@ void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
           ", ID: ",
           hb_tensor.getTensorUniqueId());
 
+      hb_tensor.SetSBSLiveTensorIndication(true); // Used by SBS modes 2 & 3
+      at::Tensor at_tensor = FetchAtenFromHbLazyTensor(hb_tensor);
+      PT_LAZY_DEBUG(
+          "SBS: calling compare_tensors_cos. Name: ",
+          hb_tensor.CurrentIrValue().ToString());
       compare_tensors_cos(at_tensor, cpu_ref.value(), name);
-      hb_tensor.SetSBSLiveTensorIndication(); // Used by SBS modes 2 & 3
     }
   }
+  PT_LAZY_DEBUG(__FUNCTION__, " Done.");
 }
 
 bool SBSDebug::LogError(
@@ -126,10 +239,10 @@ bool SBSDebug::LogError(
     const std::string& message_short,
     const std::string& message_detailed) {
   auto& message = (message_detailed.empty() ? message_short : message_detailed);
-  PT_LAZY_DEBUG("SBS: Op ", op_name, ": ", message);
+  PT_LAZY_DEBUG("SBS: Op tensor ", op_name, ": ", message);
 
-  m_tc.addComment(op_name, message_short);
-  m_tc.makeReport(m_report_file_name, TensorComparison::ExportType::CSV);
+  mp_tc->addComment(op_name, message_short);
+  report("errors", m_number_of_errors);
   if (!m_error_file.is_open()) {
     PT_LAZY_DEBUG("SBS: Error file is not opened, can't log error");
     return false;
@@ -139,7 +252,30 @@ bool SBSDebug::LogError(
   return true;
 }
 
-SBSDebug::SBSDebug() {
+size_t SBSDebug::GetNumberOfReportLines() {
+  return m_number_of_successful_compares + m_number_of_errors;
+}
+size_t SBSDebug::GetNumberOfErrorLines() {
+  return m_number_of_errors;
+}
+size_t SBSDebug::GetNumberOfCompareLines() {
+  return m_number_of_successful_compares;
+}
+
+void SBSDebug::reset() {
+  PT_LAZY_DEBUG("SBS: Resetting SBSDebug");
+  m_number_of_successful_compares = 0;
+  m_number_of_errors = 0;
+  m_number_of_accumulated_ops = 0;
+  m_number_of_accumulated_op_output_tensors = 0;
+}
+
+SBSDebug::SBSDebug()
+    : mp_tc(std::make_shared<TensorComparison::TensorValidator>()),
+      m_number_of_successful_compares(0),
+      m_number_of_errors(0),
+      m_number_of_accumulated_ops(0),
+      m_number_of_accumulated_op_output_tensors(0) {
   PT_LAZY_DEBUG(
       "SBS: Tensor compare report will be saved to: ", m_report_file_name);
   m_error_file.open(m_error_file_name, std::ios::out);

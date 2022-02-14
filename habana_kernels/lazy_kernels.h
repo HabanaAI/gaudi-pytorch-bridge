@@ -626,6 +626,11 @@ class LazyOp {
         m_sbs_runner->populateInputForCPUOp(
             get_inputs(), node->GetMetaData(), sbs_stack);
       }
+
+      if (force_flush) {
+        PT_LAZY_DEBUG("Triggering mark_step due to force_flush");
+        HbLazyTensor::StepMarker();
+      }
     } else {
       HandleViewsInplace(self, hl_self);
     }
@@ -810,6 +815,7 @@ class LazyOp {
       const std::vector<at::IValue>& preallocated_stack =
           std::vector<at::IValue>()) {
     if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
       m_sbs_runner->run(results, get_inputs(), preallocated_stack);
     }
   }

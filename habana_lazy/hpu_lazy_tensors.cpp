@@ -293,12 +293,26 @@ void HbLazyTensor::SetCPUTensorData(at::Tensor cpu_tensor_data) {
   data()->cpu_tensor_data = std::move(cpu_tensor_data);
 }
 
-void HbLazyTensor::SetSBSLiveTensorIndication() {
-  data()->sbs_live_tensor = true;
+void HbLazyTensor::SetSBSLiveTensorIndication(bool live) {
+  data()->sbs_live_tensor = live;
 }
 
 bool HbLazyTensor::GetSBSLiveTensorIndication() const {
   return data()->sbs_live_tensor;
+}
+
+void HbLazyTensor::UpdateSBSTensorVersion() {
+  data()->sbs_tensor_version++;
+  PT_LAZY_DEBUG(
+      "SBS: Updated tensor version to ",
+      data()->sbs_tensor_version,
+      " name ",
+      CurrentIrValue().ToString(),
+      " id=",
+      getTensorUniqueId());
+}
+int HbLazyTensor::GetSBSTensorVersion() const {
+  return data()->sbs_tensor_version;
 }
 
 const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {

@@ -66,6 +66,7 @@
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/unpack.h"
+#include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view.h"
 #include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -132,6 +133,7 @@ void flush_op(
   const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   DebugHelper::getInstance().incrementAccumulatedOps();
+  SBSDebug::getInstance().IncreaseOpsAndTensors(tensors.size());
 
   if (m_flush_op) {
     HbLazyTensor::StepMarker({}, lazy_front_end_info);
