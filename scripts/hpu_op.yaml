@@ -1122,6 +1122,7 @@ hypot_:
 index.Tensor:
   custom_output_shape: IndexOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
+  fallback_check: index_tensor_tensor_fallback
   guid: index
   op_backend: IndexHabanaOperator
   op_frontend: LazyIndex

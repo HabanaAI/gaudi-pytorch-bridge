@@ -15,6 +15,25 @@
 
 namespace habana {
 
+FALLBACK_CHECK(
+    index_tensor_tensor_fallback,
+    const at::Tensor& self,
+    const c10::List<c10::optional<at::Tensor>>& indices) {
+  static_cast<void>(self);
+  at::Stack stack = {indices};
+  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
+  for (auto input : indices_in) {
+    auto o1 = input.toOptional<at::Tensor>();
+    if (!(o1.has_value() && !o1->defined())) {
+      continue;
+    } else {
+      return false; // advanced indexing is currently unsupported on HPU -
+                    // fallback to CPU
+    }
+  }
+  return true;
+};
+
 // brodcast index tensor shape and get the correct shape and size
 static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   auto size = indices[0].sizes().vec();
@@ -37,7 +56,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack, bool) {
     } else {
       HABANA_ASSERT(
           0 &&
-          "None is not yet supported for c10::List<c10::optional<Tensor>>");
+          "None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
     }
   }
 
@@ -90,7 +109,7 @@ LazyIndex<at::Tensor>::LazyIndex(
     } else {
       HABANA_ASSERT(
           0 &&
-          "None is not yet supported for c10::List<c10::optional<Tensor>>");
+          "None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
     }
   }
 
