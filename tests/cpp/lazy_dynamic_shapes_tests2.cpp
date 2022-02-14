@@ -73,6 +73,30 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int N = 2, C = 3, D = 4, H = 5, W = 6, dim6 = 6;
+  std::vector<int> in_sizes{8, 10, 12, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    torch::Tensor A = torch::randn({N, C, D, H, W, dim6})
+                          .contiguous(c10::MemoryFormat::ChannelsLast);
+    auto hA = A.to(torch::kHPU);
+    auto B = torch::slice(A, 1, 1, -1, 1);
+    auto hB = torch::slice(hA, 1, 1, -1, 1);
+    HbLazyTensor::StepMarker({});
+    EXPECT_EQ(allclose(B, hB.cpu()), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
   bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {

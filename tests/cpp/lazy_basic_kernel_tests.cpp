@@ -295,6 +295,15 @@ TEST_F(LazyBasicKernelTest, SliceOnChlastInput) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(B, hB.cpu()), true);
 }
+TEST_F(LazyBasicKernelTest, SliceOnChlast6dInput) {
+  torch::Tensor A = torch::randn({2, 4, 3, 5, 6, 7})
+                        .contiguous(c10::MemoryFormat::Contiguous);
+  auto hA = A.to(torch::kHPU);
+  auto B = torch::slice(A, 1, 1, -1, 1);
+  auto hB = torch::slice(hA, 1, 1, -1, 1);
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(B, hB.cpu()), true);
+}
 TEST_F(LazyBasicKernelTest, SelectOnChlast3dInput) {
   torch::Tensor A = torch::randn({2, 4, 3, 5, 6})
                         .contiguous(c10::MemoryFormat::ChannelsLast3d);

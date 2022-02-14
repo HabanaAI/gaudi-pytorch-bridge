@@ -719,7 +719,7 @@ static std::vector<synapse_helpers::tensor> Slice(
     // 3D inputs are reshaped to 4D inputs
     input_size = 4;
   }
-  synSliceParams slice_params{};
+  synSliceParamsNDims slice_params{};
   for (int i = input_size - 1; i >= 0; --i) {
     slice_params.axes[i] = i;
     slice_params.starts[i] = 0;

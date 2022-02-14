@@ -133,7 +133,8 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         sizeof(Topk_params));
   }
 
-  synSliceParams Slice_params{};
+  synSliceParamsNDims Slice_params{};
+
   std::vector<int64_t> Slice_outshape;
 
   if (stack.size() == 1) {

@@ -734,6 +734,30 @@ TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest) {
     auto h_cout = h_out.to(torch::kCPU);
   }
 }
+TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest6dim) {
+  int N = 1;
+  int C = 4;
+  int H = 24;
+  int dim5 = 16;
+  int dim6 = 16;
+  std::vector<int> W_values{16, 18, 20};
+  std::vector<int> in_start{0, 2, 3};
+  std::vector<int> in_end{8, 10, 12};
+  std::vector<int> in_step{1, 1, 1};
+  for (int i = 0; i < W_values.size(); i++) {
+    int W = W_values[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A =
+        torch::randn({N, C, H, W, dim5, dim6}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 3;
+    int64_t start_index = in_start[i];
+    int64_t end = in_end[i];
+    int64_t step = in_step[i];
+    torch::Tensor h_out = torch::slice(hA, dim, start_index, end, step);
+    auto h_cout = h_out.to(torch::kCPU);
+  }
+}
 
 TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest2) {
   int H = 4;

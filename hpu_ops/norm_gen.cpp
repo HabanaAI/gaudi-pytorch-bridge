@@ -110,7 +110,7 @@ void NormHabanaOperator::AddNode(
         {norm[1].get()},
         {{reshape_outshape, dtype}});
 
-    synSliceParams slice_params{};
+    synSliceParamsNDims slice_params{};
     slice_params.axes[0] = 0;
     slice_params.starts[0] = 0;
     slice_params.ends[0] = 1;

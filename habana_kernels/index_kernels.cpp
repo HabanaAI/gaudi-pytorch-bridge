@@ -2095,12 +2095,12 @@ void SliceOperator::AllocateAndAddSynapseNode(
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, output);
     }
-    synSliceParams params;
+    synSliceParamsNDims params;
     // set defaults
-    std::fill_n(params.axes, MAX_DIMENSIONS_NUM, 0);
-    std::fill_n(params.starts, MAX_DIMENSIONS_NUM, 0);
-    std::fill_n(params.ends, MAX_DIMENSIONS_NUM, 0);
-    std::fill_n(params.steps, MAX_DIMENSIONS_NUM, 1);
+    std::fill_n(params.axes, HABANA_DIM_MAX, 0);
+    std::fill_n(params.starts, HABANA_DIM_MAX, 0);
+    std::fill_n(params.ends, HABANA_DIM_MAX, 0);
+    std::fill_n(params.steps, HABANA_DIM_MAX, 1);
     // slice triggered only on 1 dim, therefore use only index 0
     params.axes[0] = self.dim() - dim - 1;
     params.starts[0] = start;
