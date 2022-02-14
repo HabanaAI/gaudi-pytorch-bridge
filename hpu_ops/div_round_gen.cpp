@@ -152,8 +152,8 @@ void DivRoundModeOperator::AddNode(
 
     // Initialization
     const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
-    std::vector<synapse_helpers::tensor> divOp, cast[cNoOfInputTensors],
-        makeIntegerOp, castToReturnTypeOp;
+    std::vector<synapse_helpers::tensor> divOp, makeIntegerOp;
+    std::unique_ptr<synapse_helpers::tensor> cast[cNoOfInputTensors];
 
     // Convert each tensor to float/bfloat16 (if not already in)
     std::pair<c10::ScalarType, c10::ScalarType> type_key;
@@ -164,17 +164,13 @@ void DivRoundModeOperator::AddNode(
         continue;
       }
 
-      type_key = std::make_pair(tensors.at(i).scalar_type(), computation_type);
-      auto iter = habana_helpers::cast_map.find(type_key);
-      strNode_type = iter->second;
-      cast[i] = BuildOp(
+      cast[i] = std::make_unique<synapse_helpers::tensor>(CastHelper(
           graph,
-          strNode_type,
-          {syn_in(i)},
-          // Sizes of "self" and "other" tensors may differ, so
-          // use own size as output size for cast op
-          {{stack_tensor(stack, i).sizes(), computation_type}});
-      binaryop_inputs.at(i) = cast[i].at(0).get();
+          syn_in(i),
+          stack_tensor(stack, i).sizes(),
+          tensors.at(i).scalar_type(),
+          computation_type));
+      binaryop_inputs.at(i) = cast[i]->get();
     }
 
     // Final cast is required, if result type is not float
@@ -184,7 +180,7 @@ void DivRoundModeOperator::AddNode(
 
     divOp = BuildOp(
         graph,
-        "div" + opStringSuffix,
+        "div_" + habana_helpers::name_suffix_from_type(computation_type),
         binaryop_inputs,
         {{shape_out,
           computation_type,
@@ -207,15 +203,14 @@ void DivRoundModeOperator::AddNode(
       return;
     }
 
-    type_key = std::make_pair(computation_type, final_result_type);
-    auto iter = habana_helpers::cast_map.find(type_key);
-    strNode_type = iter->second;
-    castToReturnTypeOp = BuildOp(
+    auto castToReturnTypeOp = CastHelper(
         graph,
-        strNode_type,
-        {makeIntegerOp.at(0).get()},
-        {{shape_out, final_result_type, 0}});
-    syn_out(0) = std::move(castToReturnTypeOp[0]);
+        makeIntegerOp.at(0).get(),
+        shape_out,
+        computation_type,
+        final_result_type,
+        0);
+    syn_out(0) = std::move(castToReturnTypeOp);
   } // else { //if (isIntegralType(final_result_type, true))
 }
 
