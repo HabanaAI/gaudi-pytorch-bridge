@@ -1601,6 +1601,19 @@ TEST_F(LazyDynamicShapesTest, ScatterTest) {
   scatter_test({500}, {30});
 }
 
+TEST_F(LazyDynamicShapesTest, MaxTest) {
+  auto max_test = [](std::vector<int64_t> input_shape) {
+    auto input = torch::randn(input_shape);
+    auto input_h = input.to(torch::kHPU);
+    auto out = input.max();
+    auto out_h = input_h.max();
+    EXPECT_EQ(allclose(out_h.to(torch::kCPU), out, 0.001, 0.001), true);
+  };
+  max_test({2, 10});
+  max_test({2, 12});
+  max_test({2, 15});
+}
+
 TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   auto pad_test = [](std::vector<int64_t> pad_sizes,
                      std::vector<int64_t> input_shape) {

@@ -569,14 +569,11 @@ synapse_helpers::tensor OpBackend::BuildReshape(
         the definition.
   */
   std::vector<synTensor> inputs = {syn_in};
-  std::unique_ptr<synapse_helpers::tensor> shape_input;
 
   // Do we really need this condition?
   if (graph.is_dynamic_graph()) {
-    shape_input = std::make_unique<synapse_helpers::tensor>(
-        habana_helpers::create_shape_tensor(
-            GetProxyTensor(dtype, sizes), graph, false, SHAPE_TENSOR));
-    inputs.emplace_back(shape_input->get());
+    inputs.emplace_back(
+        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
   }
   auto reshape = BuildNode(
       op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});
