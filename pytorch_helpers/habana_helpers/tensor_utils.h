@@ -261,4 +261,5 @@ void recalc_strides(
 bool is_supported_type(c10::ScalarType type);
 c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
 bool is_shape_tensor(synTensorType shape_tensor);
+std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
 } // namespace habana_helpers

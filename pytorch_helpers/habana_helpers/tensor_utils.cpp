@@ -556,7 +556,7 @@ void habana_helpers::copy_scalar_to_device(
 
 synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::IntArrayRef& shape,
-    const c10::IntArrayRef& stride,
+    UNUSED const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
     int devid,
@@ -570,7 +570,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        devid, shape.vec(), stride.vec(), name);
+        devid, shape.vec(), calculate_strides(shape.vec()), name);
   }
 
   std::vector<int64_t> min, max;
@@ -597,9 +597,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
-  auto builder = synapse_helpers::tensor_builder(
-                     shape, stride, pytorch_to_synapse_type(dtype))
-                     .mark_persistence(persistent);
+  auto builder =
+      synapse_helpers::tensor_builder(
+          shape, calculate_strides(shape.vec()), pytorch_to_synapse_type(dtype))
+          .mark_persistence(persistent);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -627,7 +628,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(),
         tensor.sizes().vec(),
-        tensor.strides().vec(),
+        calculate_strides(tensor.sizes().vec()),
         name,
         DATA_TENSOR,
         persistent);
@@ -668,7 +669,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
-          tensor.strides(),
+          calculate_strides(tensor.sizes().vec()),
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
           .set_offset(syn_offset)
           .mark_persistence(persistent);
@@ -704,7 +705,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(),
         tensor.sizes().vec(),
-        tensor.strides().vec(),
+        calculate_strides(tensor.sizes().vec()),
         name);
   }
 
@@ -735,7 +736,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   auto builder =
-      synapse_helpers::tensor_builder(tensor.sizes(), tensor.strides(), synType)
+      synapse_helpers::tensor_builder(
+          tensor.sizes(), calculate_strides(tensor.sizes().vec()), synType)
           .mark_persistence(persistent);
   if (!name.empty()) {
     builder.use_suffix(name);
@@ -764,7 +766,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(),
         tensor.sizes().vec(),
-        tensor.strides().vec(),
+        calculate_strides(tensor.sizes().vec()),
         name,
         shape_tensor_type);
   }
@@ -802,7 +804,8 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
         absl::get<synapse_helpers::tensor>(std::move(variant));
     // GC requires strides to be 0 for shape tensors though this should not
     // affect our tensor shape patching.
-    syn_tensor.set_pt_info(tensor.sizes().vec(), tensor.strides().vec());
+    syn_tensor.set_pt_info(
+        tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
 
     return syn_tensor;
   }
@@ -833,7 +836,8 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
       graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
-  syn_tensor.set_pt_info(tensor.sizes().vec(), tensor.strides().vec());
+  syn_tensor.set_pt_info(
+      tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
 
   return syn_tensor;
 }
@@ -1419,4 +1423,19 @@ bool habana_helpers::is_shape_tensor(synTensorType shape_tensor) {
     default:
       return false;
   };
+}
+
+std::vector<int64_t> habana_helpers::calculate_strides(
+    std::vector<int64_t> sizes) {
+  // With view table based design tensor strides should always be contiguous
+  const auto dim_ = sizes.size();
+  std::vector<int64_t> strides(dim_);
+  if (dim_ > 0) {
+    const auto last_idx = dim_ - 1;
+    strides[last_idx] = 1;
+    for (int64_t i = last_idx - 1; i >= 0; --i) {
+      strides[i] = strides[i + 1] * std::max<int64_t>(sizes[i + 1], 1);
+    }
+  }
+  return strides;
 }
