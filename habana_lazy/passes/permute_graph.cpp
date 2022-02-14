@@ -295,6 +295,371 @@ void HandleReturnNode(
   }
 }
 
+// Handle node inputs of tensor types
+void HandleNodeInputsTensor(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    NodePtrVecIndxDimsMap& anchor_nodes_,
+    const habana::KernelMetaData& habana_kernel_meta_data) {
+  auto node_ins = node->inputs();
+  size_t tensor_idx = 0;
+  habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
+  size_t meta_size = habana_kernel_meta_data.input_layout.size();
+  for (const auto value_in : node_ins) {
+    if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+      in_layout = tensor_idx >= meta_size
+          ? habana::LayoutFormat::ANY
+          : habana_kernel_meta_data.input_layout.at(tensor_idx);
+
+      TORCH_CHECK(
+          value_to_tensor_layout.find(value_in) !=
+              std::end(value_to_tensor_layout),
+          "InsertPermtue_graph : Channel order not updated");
+      auto tensor_layout = value_to_tensor_layout[value_in].layout;
+
+      // For weight tensors we update the map before execution starts
+      // through weightmarking pass If its marked HWCK in the map,
+      // we can override with it
+      if (tensor_layout == habana::LayoutFormat::HWCK) {
+        TORCH_CHECK(
+            in_layout == habana::LayoutFormat::HWCK ||
+                in_layout == habana::LayoutFormat::ANY,
+            "InsertPermute_graph, got contradicting layout info from meta data and opt pass");
+        in_layout = habana::LayoutFormat::HWCK;
+      }
+
+      if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
+        in_layout = prev_layout;
+      }
+
+      if (in_layout == habana::LayoutFormat::HWCK) {
+        in_layout = habana::LayoutFormat::ANY;
+        value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
+      }
+
+      bool permute_required =
+          (in_layout != tensor_layout &&
+           in_layout != habana::LayoutFormat::ANY);
+      auto perm_layout = in_layout;
+
+      // View and Index as per original PT layout
+      // dim based Ops as per original PT layout NCHW
+
+      // aten::slice used for static shapes and hpu:slice used for dynamic
+      // shapes. aten::slice is optimized for permute pass by having special
+      // check for dimBasedOps to reduce number of permutes. hpu::slice cannot
+      // be optimized because contiguous shape vectors are prepared at the
+      // front end by assuming that the inputs are always contiguous.
+      if (view_and_index_nodes.find(node->kind().toQualString()) !=
+              view_and_index_nodes.end() ||
+          dim_based_nodes.find(node->kind().toQualString()) !=
+              dim_based_nodes.end()) {
+        if ((tensor_layout != habana::LayoutFormat::NCHW) &&
+            (tensor_layout != habana::LayoutFormat::HWCK)) {
+          permute_required = true;
+          perm_layout = habana::LayoutFormat::NCHW;
+        }
+      }
+
+      // add permutes to memcpy if src and dst formats don't match
+      if ((strcmp(
+               node->kind().toQualString(), "hpu::habana_d2d_memcpy_other") ==
+           0)) {
+        auto value_out = node->input(1);
+        auto dst_layout = value_to_tensor_layout[value_out].layout;
+        if ((tensor_layout != dst_layout) &&
+            tensor_layout != habana::LayoutFormat::HWCK) {
+          permute_required = true;
+          perm_layout = dst_layout;
+        }
+      }
+
+      // add permtues in the graph
+      if (permute_required) {
+        if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+          auto dims = getDimsForLayout(perm_layout, tensor_layout);
+          anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+          tensor_layout = perm_layout;
+        }
+
+        if (*value_in->type()->cast<TensorType>()->dim() == 5) {
+          auto dims = getDimsForLayout5d(perm_layout, tensor_layout);
+          anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+          tensor_layout = perm_layout;
+        }
+      }
+      prev_layout = tensor_idx == 0 ? tensor_layout : prev_layout;
+      tensor_idx++;
+    }
+  }
+}
+
+// Pass layout info to outputs for nodes which have layout meta info
+void PassLayoutToOutputsWithMetaInfo(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    const habana::KernelMetaData& habana_kernel_meta_data) {
+  // Nodes with meta layout info
+  size_t output_tensor_idx = 0;
+  auto node_outs = node->outputs();
+  auto in_layout_entry =
+      value_to_tensor_layout[node->input(0)].layout_at_graph_entry;
+  if (in_layout_entry == habana::LayoutFormat::ANY) {
+    in_layout_entry = habana::LayoutFormat::NCHW;
+  }
+  for (const auto value_out : node_outs) {
+    auto out_layout =
+        habana_kernel_meta_data.output_layout.at(output_tensor_idx);
+    // if already marked by weightmarkingPass, assign the Layout
+    if (value_to_tensor_layout.find(value_out) !=
+        value_to_tensor_layout.end()) {
+      out_layout = value_to_tensor_layout[value_out].layout;
+    }
+    if (out_layout == habana::LayoutFormat::ANY) {
+      value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+      value_to_tensor_layout[value_out].layout_at_graph_entry =
+          habana::LayoutFormat::NCHW;
+    } else {
+      value_to_tensor_layout[value_out].layout = out_layout;
+      value_to_tensor_layout[value_out].layout_at_graph_entry = in_layout_entry;
+      if (out_layout == habana::LayoutFormat::HWCK) {
+        value_to_tensor_layout[value_out].layout_at_graph_entry = out_layout;
+      }
+    }
+    output_tensor_idx++;
+  }
+}
+
+void HandleSingleInputOutputNodes(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    const habana::KernelMetaData& habana_kernel_meta_data) {
+  size_t out_meta_size = habana_kernel_meta_data.output_layout.size();
+  habana::LayoutFormat out_layout = habana::LayoutFormat::ANY;
+  auto value_in = node->input(0);
+  auto value_out = node->output(0);
+  if (out_meta_size == 0) {
+    out_layout = habana::LayoutFormat::ANY;
+  } else {
+    out_layout = habana_kernel_meta_data.input_layout.at(0);
+  }
+  if (out_layout == habana::LayoutFormat::ANY) {
+    value_to_tensor_layout[value_out].layout =
+        value_to_tensor_layout[value_in].layout;
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        value_to_tensor_layout[value_in].layout_at_graph_entry;
+  } else {
+    value_to_tensor_layout[value_out].layout = out_layout;
+  }
+}
+
+void HandlePermuteCl(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout) {
+  auto value_out = node->output(0);
+  value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
+  value_to_tensor_layout[value_out].layout_at_graph_entry =
+      habana::LayoutFormat::NHWC;
+}
+
+void HandleCast(Node* node, ValuePtrTensorLayoutMap& value_to_tensor_layout) {
+  auto value_in = node->input(0);
+  auto in_layout = value_to_tensor_layout[value_in].layout;
+  auto in_layout_entry = value_to_tensor_layout[value_in].layout_at_graph_entry;
+  for (auto value_out : node->outputs()) {
+    value_to_tensor_layout[value_out].layout = in_layout;
+    value_to_tensor_layout[value_out].layout_at_graph_entry = in_layout_entry;
+  }
+}
+
+void HandleD2DMemCpyOther(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout) {
+  auto value_in = node->input(1);
+  auto in_layout = value_to_tensor_layout[value_in].layout;
+  auto in_layout_entry = value_to_tensor_layout[value_in].layout_at_graph_entry;
+  for (auto value_out : node->outputs()) {
+    value_to_tensor_layout[value_out].layout = in_layout;
+    value_to_tensor_layout[value_out].layout_at_graph_entry = in_layout_entry;
+  }
+}
+
+void HandleCatOp(
+    std::shared_ptr<Graph>& graph,
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    NodePtrVecIndxDimsMap& anchor_nodes_) {
+  auto tListNode = node->input(0)->node();
+  auto value_in0 = tListNode->input(0);
+  auto value_out = node->output(0);
+  auto dimIdx = 1; // position of dim input
+  auto dim = toIValue(node->input(dimIdx))->toInt();
+  // check if all inputs are 4d and are in NHWC format
+  auto allNHWC = true;
+  auto is_5d_layout = false;
+  for (auto value_in : tListNode->inputs()) {
+    is_5d_layout = *value_in->type()->cast<TensorType>()->dim() == 5;
+    if ((value_to_tensor_layout[value_in].layout ==
+         habana::LayoutFormat::NCHW) ||
+        (*value_in->type()->cast<TensorType>()->dim() < 4)) {
+      allNHWC = false;
+      break;
+    }
+  }
+  // if all inputs are 4d and NHWC then adding permutes at inputs not
+  // needed, instead change dim
+  if (allNHWC) {
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        value_to_tensor_layout[value_in0].layout_at_graph_entry;
+    auto layout_dim = is_5d_layout
+        ? getLayoutDim5d(value_to_tensor_layout[value_in0].layout, dim)
+        : getLayoutDim(value_to_tensor_layout[value_in0].layout, dim);
+    WithInsertPoint insert_point(node);
+    auto value_dim = graph->insertConstant(IValue(layout_dim));
+    node->replaceInputWith(node->input(dimIdx), value_dim);
+  }
+  // otherwise go through inputs and insert permutes to go to NCHW
+  else {
+    value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        value_to_tensor_layout[value_in0].layout_at_graph_entry;
+    for (auto value_in : tListNode->inputs()) {
+      if (value_to_tensor_layout[value_in].layout !=
+          habana::LayoutFormat::NCHW) {
+        if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+          auto dims = getDimsForLayout(
+              habana::LayoutFormat::NCHW,
+              value_to_tensor_layout[value_in].layout);
+          anchor_nodes_[tListNode].push_back(std::make_pair(value_in, dims));
+        }
+
+        if (is_5d_layout) {
+          auto dims = getDimsForLayout5d(
+              habana::LayoutFormat::NCHW,
+              value_to_tensor_layout[value_in].layout);
+          anchor_nodes_[tListNode].push_back(std::make_pair(value_in, dims));
+        }
+      }
+    }
+  }
+}
+
+void HandleConstantPadND(
+    std::shared_ptr<Graph>& graph,
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout) {
+  auto value_in0 = node->input(0);
+  // PRefix the pad value with 0,0 tuple so that padding of 'C' is
+  // skipped and padding is applied to W, H
+  if (value_to_tensor_layout[value_in0].layout == habana::LayoutFormat::NHWC) {
+    auto const padIdx = 1;
+    std::vector<int64_t> pad = toIValue(node->input(padIdx))->toIntList().vec();
+    pad.insert(pad.begin(), 2, 0);
+    WithInsertPoint insert_point(node);
+    auto value_dim = graph->insertConstant(IValue(at::IntArrayRef(pad)));
+    node->replaceInputWith(node->input(padIdx), value_dim);
+  }
+}
+
+void HandleOptimizedDimBasedOp(
+    std::shared_ptr<Graph>& graph,
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout,
+    NodePtrVecIndxDimsMap& anchor_nodes_) {
+  auto value_in = node->input(0);
+  auto dimIdx = dimBasedOptimOpsIdx.at(node->kind().toQualString());
+  auto dim = toIValue(node->input(dimIdx))->toInt();
+  auto value_layout_entry =
+      value_to_tensor_layout[value_in].layout_at_graph_entry;
+  auto tensor_layout = value_to_tensor_layout[value_in].layout;
+  for (auto value_out : node->outputs()) {
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        value_layout_entry;
+    value_to_tensor_layout[value_out].layout = tensor_layout;
+    auto is_5d_layout = *value_out->type()->cast<TensorType>()->dim() == 5;
+    auto layout_dim = is_5d_layout ? getLayoutDim5d(tensor_layout, dim)
+                                   : getLayoutDim(tensor_layout, dim);
+    if ((tensor_layout != habana::LayoutFormat::NCHW) &&
+        (tensor_layout != habana::LayoutFormat::HWCK)) {
+      if (*value_out->type()->cast<TensorType>()->dim() == 4 || is_5d_layout) {
+        // if dims can not be adjusted bring back to PT layout
+        if (layout_dim != dim) {
+          WithInsertPoint insert_point(node);
+          auto value_dim = graph->insertConstant(IValue(layout_dim));
+          node->replaceInputWith(node->input(dimIdx), value_dim);
+        } else {
+          auto value_in = node->input(0);
+          auto dims = is_5d_layout
+              ? getDimsForLayout5d(
+                    habana::LayoutFormat::NCHW,
+                    value_to_tensor_layout[value_in].layout)
+              : getDimsForLayout(
+                    habana::LayoutFormat::NCHW,
+                    value_to_tensor_layout[value_in].layout);
+          anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+        }
+      } else {
+        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+      }
+    }
+  }
+}
+
+void HandleMultiInputOutput(
+    Node* node,
+    ValuePtrTensorLayoutMap& value_to_tensor_layout) {
+  auto node_ins = node->inputs();
+  auto node_outs = node->outputs();
+  size_t output_tensor_idx = 0, node_idx = 0;
+  habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
+  habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
+  for (const auto value_in : node_ins) {
+    if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+      TORCH_CHECK(
+          value_to_tensor_layout.find(value_in) !=
+              std::end(value_to_tensor_layout),
+          "InsertPermtue_graph : Channel order not updated");
+      auto in_layout = value_to_tensor_layout[value_in].layout;
+      assigned_input_layout =
+          ((node_idx == 0) || in_layout == habana::LayoutFormat::HWCK)
+          ? in_layout
+          : assigned_input_layout;
+
+      origin_input_layout =
+          value_to_tensor_layout[value_in].layout_at_graph_entry ==
+              habana::LayoutFormat::NHWC
+          ? habana::LayoutFormat::NHWC
+          : origin_input_layout;
+      node_idx++;
+    }
+  }
+
+  for (const auto value_out : node_outs) {
+    if (value_to_tensor_layout.find(value_out) !=
+        value_to_tensor_layout.end()) {
+      assigned_input_layout = value_to_tensor_layout[value_out].layout;
+      origin_input_layout =
+          value_to_tensor_layout[value_out].layout_at_graph_entry;
+    }
+    value_to_tensor_layout[value_out].layout = assigned_input_layout;
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        origin_input_layout;
+    if (assigned_input_layout == habana::LayoutFormat::HWCK) {
+      if (is_4d_5d_value(value_out)) {
+        value_to_tensor_layout[value_out].layout = assigned_input_layout;
+        value_to_tensor_layout[value_out].layout_at_graph_entry =
+            assigned_input_layout;
+      } else {
+        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+        value_to_tensor_layout[value_out].layout_at_graph_entry =
+            habana::LayoutFormat::NCHW;
+      }
+    }
+    output_tensor_idx++;
+  }
+}
+
 /*Layout optimization pass
   1. Parse each node inputs and add permutes only for layout non-agnostic nodes
   2. ChannelsLast nodes should return restrided output since PT expects
@@ -356,186 +721,31 @@ void InsertPermute_graph(
     TORCH_CHECK(
         habana_kernel, node->schema().operator_name(), " is not registered!");
     const auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
+    HandleNodeInputsTensor(
+        node, value_to_tensor_layout, anchor_nodes_, habana_kernel_meta_data);
+
     bool isLayoutAgnostic = IsNodeLayoutAgnostic(node, habana_kernel_meta_data);
-
-    // permute Loop
-    auto node_ins = node->inputs();
-
-    size_t tensor_idx = 0;
-    habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
-    size_t meta_size = habana_kernel_meta_data.input_layout.size();
-    for (const auto value_in : node_ins) {
-      if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-        in_layout = tensor_idx >= meta_size
-            ? habana::LayoutFormat::ANY
-            : habana_kernel_meta_data.input_layout.at(tensor_idx);
-
-        TORCH_CHECK(
-            value_to_tensor_layout.find(value_in) !=
-                std::end(value_to_tensor_layout),
-            "InsertPermtue_graph : Channel order not updated");
-        auto tensor_layout = value_to_tensor_layout[value_in].layout;
-
-        // For weight tensors we update the map before execution starts
-        // through weightmarking pass If its marked HWCK in the map,
-        // we can override with it
-        if (tensor_layout == habana::LayoutFormat::HWCK) {
-          TORCH_CHECK(
-              in_layout == habana::LayoutFormat::HWCK ||
-                  in_layout == habana::LayoutFormat::ANY,
-              "InsertPermute_graph, got contradicting layout info from meta data and opt pass");
-          in_layout = habana::LayoutFormat::HWCK;
-        }
-
-        if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
-          in_layout = prev_layout;
-        }
-
-        if (in_layout == habana::LayoutFormat::HWCK) {
-          in_layout = habana::LayoutFormat::ANY;
-          value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
-        }
-
-        bool permute_required =
-            (in_layout != tensor_layout &&
-             in_layout != habana::LayoutFormat::ANY);
-        auto perm_layout = in_layout;
-
-        // View and Index as per original PT layout
-        // dim based Ops as per original PT layout NCHW
-
-        // aten::slice used for static shapes and hpu:slice used for dynamic
-        // shapes. aten::slice is optimized for permute pass by having special
-        // check for dimBasedOps to reduce number of permutes. hpu::slice cannot
-        // be optimized because contiguous shape vectors are prepared at the
-        // front end by assuming that the inputs are always contiguous.
-        if (view_and_index_nodes.find(node->kind().toQualString()) !=
-                view_and_index_nodes.end() ||
-            dim_based_nodes.find(node->kind().toQualString()) !=
-                dim_based_nodes.end()) {
-          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
-              (tensor_layout != habana::LayoutFormat::HWCK)) {
-            permute_required = true;
-            perm_layout = habana::LayoutFormat::NCHW;
-          }
-        }
-
-        // add permutes to memcpy if src and dst formats don't match
-        if ((strcmp(
-                 node->kind().toQualString(), "hpu::habana_d2d_memcpy_other") ==
-             0)) {
-          auto value_out = node->input(1);
-          auto dst_layout = value_to_tensor_layout[value_out].layout;
-          if ((tensor_layout != dst_layout) &&
-              tensor_layout != habana::LayoutFormat::HWCK) {
-            permute_required = true;
-            perm_layout = dst_layout;
-          }
-        }
-
-        // add permtues in the graph
-        if (permute_required) {
-          if (*value_in->type()->cast<TensorType>()->dim() == 4) {
-            auto dims = getDimsForLayout(perm_layout, tensor_layout);
-            anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
-            tensor_layout = perm_layout;
-          }
-
-          if (*value_in->type()->cast<TensorType>()->dim() == 5) {
-            auto dims = getDimsForLayout5d(perm_layout, tensor_layout);
-            anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
-            tensor_layout = perm_layout;
-          }
-        }
-        prev_layout = tensor_idx == 0 ? tensor_layout : prev_layout;
-        tensor_idx++;
-      }
-    }
-
     // Pass layout info to Node outputs
     if (!isLayoutAgnostic) {
-      // Nodes with meta layout info
-      size_t output_tensor_idx = 0;
-      auto node_outs = node->outputs();
-      auto in_layout_entry =
-          value_to_tensor_layout[node->input(0)].layout_at_graph_entry;
-      if (in_layout_entry == habana::LayoutFormat::ANY) {
-        in_layout_entry = habana::LayoutFormat::NCHW;
-      }
-      for (const auto value_out : node_outs) {
-        auto out_layout =
-            habana_kernel_meta_data.output_layout.at(output_tensor_idx);
-        // if already marked by weightmarkingPass, assign the Layout
-        if (value_to_tensor_layout.find(value_out) !=
-            value_to_tensor_layout.end()) {
-          out_layout = value_to_tensor_layout[value_out].layout;
-        }
-        if (out_layout == habana::LayoutFormat::ANY) {
-          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              habana::LayoutFormat::NCHW;
-        } else {
-          value_to_tensor_layout[value_out].layout = out_layout;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              in_layout_entry;
-          if (out_layout == habana::LayoutFormat::HWCK) {
-            value_to_tensor_layout[value_out].layout_at_graph_entry =
-                out_layout;
-          }
-        }
-        output_tensor_idx++;
-      }
+      PassLayoutToOutputsWithMetaInfo(
+          node, value_to_tensor_layout, habana_kernel_meta_data);
     } else {
       // Node has single input and output
       if ((node->outputs().size() == 1) && (node->inputs().size() == 1)) {
-        size_t out_meta_size = habana_kernel_meta_data.output_layout.size();
-        habana::LayoutFormat out_layout = habana::LayoutFormat::ANY;
-        auto value_in = node->input(0);
-        auto value_out = node->output(0);
-        if (out_meta_size == 0) {
-          out_layout = habana::LayoutFormat::ANY;
-        } else {
-          out_layout = habana_kernel_meta_data.input_layout.at(0);
-        }
-        if (out_layout == habana::LayoutFormat::ANY) {
-          value_to_tensor_layout[value_out].layout =
-              value_to_tensor_layout[value_in].layout;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              value_to_tensor_layout[value_in].layout_at_graph_entry;
-        } else {
-          value_to_tensor_layout[value_out].layout = out_layout;
-        }
+        HandleSingleInputOutputNodes(
+            node, value_to_tensor_layout, habana_kernel_meta_data);
       } else if (
           // permute_cl sets channelsLast output format
           (strcmp(node->kind().toQualString(), "hpu::permute_cl") == 0)) {
-        auto value_out = node->output(0);
-        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
-        value_to_tensor_layout[value_out].layout_at_graph_entry =
-            habana::LayoutFormat::NHWC;
+        HandlePermuteCl(node, value_to_tensor_layout);
       } else if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
         // special case format info passing cast node
-        auto value_in = node->input(0);
-        auto in_layout = value_to_tensor_layout[value_in].layout;
-        auto in_layout_entry =
-            value_to_tensor_layout[value_in].layout_at_graph_entry;
-        for (auto value_out : node->outputs()) {
-          value_to_tensor_layout[value_out].layout = in_layout;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              in_layout_entry;
-        }
+        HandleCast(node, value_to_tensor_layout);
       } else if ((strcmp(
                       node->kind().toQualString(),
                       "hpu::habana_d2d_memcpy_other") == 0)) {
         // special case format info passing mem cpy node
-        auto value_in = node->input(1);
-        auto in_layout = value_to_tensor_layout[value_in].layout;
-        auto in_layout_entry =
-            value_to_tensor_layout[value_in].layout_at_graph_entry;
-        for (auto value_out : node->outputs()) {
-          value_to_tensor_layout[value_out].layout = in_layout;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              in_layout_entry;
-        }
+        HandleD2DMemCpyOther(node, value_to_tensor_layout);
       } else if (
           dim_based_nodes.find(node->kind().toQualString()) !=
               dim_based_nodes.end() ||
@@ -555,172 +765,16 @@ void InsertPermute_graph(
           }
         }
       } else if (isDimBasedOptimOp(node)) {
-        auto value_in = node->input(0);
-        auto dimIdx = dimBasedOptimOpsIdx.at(node->kind().toQualString());
-        auto dim = toIValue(node->input(dimIdx))->toInt();
-        auto value_layout_entry =
-            value_to_tensor_layout[value_in].layout_at_graph_entry;
-        auto tensor_layout = value_to_tensor_layout[value_in].layout;
-        for (auto value_out : node->outputs()) {
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              value_layout_entry;
-          value_to_tensor_layout[value_out].layout = tensor_layout;
-          auto is_5d_layout =
-              *value_out->type()->cast<TensorType>()->dim() == 5;
-          auto layout_dim = is_5d_layout ? getLayoutDim5d(tensor_layout, dim)
-                                         : getLayoutDim(tensor_layout, dim);
-          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
-              (tensor_layout != habana::LayoutFormat::HWCK)) {
-            if (*value_out->type()->cast<TensorType>()->dim() == 4 ||
-                is_5d_layout) {
-              // if dims can not be adjusted bring back to PT layout
-              if (layout_dim != dim) {
-                WithInsertPoint insert_point(node);
-                auto value_dim = graph->insertConstant(IValue(layout_dim));
-                node->replaceInputWith(node->input(dimIdx), value_dim);
-              } else {
-                auto value_in = node->input(0);
-                auto dims = is_5d_layout
-                    ? getDimsForLayout5d(
-                          habana::LayoutFormat::NCHW,
-                          value_to_tensor_layout[value_in].layout)
-                    : getDimsForLayout(
-                          habana::LayoutFormat::NCHW,
-                          value_to_tensor_layout[value_in].layout);
-                anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
-                value_to_tensor_layout[value_out].layout =
-                    habana::LayoutFormat::NCHW;
-              }
-            } else {
-              value_to_tensor_layout[value_out].layout =
-                  habana::LayoutFormat::NCHW;
-            }
-          }
-        }
+        HandleOptimizedDimBasedOp(
+            graph, node, value_to_tensor_layout, anchor_nodes_);
       } else if ((strcmp(node->kind().toQualString(), "aten::cat") == 0)) {
-        auto tListNode = node->input(0)->node();
-        auto value_in0 = tListNode->input(0);
-        auto value_out = node->output(0);
-        auto dimIdx = 1; // position of dim input
-        auto dim = toIValue(node->input(dimIdx))->toInt();
-        // check if all inputs are 4d and are in NHWC format
-        auto allNHWC = true;
-        auto is_5d_layout = false;
-        for (auto value_in : tListNode->inputs()) {
-          is_5d_layout = *value_in->type()->cast<TensorType>()->dim() == 5;
-          if ((value_to_tensor_layout[value_in].layout ==
-               habana::LayoutFormat::NCHW) ||
-              (*value_in->type()->cast<TensorType>()->dim() < 4)) {
-            allNHWC = false;
-            break;
-          }
-        }
-        // if all inputs are 4d and NHWC then adding permutes at inputs not
-        // needed, instead change dim
-        if (allNHWC) {
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              value_to_tensor_layout[value_in0].layout_at_graph_entry;
-          auto layout_dim = is_5d_layout
-              ? getLayoutDim5d(value_to_tensor_layout[value_in0].layout, dim)
-              : getLayoutDim(value_to_tensor_layout[value_in0].layout, dim);
-          WithInsertPoint insert_point(node);
-          auto value_dim = graph->insertConstant(IValue(layout_dim));
-          node->replaceInputWith(node->input(dimIdx), value_dim);
-        }
-        // otherwise go through inputs and insert permutes to go to NCHW
-        else {
-          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              value_to_tensor_layout[value_in0].layout_at_graph_entry;
-          for (auto value_in : tListNode->inputs()) {
-            if (value_to_tensor_layout[value_in].layout !=
-                habana::LayoutFormat::NCHW) {
-              if (*value_in->type()->cast<TensorType>()->dim() == 4) {
-                auto dims = getDimsForLayout(
-                    habana::LayoutFormat::NCHW,
-                    value_to_tensor_layout[value_in].layout);
-                anchor_nodes_[tListNode].push_back(
-                    std::make_pair(value_in, dims));
-              }
-
-              if (is_5d_layout) {
-                auto dims = getDimsForLayout5d(
-                    habana::LayoutFormat::NCHW,
-                    value_to_tensor_layout[value_in].layout);
-                anchor_nodes_[tListNode].push_back(
-                    std::make_pair(value_in, dims));
-              }
-            }
-          }
-        }
+        HandleCatOp(graph, node, value_to_tensor_layout, anchor_nodes_);
       } else {
         if (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") == 0) {
-          auto value_in0 = node->input(0);
-          // PRefix the pad value with 0,0 tuple so that padding of 'C' is
-          // skipped and padding is applied to W, H
-          if (value_to_tensor_layout[value_in0].layout ==
-              habana::LayoutFormat::NHWC) {
-            auto const padIdx = 1;
-            std::vector<int64_t> pad =
-                toIValue(node->input(padIdx))->toIntList().vec();
-            pad.insert(pad.begin(), 2, 0);
-            WithInsertPoint insert_point(node);
-            auto value_dim =
-                graph->insertConstant(IValue(at::IntArrayRef(pad)));
-            node->replaceInputWith(node->input(padIdx), value_dim);
-          }
+          HandleConstantPadND(graph, node, value_to_tensor_layout);
         }
-
         // Multi input and single output pass layout info from input to output
-        auto node_outs = node->outputs();
-        size_t output_tensor_idx = 0, node_idx = 0;
-        habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
-        habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
-        for (const auto value_in : node_ins) {
-          if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-            TORCH_CHECK(
-                value_to_tensor_layout.find(value_in) !=
-                    std::end(value_to_tensor_layout),
-                "InsertPermtue_graph : Channel order not updated");
-            auto in_layout = value_to_tensor_layout[value_in].layout;
-            assigned_input_layout =
-                ((node_idx == 0) || in_layout == habana::LayoutFormat::HWCK)
-                ? in_layout
-                : assigned_input_layout;
-
-            origin_input_layout =
-                value_to_tensor_layout[value_in].layout_at_graph_entry ==
-                    habana::LayoutFormat::NHWC
-                ? habana::LayoutFormat::NHWC
-                : origin_input_layout;
-            node_idx++;
-          }
-        }
-
-        for (const auto value_out : node_outs) {
-          if (value_to_tensor_layout.find(value_out) !=
-              value_to_tensor_layout.end()) {
-            assigned_input_layout = value_to_tensor_layout[value_out].layout;
-            origin_input_layout =
-                value_to_tensor_layout[value_out].layout_at_graph_entry;
-          }
-          value_to_tensor_layout[value_out].layout = assigned_input_layout;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              origin_input_layout;
-          if (assigned_input_layout == habana::LayoutFormat::HWCK) {
-            if (is_4d_5d_value(value_out)) {
-              value_to_tensor_layout[value_out].layout = assigned_input_layout;
-              value_to_tensor_layout[value_out].layout_at_graph_entry =
-                  assigned_input_layout;
-            } else {
-              value_to_tensor_layout[value_out].layout =
-                  habana::LayoutFormat::NCHW;
-              value_to_tensor_layout[value_out].layout_at_graph_entry =
-                  habana::LayoutFormat::NCHW;
-            }
-          }
-          output_tensor_idx++;
-        }
+        HandleMultiInputOutput(node, value_to_tensor_layout);
       }
     }
   }
