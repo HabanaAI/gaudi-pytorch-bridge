@@ -301,6 +301,96 @@ bitwise_and_.Tensor:
   guid: bitwise_and_fwd
   inplace_ids: [0]
 
+__lshift__.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
+
+__lshift__.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+__ilshift__.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
+
+__ilshift__.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+bitwise_left_shift.Scalar_Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  out_ids: [1]
+  scalar_ids: [0]
+
+bitwise_left_shift.Tensor:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  out_ids: [0]
+  type_promotion: true
+
+bitwise_left_shift.Tensor_out:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  type_promotion: true
+
+bitwise_left_shift.Tensor_Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  out_ids: [0]
+  scalar_ids: [1]
+
+bitwise_left_shift.Tensor_Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  scalar_ids: [1]
+
+bitwise_left_shift_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+bitwise_left_shift_.Tensor_Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: mult_fwd
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
+
 bitwise_not:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
@@ -337,6 +427,96 @@ bitwise_or_.Tensor:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   inplace_ids: [0]
+
+__rshift__.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
+
+__rshift__.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+__irshift__.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
+
+__irshift__.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+bitwise_right_shift.Scalar_Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  out_ids: [1]
+  scalar_ids: [0]
+
+bitwise_right_shift.Tensor:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  out_ids: [0]
+  type_promotion: true
+
+bitwise_right_shift.Tensor_out:
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  type_promotion: true
+
+bitwise_right_shift.Tensor_Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  out_ids: [0]
+  scalar_ids: [1]
+
+bitwise_right_shift.Tensor_Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  scalar_ids: [1]
+
+bitwise_right_shift_.Tensor:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+
+bitwise_right_shift_.Tensor_Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: div
+  op_frontend: ScalarTypeConversion
+  op_backend: BitwiseShift
+  inplace_ids: [0]
+  scalar_ids: [1]
 
 bitwise_xor.Scalar_out:
   dtypes: [Int, Short, Byte, Char]
