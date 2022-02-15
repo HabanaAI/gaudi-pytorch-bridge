@@ -101,6 +101,16 @@ class OpBackend : public HabanaOperator {
     return m_scalar_type;
   }
 
+  const auto& GetShapeTensors() const {
+    return m_shape_tensors;
+  }
+
+  const auto& CreateShapeTensorInput(
+      synapse_helpers::graph& graph,
+      at::ScalarType dtype,
+      at::IntArrayRef sizes,
+      synTensorType shape_tensor_type);
+
  protected:
   c10::ScalarType ComputePromotedScalarType(
       const at::Stack& stack,
@@ -283,6 +293,7 @@ class OpBackend : public HabanaOperator {
   std::vector<bool>
       m_persistence_list; // Reuse from HabanaOperator::OutputMetaData when
                           // available
+  std::vector<synapse_helpers::tensor> m_shape_tensors;
 };
 
 #define PARAMS_STUB(structname) \

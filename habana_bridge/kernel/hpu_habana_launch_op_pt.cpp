@@ -42,6 +42,7 @@
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -813,6 +814,13 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
     const HabanaOperatorPtr& habanaOp,
     torch::jit::Node* node) {
+  if (auto op = std::dynamic_pointer_cast<OpBackend>(habanaOp)) {
+    for (const auto& st : op->GetShapeTensors()) {
+      auto irn = "%shapeInput_" + std::to_string(shape_index++);
+      shape_tensor_tinfos.emplace_back(std::make_shared<PtTensorInfo>(st, irn));
+    }
+  }
+
   for (synapse_helpers::tensor& maybe_syn_shape_tensor :
        habanaOp->GetSynInputs()) {
     if (maybe_syn_shape_tensor.is_shape_tensor() ||

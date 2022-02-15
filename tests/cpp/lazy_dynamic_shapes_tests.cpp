@@ -1487,3 +1487,29 @@ TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
     auto lazy_cpu = lazy.to(torch::kCPU);
   }
 }
+
+TEST_F(LazyDynamicShapesTest, ScatterTest) {
+  auto scatter_test = [](std::vector<int64_t> in_shape1,
+                         std::vector<int64_t> in_shape2) {
+    torch::Tensor a = torch::randn(in_shape1, torch::requires_grad(false));
+    torch::Tensor h_a = a.to(torch::kHPU);
+    int64_t dim = 0;
+    auto index =
+        torch::randint(0, in_shape1[0], in_shape2, torch::dtype(torch::kInt64));
+    auto h_index = index.to(torch::kHPU);
+    auto value = 2;
+
+    h_a.add_(1);
+    h_a.scatter_(dim, h_index, value);
+    h_a.add_(1);
+    auto h_cout = h_a.to(torch::kCPU);
+    a.add_(1);
+    a.scatter_(dim, index, value);
+    a.add_(1);
+
+    EXPECT_EQ(allclose(h_cout, a), true);
+  };
+  scatter_test({500}, {20});
+  scatter_test({500}, {25});
+  scatter_test({500}, {30});
+}

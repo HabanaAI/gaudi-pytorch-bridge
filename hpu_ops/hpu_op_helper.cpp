@@ -402,6 +402,17 @@ void OpBackend::AllocateAndAddSynapseNode(
   AddNode(graph, stack);
 }
 
+const auto& OpBackend::CreateShapeTensorInput(
+    synapse_helpers::graph& graph,
+    at::ScalarType dtype,
+    at::IntArrayRef sizes,
+    synTensorType shape_tensor_type) {
+  auto st = habana_helpers::create_shape_tensor(
+      GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
+  m_shape_tensors.emplace_back(std::move(st));
+  return m_shape_tensors.back();
+}
+
 std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -507,18 +518,12 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   }
 
   std::vector<synTensor> input;
-  std::unique_ptr<synapse_helpers::tensor> shape_input;
 
   // No inputs for non dynamic graph
-  // Do we really need this condition?
   if (graph.is_dynamic_graph()) {
-    shape_input = std::make_unique<synapse_helpers::tensor>(
-        habana_helpers::create_shape_tensor(
-            GetProxyTensor(valtype, constant_outshape),
-            graph,
-            false,
-            SHAPE_TENSOR));
-    input = {shape_input->get()};
+    input.emplace_back(op->CreateShapeTensorInput(
+                             graph, valtype, constant_outshape, SHAPE_TENSOR)
+                           .get());
   }
 
   auto constant = BuildNode(
@@ -529,6 +534,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
        {{constant_outshape, valtype, final_result_index}},
        &params,
        sizeof(params)});
+
   return std::move(constant.at(0));
 }
 
