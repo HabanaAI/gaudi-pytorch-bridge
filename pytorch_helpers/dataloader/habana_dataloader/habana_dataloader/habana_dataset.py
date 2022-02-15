@@ -11,6 +11,9 @@ from enum import Enum
 import torch.hpu
 import habana_frameworks.torch.core as htcore
 
+def isGaudi(device):
+    return (device == htcore.synDeviceGaudi) or (device == htcore.synDeviceGaudiM)
+
 class HabanaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
@@ -34,7 +37,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
                     self.aeon_fallback_activated = True
 
-            if (self.DeviceType == htcore.synDeviceGaudi) or (self.aeon_fallback_activated == True):
+            if isGaudi(self.DeviceType)or (self.aeon_fallback_activated == True):
                 from .aeon_config import get_aeon_config
                 from .aeon_transformers import HabanaAeonTransforms
                 from .aeon_manifest import generate_aeon_manifest
@@ -84,7 +87,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         if self.fallback_activated:
             return super().__len__()
-        elif (self.DeviceType == htcore.synDeviceGaudi) or (self.aeon_fallback_activated == True):
+        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return len(self.aeon)
         elif self.DeviceType == htcore.synDeviceGaudi2:
             return len(self.iterator)
@@ -94,7 +97,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         if self.fallback_activated:
             return super().__iter__()
-        elif (self.DeviceType == htcore.synDeviceGaudi) or (self.aeon_fallback_activated == True):
+        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return iter(self.aeon)
         elif self.DeviceType == htcore.synDeviceGaudi2:
             return iter(self.iterator)
