@@ -5576,28 +5576,46 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   // Since we give back a contiguous tensor, we will set strides
   // to proper values.
   habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+
+  std::vector<at::IValue> vector_of_inputs;
+  std::string op_name;
   ir::NodePtr node;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     auto expand_shape_tensor = empty_strided_hpu_lazy(
         expandedSizes, expandedStrides, self.options(), false, SHAPE_TENSOR);
-    node = std::make_shared<ir::Expand>(self, expand_shape_tensor, implicit);
+    op_name = "hpu::expand";
+    vector_of_inputs = {self, expand_shape_tensor, implicit};
   } else {
-    node = std::make_shared<ir::Expand>(self, size, implicit);
+    op_name = "aten::expand";
+    vector_of_inputs = {self, size, implicit};
   }
 
-  auto result = empty_strided_hpu_lazy(
-      expandedSizes, expandedStrides, self.options(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(
+        const std::vector<int64_t> expandedSizes,
+        const std::vector<int64_t> expandedStrides,
+        const std::string& op_name,
+        const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>(op_name, vector_of_inputs, {}, {}, -1),
+          expandedSizes(expandedSizes),
+          expandedStrides(expandedStrides) {}
 
-  flush_op(result);
-  return result;
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      return empty_strided_hpu_lazy(
+          expandedSizes, expandedStrides, self.options(), false);
+    }
+    std::vector<int64_t> expandedSizes;
+    std::vector<int64_t> expandedStrides;
+  };
+
+  Kernel kernel{expandedSizes, expandedStrides, op_name, vector_of_inputs};
+  return kernel.call();
 }
 
 std::vector<Tensor> split_with_sizes_hpu_lazy(

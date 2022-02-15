@@ -47,59 +47,6 @@ class AsStridedLayout : public ir::Node {
   }
 };
 
-class Expand : public ir::Node {
- public:
-  enum class ExpandIdx { kDimIdx = 1, kImplicitIdx = 2 };
-  Expand() = delete;
-  Expand(const at::Tensor& self, at::IntArrayRef dims, bool implicit)
-      : Node(c10::Symbol::fromQualString("aten::expand")) {
-    HbLazyTensor hl_self = GetHbLazyTensor(self);
-
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-
-    AddInput(hl_self.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dims, static_cast<size_t>(ExpandIdx::kDimIdx));
-    m_meta_data.set(implicit, static_cast<size_t>(ExpandIdx::kImplicitIdx));
-  }
-
-  Expand(const at::Tensor& self, const at::Tensor& expand, bool implicit)
-      : Node(c10::Symbol::fromQualString("hpu::expand")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    auto hl_expand = GetOrCreateHbLazyTensor(expand, c10::kHPU);
-    hl_expand = HandleViewsOrUpdate(expand, hl_expand);
-    AddInput(hl_self.GetIrValue());
-    AddInput(hl_expand.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self, expand};
-    AddInputPtTensors(input_pt_vec);
-    m_meta_data.set(implicit, static_cast<size_t>(ExpandIdx::kImplicitIdx));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString();
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-      HABANA_ASSERT(m_inputs.size() == 2);
-      auto& dims_shape = m_inputs[1];
-      if (dims_shape.DataPtrValidAndNotExpired()) {
-        std::shared_ptr<Data> data = dims_shape.m_data_ptr.lock();
-        ss << ", dims=" << data->sizes;
-      }
-    } else {
-      ss << ", dims="
-         << m_meta_data.get(static_cast<size_t>(ExpandIdx::kDimIdx));
-    }
-    ss << ", implicit="
-       << m_meta_data.get(static_cast<size_t>(ExpandIdx::kImplicitIdx));
-    return ss.str();
-  }
-};
-
 class Transpose : public ir::Node {
  public:
   enum class TransposeIdx { kDim0Idx = 1, kDim1Idx = 2 };
