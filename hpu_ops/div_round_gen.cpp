@@ -128,14 +128,17 @@ void DivRoundModeOperator::AddNode(
 
     const std::string opStringSuffix =
         habana_helpers::name_suffix_from_type(final_result_type);
-    auto divOp = BuildOp(
+    auto output = GetDivModOutput(
+        this,
         graph,
-        "div_mod_fwd_" + opStringSuffix,
-        binaryop_inputs,
-        {{shape_out, final_result_type, 0}, {shape_out, final_result_type}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(divOp[0]);
+        syn_in(0),
+        syn_in(1),
+        (StrModeFloor == rounding_mode),
+        shape_out,
+        final_result_type,
+        DIV_MODE_OUTPUT_TYPE::QUOTIENT);
+    syn_out(0) = std::move(output[0]);
+
     return;
   } else { // if (isIntegralType(final_result_type, true))
 

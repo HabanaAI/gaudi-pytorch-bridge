@@ -33,14 +33,16 @@ void RemainderOp::AddNode(
     // Using DivMod kernel
     size_t size = 0;
     const auto& params = FillDivModParams(size);
-    auto divMod = BuildOp(
+    auto output = GetDivModOutput(
+        this,
         graph,
-        "div_mod_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType()}, {outshape, ScalarType(), 0}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(divMod[1]);
+        syn_in(0),
+        syn_in(1),
+        /* pyCompatible */ true,
+        outshape,
+        ScalarType(),
+        DIV_MODE_OUTPUT_TYPE::REMAINDER);
+    syn_out(0) = std::move(output[1]);
   }
 }
 

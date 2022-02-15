@@ -9,6 +9,8 @@
  */
 
 #include "div_mod_util.h"
+#include "generated/hpu_op.h"
+#include "hpu_op_helper.h"
 
 namespace habana {
 
@@ -20,6 +22,42 @@ std::shared_ptr<void> FillDivModParams(size_t& size, bool pyCompatible) {
   // mode operator, for 'trunc' case.
   params->isPyCompatible = pyCompatible;
   return params;
+}
+
+std::vector<synapse_helpers::tensor> GetDivModOutput(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_numerator,
+    synTensor syn_denominator,
+    bool pyCompatible,
+    const std::vector<long int> shape_out,
+    const at::ScalarType result_type,
+    DIV_MODE_OUTPUT_TYPE t) {
+  static_cast<void>(t);
+  auto inputs = {syn_numerator, syn_denominator};
+  size_t size;
+  const auto& params = FillDivModParams(size, pyCompatible);
+  const std::string opStringSuffix =
+      habana_helpers::name_suffix_from_type(result_type);
+
+  std::vector<NodeAttr::NodeOutputAttr> node_output_attr = {
+      {c10::IntArrayRef(shape_out.data(), shape_out.size()),
+       op->ScalarType(),
+       0},
+      {c10::IntArrayRef(shape_out.data(), shape_out.size()), op->ScalarType()}};
+  if (DIV_MODE_OUTPUT_TYPE::REMAINDER == t) {
+    std::reverse(node_output_attr.begin(), node_output_attr.end());
+  }
+
+  auto output = OpBackend::BuildNode(
+      op,
+      graph,
+      {"div_mod_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+       std::move(inputs),
+       node_output_attr,
+       params.get(),
+       size});
+  return output;
 }
 
 } // namespace habana
