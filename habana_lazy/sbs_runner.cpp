@@ -334,7 +334,7 @@ std::shared_ptr<torch::jit::Operator> SBSRunner::createCPUOperator(
     return nullptr;
   }
   if (!node->GetName().empty()) {
-    jit_node->s_(c10::attr::name, node->GetName());
+    jit_node->s_(c10::attr::debug_name, node->GetName());
   }
 
   auto op = std::make_shared<torch::jit::Operator>(jit_node->getOperator());

@@ -394,7 +394,7 @@ void HlExec::Create(
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       if (!node->GetName().empty()) {
-        jit_node->s_(c10::attr::name, node->GetName());
+        jit_node->s_(c10::attr::debug_name, node->GetName());
       }
       mp_g_->insertNode(jit_node);
 

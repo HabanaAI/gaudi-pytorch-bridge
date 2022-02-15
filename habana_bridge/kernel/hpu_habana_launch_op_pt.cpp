@@ -1481,9 +1481,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     // set op name in synapse graph
     std::unique_ptr<synapse_helpers::graph::OpNameContext> op_name_context;
-    if (node->hasAttribute(c10::attr::name)) {
+    if (node->hasAttribute(c10::attr::debug_name)) {
       op_name_context = std::make_unique<synapse_helpers::graph::OpNameContext>(
-          syn_graph, node->s(c10::attr::name));
+          syn_graph, node->s(c10::attr::debug_name));
     }
 
     // Create/attach the synapse inputs from aten tensors
