@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import inspect
 import copy
+import os
 
 import torch.utils.data
 import torchvision.datasets
@@ -13,6 +14,9 @@ import habana_frameworks.torch.core as htcore
 
 def isGaudi(device):
     return (device == htcore.synDeviceGaudi) or (device == htcore.synDeviceGaudiM)
+
+def isGaudi2(device):
+    return device == htcore.synDeviceGaudi2
 
 class HabanaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
@@ -26,10 +30,17 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             print("HabanaDataLoader device type ", self.DeviceType)
 
             self.aeon_fallback_activated = False
+            if 'PT_HPU_MEDIA_PIPE' in os.environ:
+                self.aeon_fallback_activated = os.getenv('PT_HPU_MEDIA_PIPE').lower() in ('false', '0', 'f')
 
             # Try aeon when HPUMediaPipe is not available
-            if self.DeviceType == htcore.synDeviceGaudi2:
+            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 try:
+
+                    # TBD: To be removed once pool strategy 5 works with habana mediapipe
+                    if os.getenv('PT_HPU_POOL_STRATEGY') != '3':
+                        print("Warning: Please set pool strategy 3 to work with Habana media dataloader\nFallback to aeon dataloader")
+                        self.aeon_fallback_activated = True
 
                     from torchmedialoader.media_dataloader_mediapipe import HPUMediaPipe
 
@@ -37,7 +48,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
                     self.aeon_fallback_activated = True
 
-            if isGaudi(self.DeviceType)or (self.aeon_fallback_activated == True):
+            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
                 from .aeon_config import get_aeon_config
                 from .aeon_transformers import HabanaAeonTransforms
                 from .aeon_manifest import generate_aeon_manifest
@@ -60,7 +71,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                                                                         )
                 print("Running with Habana aeon DataLoader")
 
-            elif self.DeviceType == htcore.synDeviceGaudi2:
+            elif isGaudi2(self.DeviceType):
 
                 self._media_dl_handle_vars(keyword_args)
                 if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
@@ -89,7 +100,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             return super().__len__()
         elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return len(self.aeon)
-        elif self.DeviceType == htcore.synDeviceGaudi2:
+        elif isGaudi2(self.DeviceType):
             return len(self.iterator)
         else:
             assert False, "Invalid device type"
@@ -99,7 +110,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             return super().__iter__()
         elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return iter(self.aeon)
-        elif self.DeviceType == htcore.synDeviceGaudi2:
+        elif isGaudi2(self.DeviceType):
             return iter(self.iterator)
         else:
             assert False, "Invalid device type"
