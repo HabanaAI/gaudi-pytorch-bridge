@@ -26,7 +26,7 @@ TEST(NMSEagerTest, NmsSmall) {
   auto nms_boxid = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? habana_nms_hpu_lazy(hboxes, hscores, 0.2, 0.0)
       : habana_nms_hpu(hboxes, hscores, 0.2, 0.0);
-  auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kInt);
+  auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kLong);
   bool equal = ref.allclose(nms_boxid.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }

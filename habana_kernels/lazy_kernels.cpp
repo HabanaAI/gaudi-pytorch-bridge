@@ -6888,17 +6888,17 @@ Tensor habana_nms_hpu_lazy(
       auto shape_tensor_shape = get_out_shapes()[2];
       std::get<0>(results) = empty_hpu_lazy(
           box_id_out_shape,
-          scores.options().dtype(c10::ScalarType::Int),
+          scores.options().dtype(c10::ScalarType::Long),
           scores.suggest_memory_format(),
           false);
       std::get<1>(results) = empty_hpu_lazy(
           valid_box_id_out_shape,
-          scores.options().dtype(c10::ScalarType::Int),
+          scores.options().dtype(c10::ScalarType::Long),
           scores.suggest_memory_format(),
           false);
       std::get<2>(results) = empty_hpu_lazy(
           shape_tensor_shape,
-          scores.options().dtype(c10::ScalarType::Int),
+          scores.options().dtype(c10::ScalarType::Long),
           scores.suggest_memory_format(),
           false);
       return results;
