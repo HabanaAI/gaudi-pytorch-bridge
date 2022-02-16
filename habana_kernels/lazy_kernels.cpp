@@ -3785,60 +3785,36 @@ Tensor& batch_gemm_out_hpu_lazy(
     const Tensor& self,
     const Tensor& mat2) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
-
-  hl_self = HandleViewsOrUpdate(self, hl_self);
-  hl_mat2 = HandleViewsOrUpdate(mat2, hl_mat2);
-
-  const auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::bmm"),
-      {hl_self.GetIrValue(), hl_mat2.GetIrValue()});
-
-  auto hlresult = GetHbLazyTensor(out);
-  ir::Value& out_val = hlresult.CurrentIrValue();
-  out_val.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // updatet the view if any
-  updateDstDependencies(hlresult, out);
-  std::vector<at::Tensor> input_pt_vec{self, mat2};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(out);
-  return out;
+  LazyOp<Tensor&> k{
+      "aten::bmm",
+      {self, mat2},
+      {},
+      {BmmOperator::compute_output_shape(self, mat2)}};
+  return k.call(out);
 }
 
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self, mat2};
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::bmm", vector_of_inputs, {}, {}, -1) {}
 
-  hl_self = HandleViewsOrUpdate(self, hl_self);
-  hl_mat2 = HandleViewsOrUpdate(mat2, hl_mat2);
-
-  const auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::bmm"),
-      {hl_self.GetIrValue(), hl_mat2.GetIrValue()});
-
-  auto shape_out = BmmOperator::compute_output_shape(self, mat2);
-  const auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  const auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  updateDstDependencies((HbLazyTensor&)hlresult, (Tensor&)result);
-  std::vector<at::Tensor> input_pt_vec{self, mat2};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto mat2 = inputs[1].toTensor();
+      auto shape_out = BmmOperator::compute_output_shape(self, mat2);
+      return empty_hpu_lazy(
+          shape_out, self.options(), self.suggest_memory_format(), false);
+    }
+  };
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
