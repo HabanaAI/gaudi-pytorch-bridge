@@ -3097,8 +3097,9 @@ Tensor& index_put_hpu_lazy_(
 
   std::vector<Tensor> indices_vec{indices_in.vec()};
   auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
+  auto self_clone = clone_hpu_lazy(self, self.suggest_memory_format());
   auto index_put_result =
-      index_put_hpu_lazy(self, indices_in, value, accumulate);
+      index_put_hpu_lazy(self_clone, indices_in, value, accumulate);
   auto hl_self = GetOrCreateHbLazyTensor(self);
   // add a control edge as we add a loop using d2d copy back to self
   updateDstDependencies(hl_self, self, true);
