@@ -10,8 +10,11 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec AllOutputShape(const at::Stack&, bool) {
-  std::vector<int64_t> shape_out{1};
+sizes_vec AllOutputShape(const at::Stack&, bool lowering) {
+  std::vector<int64_t> shape_out{};
+  if (lowering) {
+    shape_out.push_back(1);
+  }
   return {shape_out};
 }
 
