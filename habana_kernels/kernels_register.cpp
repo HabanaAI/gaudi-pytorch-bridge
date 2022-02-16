@@ -953,6 +953,19 @@ Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
     return masked_select_hpu_lazy(self, mask);
   }
 };
+Tensor& hpu_wrap::masked_select_out(
+    const Tensor& self,
+    const Tensor& mask,
+    Tensor& out) {
+  if (!hpu_check_inputs_impl("masked_select_out", {self, mask, out}))
+    return AtenHpuTypeDefault::masked_select_out(self, mask, out);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return masked_select_out_hpu_lazy(self, mask, out);
+  } else {
+    HABANA_ASSERT(0 && "masked_select_out not implemented for eager mode");
+    return masked_select_out_hpu_lazy(self, mask, out);
+  }
+};
 Tensor hpu_wrap::gather(
     const Tensor& self,
     int64_t dim_,

@@ -231,6 +231,10 @@ struct hpu_wrap {
   static at::Tensor masked_select(
       const at::Tensor& self,
       const at::Tensor& mask);
+  static at::Tensor& masked_select_out(
+      const at::Tensor& self,
+      const at::Tensor& mask,
+      at::Tensor& out);
   static at::Tensor gather(
       const at::Tensor& self,
       int64_t dim_,

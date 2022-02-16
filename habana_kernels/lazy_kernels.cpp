@@ -2945,6 +2945,46 @@ Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   return index(self, converted_inds);
 }
 
+Tensor& masked_select_out_hpu_lazy(
+    const Tensor& self,
+    const Tensor& mask,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+  Tensor unsqueeze_mask = mask;
+  if (mask.dim() == 0) {
+    unsqueeze_mask = mask.unsqueeze(0);
+  }
+  auto result = nonzero_hpu_lazy(unsqueeze_mask);
+
+  std::vector<Tensor> idx = result.unbind(1);
+  // after unbind indices might be on cpu.
+  // Before passing it to index operator all indices must be on hpu
+  // This is done as an alternative of typeConvertIndices
+  c10::List<c10::optional<Tensor>> converted_inds;
+  converted_inds.reserve(idx.size());
+  for (size_t i = 0; i < idx.size(); ++i) {
+    const auto& ind = idx[i];
+    if (ind.defined()) {
+      converted_inds.push_back(ind);
+    } else {
+      converted_inds.push_back(std::move(idx[i]));
+    }
+  }
+  // Resize output tensor(s) to correct shape
+  // Output shape is the 1st dim value of index result from non_zero
+  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
+  std::vector<int64_t> out_shape{result.sizes().vec()[0]};
+  if (out.sizes().vec() != out_shape) {
+    auto out_reshaped = hl_out.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+  auto output = index(self, converted_inds);
+  out.copy_(output);
+  return out;
+}
+
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim,
