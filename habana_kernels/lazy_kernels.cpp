@@ -65,7 +65,6 @@
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/unpack.h"
-#include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
 #include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -6181,24 +6180,17 @@ Tensor upsample_nearest2d_hpu_lazy(
         c10::ScalarType::Float};
     input_cast = k_.call();
   }
-  ir::NodePtr node = std::make_shared<ir::UpsampleNearest2d>(
-      input_cast, output_size, scale_factors);
-
   auto memory_format = input_cast.suggest_memory_format();
-  auto shape_out = UpsampleOperator::compute_output_shape(
-      input_cast.sizes().vec(), output_size, scale_factors, memory_format);
-  auto result =
-      empty_hpu_lazy(shape_out, input_cast.options(), memory_format, false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // updatet the view if any
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
+  LazyOp<at::Tensor> k(
+      "aten::upsample_nearest2d",
+      {input_cast, output_size, scale_factors},
+      {1, 2},
+      {UpsampleOperator::compute_output_shape(
+          input_cast.sizes().vec(),
+          output_size,
+          scale_factors,
+          memory_format)});
+  auto result = k.call();
   if (input.scalar_type() == c10::ScalarType::Byte) {
     auto result_cast = result;
     // f32 -> i32
@@ -6235,28 +6227,18 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
         c10::ScalarType::Float};
     grad_output_cast = k_.call();
   }
-  auto memory_format = grad_output_cast.suggest_memory_format();
   std::vector<int64_t> permuted_sizes = input_size.vec();
   permuted_sizes[0] = input_size[0];
   permuted_sizes[1] = input_size[2];
   permuted_sizes[2] = input_size[3];
   permuted_sizes[3] = input_size[1];
 
-  ir::NodePtr node = std::make_shared<ir::UpsampleNearest2dBackward>(
-      grad_output_cast, output_size, permuted_sizes, scale_factors);
-
-  auto result = empty_hpu_lazy(
-      input_size, grad_output_cast.options(), memory_format, false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
-  // updatet the view if any
-  updateDstDependencies(hlresult, result);
-  flush_op(result);
+  LazyOp<at::Tensor> k(
+      "aten::upsample_nearest2d_backward",
+      {grad_output_cast, output_size, permuted_sizes, scale_factors},
+      {1, 2, 3},
+      {input_size.vec()});
+  auto result = k.call();
   if (grad_output.scalar_type() == c10::ScalarType::Byte) {
     auto result_cast = result;
     // f32 -> i32
