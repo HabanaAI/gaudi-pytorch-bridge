@@ -4905,45 +4905,71 @@ Tensor prod_dim_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  ir::NodePtr node =
-      std::make_shared<ir::ProdDimInt>(self, dim, keepdim, dtype);
+  std::vector<at::IValue> vector_of_inputs;
 
-  auto result = empty_hpu_lazy(
-      ReduceOperator::compute_output_shape(self, dim, keepdim),
-      self.options(),
-      self.suggest_memory_format(),
-      false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+  if (!dtype.has_value()) {
+    dtype = self.scalar_type();
+  }
+
+  vector_of_inputs = {self, dim, keepdim, dtype};
+  using T = at::Tensor;
+
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("hpu::prod_dim_Int", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dim = inputs[1].toInt();
+      auto keepdim = inputs[2].toBool();
+      auto dtype = inputs[3].toScalarType();
+
+      std::vector<int64_t> outshape{self.sizes().vec()};
+      auto shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
+
+      return empty_hpu_lazy(
+          shape,
+          self.options().dtype(dtype),
+          self.suggest_memory_format(),
+          false);
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::Prod>(self, dtype);
+  std::vector<at::IValue> vector_of_inputs;
 
-  // Output of Prod is product of all elements
-  std::vector<int64_t> shape_out{1};
-  auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+  if (!dtype.has_value()) {
+    dtype = self.scalar_type();
+  }
+
+  vector_of_inputs = {self, dtype};
+  using T = at::Tensor;
+
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::prod", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dtype = inputs[1].toScalarType();
+      return empty_hpu_lazy(
+          {}, self.options().dtype(dtype), self.suggest_memory_format(), false);
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
 }
 
 Tensor& any_dim_out_hpu_lazy(
