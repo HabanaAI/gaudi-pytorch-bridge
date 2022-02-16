@@ -1326,15 +1326,12 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
   std::vector<int> in_sizes{6, 12, 20, 10};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
-
     torch::Tensor hA = A.to(torch::kHPU);
-
     torch::Tensor out_hpu = torch::argmax(hA, 2);
     torch::Tensor out_cpu = torch::argmax(A, 2);
     auto out = out_hpu.to(torch::kCPU);
-    EXPECT_TRUE(allclose(out, out_cpu.to(torch::kInt), 0.0001, 0.0001));
+    EXPECT_TRUE(allclose(out, out_cpu, 0, 0));
   }
 }
 

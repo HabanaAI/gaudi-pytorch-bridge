@@ -23,16 +23,16 @@
         torch::empty(out_size, torch::TensorOptions(out_dtype).device("hpu")); \
     torch::op_code(input, dim, keepdim, expected);                             \
     torch::op_code(hinput, dim, keepdim, result);                              \
-    Compare(expected, result);                                                 \
+    Compare(expected, result, 0, 0);                                           \
   }
 
-#define HPU_ARG_MIN_USUAL_TEST(name, in_size, dim, keepdim, dtype) \
-  TEST_F(ArgminmaxHpuOpTest, name) {                               \
-    auto input = torch::randn(in_size).to(dtype);                  \
-    auto hinput = input.to(torch::kHPU);                           \
-    auto expected = torch::argmin(input, dim, keepdim);            \
-    auto result = torch::argmin(hinput, dim, keepdim);             \
-    Compare(expected, result);                                     \
+#define HPU_ARG_MIN_MAX_USUAL_TEST(name, op, in_size, dim, keepdim, dtype) \
+  TEST_F(ArgminmaxHpuOpTest, name) {                                       \
+    auto input = torch::randn(in_size).to(dtype);                          \
+    auto hinput = input.to(torch::kHPU);                                   \
+    auto expected = torch::op(input, dim, keepdim);                        \
+    auto result = torch::op(hinput, dim, keepdim);                         \
+    Compare(expected, result, 0, 0);                                       \
   }
 
 // "argmax_cpu" not implemented for 'Bool'
@@ -119,31 +119,64 @@ HPU_ARG_MIN_MAX_OUT_TEST(
     SIZE({}),
     false,
     torch::kBFloat16)
-HPU_ARG_MIN_USUAL_TEST(
+HPU_ARG_MIN_MAX_USUAL_TEST(
     argmin_4d_reduce_dim,
+    argmin,
     SIZE({8, 4, 6, 3}),
     -3,
     false,
     torch::kFloat)
-HPU_ARG_MIN_USUAL_TEST(
+HPU_ARG_MIN_MAX_USUAL_TEST(
     argmin_4d_reduce_dim_global_min,
+    argmin,
     SIZE({5, 4, 8, 2}),
     SIZE({}),
     false,
     torch::kBFloat16)
-HPU_ARG_MIN_USUAL_TEST(
+HPU_ARG_MIN_MAX_USUAL_TEST(
     argmin_3d_keepdim,
+    argmin,
     SIZE({4, 7, 3}),
     0,
     true,
     torch::kFloat)
-HPU_ARG_MIN_USUAL_TEST(
+HPU_ARG_MIN_MAX_USUAL_TEST(
     argmin_3d_keepdim_global_min,
+    argmin,
     SIZE({8, 2, 5}),
     SIZE({}),
     true,
     torch::kBFloat16)
-/*
+
+HPU_ARG_MIN_MAX_USUAL_TEST(
+    argmax_4d_reduce_dim,
+    argmax,
+    SIZE({8, 4, 6, 3}),
+    -3,
+    false,
+    torch::kFloat)
+HPU_ARG_MIN_MAX_USUAL_TEST(
+    argmax_4d_reduce_dim_global_min,
+    argmax,
+    SIZE({5, 4, 8, 2}),
+    SIZE({2}),
+    false,
+    torch::kBFloat16)
+HPU_ARG_MIN_MAX_USUAL_TEST(
+    argmax_3d_keepdim,
+    argmax,
+    SIZE({4, 7, 3}),
+    SIZE({}),
+    true,
+    torch::kFloat)
+HPU_ARG_MIN_MAX_USUAL_TEST(
+    argmax_3d_keepdim_global_min,
+    argmax,
+    SIZE({8, 2, 5}),
+    -3,
+    true,
+    torch::kInt)
+
 HPU_ARG_MIN_MAX_USUAL_BOOL_TEST(
     argmax_bool_true,
     argmax,
@@ -158,4 +191,3 @@ HPU_ARG_MIN_MAX_USUAL_BOOL_TEST(
     -2,
     false,
     torch::kBool)
-*/

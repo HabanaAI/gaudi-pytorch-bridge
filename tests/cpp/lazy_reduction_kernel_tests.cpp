@@ -127,19 +127,34 @@ TEST_F(LazyReductionKernelTest, ArgMaxTest) {
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::argmax(hA, 2, true);
   torch::Tensor Out = torch::argmax(A, 2, true);
-  auto cOut = Out.to(torch::dtype(torch::kInt));
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyReductionKernelTest, ArgMaxTest0D) {
+  torch::Tensor A = torch::randn({}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::argmax(hA, 0, false);
+  torch::Tensor Out = torch::argmax(A, 0, false);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyReductionKernelTest, ArgMaxTest1D) {
+  torch::Tensor A = torch::randn({3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::argmax(hA, 0, true);
+  torch::Tensor Out = torch::argmax(A, 0, true);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
 TEST_F(LazyReductionKernelTest, ArgMaxTestNe1) {
-  int dimReduction = -1;
-  torch::Tensor A = torch::randn({2, 2, 3, 4}, torch::requires_grad(false));
+  int dimReduction = -4;
+  torch::Tensor A =
+      torch::randn({2, 3, 4, 5, 4, 5}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor Out = torch::argmax(A, dimReduction, true);
   torch::Tensor hOut = torch::argmax(hA, dimReduction, true);
-  auto cOut = Out.to(torch::dtype(torch::kInt));
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
 TEST_F(LazyReductionKernelTest, AllTensorTest) {
@@ -174,18 +189,59 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
 }
 
 TEST_F(LazyReductionKernelTest, MaxDimTest) {
-  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor A = torch::randn({2, 3, 4, 5, 6}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut, hIndex, Out, Index;
-  std::tie(hOut, hIndex) = torch::max(hA, 1);
-  std::tie(Out, Index) = torch::max(A, 1);
+  std::tie(hOut, hIndex) = torch::max(hA, 1, false);
+  std::tie(Out, Index) = torch::max(A, 1, false);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_EQ(allclose(hIndex.to(torch::kCPU).to(torch::kLong), Index), true);
+}
+
+TEST_F(LazyReductionKernelTest, MaxDimTest0D) {
+  torch::Tensor A = torch::randn({}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut, hIndex, Out, Index;
+  std::tie(hOut, hIndex) = torch::max(hA, 0);
+  std::tie(Out, Index) = torch::max(A, 0);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_EQ(allclose(hIndex.to(torch::kCPU).to(torch::kLong), Index), true);
+}
+
+TEST_F(LazyReductionKernelTest, MaxDimTest1D) {
+  torch::Tensor A = torch::randn({2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut, hIndex, Out, Index;
+  std::tie(hOut, hIndex) = torch::max(hA, 0);
+  std::tie(Out, Index) = torch::max(A, 0);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
   EXPECT_EQ(allclose(hIndex.to(torch::kCPU).to(torch::kLong), Index), true);
 }
 
 TEST_F(LazyReductionKernelTest, MaxTest) {
-  torch::Tensor A = torch::randn({2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor A =
+      torch::randn({2, 3, 4, 5, 2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  auto hOut = torch::max(hA);
+  auto Out = torch::max(A);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyReductionKernelTest, MaxTest0D) {
+  torch::Tensor A = torch::randn({}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  auto hOut = torch::max(hA);
+  auto Out = torch::max(A);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyReductionKernelTest, MaxTest1D) {
+  torch::Tensor A = torch::randn({2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   auto hOut = torch::max(hA);
   auto Out = torch::max(A);
