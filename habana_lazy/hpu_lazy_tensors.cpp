@@ -702,7 +702,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
   context->MarkTensorsExecuted(executing_indices);
 
-  SBSDebug::getInstance().CompareTensors(*tensors);
+  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+    SBSDebug::getInstance().CompareTensors(*tensors);
+  }
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

@@ -12,6 +12,7 @@
 #include <memory>
 #include <sstream>
 #include "aten_lazy_bridge.h"
+#include "debug_utils.h"
 #include "passes/permute_graph.h"
 #include "sbs_debug.h"
 

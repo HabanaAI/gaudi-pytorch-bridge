@@ -9,7 +9,7 @@
  */
 #include "sbs_debug.h"
 #include "aten_lazy_bridge.h"
-#include "sbs_runner.h"
+#include "debug_utils.h"
 
 class float16;
 class bfloat16;
