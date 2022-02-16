@@ -330,10 +330,9 @@ Tensor& set_hpu_(
   return self;
 }
 
-void ToDtypeOperator::AllocateAndAddSynapseNode(
+void ToDtypeOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    torch::jit::Stack& inputs) {
   // This function can handle following 2 schemas only:
   // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
   // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
@@ -358,6 +357,7 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
 
   // Determine cast node_type to use based on src & dst dtypes
   std::string node_type;
+  auto is_output_persistent = GetOutputPersistence()[0];
 
   if ((type != self.scalar_type()) &&
       !((type == c10::ScalarType::Char &&
@@ -387,7 +387,8 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     memcopyOp->SetOutputMetadata(output_metadata_);
 
     torch::jit::Stack stack = {IValue(self)};
-    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->SetOutputPersistence({is_output_persistent});
+    memcopyOp->AllocateAndAddSynapseNode_Helper(graph, stack);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(memcopyOp->GetSynOutputs()[0]));
@@ -403,15 +404,15 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   auto Op = make_operator<CastOperator>(self.device().index(), node_type);
   Op->SetSynapseInput(p_context_->syn_inputs_[0]);
   Op->SetOutputMetadata(output_metadata_);
+  Op->SetOutputPersistence({is_output_persistent});
   Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
   p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
 }
 
-void CastLazyOperator::AllocateAndAddSynapseNode(
+void CastLazyOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    torch::jit::Stack& inputs) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
@@ -420,6 +421,8 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for toDtype operator");
 
   auto self = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
+
   // auto output = inputs[1].toTensor();
   auto type = inputs[1].toScalarType();
 
@@ -476,9 +479,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_intOp =
           make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
       bf_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      bf_to_floatOp->SetOutputPersistence({false});
       bf_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
       float_to_intOp->SetSynapseInput(bf_to_floatOp->GetSynOutputs()[0]);
       float_to_intOp->SetOutputMetadata(output_metadata_);
+      float_to_intOp->SetOutputPersistence({is_output_persistent});
       float_to_intOp->AllocateAndAddSynapseNode(
           graph, inputs, is_output_persistent);
       p_context_->syn_outputs_.emplace_back(
@@ -493,9 +498,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_bfOp = make_operator<CastOperator>(
           self.device().index(), "cast_f32_to_bf16");
       byte_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      byte_to_floatOp->SetOutputPersistence({false});
       byte_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
       float_to_bfOp->SetSynapseInput(byte_to_floatOp->GetSynOutputs()[0]);
       float_to_bfOp->SetOutputMetadata(output_metadata_);
+      float_to_bfOp->SetOutputPersistence({is_output_persistent});
       float_to_bfOp->AllocateAndAddSynapseNode(
           graph, inputs, is_output_persistent);
       p_context_->syn_outputs_.emplace_back(
@@ -506,6 +513,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto Op = make_operator<CastOperator>(self.device().index(), node_type);
       Op->SetSynapseInput(p_context_->syn_inputs_[0]);
       Op->SetOutputMetadata(output_metadata_);
+      Op->SetOutputPersistence({is_output_persistent});
       Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
       p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
@@ -515,9 +523,9 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
         self.device().index(), self.scalar_type());
     identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     identityOp->SetOutputMetadata(output_metadata_);
-
     torch::jit::Stack stack = {IValue(self)};
-    identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    identityOp->SetOutputPersistence({is_output_persistent});
+    identityOp->AllocateAndAddSynapseNode_Helper(graph, stack);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(identityOp->GetSynOutputs()[0]));
@@ -531,11 +539,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
  * @param self - input which needs to be transferred
  * @param dest - Destination tensor
  ************************************************************************/
-void MemCopyOperator::AllocateAndAddSynapseNode(
+void MemCopyOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   auto self = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
@@ -550,11 +558,11 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
-void IdentityOperator::AllocateAndAddSynapseNode(
+void IdentityOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   auto self = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
@@ -569,10 +577,10 @@ void IdentityOperator::AllocateAndAddSynapseNode(
 /*************************************************************************
  * @brief Kernel implementation for dummy, used for graph ordering
  ************************************************************************/
-void DummyOperator::AllocateAndAddSynapseNode(
+void DummyOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
+  auto is_output_persistent = GetOutputPersistence()[0];
   static_cast<void>(graph);
   static_cast<void>(is_output_persistent);
   at::Tensor output;
@@ -629,11 +637,12 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
  * @brief Kernel implementation for As strided, used for tensor views
  * @param self - input which needs to be viewed
  ************************************************************************/
-void AsStridedOperator::AllocateAndAddSynapseNode(
+void AsStridedOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   auto self = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
+
   static_cast<void>(graph);
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
@@ -663,11 +672,11 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
  * @brief Kernel implementation for As strided, used for tensor views
  * @param self - input which needs to be viewed
  ************************************************************************/
-void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
+void AsStridedLayoutOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   auto self = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
   static_cast<void>(graph);
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
@@ -808,10 +817,9 @@ void StridedInsertOperator::compute_params(
   }
 }
 
-void StridedInsertOperator::AllocateAndAddSynapseNode(
+void StridedInsertOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect number of arguments for strided insert op");
@@ -820,6 +828,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
   compute_params(params, inputs, graph);
 
   auto orig_t = inputs[0].toTensor();
+  auto is_output_persistent = GetOutputPersistence()[0];
   auto output = habana_helpers::createPTTensor(
       orig_t,
       orig_t.sizes(),
@@ -889,10 +898,9 @@ bool StridedViewOperator::verifiyViewMemoryAccess(
  * @brief Kernel implementation for strided view , used for tensor views
  * @param self - input which needs to be viewed
  ************************************************************************/
-void StridedViewOperator::AllocateAndAddSynapseNode(
+void StridedViewOperator::AllocateAndAddSynapseNode_Helper(
     synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
+    Stack& inputs) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> size;
   std::vector<int64_t> strides;
@@ -929,6 +937,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     offset = inputs[3].toInt();
   }
 
+  auto is_output_persistent = GetOutputPersistence()[0];
   auto output = habana_helpers::createPTTensor(
       self,
       size,

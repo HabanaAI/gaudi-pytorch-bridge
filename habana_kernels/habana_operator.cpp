@@ -130,6 +130,11 @@ void habana::HabanaOperator::SetOutputMetadata(const OutputMetaDataVector& md) {
   output_metadata_ = md;
 }
 
+void habana::HabanaOperator::SetOutputPersistence(
+    std::vector<bool> persistent_vec) {
+  is_persistent_vec = persistent_vec;
+}
+
 size_t habana::HabanaOperator::GetRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
@@ -324,6 +329,19 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
+}
+
+void habana::HabanaOperator::AllocateAndAddSynapseNode_Helper(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs) {
+  static_cast<void>(graph);
+  static_cast<void>(inputs);
+  auto is_output_persistent = GetOutputPersistence();
+  if (is_output_persistent.size() == 1) {
+    AllocateAndAddSynapseNode(graph, inputs, is_output_persistent[0]);
+  } else {
+    AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  }
 }
 
 void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(

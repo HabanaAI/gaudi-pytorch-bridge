@@ -194,6 +194,8 @@ class HabanaOperator {
   virtual void SetPTOutputs(std::vector<at::Tensor>& outputs);
   virtual void SetOutputMetadata(int index, const OutputMetaData& md);
   virtual void SetOutputMetadata(const OutputMetaDataVector& md);
+  virtual void SetOutputPersistence(std::vector<bool> persistent_vec);
+
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,
@@ -285,6 +287,10 @@ class HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent);
 
+  virtual void AllocateAndAddSynapseNode_Helper(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
+
   virtual void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -320,6 +326,10 @@ class HabanaOperator {
 
   virtual const std::vector<HabanaOperatorPtr> GetKernels() const {
     return kernels_;
+  }
+
+  virtual const std::vector<bool> GetOutputPersistence() const {
+    return is_persistent_vec;
   }
 
   // For populating the inputs that need to be created in host and DMA
@@ -373,6 +383,7 @@ class HabanaOperator {
       appended_tensor_infos;
 
   //
+  std::vector<bool> is_persistent_vec;
   std::vector<HabanaOperatorPtr> kernels_;
   std::vector<OutputMetaData>
       output_metadata_; // Must be ordered by allocation order

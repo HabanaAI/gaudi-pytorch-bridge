@@ -1163,7 +1163,8 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
     // Add a identity node to graph (to get out = mat)
     Op->SetSynapseInput(syn_input);
     torch::jit::Stack stack = {IValue(mat)};
-    Op->AllocateAndAddSynapseNode(graph, stack, false);
+    Op->SetOutputPersistence({false});
+    Op->AllocateAndAddSynapseNode_Helper(graph, stack);
   } else if (dim == 2) {
     // Add a transpose node to graph
     Op->SetSynapseInput(syn_input);

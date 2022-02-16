@@ -564,7 +564,8 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     identityOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack stack = {IValue(tensor1)};
-    identityOp->AllocateAndAddSynapseNode(graph, stack, false);
+    identityOp->SetOutputPersistence({false});
+    identityOp->AllocateAndAddSynapseNode_Helper(graph, stack);
     stack.clear();
 
     auto mulOp = make_operator<habana::MulOperator>(

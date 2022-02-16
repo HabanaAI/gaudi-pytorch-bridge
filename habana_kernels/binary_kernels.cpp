@@ -109,7 +109,8 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
       castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
       // castOp1->SetOutputMetadata(output_metadata_);
       stack = {arg1};
-      castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp1->SetOutputPersistence({false});
+      castOp1->AllocateAndAddSynapseNode_Helper(graph, stack);
     }
     std::string node2_type = (arg2.scalar_type() == c10::ScalarType::Int)
         ? "cast_identity"
@@ -130,7 +131,8 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
       castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
       // castOp2->SetOutputMetadata(output_metadata_);
       stack = {arg2};
-      castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp2->SetOutputPersistence({false});
+      castOp2->AllocateAndAddSynapseNode_Helper(graph, stack);
     }
 
     // Add the Mult node

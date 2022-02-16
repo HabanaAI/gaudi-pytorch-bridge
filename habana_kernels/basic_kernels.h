@@ -30,10 +30,9 @@ class ToDtypeOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 
   // virtual void SetPTOutput(torch::jit::Stack& inputs) override;
 };
@@ -46,10 +45,9 @@ class AsStridedLayoutOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 };
 
 //
@@ -63,10 +61,9 @@ class CastLazyOperator : public habana::HabanaOperator {
     kernel_meta_data_.tpc_input_order = {0};
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 };
 
 //
@@ -79,10 +76,9 @@ class MemCopyOperator : public habana::HabanaOperator {
     kernel_meta_data_.tpc_input_order = {0};
     this->CreateSynContext(device_id);
   }
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 };
 
 //
@@ -94,10 +90,9 @@ class IdentityOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 };
 class DummyOperator : public habana::HabanaOperator {
  public:
@@ -106,10 +101,9 @@ class DummyOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
-  virtual void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
 };
 
 //
@@ -125,10 +119,9 @@ class AsStridedOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
-  void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
 };
@@ -164,10 +157,10 @@ class StridedInsertOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
-  void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
+
   void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -207,10 +200,9 @@ class StridedViewOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
-  void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode_Helper(
       synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      torch::jit::Stack& inputs) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
   bool verifiyViewMemoryAccess(

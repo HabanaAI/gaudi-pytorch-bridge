@@ -1501,21 +1501,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
+    HabanaKernel->SetOutputPersistence(outputPersistent);
 
-    if (outputPersistent.size() == 1) {
-      std::string node_str(node->kind().toQualString());
-
-      if ((!is_shape_inference) && (outputPersistent[0] == true) &&
-          (node_str.find("strided_insert") != std::string::npos)) {
-        ProcessStridedInsertAtOutput(
-            node, HabanaKernel, input_stack, syn_graph);
-      } else {
-        HabanaKernel->AllocateAndAddSynapseNode(
-            syn_graph, input_stack, outputPersistent[0]);
-      }
+    std::string node_str(node->kind().toQualString());
+    if (outputPersistent.size() == 1 && (!is_shape_inference) &&
+        (outputPersistent[0] == true) &&
+        (node_str.find("strided_insert") != std::string::npos)) {
+      ProcessStridedInsertAtOutput(node, HabanaKernel, input_stack, syn_graph);
     } else {
-      HabanaKernel->AllocateAndAddSynapseNode(
-          syn_graph, input_stack, outputPersistent);
+      HabanaKernel->AllocateAndAddSynapseNode_Helper(syn_graph, input_stack);
     }
 
     jit_to_synapse_node_idx_map.emplace(
@@ -2516,7 +2510,8 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
   }
 
   if (is_reuse_input == false) {
-    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, true);
+    HabanaKernel->SetOutputPersistence({true});
+    HabanaKernel->AllocateAndAddSynapseNode_Helper(syn_graph, input_stack);
   } else {
     TORCH_CHECK(
         value_to_ivalue.count(val_ins[0]),
