@@ -52,14 +52,18 @@ void ScatterOperator::AddNode(
     }
   }
 
-  auto src_or_val = stack.at(3).isTensor()
-      ? std::make_unique<synapse_helpers::tensor>(
-            std::move(p_context_->syn_inputs_.at(2).ref()))
-      : std::make_unique<synapse_helpers::tensor>(ConstantHelper(
-            graph,
-            (is_bool ? bool_val : stack.at(3).toScalar()),
-            ScalarType(),
-            outshape));
+  synTensor src_or_val;
+  std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
+  if (stack.at(3).isTensor()) {
+    src_or_val = p_context_->syn_inputs_.at(2).ref().get();
+  } else {
+    tmp_tensor = std::make_unique<synapse_helpers::tensor>(ConstantHelper(
+        graph,
+        (is_bool ? bool_val : stack.at(3).toScalar()),
+        ScalarType(),
+        outshape));
+    src_or_val = tmp_tensor->get();
+  }
 
   std::set<c10::ScalarType> int_types = {
       c10::ScalarType::Bool,
@@ -75,7 +79,7 @@ void ScatterOperator::AddNode(
 
     auto cast_src_or_val = CastHelper(
         graph,
-        src_or_val->get(),
+        src_or_val,
         stack.at(3).isTensor() ? stack_tensor(stack, 3).sizes() : outshape,
         self.scalar_type(),
         torch::kInt);
@@ -101,7 +105,7 @@ void ScatterOperator::AddNode(
     syn_out(0) = std::move(result_bool);
   } else {
     std::vector<synTensor> syn_input_tensors = {
-        syn_in(0), syn_in(1), src_or_val->get()};
+        syn_in(0), syn_in(1), src_or_val};
     auto scatterkernel = BuildOp(
         graph,
         "scatter_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
