@@ -22,6 +22,40 @@ TEST_F(HpuOpTest, reflection_pad1d) {
   Compare(expected, result);
 }
 
+// reflection_pad1d cpu not support bf16, int, i16
+TEST_F(HpuOpTest, reflection_pad1d_bf16) {
+  GenerateInputs(1, {{3, 3}}, {torch::kBFloat16});
+  // tpc expects the pad array to have the values in the order pad_before
+  // for each dim followed by pad_after for each dim
+  std::vector<int64_t> pad_size = {{2, 1}};
+  auto expected =
+      torch::reflection_pad1d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad1d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kBFloat16), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad1d_int) {
+  GenerateInputs(1, {{3, 3}}, {torch::kInt});
+  // tpc expects the pad array to have the values in the order pad_before
+  // for each dim followed by pad_after for each dim
+  std::vector<int64_t> pad_size = {{2, 1}};
+  auto expected =
+      torch::reflection_pad1d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad1d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kInt), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad1d_i16) {
+  GenerateInputs(1, {{3, 3}}, {torch::kShort});
+  // tpc expects the pad array to have the values in the order pad_before
+  // for each dim followed by pad_after for each dim
+  std::vector<int64_t> pad_size = {{2, 1}};
+  auto expected =
+      torch::reflection_pad1d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad1d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kShort), result);
+}
+
 TEST_F(HpuOpTest, reflection_pad1d_out) {
   GenerateInputs(1, {{3, 4, 5}});
   std::vector<int64_t> pad_size = {{2, 2}};
@@ -39,6 +73,34 @@ TEST_F(HpuOpTest, reflection_pad2d) {
   auto expected = torch::reflection_pad2d(GetCpuInput(0), pad_size);
   auto result = torch::reflection_pad2d(GetHpuInput(0), pad_size);
   Compare(expected, result);
+}
+
+// reflection_pad2d cpu not support bf16, int, i16
+TEST_F(HpuOpTest, reflection_pad2d_bf16) {
+  GenerateInputs(1, {{4, 3, 3, 4}}, {torch::kBFloat16});
+  std::vector<int64_t> pad_size = {{3, 1, 1, 2}};
+  auto expected =
+      torch::reflection_pad2d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad2d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kBFloat16), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad2d_int) {
+  GenerateInputs(1, {{4, 3, 3, 4}}, {torch::kInt});
+  std::vector<int64_t> pad_size = {{3, 1, 1, 2}};
+  auto expected =
+      torch::reflection_pad2d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad2d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kInt), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad2d_i16) {
+  GenerateInputs(1, {{4, 3, 3, 4}}, {torch::kShort});
+  std::vector<int64_t> pad_size = {{3, 1, 1, 2}};
+  auto expected =
+      torch::reflection_pad2d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad2d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kShort), result);
 }
 
 TEST_F(HpuOpTest, reflection_pad2d_out) {
@@ -61,6 +123,20 @@ TEST_F(HpuOpTest, reflection_pad1d_backward) {
   auto result =
       torch::reflection_pad1d_backward(hgrad_out, GetHpuInput(0), pad_size);
   Compare(expected, result);
+}
+
+// reflection_pad1d cpu not support int
+TEST_F(HpuOpTest, reflection_pad1d_backward_int) {
+  GenerateInputs(2, {{2, 2}, {2, 4}}, {torch::kInt, torch::kInt});
+  auto hgrad_out = GetCpuInput(1).to(torch::kHPU);
+  std::vector<int64_t> pad_size = {{1, 1}};
+  auto expected = torch::reflection_pad1d_backward(
+      GetCpuInput(1).to(torch::kFloat),
+      GetCpuInput(0).to(torch::kFloat),
+      pad_size);
+  auto result =
+      torch::reflection_pad1d_backward(hgrad_out, GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kInt), result);
 }
 
 TEST_F(HpuOpTest, reflection_pad1d_backward_out) {
@@ -108,6 +184,34 @@ TEST_F(HpuOpTest, reflection_pad3d) {
   auto expected = torch::reflection_pad3d(GetCpuInput(0), pad_size);
   auto result = torch::reflection_pad3d(GetHpuInput(0), pad_size);
   Compare(expected, result);
+}
+
+// reflection_pad3d cpu not support bf16, int, i16
+TEST_F(HpuOpTest, reflection_pad3d_int) {
+  GenerateInputs(1, {{1, 2, 3, 2, 4}}, {torch::kInt});
+  std::vector<int64_t> pad_size = {{3, 3, 1, 1, 2, 2}};
+  auto expected =
+      torch::reflection_pad3d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad3d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kInt), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad3d_bf16) {
+  GenerateInputs(1, {{1, 2, 3, 2, 4}}, {torch::kBFloat16});
+  std::vector<int64_t> pad_size = {{3, 3, 1, 1, 2, 2}};
+  auto expected =
+      torch::reflection_pad3d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad3d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kBFloat16), result);
+}
+
+TEST_F(HpuOpTest, reflection_pad3d_i16) {
+  GenerateInputs(1, {{1, 2, 3, 2, 4}}, {torch::kShort});
+  std::vector<int64_t> pad_size = {{3, 3, 1, 1, 2, 2}};
+  auto expected =
+      torch::reflection_pad3d(GetCpuInput(0).to(torch::kFloat), pad_size);
+  auto result = torch::reflection_pad3d(GetHpuInput(0), pad_size);
+  Compare(expected.to(torch::kShort), result);
 }
 
 TEST_F(HpuOpTest, reflection_pad3d_out) {

@@ -2074,21 +2074,21 @@ relu_:
 reflection_pad1d:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
 
 reflection_pad1d.out:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
 
 reflection_pad1d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
 
@@ -2096,27 +2096,27 @@ reflection_pad1d_backward.grad_input:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
 reflection_pad2d:
   custom_output_shape: ReflectionPad2DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
 
 reflection_pad2d.out:
   custom_output_shape: ReflectionPad2DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
 
 reflection_pad2d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
 
@@ -2124,27 +2124,27 @@ reflection_pad2d_backward.grad_input:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
 reflection_pad3d:
   custom_output_shape: ReflectionPad3DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
 
 reflection_pad3d.out:
   custom_output_shape: ReflectionPad3DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
 
 reflection_pad3d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
 
@@ -2152,7 +2152,7 @@ reflection_pad3d_backward.grad_input:
   custom_output_shape: ReflectionPadBackwardOutputShape
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
-  dtypes: [Float]
+  dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
 remainder.Tensor:
