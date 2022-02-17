@@ -11,17 +11,77 @@
 #include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
+// Use min/max of self tensor's dtype for clamping instead of
+// blanket float limits. Use min/max of self's dtype as seen
+// at backend(lowering).
+// Clamp uses max/min guids which support only bf16, fp32 and int32.
+// So the following table is limited to those dtypes.
+// Long and Double at FE are seen as int and float at BE.
+// Hence include these.
+float self_type_max_for_be(c10::ScalarType type) {
+  float max = std::numeric_limits<float>::max();
+  switch (type) {
+    case c10::ScalarType::Long:
+    case c10::ScalarType::Int:
+      // We should ideally use int max = 2147483647, But since
+      // get_tensor_for_scalar() takes float value as argument,
+      // we need to cast 2147483647 to float which becomes 2147483648.
+      // This exceeds the int max limit. This causes issue down the line in
+      // validateDownCast(). Hence use the largest integer value that
+      // when converted to float becomes 2147483647. This is a tradeoff.
+      // This int value is 2147483583, which is less than int max by 64.
+      // Hence the clamping of these highest 64 integer values may not be
+      // proper.
+      // TODO:  Check if scalar caching can take types other than float in
+      // the cache map. If yes, try using what ever is self's scalartype
+      // instead of blanket float.
+      max = (float)2147483583;
+      break;
+
+    case c10::ScalarType::Double:
+    case c10::ScalarType::Float:
+      max = (float)std::numeric_limits<float>::max();
+      break;
+    case c10::ScalarType::BFloat16:
+      max = 3.38953139E38;
+      break;
+    default:
+      // TODO: handle other dtypes
+      PT_KERNEL_WARN("Using float max for unsupported type", type)
+  }
+  return max;
+}
+
+float self_type_min_for_be(c10::ScalarType type) {
+  float min = std::numeric_limits<float>::lowest();
+  switch (type) {
+    case c10::ScalarType::Long:
+    case c10::ScalarType::Int:
+      min = (float)std::numeric_limits<int>::lowest();
+      break;
+
+    case c10::ScalarType::Double:
+    case c10::ScalarType::Float:
+      min = std::numeric_limits<float>::lowest();
+      break;
+    case c10::ScalarType::BFloat16:
+      min = -3.38953139E38;
+      break;
+    default:
+      // TODO: handle other dtypes
+      PT_KERNEL_WARN("Using float min for unsupported type", type)
+  }
+  return min;
+}
+
 namespace habana {
 static void convert_params_to_tensors(std::vector<at::IValue>& inputs) {
   auto self = inputs[0].toTensor();
-  // Scalar values always extracted as float irrespective of the type of
-  // original value contained in Scalar. This is ok since the widest tensor type
-  // which is supported on device is float so there is no chance of precision
-  // loss.
+  auto type = self.scalar_type();
   float min = inputs[1].isScalar() ? inputs[1].toScalar().to<float>()
-                                   : -std::numeric_limits<float>::max();
+                                   : self_type_min_for_be(type);
   float max = inputs[2].isScalar() ? inputs[2].toScalar().to<float>()
-                                   : std::numeric_limits<float>::max();
+                                   : self_type_max_for_be(type);
   auto min_tr = habana_lazy::get_tensor_for_scalar(min, self.options());
   auto max_tr = habana_lazy::get_tensor_for_scalar(max, self.options());
   inputs[1] = c10::IValue(min_tr);
