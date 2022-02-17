@@ -267,12 +267,9 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   return {std::move(recipe_handle)};
 }
 
-std::string to_string(
-    const std::vector<synLaunchTensorInfoExt>& patching_info) {
+std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
   return absl::StrJoin(
-      patching_info,
-      ",",
-      [](std::string* out, const synLaunchTensorInfoExt& in) {
+      patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
         absl::StrAppendFormat(
             out,
             "%s:%u:0x%X [%s]",
@@ -297,7 +294,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock) {
   return launch(
       device,
@@ -311,7 +308,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock) {
   synStatus status;
 
@@ -333,7 +330,7 @@ synapse_error_o graph::launch(
           to_string(inputs_and_outputs_info)));
 
   auto table_checker{
-      [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
+      [&recipe_handle](const synLaunchTensorInfo& info) -> bool {
         if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
           PT_SYNHELPER_WARN(
               recipe_handle.recipe_name_,
@@ -362,7 +359,7 @@ synapse_error_o graph::launch(
       inputs_and_outputs_info.begin(),
       inputs_and_outputs_info.end(),
       addresses.begin(),
-      [](const synLaunchTensorInfoExt& info) { return info.pTensorAddress; });
+      [](const synLaunchTensorInfo& info) { return info.pTensorAddress; });
   {
     address_lock = std::move(
         absl::make_unique<device_ptr_lock>(device.lock_addresses(addresses)));
@@ -386,7 +383,7 @@ synapse_error_o graph::launch(
           inputs_and_outputs_info.begin(),
           inputs_and_outputs_info.end(),
           std::back_inserter(old_launch_info),
-          [](const synLaunchTensorInfoExt& input) {
+          [](const synLaunchTensorInfo& input) {
             synLaunchTensorInfo info;
             info.tensorName = input.tensorName;
             info.pTensorAddress = input.pTensorAddress;
@@ -406,7 +403,7 @@ synapse_error_o graph::launch(
     } else {
       PT_SYNHELPER_DEBUG("Launching recipe with tensor ids");
       uint32_t flags{0};
-      status = synLaunchByTensorIds(
+      status = synLaunch(
           compute_stream,
           inputs_and_outputs_info.data(),
           inputs_and_outputs_info.size(),

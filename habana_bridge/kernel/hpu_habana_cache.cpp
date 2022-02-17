@@ -794,7 +794,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 }
 
 void RecipeValueSpec::patch_launch_info(
-    std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec) {
+    std::vector<synLaunchTensorInfo>& syn_launch_info_vec) {
   TORCH_CHECK(
       (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
       "syn tensor ids are not populated");
@@ -806,7 +806,7 @@ void RecipeValueSpec::patch_launch_info(
       case SHAPE_TENSOR:
       case INPUT_DESCRIBING_SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),
             0,
             ti.tensor_type(),
@@ -817,7 +817,7 @@ void RecipeValueSpec::patch_launch_info(
       case DATA_TENSOR:
       case DATA_TENSOR_DYNAMIC: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),
             ti.get_buffer_syn(),
             ti.tensor_type(),
@@ -827,7 +827,7 @@ void RecipeValueSpec::patch_launch_info(
       }
       case DEVICE_SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),
             ti.get_buffer_syn(),
             ti.tensor_type(),
@@ -957,7 +957,7 @@ void RecipeValueSpec::launch(
     }
   }
 
-  std::vector<synLaunchTensorInfoExt> syn_launch_info;
+  std::vector<synLaunchTensorInfo> syn_launch_info;
   patch_launch_info(syn_launch_info);
   if (device.IsStreamASyncEnabled()) {
     auto& recipe_counter = device.get_active_recipe_counter();

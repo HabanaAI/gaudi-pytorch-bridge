@@ -57,7 +57,6 @@ SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunch);
-SYN_API_PTR(synLaunchByTensorIds);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -121,7 +120,6 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
   SYN_API_INIT_PTR(synLaunch);
-  SYN_API_INIT_PTR(synLaunchByTensorIds);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -330,47 +328,12 @@ inline std::ostream& operator<<(
     std::ostream& out,
     const synLaunchTensorInfo& v) {
   return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
-             << (void*)v.pTensorAddress << '"';
+             << v.tensorId << "\", \"" << (void*)v.pTensorAddress << '"';
 }
 
 synStatus SYN_API_CALL synLaunch(
     const synStreamHandle streamHandle,
     const synLaunchTensorInfo* launchTensorsInfo,
-    uint32_t numberTensors,
-    uint64_t pWorkspace,
-    const synRecipeHandle pRecipehandle,
-    uint32_t flags) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(
-      ARG(streamHandle),
-      M_ARG(launchTensorsInfo, numberTensors),
-      ARG(numberTensors),
-      ARG_X(pWorkspace),
-      ARG(pRecipehandle),
-      ARG(flags));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synLaunch,
-      streamHandle,
-      launchTensorsInfo,
-      numberTensors,
-      pWorkspace,
-      pRecipehandle,
-      flags)
-  API_LOG_RESULT();
-  return status;
-}
-
-inline std::ostream& operator<<(
-    std::ostream& out,
-    const synLaunchTensorInfoExt& v) {
-  return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
-             << v.tensorId << "\", \"" << (void*)v.pTensorAddress << '"';
-}
-
-synStatus SYN_API_CALL synLaunchByTensorIds(
-    const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -386,7 +349,7 @@ synStatus SYN_API_CALL synLaunchByTensorIds(
       ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunchByTensorIds,
+      lib_synapse::synLaunch,
       streamHandle,
       launchTensorsInfo,
       numberTensors,
