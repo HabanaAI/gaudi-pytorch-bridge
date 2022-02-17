@@ -2247,6 +2247,45 @@ replication_pad3d.out:
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
 
+replication_pad1d_backward:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad1dBwdParams
+  dtype: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPadBwdOp
+
+replication_pad1d_backward.grad_input:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad1dBwdParams
+  dtype: [BFloat16, Float, Int]
+  op_backend: ReplicationPadBwdOp
+
+replication_pad2d_backward:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad2dBwdParams
+  dtype: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPadBwdOp
+
+replication_pad2d_backward.grad_input:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad2dBwdParams
+  dtype: [BFloat16, Float, Int]
+  op_backend: ReplicationPadBwdOp
+
+replication_pad3d_backward:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad3dBwdParams
+  dtype: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPadBwdOp
+
+replication_pad3d_backward.grad_input:
+  custom_output_shape: ReplicationPadBwdOutputShape
+  custom_fill_params: FillReplicationPad3dBwdParams
+  dtype: [BFloat16, Float, Int]
+  op_backend: ReplicationPadBwdOp
+
 resize_:
   custom_output_shape: ResizeOutputShape
   guid: memcpy
