@@ -2856,30 +2856,8 @@ Tensor& index_add_hpu_lazy_(
 
   Tensor index_add_out = index_add_op.call();
 
-  // add a control edge as we add a loop using d2d copy back to self
-  updateDstDependencies(hl_self, self, true);
-
-  auto hl_index_add_out = GetHbLazyTensor(index_add_out);
-
-  auto copy_node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_index_add_out.GetIrValue(), hl_self.GetIrValue()});
-
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.SetNode(
-      copy_node,
-      hl_self.GetDevice(),
-      hl_self.GetSizes(),
-      hl_self.dtype_optional());
-
-  flush_op(self);
-  return self;
+  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_add_out, self}};
+  return k.call(self);
 }
 
 Tensor index_put_frontend_impl_hpu_lazy(
