@@ -3184,28 +3184,10 @@ Tensor& index_put_hpu_lazy_(
   }
   auto index_put_result =
       index_put_hpu_lazy(self_clone, indices_in, value, accumulate);
-  auto hl_self = GetOrCreateHbLazyTensor(self);
-  // add a control edge as we add a loop using d2d copy back to self
-  updateDstDependencies(hl_self, self, true);
 
-  auto hl_index_put_out = GetHbLazyTensor(index_put_result);
-
-  auto copy_node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_index_put_out.GetIrValue(), hl_self.GetIrValue()});
-
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.SetNode(
-      copy_node,
-      hl_self.GetDevice(),
-      hl_self.GetSizes(),
-      hl_self.dtype_optional());
+  LazyOp<at::Tensor&> k{
+      "hpu::habana_d2d_memcpy_other", {index_put_result, self}};
+  self = k.call(self);
 
   HandleViewsD2D(index_put_result, self);
   // In DS case changing shapes will not cause a cache miss, therefore no need
