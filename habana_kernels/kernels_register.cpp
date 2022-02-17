@@ -4495,6 +4495,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
   m.def(
+      "hpu::constant_pad_nd(Tensor self, Tensor pad_before_tensor, Tensor pad_after_tensor, Scalar value) -> Tensor");
+  m.def(
       "upsample_nearest2d_backward(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor");
   m.def(
       "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)");

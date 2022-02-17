@@ -2317,10 +2317,43 @@ Tensor constant_pad_hpu_lazy(
     IntArrayRef pad,
     const Scalar& value) {
   PT_LAZY_TRACE;
+  std::vector<at::IValue> vector_of_inputs;
+  std::string op_name;
+  std::set<size_t> metadata_indices;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    op_name = "hpu::constant_pad_nd";
+    std::vector<int64_t> pad_before(MAX_DIMENSIONS_NUM);
+    std::vector<int64_t> pad_after(MAX_DIMENSIONS_NUM);
+
+    for (unsigned int i = 0; i < pad.size() / 2; i++) {
+      pad_before[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i];
+      pad_after[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i + 1];
+    }
+
+    auto pad_before_tensor = empty_hpu_lazy(
+        IntArrayRef(pad_before),
+        self.options().dtype(c10::ScalarType::Int),
+        self.suggest_memory_format(),
+        false,
+        INPUT_DESCRIBING_SHAPE_TENSOR);
+    auto pad_after_tensor = empty_hpu_lazy(
+        IntArrayRef(pad_after),
+        self.options().dtype(c10::ScalarType::Int),
+        self.suggest_memory_format(),
+        false,
+        INPUT_DESCRIBING_SHAPE_TENSOR);
+
+    vector_of_inputs = {self, pad_before_tensor, pad_after_tensor, value};
+    metadata_indices = {3};
+  } else {
+    op_name = "aten::constant_pad_nd";
+    vector_of_inputs = {self, pad, value};
+    metadata_indices = {1, 2};
+  }
   LazyOp<at::Tensor> k{
-      "aten::constant_pad_nd",
-      {self, pad, value},
-      {1, 2},
+      op_name,
+      vector_of_inputs,
+      metadata_indices,
       {PadOperator::compute_output_shape(self, pad)}};
   return k.call();
 }

@@ -147,6 +147,10 @@ class PadOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       c10::IntArrayRef pad);
+  static std::vector<int64_t> compute_output_shape_ds(
+      const at::Tensor& self,
+      c10::IntArrayRef pad_before,
+      c10::IntArrayRef pad_after);
 };
 
 //
