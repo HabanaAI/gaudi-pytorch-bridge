@@ -1053,10 +1053,27 @@ void HabanaLaunchOpPT::handleRestrideNode(
   HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
   auto tensor = value_to_ivalue[value_in]->toTensor();
   auto is_5d_layout = tensor.dim() == 5 ? true : false;
+  bool is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+
+  if (is_jit_cached_graph_info_available == false) {
+    bool is_in_graph_outputs = isInGraphOutputs(value_out);
+    jit_graph_and_meta_data->set_is_in_graph_outputs(is_in_graph_outputs);
+  }
+  auto is_in_graph_outputs = jit_graph_and_meta_data->get_is_in_graph_outputs(
+      restride_node_out_val_counter);
+  restride_node_out_val_counter++;
 
   if ((tensor.dim() == 4) || (tensor.dim() == 5)) {
+    if (is_jit_cached_graph_info_available == false) {
+      auto new_pos = toIValue(node->input(1))->toIntVector();
+      jit_graph_and_meta_data->set_new_pos(new_pos);
+    }
+    std::vector<int64_t>& new_pos =
+        jit_graph_and_meta_data->get_new_pos(restride_node_swap_counter);
+    restride_node_swap_counter++;
+
     auto sizes = tensor.sizes().vec();
-    auto new_pos = toIValue(node->input(1))->toIntVector();
     std::vector<int64_t> swapped_sizes;
     for (auto& pos : new_pos) {
       swapped_sizes.emplace_back(sizes[pos]);
@@ -1066,12 +1083,13 @@ void HabanaLaunchOpPT::handleRestrideNode(
     for (auto& pos : new_pos) {
       swapped_strides.emplace_back(strides[pos]);
     }
+
     tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
         swapped_sizes, swapped_strides);
     tensor.unsafeGetTensorImpl()->empty_tensor_restride(
         c10::MemoryFormat::Contiguous);
 
-    if (isInGraphOutputs(value_out)) {
+    if (is_in_graph_outputs) {
       auto format = is_5d_layout ? c10::MemoryFormat::ChannelsLast3d
                                  : c10::MemoryFormat::ChannelsLast;
       if (!is_restride_cl) {
@@ -1097,7 +1115,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
       " output",
       value_out->debugName());
 
-  if (isInGraphOutputs(value_out)) {
+  if (is_in_graph_outputs) {
     TORCH_CHECK(
         pt_to_synapse_tensors.count(ivpsh),
         " Could not find the syn tensor corresponding to %",
@@ -1486,6 +1504,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   if (refine_ds_enabled_) {
     jit_graph_and_meta_data->clear_cached_graph_info();
     prim_nodes_ival_counter = 0;
+    restride_node_swap_counter = 0;
+    restride_node_out_val_counter = 0;
   }
 
   // for each node in IR graph, at this point the graph is a list with nodes

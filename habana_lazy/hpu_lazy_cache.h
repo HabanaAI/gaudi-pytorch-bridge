@@ -162,6 +162,14 @@ struct OptimizedJITGraphAndMetaData {
 
   IValPtrShared get_prim_nodes_ival(size_t index);
 
+  void set_new_pos(std::vector<int64_t> pos);
+
+  std::vector<int64_t>& get_new_pos(size_t index);
+
+  void set_is_in_graph_outputs(bool is_graph_output);
+
+  bool get_is_in_graph_outputs(size_t index);
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -169,6 +177,8 @@ struct OptimizedJITGraphAndMetaData {
   bool isJITCachedGraphInfoAvailable = false;
   std::vector<habana::OutputMetaDataVector> outputs_metadata{};
   std::vector<IValPtrShared> prim_nodes_ivals{};
+  std::vector<std::vector<int64_t>> new_positions{};
+  std::vector<bool> is_in_graph_outputs{};
 };
 
 /**

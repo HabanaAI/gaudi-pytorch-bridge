@@ -265,6 +265,8 @@ habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
 void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   outputs_metadata.clear();
   prim_nodes_ivals.clear();
+  new_positions.clear();
+  is_in_graph_outputs.clear();
 }
 
 void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {
@@ -274,6 +276,25 @@ void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {
 IValPtrShared OptimizedJITGraphAndMetaData::get_prim_nodes_ival(size_t index) {
   HABANA_ASSERT(index < prim_nodes_ivals.size());
   return prim_nodes_ivals[index];
+}
+
+void OptimizedJITGraphAndMetaData::set_new_pos(std::vector<int64_t> pos) {
+  new_positions.emplace_back(pos);
+}
+
+std::vector<int64_t>& OptimizedJITGraphAndMetaData::get_new_pos(size_t index) {
+  HABANA_ASSERT(index < new_positions.size());
+  return new_positions[index];
+}
+
+void OptimizedJITGraphAndMetaData::set_is_in_graph_outputs(
+    bool is_graph_output) {
+  is_in_graph_outputs.emplace_back(is_graph_output);
+}
+
+bool OptimizedJITGraphAndMetaData::get_is_in_graph_outputs(size_t index) {
+  HABANA_ASSERT(index < is_in_graph_outputs.size());
+  return is_in_graph_outputs[index];
 }
 
 // LazyGraphCache Functions

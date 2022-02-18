@@ -50,6 +50,8 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
 
   jit_graph_and_meta_data->clear_cached_graph_info();
   prim_nodes_ival_counter = 0;
+  restride_node_swap_counter = 0;
+  restride_node_out_val_counter = 0;
 
   value_to_ivalue.clear();
   syn_graph_ptr = nullptr;

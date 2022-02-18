@@ -189,6 +189,8 @@ class HabanaLaunchOpPT {
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   size_t prim_nodes_ival_counter{0};
+  size_t restride_node_swap_counter{0};
+  size_t restride_node_out_val_counter{0};
 
   std::vector<TensorMetaData> input_tms;
 
