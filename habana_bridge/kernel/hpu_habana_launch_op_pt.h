@@ -188,6 +188,8 @@ class HabanaLaunchOpPT {
       jit_graph_and_meta_data = nullptr;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
+  size_t prim_nodes_ival_counter{0};
+
   std::vector<TensorMetaData> input_tms;
 
   std::string DumpNodeInputs(torch::jit::Node* node);

@@ -1233,10 +1233,20 @@ void HabanaLaunchOpPT::handleRestrideNode(
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   if (node->kind() == torch::jit::prim::Constant) {
     auto node_vals = node->outputs();
+    bool is_jit_cached_graph_info_available =
+        jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
     for (const auto value : node_vals) {
-      IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+      IValPtrShared ivptrsh = nullptr;
+      if (is_jit_cached_graph_info_available == false) {
+        ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+      }
       if (value->type()->kind() == c10::TypeKind::TensorType) {
-        auto ivptrsh_updated = castConstantTensor(ivptrsh);
+        if (is_jit_cached_graph_info_available == false) {
+          auto ivptrshUpdated = castConstantTensor(ivptrsh);
+          jit_graph_and_meta_data->set_prim_nodes_ival(ivptrshUpdated);
+        }
+        auto ivptrsh_updated = jit_graph_and_meta_data->get_prim_nodes_ival(
+            prim_nodes_ival_counter);
         value_to_ivalue[value] = ivptrsh_updated;
         std::string irn{"%intermediate_"};
         irn += std::to_string(intermediate_index);
@@ -1260,8 +1270,15 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
         aten_intermediates.push_back(tensor);
       } else {
+        if (is_jit_cached_graph_info_available == false) {
+          jit_graph_and_meta_data->set_prim_nodes_ival(ivptrsh);
+        } else {
+          ivptrsh = jit_graph_and_meta_data->get_prim_nodes_ival(
+              prim_nodes_ival_counter);
+        }
         value_to_ivalue[value] = ivptrsh;
       }
+      prim_nodes_ival_counter++;
     }
   } else if (node->kind() == torch::jit::prim::ListConstruct) {
     const auto& node_ins = node->inputs();
@@ -1468,6 +1485,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   if (refine_ds_enabled_) {
     jit_graph_and_meta_data->clear_cached_graph_info();
+    prim_nodes_ival_counter = 0;
   }
 
   // for each node in IR graph, at this point the graph is a list with nodes

@@ -264,6 +264,16 @@ habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
 
 void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   outputs_metadata.clear();
+  prim_nodes_ivals.clear();
+}
+
+void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {
+  prim_nodes_ivals.emplace_back(ival);
+}
+
+IValPtrShared OptimizedJITGraphAndMetaData::get_prim_nodes_ival(size_t index) {
+  HABANA_ASSERT(index < prim_nodes_ivals.size());
+  return prim_nodes_ivals[index];
 }
 
 // LazyGraphCache Functions
