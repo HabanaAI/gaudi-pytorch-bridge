@@ -2630,7 +2630,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   int dimensions = input_shape.size();
   int elements = self.numel();
   at::TensorOptions hb_options = self.options();
-  hb_options = hb_options.dtype(c10::ScalarType::Int);
+  hb_options = hb_options.dtype(c10::ScalarType::Long);
 
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {
@@ -2662,7 +2662,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
       auto self = inputs[0].toTensor();
       auto where_tensor = empty_hpu_lazy(
           outputs[0],
-          self.options().dtype(c10::ScalarType::Int),
+          self.options().dtype(c10::ScalarType::Long),
           self.suggest_memory_format(),
           false);
       auto shape_tensor = empty_hpu_lazy(
@@ -2726,7 +2726,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   int dimensions = input_shape.size();
   int elements = self.numel();
   at::TensorOptions hb_options = self.options();
-  hb_options = hb_options.dtype(c10::ScalarType::Int);
+  hb_options = hb_options.dtype(c10::ScalarType::Long);
 
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {

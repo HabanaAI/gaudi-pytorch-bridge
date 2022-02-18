@@ -1070,7 +1070,7 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
     torch::Tensor c0 =
         torch::randint(RMIN, RMAX, {A, B}, torch::dtype(torch::kInt64));
 
-    torch::Tensor out_cpu = torch::nonzero(c0).to(torch::kInt32);
+    torch::Tensor out_cpu = torch::nonzero(c0);
 
     PRINT_TENSOR_WITH_DATA(c0);
     PRINT_TENSOR_WITH_DATA(out_cpu);
