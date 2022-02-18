@@ -301,6 +301,7 @@ void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   prim_nodes_ivals.clear();
   new_positions.clear();
   is_in_graph_outputs.clear();
+  is_control_edge_processing_required = false;
 }
 
 void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {
@@ -329,6 +330,15 @@ void OptimizedJITGraphAndMetaData::set_is_in_graph_outputs(
 bool OptimizedJITGraphAndMetaData::get_is_in_graph_outputs(size_t index) {
   HABANA_ASSERT(index < is_in_graph_outputs.size());
   return is_in_graph_outputs[index];
+}
+
+void OptimizedJITGraphAndMetaData::set_is_control_edge_processing_required(
+    bool is_c_edge_required) {
+  is_control_edge_processing_required = is_c_edge_required;
+}
+
+bool OptimizedJITGraphAndMetaData::get_is_control_edge_processing_required() {
+  return is_control_edge_processing_required;
 }
 
 // LazyGraphCache Functions

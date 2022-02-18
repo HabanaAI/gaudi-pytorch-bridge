@@ -99,8 +99,15 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
-  // Process control edges
-  HabanaLaunchOpPT::ProcessControlEdges();
+  bool is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+  bool is_c_edge_processing_required =
+      jit_graph_and_meta_data->get_is_control_edge_processing_required();
+  if (refine_ds_enabled_ || is_jit_cached_graph_info_available == false ||
+      is_c_edge_processing_required) {
+    // Process control edges
+    HabanaLaunchOpPT::ProcessControlEdges();
+  }
 
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   if (syn_graph_ptr->is_empty()) {

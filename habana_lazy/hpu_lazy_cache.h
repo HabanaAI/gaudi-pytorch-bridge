@@ -199,6 +199,10 @@ struct OptimizedJITGraphAndMetaData {
 
   bool get_is_in_graph_outputs(size_t index);
 
+  void set_is_control_edge_processing_required(bool is_c_edge_required);
+
+  bool get_is_control_edge_processing_required();
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -212,6 +216,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<IValPtrShared> prim_nodes_ivals{};
   std::vector<std::vector<int64_t>> new_positions{};
   std::vector<bool> is_in_graph_outputs{};
+  bool is_control_edge_processing_required = false;
 };
 
 /**

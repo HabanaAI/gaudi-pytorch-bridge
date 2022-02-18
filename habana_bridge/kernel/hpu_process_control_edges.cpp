@@ -118,6 +118,8 @@ void HabanaLaunchOpPT::ProcessCustomOptControlEdges(
             auto list_input_node = list_input_val->node();
             auto c_edge = nodeRequiresControlEdge(list_input_node);
             if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
+              jit_graph_and_meta_data->set_is_control_edge_processing_required(
+                  true);
               // prepare blocking nodes list
               PrepareBlockingNodeList(list_input_node, c_edge);
 
@@ -304,6 +306,7 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
   for (auto node : graph_nodes) {
     auto c_edge = nodeRequiresControlEdge(node);
     if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
+      jit_graph_and_meta_data->set_is_control_edge_processing_required(true);
       // prepare blocking nodes list
       PrepareBlockingNodeList(node, c_edge);
 
@@ -381,12 +384,14 @@ void HabanaLaunchOpPT::ProcessControlEdgesForMemoryReuse() {
       if (IsValidNode(blocking_node) &&
           (!IsAncestorOrDescendant(blocking_node, blocked_node) &&
            (blocking_node != blocked_node))) {
+        jit_graph_and_meta_data->set_is_control_edge_processing_required(true);
         blocking_nodes_vec.emplace_back(blocking_node);
         HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
       }
     } // for (auto& u : val_ins[0]->uses())
 
     if (blocking_syn_nodes_vec.size()) {
+      jit_graph_and_meta_data->set_is_control_edge_processing_required(true);
       HabanaLaunchOpPT::addSynNodes(blocked_syn_nodes_vec, blocked_node);
       if (blocked_syn_nodes_vec.size()) {
         syn_graph_ptr->set_synapse_control_edges_pt(
