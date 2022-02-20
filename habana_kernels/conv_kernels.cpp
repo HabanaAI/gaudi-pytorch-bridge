@@ -287,7 +287,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
 void SpatialConv3DOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inpust expected for Conv operator");
@@ -365,7 +365,11 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
       true /*is_conv_3d*/);
 
   auto output = habana_helpers::createPTTensor(
-      input, shape_out, input.options(), memory_format, is_output_persistent);
+      input,
+      shape_out,
+      input.options(),
+      memory_format,
+      output_metadata.at(0).persistent);
 
   // Allocate Shape Tensor (only for conv_tranpose2d which uses dedx node)
   if (graph.is_dynamic_graph() && this->guid_ == "dedx3d") {
@@ -381,14 +385,14 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<synConvolution3DParams>(params);
   p_context_->params_size_ = sizeof(params);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void SpatialConvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inpust expected for Conv operator");
@@ -463,7 +467,11 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       c10::MemoryFormat::ChannelsLast);
 
   auto output = habana_helpers::createPTTensor(
-      input, shape_out, input.options(), memory_format, is_output_persistent);
+      input,
+      shape_out,
+      input.options(),
+      memory_format,
+      output_metadata.at(0).persistent);
 
   // Allocate Shape Tensor (only for conv_tranpose2d which uses dedx node)
   if (graph.is_dynamic_graph() && this->guid_ == "dedx") {
@@ -479,14 +487,14 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<synConvolutionParams>(params);
   p_context_->params_size_ = sizeof(params);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void ConvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inpust expected for Conv operator");
@@ -525,8 +533,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
         [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
           scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
           scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-          scOp->SetOutputMetadata(output_metadata_);
-          scOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+          scOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
           p_context_->syn_outputs_.emplace_back(
               std::move(scOp->GetSynOutputs()[0]));
@@ -549,9 +556,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
             scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-            scOp->SetOutputMetadata(output_metadata_);
-            scOp->AllocateAndAddSynapseNode(
-                graph, inputs, is_output_persistent);
+            scOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
             p_context_->syn_outputs_.emplace_back(
                 std::move(scOp->GetSynOutputs()[0]));
@@ -572,21 +577,20 @@ void ConvOperator::AllocateAndAddSynapseNode(
           [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
             scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-            scOp->AllocateAndAddSynapseNode(graph, inputs, false);
+            scOp->AllocateAndAddSynapseNode(
+                graph, inputs, OutputMetaDataVector(1));
 
             auto addOp = make_operator<AddOperator>(
                 this->p_context_->device_id_, input.scalar_type());
             addOp->SetSynapseInput(scOp->GetSynOutputs()[0]);
             addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-            addOp->SetOutputMetadata(output_metadata_);
             // Build Params for the graph
             Scalar alphaValue = 1.0;
             torch::jit::Stack stack;
             stack.emplace_back(IValue(scOp->GetOutputs()[0]));
             stack.emplace_back(IValue(bias));
             stack.emplace_back(IValue(alphaValue));
-            addOp->AllocateAndAddSynapseNode(
-                graph, stack, is_output_persistent);
+            addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
             stack.clear();
 
             p_context_->syn_outputs_.emplace_back(
@@ -717,7 +721,9 @@ Tensor convolution_hpu(
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
       Op.Compile(graph);
     }
 

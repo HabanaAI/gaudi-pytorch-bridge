@@ -27,7 +27,7 @@ class BinaryInplaceOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  protected:
   c10::ScalarType scalarType_;
@@ -42,7 +42,7 @@ class BinaryInplaceWrapperOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -92,7 +92,7 @@ class BinaryInplaceOperatorWithAlpha : public BinaryInplaceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 };
 
 class BinaryInplaceWrapperOperatorWithAlpha : public habana::HabanaOperator {
@@ -104,7 +104,7 @@ class BinaryInplaceWrapperOperatorWithAlpha : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  protected:
   c10::ScalarType scalarType_;
@@ -140,7 +140,7 @@ class AddcmulInplaceOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class AddcdivInplaceOperator : public habana::HabanaOperator {
@@ -153,6 +153,6 @@ class AddcdivInplaceOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 } // namespace habana

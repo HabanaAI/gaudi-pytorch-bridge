@@ -29,12 +29,7 @@ class CustomOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  private:
   custom_op::HabanaCustomOpDescriptor op_desc_;

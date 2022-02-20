@@ -232,7 +232,7 @@ ns_AdaptiveAvgPool::Params synapse_adaptive_avg_pool_params_builder(
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 6,
       "Incorrect size of input expected for MaxPool2dWithIndicesOperator");
@@ -245,8 +245,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
   TORCH_CHECK(inputs[5].isBool(), "Sixth input type expected to be Bool");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "MaxPool2dWithIndicesOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "MaxPool2dWithIndicesOperator: #output_metadata should be 2");
 
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -271,7 +271,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
       input.suggest_memory_format(),
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8 and short for float and bf16 input tensors respectively (to
   // match TPC kernel requirement).
@@ -286,18 +286,15 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(),
       type,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   // The output_idx_nhwc is created with is_output_persistent[1] and
   // output_nhwc is created with is_output_persistent[0]. When adding
   // AllocateSynapseOutputs, the order is revered and the is_output_persistent
   // flag also need to be accordingly reversed.
-  std::swap(is_output_persistent[0], is_output_persistent[1]);
-  // TODO: swap metadata order to match allocation order?
+  OutputMetaDataVector output_metadata_reordered = {
+      output_metadata.at(1), output_metadata.at(0)};
   AllocateSynapseOutputs(
-      graph,
-      {output_idx_nhwc, output_nhwc},
-      is_output_persistent,
-      {true, true});
+      graph, {output_idx_nhwc, output_nhwc}, output_metadata_reordered);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
   std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
   std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);
@@ -306,7 +303,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
 void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOutOperator");
@@ -357,7 +354,7 @@ void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, grad_input);
   }
 
-  AllocateSynapseOutput(graph, {grad_input}, is_output_persistent);
+  AllocateSynapseOutput(graph, {grad_input}, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -491,7 +488,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+      OutputMetaDataVector output_metadata(2);
+      output_metadata.at(0).persistent = true;
+      output_metadata.at(1).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -613,7 +613,9 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -644,14 +646,15 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
   TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
 
   at::Tensor input = inputs[1].toTensor();
-  auto grad_input = habana_helpers::createPTTensor(input, is_output_persistent);
+  auto grad_input =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
 
   // Re-order the inpust for:
   // MaxPool2dWithIndicesBackwardOutOperator in the below order:
@@ -663,7 +666,7 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 3, indices);
 
   MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+      graph, inputs, output_metadata);
 }
 
 void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
@@ -767,7 +770,9 @@ Tensor max_pool2d_with_indices_backward_hpu(
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -799,7 +804,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
 void AvgPool2dOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isIntList(), "Input1 type expected to be IntList");
   TORCH_CHECK(inputs[2].isIntList(), "Input2 type expected to be IntList");
@@ -840,9 +845,9 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
       input.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
+  AllocateSynapseOutput(graph, output_nhwc, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -948,7 +953,9 @@ Tensor avg_pool2d_hpu(
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // add node and allocate parms and output
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -979,7 +986,7 @@ Tensor avg_pool2d_hpu(
 void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input2 type expected to be tensor");
@@ -1029,7 +1036,7 @@ void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, grad_input_nhwc);
   }
 
-  AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
+  AllocateSynapseOutput(graph, grad_input_nhwc, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -1149,7 +1156,9 @@ Tensor& avg_pool2d_backward_out_hpu(
       // Allocate synapse inputs
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -1179,16 +1188,16 @@ Tensor& avg_pool2d_backward_out_hpu(
 void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc =
-      habana_helpers::createPTTensor(input_nhwc, is_output_persistent);
+  auto grad_input_nhwc = habana_helpers::createPTTensor(
+      input_nhwc, output_metadata.at(0).persistent);
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+      graph, inputs, output_metadata);
 }
 
 void AvgPool2dBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1281,7 +1290,9 @@ Tensor avg_pool2d_backward_hpu(
       // Allocate synapse inputs
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -1313,7 +1324,7 @@ Tensor avg_pool2d_backward_hpu(
 void AdaptiveAvgPool2dOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isIntList(), "Input1 type expected to be IntList");
 
@@ -1334,8 +1345,8 @@ void AdaptiveAvgPool2dOperator::AllocateAndAddSynapseNode(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
       input.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output_nhwc, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -1402,7 +1413,9 @@ Tensor adaptive_avg_pool2d_hpu(const Tensor& input, IntArrayRef output_size) {
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // add node and allocate parms and output
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -1431,7 +1444,7 @@ Tensor adaptive_avg_pool2d_hpu(const Tensor& input, IntArrayRef output_size) {
 void AdaptiveAvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
@@ -1457,8 +1470,8 @@ void AdaptiveAvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
       out_shape,
       input_nhwc.options(),
       input_nhwc.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output_nhwc, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -1529,7 +1542,9 @@ Tensor adaptive_avg_pool2d_backward_hpu(
       // Allocate synapse inputs
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       // compile and execute the graph
       Op.Compile(graph);

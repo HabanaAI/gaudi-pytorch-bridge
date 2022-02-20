@@ -32,7 +32,7 @@ using namespace habana;
 void CompareOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input arguments for Compare Out Operator");
@@ -49,14 +49,14 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
   // Tensor other = inputs[1].toTensor();
   Tensor output = inputs[2].toTensor();
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,
@@ -75,23 +75,23 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
   if (inputs[1].isTensor()) { // Both inputs are tensors
     compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     compareOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    compareOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    compareOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     auto arg1 = inputs[0].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    constOp->SetOutputMetadata(output_metadata_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, OutputMetaDataVector(1));
     compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     compareOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    compareOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    compareOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(compareOp->GetOutputs()[0]);
@@ -108,7 +108,7 @@ void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void CompareWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input arguments for Compare Operator");
@@ -135,10 +135,10 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
       operand.options(),
       operand.suggest_memory_format(),
       c10::ScalarType::Bool,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   inputs.push_back(output);
   CompareOutWrapperOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+      graph, inputs, output_metadata);
 }
 
 void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -176,7 +176,7 @@ std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
 void GeOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    UNUSED bool is_output_persistent) {
+    UNUSED const OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,
@@ -206,7 +206,8 @@ void GeOutOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, OutputMetaDataVector(1));
     syn_in.emplace_back(
         static_cast<synapse_helpers::tensor&>(constOp->GetSynOutputs()[0])
             .get());
@@ -273,7 +274,9 @@ Tensor compare_op_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

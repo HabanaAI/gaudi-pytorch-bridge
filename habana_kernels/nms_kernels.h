@@ -21,7 +21,7 @@ class FilterAndSqueezeOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class NMSOperator : public HabanaOperator {
@@ -33,7 +33,7 @@ class NMSOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class PostNmsOperator : public HabanaOperator {
@@ -46,7 +46,7 @@ class PostNmsOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class HabanaNMSOperator : public HabanaOperator {
@@ -59,7 +59,7 @@ class HabanaNMSOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

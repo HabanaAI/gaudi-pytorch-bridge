@@ -23,7 +23,7 @@ class UnaryOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 class UnaryInplaceOperator : public HabanaOperator {
@@ -38,7 +38,7 @@ class UnaryInplaceOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 // Unary Backward Operator
@@ -55,7 +55,7 @@ class UnaryBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 // Wrapper of unary which produces one tensor output and accepts
@@ -71,7 +71,7 @@ class UnaryLikeOperator : public UnaryOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 
  protected:
   bool m_inplace;
@@ -110,7 +110,7 @@ class LeakyReluOperator : public UnaryLikeOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Elu Operator
@@ -125,7 +125,7 @@ class EluOperator : public UnaryLikeOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class LeakyReluBackwardOperator : public UnaryBackwardOperator {
@@ -138,7 +138,7 @@ class LeakyReluBackwardOperator : public UnaryBackwardOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Sigmoid Operator
@@ -175,7 +175,7 @@ class HardsigmoidOperator : public UnaryLikeOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class HardsigmoidBackwardOperator : public UnaryBackwardOperator {
@@ -188,7 +188,7 @@ class HardsigmoidBackwardOperator : public UnaryBackwardOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Tanh Operator
@@ -218,7 +218,7 @@ class SiluBackwardOperator : public UnaryBackwardOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Abs Operator
@@ -287,7 +287,7 @@ class IsfiniteOperator : public UnaryOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Sqrt Operator
@@ -314,7 +314,7 @@ class ClampOperator : public UnaryOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class ClampInplaceOperator : public UnaryOperator {
@@ -331,7 +331,7 @@ class ClampInplaceOperator : public UnaryOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class ClampMinOperator : public UnaryOperator {
@@ -348,7 +348,7 @@ class ClampMinOperator : public UnaryOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Neg Operator
@@ -395,7 +395,7 @@ class ReciprocalOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -409,7 +409,7 @@ class ReciprocalOperator : public ReciprocalOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -439,7 +439,7 @@ class GeluOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -457,15 +457,7 @@ class HbGeluOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override {
-    AllocateAndAddSynapseNode(
-        graph, inputs, {is_output_persistent, is_output_persistent});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetEagerMode() {
     is_eager_mode = true;
@@ -495,7 +487,7 @@ class GeluBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -604,7 +596,7 @@ class IsnanOperator : public UnaryOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // SiluOut Operator
@@ -623,7 +615,7 @@ class SiluOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Silu Operator
@@ -638,7 +630,7 @@ class SiluOperator : public UnaryOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Cumsum Operator
@@ -653,7 +645,7 @@ class CumsumOperator : public UnaryLikeOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana

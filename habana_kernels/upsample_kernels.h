@@ -24,7 +24,7 @@ class UpsampleOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
   static std::vector<int64_t> compute_output_shape(
       std::vector<int64_t> shape_in,
@@ -51,7 +51,7 @@ class UpsampleBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 

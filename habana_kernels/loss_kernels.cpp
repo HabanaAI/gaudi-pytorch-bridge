@@ -96,7 +96,7 @@ static ns_MSELossKernel::Params synapse_mse_loss_params_builder(
 void NLLLossFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for nll_loss operator");
@@ -145,8 +145,8 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       reshaped_self_sizes,
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent[0]);
-  AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output1, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 
   // create a dummy output, we do not support weights therefore there is no
@@ -157,16 +157,16 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       {1},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output2, graph, is_output_persistent[1], c10::nullopt));
+      output2, graph, output_metadata.at(1).persistent, c10::nullopt));
   p_context_->pt_outputs_.emplace_back(output2);
 }
 
 void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for nll_loss operator");
@@ -219,8 +219,8 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
       reshaped_self_sizes,
       self.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent[0]);
-  AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output1, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
   // create a dummy output, we do not support weights therefore there is no
   // sum_weights tensor, but we still need to return an empty tensor to keep
@@ -230,9 +230,9 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
       {1},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output2, graph, is_output_persistent[1], c10::nullopt));
+      output2, graph, output_metadata.at(1).persistent, c10::nullopt));
   p_context_->pt_outputs_.emplace_back(output2);
 }
 
@@ -301,7 +301,10 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -390,7 +393,10 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -411,7 +417,7 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
 void NLLLossBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs expected for nll_loss operator");
@@ -447,19 +453,20 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
       params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+  auto output =
+      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
     AllocateSynapseShapeTensor(graph, output);
   }
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void NLLLoss2dBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs expected for nll_loss2d operator");
@@ -500,14 +507,14 @@ void NLLLoss2dBwdOperator::AllocateAndAddSynapseNode(
       self.sizes(),
       self.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
     AllocateSynapseShapeTensor(graph, output);
   }
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -582,7 +589,9 @@ Tensor nll_loss_backward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -664,7 +673,9 @@ Tensor nll_loss2d_backward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -707,7 +718,7 @@ std::vector<int64_t> MSELossFwdOperator::compute_output_shape(
 void MSELossFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for mse_loss operator");
@@ -727,9 +738,9 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
       sizes,
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -779,7 +790,9 @@ Tensor mse_loss_forward_hpu(
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -804,7 +817,7 @@ std::vector<int64_t> MSELossBwdOperator::compute_output_shape(
 void MSELossBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for mse_loss operator");
@@ -819,9 +832,10 @@ void MSELossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+  auto output =
+      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -875,7 +889,9 @@ Tensor mse_loss_backward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -901,7 +917,7 @@ std::vector<int64_t> KlDivOperator::compute_output_shape(
 void KlDivOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for kl_div operator");
@@ -923,7 +939,8 @@ void KlDivOperator::AllocateAndAddSynapseNode(
         make_operator<ExpOperator>(self.device().index(), self.scalar_type()));
     stack = {IValue(target)};
     log_exp_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    log_exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    log_exp_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
   } else {
@@ -931,7 +948,8 @@ void KlDivOperator::AllocateAndAddSynapseNode(
         make_operator<LogOperator>(self.device().index(), self.scalar_type()));
     stack = {IValue(target)};
     log_exp_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    log_exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    log_exp_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     threshold_op = make_operator<ThresholdBackwardOperator>(
@@ -939,7 +957,8 @@ void KlDivOperator::AllocateAndAddSynapseNode(
     threshold_op->SetSynapseInput(log_exp_op->GetSynOutputs()[0]);
     threshold_op->SetSynapseInput(p_context_->syn_inputs_[1]);
     stack = {IValue(log_exp_op->GetOutputs()[0]), IValue(target), IValue(0.0f)};
-    threshold_op->AllocateAndAddSynapseNode(graph, stack, false);
+    threshold_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
   }
 
@@ -952,7 +971,7 @@ void KlDivOperator::AllocateAndAddSynapseNode(
       (log_target) ? IValue(target) : IValue(threshold_op->GetOutputs()[0]),
       IValue(self),
       IValue(1)};
-  sub_op->AllocateAndAddSynapseNode(graph, stack, false);
+  sub_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   auto mul_op1 =
@@ -961,7 +980,6 @@ void KlDivOperator::AllocateAndAddSynapseNode(
                : mul_op1->SetSynapseInput(p_context_->syn_inputs_[1]);
   mul_op1->SetSynapseInput(sub_op->GetSynOutputs()[0]);
   if (reduction == at::Reduction::Reduction::None) {
-    mul_op1->SetOutputMetadata(output_metadata_);
   }
   stack = {
       (log_target) ? IValue(log_exp_op->GetOutputs()[0]) : IValue(target),
@@ -969,8 +987,8 @@ void KlDivOperator::AllocateAndAddSynapseNode(
   mul_op1->AllocateAndAddSynapseNode(
       graph,
       stack,
-      (reduction == at::Reduction::Reduction::None) ? is_output_persistent
-                                                    : false);
+      (reduction == at::Reduction::Reduction::None) ? output_metadata
+                                                    : OutputMetaDataVector(1));
   stack.clear();
 
   if (reduction != at::Reduction::Reduction::None) {
@@ -980,9 +998,8 @@ void KlDivOperator::AllocateAndAddSynapseNode(
         : static_cast<HabanaOperatorPtr>(make_operator<MeanOperator>(
               self.device().index(), self.scalar_type()));
     sum_mean_op->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
-    sum_mean_op->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op1->GetOutputs()[0]), IValue(self.scalar_type())};
-    sum_mean_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    sum_mean_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(
@@ -1037,7 +1054,9 @@ Tensor kl_div_hpu(
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1057,7 +1076,7 @@ Tensor kl_div_hpu(
 void KlDivBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for kl_div backward operator");
@@ -1080,7 +1099,7 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
         make_operator<ExpOperator>(self.device().index(), self.scalar_type()));
     stack = {IValue(target)};
     exp_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-    exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    exp_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
   }
 
@@ -1098,7 +1117,8 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
               self.device().index(), self.scalar_type()));
     sum_mean_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     stack = {IValue(grad_out), IValue(size_arr), IValue(0)};
-    sum_mean_op->AllocateAndAddSynapseNode(graph, stack, false);
+    sum_mean_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto shape1 = self.sizes().vec();
@@ -1106,7 +1126,8 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
         self.device().index(), self.scalar_type());
     reshape_op->SetSynapseInput(sum_mean_op->GetSynOutputs()[0]);
     stack = {IValue(sum_mean_op->GetOutputs()[0]), IValue(shape1)};
-    reshape_op->AllocateAndAddSynapseNode(graph, stack, false);
+    reshape_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto mul_op1 =
@@ -1117,15 +1138,14 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
     stack = {
         IValue(reshape_op->GetOutputs()[0]),
         (log_target) ? IValue(exp_op->GetOutputs()[0]) : IValue(target)};
-    mul_op1->AllocateAndAddSynapseNode(graph, stack, false);
+    mul_op1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto mul_op3 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     mul_op3->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
-    mul_op3->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op1->GetOutputs()[0]), IValue(-1)};
-    mul_op3->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    mul_op3->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(
@@ -1140,15 +1160,14 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
     stack = {
         IValue(grad_out),
         (log_target) ? IValue(exp_op->GetOutputs()[0]) : IValue(target)};
-    mul_op2->AllocateAndAddSynapseNode(graph, stack, false);
+    mul_op2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto mul_op4 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     mul_op4->SetSynapseInput(mul_op2->GetSynOutputs()[0]);
-    mul_op4->SetOutputMetadata(output_metadata_);
     stack = {IValue(mul_op2->GetOutputs()[0]), IValue(-1)};
-    mul_op4->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    mul_op4->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(
@@ -1205,7 +1224,9 @@ Tensor kl_div_backward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1231,7 +1252,7 @@ std::vector<int64_t> BceFwdOperator::compute_output_shape(
 void BceFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4, "Incorrect size of inputs expected for BCE operator");
   TORCH_CHECK(
@@ -1267,7 +1288,8 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   auto v = self.sizes().vec();
   std::reverse(std::begin(v), std::end(v));
   torch::jit::Stack stack = {IValue(self), IValue(v)};
-  reshape_self->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_self->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // add reshape node to make target same shape as reshaped input
@@ -1275,7 +1297,8 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
       target.device().index(), target.scalar_type());
   reshape_target->SetSynapseInput(p_context_->syn_inputs_[1]);
   stack = {IValue(target), IValue(v)};
-  reshape_target->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_target->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
 
   // fill params for BCE node
   ns_BinaryCrossEntropy::ParamsOptionalSigmoid params =
@@ -1287,8 +1310,8 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   // set-up input/output tensors for BCE
   auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
   auto output = habana_helpers::createPTTensor(
-      self, sizes, self.options(), is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      self, sizes, self.options(), output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
   synapse_helpers::tensor& syn_in_tensor = reshape_target->GetSynOutputs()[0];
   std::vector<synTensor> syn_inputs{syn_in_self.get(), syn_in_tensor.get()};
@@ -1340,7 +1363,9 @@ Tensor binary_cross_entropy_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1359,7 +1384,7 @@ Tensor binary_cross_entropy_hpu(
 void BceBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5, "Incorrect size of inputs expected for BCE operator");
   TORCH_CHECK(
@@ -1399,7 +1424,8 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   auto v = self.sizes().vec();
   std::reverse(std::begin(v), std::end(v));
   torch::jit::Stack stack = {IValue(self), IValue(v)};
-  reshape_self->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_self->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // add reshape node to make target same shape as reshaped input
@@ -1407,14 +1433,15 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
       target.device().index(), target.scalar_type());
   reshape_target->SetSynapseInput(p_context_->syn_inputs_[2]);
   stack = {IValue(target), IValue(v)};
-  reshape_target->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_target->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   auto neg_grad = make_operator<NegOperator>(
       grad_output.device().index(), grad_output.scalar_type());
   neg_grad->SetSynapseInput(p_context_->syn_inputs_[0]);
   stack = {IValue(grad_output)};
-  neg_grad->AllocateAndAddSynapseNode(graph, stack, false);
+  neg_grad->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   ns_BinaryCrossEntropy::ParamsOptionalSigmoid params =
@@ -1426,8 +1453,7 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(
       graph,
       habana_helpers::createPTTensor(reshape_self->GetOutputs()[0], false),
-      false,
-      false,
+      OutputMetaData(),
       false);
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
   synapse_helpers::tensor& syn_in_target = reshape_target->GetSynOutputs()[0];
@@ -1451,9 +1477,7 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   reshape_grad_in->SetSynapseInput(p_context_->syn_outputs_[0]);
   stack = {
       c10::IValue(p_context_->pt_outputs_[0]), c10::IValue(self.sizes().vec())};
-  reshape_grad_in->SetOutputMetadata(output_metadata_);
-  reshape_grad_in->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent);
+  reshape_grad_in->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   stack.clear();
 
   p_context_->syn_outputs_[0] = std::move(reshape_grad_in->GetSynOutputs()[0]);
@@ -1507,7 +1531,9 @@ Tensor binary_cross_entropy_backward_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1535,7 +1561,7 @@ std::vector<int64_t> BceLogitsFwdOperator::compute_output_shape(
 void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for BCELogits operator");
@@ -1573,9 +1599,9 @@ void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
   Tensor output;
   auto sizes = BceLogitsFwdOperator::compute_output_shape(self, reduction);
   output = habana_helpers::createPTTensor(
-      self, sizes, self.options(), is_output_persistent);
+      self, sizes, self.options(), output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -1627,7 +1653,9 @@ Tensor binary_cross_entropy_with_logits_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

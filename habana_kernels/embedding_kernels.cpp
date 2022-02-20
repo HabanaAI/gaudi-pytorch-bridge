@@ -102,7 +102,7 @@ std::vector<int64_t> PadOperator::compute_output_shape_ds(
 void PadOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4 || inputs.size() == 3,
       "Incorrect size of inputs expected for PadOperator Operator");
@@ -172,7 +172,7 @@ void PadOperator::AllocateAndAddSynapseNode(
           graph, pad_after_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
     }
   }
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -201,7 +201,9 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(pad), IValue(value)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -216,7 +218,7 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
 void EmbeddingOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for embedding operator");
@@ -255,13 +257,11 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, weight.scalar_type());
     indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     indexSelectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    indexSelectOp->SetOutputMetadata(output_metadata_);
     // Build Params for the graph
     int64_t dim = 0;
     std::vector<c10::IValue> stack{
         IValue(weight), IValue(dim), IValue(indices)};
-    indexSelectOp->AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent);
+    indexSelectOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(indexSelectOp->GetSynOutputs()[0]));
@@ -285,7 +285,7 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
     std::vector<c10::IValue> stack;
     stack.emplace_back(IValue(indices));
     stack.emplace_back(IValue(shape));
-    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
+    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto indexSelectOp = make_operator<IndexSelectOperator>(
@@ -297,18 +297,18 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(weight));
     stack.emplace_back(IValue(dim));
     stack.emplace_back(IValue(ReshapeOp->GetOutputs()[0]));
-    indexSelectOp->AllocateAndAddSynapseNode(graph, stack, false);
+    indexSelectOp->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto ReshapeOp_2 = make_operator<ReshapeOperator>(
         this->p_context_->device_id_,
         indexSelectOp->GetOutputs()[0].scalar_type());
     ReshapeOp_2->SetSynapseInput(indexSelectOp->GetSynOutputs()[0]);
-    ReshapeOp_2->SetOutputMetadata(output_metadata_);
     // Build Params for the graph
     stack.emplace_back(IValue(indexSelectOp->GetOutputs()[0]));
     stack.emplace_back(IValue(size));
-    ReshapeOp_2->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    ReshapeOp_2->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(ReshapeOp_2->GetSynOutputs()[0]));
@@ -378,7 +378,9 @@ Tensor embedding_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -393,7 +395,7 @@ Tensor embedding_hpu(
 void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for embedding operator");
@@ -436,7 +438,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   zeroOp->AllocateSynapseInput(graph, grad_temp, false);
   c10::Scalar zero_val = 0;
   std::vector<c10::IValue> zero_op_stack{IValue(grad_temp), IValue(zero_val)};
-  zeroOp->AllocateAndAddSynapseNode(graph, zero_op_stack, false);
+  zeroOp->AllocateAndAddSynapseNode(
+      graph, zero_op_stack, OutputMetaDataVector(1));
 
   // Node: indices_flattened = indices.view(-1); // assumes non-FCDs are size 1s
   auto reshape_op_indices = make_operator<ReshapeOperator>(
@@ -446,7 +449,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_indices_shape(size1, 1);
   torch::jit::Stack indices_stack = {
       c10::IValue(indices), c10::IValue(modified_indices_shape)};
-  reshape_op_indices->AllocateAndAddSynapseNode(graph, indices_stack, false);
+  reshape_op_indices->AllocateAndAddSynapseNode(
+      graph, indices_stack, OutputMetaDataVector(1));
   auto indices_flattened = reshape_op_indices->GetOutputs()[0];
 
   // Node: updates = grad.view(size);
@@ -458,7 +462,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_input_shape(size2, 2);
   torch::jit::Stack updates_stack = {
       c10::IValue(grad), c10::IValue(modified_input_shape)};
-  reshape_op_grad->AllocateAndAddSynapseNode(graph, updates_stack, false);
+  reshape_op_grad->AllocateAndAddSynapseNode(
+      graph, updates_stack, OutputMetaDataVector(1));
   auto updates = reshape_op_grad->GetOutputs()[0];
   // Create cast operator for indices->Float = node_type = "cast_i32_to_f32" for
   // topk
@@ -468,7 +473,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
   std::vector<c10::IValue> cast_stack{
       IValue(indices_flattened), IValue(cast_scalar_type)};
-  castIndicesToFloatOp->AllocateAndAddSynapseNode(graph, cast_stack, false);
+  castIndicesToFloatOp->AllocateAndAddSynapseNode(
+      graph, cast_stack, OutputMetaDataVector(1));
 
   // Node: topk_idx = at::topk(cast_indices_pt_tensor, numel);
   auto topkOp =
@@ -483,7 +489,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
       IValue(dim),
       IValue(largest),
       IValue(sorted)};
-  topkOp->AllocateAndAddSynapseNode(graph, topk_stack, {false, false});
+  topkOp->AllocateAndAddSynapseNode(graph, topk_stack, OutputMetaDataVector(2));
   // output[0] -> topk_values
   // output[1] -> topk_indices
   // Create cast operator for topk_values = node_type = "cast_f32_to_i32"
@@ -493,7 +499,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   cast_scalar_type = c10::ScalarType::Int;
   std::vector<c10::IValue> cast_stack1{
       IValue(topkOp->GetOutputs()[0]), IValue(cast_scalar_type)};
-  castTopkValsOp->AllocateAndAddSynapseNode(graph, cast_stack1, false);
+  castTopkValsOp->AllocateAndAddSynapseNode(
+      graph, cast_stack1, OutputMetaDataVector(1));
 
   synapse_helpers::tensor& syn_updates = reshape_op_grad->GetSynOutputs()[0];
   // Node: reordered_updates = at::gather(updates, 0, topk_indices);
@@ -507,7 +514,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
       IValue(dim),
       IValue(topkOp->GetOutputs()[1]),
       IValue(sparse_grad)};
-  gatherOp->AllocateAndAddSynapseNode(graph, gather_stack, false);
+  gatherOp->AllocateAndAddSynapseNode(
+      graph, gather_stack, OutputMetaDataVector(1));
 
   /*
     grad_weight.scatter_add_(0, topk_values, reordered_updates);
@@ -517,16 +525,15 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   scatterAddOp->SetSynapseInput(zeroOp->GetSynOutputs()[0]);
   scatterAddOp->SetSynapseInput(castTopkValsOp->GetSynOutputs()[0]);
   scatterAddOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
-  if (padding_idx == -1) {
-    scatterAddOp->SetOutputMetadata(output_metadata_);
-  }
   std::vector<c10::IValue> sa_stack{
       IValue(zeroOp->GetOutputs()[0]),
       IValue(dim),
       IValue(castTopkValsOp->GetOutputs()[0]),
       IValue(gatherOp->GetOutputs()[0])};
   scatterAddOp->AllocateAndAddSynapseNode(
-      graph, sa_stack, (padding_idx != -1) ? false : is_output_persistent);
+      graph,
+      sa_stack,
+      (padding_idx != -1) ? OutputMetaDataVector(1) : output_metadata);
   auto grad_weight = scatterAddOp->GetOutputs()[0];
   synapse_helpers::tensor& syn_grad_weight = scatterAddOp->GetSynOutputs()[0];
   /*
@@ -552,7 +559,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
     zero_op_stack.clear();
     zero_op_stack.emplace_back(IValue(temp_zeros));
     zero_op_stack.emplace_back(IValue(zero_val));
-    zeroOp1->AllocateAndAddSynapseNode(graph, zero_op_stack, false);
+    zeroOp1->AllocateAndAddSynapseNode(
+        graph, zero_op_stack, OutputMetaDataVector(1));
 
     auto topk_indices = topkOp->GetOutputs()[1];
     // create a wrapper PT tensor for the non-persistent tensor holding
@@ -573,14 +581,14 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, topk_indices.scalar_type());
     std::vector<c10::IValue> constOp_stack = {
         IValue(pad_indices[0]), IValue(p_converted)};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, OutputMetaDataVector(1));
 
     auto indexputOp = make_operator<IndexPutOperator>(
         this->p_context_->device_id_, grad_weight.scalar_type());
     indexputOp->SetSynapseInput(syn_grad_weight);
     indexputOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     indexputOp->SetSynapseInput(zeroOp1->GetSynOutputs()[0]);
-    indexputOp->SetOutputMetadata(output_metadata_);
 
     std::vector<c10::IValue> indexputOp_stack = {
         IValue(grad_weight),
@@ -588,7 +596,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
         IValue(temp_zeros),
         IValue(false)};
     indexputOp->AllocateAndAddSynapseNode(
-        graph, indexputOp_stack, is_output_persistent);
+        graph, indexputOp_stack, output_metadata);
     auto result = indexputOp->GetOutputs()[0];
     synapse_helpers::tensor& syn_result = indexputOp->GetSynOutputs()[0];
     SetPTOutput(result);
@@ -656,7 +664,9 @@ Tensor embedding_dense_backward_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -670,7 +680,7 @@ Tensor embedding_dense_backward_hpu(
 void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for EmbeddingBagSumOperator operator");
@@ -695,8 +705,8 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
       {offsets.sizes()[0] - 1, input.size(1)},
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -764,7 +774,9 @@ Tensor embedding_bag_sum_hpu(
       IValue(offsets_i32),
       IValue(valid_count_i32),
       IValue(kernel_mode)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -823,7 +835,7 @@ synapse_helpers::tensor_or_ref& EmbeddingBagSumForwardOperator::SetSynapseInput(
 void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   HABANA_ASSERT(inputs.size() == 8);
   HABANA_ASSERT(inputs[0].isTensor());
   HABANA_ASSERT(inputs[1].isTensor());
@@ -845,9 +857,9 @@ void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
       {offsets.numel() - 1, input.size(1)},
       input.options(),
       input.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -907,7 +919,9 @@ Tensor embedding_bag_sum_fwd_hpu(
       IValue(offsets_bwd),
       IValue(valid_count_bwd),
       IValue(grad_weight)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -965,7 +979,7 @@ synapse_helpers::tensor_or_ref& EmbeddingBagSumBackwardOperator::
 void EmbeddingBagSumBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   HABANA_ASSERT(inputs.size() == 5);
 
   HABANA_ASSERT(inputs[0].isTensor());
@@ -986,7 +1000,7 @@ void EmbeddingBagSumBackwardOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(offsets_bwd.dim() == 1);
   HABANA_ASSERT(valid_count_bwd.numel() == 2);
 
-  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -1045,7 +1059,9 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -1057,8 +1073,8 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
 void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   HABANA_ASSERT(inputs.size() == 6);
 
   HABANA_ASSERT(inputs[0].isTensor());
@@ -1149,7 +1165,9 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

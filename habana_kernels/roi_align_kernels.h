@@ -28,7 +28,7 @@ class RoiAlignFwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class RoiAlignBwdOperator : public HabanaOperator {
@@ -49,7 +49,7 @@ class RoiAlignBwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class RoiAlignBwdImplOperator : public HabanaOperator {
@@ -64,7 +64,7 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class QuadTreeFwdImplOperator : public HabanaOperator {
@@ -79,7 +79,7 @@ class QuadTreeFwdImplOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana

@@ -387,10 +387,10 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
   return is_persistent;
 }
 
-std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
+OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
     torch::jit::Node* node) {
   auto node_outs = node->outputs();
-  std::vector<bool> is_persistent_vec{};
+  OutputMetaDataVector output_metadata{};
   // If node output is tensor list
   // tensorList and Unpack pair is supported
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
@@ -398,9 +398,9 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     if (unpack_node != nullptr) {
       for (auto value_out : unpack_node->outputs()) {
-        auto is_persistent =
-            nodeOutputPersistencePerValue(unpack_node, value_out);
-        is_persistent_vec.emplace_back(is_persistent);
+        OutputMetaData md(*value_out);
+        md.persistent = nodeOutputPersistencePerValue(unpack_node, value_out);
+        output_metadata.emplace_back(md);
       }
     } else {
       PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
@@ -408,11 +408,12 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     }
   } else {
     for (auto value_out : node_outs) {
-      auto is_persistent = nodeOutputPersistencePerValue(node, value_out);
-      is_persistent_vec.emplace_back(is_persistent);
+      OutputMetaData md(*value_out);
+      md.persistent = nodeOutputPersistencePerValue(node, value_out);
+      output_metadata.emplace_back(md);
     }
   }
-  return is_persistent_vec;
+  return output_metadata;
 }
 
 void HabanaLaunchOpPT::HandleMappedTensor(
@@ -1477,16 +1478,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Otherwise this results in spurious control edges
     syn_graph_ptr->clear_node_indices();
 
-    // Set output metadata for node
-    const auto& outputs = node->outputs();
-    OutputMetaDataVector outputs_metadata;
-    std::transform(
-        outputs.begin(),
-        outputs.end(),
-        std::back_inserter(outputs_metadata),
-        [](CValPtr value) -> OutputMetaData { return OutputMetaData(*value); });
-    HabanaKernel->SetOutputMetadata(outputs_metadata);
-
     // set op name in synapse graph
     std::unique_ptr<synapse_helpers::graph::OpNameContext> op_name_context;
     if (node->hasAttribute(c10::attr::debug_name)) {
@@ -1500,22 +1491,17 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     GetSynapseInputs(HabanaKernel, node, input_stack);
 
     // setup the config params for the kernels
-    auto outputPersistent = nodeOutputPersistence(node);
+    OutputMetaDataVector outputs_metadata = nodeOutputMetaData(node);
 
-    if (outputPersistent.size() == 1) {
-      std::string node_str(node->kind().toQualString());
-
-      if ((!is_shape_inference) && (outputPersistent[0] == true) &&
-          (node_str.find("strided_insert") != std::string::npos)) {
-        ProcessStridedInsertAtOutput(
-            node, HabanaKernel, input_stack, syn_graph);
-      } else {
-        HabanaKernel->AllocateAndAddSynapseNode(
-            syn_graph, input_stack, outputPersistent[0]);
-      }
+    if ((outputs_metadata.size() == 1) && (!is_shape_inference) &&
+        (outputs_metadata.at(0).persistent == true) &&
+        (std::string(node->kind().toQualString()).find("strided_insert") !=
+         std::string::npos)) {
+      ProcessStridedInsertAtOutput(
+          node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {
       HabanaKernel->AllocateAndAddSynapseNode(
-          syn_graph, input_stack, outputPersistent);
+          syn_graph, input_stack, outputs_metadata);
     }
 
     jit_to_synapse_node_idx_map.emplace(
@@ -2491,7 +2477,8 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
     torch::jit::Node* node,
     HabanaOperatorPtr HabanaKernel,
     torch::jit::Stack& input_stack,
-    synapse_helpers::graph& syn_graph) {
+    synapse_helpers::graph& syn_graph,
+    const OutputMetaDataVector& outputs_metadata) {
   // strided insert as graph output (i.e. persistence set as true)
   bool is_reuse_input = false;
   auto val_ins = node->inputs();
@@ -2518,7 +2505,9 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
   }
 
   if (is_reuse_input == false) {
-    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, true);
+    OutputMetaDataVector md(1, outputs_metadata.at(0));
+    md.at(0).persistent = true;
+    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, md);
   } else {
     TORCH_CHECK(
         value_to_ivalue.count(val_ins[0]),

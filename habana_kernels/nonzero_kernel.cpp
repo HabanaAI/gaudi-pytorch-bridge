@@ -68,7 +68,7 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void NonZeroOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 1,
       "Incorrect size of inputs expected for NonZero operator");
@@ -76,8 +76,8 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for NonZero operator");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "is_output_persistent expected to be vector of size 2");
+      output_metadata.size() == 2,
+      "output_metadata expected to be vector of size 2");
 
   auto self = inputs[0].toTensor();
 
@@ -92,22 +92,22 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   auto shape_tensor = habana_helpers::createPTTensor(
       self,
       shape_tensor_shape,
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   // shape_tensor is of type UINT32 not supported by ScalarType, use synDataType
   synDataType synType = syn_type_uint32;
-  AllocateSynapseOutput(graph, cordinates_of_true, is_output_persistent[0]);
+  AllocateSynapseOutput(graph, cordinates_of_true, output_metadata.at(0));
   AllocateSynapseOutput(
       graph,
       shape_tensor,
       synType,
-      is_output_persistent[1],
+      output_metadata.at(1),
       graph.is_dynamic_graph() ? true : false);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -164,7 +164,10 @@ Tensor nonzero_hpu(const Tensor& self) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
 

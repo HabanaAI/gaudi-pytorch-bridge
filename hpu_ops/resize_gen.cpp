@@ -29,7 +29,7 @@ void ResizeHabanaOperator::AddNode(
       : at::make_optional(stack.at(2).toMemoryFormat());
   const auto& output = habana_helpers::createPTTensor(
       t, sizes, t.options(), memory_format_opt, IsOutputPersistent(0));
-  AllocateSynapseOutput(graph, output, IsOutputPersistent(0));
+  AllocateSynapseOutput(graph, output, GetOutputMetaData(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 

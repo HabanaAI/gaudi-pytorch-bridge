@@ -25,7 +25,7 @@ using namespace habana;
 void DiagOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input arguments for Diag Out Operator");
@@ -37,7 +37,7 @@ void DiagOutOperator::AllocateAndAddSynapseNode(
       inputs[2].isTensor(),
       "Input arg 3 for Diag Out op needs to be tensor type");
 
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   auto self = inputs[0].toTensor();
   auto diagonal = inputs[1].toInt();
   auto output = inputs[2].toTensor();
@@ -81,7 +81,7 @@ void DiagOutOperator::AllocateAndAddSynapseNode(
 void DiagOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input arguments for Diag Operator");
@@ -99,15 +99,14 @@ void DiagOperator::AllocateAndAddSynapseNode(
       out_shape,
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   // Addding to stack, pt_inputs to be suitable
   // for out variant's AllocateAbdAddSynapseNoe
   inputs.emplace_back(output);
-  AllocateSynapseInput(graph, output, is_output_persistent);
+  AllocateSynapseInput(graph, output, output_metadata.at(0).persistent);
 
-  DiagOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  DiagOutOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 std::vector<int64_t> DiagOutOperator::compute_output_shape(
@@ -160,7 +159,7 @@ std::vector<int64_t> DiagOutOperator::compute_output_shape(
 Tensor DiagOutOperator::AllocateOutputTensor(
     const Tensor& self,
     int64_t& diagonal,
-    bool is_output_persistent) {
+    const OutputMetaData& output_metadata) {
   auto shape = compute_output_shape(self, diagonal);
 
   // allocate output tensor
@@ -169,7 +168,7 @@ Tensor DiagOutOperator::AllocateOutputTensor(
       shape,
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.persistent);
 
   return output;
 }
@@ -178,7 +177,9 @@ void DiagOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto diagonal = inputs[1].toInt();
 
-  auto output = AllocateOutputTensor(self, diagonal, true);
+  OutputMetaData output_metadata;
+  output_metadata.persistent = true;
+  auto output = AllocateOutputTensor(self, diagonal, output_metadata);
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
 }
@@ -209,7 +210,9 @@ at::Tensor diag_hpu(const at::Tensor& self, int64_t diagonal) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -248,7 +251,9 @@ at::Tensor& diag_hpu_out(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
   PT_KERNEL_END;

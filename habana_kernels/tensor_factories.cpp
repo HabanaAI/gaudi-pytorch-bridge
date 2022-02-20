@@ -133,7 +133,9 @@ Tensor ones_like_hpu(
   } else {
     PT_KERNEL_DEBUG("key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
 

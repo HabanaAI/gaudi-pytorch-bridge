@@ -33,7 +33,7 @@ std::vector<int64_t> LogSoftmaxOperator::compute_output_shape(
 void LogSoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   bool half_to_float;
   TORCH_CHECK(
       inputs.size() == 3,
@@ -62,8 +62,9 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  auto output =
+      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -75,7 +76,7 @@ std::vector<int64_t> LogSoftmaxBackwardOperator::compute_output_shape(
 void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of input expected for softmax operator");
@@ -97,8 +98,8 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   auto grad_output =
-      habana_helpers::createPTTensor(input, is_output_persistent);
-  AllocateSynapseOutput(graph, grad_output, is_output_persistent);
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, grad_output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -145,7 +146,9 @@ Tensor log_softmax_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -196,7 +199,9 @@ Tensor log_softmax_backward_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -215,7 +220,7 @@ std::vector<int64_t> SoftmaxOperator::compute_output_shape(const Tensor& self) {
 void SoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input expected for Softmax operator");
@@ -257,15 +262,16 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::ScalarType::Float)};
-    intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
+    intToFloatOp->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
 
     synapse_helpers::tensor& float_syn_tensor =
         intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
 
-    auto output =
-        habana_helpers::createPTTensor(output_float, is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    auto output = habana_helpers::createPTTensor(
+        output_float, output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
     std::vector<synTensor> syn_in{float_syn_tensor.get()};
@@ -285,8 +291,9 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<ns_Softmax::Params>(params);
     p_context_->params_size_ = sizeof(params);
 
-    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    auto output =
+        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
@@ -353,7 +360,9 @@ Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -367,7 +376,7 @@ Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
 void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input expected for Softmax operator");
@@ -411,15 +420,16 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::ScalarType::Float)};
-    intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
+    intToFloatOp->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
 
     synapse_helpers::tensor& float_syn_tensor =
         intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
 
-    auto output =
-        habana_helpers::createPTTensor(output_float, is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    auto output = habana_helpers::createPTTensor(
+        output_float, output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
     std::vector<synTensor> syn_in{float_syn_tensor.get()};
@@ -439,8 +449,9 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<ns_Softmax::Params>(params);
     p_context_->params_size_ = sizeof(params);
 
-    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    auto output =
+        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
@@ -493,7 +504,7 @@ std::vector<int64_t> SoftmaxBackwardOperator::compute_output_shape(
 void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of input expected for SoftmaxBackward operator");
@@ -522,9 +533,10 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto input_grad = habana_helpers::createPTTensor(input, is_output_persistent);
+  auto input_grad =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, input_grad, is_output_persistent);
+  AllocateSynapseOutput(graph, input_grad, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -567,7 +579,9 @@ Tensor softmax_backward_hpu(
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

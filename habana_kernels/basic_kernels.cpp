@@ -333,7 +333,7 @@ Tensor& set_hpu_(
 void ToDtypeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   // This function can handle following 2 schemas only:
   // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
   // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
@@ -384,10 +384,9 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     auto memcopyOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    memcopyOp->SetOutputMetadata(output_metadata_);
 
     torch::jit::Stack stack = {IValue(self)};
-    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(memcopyOp->GetSynOutputs()[0]));
@@ -402,8 +401,7 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
 
   auto Op = make_operator<CastOperator>(self.device().index(), node_type);
   Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  Op->SetOutputMetadata(output_metadata_);
-  Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  Op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
 }
@@ -411,7 +409,7 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
 void CastLazyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
@@ -476,11 +474,10 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_intOp =
           make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
       bf_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-      bf_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
+      bf_to_floatOp->AllocateAndAddSynapseNode(
+          graph, inputs, habana::OutputMetaDataVector(1));
       float_to_intOp->SetSynapseInput(bf_to_floatOp->GetSynOutputs()[0]);
-      float_to_intOp->SetOutputMetadata(output_metadata_);
-      float_to_intOp->AllocateAndAddSynapseNode(
-          graph, inputs, is_output_persistent);
+      float_to_intOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
       p_context_->syn_outputs_.emplace_back(
           std::move(float_to_intOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(
@@ -493,11 +490,10 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_bfOp = make_operator<CastOperator>(
           self.device().index(), "cast_f32_to_bf16");
       byte_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-      byte_to_floatOp->AllocateAndAddSynapseNode(graph, inputs, false);
+      byte_to_floatOp->AllocateAndAddSynapseNode(
+          graph, inputs, habana::OutputMetaDataVector(1));
       float_to_bfOp->SetSynapseInput(byte_to_floatOp->GetSynOutputs()[0]);
-      float_to_bfOp->SetOutputMetadata(output_metadata_);
-      float_to_bfOp->AllocateAndAddSynapseNode(
-          graph, inputs, is_output_persistent);
+      float_to_bfOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
       p_context_->syn_outputs_.emplace_back(
           std::move(float_to_bfOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(
@@ -505,8 +501,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
     } else {
       auto Op = make_operator<CastOperator>(self.device().index(), node_type);
       Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-      Op->SetOutputMetadata(output_metadata_);
-      Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+      Op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
       p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
     }
@@ -514,10 +509,9 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
     auto identityOp = make_operator<IdentityOperator>(
         self.device().index(), self.scalar_type());
     identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    identityOp->SetOutputMetadata(output_metadata_);
 
     torch::jit::Stack stack = {IValue(self)};
-    identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    identityOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(identityOp->GetSynOutputs()[0]));
@@ -534,7 +528,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
 void MemCopyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   at::Tensor output;
   if (inputs.size() == 2) {
@@ -543,8 +537,9 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(output_tensor);
     p_context_->pt_outputs_.emplace_back(output);
   } else {
-    output = habana_helpers::createPTTensor(self, is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    output =
+        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
   p_context_->params_size_ = 0;
   AddNodeToSynapseGraph(graph, NULL, 0);
@@ -553,16 +548,17 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
 void IdentityOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else {
-    output = habana_helpers::createPTTensor(self, is_output_persistent);
+    output =
+        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
   }
   p_context_->params_size_ = 0;
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
@@ -572,9 +568,9 @@ void IdentityOperator::AllocateAndAddSynapseNode(
 void DummyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   static_cast<void>(graph);
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   at::Tensor output;
   int out_index = inputs.size() - 1;
   output = inputs[out_index].toTensor();
@@ -632,10 +628,10 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
 void AsStridedOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   static_cast<void>(graph);
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
   TORCH_CHECK(
@@ -666,10 +662,10 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
 void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   static_cast<void>(graph);
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
 
@@ -811,7 +807,7 @@ void StridedInsertOperator::compute_params(
 void StridedInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect number of arguments for strided insert op");
@@ -825,8 +821,8 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       orig_t.sizes(),
       orig_t.options(),
       orig_t.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -892,7 +888,7 @@ bool StridedViewOperator::verifiyViewMemoryAccess(
 void StridedViewOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> size;
   std::vector<int64_t> strides;
@@ -934,8 +930,8 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
       size,
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   // For Dynamic case fill strides/offset params with max size
   if (graph.is_dynamic_graph()) {

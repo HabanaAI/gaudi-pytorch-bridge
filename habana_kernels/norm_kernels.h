@@ -36,7 +36,7 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent);
+      const OutputMetaDataVector& output_metadata);
 
   // virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack&
   // inputs);
@@ -121,7 +121,7 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void preProcessInputs(
       synapse_helpers::graph& graph,
@@ -168,7 +168,7 @@ class BatchNormInfOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class BatchNormBackwardOperator : public habana::HabanaOperator {
@@ -198,7 +198,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent);
+      const OutputMetaDataVector& output_metadata);
 
   void preProcessInputs(
       synapse_helpers::graph& graph,
@@ -256,11 +256,7 @@ class LayerNormOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
@@ -285,11 +281,7 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
@@ -314,7 +306,7 @@ class NormOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   static std::vector<int64_t> compute_output_shape(
@@ -326,11 +318,11 @@ class NormOperator : public HabanaOperator {
   void AddL0NormNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaData& output_metadata);
   void AddLInfNormNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaData& output_metadata);
 };
 
 // LpNorm Operator
@@ -348,7 +340,7 @@ class LpNormOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // LpNormFrobenius Operator
@@ -366,7 +358,7 @@ class LpNormFrobeniusOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // FusedNorm Operator
@@ -381,13 +373,13 @@ class FusedNormOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   // the common portion of code between fused_norm and fused_norm_lazy
   std::shared_ptr<SliceOperator> compute_clip_coeff(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool>& is_output_persistent);
+      const OutputMetaDataVector& output_metadata);
 };
 
 // FusedNormLazy Operator
@@ -408,7 +400,7 @@ class FusedNormLazyOperator : public FusedNormOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class InstanceNormOperator : public habana::HabanaOperator {
@@ -435,7 +427,7 @@ class InstanceNormOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   // used to compute output shapes of current mean and var
   static std::vector<int64_t> compute_output_shape(
@@ -469,7 +461,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   // used to compute output shapes of current mean and var
   static std::vector<int64_t> compute_output_shape(

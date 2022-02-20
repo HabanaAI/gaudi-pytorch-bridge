@@ -155,7 +155,7 @@ ns_ResizeKernel::Params synapse_resize_params_builder(
 void UpsampleOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   auto input = inputs[0].toTensor();
 
   TORCH_CHECK(
@@ -190,7 +190,11 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
       input.sizes().vec(), output_size, scales, tpc_memory_format);
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   auto output = habana_helpers::createPTTensor(
-      input, shape_out, input.options(), memory_format, is_output_persistent);
+      input,
+      shape_out,
+      input.options(),
+      memory_format,
+      output_metadata.at(0).persistent);
 
   // Setup resize params, TF uses same
   auto syn_resize_params = synapse_resize_params_builder(
@@ -209,14 +213,14 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, output);
   }
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
 
 void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   auto grad_output = inputs[0].toTensor();
   TORCH_CHECK(
       inputs[2].isIntList() || inputs[2].isTensor(),
@@ -263,7 +267,7 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
       grad_out_shape,
       grad_output.options(),
       memory_format,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   // Setup resize params, TF uses same
   auto is_grad_input_5d = is_tensor_5d(grad_output.sizes().vec());
@@ -283,7 +287,7 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, output);
   }
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
 
@@ -363,7 +367,9 @@ Tensor upsample_op_hpu(
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       Op->AllocateSynapseInputs(graph, pt_inputs, true);
-      Op->AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       Op->Compile(graph);
     }
     std::vector<at::Tensor> out = Op->GetOutputs();
@@ -441,7 +447,9 @@ Tensor upsample_backward_op_hpu(
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       Op->AllocateSynapseInputs(graph, pt_inputs, true);
-      Op->AllocateAndAddSynapseNode(graph, stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       Op->Compile(graph);
     }
     std::vector<at::Tensor> out = Op->GetOutputs();

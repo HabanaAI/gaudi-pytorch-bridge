@@ -125,8 +125,9 @@ typedef struct KernelMetaData {
 class OutputMetaData {
  public:
   std::string name;
-  // bool persistent;
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {}
+  bool persistent{false};
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
+  OutputMetaData(){};
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
@@ -192,8 +193,6 @@ class HabanaOperator {
   virtual void SetPTOutput(torch::jit::Stack& inputs);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
   virtual void SetPTOutputs(std::vector<at::Tensor>& outputs);
-  virtual void SetOutputMetadata(int index, const OutputMetaData& md);
-  virtual void SetOutputMetadata(const OutputMetaDataVector& md);
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,
@@ -249,9 +248,8 @@ class HabanaOperator {
   virtual void AllocateSynapseOutput(
       synapse_helpers::graph& graph,
       const at::Tensor& output,
-      bool is_persistent = false,
-      bool is_shape_tensor = false,
-      bool use_metadata = true);
+      const OutputMetaData& output_metadata,
+      bool is_shape_tensor = false);
 
   //
   // Method to add output tensors to graph builder context
@@ -260,9 +258,8 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& output,
       const synDataType synType,
-      bool is_persistent = false,
-      bool is_shape_tensor = false,
-      bool use_metadata = true);
+      const OutputMetaData& output_metadata,
+      bool is_shape_tensor = false);
 
   // Method to add output tensors to graph builder context
   virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);
@@ -272,18 +269,12 @@ class HabanaOperator {
   virtual void AllocateSynapseOutputs(
       synapse_helpers::graph& graph,
       const std::vector<at::Tensor>& outputs,
-      std::vector<bool> is_persistent,
-      std::vector<bool> use_metadata);
+      const OutputMetaDataVector& output_metadata);
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent);
+      const OutputMetaDataVector& output_metadata);
 
   virtual void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -374,9 +365,6 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
-  std::vector<OutputMetaData>
-      output_metadata_; // Must be ordered by allocation order
-  unsigned output_allocation_index_ = 0;
 };
 
 class RegisterKernel {

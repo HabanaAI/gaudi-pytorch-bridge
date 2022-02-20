@@ -31,9 +31,9 @@ std::vector<int64_t> BitwiseOutOperator::compute_output_shape(
 void BitwiseOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   static_cast<void>(inputs);
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cbegin());
   AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -42,7 +42,7 @@ void BitwiseOutOperator::AllocateAndAddSynapseNode(
 void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input expected for Bitwise operator");
@@ -65,14 +65,12 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
 
   auto BitwiseOutOp =
       make_operator<BitwiseOutOperator>(this->p_context_->device_id_, guid_);
-  BitwiseOutOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor() && inputs[2].isTensor()) {
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-    BitwiseOutOp->AllocateAndAddSynapseNode(
-        graph, inputs, is_output_persistent);
+    BitwiseOutOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else if (inputs[1].isTensor() && inputs[2].isScalar()) {
     auto arg1 = inputs[1].toTensor();
     auto constOp = make_operator<ConstantOperator>(
@@ -80,15 +78,15 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constInputs = {IValue(const_shape_tensor), inputs[2]};
-    constOp->AllocateAndAddSynapseNode(graph, constInputs, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constInputs, OutputMetaDataVector(1));
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     BitwiseOutOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     BitwiseOutOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
-    BitwiseOutOp->AllocateAndAddSynapseNode(
-        graph, inputs, is_output_persistent);
+    BitwiseOutOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
@@ -99,7 +97,7 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
 void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for Bitwise not operator");
@@ -121,12 +119,12 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   // Create a constant operator to get a tensor of ones of size self
   auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, scalar_type);
-  constOp->SetOutputMetadata(output_metadata_);
   auto const_shape_tensor = habana_helpers::createPTTensor(
       self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
   torch::jit::Stack constOp_stack = {
       IValue(const_shape_tensor), IValue(Scalar(1))};
-  constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+  constOp->AllocateAndAddSynapseNode(
+      graph, constOp_stack, OutputMetaDataVector(1));
 
   // Create xor operator
   auto xorOp = make_operator<BitwiseXorOutOperator>(
@@ -136,7 +134,7 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   xorOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
 
   inputs.emplace_back(constOp->GetOutputs()[0]);
-  xorOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  xorOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(std::move(xorOp->GetSynOutputs()[0]));
@@ -172,7 +170,9 @@ void process_generic_tensor_bitwise_out_op(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -326,7 +326,9 @@ Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

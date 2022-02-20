@@ -24,7 +24,7 @@ class MMOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       at::Tensor self,
@@ -48,7 +48,7 @@ class AddmmOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class BmmOutOperator : public HabanaOperator {
@@ -65,7 +65,7 @@ class BmmOutOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class BmmOperator : public BmmOutOperator {
@@ -79,7 +79,7 @@ class BmmOperator : public BmmOutOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -100,7 +100,7 @@ class MvOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -117,7 +117,7 @@ class DotOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class MatMulOperator : public HabanaOperator {
@@ -129,7 +129,7 @@ class MatMulOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -145,7 +145,7 @@ class MatmulBackwardOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  private:
   synapse_helpers::tensor_or_ref MatBwTranspose(
@@ -172,7 +172,7 @@ class MatmulBackwardOperator : public HabanaOperator {
       at::IntArrayRef sizes,
       synapse_helpers::tensor_or_ref syn_input1,
       synapse_helpers::tensor_or_ref syn_input2,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
 
   synapse_helpers::tensor_or_ref MatBwReshape(
       synapse_helpers::graph& graph,

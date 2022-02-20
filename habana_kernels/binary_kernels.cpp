@@ -53,7 +53,7 @@ std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
 bool habana::BinaryOperator::MaybeMultiplyWithBool(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaData& output_metadata) {
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
   bool is_arg1_integral = isIntegralType(arg1.scalar_type(), false);
@@ -102,14 +102,15 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
           make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
       castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
       stack = {arg1, c10::ScalarType::Int};
-      castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp1->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
     } else {
       castOp1 = make_operator<IdentityOperator>(
           this->p_context_->device_id_, c10::ScalarType::Int);
       castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
-      // castOp1->SetOutputMetadata(output_metadata_);
       stack = {arg1};
-      castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp1->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
     }
     std::string node2_type = (arg2.scalar_type() == c10::ScalarType::Int)
         ? "cast_identity"
@@ -123,14 +124,15 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
           make_operator<CastOperator>(this->p_context_->device_id_, node2_type);
       castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
       stack = {arg2, c10::ScalarType::Int};
-      castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp2->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
     } else {
       castOp2 = make_operator<IdentityOperator>(
           this->p_context_->device_id_, c10::ScalarType::Int);
       castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
-      // castOp2->SetOutputMetadata(output_metadata_);
       stack = {arg2};
-      castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+      castOp2->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
     }
 
     // Add the Mult node
@@ -142,16 +144,15 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
         arg1.options(),
         arg1.suggest_memory_format(),
         c10::ScalarType::Int,
-        (final_out_dtype == c10::ScalarType::Int) ? is_output_persistent
+        (final_out_dtype == c10::ScalarType::Int) ? output_metadata.persistent
                                                   : false);
 
     AllocateSynapseOutput(
         graph,
         output_mult,
-        (final_out_dtype == c10::ScalarType::Int) ? is_output_persistent
-                                                  : false,
-        false,
-        -1);
+        (final_out_dtype == c10::ScalarType::Int) ? output_metadata
+                                                  : OutputMetaData(),
+        false);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
     synapse_helpers::tensor& synInput1 = castOp1->GetSynOutputs()[0];
     synapse_helpers::tensor& synInput2 = castOp2->GetSynOutputs()[0];
@@ -172,11 +173,9 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
       auto finalCastOp =
           make_operator<CastOperator>(this->p_context_->device_id_, node_type);
       finalCastOp->SetSynapseInput(p_context_->syn_outputs_[0]);
-      // finalCastOp->SetOutputMetadata(output_metadata_);
       // Build Params for the graph
       stack = {output_mult, final_out_dtype};
-      finalCastOp->AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent);
+      finalCastOp->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
       p_context_->syn_outputs_.pop_back();
       p_context_->pt_outputs_.pop_back();
 
@@ -196,7 +195,7 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
 void habana::BinaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 2,
@@ -208,7 +207,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
 
   if (guid_.substr(0, 4) == "mult") {
     auto was_bool_mult =
-        MaybeMultiplyWithBool(graph, inputs, is_output_persistent);
+        MaybeMultiplyWithBool(graph, inputs, output_metadata.at(0));
     if (was_bool_mult)
       return;
   }
@@ -234,7 +233,8 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
       arg1.dtype() != arg2.dtype()) {
     castOp->SetSynapseInput(arg2_syn_tensor);
     torch::jit::Stack stack = {IValue(arg2), IValue(c10::ScalarType::BFloat16)};
-    castOp->AllocateAndAddSynapseNode(graph, stack, false);
+    castOp->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     synapse_helpers::tensor& syn_tensor = std::move(castOp->GetSynOutputs()[0]);
     syn_inputs.push_back(syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
@@ -244,8 +244,8 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         arg1.options(),
         memory_format,
         c10::ScalarType::BFloat16,
-        is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
   } else {
     syn_inputs.push_back(arg2_syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
@@ -254,8 +254,8 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
         memory_format,
-        is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
@@ -277,7 +277,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
 void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 2,
@@ -295,12 +295,11 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
       "Input arg2 type expected to be a tensor or scalar");
   auto binaryOp = make_operator<BinaryOperator>(
       this->p_context_->device_id_, guid_, this->scalarType_);
-  binaryOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
@@ -311,13 +310,14 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else { // 1st input is a scalar
     auto arg2 = inputs[1].toTensor();
     // add constant node to convert 1st input to tensor
@@ -326,13 +326,14 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     // replace input scalar with input tensor in the stack
     inputs.erase(inputs.cbegin());
     inputs.emplace(inputs.cbegin(), constOp->GetOutputs()[0]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(binaryOp->GetOutputs()[0]);
@@ -371,7 +372,7 @@ void habana::BinaryWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
@@ -391,7 +392,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack mulOp_stack{inputs[1], inputs[2]};
 
-    mulOp->AllocateAndAddSynapseNode(graph, mulOp_stack, false);
+    mulOp->AllocateAndAddSynapseNode(
+        graph, mulOp_stack, habana::OutputMetaDataVector(1));
     synapse_helpers::tensor_or_ref& mulOp_out = mulOp->GetSynOutputs()[0];
 
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
@@ -400,9 +402,9 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
         memory_format,
-        is_output_persistent);
+        output_metadata.at(0).persistent);
 
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
     synapse_helpers::tensor& arg2_syn_tensor = mulOp_out;
@@ -426,8 +428,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
         memory_format,
-        is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
     synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
@@ -455,7 +457,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
 void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(
@@ -471,12 +473,11 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
   auto binaryOp = make_operator<BinaryOperatorWithAlpha>(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
-  binaryOp->SetOutputMetadata(output_metadata_);
   if (inputs[0].isTensor() &&
       inputs[1].isTensor()) { // First 2 inputs are both tensors
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
     auto arg1 = inputs[0].toTensor();
@@ -486,13 +487,14 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else { // 1st input is a scalar
     auto arg2 = inputs[1].toTensor();
     // add node to convert scalar to tensor
@@ -501,14 +503,15 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     // replace 1st scalar input with a tensor in stack
     inputs.erase(inputs.cbegin());
     inputs.emplace(inputs.cbegin(), constOp->GetOutputs()[0]);
-    binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(binaryOp->GetOutputs()[0]);
@@ -596,7 +599,9 @@ Tensor process_generic_tensor_binary_op(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -721,7 +726,7 @@ Tensor sub_scalar_hpu(
 void habana::RsubOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
@@ -733,7 +738,7 @@ void habana::RsubOperator::AllocateAndAddSynapseNode(
   // Swap the first and second members of inputs
   inputs = {inputs[1], inputs[0], inputs[2]};
   // Now invoke normal SubOperator
-  SubOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  SubOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 /*************************************************************************
@@ -1035,7 +1040,7 @@ void habana::RemainderWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for Remainder operator");
@@ -1048,12 +1053,11 @@ void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderOperator>(
       this->p_context_->device_id_, this->scalarType_);
-  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     auto arg1 = inputs[0].toTensor();
@@ -1062,13 +1066,14 @@ void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
@@ -1079,7 +1084,7 @@ void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
 void habana::RemainderOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for remainder operator");
@@ -1109,12 +1114,11 @@ void habana::RemainderOperator::AllocateAndAddSynapseNode(
       IntArrayRef(out_shape.data(), out_shape.size()),
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   AllocateSynapseOutputs(
       graph,
       {quotient, remainder},
-      {false, is_output_persistent},
-      {false, true});
+      {habana::OutputMetaData(), output_metadata.at(0)});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -1159,7 +1163,9 @@ Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1185,7 +1191,7 @@ Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
 void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 2,
@@ -1201,8 +1207,8 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
       IntArrayRef(out_shape.data(), out_shape.size()),
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent[0]);
-  AllocateSynapseOutput(graph, quotient, is_output_persistent[0], false);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, quotient, output_metadata.at(0), false);
 
   // Note here we are using input[0] to store output[1]
   p_context_->syn_outputs_.emplace_back(
@@ -1238,7 +1244,7 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
 void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for Remainder operator");
@@ -1251,13 +1257,12 @@ void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderInplaceOperator>(
       this->p_context_->device_id_, this->scalarType_);
-  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     remainderOp->AllocateAndAddSynapseNode(
-        graph, inputs, {false, is_output_persistent});
+        graph, inputs, {OutputMetaData(), output_metadata.at(0)});
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     auto arg1 = inputs[0].toTensor();
@@ -1266,14 +1271,15 @@ void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
     remainderOp->AllocateAndAddSynapseNode(
-        graph, inputs, {false, is_output_persistent});
+        graph, inputs, {OutputMetaData(), output_metadata.at(0)});
   }
 
   p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
@@ -1319,7 +1325,9 @@ Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1372,7 +1380,9 @@ Tensor remainder_scalar_hpu(const Tensor& self, const at::Scalar& other) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1423,7 +1433,9 @@ Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1442,8 +1454,8 @@ Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
 void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const habana::OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for topk operator");
@@ -1461,7 +1473,7 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       false);
 
-  AllocateSynapseOutput(graph, quotient, false);
+  AllocateSynapseOutput(graph, quotient, OutputMetaData());
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
@@ -1488,7 +1500,7 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
 void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input expected for Remainder operator");
@@ -1502,13 +1514,12 @@ void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
 
   auto remainderOp = make_operator<RemainderOutOperator>(
       this->p_context_->device_id_, this->scalarType_);
-  remainderOp->SetOutputMetadata(output_metadata_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     auto arg1 = inputs[0].toTensor();
@@ -1517,14 +1528,15 @@ void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    constOp->AllocateAndAddSynapseNode(
+        graph, constOp_stack, habana::OutputMetaDataVector(1));
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 
   p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
@@ -1586,7 +1598,9 @@ Tensor& remainder_tensor_hpu_out(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1657,7 +1671,9 @@ Tensor& remainder_scalar_hpu_out(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

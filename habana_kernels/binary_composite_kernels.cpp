@@ -31,7 +31,7 @@ using namespace habana;
 void AddcmulOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Addcmul operator");
@@ -63,7 +63,7 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
-  mulOp->AllocateAndAddSynapseNode(graph, stack, false);
+  mulOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Create Add operator
@@ -71,11 +71,10 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
       make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
   addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-  addOp->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
-  addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   stack.clear();
 
   p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
@@ -119,7 +118,9 @@ Tensor addcmul_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -141,7 +142,7 @@ Tensor addcmul_hpu(
 void AddcdivOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Addcdiv operator");
@@ -173,7 +174,7 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
   divOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
-  divOp->AllocateAndAddSynapseNode(graph, stack, false);
+  divOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Create Add operator
@@ -181,11 +182,10 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
       make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
   addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   addOp->SetSynapseInput(divOp->GetSynOutputs()[0]);
-  addOp->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(divOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
-  addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   stack.clear();
 
   p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
@@ -229,7 +229,9 @@ Tensor addcdiv_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

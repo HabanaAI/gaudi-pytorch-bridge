@@ -29,7 +29,7 @@ class ReduceOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -77,7 +77,7 @@ class MeanDimOutOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -97,7 +97,7 @@ class MeanDimOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
@@ -116,7 +116,7 @@ class MeanOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -134,7 +134,7 @@ class ProdDimOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -152,7 +152,7 @@ class ProdOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -170,7 +170,7 @@ class SumDimOutOperator : public ReduceOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -190,7 +190,7 @@ class SumDimOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -210,7 +210,7 @@ class SumOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -231,7 +231,7 @@ class AnyDimOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -249,7 +249,7 @@ class AnyDimOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Any Operator
@@ -266,7 +266,7 @@ class AnyOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // _grad_sum_to_size Operator
@@ -284,7 +284,7 @@ class GradSumToSizeOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -300,7 +300,7 @@ class ArgMaxOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -330,7 +330,7 @@ class AllOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 // Reduce Sum Backward Operator.
 class ReduceSumBwdOperator : public HabanaOperator {
@@ -345,7 +345,7 @@ class ReduceSumBwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Reduce Mean Backward Operator.
@@ -361,7 +361,7 @@ class ReduceMeanBwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class ReduceMultiOutputOperator : public ReduceOperator {
@@ -380,7 +380,7 @@ class ReduceMultiOutputOperator : public ReduceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana

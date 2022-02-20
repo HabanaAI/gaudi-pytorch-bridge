@@ -188,19 +188,19 @@ void OpBackend::HandleFn(
   const auto& outshapes = ComputeOutputShapes(stack, true);
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      outshapes.empty() || outshapes.size() == m_persistence_list.size(),
+      outshapes.empty() || outshapes.size() == m_output_metadata.size(),
       "Num outputs and num outshapes does not match ",
-      m_persistence_list.size(),
+      m_output_metadata.size(),
       " != ",
       outshapes.size());
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      m_res_ids.size() == m_persistence_list.size(),
+      m_res_ids.size() == m_output_metadata.size(),
       "Num outputs defined (",
       m_res_ids.size(),
       ") as out_ids is not matching with actual num outputs (",
-      m_persistence_list.size());
-  for (unsigned i = 0; i < m_persistence_list.size(); ++i) {
+      m_output_metadata.size());
+  for (unsigned i = 0; i < m_output_metadata.size(); ++i) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         stack.at(m_res_ids.at(i)).isTensor(),
         "Index in out_ids[",
@@ -215,11 +215,13 @@ void OpBackend::HandleFn(
         ? ComputePromotedScalarType(stack, true)
         : t.scalar_type();
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
-    bool is_output_persistent = m_persistence_list[i];
 
     const auto& output = habana_helpers::createPTTensor(
-        t, outshape, t.options().dtype(dtype), is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+        t,
+        outshape,
+        t.options().dtype(dtype),
+        m_output_metadata.at(i).persistent);
+    AllocateSynapseOutput(graph, output, m_output_metadata.at(i));
   }
 }
 
@@ -386,8 +388,8 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void OpBackend::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    std::vector<bool> is_output_persistent_list) {
-  m_persistence_list = std::move(is_output_persistent_list);
+    const OutputMetaDataVector& output_metadata) {
+  m_output_metadata = output_metadata;
 
   CustomHandler(graph, stack);
 
@@ -428,7 +430,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
           std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
     } else {
       bool is_persistent = attr.final_result_index.has_value() and
-          op->m_persistence_list[attr.final_result_index.value()];
+          op->m_output_metadata[attr.final_result_index.value()].persistent;
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
 
       outputs.emplace_back(

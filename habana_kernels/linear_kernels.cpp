@@ -170,7 +170,7 @@ std::vector<int64_t> habana::MMOperator::compute_output_shape(
 void habana::MMOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       ((inputs.size() == 2) || (inputs.size() == 4)),
       "Incorrect size of inputs expected for matmul operator");
@@ -199,8 +199,8 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
       shape_out,
       mat1.options(),
       mat1.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   synGEMMParams params{mat1_transposed, mat2_transposed};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -233,7 +233,9 @@ at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
 
     op.AllocateSynapseInputs(graph, inputs, true);
 
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     op.Compile(graph);
   }
@@ -246,7 +248,7 @@ at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
 void habana::AddmmOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       ((inputs.size() == 5) || (inputs.size() == 7)),
       "Incorrect size of inputs expected for addmm operator");
@@ -287,7 +289,8 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
     mm_op->SetSynapseInput(p_context_->syn_inputs_[2]);
     torch::jit::Stack stack1 = {
         c10::IValue(mat1), c10::IValue(mat2), mat1_transposed, mat2_transposed};
-    mm_op->AllocateAndAddSynapseNode(graph, stack1, false);
+    mm_op->AllocateAndAddSynapseNode(
+        graph, stack1, habana::OutputMetaDataVector(1));
   }
 
   auto add_op =
@@ -296,12 +299,11 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
     // input1 = mat1, input2 = mat2
     add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     add_op->SetSynapseInput(mm_op->GetSynOutputs()[0]);
-    add_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack1 = {
         c10::IValue(self),
         c10::IValue(mm_op->GetOutputs()[0]),
         c10::IValue(c10::Scalar(1.0))};
-    add_op->AllocateAndAddSynapseNode(graph, stack1, is_output_persistent);
+    add_op->AllocateAndAddSynapseNode(graph, stack1, output_metadata);
   }
 
   p_context_->syn_outputs_.emplace_back(std::move(add_op->GetSynOutputs()[0]));
@@ -363,7 +365,9 @@ Tensor addmm_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     op.AllocateSynapseInputs(graph, inputs, true);
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     op.Compile(graph);
   }
   std::vector<at::Tensor> out = op.GetOutputs();
@@ -375,7 +379,7 @@ Tensor addmm_hpu(
 void habana::BmmOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for BmmOut operator");
@@ -388,7 +392,7 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
   auto mat2 = inputs[2].toTensor();
 
-  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AllocateSynapseOutput(graph, out, output_metadata.at(0));
   synGEMMParams params{false, false};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -422,7 +426,9 @@ Tensor& batch_gemm_out_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     op.AllocateSynapseInputs(graph, pt_inputs, true);
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     op.Compile(graph);
   }
   PT_KERNEL_END;
@@ -469,7 +475,7 @@ std::vector<int64_t> habana::BmmOperator::compute_output_shape(
 void habana::BmmOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2, "Incorrect size of inputs expected for Bmm operator");
 
@@ -486,11 +492,11 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
       shape_out,
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   habana::BmmOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+      graph, inputs, output_metadata);
 }
 
 /*****************************************************************************************************
@@ -522,7 +528,9 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     op.AllocateSynapseInputs(graph, pt_inputs, true);
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     op.Compile(graph);
   }
   std::vector<at::Tensor> output = op.GetOutputs();
@@ -540,7 +548,7 @@ output - 0-D tensor
 void habana::DotOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
@@ -563,7 +571,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   // Build Params for the graph
   stack.emplace_back(IValue(mat1));
   stack.emplace_back(IValue(shape_m1));
-  ReShapeOp_m1->AllocateAndAddSynapseNode(graph, stack, false);
+  ReShapeOp_m1->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   // ReShape Operator to covert 1d tensor to 2d for mat2
@@ -578,7 +587,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   // Build Params for the graph
   stack.emplace_back(IValue(mat2));
   stack.emplace_back(IValue(shape_m2));
-  ReShapeOp_m2->AllocateAndAddSynapseNode(graph, stack, false);
+  ReShapeOp_m2->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   // Matmul Operator (1xn) * (nx1) = (1x1)
@@ -588,7 +598,8 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   // Build Params for the graph
   stack.emplace_back(IValue(ReShapeOp_m1->GetOutputs()[0]));
   stack.emplace_back(IValue(ReShapeOp_m2->GetOutputs()[0]));
-  mmOp->AllocateAndAddSynapseNode(graph, stack, false);
+  mmOp->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   // ReShape Operator to covert 2d tensor to 1d for output
@@ -598,11 +609,10 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
   auto ReShapeOp_out = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_out->SetSynapseInput(mmOp->GetSynOutputs()[0]);
-  ReShapeOp_out->SetOutputMetadata(output_metadata_);
   // Build Params for the graph
   stack.emplace_back(IValue(mmOp->GetOutputs()[0]));
   stack.emplace_back(IValue(shape));
-  ReShapeOp_out->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  ReShapeOp_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
       std::move(ReShapeOp_out->GetSynOutputs()[0]));
@@ -633,7 +643,9 @@ Tensor dot_hpu(const Tensor& self, const Tensor& other) {
 
     op.AllocateSynapseInputs(graph, inputs, true);
 
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     op.Compile(graph);
   }
@@ -656,7 +668,7 @@ output - 1D n
 void habana::MvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
@@ -678,7 +690,8 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   ReShapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(mat2), IValue(shape)};
-  ReShapeOp->AllocateAndAddSynapseNode(graph, stack, false);
+  ReShapeOp->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   // Matmul Operator (mxn) * (nx1) = (mx1)
@@ -688,7 +701,8 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   // Build Params for the graph
   stack.emplace_back(IValue(mat1));
   stack.emplace_back(IValue(ReShapeOp->GetOutputs()[0]));
-  mmOp->AllocateAndAddSynapseNode(graph, stack, false);
+  mmOp->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   // PT expects 1-D
@@ -699,11 +713,10 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   auto ReShapeOp_2 = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, mmOp->GetOutputs()[0].scalar_type());
   ReShapeOp_2->SetSynapseInput(mmOp->GetSynOutputs()[0]);
-  ReShapeOp_2->SetOutputMetadata(output_metadata_);
   // Build Params for the graph
   stack.emplace_back(IValue(mmOp->GetOutputs()[0]));
   stack.emplace_back(IValue(shape2));
-  ReShapeOp_2->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  ReShapeOp_2->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
       std::move(ReShapeOp_2->GetSynOutputs()[0]));
@@ -733,7 +746,9 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
 
     op.AllocateSynapseInputs(graph, inputs, true);
 
-    op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     op.Compile(graph);
   }
@@ -845,7 +860,7 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
 void habana::MatMulOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
@@ -862,9 +877,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto dot_op = make_operator<habana::DotOperator>(tensor1.device().index());
     dot_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     dot_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    dot_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {IValue(tensor1), IValue(tensor2)};
-    dot_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    dot_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(
         std::move(dot_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(dot_op->GetOutputs()[0]));
@@ -872,9 +886,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto mv_op = make_operator<habana::MvOperator>(tensor1.device().index());
     mv_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     mv_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    mv_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {IValue(tensor1), IValue(tensor2)};
-    mv_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    mv_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(std::move(mv_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(mv_op->GetOutputs()[0]));
   } else if (dim_tensor1 == 1 && dim_tensor2 == 2) {
@@ -886,7 +899,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     shape_in.insert(shape_in.cbegin(), 1);
     reshape_ten1->SetSynapseInput(p_context_->syn_inputs_[0]);
     torch::jit::Stack stack = {c10::IValue(tensor1), c10::IValue(shape_in)};
-    reshape_ten1->AllocateAndAddSynapseNode(graph, stack, false);
+    reshape_ten1->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     t1 = reshape_ten1->GetOutputs()[0];
     stack.clear();
 
@@ -894,7 +908,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     mm_op->SetSynapseInput(reshape_ten1->GetSynOutputs()[0]);
     mm_op->SetSynapseInput(p_context_->syn_inputs_[1]);
     stack = {IValue(t1), IValue(tensor2)};
-    mm_op->AllocateAndAddSynapseNode(graph, stack, false);
+    mm_op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     // reshape the output
@@ -904,9 +919,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto reshape_out = make_operator<ReshapeOperator>(
         tensor2.device().index(), tensor2.scalar_type());
     reshape_out->SetSynapseInput(mm_op->GetSynOutputs()[0]);
-    reshape_out->SetOutputMetadata(output_metadata_);
     stack = {c10::IValue(output), c10::IValue(shape_out)};
-    reshape_out->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    reshape_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(reshape_out->GetSynOutputs()[0]));
@@ -916,9 +930,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto mm_op = make_operator<habana::MMOperator>(tensor1.device().index());
     mm_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     mm_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    mm_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {IValue(tensor1), IValue(tensor2)};
-    mm_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    mm_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(std::move(mm_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(mm_op->GetOutputs()[0]));
   } else if (dim_tensor1 >= 3 && dim_tensor2 == 1) {
@@ -930,7 +943,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     shape_in.push_back(1);
     reshape_ten2->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack stack = {c10::IValue(tensor2), c10::IValue(shape_in)};
-    reshape_ten2->AllocateAndAddSynapseNode(graph, stack, false);
+    reshape_ten2->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     t2 = reshape_ten2->GetOutputs()[0];
     stack.clear();
 
@@ -939,7 +953,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     bmm_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     bmm_op->SetSynapseInput(reshape_ten2->GetSynOutputs()[0]);
     stack = {IValue(tensor1), IValue(t2)};
-    bmm_op->AllocateAndAddSynapseNode(graph, stack, false);
+    bmm_op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     // reshape the output
@@ -949,9 +964,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto reshape_out = make_operator<ReshapeOperator>(
         tensor2.device().index(), tensor2.scalar_type());
     reshape_out->SetSynapseInput(bmm_op->GetSynOutputs()[0]);
-    reshape_out->SetOutputMetadata(output_metadata_);
     stack = {c10::IValue(output), c10::IValue(shape_out)};
-    reshape_out->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    reshape_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(reshape_out->GetSynOutputs()[0]));
@@ -971,12 +985,14 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
       shape_in.push_back(1);
       reshape_in->SetSynapseInput(p_context_->syn_inputs_[0]);
       torch::jit::Stack stack = {c10::IValue(tensor1), c10::IValue(shape_in)};
-      reshape_in->AllocateAndAddSynapseNode(graph, stack, false);
+      reshape_in->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
       stack.clear();
     } else {
       torch::jit::Stack stack = {IValue(tensor1), IValue(-1), IValue(-2)};
       t1_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-      t1_op->AllocateAndAddSynapseNode(graph, stack, false);
+      t1_op->AllocateAndAddSynapseNode(
+          graph, stack, habana::OutputMetaDataVector(1));
       stack.clear();
     }
 
@@ -984,7 +1000,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
         tensor2.device().index(), tensor2.scalar_type());
     torch::jit::Stack stack = {IValue(tensor2), IValue(-1), IValue(-2)};
     t2_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    t2_op->AllocateAndAddSynapseNode(graph, stack, false);
+    t2_op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     auto bmm_op = make_operator<BmmOperator>(
@@ -998,7 +1015,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
         IValue(
             (dim_tensor1 == 1) ? reshape_in->GetOutputs()[0]
                                : t1_op->GetOutputs()[0])};
-    bmm_op->AllocateAndAddSynapseNode(graph, stack, false);
+    bmm_op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     auto reshape_out = make_operator<ReshapeOperator>(
@@ -1009,18 +1027,15 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
       std::vector<int64_t> shape_out{bmm_op->GetOutputs()[0].sizes().vec()};
       shape_out.pop_back();
       reshape_out->SetSynapseInput(bmm_op->GetSynOutputs()[0]);
-      reshape_out->SetOutputMetadata(output_metadata_);
       torch::jit::Stack stack = {
           c10::IValue(bmm_op->GetOutputs()[0]), c10::IValue(shape_out)};
-      reshape_out->AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent);
+      reshape_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       stack.clear();
     } else {
       torch::jit::Stack stack = {
           IValue(bmm_op->GetOutputs()[0]), IValue(-1), IValue(-2)};
       tout_op->SetSynapseInput(bmm_op->GetSynOutputs()[0]);
-      tout_op->SetOutputMetadata(output_metadata_);
-      tout_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      tout_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       stack.clear();
     }
     p_context_->syn_outputs_.emplace_back(std::move(
@@ -1059,25 +1074,26 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack stack = {
         IValue(tensor1), IValue(tensor1_expand_size), IValue(false)};
     bcastOpTens1->SetSynapseInput(p_context_->syn_inputs_[0]);
-    bcastOpTens1->AllocateAndAddSynapseNode(graph, stack, false);
+    bcastOpTens1->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
     // expand tensor2
     auto bcastOpTens2 = make_operator<BroadcastOperator>(
         tensor2.device().index(), tensor2.scalar_type());
     stack = {IValue(tensor2), IValue(tensor2_expand_size), IValue(false)};
     bcastOpTens2->SetSynapseInput(p_context_->syn_inputs_[1]);
-    bcastOpTens2->AllocateAndAddSynapseNode(graph, stack, false);
+    bcastOpTens2->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     auto bmm_op = make_operator<BmmOperator>(
         tensor1.device().index(), tensor1.scalar_type());
     bmm_op->SetSynapseInput(bcastOpTens1->GetSynOutputs()[0]);
     bmm_op->SetSynapseInput(bcastOpTens2->GetSynOutputs()[0]);
-    bmm_op->SetOutputMetadata(output_metadata_);
     stack = {
         IValue(bcastOpTens1->GetOutputs()[0]),
         IValue(bcastOpTens2->GetOutputs()[0])};
-    bmm_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    bmm_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(bmm_op->GetSynOutputs()[0]));
@@ -1091,9 +1107,8 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
         tensor1.device().index(), tensor1.scalar_type());
     bmm_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     bmm_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    bmm_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {IValue(tensor1), IValue(tensor2)};
-    bmm_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    bmm_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(bmm_op->GetSynOutputs()[0]));
@@ -1141,7 +1156,9 @@ Tensor matmul_hpu(const Tensor& tensor1, const Tensor& tensor2) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -1163,12 +1180,14 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
     // Add a identity node to graph (to get out = mat)
     Op->SetSynapseInput(syn_input);
     torch::jit::Stack stack = {IValue(mat)};
-    Op->AllocateAndAddSynapseNode(graph, stack, false);
+    Op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
   } else if (dim == 2) {
     // Add a transpose node to graph
     Op->SetSynapseInput(syn_input);
     torch::jit::Stack stack = {IValue(mat), IValue(0), IValue(1)};
-    Op->AllocateAndAddSynapseNode(graph, stack, false);
+    Op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
   } else {
     // Add a permute node to graph (since permute is only on last
     // 2 dims we use transpose node to simplify code). Keep the
@@ -1183,7 +1202,8 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
 
     Op->SetSynapseInput(syn_input);
     torch::jit::Stack stack = {IValue(mat), IValue(dim - 2), IValue(dim - 1)};
-    Op->AllocateAndAddSynapseNode(graph, stack, false);
+    Op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
   }
 
   return syn_input;
@@ -1198,7 +1218,8 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwReshape(
       make_operator<ReshapeOperator>(mat.device().index(), mat.scalar_type());
   reshape->SetSynapseInput(syn_input);
   torch::jit::Stack stack = {IValue(mat), IValue(sizes)};
-  reshape->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   ReshapeOpList.push_back(reshape);
 
   return syn_input;
@@ -1246,7 +1267,8 @@ habana::MatmulBackwardOperator::MatBwSpecialFold(
       IValue(ReshapeOpList.at(ReshapeListSizeIn)->GetOutputs()[0]),
       IValue(0),
       IValue(1)};
-  transpose2->AllocateAndAddSynapseNode(graph, stack, false);
+  transpose2->AllocateAndAddSynapseNode(
+      graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   Op->SetSynapseInput(transpose2->GetSynOutputs()[0]);
@@ -1255,7 +1277,7 @@ habana::MatmulBackwardOperator::MatBwSpecialFold(
   stack = {
       IValue(transpose2->GetOutputs()[0]),
       IValue(ReshapeOpList.at(ReshapeListSizeIn + 1)->GetOutputs()[0])};
-  Op->AllocateAndAddSynapseNode(graph, stack, false);
+  Op->AllocateAndAddSynapseNode(graph, stack, habana::OutputMetaDataVector(1));
   stack.clear();
 
   ReshapeOpList.pop_back();
@@ -1273,7 +1295,7 @@ habana::MatmulBackwardOperator::MatBwSize(
     IntArrayRef sizes,
     synapse_helpers::tensor_or_ref syn_input1,
     synapse_helpers::tensor_or_ref syn_input2,
-    bool is_output_persistent) {
+    const OutputMetaData& output_metadata) {
   auto dim_out = sizes.size();
   auto dim1 = mat1.dim();
   auto dim2 = mat2.dim();
@@ -1286,7 +1308,7 @@ habana::MatmulBackwardOperator::MatBwSize(
 
     Op->SetSynapseInput(mm->GetSynOutputs()[0]);
     torch::jit::Stack stack = {IValue(mm->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   } else if ((dim1 + dim2) == static_cast<int64_t>(dim_out)) {
     /*
     if dim2 == 1:
@@ -1311,14 +1333,15 @@ habana::MatmulBackwardOperator::MatBwSize(
     torch::jit::Stack stack = {
         IValue(ReshapeOpList.at(0)->GetOutputs()[0]),
         IValue(ReshapeOpList.at(1)->GetOutputs()[0])};
-    matmul->AllocateAndAddSynapseNode(graph, stack, false);
+    matmul->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     ReshapeOpList.clear();
 
     Op->SetSynapseInput(matmul->GetSynOutputs()[0]);
     stack = {IValue(matmul->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   } else if ((dim_out == 1) && (dim1 - dim2) == 1 && (dim1 >= 3)) {
     /*
     elif dim_out == 1 and dim1 - dim2 == 1 and dim1 >= 3:
@@ -1352,7 +1375,7 @@ habana::MatmulBackwardOperator::MatBwSize(
     Op->SetSynapseInput(ReshapeOpList.at(1)->GetSynOutputs()[0]);
     torch::jit::Stack stack = {
         IValue(ReshapeOpList.at(1)->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
 
     ReshapeOpList.clear();
   } else if (static_cast<int64_t>(dim_out) == (dim1 - dim2)) {
@@ -1367,7 +1390,8 @@ habana::MatmulBackwardOperator::MatBwSize(
     matmul->SetSynapseInput(ReshapeOpList.at(0)->GetSynOutputs()[0]);
     torch::jit::Stack stack = {
         IValue(mat1), IValue(ReshapeOpList.at(0)->GetOutputs()[0])};
-    matmul->AllocateAndAddSynapseNode(graph, stack, false);
+    matmul->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     std::vector<int64_t> reshape1_sizes{matmul->GetOutputs()[0].sizes().vec()};
@@ -1380,7 +1404,7 @@ habana::MatmulBackwardOperator::MatBwSize(
 
     Op->SetSynapseInput(ReshapeOpList.at(1)->GetSynOutputs()[0]);
     stack = {IValue(ReshapeOpList.at(1)->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
 
     ReshapeOpList.clear();
   } else if (static_cast<int64_t>(dim_out) == (dim2 - dim1)) {
@@ -1395,7 +1419,8 @@ habana::MatmulBackwardOperator::MatBwSize(
     matmul->SetSynapseInput(syn_input2);
     torch::jit::Stack stack = {
         IValue(ReshapeOpList.at(0)->GetOutputs()[0]), IValue(mat2)};
-    matmul->AllocateAndAddSynapseNode(graph, stack, false);
+    matmul->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     std::vector<int64_t> reshape2_sizes{matmul->GetOutputs()[0].sizes().vec()};
@@ -1410,19 +1435,20 @@ habana::MatmulBackwardOperator::MatBwSize(
 
     Op->SetSynapseInput(matmul->GetSynOutputs()[0]);
     stack = {IValue(matmul->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   } else {
     /* out = torch.matmul(mat1, mat2) */
     auto matmul = make_operator<habana::MatMulOperator>(mat1.device().index());
     matmul->SetSynapseInput(syn_input1);
     matmul->SetSynapseInput(syn_input2);
     torch::jit::Stack stack = {IValue(mat1), IValue(mat2)};
-    matmul->AllocateAndAddSynapseNode(graph, stack, false);
+    matmul->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
     stack.clear();
 
     Op->SetSynapseInput(matmul->GetSynOutputs()[0]);
     stack = {IValue(matmul->GetOutputs()[0]), IValue(sizes)};
-    Op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   }
 
   return std::make_tuple(std::move(syn_input1), std::move(syn_input2));
@@ -1431,7 +1457,7 @@ habana::MatmulBackwardOperator::MatBwSize(
 void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for matmul backward operator");
@@ -1466,7 +1492,6 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
 
   auto gradsum = make_operator<GradSumToSizeOperator>(
       self.device().index(), self.scalar_type());
-  gradsum->SetOutputMetadata(SelectVectorIndices(output_metadata_, {0}));
   std::tie(p_context_->syn_inputs_[0], std::ignore) = MatBwSize(
       graph,
       gradsum,
@@ -1477,7 +1502,7 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
       std::move(p_context_->syn_inputs_[0]),
       (other.dim() > 1) ? std::move(transpose->GetSynOutputs()[0])
                         : std::move(identity->GetSynOutputs()[0]),
-      is_output_persistent[0]);
+      output_metadata.at(0));
 
   p_context_->syn_outputs_.emplace_back(std::move(gradsum->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(gradsum->GetOutputs()[0]));
@@ -1496,7 +1521,6 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
 
   auto gradsum1 = make_operator<GradSumToSizeOperator>(
       self.device().index(), self.scalar_type());
-  gradsum1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {1}));
   std::tie(std::ignore, p_context_->syn_inputs_[0]) = MatBwSize(
       graph,
       gradsum1,
@@ -1507,7 +1531,7 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
       (self.dim() > 1) ? std::move(transpose1->GetSynOutputs()[0])
                        : std::move(identity->GetSynOutputs()[0]),
       std::move(p_context_->syn_inputs_[0]),
-      is_output_persistent[1]);
+      output_metadata.at(1));
 
   p_context_->syn_outputs_.emplace_back(
       std::move(gradsum1->GetSynOutputs()[0]));
@@ -1551,7 +1575,10 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    habana::OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

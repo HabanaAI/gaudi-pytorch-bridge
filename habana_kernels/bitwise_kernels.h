@@ -20,7 +20,7 @@ class BitwiseOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& arg1,
@@ -36,7 +36,7 @@ class BitwiseOutWrapOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class BitwiseAndOutOperator : public BitwiseOutWrapOperator {
@@ -71,6 +71,6 @@ class BitwiseNotOutOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 } // namespace habana

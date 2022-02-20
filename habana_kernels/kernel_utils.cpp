@@ -323,7 +323,7 @@ ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
 void CastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
@@ -342,7 +342,7 @@ void CastOperator::AllocateAndAddSynapseNode(
     gt_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(0));
-    gt_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    gt_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(std::move(gt_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(gt_op->GetOutputs()[0]);
@@ -353,13 +353,13 @@ void CastOperator::AllocateAndAddSynapseNode(
         self.options(),
         self.suggest_memory_format(),
         type,
-        is_output_persistent);
+        output_metadata.at(0).persistent);
 
     ns_CastKernel::Params params = synapse_cast_params_builder();
     p_context_->params_.emplace<ns_CastKernel::Params>(params);
     p_context_->params_size_ = sizeof(params);
 
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
@@ -367,7 +367,7 @@ void CastOperator::AllocateAndAddSynapseNode(
 void CastOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
@@ -378,7 +378,7 @@ void CastOutOperator::AllocateAndAddSynapseNode(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for cast operator");
 
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   auto self = inputs[0].toTensor();
   auto output = inputs[1].toTensor();
 
@@ -395,8 +395,8 @@ void CastOutOperator::AllocateAndAddSynapseNode(
 void ConstantOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const habana::OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() >= 2,
       "Incorrect size of inputs expected for constant operator");
@@ -448,7 +448,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
 void ConstantOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() >= 2,
       "Incorrect size of inputs expected for constant operator");
@@ -476,8 +476,9 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  auto output =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   // Adding a clear for inputs as constant kernel expects no inputs
   // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway
   // It was observed if we let that syn tensor remain, the kernel gives wrong

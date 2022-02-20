@@ -27,7 +27,7 @@ class OptimizerSparseSgdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerSparseAdagradOperator : public HabanaOperator {
@@ -44,7 +44,7 @@ class OptimizerSparseAdagradOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerAdamwOperator : public HabanaOperator {
@@ -59,7 +59,7 @@ class OptimizerAdamwOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerAdagradOperator : public HabanaOperator {
@@ -74,7 +74,7 @@ class OptimizerAdagradOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerFusedAdagradOperator : public HabanaOperator {
@@ -89,7 +89,7 @@ class OptimizerFusedAdagradOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerSGDOperator : public HabanaOperator {
@@ -104,7 +104,7 @@ class OptimizerSGDOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerFusedSGDOperator : public HabanaOperator {
@@ -119,7 +119,7 @@ class OptimizerFusedSGDOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerSGDMomentumOperator : public HabanaOperator {
@@ -134,7 +134,7 @@ class OptimizerSGDMomentumOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
@@ -149,6 +149,6 @@ class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 } // namespace habana

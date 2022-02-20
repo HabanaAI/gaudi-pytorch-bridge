@@ -28,7 +28,7 @@ class LogSoftmaxOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
@@ -52,7 +52,7 @@ class LogSoftmaxBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };
@@ -72,7 +72,7 @@ class SoftmaxOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
@@ -92,7 +92,7 @@ class SoftmaxIntOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
@@ -117,7 +117,7 @@ class SoftmaxBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };

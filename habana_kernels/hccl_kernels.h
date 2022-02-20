@@ -28,7 +28,7 @@ class HcclBroadcastOperator : public CollectiveOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   // TODO: SW-68563 add patching function to be called when the recipe is
   // desiralized update internal mebers e.g device_, root_rank
@@ -52,7 +52,7 @@ class HcclAllreduceOperator : public CollectiveOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void RunCollective(std::vector<PtTensorInfoShared>& inputs);
   int64_t device_;

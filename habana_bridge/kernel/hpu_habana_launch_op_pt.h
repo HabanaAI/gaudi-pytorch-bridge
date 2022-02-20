@@ -331,7 +331,7 @@ class HabanaLaunchOpPT {
   bool nodeOutputPersistencePerValue(
       torch::jit::Node* node,
       torch::jit::Value* value_out);
-  std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
+  OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   bool isInplace(torch::jit::Node* node);
   bool isControlEdge(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
@@ -385,7 +385,8 @@ class HabanaLaunchOpPT {
       torch::jit::Node*,
       HabanaOperatorPtr,
       torch::jit::Stack&,
-      synapse_helpers::graph&);
+      synapse_helpers::graph&,
+      const OutputMetaDataVector& outputs_metadata);
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);

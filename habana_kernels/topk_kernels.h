@@ -29,7 +29,7 @@ class TopkOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -49,7 +49,7 @@ class TopkOperator : public TopkOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -65,7 +65,7 @@ class SortOperator : public TopkOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

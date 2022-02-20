@@ -32,7 +32,7 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -68,7 +68,7 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
@@ -88,7 +88,7 @@ class MaxPool2dWithIndicesBackwardOperator
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -106,7 +106,7 @@ class AvgPool2dOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -126,7 +126,7 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
@@ -140,7 +140,7 @@ class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -158,7 +158,7 @@ class AdaptiveAvgPool2dOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -178,7 +178,7 @@ class AdaptiveAvgPool2dBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 

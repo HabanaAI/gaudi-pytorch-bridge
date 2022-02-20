@@ -50,7 +50,7 @@ using namespace habana;
 void UniformOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Uniform Operator");
@@ -91,7 +91,7 @@ void UniformOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, self);
   }
 
-  AllocateSynapseOutput(graph, self, is_output_persistent);
+  AllocateSynapseOutput(graph, self, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -102,7 +102,7 @@ void UniformOperator::AllocateAndAddSynapseNode(
 void RandomShuffleOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 1,
       "Incorrect size of input expected for random shuffle operator");
@@ -114,7 +114,7 @@ void RandomShuffleOperator::AllocateAndAddSynapseNode(
   auto output =
       at::empty(self.sizes(), self.options(), self.suggest_memory_format());
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -147,7 +147,7 @@ at::Tensor RandpermOperator::GenerateAndCopySeedToHPU(
 void RandpermOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size",
@@ -175,7 +175,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
     arangeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
     torch::jit::Stack stack{IValue(shape_tensor), IValue(arangeOutput)};
-    arangeOp->AllocateAndAddSynapseNode(graph, stack, false);
+    arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // Move inputs[1] as output tensor
     synapse_helpers::tensor& syn_out_t = p_context_->syn_inputs_[1];
@@ -190,9 +190,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(arangeOutput));
     randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
     randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    randShuffleOp->SetOutputMetadata(output_metadata_);
-    randShuffleOp->AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent);
+    randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_[0] = std::move(randShuffleOp->GetSynOutputs()[0]);
     p_context_->pt_outputs_[0] = std::move(randShuffleOp->GetOutputs()[0]);
   } else {
@@ -205,7 +203,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
     arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
     torch::jit::Stack stack{
         IValue(start), IValue(end), IValue(step), IValue(arangeOutput)};
-    arangeOp->AllocateAndAddSynapseNode(graph, stack, false);
+    arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // Move inputs[0] as output tensor
     synapse_helpers::tensor& syn_out_t = p_context_->syn_inputs_[0];
@@ -220,9 +218,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(arangeOutput));
     randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
     randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    randShuffleOp->SetOutputMetadata(output_metadata_);
-    randShuffleOp->AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent);
+    randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_[0] = std::move(randShuffleOp->GetSynOutputs()[0]);
     p_context_->pt_outputs_[0] = std::move(randShuffleOp->GetOutputs()[0]);
   }
@@ -258,7 +254,9 @@ Tensor& uniform_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(from), IValue(to), IValue(seed)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -273,7 +271,7 @@ Tensor& uniform_hpu(
 void NormalOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Normal Operator");
@@ -316,7 +314,7 @@ void NormalOperator::AllocateAndAddSynapseNode(
     AllocateSynapseShapeTensor(graph, self);
   }
 
-  AllocateSynapseOutput(graph, self, is_output_persistent);
+  AllocateSynapseOutput(graph, self, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -350,7 +348,9 @@ Tensor& normal_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(mean), IValue(std), IValue(seed)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -365,7 +365,7 @@ Tensor& normal_hpu(
 void BernoulliOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for Bernoulli Operator");
@@ -396,8 +396,8 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 /*******************************************************************
@@ -428,7 +428,9 @@ Tensor bernoulli_hpu(const Tensor& self, c10::optional<Generator> gen) {
   int64_t seed = get_seed_hpu(gen);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(seed)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -443,7 +445,7 @@ Tensor bernoulli_hpu(const Tensor& self, c10::optional<Generator> gen) {
 void BernoulliScalarOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for BernoulliScalar Operator");
@@ -481,7 +483,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
   auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, self_float.scalar_type());
   std::vector<c10::IValue> stack = {IValue(self_float), IValue(p_converted)};
-  constOp->AllocateAndAddSynapseNode(graph, stack, false);
+  constOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Create Bernoulli operator
@@ -490,7 +492,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
   brnliOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
   stack.emplace_back(IValue(constOp->GetOutputs()[0]));
   stack.emplace_back(IValue(inputs[2]));
-  brnliOp->AllocateAndAddSynapseNode(graph, stack, false);
+  brnliOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   if (scalar_type == c10::ScalarType::Float) {
@@ -504,7 +506,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
 
     stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp->AllocateAndAddSynapseNode(graph, stack, false);
+    castOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // Create MemCopy operator
@@ -512,10 +514,9 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, castOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(castOp->GetSynOutputs()[0]);
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    memcopyOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(castOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
-    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(memcopyOp->GetSynOutputs()[0]));
@@ -526,10 +527,9 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, brnliOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(brnliOp->GetSynOutputs()[0]);
     memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    memcopyOp->SetOutputMetadata(output_metadata_);
     stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
-    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
         std::move(memcopyOp->GetSynOutputs()[0]));
@@ -568,7 +568,9 @@ Tensor& bernoulli_scalar_hpu(
   int64_t seed = get_seed_hpu(gen);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(p), IValue(seed)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -612,7 +614,7 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
 void DropoutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2 || (inputs.size() == 3 && inputs[2].isNone()),
       "Incorrect size",
@@ -646,26 +648,22 @@ void DropoutOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   Tensor output_mask = habana_helpers::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Char,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
-  AllocateSynapseOutputs(
-      graph,
-      pt_outputs,
-      {is_output_persistent[0], is_output_persistent[1]},
-      {true, true});
+  AllocateSynapseOutputs(graph, pt_outputs, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void DropoutOperator::SetPTOutputs(
     const torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
   Tensor output = habana_helpers::createPTTensor(
       self,
@@ -673,14 +671,14 @@ void DropoutOperator::SetPTOutputs(
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   Tensor output_mask = habana_helpers::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Char,
-      is_output_persistent);
+      output_metadata.at(1).persistent);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
   HabanaOperator::SetPTOutputs(pt_outputs);
 }
@@ -741,16 +739,19 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, seed_tensor};
   size_t key = Op.GetRecipeKey(node_type, stack);
+  OutputMetaDataVector output_metadata(2);
+  output_metadata.at(0).persistent = true;
+  output_metadata.at(1).persistent = true;
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack, true);
+    Op.SetPTOutputs(stack, output_metadata);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -790,7 +791,9 @@ Tensor process_random_shuffle_op(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -855,7 +858,9 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

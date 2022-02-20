@@ -48,7 +48,7 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
 void RepeatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for repeat operator");
@@ -67,7 +67,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, input.scalar_type());
     temp_stack = {IValue(input), IValue(reshapeSize)};
     reshapeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    reshapeOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
     synapse_helpers::tensor& syn_tensor = reshapeOp->GetSynOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
@@ -77,7 +78,7 @@ void RepeatOperator::AllocateAndAddSynapseNode(
       input,
       RepeatOperator::compute_output_shape(input, repeats),
       input.options(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   if (inputs[1].isIntList()) {
     for (int64_t i = 0; i < size; ++i) {
@@ -95,7 +96,7 @@ void RepeatOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_input_shape_tensor());
   }
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -127,7 +128,9 @@ at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();

@@ -25,7 +25,7 @@ class CompareOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  protected:
   c10::ScalarType scalarType_;
@@ -45,7 +45,7 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -64,7 +64,7 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
   void SetPTOutputs(torch::jit::Stack& inputs);
 
@@ -133,7 +133,7 @@ class GeOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  protected:
   c10::ScalarType scalarType_;

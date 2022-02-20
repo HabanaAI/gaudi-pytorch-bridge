@@ -159,7 +159,7 @@ void BatchNormForwardOperator::insert_memcopy_op(
       std::move(p_context_->syn_inputs_[in_position]));
   // No need for output PT tensor as its non persistent
   torch::jit::Stack stack = {IValue(src)};
-  memcopyOp->AllocateAndAddSynapseNode(graph, stack, false);
+  memcopyOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& syn_tensor = memcopyOp->GetSynOutputs()[0];
   mean_var_temp.emplace_back(std::move(syn_temp));
   p_context_->syn_inputs_[in_position] = std::move(syn_tensor);
@@ -428,7 +428,7 @@ void BatchNormForwardOperator::preProcessInputs(
 void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   // Add intermediate tensors and add to op
   preProcessInputs(graph, in_stack);
 
@@ -436,14 +436,14 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
   TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
   TORCH_CHECK(
-      is_output_persistent.size() == 3,
-      "BatchNormForwardOperator: is_output_persistent should be 3");
+      output_metadata.size() == 3,
+      "BatchNormForwardOperator: output_metadata should be 3");
   const auto training = in_stack[5].toBool();
   const auto momentum = in_stack[6].toDouble();
   const auto eps = in_stack[7].toDouble();
 
-  auto output =
-      habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
+  auto output = habana_helpers::createPTTensor(
+      pre_inputs[0], output_metadata.at(0).persistent);
 
   if (training == true) {
     // synapse uses expAvgfactor = 1 - momentum
@@ -454,12 +454,12 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<synCudBnExParams>(params);
     p_context_->params_size_ = sizeof(params);
 
-    AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-    auto current_mean =
-        habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
-    auto current_istd =
-        habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
+    auto current_mean = habana_helpers::createPTTensor(
+        pre_inputs[4], output_metadata.at(1).persistent);
+    auto current_istd = habana_helpers::createPTTensor(
+        pre_inputs[5], output_metadata.at(2).persistent);
     // Intermediate tensors are non-persistent
     // Modifit the PT tensors too to not allocate mem
     if (running_vars_def) {
@@ -497,13 +497,10 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(pre_inputs[4]);
     p_context_->pt_outputs_.emplace_back(pre_inputs[5]);
 
-    std::vector<bool> persistent_output_flags{
-        is_output_persistent[1], is_output_persistent[2]};
     AllocateSynapseOutputs(
         graph,
         {current_mean, current_istd},
-        persistent_output_flags,
-        {true, true});
+        {output_metadata.at(1), output_metadata.at(2)});
 
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
     // We need to put original syn tensors for mean and Var in patching
@@ -519,7 +516,7 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     params.epsilon = static_cast<float>(eps);
     p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
     p_context_->params_size_ = sizeof(params);
-    AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
     // for eval, return mean and var are not used and we can return anything
     // give back any tensor of same shape
@@ -652,7 +649,11 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
           Op.AllocateSynapseInput(graph, in, true);
         }
       }
-      Op.AllocateAndAddSynapseNode(graph, in_stack, {true, true, true});
+      OutputMetaDataVector output_metadata(3);
+      output_metadata.at(0).persistent = true;
+      output_metadata.at(1).persistent = true;
+      output_metadata.at(2).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, in_stack, output_metadata);
 
       Op.Compile(graph);
     }
@@ -796,43 +797,37 @@ void BatchNormForwardRmvOperator::preProcessInputs(
 void BatchNormForwardRmvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   // Add intermediate tensors and add to op
   preProcessInputs(graph, in_stack);
   TORCH_CHECK(in_stack[6].isBool(), "Input type expected to be bool");
   TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
   TORCH_CHECK(in_stack[8].isDouble(), "Input type expected to be double");
   TORCH_CHECK(
-      is_output_persistent.size() == 5,
-      "BatchNormForwardOperator: is_output_persistent should be 5 in training mode");
+      output_metadata.size() == 5,
+      "BatchNormForwardOperator: output_metadata should be 5 in training mode");
   const auto momentum = in_stack[7].toDouble();
   const auto eps = in_stack[8].toDouble();
 
-  auto output =
-      habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
+  auto output = habana_helpers::createPTTensor(
+      pre_inputs[0], output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
-  auto current_mean =
-      habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
-  auto current_istd =
-      habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
-  std::vector<bool> persistent_output_flags{
-      is_output_persistent[1], is_output_persistent[2]};
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  auto current_mean = habana_helpers::createPTTensor(
+      pre_inputs[4], output_metadata.at(1).persistent);
+  auto current_istd = habana_helpers::createPTTensor(
+      pre_inputs[5], output_metadata.at(2).persistent);
+  OutputMetaDataVector out_12_metadata =
+      SelectVectorIndices(output_metadata, {1, 2});
+  AllocateSynapseOutputs(graph, {current_mean, current_istd}, out_12_metadata);
+  auto running_mean_out = habana_helpers::createPTTensor(
+      pre_inputs[4], output_metadata.at(3).persistent);
+  auto running_var_out = habana_helpers::createPTTensor(
+      pre_inputs[5], output_metadata.at(4).persistent);
+  OutputMetaDataVector out_34_metadata =
+      SelectVectorIndices(output_metadata, {3, 4});
   AllocateSynapseOutputs(
-      graph,
-      {current_mean, current_istd},
-      persistent_output_flags,
-      {true, true});
-  auto running_mean_out =
-      habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[3]);
-  auto running_var_out =
-      habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[4]);
-
-  AllocateSynapseOutputs(
-      graph,
-      {running_mean_out, running_var_out},
-      {is_output_persistent[3], is_output_persistent[4]},
-      {true, true});
+      graph, {running_mean_out, running_var_out}, out_34_metadata);
 
   // synapse uses expAvgfactor = 1 - momentum
   struct synCudBnExParams params = {
@@ -847,7 +842,7 @@ void BatchNormForwardRmvOperator::AllocateAndAddSynapseNode(
 void BatchNormInfOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(in_stack[0].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(in_stack[1].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
@@ -862,9 +857,10 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
       habana_helpers::name_suffix_from_type(input.scalar_type());
   SetGuid(guid);
 
-  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
+  auto output =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   struct ns_BatchNormKernel::Params params;
   params.threshold.f = 0.0;
@@ -941,15 +937,15 @@ void BatchNormBackwardOperator::preProcessInputs(
 void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 10,
       "Incorrect number of inputs against expected count for BatchNormBackward AllocateAndAddSynapseNode");
   TORCH_CHECK(
       inputs[8].isDouble(), "Input type for eps is expected to be double");
   TORCH_CHECK(
-      is_output_persistent.size() == 3,
-      "BatchNormBackwardOperator: #is_output_persistent should be 3");
+      output_metadata.size() == 3,
+      "BatchNormBackwardOperator: #output_metadata should be 3");
   if (CheckProprocessingDone() == false) {
     Stack preprocess_in = {};
     for (auto& input : inputs) {
@@ -965,22 +961,18 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
 
   // Prepare output tensor vector
   auto grad_in_nhwc =
-      habana_helpers::createPTTensor(input, is_output_persistent[0]);
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
   auto grad_beta =
-      habana_helpers::createPTTensor(weight, is_output_persistent[2]);
+      habana_helpers::createPTTensor(weight, output_metadata.at(2).persistent);
   auto grad_gamma =
-      habana_helpers::createPTTensor(weight, is_output_persistent[1]);
+      habana_helpers::createPTTensor(weight, output_metadata.at(1).persistent);
 
   struct synCudBnExParams params = {
       synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
   p_context_->params_.emplace<synCudBnExParams>(params);
   p_context_->params_size_ = sizeof(params);
-  // TODO: swap metadata order to match allocation order?
   AllocateSynapseOutputs(
-      graph,
-      {grad_in_nhwc, grad_gamma, grad_beta},
-      is_output_persistent,
-      {true, true, true});
+      graph, {grad_in_nhwc, grad_gamma, grad_beta}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -1143,7 +1135,11 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
         }
       }
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, preprocess_stack, {true, true, true});
+      OutputMetaDataVector output_metadata(3);
+      output_metadata.at(0).persistent = true;
+      output_metadata.at(1).persistent = true;
+      output_metadata.at(2).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, preprocess_stack, output_metadata);
       Op.Compile(graph);
     }
 
@@ -1206,17 +1202,6 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
   return std::make_tuple(std::move(output), std::move(mean), std::move(istd));
 }
 
-void LayerNormOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  // For now calling the persistentce with single output
-  AllocateAndAddSynapseNode(
-      graph,
-      inputs,
-      {is_output_persistent, is_output_persistent, is_output_persistent});
-}
-
 /*
 Nodes in LayerNorm graph
 input->[reshape_in]--------->|----------------|
@@ -1229,7 +1214,7 @@ weight->[reshape_weight]---->|----------------|
 void LayerNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "LayerNormOperator::AllocateAndAddSynapseNode expected 5 args but got ",
@@ -1240,6 +1225,12 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[4].isDouble(), "Input type expected to be doube");
+
+  OutputMetaDataVector output_metadata_all_outputs = output_metadata;
+  if (output_metadata.size() == 1) {
+    output_metadata_all_outputs =
+        OutputMetaDataVector(3, output_metadata.at(0));
+  }
 
   const auto input = inputs[0].toTensor();
   const auto normalized_shape = inputs[1].toIntList().vec();
@@ -1277,7 +1268,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_input_shape(modified_input_sizes, 4);
   torch::jit::Stack stack = {
       c10::IValue(input), c10::IValue(modified_input_shape)};
-  reshape_op_input->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_input->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   auto input_reshaped = reshape_op_input->GetOutputs()[0];
   synapse_helpers::tensor& syn_in_ln = reshape_op_input->GetSynOutputs()[0];
 
@@ -1289,7 +1281,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   sizes[0] = bias.numel();
   c10::IntArrayRef modified_bias_shape(sizes, 1);
   stack = {c10::IValue(bias), c10::IValue(modified_bias_shape)};
-  reshape_op_bias->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_bias->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   auto bias_reshaped = reshape_op_bias->GetOutputs()[0];
   synapse_helpers::tensor& syn_bias_ln = reshape_op_bias->GetSynOutputs()[0];
 
@@ -1300,7 +1293,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   sizes[0] = weight.numel();
   c10::IntArrayRef modified_weight_shape(sizes, 1);
   stack = {c10::IValue(weight), c10::IValue(modified_weight_shape)};
-  reshape_op_wt->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_wt->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   auto wt_reshaped = reshape_op_wt->GetOutputs()[0];
   synapse_helpers::tensor& syn_wt_ln = reshape_op_wt->GetSynOutputs()[0];
 
@@ -1309,7 +1303,9 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       bias_reshaped,
       wt_reshaped,
       m,
-      {false, is_output_persistent[1], is_output_persistent[2]});
+      {false,
+       output_metadata_all_outputs.at(1).persistent,
+       output_metadata_all_outputs.at(2).persistent});
   auto output = std::get<0>(outputs);
   auto mean = std::get<1>(outputs);
   auto istd = std::get<2>(outputs);
@@ -1319,13 +1315,12 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   // output syn tensor is non-persistent since it will be reshaped to input
   // sizes which will be marked as persistent
   AllocateSynapseOutput(
-      graph, habana_helpers::createPTTensor(input_reshaped, false), false);
+      graph,
+      habana_helpers::createPTTensor(input_reshaped, false),
+      OutputMetaData());
 
-  std::vector<OutputMetaData> out_0_metadata =
-      SelectVectorIndices(output_metadata_, {0});
-  output_metadata_.erase(output_metadata_.begin());
-  AllocateSynapseOutput(graph, mean, is_output_persistent[1]);
-  AllocateSynapseOutput(graph, istd, is_output_persistent[2]);
+  AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(0));
+  AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
   synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
@@ -1347,9 +1342,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       input.device().index(), input.scalar_type());
   reshape_op_out->SetSynapseInput(p_context_->syn_outputs_[0]);
   stack = {c10::IValue(input_reshaped), c10::IValue(input.sizes().vec())};
-  reshape_op_out->SetOutputMetadata(out_0_metadata);
   reshape_op_out->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[0]);
+      graph, stack, {output_metadata_all_outputs.at(0)});
   synapse_helpers::tensor& syn_reshape_out = reshape_op_out->GetSynOutputs()[0];
   p_context_->syn_outputs_[0] = std::move(syn_reshape_out);
   p_context_->pt_outputs_[0] = reshape_op_out->GetOutputs()[0];
@@ -1428,7 +1422,9 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
       auto graph = habana_helpers::create_graph(device_id, node_type);
       const std::vector<at::Tensor> pt_inputs{input, weight, bias};
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
-      Op.AllocateAndAddSynapseNode(graph, input_stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, input_stack, output_metadata);
       Op.Compile(graph);
       out = Op.GetOutputs();
     }
@@ -1470,22 +1466,10 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
   return std::make_tuple(std::move(output), std::move(beta), std::move(gamma));
 }
 
-// This was added for Lazy Mode and is being used only in Lazy mode unit
 void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  // For now calling the persistentce with single output
-  AllocateAndAddSynapseNode(
-      graph,
-      inputs,
-      {is_output_persistent, is_output_persistent, is_output_persistent});
-}
-
-void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 8,
       "LayerNormBackwardOperator::AllocateAndAddSynapseNode expected 8 args but got ",
@@ -1498,6 +1482,12 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[5].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[6].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[7].isBoolList(), "Input type expected to be bool array");
+
+  OutputMetaDataVector output_metadata_all_outputs = output_metadata;
+  if (output_metadata.size() == 1) {
+    output_metadata_all_outputs =
+        OutputMetaDataVector(3, output_metadata.at(0));
+  }
 
   const auto dY = inputs[0].toTensor();
   const auto X = inputs[1].toTensor();
@@ -1526,7 +1516,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_x_shape(
       modified_x_sizes.data(), modified_x_sizes.size());
   torch::jit::Stack stack = {c10::IValue(X), c10::IValue(modified_x_shape)};
-  reshape_op_x->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_x->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& syn_x = reshape_op_x->GetSynOutputs()[0];
   stack.clear();
 
@@ -1539,7 +1530,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_dy_shape(
       modified_dy_sizes.data(), modified_dy_sizes.size());
   stack = {c10::IValue(dY), c10::IValue(modified_dy_shape)};
-  reshape_op_dy->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_dy->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   auto dy_reshaped = reshape_op_dy->GetOutputs()[0];
   synapse_helpers::tensor& syn_dy = reshape_op_dy->GetSynOutputs()[0];
   stack.clear();
@@ -1552,7 +1544,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   sizes[0] = gamma.numel();
   c10::IntArrayRef modified_gamma_shape(sizes.data(), sizes.size());
   stack = {c10::IValue(gamma), c10::IValue(modified_gamma_shape)};
-  reshape_op_gamma->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_gamma->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   auto gamma_reshaped = reshape_op_gamma->GetOutputs()[0];
   synapse_helpers::tensor& syn_gamma = reshape_op_gamma->GetSynOutputs()[0];
   stack.clear();
@@ -1570,7 +1563,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_mean_shape(
       modified_mean_sizes.data(), modified_mean_sizes.size());
   stack = {c10::IValue(mean), c10::IValue(modified_mean_shape)};
-  reshape_op_mean->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_mean->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& syn_mean = reshape_op_mean->GetSynOutputs()[0];
   stack.clear();
 
@@ -1587,7 +1581,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef modified_rstd_shape(
       modified_rstd_sizes.data(), modified_rstd_sizes.size());
   stack = {c10::IValue(rstd), c10::IValue(modified_rstd_shape)};
-  reshape_op_rstd->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op_rstd->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& syn_rstd = reshape_op_rstd->GetSynOutputs()[0];
   stack.clear();
 
@@ -1605,20 +1600,17 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(
       graph,
       habana_helpers::createPTTensor(dy_reshaped, false),
-      false,
-      false,
+      OutputMetaData(),
       false);
   AllocateSynapseOutput(
       graph,
       habana_helpers::createPTTensor(gamma_reshaped, false),
-      false,
-      false,
+      OutputMetaData(),
       false);
   AllocateSynapseOutput(
       graph,
       habana_helpers::createPTTensor(gamma_reshaped, false),
-      false,
-      false,
+      OutputMetaData(),
       false);
   synapse_helpers::tensor& syn_grad_out = p_context_->syn_outputs_[0];
   synapse_helpers::tensor& syn_grad_beta = p_context_->syn_outputs_[1];
@@ -1638,33 +1630,27 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto reshape_op_grad_in =
       make_operator<ReshapeOperator>(dY.device().index(), dY.scalar_type());
   reshape_op_grad_in->SetSynapseInput(p_context_->syn_outputs_[0]);
-  reshape_op_grad_in->SetOutputMetadata(
-      SelectVectorIndices(output_metadata_, {0}));
   stack = {c10::IValue(output0), c10::IValue(output0.sizes().vec())};
   reshape_op_grad_in->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[0]);
+      graph, stack, SelectVectorIndices(output_metadata_all_outputs, {0}));
   synapse_helpers::tensor& syn_reshape_grad_in =
       reshape_op_grad_in->GetSynOutputs()[0];
 
   auto reshape_op_grad_gamma = make_operator<ReshapeOperator>(
       gamma.device().index(), gamma.scalar_type());
   reshape_op_grad_gamma->SetSynapseInput(p_context_->syn_outputs_[2]);
-  reshape_op_grad_gamma->SetOutputMetadata(
-      SelectVectorIndices(output_metadata_, {1}));
   stack = {c10::IValue(output2), c10::IValue(output2.sizes().vec())};
   reshape_op_grad_gamma->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[1]);
+      graph, stack, SelectVectorIndices(output_metadata_all_outputs, {1}));
   synapse_helpers::tensor& syn_reshape_grad_gamma =
       reshape_op_grad_gamma->GetSynOutputs()[0];
 
   auto reshape_op_grad_beta = make_operator<ReshapeOperator>(
       gamma.device().index(), gamma.scalar_type());
   reshape_op_grad_beta->SetSynapseInput(p_context_->syn_outputs_[1]);
-  reshape_op_grad_beta->SetOutputMetadata(
-      SelectVectorIndices(output_metadata_, {2}));
   stack = {c10::IValue(output1), c10::IValue(output1.sizes().vec())};
   reshape_op_grad_beta->AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent[2]);
+      graph, stack, SelectVectorIndices(output_metadata_all_outputs, {2}));
   synapse_helpers::tensor& syn_reshape_grad_beta =
       reshape_op_grad_beta->GetSynOutputs()[0];
 
@@ -1760,7 +1746,9 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
       auto graph = habana_helpers::create_graph(device_id, node_type);
       const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
-      Op.AllocateAndAddSynapseNode(graph, input_stack, true);
+      OutputMetaDataVector output_metadata(1);
+      output_metadata.at(0).persistent = true;
+      Op.AllocateAndAddSynapseNode(graph, input_stack, output_metadata);
       Op.Compile(graph);
       out = Op.GetOutputs();
     }
@@ -1824,7 +1812,7 @@ struct NotEqualScalar : NE {
 void NormOperator::AddL0NormNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaData& output_metadata) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> dims;
   bool keepdim;
@@ -1843,7 +1831,7 @@ void NormOperator::AddL0NormNode(
   ne_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(0.0));
-  ne_op->AllocateAndAddSynapseNode(graph, stack, false);
+  ne_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
   std::string node_type =
       "cast_i8_to_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -1851,7 +1839,7 @@ void NormOperator::AddL0NormNode(
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
   stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
   stack.emplace_back(IValue(scalar_type));
-  cast1->AllocateAndAddSynapseNode(graph, stack, false);
+  cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
   // Reduction operation - Create the operator
   auto sum_dim_op =
@@ -1861,7 +1849,7 @@ void NormOperator::AddL0NormNode(
   stack.emplace_back(IValue(dims));
   stack.emplace_back(IValue(keepdim));
   stack.emplace_back(IValue(scalar_type));
-  sum_dim_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  sum_dim_op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   stack.clear();
   p_context_->syn_outputs_.emplace_back(
       std::move(sum_dim_op->GetSynOutputs()[0]));
@@ -1871,7 +1859,7 @@ void NormOperator::AddL0NormNode(
 void NormOperator::AddLInfNormNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaData& output_metadata) {
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();
   std::vector<int64_t> dims;
@@ -1890,7 +1878,7 @@ void NormOperator::AddLInfNormNode(
   auto abs_op = make_operator<AbsOperator>(device_id, scalar_type);
   abs_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   stack.emplace_back(IValue(self));
-  abs_op->AllocateAndAddSynapseNode(graph, stack, false);
+  abs_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
   // Reduction operation - Create the operator
   std::shared_ptr<ReduceOperator> reduce_op;
@@ -1908,7 +1896,7 @@ void NormOperator::AddLInfNormNode(
   stack.emplace_back(IValue(dims));
   stack.emplace_back(IValue(keepdim));
   stack.emplace_back(IValue(scalar_type));
-  reduce_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  reduce_op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   stack.clear();
   p_context_->syn_outputs_.emplace_back(
       std::move(reduce_op->GetSynOutputs()[0]));
@@ -1918,7 +1906,7 @@ void NormOperator::AddLInfNormNode(
 void NormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() >= 2 && inputs.size() <= 5,
       "Incorrect size of inputs expected for Norm Operator");
@@ -1932,13 +1920,13 @@ void NormOperator::AllocateAndAddSynapseNode(
   auto p = inputs[1].toScalar();
   if (p.toFloat() == 0.0) {
     // L0 Norm
-    AddL0NormNode(graph, inputs, is_output_persistent);
+    AddL0NormNode(graph, inputs, output_metadata.at(0));
     return;
   } else if (
       p.toFloat() == LoweringUtil::FP_INFINITY ||
       p.toFloat() == LoweringUtil::FP_NEG_INFINITY) {
     // LInf and LNegInf Norms
-    AddLInfNormNode(graph, inputs, is_output_persistent);
+    AddLInfNormNode(graph, inputs, output_metadata.at(0));
     return;
   }
   if ((p.toFloat() == 2.0) && (inputs.size() < 3)) {
@@ -1952,7 +1940,8 @@ void NormOperator::AllocateAndAddSynapseNode(
           this->p_context_->device_id_, scalar_type);
       identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       torch::jit::Stack stack = {IValue(self)};
-      identityOp->AllocateAndAddSynapseNode(graph, stack, false);
+      identityOp->AllocateAndAddSynapseNode(
+          graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       auto mulOp = make_operator<habana::MulOperator>(
@@ -1961,21 +1950,20 @@ void NormOperator::AllocateAndAddSynapseNode(
       mulOp->SetSynapseInput(identityOp->GetSynOutputs()[0]);
       stack.emplace_back(IValue(self));
       stack.emplace_back(IValue(identityOp->GetOutputs()[0]));
-      mulOp->AllocateAndAddSynapseNode(graph, stack, false);
+      mulOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
       // add node to compute reduce_sum
       auto sum_lp = make_operator<SumOperator>(device_id, scalar_type);
       sum_lp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
       stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
       stack.emplace_back(IValue(scalar_type));
-      sum_lp->AllocateAndAddSynapseNode(graph, stack, false);
+      sum_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       auto sqrt_op = make_operator<SqrtOperator>(device_id, scalar_type);
       sqrt_op->SetSynapseInput(sum_lp->GetSynOutputs()[0]);
-      sqrt_op->SetOutputMetadata(output_metadata_);
       stack.emplace_back(IValue(sum_lp->GetOutputs()[0]));
-      sqrt_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      sqrt_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
       stack.clear();
       // synapse_helpers::tensor& sum_syn_tensor = sum_lp.GetSynOutputs()[0];
       p_context_->syn_outputs_.emplace_back(
@@ -1989,12 +1977,11 @@ void NormOperator::AllocateAndAddSynapseNode(
       auto LpNormFrobeniusOp = make_operator<LpNormFrobeniusOperator>(
           this->p_context_->device_id_, scalar_type);
       LpNormFrobeniusOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-      LpNormFrobeniusOp->SetOutputMetadata(output_metadata_);
 
       // Build Params for the graph
       stack.emplace_back(IValue(self));
       LpNormFrobeniusOp->AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent);
+          graph, stack, output_metadata);
 
       stack.clear();
       p_context_->syn_outputs_.emplace_back(
@@ -2011,7 +1998,8 @@ void NormOperator::AllocateAndAddSynapseNode(
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::IntArrayRef(shape))};
-    ReShapeOp->AllocateAndAddSynapseNode(graph, stack, false);
+    ReShapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+
     auto output_reshape = ReShapeOp->GetOutputs()[0];
     stack.clear();
     // LpNorm Operator
@@ -2023,7 +2011,7 @@ void NormOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(output_reshape));
     stack.emplace_back(IValue(p));
     stack.emplace_back(IValue(0)); // dim
-    LpNormOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    LpNormOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(
         std::move(LpNormOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(LpNormOp->GetOutputs()[0]));
@@ -2038,7 +2026,7 @@ void NormOperator::AllocateAndAddSynapseNode(
       LpNormOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       stack = {IValue(self), IValue(p), IValue(dims[0])};
       LpNormOp->AllocateAndAddSynapseNode(
-          graph, stack, keepdim ? is_output_persistent : false);
+          graph, stack, keepdim ? output_metadata : OutputMetaDataVector(1));
 
       if (!keepdim) {
         auto new_sizes = LpNormOp->GetOutputs()[0].sizes().vec();
@@ -2047,8 +2035,7 @@ void NormOperator::AllocateAndAddSynapseNode(
             this->p_context_->device_id_, scalar_type);
         reshape_op->SetSynapseInput(LpNormOp->GetSynOutputs()[0]);
         stack = {IValue(LpNormOp->GetOutputs()[0]), IValue(new_sizes)};
-        reshape_op->AllocateAndAddSynapseNode(
-            graph, stack, is_output_persistent);
+        reshape_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
         p_context_->syn_outputs_.emplace_back(
             std::move(reshape_op->GetSynOutputs()[0]));
         p_context_->pt_outputs_.emplace_back(
@@ -2071,7 +2058,7 @@ void NormOperator::AllocateAndAddSynapseNode(
 void LpNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for LpNorm Operator");
@@ -2086,7 +2073,6 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[2].toInt();
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
-
   auto lpnorm_output = habana_helpers::createPTTensor(self, false);
   auto retain = habana_helpers::createPTTensor(self, false);
 
@@ -2094,9 +2080,8 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   params.p = p.to<float>();
   params.dim = self.dim() - dim - 1;
   params.eps = 1e-5; // arbitrarily small value
-
   std::vector<at::Tensor> outputs{lpnorm_output, retain};
-  AllocateSynapseOutputs(graph, outputs, {false, false}, {true, true});
+  AllocateSynapseOutputs(graph, outputs, OutputMetaDataVector(2));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
   std::vector<c10::IValue> stack;
   // Reciprocal Operator is used since what we require is reciprocal of retain
@@ -2105,14 +2090,14 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   reciprocalOp->SetSynapseInput(p_context_->syn_outputs_[1]);
   // Build Params for the graph
   stack.emplace_back(IValue(retain));
-  reciprocalOp->AllocateAndAddSynapseNode(graph, stack, false);
+  reciprocalOp->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
   // take just the first element of Reciprocal since all values would be
   // repeated
   auto slice_op = make_operator<SliceOperator>(
       this->p_context_->device_id_, self.scalar_type());
   slice_op->SetSynapseInput(reciprocalOp->GetSynOutputs()[0]);
-  slice_op->SetOutputMetadata(output_metadata_);
   stack.emplace_back(IValue(reciprocalOp->GetOutputs()[0]));
   int start = 0;
   int end = 1;
@@ -2121,7 +2106,7 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(start));
   stack.emplace_back(IValue(end));
   stack.emplace_back(IValue(step));
-  slice_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  slice_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   p_context_->syn_outputs_.erase(p_context_->syn_outputs_.begin());
   p_context_->syn_outputs_.insert(
       p_context_->syn_outputs_.begin(),
@@ -2134,7 +2119,7 @@ void LpNormOperator::AllocateAndAddSynapseNode(
 void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 1,
       "Incorrect size of inputs expected for LpNorm Operator");
@@ -2149,9 +2134,9 @@ void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -2191,7 +2176,9 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -2207,7 +2194,7 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
 std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool>& is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   auto gradients = inputs[0].toTensorList();
   auto max_grad_norm = inputs[1].toTensor();
   auto norm_type = inputs[2].toScalar();
@@ -2229,7 +2216,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
       norm_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
       stack.emplace_back(IValue(gradients.get(i)));
       stack.emplace_back(IValue(2.0));
-      norm_lp->AllocateAndAddSynapseNode(graph, stack, false);
+      norm_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
       // each grad_norm connected to cat node
       cat_input.push_back(norm_lp->GetOutputs()[0]);
@@ -2241,17 +2228,16 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     // {num_params,1}
     stack.emplace_back(IValue(cat_input));
     stack.emplace_back(IValue(0));
-    cat_grad_norms->AllocateAndAddSynapseNode(graph, stack, false);
+    cat_grad_norms->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // node to do compute total_norm
     auto norm_final = make_operator<NormOperator>(device_id, scalar_type);
     norm_final->SetSynapseInput(cat_grad_norms->GetSynOutputs()[0]);
-    norm_final->SetOutputMetadata(SelectVectorIndices(output_metadata_, {0}));
     stack.emplace_back(IValue(cat_grad_norms->GetOutputs()[0]));
     stack.emplace_back(IValue(2.0));
-    norm_final->AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent[0]);
+    norm_final->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
         std::move(norm_final->GetSynOutputs()[0]));
@@ -2273,7 +2259,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
     stack.emplace_back(IValue(Scalar(eps)));
     stack.emplace_back(IValue(1.0));
-    add_op1->AllocateAndAddSynapseNode(graph, stack, false);
+    add_op1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // clip_coef = max_norm / (total_norm + 1e-6)
@@ -2282,7 +2268,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     div_final->SetSynapseInput(add_op1->GetSynOutputs()[0]);
     stack.emplace_back(IValue(max_grad_norm));
     stack.emplace_back(IValue(add_op1->GetOutputs()[0]));
-    div_final->AllocateAndAddSynapseNode(graph, stack, false);
+    div_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // mask = total_norm > max_grad_norm
@@ -2291,7 +2277,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     gt_op->SetSynapseInput(p_context_->syn_inputs_[num_params]);
     stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
     stack.emplace_back(IValue(max_grad_norm));
-    gt_op->AllocateAndAddSynapseNode(graph, stack, false);
+    gt_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     std::string node_type = "cast_i8_to_f32";
@@ -2299,7 +2285,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     cast1->SetSynapseInput(gt_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(gt_op->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    cast1->AllocateAndAddSynapseNode(graph, stack, false);
+    cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // mul1 = mask * clip_coef
@@ -2308,14 +2294,14 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     mul1->SetSynapseInput(div_final->GetSynOutputs()[0]);
     stack.emplace_back(IValue(cast1->GetOutputs()[0]));
     stack.emplace_back(IValue(div_final->GetOutputs()[0]));
-    mul1->AllocateAndAddSynapseNode(graph, stack, false);
+    mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // imask = (mask == 0)
     auto eq_op = make_operator<EqOperator>(device_id, scalar_type);
     eq_op->SetSynapseInput(cast1->GetSynOutputs()[0]);
     stack.emplace_back(IValue(cast1->GetOutputs()[0]));
     stack.emplace_back(IValue(0.0));
-    eq_op->AllocateAndAddSynapseNode(graph, stack, false);
+    eq_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     node_type = "cast_i8_to_f32";
@@ -2323,7 +2309,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     cast2->SetSynapseInput(eq_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(eq_op->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    cast2->AllocateAndAddSynapseNode(graph, stack, false);
+    cast2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // mask*clip_coef + imask
@@ -2333,7 +2319,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     stack.emplace_back(IValue(mul1->GetOutputs()[0]));
     stack.emplace_back(IValue(cast2->GetOutputs()[0]));
     stack.emplace_back(IValue(1.0));
-    add_op2->AllocateAndAddSynapseNode(graph, stack, false);
+    add_op2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
     // take just the first element of add since all values would be repeated
 
@@ -2343,7 +2329,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     stack.emplace_back(IValue(0));
     stack.emplace_back(IValue(1));
     stack.emplace_back(IValue(1));
-    slice_op->AllocateAndAddSynapseNode(graph, stack, false);
+    slice_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
   } else {
     // other norm_type not supported for now
@@ -2358,7 +2344,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
 void FusedNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
@@ -2368,7 +2354,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
 
-  auto slice_op = compute_clip_coeff(graph, inputs, is_output_persistent);
+  auto slice_op = compute_clip_coeff(graph, inputs, output_metadata);
 
   torch::jit::Stack stack;
 
@@ -2377,10 +2363,10 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     auto mul1 = make_operator<MulInplaceOperator>(device_id, scalar_type);
     mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
-    mul1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i + 1u}));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
-    mul1->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i + 1]);
+    auto out_metadata = SelectVectorIndices(output_metadata, {i + 1u});
+    mul1->AllocateAndAddSynapseNode(graph, stack, out_metadata);
     stack.clear();
     // Add grads to output lists to satisfy GC (since grad updation is
     // inplace)
@@ -2392,7 +2378,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
 void FusedNormLazyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
@@ -2402,7 +2388,7 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
 
-  auto slice_op = compute_clip_coeff(graph, inputs, is_output_persistent);
+  auto slice_op = compute_clip_coeff(graph, inputs, output_metadata);
 
   torch::jit::Stack stack;
 
@@ -2411,10 +2397,10 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
     auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
     mul1->SetSynapseInput(p_context_->syn_inputs_[i]);
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
-    mul1->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i + 1u}));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
-    mul1->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i + 1]);
+    mul1->AllocateAndAddSynapseNode(
+        graph, stack, SelectVectorIndices(output_metadata, {i + 1}));
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(std::move(mul1->GetSynOutputs()[0]));
@@ -2467,8 +2453,11 @@ Tensor fused_norm_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    std::vector<bool> is_output_persistent(num_params + 1, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    OutputMetaDataVector output_metadata(num_params + 1);
+    for (auto& md : output_metadata) {
+      md.persistent = true;
+    }
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -2516,11 +2505,11 @@ std::vector<int64_t> InstanceNormOperator::compute_output_shape(
 void InstanceNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(in_stack[3].isDouble(), "Input type expected to be double");
   TORCH_CHECK(
-      is_output_persistent.size() == 3,
-      "InstanceNormOperator: is_output_persistent should be 3 in training mode");
+      output_metadata.size() == 3,
+      "InstanceNormOperator: output_metadata should be 3 in training mode");
 
   auto input = in_stack[0].toTensor();
 
@@ -2534,8 +2523,9 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
 
   const auto eps = in_stack[3].toDouble();
 
-  auto output = habana_helpers::createPTTensor(input, is_output_persistent[0]);
-  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+  auto output =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
                                   : c10::MemoryFormat::ChannelsLast;
@@ -2547,22 +2537,19 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
       mean_var_shape,
       beta.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
 
   auto current_istd = habana_helpers::createPTTensor(
       beta,
       mean_var_shape,
       beta.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent[2]);
+      output_metadata.at(2).persistent);
 
-  std::vector<bool> persistent_output_flags{
-      is_output_persistent[1], is_output_persistent[2]};
   AllocateSynapseOutputs(
       graph,
       {current_mean, current_istd},
-      persistent_output_flags,
-      {true, true});
+      {output_metadata.at(1), output_metadata.at(2)});
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
@@ -2610,10 +2597,10 @@ std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
 void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      is_output_persistent.size() == 3,
-      "InstanceNormOperator: is_output_persistent should be 3 in training mode");
+      output_metadata.size() == 3,
+      "InstanceNormOperator: output_metadata should be 3 in training mode");
   auto input = in_stack[0].toTensor();
   auto mean = in_stack[2].toTensor();
 
@@ -2623,8 +2610,9 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
       habana_helpers::name_suffix_from_type(input.scalar_type());
   SetGuid(guid);
 
-  auto output = habana_helpers::createPTTensor(input, is_output_persistent[0]);
-  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+  auto output =
+      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
                                   : c10::MemoryFormat::ChannelsLast;
@@ -2636,19 +2624,19 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
       grad_beta_gamma_shape,
       mean.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
 
   auto grad_gamma = habana_helpers::createPTTensor(
       mean,
       grad_beta_gamma_shape,
       mean.options(),
       c10::MemoryFormat::Contiguous,
-      is_output_persistent[2]);
+      output_metadata.at(2).persistent);
 
-  std::vector<bool> persistent_output_flags{
-      is_output_persistent[1], is_output_persistent[2]};
   AllocateSynapseOutputs(
-      graph, {grad_beta, grad_gamma}, persistent_output_flags, {true, true});
+      graph,
+      {grad_beta, grad_gamma},
+      {output_metadata.at(1), output_metadata.at(2)});
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder

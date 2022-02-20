@@ -26,7 +26,7 @@ class Gather2dOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -48,7 +48,7 @@ class SliceOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -58,7 +58,7 @@ class SliceOperator : public HabanaOperator {
       int64_t& start,
       int64_t& end,
       int64_t& step,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       int64_t& dim,
@@ -80,7 +80,7 @@ class NarrowOperator : public SliceOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Gather Operator
@@ -99,7 +99,7 @@ class GatherOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -111,7 +111,7 @@ class GatherOperator : public HabanaOperator {
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
 };
 
 class GatherElemOperator : public HabanaOperator {
@@ -129,7 +129,7 @@ class GatherElemOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -139,7 +139,7 @@ class GatherElemOperator : public HabanaOperator {
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
 };
 
 // ScatterWrapperOperator Operator
@@ -163,7 +163,7 @@ class ScatterWrapperOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutput(torch::jit::Stack& inputs) override;
 
@@ -172,7 +172,7 @@ class ScatterWrapperOperator : public HabanaOperator {
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
   bool inplace;
 };
 
@@ -212,7 +212,7 @@ class ScatterValueWrapperOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 
  private:
   bool _inplace;
@@ -250,7 +250,7 @@ class IndexSelectOperator : public GatherOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -276,7 +276,7 @@ class SelectOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
@@ -299,7 +299,7 @@ class ScatterNdONNXOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -319,7 +319,7 @@ class ScatterNdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -339,7 +339,7 @@ class IndexPutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -349,11 +349,11 @@ class IndexPutOperator : public HabanaOperator {
   void AllocateAndAddSynapseNodeBoolIndices(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
   void AllocateAndAddSynapseNodeNonBoolIndices(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 // IndexPutOperator for DS frontend
@@ -370,7 +370,7 @@ class IndexPutOperator2 : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -390,7 +390,7 @@ class IndexAddOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      const OutputMetaDataVector& output_metadata) final;
 
  protected:
   c10::ScalarType scalarType_;
@@ -409,7 +409,7 @@ class ArangeOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static int GetOutputSize(
       at::Scalar start_,
@@ -432,7 +432,7 @@ class IndexOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& input,
@@ -451,7 +451,7 @@ class UniqueOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -468,7 +468,7 @@ class LinspaceOutOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 

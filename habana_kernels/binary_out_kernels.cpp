@@ -39,8 +39,8 @@ std::vector<int64_t> habana::BinaryOutOperator::compute_output_shape(
 void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const habana::OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,
@@ -114,7 +114,9 @@ void process_generic_tensor_binary_out_op(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // both inputs are not required, just to match graph mode stack
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

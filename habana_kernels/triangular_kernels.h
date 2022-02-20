@@ -22,7 +22,7 @@ class DiagOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   void SetPTOutputs(torch::jit::Stack& inputs) override;
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -30,7 +30,7 @@ class DiagOutOperator : public habana::HabanaOperator {
   at::Tensor AllocateOutputTensor(
       const at::Tensor& self,
       int64_t& diagonal,
-      bool is_output_persistent);
+      const OutputMetaData& output_metadata);
 };
 
 // Diag Operator
@@ -44,7 +44,7 @@ class DiagOperator : public DiagOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana

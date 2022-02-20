@@ -24,7 +24,7 @@ class OptimizerLambPhase1Operator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptimizerLambPhase2Operator : public HabanaOperator {
@@ -39,16 +39,7 @@ class OptimizerLambPhase2Operator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
-
-  // support for single param model
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent) override {
-    std::vector<bool> is_output_persistent_vec = {is_output_persistent};
-    AllocateAndAddSynapseNode(graph, inputs, is_output_persistent_vec);
-  }
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class OptNormFusedNormOperator : public HabanaOperator {
@@ -63,6 +54,6 @@ class OptNormFusedNormOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 } // namespace habana

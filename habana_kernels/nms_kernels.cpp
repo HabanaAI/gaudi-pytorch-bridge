@@ -29,7 +29,7 @@ using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for filter&squeeze operator");
@@ -46,33 +46,30 @@ void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
   ns_FilterAndSqueeze::Params params{};
   params.threshold.f = threshold.toFloat();
   auto scores = habana_helpers::createPTTensor(
-      self, self.sizes(), self.options(), is_output_persistent);
+      self, self.sizes(), self.options(), output_metadata.at(0).persistent);
   auto box_ids = habana_helpers::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent);
+      output_metadata.at(1).persistent);
   auto valid_box_ids = habana_helpers::createPTTensor(
       self,
       {self.sizes()[0], self.sizes()[1]},
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent);
+      output_metadata.at(2).persistent);
   AllocateSynapseOutputs(
-      graph,
-      {scores, box_ids, valid_box_ids},
-      {is_output_persistent, is_output_persistent, is_output_persistent},
-      {true, true, true});
+      graph, {scores, box_ids, valid_box_ids}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void NMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4, "Incorrect size of inputs expected for NMS operator");
   TORCH_CHECK(
@@ -92,15 +89,18 @@ void NMSOperator::AllocateAndAddSynapseNode(
 
   ns_Nms::Params params{iou.toFloat()};
   auto box_id_out = habana_helpers::createPTTensor(
-      box_ids, box_ids.sizes(), box_ids.options(), is_output_persistent);
-  AllocateSynapseOutput(graph, box_id_out, is_output_persistent);
+      box_ids,
+      box_ids.sizes(),
+      box_ids.options(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, box_id_out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void PostNmsOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for PostNms operator");
@@ -118,15 +118,17 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
       box_ids,
       {static_cast<int>(box_ids.sizes()[2])},
       box_ids.options(),
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   auto valid_box_id_out = habana_helpers::createPTTensor(
-      valid_box_ids, {1}, valid_box_ids.options(), is_output_persistent[1]);
+      valid_box_ids,
+      {1},
+      valid_box_ids.options(),
+      output_metadata.at(1).persistent);
   AllocateSynapseOutput(
       graph,
       box_id_out,
-      is_output_persistent[0],
-      false, // is_shape_tensor
-      true); // use_metadata
+      output_metadata.at(0),
+      false); // is_shape_tensor
 
   // For dynamic case the max_output_size in params is equal to
   // max value of output size
@@ -144,18 +146,20 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(
       graph,
       valid_box_id_out,
-      is_output_persistent[1],
-      false, // is_shape_tensor
-      true); // use_metadata
+      output_metadata.at(1),
+      false); // is_shape_tensor
 
   auto shape_tensor = habana_helpers::createPTTensor(
-      valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent[2]);
+      valid_box_ids,
+      {5},
+      valid_box_ids.options(),
+      output_metadata.at(2).persistent);
   synDataType synType = syn_type_uint32;
   AllocateSynapseOutput(
       graph,
       shape_tensor,
       synType,
-      is_output_persistent[2],
+      output_metadata.at(2),
       graph.is_dynamic_graph() ? true : false);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -179,7 +183,7 @@ void HabanaNMSOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void HabanaNMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for HabanaNms operator");
@@ -210,7 +214,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   shape1.insert(shape1.cbegin(), 1);
   shape1.insert(shape1.cbegin(), 1);
   torch::jit::Stack stack = {IValue(scores), IValue(shape1)};
-  reshape_op1->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Input (Scores): [N, Classes, kBox]
@@ -221,7 +225,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       scores.device().index(), "filter_and_squeeze_fwd_f32");
   filter_op->SetSynapseInput(reshape_op1->GetSynOutputs()[0]);
   stack = {IValue(reshape_op1->GetOutputs()[0]), IValue(threshold)};
-  filter_op->AllocateAndAddSynapseNode(graph, stack, false);
+  filter_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(3));
   stack.clear();
 
   // Input (Scores): [kBox]
@@ -235,7 +239,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       IValue(scores.dim() - 1),
       IValue(true),
       IValue(true)};
-  sort_op->AllocateAndAddSynapseNode(graph, stack, {false, false});
+  sort_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(2));
   stack.clear();
 
   // Input (Boxes): [kBox, 4]
@@ -250,7 +254,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       IValue(0),
       IValue(sort_op->GetOutputs()[1]),
       IValue(false)};
-  gather_op->AllocateAndAddSynapseNode(graph, stack, false);
+  gather_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Reshape sorted scores from [kBox] -> [N, Classes, kBox], where N = Classes
@@ -262,7 +266,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   shape3.insert(shape3.cbegin(), 1);
   shape3.insert(shape3.cbegin(), 1);
   stack = {IValue(sort_op->GetOutputs()[1]), IValue(shape3)};
-  reshape_op3->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op3->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Reshape gathered boxes from [kBox, 4] -> [4, kBox]
@@ -270,7 +274,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       scores.device().index(), scores.scalar_type());
   stack = {IValue(gather_op->GetOutputs()[0]), IValue(0), IValue(1)};
   t2_op->SetSynapseInput(gather_op->GetSynOutputs()[0]);
-  t2_op->AllocateAndAddSynapseNode(graph, stack, false);
+  t2_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Reshape gathered boxes from [4, kBox] -> [N, 4, Classes, kBox], where N =
@@ -282,7 +286,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   shape4.insert(shape4.cbegin() + 1, 1);
   shape4.insert(shape4.cbegin(), 1);
   stack = {IValue(t2_op->GetOutputs()[0]), IValue(shape4)};
-  reshape_op4->AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op4->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Input (Gathered boxes): [N, 4, Classes, KBox]
@@ -299,16 +303,15 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       IValue(reshape_op3->GetOutputs()[0]),
       IValue(filter_op->GetOutputs()[2]),
       IValue(iou)};
-  nms_op->AllocateAndAddSynapseNode(graph, stack, false);
+  nms_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   auto postnms_op = make_operator<PostNmsOperator>(
       scores.device().index(), "post_nms_fwd_i32");
   postnms_op->SetSynapseInput(nms_op->GetSynOutputs()[0]);
   postnms_op->SetSynapseInput(syn_nms2);
-  postnms_op->SetOutputMetadata(output_metadata_);
   stack = {IValue(nms_op->GetOutputs()[0]), IValue(filter_op->GetOutputs()[2])};
-  postnms_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  postnms_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   stack.clear();
 
   p_context_->syn_outputs_.emplace_back(
@@ -353,7 +356,11 @@ at::Tensor habana_nms_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true, true});
+    OutputMetaDataVector output_metadata(3);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    output_metadata.at(2).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
 

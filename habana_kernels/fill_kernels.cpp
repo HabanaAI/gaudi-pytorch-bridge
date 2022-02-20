@@ -62,7 +62,9 @@ void fill_constant_hpu(Tensor& self, Scalar value) {
     // graph mode behavior. Internally within ConstantOut
     // implementation we will move input tensors to output tensors
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
 }

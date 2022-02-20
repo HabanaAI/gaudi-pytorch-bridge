@@ -197,7 +197,7 @@ void IndexHabanaOperator::AddNode(
     torch::jit::Stack stack_ = {
         c10::IValue(tensorlist[i]), c10::IValue(max_size), c10::IValue(false)};
     bcastOp->SetSynapseInput(p_context_->syn_inputs_[i + 1]);
-    bcastOp->AllocateAndAddSynapseNode(graph, stack_, false);
+    bcastOp->AllocateAndAddSynapseNode(graph, stack_, OutputMetaDataVector(1));
 
     std::vector<int64_t> expanded_size{1};
     for (auto s : bcastOp->GetOutputs()[0].sizes()) {
@@ -207,14 +207,16 @@ void IndexHabanaOperator::AddNode(
         c10::IValue(bcastOp->GetOutputs()[0]), c10::IValue(expanded_size)};
     auto ReshapeOp = make_operator<ReshapeOperator>(device_id, scalar_type);
     ReshapeOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    ReshapeOp->AllocateAndAddSynapseNode(graph, stack_, false);
+    ReshapeOp->AllocateAndAddSynapseNode(
+        graph, stack_, OutputMetaDataVector(1));
 
     cat_input.emplace_back(ReshapeOp->GetOutputs()[0]);
     cat_indices->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
   }
 
   torch::jit::Stack stack_ = {c10::IValue(cat_input), c10::IValue(0)};
-  cat_indices->AllocateAndAddSynapseNode(graph, stack_, false);
+  cat_indices->AllocateAndAddSynapseNode(
+      graph, stack_, OutputMetaDataVector(1));
 
   auto shape = IndexOperator::compute_output_shape(self, tensorlist);
 

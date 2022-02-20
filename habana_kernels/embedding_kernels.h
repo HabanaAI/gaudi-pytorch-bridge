@@ -31,7 +31,7 @@ class EmbeddingBagSumOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -66,7 +66,7 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
@@ -113,7 +113,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
@@ -143,7 +143,7 @@ class PadOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       c10::IntArrayRef pad);
@@ -170,7 +170,7 @@ class EmbeddingOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -190,7 +190,7 @@ class EmbeddingDenseBackwardOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
  protected:
   std::string memcopy_guid;
@@ -218,6 +218,6 @@ class EmbeddingBagSumBwdKernelModeOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 } // namespace habana

@@ -25,6 +25,6 @@ class ThresholdBackwardOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 } // namespace habana

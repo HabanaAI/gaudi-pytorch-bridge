@@ -22,7 +22,7 @@ using namespace torch;
 void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for threshold operator");
@@ -39,8 +39,9 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
       threshold.to<float>() == 0.0,
       "Threshold values other than 0 are not supported")
 
-  auto grad_input = habana_helpers::createPTTensor(self, is_output_persistent);
-  AllocateSynapseOutput(graph, grad_input, is_output_persistent);
+  auto grad_input =
+      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, grad_input, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -81,7 +82,9 @@ Tensor threshold_backward_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, nodeType);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     Op.Compile(graph);
   }
 

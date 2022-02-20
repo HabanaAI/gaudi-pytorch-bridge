@@ -25,7 +25,7 @@ class Reduce2Operator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent = {false, false}) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class MaxDimOperator : public HabanaOperator {
@@ -40,7 +40,7 @@ class MaxDimOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent = {false, false}) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -69,7 +69,7 @@ class MaxOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape() {
     std::vector<int64_t> shape_out{};
@@ -98,7 +98,7 @@ class MinOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape() {
     std::vector<int64_t> shape_out{1};

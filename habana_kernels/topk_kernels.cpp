@@ -77,7 +77,7 @@ inline void _allocate_or_resize_output_with_indices(
 void TopkOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs expected for topk operator");
@@ -104,8 +104,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       inputs[6].isTensor(),
       "Input arg6 expected to be tensor for topkout operator");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "TopkOutOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "TopkOutOperator: #output_metadata should be 2");
 
   auto self = inputs[0].toTensor();
   int64_t dim_ = inputs[2].toInt();
@@ -165,7 +165,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     arangeOp->AllocateSynapseInput(graph, arangeInputOutput, false);
     temp_stack = {
         IValue(start), IValue(limit), IValue(step), IValue(arangeInputOutput)};
-    arangeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    arangeOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
     temp_stack.clear();
 
     // Add reshape op
@@ -175,7 +176,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, arange_input_output_scalar_type);
     temp_stack = {IValue(arangeOp->GetOutputs()[0]), IValue(reshaped_shape)};
     reshapeOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
-    reshapeOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    reshapeOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
     temp_stack.clear();
 
     // Add repeat op
@@ -185,7 +187,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     repeats[dim] = 1;
     temp_stack = {IValue(reshapeOp->GetOutputs()[0]), IValue(repeats)};
     repeatOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-    repeatOp->AllocateAndAddSynapseNode(graph, temp_stack, false);
+    repeatOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
     temp_stack.clear();
 
     // Add relevant syn inputs to support dynamic shape
@@ -222,10 +225,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       self,
       dim,
       k,
-      is_output_persistent[0],
-      is_output_persistent[1]);
-  indices_persistent = is_output_persistent[0];
-  values_persistent = is_output_persistent[1];
+      output_metadata.at(0).persistent,
+      output_metadata.at(1).persistent);
 
   synBeamParams params;
   params.bsw = k;
@@ -233,7 +234,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   params.bottomK = !largest;
 
   std::vector<at::Tensor> outputs{values, indices};
-  AllocateSynapseOutputs(graph, outputs, is_output_persistent, {true, true});
+  AllocateSynapseOutputs(graph, outputs, output_metadata);
 
   synapse_helpers::tensor& syn_out0 = p_context_->syn_outputs_[0];
   synapse_helpers::tensor& syn_out1 = p_context_->syn_outputs_[1];
@@ -302,7 +303,10 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -318,7 +322,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
 void TopkOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for topk operator");
@@ -326,8 +330,8 @@ void TopkOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for topk operator");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "TopkOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "TopkOperator: #output_metadata should be 2");
 
   Tensor self = inputs[0].toTensor();
   auto values = habana_helpers::createPTTensor(
@@ -335,19 +339,18 @@ void TopkOperator::AllocateAndAddSynapseNode(
       {0},
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   auto indices = habana_helpers::createPTTensor(
       self,
       {0},
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
   inputs.push_back(IValue(values));
   inputs.push_back(IValue(indices));
 
-  TopkOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -400,7 +403,10 @@ std::tuple<Tensor, Tensor> topk_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -416,7 +422,7 @@ std::tuple<Tensor, Tensor> topk_hpu(
 void SortOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for sort operator");
@@ -430,8 +436,8 @@ void SortOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(),
       "Input arg3 expected to be of type Bool for sort operator");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "SortOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "SortOperator: #output_metadata should be 2");
 
   Tensor self = inputs[0].toTensor();
   int64_t dim_ = inputs[1].toInt();
@@ -446,20 +452,19 @@ void SortOperator::AllocateAndAddSynapseNode(
       {0},
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent[0]);
+      output_metadata.at(0).persistent);
   auto indices = habana_helpers::createPTTensor(
       self,
       {0},
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
-      is_output_persistent[1]);
+      output_metadata.at(1).persistent);
 
   inputs.push_back(IValue(values));
   inputs.push_back(IValue(indices));
 
-  TopkOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -521,7 +526,10 @@ std::tuple<Tensor, Tensor> sort_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);

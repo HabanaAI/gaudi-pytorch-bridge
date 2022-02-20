@@ -120,8 +120,8 @@ void collective(
 void HcclBroadcastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
 
   TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
   TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
@@ -179,8 +179,8 @@ void HcclBroadcastOperator::RunCollective(
 void HcclAllreduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
 
   TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
   TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");

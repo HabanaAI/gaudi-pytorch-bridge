@@ -33,7 +33,7 @@ class ToDtypeOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 
   // virtual void SetPTOutput(torch::jit::Stack& inputs) override;
 };
@@ -49,7 +49,7 @@ class AsStridedLayoutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -66,7 +66,7 @@ class CastLazyOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -82,7 +82,7 @@ class MemCopyOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -97,7 +97,7 @@ class IdentityOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 class DummyOperator : public habana::HabanaOperator {
  public:
@@ -109,7 +109,7 @@ class DummyOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -128,7 +128,7 @@ class AsStridedOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
 };
@@ -167,7 +167,7 @@ class StridedInsertOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -210,7 +210,7 @@ class StridedViewOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
   bool verifiyViewMemoryAccess(

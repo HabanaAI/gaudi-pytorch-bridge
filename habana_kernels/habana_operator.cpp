@@ -120,16 +120,6 @@ void habana::HabanaOperator::SetPTOutputs(std::vector<at::Tensor>& outputs) {
   }
 }
 
-void habana::HabanaOperator::SetOutputMetadata(
-    int index,
-    const OutputMetaData& md) {
-  output_metadata_[index] = md;
-}
-
-void habana::HabanaOperator::SetOutputMetadata(const OutputMetaDataVector& md) {
-  output_metadata_ = md;
-}
-
 size_t habana::HabanaOperator::GetRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
@@ -210,20 +200,22 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
 void habana::HabanaOperator::AllocateSynapseOutput(
     synapse_helpers::graph& graph,
     const at::Tensor& output,
-    bool is_persistent,
-    bool is_shape_tensor,
-    bool use_metadata) {
-  const std::string& synName =
-      use_metadata && output_allocation_index_ < output_metadata_.size()
-      ? output_metadata_.at(output_allocation_index_++).name
-      : guid_;
-
+    const OutputMetaData& output_metadata,
+    bool is_shape_tensor) {
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output, graph, is_persistent, c10::nullopt, synName));
+        output,
+        graph,
+        output_metadata.persistent,
+        c10::nullopt,
+        output_metadata.name));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output, graph, is_persistent, DEVICE_SHAPE_TENSOR, synName));
+        output,
+        graph,
+        output_metadata.persistent,
+        DEVICE_SHAPE_TENSOR,
+        output_metadata.name));
   }
   if (!graph.is_dry_run()) {
     PT_DYNAMIC_SHAPE_DEBUG(
@@ -236,21 +228,23 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     synapse_helpers::graph& graph,
     const at::Tensor& output,
     const synDataType synType,
-    bool is_persistent,
-    bool is_shape_tensor,
-    bool use_metadata) {
+    const OutputMetaData& output_metadata,
+    bool is_shape_tensor) {
   std::vector<int64_t> min_shape, max_shape;
-  const std::string& synName =
-      use_metadata && output_allocation_index_ < output_metadata_.size()
-      ? output_metadata_.at(output_allocation_index_++).name
-      : guid_;
-
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output, graph, is_persistent, synType, synName));
+        output,
+        graph,
+        output_metadata.persistent,
+        synType,
+        output_metadata.name));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output, graph, is_persistent, DEVICE_SHAPE_TENSOR, synName));
+        output,
+        graph,
+        output_metadata.persistent,
+        DEVICE_SHAPE_TENSOR,
+        output_metadata.name));
   }
   if (!graph.is_dry_run()) {
     PT_DYNAMIC_SHAPE_DEBUG(
@@ -288,40 +282,24 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
 void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
-    std::vector<bool> is_persistent,
-    std::vector<bool> use_metadata) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
   TORCH_CHECK(
-      outputs.size() == is_persistent.size(),
-      "#output should match #persistent flag");
-  TORCH_CHECK(
-      outputs.size() == use_metadata.size(),
-      "#output should match #use_metadata flag");
+      outputs.size() == output_metadata.size(),
+      "#output should match #output_metadata");
   for (unsigned int i = 0; i < outputs.size(); ++i) {
     auto& output = outputs.at(i);
-    AllocateSynapseOutput(
-        graph, output, is_persistent[i], false, use_metadata[i]);
+    AllocateSynapseOutput(graph, output, output_metadata.at(i), false);
   }
 }
 
 void habana::HabanaOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   static_cast<void>(graph);
   static_cast<void>(inputs);
-  static_cast<void>(is_output_persistent);
-  TORCH_CHECK(
-      0, "Should never reach this empty base AllocateAndAddSynapseNode");
-}
-
-void habana::HabanaOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
-  static_cast<void>(graph);
-  static_cast<void>(inputs);
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }

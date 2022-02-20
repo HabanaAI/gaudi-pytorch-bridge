@@ -15,15 +15,7 @@ namespace habana {
 void CustomOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  std::vector<bool> is_outputs_persistent{is_output_persistent};
-  AllocateAndAddSynapseNode(graph, inputs, is_outputs_persistent);
-}
-
-void CustomOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == op_desc_.getInputsSize(),
       "Incorrect size of inputs expected for CustomOperator: ",
@@ -34,7 +26,7 @@ void CustomOperator::AllocateAndAddSynapseNode(
       "Currently custom op supprts first input as tensor type");
 
   TORCH_CHECK(
-      op_desc_.getOutputsSize() == is_output_persistent.size(),
+      op_desc_.getOutputsSize() == output_metadata.size(),
       "AllocateAndAddSynapseNode for multiple outputs count doesn't match, CustomOperator: ",
       op_desc_.getSchemaName());
 
@@ -53,8 +45,8 @@ void CustomOperator::AllocateAndAddSynapseNode(
         result_sizes,
         self.options().dtype(outputs_desc[i].dtype),
         self.suggest_memory_format(),
-        is_output_persistent[i]);
-    AllocateSynapseOutput(graph, output, is_output_persistent[i]);
+        output_metadata.at(i).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(i));
   }
 
   std::shared_ptr<void> params = nullptr;

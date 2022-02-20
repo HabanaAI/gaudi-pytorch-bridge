@@ -116,7 +116,7 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void ReduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for reduction operator");
@@ -204,7 +204,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     std::vector<c10::IValue> stack;
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(shape));
-    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
+    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
 
     auto self_reshaped = ReshapeOp->GetOutputs()[0];
     int64_t reshaped_in_dim_data[reshaped_in_dim_size];
@@ -225,11 +225,11 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         mask,
         keepdim,
         LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
-        is_output_persistent);
+        output_metadata.at(0).persistent);
     /*TORCH_CHECK(
         output.scalar_type() == self_reshaped.scalar_type(),
         "Habana reduction ops don't support casts yet");*/
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
     std::tie(std::ignore, p_context_->syn_outputs_[0]) = CreateReductionGraph(
         graph,
@@ -250,11 +250,11 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         mask,
         keepdim,
         LoweringUtil::GetDtype(output, self, dtype, false),
-        is_output_persistent);
+        output_metadata.at(0).persistent);
     /*TORCH_CHECK(
         output.scalar_type() == self.scalar_type(),
         "Habana reduction ops don't support casts yet");*/
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
     std::tie(p_context_->syn_inputs_[0], p_context_->syn_outputs_[0]) =
         CreateReductionGraph(
             graph,
@@ -400,7 +400,7 @@ ReduceOperator::CreateReductionGraph(
 void SumDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for SumDim operator");
@@ -428,11 +428,14 @@ void SumDimOperator::AllocateAndAddSynapseNode(
     memory_format = at::MemoryFormat::Contiguous;
   }
   Tensor output = habana_helpers::createPTTensor(
-      self, {0}, self.options(), memory_format, is_output_persistent);
+      self,
+      {0},
+      self.options(),
+      memory_format,
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void SumDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -475,7 +478,9 @@ Tensor sum_dim_IntList_hpu(
     // Assign Inputs to the Operator
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -491,7 +496,7 @@ Tensor sum_dim_IntList_hpu(
 void SumDimOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for SumDimOut operator");
@@ -530,8 +535,7 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
   // Move the output at begining
   inputs.insert(inputs.begin(), IValue(output));
   inputs.erase(inputs.end());
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void SumDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -576,7 +580,9 @@ Tensor& sum_IntList_out_hpu(
     // Assign Inputs to the Operator
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -597,7 +603,7 @@ void MeanDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void MeanDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for MeanDim operator");
@@ -628,11 +634,14 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
     memory_format = at::MemoryFormat::Contiguous;
   }
   Tensor output = habana_helpers::createPTTensor(
-      self, {0}, self.options(), memory_format, is_output_persistent);
+      self,
+      {0},
+      self.options(),
+      memory_format,
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 Tensor mean_dim_hpu(
@@ -670,7 +679,9 @@ Tensor mean_dim_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -690,7 +701,7 @@ void MeanDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void MeanDimOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for MeanDimOut operator");
@@ -725,8 +736,7 @@ void MeanDimOutOperator::AllocateAndAddSynapseNode(
     inputs[2] = dim_new;
   }
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 Tensor& mean_dim_out_hpu(
     Tensor& output,
@@ -768,7 +778,9 @@ Tensor& mean_dim_out_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -793,7 +805,7 @@ void ProdDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void ProdDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for ProdDim operator");
@@ -823,11 +835,10 @@ void ProdDimOperator::AllocateAndAddSynapseNode(
       self.options(),
       // keepdim = false => output dim < 4
       keepdim ? self.suggest_memory_format() : at::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 Tensor prod_dim_hpu(
@@ -866,7 +877,9 @@ Tensor prod_dim_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -882,7 +895,7 @@ Tensor prod_dim_hpu(
 void SumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2, "Incorrect size of inputs expected for Sum operator");
   TORCH_CHECK(
@@ -895,7 +908,7 @@ void SumOperator::AllocateAndAddSynapseNode(
       {0},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   auto ndim = self.dim();
   int64_t data[HABANA_DIM_MAX];
@@ -909,8 +922,7 @@ void SumOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 2, IValue(dim));
   inputs.insert(inputs.begin() + 3, IValue(keepdim));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -969,7 +981,9 @@ Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -986,7 +1000,7 @@ Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
 void MeanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for Mean operator");
@@ -1000,7 +1014,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
       {0},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
 
   std::vector<int64_t> data;
   auto ndim = self.dim();
@@ -1015,8 +1029,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 2, IValue(dim));
   inputs.insert(inputs.begin() + 3, IValue(keepdim));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1069,7 +1082,9 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1086,7 +1101,7 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
 void ProdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for Prod operator");
@@ -1100,7 +1115,7 @@ void ProdOperator::AllocateAndAddSynapseNode(
       {0},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   auto ndim = self.dim();
   int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
@@ -1113,8 +1128,7 @@ void ProdOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 2, IValue(dim));
   inputs.insert(inputs.begin() + 3, IValue(keepdim));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 void ProdOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1167,7 +1181,9 @@ Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1184,7 +1200,7 @@ Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
 void AnyDimOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for AnyDimOut operator");
@@ -1226,7 +1242,8 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
 
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
-  intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
+  intToFloatOp->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
 
   auto output_float = intToFloatOp->GetOutputs()[0];
   stack.clear();
@@ -1242,7 +1259,7 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(dim_arr));
   stack.emplace_back(IValue(keepdim));
   stack.emplace_back(IValue(dtype));
-  sumOp->AllocateAndAddSynapseNode(graph, stack, false);
+  sumOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& reduce_syn_tensor = sumOp->GetSynOutputs()[0];
   auto output_reduce = sumOp->GetOutputs()[0];
   stack.clear();
@@ -1256,14 +1273,13 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   grtOp->SetSynapseInput(reduce_syn_tensor); // 0
   grtOp->SetSynapseInput(p_context_->syn_inputs_[0]); // 1 - dummy
   grtOp->SetSynapseInput(p_context_->syn_inputs_[1]); // 2
-  grtOp->SetOutputMetadata(output_metadata_);
 
   // Build Params for the graph
   stack.emplace_back(IValue(output_reduce));
   stack.emplace_back(IValue(compareOne));
   stack.emplace_back(IValue(output));
 
-  grtOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  grtOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   synapse_helpers::tensor& int_syn_tensor = grtOp->GetSynOutputs()[0];
 
   p_context_->syn_outputs_.emplace_back(std::move(int_syn_tensor));
@@ -1304,7 +1320,9 @@ Tensor& any_dim_out_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(keepdim), IValue(output)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -1320,7 +1338,7 @@ Tensor& any_dim_out_hpu(
 void AnyDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for AnyDim operator");
@@ -1356,7 +1374,8 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
 
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
-  intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
+  intToFloatOp->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
 
   auto output_float = intToFloatOp->GetOutputs()[0];
   stack.clear();
@@ -1372,7 +1391,7 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(dim_arr));
   stack.emplace_back(IValue(keepdim));
   stack.emplace_back(IValue(dtype));
-  sumOp->AllocateAndAddSynapseNode(graph, stack, false);
+  sumOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   auto output_reduce = sumOp->GetOutputs()[0];
   stack.clear();
 
@@ -1380,12 +1399,11 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
   auto grtOp = make_operator<GeOperator>(
       this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
   grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
-  grtOp->SetOutputMetadata(output_metadata_);
   Scalar compareOne = 1.0;
   // Build Params for the graph
   stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
   stack.emplace_back(IValue(compareOne));
-  grtOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  grtOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   p_context_->syn_outputs_.emplace_back(std::move(grtOp->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(grtOp->GetOutputs()[0]);
 }
@@ -1419,7 +1437,9 @@ Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(keepdim)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -1433,7 +1453,7 @@ Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
 void AnyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   if (inputs.size() == 1) {
     TORCH_CHECK(
         inputs.size() == 1,
@@ -1459,7 +1479,8 @@ void AnyOperator::AllocateAndAddSynapseNode(
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::ScalarType::Float)};
-    intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
+    intToFloatOp->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     auto output_float = intToFloatOp->GetOutputs()[0];
     stack.clear();
 
@@ -1472,19 +1493,18 @@ void AnyOperator::AllocateAndAddSynapseNode(
     c10::optional<ScalarType> dtype = output_float.scalar_type();
     stack.emplace_back(IValue(output_float));
     stack.emplace_back(IValue(dtype));
-    sumOp->AllocateAndAddSynapseNode(graph, stack, false);
+    sumOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // Create the operator
     auto grtOp = make_operator<GeOperator>(
         this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
     grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
-    grtOp->SetOutputMetadata(output_metadata_);
     Scalar compareOne = 1.0;
     // Build Params for the graph
     stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
     stack.emplace_back(IValue(compareOne));
-    grtOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    grtOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(std::move(grtOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(grtOp->GetOutputs()[0]);
 
@@ -1496,11 +1516,10 @@ void AnyOperator::AllocateAndAddSynapseNode(
     auto anyDimOp = make_operator<AnyDimOperator>(
         this->p_context_->device_id_, self.scalar_type());
     anyDimOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    anyDimOp->SetOutputMetadata(output_metadata_);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{IValue(self), IValue(dim), IValue(keepdim)};
-    anyDimOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    anyDimOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(
         std::move(anyDimOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(anyDimOp->GetOutputs()[0]);
@@ -1532,7 +1551,9 @@ Tensor any_hpu(const Tensor& self) {
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  OutputMetaDataVector output_metadata(1);
+  output_metadata.at(0).persistent = true;
+  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
   // compile and execute the graph
   Op.Compile(graph);
@@ -1553,7 +1574,7 @@ Tensor any_hpu(const Tensor& self) {
 void GradSumToSizeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for _grad_sum_to_size operator");
@@ -1580,11 +1601,10 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
   auto sum_op = make_operator<SumDimOperator>(device_id, scalar_type);
   if (!reduce_dims.empty()) {
     sum_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    sum_op->SetOutputMetadata(output_metadata_);
     torch::jit::Stack stack = {
         IValue(self), IValue(reduce_dims), IValue(true), IValue(scalar_type)};
     sum_op->AllocateAndAddSynapseNode(
-        graph, stack, leading_dims ? false : is_output_persistent);
+        graph, stack, leading_dims ? OutputMetaDataVector(1) : output_metadata);
   }
 
   if (leading_dims) {
@@ -1592,8 +1612,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
         self.device().index(), self.scalar_type());
     reshape_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
     torch::jit::Stack stack = {IValue(sum_op->GetOutputs()[0]), IValue(shape)};
-    reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    reshape_op->SetOutputMetadata(output_metadata_);
+    reshape_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     p_context_->syn_outputs_.emplace_back(
         std::move(reshape_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(
@@ -1609,10 +1628,9 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
       // as tensor aliased to input (within GC)
       auto identityOp = make_operator<IdentityOperator>(device_id, scalar_type);
       identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-      identityOp->SetOutputMetadata(output_metadata_);
 
       torch::jit::Stack stack = {IValue(self)};
-      identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      identityOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
       p_context_->syn_outputs_.emplace_back(
           std::move(identityOp->GetSynOutputs()[0]));
@@ -1683,7 +1701,7 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
 void AllOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for AllOut operator");
@@ -1694,7 +1712,7 @@ void AllOutOperator::AllocateAndAddSynapseNode(
       inputs[1].isInt(), "Input arg3 expected to be Int for AllOut operator");
   TORCH_CHECK(
       inputs[2].isBool(), "Input arg4 expected to be Bool for AllOut operator");
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   bool keepdim = inputs[2].toBool();
@@ -1710,7 +1728,8 @@ void AllOutOperator::AllocateAndAddSynapseNode(
 
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
-  intToFloatOp1->AllocateAndAddSynapseNode(graph, stack, false);
+  intToFloatOp1->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // Create the PeodDim operator
@@ -1724,7 +1743,7 @@ void AllOutOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(dim));
   stack.emplace_back(IValue(keepdim));
   stack.emplace_back(IValue(c10::ScalarType::Float));
-  prodDimOp->AllocateAndAddSynapseNode(graph, stack, false);
+  prodDimOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   node_type = "cast_f32_to_i8";
@@ -1778,7 +1797,7 @@ void ArgMaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 void ArgMaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for ArgMax operator");
@@ -1810,11 +1829,10 @@ void ArgMaxOperator::AllocateAndAddSynapseNode(
       // keepdim = false => output dim < 4
       keepdim ? self.suggest_memory_format() : at::MemoryFormat::Contiguous,
       c10::ScalarType::Int,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
   inputs.emplace_back(IValue(output.scalar_type()));
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 Tensor argmax_hpu(
@@ -1848,7 +1866,9 @@ Tensor argmax_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Add nodes to the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -1864,7 +1884,7 @@ Tensor argmax_hpu(
 void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for ReduceSumBwd operator");
@@ -1890,15 +1910,15 @@ void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
   params.reductionDimension = reduce_dim;
 
   auto output = habana_helpers::createPTTensor(
-      grad_out, dim_arr, grad_out.options(), is_output_persistent);
-  AllocateSynapseOutputs(graph, {output}, {is_output_persistent}, {true});
+      grad_out, dim_arr, grad_out.options(), output_metadata.at(0).persistent);
+  AllocateSynapseOutputs(graph, {output}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for ReduceMeanBwd operator");
@@ -1924,16 +1944,16 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
   params.reductionDimension = reduce_dim;
 
   auto output = habana_helpers::createPTTensor(
-      grad_out, dim_arr, grad_out.options(), is_output_persistent);
+      grad_out, dim_arr, grad_out.options(), output_metadata.at(0).persistent);
 
-  AllocateSynapseOutputs(graph, {output}, {is_output_persistent}, {true});
+  AllocateSynapseOutputs(graph, {output}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for MaxDimOperator");
@@ -1948,11 +1968,10 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
           self, inputs[1].toIntList().vec(), inputs[2].toBool()), //{},
       self.options(),
       at::MemoryFormat::Contiguous,
-      is_output_persistent);
+      output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
 static auto& KernelRegistry =

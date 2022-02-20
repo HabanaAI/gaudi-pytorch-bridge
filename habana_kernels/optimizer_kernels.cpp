@@ -41,7 +41,7 @@ using namespace habana;
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_sparse_sgd operator");
@@ -54,8 +54,8 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
   TORCH_CHECK(inputs[7].isBool(), "Input arg8 type expected to be Bool");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "OptimizerSparseSgdOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "OptimizerSparseSgdOperator: #output_metadata should be 2");
 
   auto weights_in = inputs[1].toTensor();
   auto moments_in = inputs[2].toTensor();
@@ -133,7 +133,10 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -147,7 +150,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
 void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 6,
       "Incorrect size of inputs for optimizer_adagrad_sgd operator");
@@ -158,8 +161,8 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
   TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
   TORCH_CHECK(
-      is_output_persistent.size() == 2,
-      "OptimizerSparseAdagradOperator: #is_output_persistent should be 2");
+      output_metadata.size() == 2,
+      "OptimizerSparseAdagradOperator: #output_metadata should be 2");
 
   ns_OptimizerSparseAdagrad::Params params;
   // PT does not use decay param for sparse params
@@ -236,7 +239,10 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    OutputMetaDataVector output_metadata(2);
+    output_metadata.at(0).persistent = true;
+    output_metadata.at(1).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -248,8 +254,8 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
 void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 10,
       "Incorrect size of inputs for adamw optimizer graph creation call");
@@ -300,7 +306,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(modified_wd));
-      mul_wt_wd->AllocateAndAddSynapseNode(graph, stack, false);
+      mul_wt_wd->AllocateAndAddSynapseNode(
+          graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       // collect the nodes that need control edges
@@ -314,7 +321,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     stack.emplace_back(IValue(exp_avg.get(i)));
     stack.emplace_back(IValue(beta1));
-    mul_exp_avg->AllocateAndAddSynapseNode(graph, stack, false);
+    mul_exp_avg->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto add_exp_avg =
@@ -325,7 +333,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(Scalar(1.0 - beta1.toDouble())));
-    add_exp_avg->AllocateAndAddSynapseNode(graph, stack, false);
+    add_exp_avg->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
@@ -335,7 +344,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
         p_context_->syn_inputs_[3 * num_params + i]);
     stack.emplace_back(IValue(exp_avg_sq.get(i)));
     stack.emplace_back(IValue(beta2));
-    mul_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
+    mul_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto addcmul_exp_avg_sq =
@@ -353,7 +363,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(Scalar(1.0 - beta2.toDouble())));
-    addcmul_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
+    addcmul_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // denom = exp_avg_sq.sqrt().add_(group["eps"])
@@ -363,7 +374,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
         addcmul_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
-    sqrt_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
+    sqrt_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto add_exp_avg_sq =
@@ -372,7 +384,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(sqrt_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(epsilon));
     stack.emplace_back(IValue(1.0));
-    add_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
+    add_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     // Replaced addcdiv with following OPs, so that -step_size
@@ -386,7 +399,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(add_exp_avg_sq->GetOutputs()[0]));
-    div_wt->AllocateAndAddSynapseNode(graph, stack, false);
+    div_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
@@ -394,7 +407,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
-    mul_wt->AllocateAndAddSynapseNode(graph, stack, false);
+    mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
     auto add_wt =
@@ -408,7 +421,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
       stack.emplace_back(IValue(1.0));
-      add_wt->AllocateAndAddSynapseNode(graph, stack, false);
+      add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       // collect the nodes that need control edges
@@ -424,7 +437,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
       stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
       stack.emplace_back(IValue(1.0));
-      add_wt->AllocateAndAddSynapseNode(graph, stack, false);
+      add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
       // collect the nodes that need control edges
@@ -528,7 +541,11 @@ void optimizer_adamw_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true, true, true, true, true});
+    OutputMetaDataVector output_metadata(5);
+    for (auto& md : output_metadata) {
+      md.persistent = true;
+    }
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -540,8 +557,8 @@ void optimizer_adamw_hpu(
 void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
-  static_cast<void>(is_output_persistent);
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_adagrad operator");
@@ -589,7 +606,7 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
 void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer fused adagrad operator");
@@ -624,8 +641,6 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
-    op->SetOutputMetadata(
-        SelectVectorIndices(output_metadata_, {i * 2, i * 2 + 1}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -636,7 +651,8 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(inputs[6]);
     stack.emplace_back(inputs[7]);
 
-    op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    op->AllocateAndAddSynapseNode(
+        graph, stack, SelectVectorIndices(output_metadata, {i * 2, i * 2 + 1}));
 
     stack.clear();
 
@@ -729,7 +745,9 @@ Tensor& optimizer_adagrad_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -742,9 +760,9 @@ Tensor& optimizer_adagrad_hpu(
 void OptimizerSGDOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer SGD operator");
@@ -781,7 +799,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
 void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
 
   TORCH_CHECK(
@@ -812,7 +830,6 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
-    op->SetOutputMetadata(SelectVectorIndices(output_metadata_, {i}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -822,7 +839,8 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(inputs[5]);
     stack.emplace_back(inputs[6]);
 
-    op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    op->AllocateAndAddSynapseNode(
+        graph, stack, SelectVectorIndices(output_metadata, {i}));
 
     stack.clear();
 
@@ -905,8 +923,9 @@ Tensor& optimizer_sgd_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -918,9 +937,9 @@ Tensor& optimizer_sgd_hpu(
 void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
-  static_cast<void>(is_output_persistent);
+  static_cast<void>(output_metadata);
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer SGD operator");
@@ -968,7 +987,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
 void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
   TORCH_CHECK(
       inputs.size() == 9,
@@ -1006,8 +1025,6 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
-    op->SetOutputMetadata(
-        SelectVectorIndices(output_metadata_, {i * 2, i * 2 + 1}));
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -1019,7 +1036,8 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(inputs[7]);
     stack.emplace_back(inputs[8]);
 
-    op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    op->AllocateAndAddSynapseNode(
+        graph, stack, SelectVectorIndices(output_metadata, {i * 2, i * 2 + 1}));
 
     stack.clear();
 
@@ -1118,7 +1136,9 @@ Tensor& optimizer_sgd_momentum_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

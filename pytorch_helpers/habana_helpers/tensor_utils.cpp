@@ -146,7 +146,9 @@ at::Tensor habana_helpers::hpu_cast_tensor(
     auto graph = habana_helpers::create_graph(device_id, node_type);
     // Allocate synapse inputs
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    habana::OutputMetaDataVector output_metadata(1);
+    output_metadata.at(0).persistent = true;
+    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
     Op.Compile(graph);
   }

@@ -92,7 +92,7 @@ class CastOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 
  protected:
   ns_CastKernel::Params synapse_cast_params_builder();
@@ -109,7 +109,7 @@ class CastOperator : public CastOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 // Constant Operator
@@ -125,7 +125,7 @@ class ConstantOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -137,14 +137,13 @@ class OnesLikeOperator : public ConstantOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) {
+      const habana::OutputMetaDataVector& output_metadata) {
     TORCH_CHECK(
         inputs.size() == 6,
         "OnesLikeOperator Operation expects 6 arguments as input")
     inputs.erase(inputs.begin() + 1, inputs.end());
     inputs.emplace_back(1);
-    ConstantOperator::AllocateAndAddSynapseNode(
-        graph, inputs, is_output_persistent);
+    ConstantOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 };
 
@@ -163,5 +162,5 @@ class ConstantOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };

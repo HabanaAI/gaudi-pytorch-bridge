@@ -30,7 +30,7 @@ class UniformOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Normal Operator
@@ -49,7 +49,7 @@ class NormalOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Bernoulli Operator
@@ -67,7 +67,7 @@ class BernoulliOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // BernoulliScalar Operator
@@ -85,7 +85,7 @@ class BernoulliScalarOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Bernoulli Operator
@@ -104,12 +104,14 @@ class DropoutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static at::Tensor GenerateAndCopySeedToHPU(
       torch::jit::Stack& inputs,
       bool is_persistent);
-  void SetPTOutputs(const torch::jit::Stack& inputs, bool is_output_persistent);
+  void SetPTOutputs(
+      const torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata);
 
   static void populateSeedTensor(
       const PtTensorInfo& ti,
@@ -134,7 +136,7 @@ class RandomShuffleOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // RandPerm Operator
@@ -149,7 +151,7 @@ class RandpermOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
   static at::Tensor GenerateAndCopySeedToHPU(
       torch::jit::Stack& inputs,
       bool is_persistent);

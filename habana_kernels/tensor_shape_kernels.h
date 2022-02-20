@@ -23,7 +23,7 @@ class CatOutOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutput(torch::jit::Stack& inputs) override;
   virtual void SetPTOutput(const at::Tensor& out) override;
@@ -48,11 +48,11 @@ class CatOperator : public CatOutOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 
   at::Tensor CheckAllocateOutput(
       torch::jit::Stack& inputs,
-      bool is_output_persistent);
+      const habana::OutputMetaData& output_metadata);
 };
 
 //
@@ -63,7 +63,7 @@ class PermuteOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor& in, const std::vector<int64_t>& dims);
 };
@@ -77,7 +77,7 @@ class PermuteCLOperator : public PermuteOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -93,7 +93,7 @@ class ReshapeOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -104,7 +104,7 @@ class TransposeOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor& self, int dim0_, int dim1_);
 };
@@ -119,13 +119,13 @@ class TOperator : public TransposeOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override {
+      const habana::OutputMetaDataVector& output_metadata) override {
     TORCH_CHECK(
         inputs.size() == 1, "aten::t Operation expects 1 arguments as input")
     inputs.insert(inputs.begin() + 1, c10::IValue(0));
     inputs.insert(inputs.begin() + 2, c10::IValue(1));
     TransposeOperator::AllocateAndAddSynapseNode(
-        graph, inputs, is_output_persistent);
+        graph, inputs, output_metadata);
   }
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor& self) {
@@ -144,7 +144,7 @@ class BroadcastOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 //
@@ -159,11 +159,7 @@ class SplitWithSizeOperator : public habana::HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 
   static std::vector<std::vector<int64_t>> compute_output_shape(
       const at::Tensor& self,
@@ -181,7 +177,7 @@ class FlattenOperator : public ReshapeOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 // View Operator
@@ -192,7 +188,7 @@ class ViewOperator : public ReshapeOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 // Flip Operator
@@ -206,7 +202,7 @@ class FlipOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const habana::OutputMetaDataVector& output_metadata) override;
   synapse_helpers::tensor_or_ref CreateFlipGraph(
       synapse_helpers::graph& graph,
       const at::Tensor& pyt_tensor,

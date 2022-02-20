@@ -105,10 +105,7 @@ class OpBackend : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       at::Stack& stack,
-      bool is_output_persistent) override {
-    std::vector<bool> is_output_persistent_list{is_output_persistent};
-    AllocateAndAddSynapseNode(graph, stack, is_output_persistent_list);
-  }
+      const OutputMetaDataVector& output_metadata) override;
 
   const auto& GetShapeTensors() const {
     return m_shape_tensors;
@@ -138,8 +135,11 @@ class OpBackend : public HabanaOperator {
   }
 
   bool IsOutputPersistent(int i) const {
-    // Reuse from HabanaOperator::OutputMetaData when available
-    return m_persistence_list[i];
+    return m_output_metadata.at(i).persistent;
+  }
+
+  const OutputMetaData& GetOutputMetaData(int i) const {
+    return m_output_metadata.at(i);
   }
 
   bool IsInplace() const {
@@ -203,10 +203,6 @@ class OpBackend : public HabanaOperator {
   void HandleIntToFloatPromotion(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      at::Stack& stack,
-      std::vector<bool> is_output_persistent) override;
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
@@ -294,9 +290,7 @@ class OpBackend : public HabanaOperator {
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
-  std::vector<bool>
-      m_persistence_list; // Reuse from HabanaOperator::OutputMetaData when
-                          // available
+  OutputMetaDataVector m_output_metadata;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
 };
 

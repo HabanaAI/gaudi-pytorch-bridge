@@ -26,7 +26,7 @@ class NLLLossFwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // NLLLoss2dFWD Operator
@@ -45,7 +45,7 @@ class NLLLoss2dFwdOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 // NLLLossBWD Operator
 class NLLLossBwdOperator : public HabanaOperator {
@@ -63,7 +63,7 @@ class NLLLossBwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 class NLLLoss2dBwdOperator : public HabanaOperator {
@@ -86,7 +86,7 @@ class NLLLoss2dBwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 };
 
 // MSELossFWD Operator
@@ -104,7 +104,7 @@ class MSELossFwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -126,7 +126,7 @@ class MSELossBwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      const OutputMetaDataVector& output_metadata);
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
@@ -145,7 +145,7 @@ class KlDivOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -167,7 +167,7 @@ class KlDivBwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // BceFwd Operator
@@ -185,7 +185,7 @@ class BceFwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
@@ -207,7 +207,7 @@ class BceBwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // BceWithLogitsFwd Operator
@@ -223,7 +223,7 @@ class BceLogitsFwdOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
