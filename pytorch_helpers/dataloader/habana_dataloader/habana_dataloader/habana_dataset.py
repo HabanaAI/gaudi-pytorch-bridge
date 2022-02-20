@@ -12,12 +12,66 @@ from enum import Enum
 import torch_hpu
 import habana_frameworks.torch.core as htcore
 
+from .aeon_config import get_aeon_config
+from .aeon_ssd_configurator import AeonSSDConfigurator
+from .aeon_manifest import generate_aeon_manifest
+
+
 def isGaudi(device):
     return (device == htcore.synDeviceGaudi) or (device == htcore.synDeviceGaudiM)
 
 def isGaudi2(device):
     return device == htcore.synDeviceGaudi2
 
+import habana_dataloader.habana_dl_app
+class CocoDataLoader(torch.utils.data.DataLoader):
+    def __init__(self, *args, **kwargs):
+        dataset = kwargs.get('dataset', args[0])
+        self.batch_size = kwargs.get('batch_size')
+        num_workers = kwargs.get('num_workers')
+        shuffle = kwargs.get('shuffle')
+        manifest = kwargs.get('manifest', "manifest.cfg")
+        drop_last = kwargs.get('drop_last', False)
+        self.encoder = dataset.transform.encoder #temporary WA until aeon has encoder impl
+
+        self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest)
+        aeon_config = self.configurator.get_config()
+        self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(aeon_config,
+                                                                                      True, # pin_memory
+                                                                                      True, # use_prefetch
+                                                                                      False, # channels-last
+                                                                                      drop_last
+                                                                                      )
+
+    def __iter__(self):
+        self.iter = iter(self.aeon)
+        return self
+    def __len__(self):
+        return len(self.aeon)
+    def __next__(self):
+        img, img_id, img_size, bbox, label = next(self.iter)
+
+        if self.encoder:
+            bbox_out = torch.empty((self.batch_size, 8732, 4), dtype = bbox.dtype)
+            label_out = torch.empty((self.batch_size, 8732), dtype = label.dtype)
+            for i, (b,l) in enumerate(zip(bbox, label)):
+                indexes = l.nonzero()
+                if indexes.nelement() == 0:
+                    #WA for empty label
+                    l = torch.zeros((1), dtype = label.dtype)
+                    b = torch.zeros((1,4), dtype = bbox.dtype)
+                    b[:, 2:] = 1
+                else:
+                    l = l[indexes].squeeze(dim=1)
+                    b = b[indexes].squeeze(dim=1)
+                b, l = self.encoder.encode(b, l)
+                bbox_out[i] = b
+                label_out[i] = l
+        else: #aeon encoder
+            bbox_out = bbox
+            label_out = label
+
+        return img.contiguous(), img_id, img_size, bbox_out, label_out
 class HabanaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
@@ -206,3 +260,36 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
         # In case the value was not sent, it will be 'None'
         if kwargs.get(var_name) is not None and kwargs.get(var_name) != expected_value:
             raise ValueError(f"'{var_name}' is supported only as {expected_value}")
+
+def _is_coco_dataset(dataset):
+        try:
+            if "COCO 2017 Dataset" in dataset.data["info"]["description"]:
+                return True
+        except:
+            return False
+        return False
+
+class HabanaDataloaderWrapper:
+    def __init__(self, *args, **kwargs):
+        dataset = kwargs.get("dataset", args[0])
+        dataloader_type = None
+        if isinstance(dataset, torchvision.datasets.ImageFolder):
+            dataloader_type = HabanaDataLoader
+        elif _is_coco_dataset(dataset):
+            dataloader_type = CocoDataLoader
+        try:
+            self.dataloader = dataloader_type(*args, **kwargs)
+
+        except Exception as e:
+            #Fallback to PT Dataloader
+            print('-'*50)
+            print(f"{'-'*10}Fallback to PT DL: {e}")
+            print('-'*50)
+            self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
+
+    def __iter__(self):
+        self.iter = iter(self.dataloader)
+        return self
+    def __next__(self):
+        return next(self.iter)
+

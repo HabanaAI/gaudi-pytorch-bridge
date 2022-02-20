@@ -26,6 +26,18 @@ using nlohmann::json;
 namespace py = pybind11;
 namespace aeondataloader = scaleoutdemoloader;
 
+json getJsonConfig(const json& cfg, std::string key) {
+  const json& etl_json = cfg["etl"];
+  for (auto it = etl_json.begin(); it != etl_json.end(); ++it) {
+    if ((*it)["type"] == key) {
+      return *it;
+    }
+  }
+  std::stringstream ss;
+  ss << "missing json config: " << key;
+  throw std::runtime_error(ss.str());
+}
+
 class HabanaAcceleratedPytorchDL {
  public:
   HabanaAcceleratedPytorchDL(
@@ -39,7 +51,7 @@ class HabanaAcceleratedPytorchDL {
     m_record_count = initializeAeon(config_path_name);
 
     m_batch_size = m_json_config["batch_size"];
-    json image_etl = getImageEtl();
+    json image_etl = getJsonConfig(m_json_config, "image");
     m_img_height = image_etl["height"];
     m_img_width = image_etl["width"];
     m_pin_memory = pin_memory;
@@ -59,7 +71,7 @@ class HabanaAcceleratedPytorchDL {
     }
   }
 
-  ~HabanaAcceleratedPytorchDL() {
+  virtual ~HabanaAcceleratedPytorchDL() {
     if (m_use_prefetch) {
       stopRunningThread();
     }
@@ -67,7 +79,7 @@ class HabanaAcceleratedPytorchDL {
     aeondataloader::destroy_data_loader(m_loader);
   }
 
-  std::pair<torch::Tensor, torch::Tensor> getNextTensorTuple() {
+  std::vector<torch::Tensor> getNextTensorTuple() {
     // Stop when done
     if (++m_user_idx > m_total_batch_count)
       throw pybind11::stop_iteration();
@@ -105,20 +117,22 @@ class HabanaAcceleratedPytorchDL {
     }
   }
 
-  std::pair<torch::Tensor, torch::Tensor> getTensorTuple(bool is_last_batch) {
+  int get_step_batch_size(bool is_last_batch) {
+    if (is_last_batch) {
+      if (m_last_batch_remainder == 0) {
+        return m_batch_size;
+      } else {
+        return m_last_batch_remainder;
+      }
+    }
+    return m_batch_size;
+  }
+
+  virtual std::vector<torch::Tensor> getTensorTuple(bool is_last_batch) {
     auto image_options = torch::TensorOptions().dtype(torch::kFloat32);
     auto target_options = torch::TensorOptions().dtype(torch::kInt32);
 
-    int step_batch_size;
-    if (is_last_batch) {
-      if (m_last_batch_remainder == 0) {
-        step_batch_size = m_batch_size;
-      } else {
-        step_batch_size = m_last_batch_remainder;
-      }
-    } else {
-      step_batch_size = m_batch_size;
-    }
+    int step_batch_size = get_step_batch_size(is_last_batch);
 
     auto image = torch::empty(
         {m_batch_size, m_img_height, m_img_width, 3}, image_options);
@@ -158,16 +172,8 @@ class HabanaAcceleratedPytorchDL {
       /* Converting Image from NHWC -> NCHW */
       image = image.permute({0, 3, 1, 2});
     }
-    return std::make_pair(image, target);
-  }
 
-  json getImageEtl() {
-    const json& etl_json = m_json_config["etl"];
-    for (auto it = etl_json.begin(); it != etl_json.end(); ++it) {
-      if ((*it)["type"] == "image") {
-        return *it;
-      }
-    }
+    return make_vec(image, target);
   }
 
   std::string saveDictToFile(py::dict dict_config) {
@@ -213,7 +219,12 @@ class HabanaAcceleratedPytorchDL {
     m_shouldStopPrefetch = false;
   }
 
- private:
+  template <typename... T>
+  std::vector<torch::Tensor> make_vec(T&... t) {
+    return {std::move(t)...};
+  }
+
+ protected:
   // Configuration
   json m_json_config;
   int m_batch_size;
@@ -229,7 +240,7 @@ class HabanaAcceleratedPytorchDL {
   // For prefetching:
   static const int s_buffer_level = 3;
   std::thread m_prefetchThread;
-  BlockingQueue<std::pair<torch::Tensor, torch::Tensor>> m_prefetchQueue;
+  BlockingQueue<std::vector<torch::Tensor>> m_prefetchQueue;
   // internal index for current index in aeon prefetching, always >= m_user_idx
   int m_aeon_idx;
   std::atomic<bool> m_shouldStopPrefetch;
@@ -241,10 +252,141 @@ class HabanaAcceleratedPytorchDL {
   void* m_loader;
 };
 
+class SsdHDL : public HabanaAcceleratedPytorchDL {
+ public:
+  SsdHDL(
+      py::dict dict_config,
+      bool pin_memory,
+      bool use_prefetch,
+      bool channels_last,
+      bool drop_last)
+      : HabanaAcceleratedPytorchDL(
+            dict_config,
+            pin_memory,
+            use_prefetch,
+            channels_last,
+            drop_last) {
+    m_max_gt_boxes =
+        getJsonConfig(m_json_config, "localization_ssd")["max_gt_boxes"];
+  }
+
+  std::vector<torch::Tensor> getTensorTuple(bool is_last_batch) override {
+    auto image_options = torch::TensorOptions().dtype(torch::kFloat32);
+    auto img_id_options = torch::TensorOptions().dtype(torch::kInt32);
+    auto img_size_options = torch::TensorOptions().dtype(torch::kInt32);
+    auto bbox_options = torch::TensorOptions().dtype(torch::kFloat32);
+    auto label_options = torch::TensorOptions().dtype(torch::kInt32);
+
+    int step_batch_size = get_step_batch_size(is_last_batch);
+
+    auto image = torch::empty(
+        {m_batch_size, m_img_height, m_img_width, 3},
+        image_options,
+        {torch::MemoryFormat::Contiguous});
+    auto bbox = torch::empty({m_batch_size, m_max_gt_boxes, 4}, bbox_options);
+    auto label = torch::empty({m_batch_size, m_max_gt_boxes}, label_options);
+    auto img_id = torch::full(
+        {m_batch_size},
+        -1,
+        img_id_options); // aeon doesn't fetch img_id and img_size - SW-77049
+    auto img_size = torch::full(
+        {m_batch_size, 2}, m_img_height, img_size_options); // todo: proper init
+    if (m_pin_memory) {
+      label = at::native::pin_memory(label, torch::kHPU);
+      image = at::native::pin_memory(image, torch::kHPU);
+      bbox = at::native::pin_memory(bbox, torch::kHPU);
+      img_id = at::native::pin_memory(img_id, torch::kHPU);
+      img_size = at::native::pin_memory(img_size, torch::kHPU);
+    }
+
+    const int image_size =
+        m_img_height * m_img_width * 3 * m_batch_size * sizeof(float);
+    char* image_data_ptr = (char*)image.data_ptr();
+
+    const int bbox_size = m_batch_size * m_max_gt_boxes * 4 * sizeof(float);
+    char* bbox_ptr = (char*)bbox.data_ptr();
+    const int label_size = m_batch_size * m_max_gt_boxes * sizeof(uint32_t);
+    char* label_ptr = (char*)label.data_ptr();
+
+    // // Copy data to the ptr
+    aeondataloader::data_loader_get_data(
+        m_loader, aeondataloader::IMAGE, image_size, image_data_ptr);
+    aeondataloader::data_loader_get_data(
+        m_loader, aeondataloader::BBOX_LABEL, label_size, label_ptr);
+    aeondataloader::data_loader_get_data(
+        m_loader, aeondataloader::BBOX, bbox_size, bbox_ptr);
+    // get_data API does not advance iterator
+    aeondataloader::data_loader_inc(m_loader);
+
+    // Workaround for bad batch size
+    if (step_batch_size < m_batch_size) {
+      image = image.narrow(0, 0, step_batch_size);
+      label = label.narrow(0, 0, step_batch_size);
+    }
+
+    /* This is the format in which pytorch expects to accept the data */
+    label = label.to(torch::kInt64);
+
+    if (!m_channels_last) {
+      /* Converting Image from NHWC -> NCHW */
+      image = image.permute({0, 3, 1, 2});
+    }
+
+    return make_vec(image, img_id, img_size, bbox, label);
+  }
+
+ private:
+  uint64_t m_max_gt_boxes;
+};
+
+class Factory {
+ public:
+  static std::unique_ptr<HabanaAcceleratedPytorchDL> create(
+      py::dict dict_config,
+      bool pin_memory,
+      bool use_prefetch,
+      bool channels_last,
+      bool drop_last) {
+    json config = dict_config;
+    if (is_ssd_config(config)) {
+      return std::make_unique<SsdHDL>(
+          dict_config, pin_memory, use_prefetch, channels_last, drop_last);
+    } else {
+      return std::make_unique<HabanaAcceleratedPytorchDL>(
+          dict_config, pin_memory, use_prefetch, channels_last, drop_last);
+    }
+  }
+  static bool is_ssd_config(json config) {
+    try {
+      if (getJsonConfig(config, "localization_ssd").empty()) {
+        return false;
+      }
+    } catch (...) {
+      return false;
+    }
+    return true;
+  }
+};
+
 PYBIND11_MODULE(habana_dl_app, m) {
   m.doc() = "pybind11 wrapper for aeon-pytorch generation";
 
   py::class_<HabanaAcceleratedPytorchDL>(m, "HabanaAcceleratedPytorchDL")
+      .def_static(
+          "create",
+          [](py::dict dict_config,
+             bool pin_memory,
+             bool use_prefetch,
+             bool channels_last,
+             bool drop_last) {
+            return std::move(Factory::create(
+                dict_config,
+                pin_memory,
+                use_prefetch,
+                channels_last,
+                drop_last));
+          },
+          py::return_value_policy::move)
       .def(py::init<py::dict, bool, bool, bool, bool>())
       .def("__iter__", &HabanaAcceleratedPytorchDL::getIter)
       .def("__next__", &HabanaAcceleratedPytorchDL::getNextTensorTuple)
