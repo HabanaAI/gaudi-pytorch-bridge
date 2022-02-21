@@ -377,9 +377,7 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
             << "Running with min policy " << min_policy << '\n';
 
   habana_helpers::DynamicBucketInfo bucket_info(
-      min_policy,
-      habana_helpers::DynamicDimsPolicy::CALCULATED,
-      habana_helpers::SplitPolicy::DYNAMIC);
+      min_policy, habana_helpers::DynamicDimsPolicy::CALCULATED);
 
   auto get_and_check_bucket{
       [&](size_t ddim_idx, uint64_t exp_bidx, bool dbg_print = true) {

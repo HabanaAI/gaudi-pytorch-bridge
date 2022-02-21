@@ -49,10 +49,10 @@ enum class CompilationPass {
 };
 enum class DynamicDimsPolicy {
   DEFAULT,
+  CURRENT,
   CALCULATED,
   HISTORIC,
-  FLATTENED,
-  CURRENT
+  FLATTENED
 };
 
 constexpr DynamicDimsPolicy MIN_POLICY_DEFAULT{DynamicDimsPolicy::HISTORIC};
@@ -557,18 +557,13 @@ class Bucket {
 
 class DynamicBucketInfo {
  public:
-  DynamicBucketInfo(
-      DynamicDimsPolicy min_policy = MIN_POLICY_DEFAULT,
-      DynamicDimsPolicy max_policy = MAX_POLICY_DEFAULT,
-      SplitPolicy sp = SplitPolicy::DYNAMIC)
-      : min_policy_(min_policy), max_policy_(max_policy), split_policy_(sp) {
+  DynamicBucketInfo();
+
+  DynamicBucketInfo(DynamicDimsPolicy min_policy, DynamicDimsPolicy max_policy)
+      : min_policy_(min_policy),
+        max_policy_(max_policy),
+        split_policy_(SplitPolicy::DYNAMIC) {
     refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-    auto set_min_max_current =
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
-    if (set_min_max_current) {
-      min_policy_ = DynamicDimsPolicy::CURRENT;
-      max_policy_ = DynamicDimsPolicy::CURRENT;
-    }
   };
 
   using TensorShapes = std::unordered_map<int64_t, habana_helpers::TensorShape>;
