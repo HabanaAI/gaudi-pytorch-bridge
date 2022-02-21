@@ -14,8 +14,35 @@
 #include <torch/csrc/api/include/torch/jit.h>
 
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/passes/pass_utils.h"
 
 namespace habana_lazy {
+
+size_t GetWeightHash(
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const std::shared_ptr<torch::jit::Graph>& irgraph) {
+  habana_lazy::WeightIdentificationPass w_pass;
+  size_t hash_code = 0;
+  w_pass.markWeightTensors(
+      const_cast<std::shared_ptr<torch::jit::Graph>&>(irgraph));
+  auto weights = w_pass.getWeightTensors();
+  HABANA_ASSERT(input_refs.size() == irgraph->inputs().size());
+
+  for (size_t i = 0; i < input_refs.size(); ++i) {
+    auto value_input = irgraph->inputs().at(i);
+    if (weights.count(value_input)) {
+      hash_code =
+          at::hash_combine(hash_code, habana::mod_exp(static_cast<int64_t>(i)));
+      HABANA_ASSERT(input_refs[i].isTensor());
+      auto& tensor = input_refs[i].toTensor();
+      for (size_t shape : tensor.sizes()) {
+        hash_code = at::hash_combine(hash_code, shape);
+      }
+    }
+  }
+
+  return hash_code;
+}
 
 void ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph>& irgraph,
@@ -131,6 +158,10 @@ void ComputeGraphHashCode(
     }
   }
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    graphHashCode =
+        at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
+  }
 }
 
 std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
@@ -268,7 +299,16 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const at::ArrayRef<torch::jit::IValue>& input_refs)
     : jit_graph_to_lowering(JitGraphToLowering) {
   // Compute the graph hash
-  ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
+  ComputeGraphHashCode(JitGraphToLowering, input_refs);
+}
+
+void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
+    const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
+    const at::ArrayRef<torch::jit::IValue>& input_refs) {
+  set_cached_graph_key(0);
+  set_cached_opstrs(std::string());
+  habana_lazy::ComputeGraphHashCode(
+      JitGraphToLowering, "", input_refs, opstrs, graphKey);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {
