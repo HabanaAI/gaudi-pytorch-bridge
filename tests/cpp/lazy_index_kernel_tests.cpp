@@ -130,6 +130,21 @@ TEST_F(LazyIndexKernelTest, ScatterTest) {
   EXPECT_EQ(allclose(h_cout, out), true);
 }
 
+TEST_F(LazyIndexKernelTest, ScatterMoveTest) {
+  torch::Tensor a =
+      torch::tensor({{0, 1}, {1, 0}}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  torch::Tensor r = torch::tensor(
+      {{false, true}, {false, true}}, torch::requires_grad(false));
+  torch::Tensor r_a = r.to(torch::kHPU);
+
+  torch::Tensor hOut = torch::scatter(r_a, 1, h_a, r_a);
+  auto h_cout = hOut.to(torch::kCPU);
+  torch::Tensor out = torch::scatter(r, 1, a, r);
+
+  EXPECT_EQ(allclose(h_cout, out), true);
+}
+
 TEST_F(LazyIndexKernelTest, ArangeFloatOutTest) {
   torch::Tensor tStart = torch::tensor(0.0);
   torch::Tensor tEnd = torch::tensor(10.0);
