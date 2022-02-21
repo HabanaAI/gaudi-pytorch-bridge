@@ -3139,9 +3139,7 @@ Tensor index_put_hpu_lazy(
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-      (indices_in[0].scalar_type() == c10::ScalarType::Bool &&
-       value_in.dim() <= 1) &&
-      !accumulate) {
+      indices_in[0].scalar_type() == c10::ScalarType::Bool) {
     TensorList indices_in_list(indices_vec);
     indices_vec = HandleViewsTensorList(indices_in_list);
     at::TensorList indices = indices_vec;
@@ -3168,6 +3166,12 @@ Tensor index_put_hpu_lazy(
         self.suggest_memory_format(),
         false,
         SHAPE_TENSOR);
+    auto zero_shape_tensor = empty_hpu_lazy(
+        self.sizes(),
+        self.options(),
+        self.suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
     LazyOp<at::Tensor> index_put_op{
         "hpu::index_put",
         {self,
@@ -3175,6 +3179,7 @@ Tensor index_put_hpu_lazy(
          nonzero_outputs[1],
          value_in,
          value_dim_tensor,
+         zero_shape_tensor,
          accumulate}};
     return index_put_op.call();
   }

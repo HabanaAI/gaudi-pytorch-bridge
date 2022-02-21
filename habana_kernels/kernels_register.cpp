@@ -4383,7 +4383,7 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 TORCH_LIBRARY(hpu, m) {
   m.def("nonzero(Tensor self) -> (Tensor Tensor)");
   m.def(
-      "index_put(Tensor self, Tensor where_tensor, Tensor shape_tensor, Tensor value, Tensor value_upd_dim, bool accumulate=False) -> Tensor");
+      "index_put(Tensor self, Tensor where_tensor, Tensor shape_tensor, Tensor value, Tensor value_upd_dim, Tensor zero_shape_tensor, bool accumulate=False) -> Tensor");
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def(

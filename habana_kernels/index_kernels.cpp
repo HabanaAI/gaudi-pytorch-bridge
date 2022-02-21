@@ -1334,7 +1334,8 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
   auto shape_tensor = inputs[2].toTensor();
   auto values = inputs[3].toTensor();
   auto value_dim_tensor = inputs[4].toTensor();
-  auto accumulate = inputs[5].toBool();
+  auto zero_shape_tensor = inputs[5].toTensor();
+  auto accumulate = inputs[6].toBool();
 
   auto device_id = this->p_context_->device_id_;
   Stack stack;
@@ -1373,8 +1374,99 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
         std::move(scatter_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(
         std::move(scatter_op->GetOutputs()[0]));
+  } else if (
+      self.scalar_type() == c10::ScalarType::Bool ||
+      self.scalar_type() == c10::ScalarType::Char) {
+    std::shared_ptr<HabanaOperator> castOp1;
+    std::shared_ptr<HabanaOperator> castOp2;
+    std::string node1_type = "cast_i8_to_i16";
+    self_scalar_type = c10::ScalarType::Short;
+
+    castOp1 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    castOp1->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    node1_type = "cast_i8_to_i16";
+    castOp2 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(broadcasted_values));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    castOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
+    stack = {IValue(zero_shape_tensor), IValue(0)};
+    zero_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    stack = {
+        IValue(zero_op->GetOutputs()[0]),
+        IValue(where_tensor),
+        IValue(broadcasted_values),
+        IValue(shape_tensor)};
+
+    scatter_op->SetSynapseInput(zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
+    stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1.0)};
+    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    add_op->SetSynapseInput(scatter_op->GetSynOutputs()[0]);
+
+    add_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto out_type = self.scalar_type();
+    node1_type = "cast_i16_to_i8";
+    std::shared_ptr<HabanaOperator> castOpOut =
+        make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
+    castOpOut->SetSynapseInput(add_op->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(add_op->GetOutputs()[0]));
+    stack.emplace_back(IValue(out_type));
+    castOpOut->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(castOpOut->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(castOpOut->GetOutputs()[0]));
   } else {
-    HABANA_ASSERT(!accumulate)
+    auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
+    stack = {IValue(zero_shape_tensor), IValue(0)};
+    zero_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    scatter_op =
+        make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+    stack = {
+        IValue(zero_op->GetOutputs()[0]),
+        IValue(where_tensor),
+        IValue(broadcasted_values),
+        IValue(shape_tensor)};
+    scatter_op->SetSynapseInput(zero_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+
+    scatter_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
+    stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1)};
+    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    add_op->SetSynapseInput(scatter_op->GetSynOutputs()[0]);
+
+    add_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(add_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
   return;
 }

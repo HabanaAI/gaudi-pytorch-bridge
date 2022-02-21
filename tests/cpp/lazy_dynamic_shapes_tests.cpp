@@ -1531,3 +1531,236 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   pad_test({0, 28, 0, 0}, {3, 800, 1060});
   pad_test({0, 0, 0, 20}, {3, 1196, 800});
 }
+
+void runIndexPutDynamicTestBool(int N, bool acc) {
+  std::vector<int64_t> dimensions = {N};
+
+  torch::Tensor input_cpu =
+      torch::randn(dimensions, torch::requires_grad(false));
+
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  torch::Tensor mask_cpu = input_cpu > 0;
+
+  torch::Tensor mask_hpu = mask_cpu.to(torch::kHPU);
+
+  torch::Tensor values_cpu = torch::tensor(0.0);
+  auto values_hpu = values_cpu.to(torch::kHPU);
+
+  torch::Tensor out_hpu =
+      torch::index_put(input_hpu, {mask_hpu}, values_hpu, acc);
+  torch::Tensor out_cpu =
+      torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
+
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
+}
+
+void runIndexPutDynamicTestInt(int N, int mask_size, bool acc) {
+  std::vector<int64_t> dimensions = {N};
+
+  torch::Tensor input_cpu =
+      torch::randn(dimensions, torch::requires_grad(false));
+
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  torch::Tensor mask_cpu = torch::randint(1, N - 1, {mask_size}, torch::kInt64);
+
+  torch::Tensor mask_hpu = mask_cpu.to(torch::kHPU);
+
+  torch::Tensor values_cpu = torch::tensor(3.0);
+  auto values_hpu = values_cpu.to(torch::kHPU);
+
+  torch::Tensor out_hpu =
+      torch::index_put(input_hpu, {mask_hpu}, values_hpu, acc);
+  torch::Tensor out_cpu =
+      torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
+
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTest) {
+  runIndexPutDynamicTestBool(161145, true);
+  runIndexPutDynamicTestBool(161155, true);
+  runIndexPutDynamicTestBool(161165, true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutAccIntTest) {
+  runIndexPutDynamicTestInt(161145, 20, true);
+  runIndexPutDynamicTestInt(191155, 40, true);
+  runIndexPutDynamicTestInt(221165, 60, true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTest) {
+  runIndexPutDynamicTestBool(161145, false);
+  runIndexPutDynamicTestBool(191155, false);
+  runIndexPutDynamicTestBool(221165, false);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutNonAccIntTest) {
+  runIndexPutDynamicTestInt(161145, 20, false);
+  runIndexPutDynamicTestInt(191155, 40, false);
+  runIndexPutDynamicTestInt(221165, 60, false);
+}
+
+void runIndexPutDynamicTestBoolVect(
+    std::vector<int64_t> input_dim,
+    std::vector<int64_t> mask_dim,
+    std::vector<int64_t> values_dim,
+    bool acc) {
+  std::vector<int64_t> dimensions = input_dim;
+
+  torch::Tensor input_cpu =
+      torch::randn(dimensions, torch::requires_grad(false));
+
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  torch::Tensor mask_cpu;
+
+  if (mask_dim.empty()) {
+    mask_cpu = torch::zeros(input_dim, torch::kBool);
+  } else {
+    mask_cpu = torch::zeros(mask_dim, torch::kBool);
+  }
+
+  for (int i = 0; i < values_dim[0]; i++) {
+    mask_cpu[0][i] = true;
+  }
+
+  torch::Tensor mask_hpu = mask_cpu.to(torch::kHPU);
+
+  torch::Tensor values_cpu =
+      torch::randn(values_dim, torch::requires_grad(false));
+  auto values_hpu = values_cpu.to(torch::kHPU);
+
+  torch::Tensor out_hpu =
+      torch::index_put(input_hpu, {mask_hpu}, values_hpu, acc);
+
+  torch::Tensor out_cpu =
+      torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
+
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNC) {
+  runIndexPutDynamicTestBoolVect(
+      {2, 161145},
+      {},
+      {
+          512,
+      },
+      true);
+  runIndexPutDynamicTestBoolVect(
+      {4, 191155},
+      {},
+      {
+          1024,
+      },
+      true);
+  runIndexPutDynamicTestBoolVect({8, 221165}, {}, {2048}, true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNC) {
+  runIndexPutDynamicTestBoolVect(
+      {2, 161145},
+      {},
+      {
+          512,
+      },
+      false);
+  runIndexPutDynamicTestBoolVect(
+      {4, 191155},
+      {},
+      {
+          1024,
+      },
+      false);
+  runIndexPutDynamicTestBoolVect({8, 221165}, {}, {2048}, false);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNCH) {
+  runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4}, true);
+  runIndexPutDynamicTestBoolVect({4, 191155, 8}, {4, 191155}, {94, 8}, true);
+  runIndexPutDynamicTestBoolVect({8, 221165, 16}, {8, 221165}, {188, 16}, true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNCH) {
+  runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4}, false);
+  runIndexPutDynamicTestBoolVect({4, 191155, 8}, {4, 191155}, {94, 8}, false);
+  runIndexPutDynamicTestBoolVect(
+      {8, 221165, 16}, {8, 221165}, {188, 16}, false);
+}
+
+void runIndexPutDynamicTestIntVect(
+    std::vector<int64_t> input_dim,
+    std::vector<int64_t> mask_dim,
+    std::vector<int64_t> values_dim,
+    bool acc) {
+  std::vector<int64_t> dimensions = input_dim;
+
+  torch::Tensor input_cpu =
+      torch::randn(dimensions, torch::requires_grad(false));
+
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  torch::Tensor mask_cpu1 =
+      torch::randint(0, input_dim[0], mask_dim, torch::kInt64);
+
+  torch::Tensor mask_hpu1 = mask_cpu1.to(torch::kHPU);
+
+  torch::Tensor mask_cpu2 =
+      torch::randint(0, input_dim[0], mask_dim, torch::kInt64);
+
+  torch::Tensor mask_hpu2 = mask_cpu2.to(torch::kHPU);
+
+  // torch::Tensor values_cpu = torch::tensor(0.0);
+  torch::Tensor values_cpu =
+      torch::randn(values_dim, torch::requires_grad(false));
+  auto values_hpu = values_cpu.to(torch::kHPU);
+
+  torch::Tensor out_hpu;
+  torch::Tensor out_cpu;
+
+  if (acc) {
+    out_hpu =
+        torch::index_put(input_hpu, {mask_hpu1, mask_hpu2}, values_hpu, acc);
+    out_cpu =
+        torch::index_put(input_cpu, {mask_cpu1, mask_cpu2}, values_cpu, acc);
+  } else {
+    out_hpu = torch::index_put(input_hpu, {mask_hpu1}, values_hpu, acc);
+    out_cpu = torch::index_put(input_cpu, {mask_cpu1}, values_cpu, acc);
+  }
+
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyDynamicShapesTest, IndexPutAccIntTestNCHW) {
+  runIndexPutDynamicTestIntVect(
+      {12, 80, 28, 28},
+      {
+          12,
+      },
+      {12, 28, 28},
+      true);
+  runIndexPutDynamicTestIntVect(
+      {24, 160, 56, 56},
+      {
+          24,
+      },
+      {24, 56, 56},
+      true);
+  runIndexPutDynamicTestIntVect(
+      {48, 320, 112, 112},
+      {
+          48,
+      },
+      {48, 112, 112},
+      true);
+}
