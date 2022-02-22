@@ -111,6 +111,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   uint64_t max_merge_count;
   mutable bool high_memory_allocated_ = false;
   mutable MemoryStats stats;
+  mutable uint32_t mem_threshold;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;

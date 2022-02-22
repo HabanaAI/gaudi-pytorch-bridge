@@ -69,11 +69,11 @@ class owned_device_ptr {
 
 class device_ptr_lock_interface {
  public:
-  using iterator_t = device_ptr*;
+  using iterator_t = device_ptr const*;
   virtual ~device_ptr_lock_interface() = default;
-  virtual iterator_t begin() = 0;
-  virtual iterator_t end() = 0;
-  virtual device_ptr at(size_t) = 0;
+  virtual iterator_t begin() const = 0;
+  virtual iterator_t end() const = 0;
+  virtual device_ptr at(size_t) const = 0;
 };
 
 class device_ptr_lock {
@@ -91,13 +91,13 @@ class device_ptr_lock {
 
   // bool operator==(const device_ptr_lock& other) { return (impl_ ==
   // other.impl_); }
-  iterator_t begin() {
+  iterator_t begin() const {
     return impl_->begin();
   }
-  iterator_t end() {
+  iterator_t end() const {
     return impl_->end();
   }
-  device_ptr at(size_t position) {
+  device_ptr at(size_t position) const {
     return impl_->at(position);
   }
 

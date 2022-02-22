@@ -73,4 +73,66 @@ void mem_handle::ensure_fits_ptr(const mem_handle& h) {
   }
 }
 
+HandlesMap::HandlesMap() {
+  handle_.emplace_back(Record{});
+}
+
+mem_handle::id_t HandlesMap::Insert(int size) {
+  if (!free_handles_.empty()) {
+    auto id = free_handles_.front();
+    free_handles_.pop();
+    handle_[id] = Record(size);
+    return id;
+  } else {
+    if (handle_.size() > std::numeric_limits<mem_handle::id_t>::max()) {
+      PT_SYNHELPER_WARN("All possible device memory handles has been used");
+      return mem_handle::invalid_handle;
+    }
+    handle_.emplace_back(size);
+    return handle_.size() - 1;
+  }
+}
+
+HandlesMap::PtrSize HandlesMap::GetPtrSize(mem_handle::id_t id) const {
+  CheckId(id);
+  return handle_[id].ptr_size_;
+}
+
+void HandlesMap::SetPtrSize(mem_handle::id_t id, HandlesMap::PtrSize ptr_size) {
+  CheckId(id);
+  handle_[id].ptr_size_ = ptr_size;
+}
+
+void HandlesMap::Erase(mem_handle::id_t id) {
+  CheckId(id);
+  handle_[id].active_ = false;
+  free_handles_.push(id);
+}
+
+void HandlesMap::MarkMemoryFixed(mem_handle::id_t id) {
+  CheckId(id);
+  handle_[id].fixed_ = true;
+}
+
+void HandlesMap::CheckId(mem_handle::id_t id) const {
+  if (!mem_handle::is_valid(id) || id >= handle_.size() ||
+      !handle_[id].active_) {
+    PT_SYNHELPER_FATAL("Handle doesn't exist");
+  }
+}
+
+HandlesMap::Iterator& HandlesMap::Iterator::operator++() {
+  ++id_;
+  while (id_ < handle_set_.handle_.size() &&
+         !handle_set_.handle_[id_].active_) {
+    ++id_;
+  }
+  return *this;
+}
+
+HandlesMap::Iterator HandlesMap::Iterator::operator++(int) {
+  Iterator tmp = *this;
+  ++(*this);
+  return tmp;
+}
 } // namespace synapse_helpers

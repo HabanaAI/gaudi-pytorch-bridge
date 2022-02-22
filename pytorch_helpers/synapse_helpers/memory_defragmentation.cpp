@@ -69,12 +69,10 @@ std::string Region::DebugString() const {
 
 MemoryDefragementer::MemoryDefragementer(
     pool_allocator::SubAllocator& allocator,
-    const handle2pointer_map& handle2pointer,
-    const absl::flat_hash_set<synapse_helpers::mem_handle::id_t>& fixed_handles,
+    const HandlesMap& handle2pointer,
     size_t alignment)
     : allocator_(allocator),
       handle2pointer_(handle2pointer),
-      fixed_handles_(fixed_handles),
       alignment_(alignment) {
   auto allocation_regions = allocator_.get_memory_info();
   if (allocation_regions.size() != 1) {
@@ -131,24 +129,23 @@ bool MemoryDefragementer::CollectMemoryInformation(
 bool MemoryDefragementer::CollectResourceInformation(
     std::vector<MemoryBlock>& in_use_memory_blocks) {
   for (auto const& h2p : handle2pointer_) {
-    if (h2p.second.first == nullptr) {
+    if (h2p.ptr_size_.ptr_ == nullptr) {
       // Deferred allocation case.
       // alloc() was called, but the actual allocation happens only when a
       // pointer is obtained for the first time. In such case, allocation list
       // will have handle reserved, but a pointer is still nullptr.
       continue;
     }
-    auto fixed_handle = fixed_handles_.find(h2p.first) != fixed_handles_.end();
-    auto mem_state = fixed_handle ? MemoryState::FIXED : MemoryState::IN_USE;
-    auto mem_ptr = static_cast<int8_t*>(h2p.second.first);
-    auto mem_size = h2p.second.second;
-    auto mem_actual_size = allocator_.allocated_size(h2p.second.first);
+    auto mem_state = h2p.fixed_ ? MemoryState::FIXED : MemoryState::IN_USE;
+    auto mem_ptr = static_cast<int8_t*>(h2p.ptr_size_.ptr_);
+    auto mem_size = h2p.ptr_size_.size_;
+    auto mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
     if (mem_ptr < small_allocs_ptr_ ||
         mem_ptr >= small_allocs_ptr_ + small_allocs_size_) {
-      mem_actual_size = allocator_.allocated_size(h2p.second.first);
+      mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
     }
     in_use_memory_blocks.emplace_back(
-        mem_state, h2p.first, mem_ptr, mem_size, mem_actual_size);
+        mem_state, h2p.id_, mem_ptr, mem_size, mem_actual_size);
   }
 
   if (workspace_size_ > 0) {

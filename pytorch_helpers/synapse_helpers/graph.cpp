@@ -361,8 +361,8 @@ synapse_error_o graph::launch(
       addresses.begin(),
       [](const synLaunchTensorInfo& info) { return info.pTensorAddress; });
   {
-    address_lock = std::move(
-        absl::make_unique<device_ptr_lock>(device.lock_addresses(addresses)));
+    address_lock = absl::make_unique<device_ptr_lock>(
+        device.lock_addresses(absl::Span<const device_ptr>(addresses)));
     auto iter = inputs_and_outputs_info.begin();
     for (auto address : *address_lock) {
       iter->pTensorAddress = address;

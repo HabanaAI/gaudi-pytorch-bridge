@@ -89,7 +89,7 @@ bool active_recipe_counter::is_zero() {
 uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   if (counter_state_ > 0) {
-    cv_.wait_for(cond_lock, std::chrono::seconds(1));
+    cv_.wait_for(cond_lock, std::chrono::milliseconds(100));
   }
   return counter_state_;
 }
@@ -672,8 +672,8 @@ synapse_error device::copy_data_within_device(
   HABANA_ASSERT(
       transfers.size() * 2 ==
       std::size_t(std::distance(locked->begin(), locked->end())));
-  absl::Span<device_ptr> locked_srcs{locked->begin(), transfers.size()};
-  absl::Span<device_ptr> locked_dsts{
+  absl::Span<const device_ptr> locked_srcs{locked->begin(), transfers.size()};
+  absl::Span<const device_ptr> locked_dsts{
       locked->begin() + transfers.size(), transfers.size()};
 
   status = synMemCopyAsyncMultiple(

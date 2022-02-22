@@ -142,7 +142,7 @@ hcclResult_t device_context::lock_address(
   }
 
   synapse_helpers::device_ptr_lock locked{device->lock_addresses(
-      {reinterpret_cast<synapse_helpers::device_ptr>(address)})};
+      reinterpret_cast<synapse_helpers::device_ptr>(address))};
   auto locked_address = reinterpret_cast<void*>(locked.at(0));
 
   addresses_locks_[locked_address] =

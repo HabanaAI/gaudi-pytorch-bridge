@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <iosfwd>
 #include <memory>
 #include <mutex>
@@ -147,12 +148,16 @@ class device {
   void free(device_ptr ptr);
 
   template <typename... DevicePtrT>
-  device_ptr_lock lock_addresses(DevicePtrT&&... ptrs) {
-    return device_memory_.lock_addresses({std::forward<DevicePtrT>(ptrs)...});
+  device_ptr_lock lock_addresses(DevicePtrT... ptrs) {
+    return device_memory_.lock_addresses(
+        absl::Span<const device_ptr>({static_cast<device_ptr>(ptrs)...}));
   }
 
-  device_ptr_lock lock_addresses(const std::vector<device_ptr>& ptrs) {
+  device_ptr_lock lock_addresses(const absl::Span<const device_ptr>& ptrs) {
     return device_memory_.lock_addresses(ptrs);
+  }
+  device_ptr_lock lock_addresses(const std::vector<device_ptr>& ptrs) {
+    return lock_addresses(absl::Span<const device_ptr>{ptrs});
   }
 
   synapse_error copy_data_to_device(

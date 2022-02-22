@@ -996,15 +996,16 @@ void RecipeValueSpec::launch(
     // corresponding recipe is finished on stream
     const auto& recipe_ptr = recipe;
     resource_holder->recipe_id_ = recipe_ptr;
-    resource_holder->input_tensors_ = std::move(ptRefs);
-    resource_holder->output_tensors_ = std::move(outPtRefs);
+    resource_holder->input_tensors_ = ptRefs;
+    resource_holder->output_tensors_ = outPtRefs;
     resource_holder->address_lock = std::move(address_lock);
     // ResourceHolder could be used directly as callback, if we would only
     // implement operator(), but copying of ResourceHolder would result in
     // copying of all shared_ptr stored inside (including std::vector). To make
     // sharing more lightweight we hide ResourceHolder behind one shared_ptr.
     // This indirection allows us to maintain only one shared reference.
-    auto cleanup_callback = [resource_holder, &recipe_counter] {
+    auto cleanup_callback = [resource_holder, &recipe_counter]() mutable {
+      resource_holder.reset();
       recipe_counter.decrease_and_notify();
     };
     // regsiter an event on the compute

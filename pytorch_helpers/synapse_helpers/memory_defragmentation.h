@@ -63,16 +63,10 @@ struct Region {
 
 class MemoryDefragementer {
  public:
-  using ptr_with_size = std::pair<void*, size_t>;
-  using handle2pointer_map =
-      absl::flat_hash_map<synapse_helpers::mem_handle::id_t, ptr_with_size>;
-
   MemoryDefragementer() = delete;
   MemoryDefragementer(
       pool_allocator::SubAllocator& allocator,
-      const handle2pointer_map& handle2pointer,
-      const absl::flat_hash_set<synapse_helpers::mem_handle::id_t>&
-          fixed_handles,
+      const HandlesMap& handle2pointer,
       size_t alignment);
 
   bool CollectMemoryInformation(std::vector<MemoryBlock>& result);
@@ -84,8 +78,7 @@ class MemoryDefragementer {
 
  private:
   pool_allocator::SubAllocator& allocator_;
-  const handle2pointer_map& handle2pointer_;
-  const absl::flat_hash_set<synapse_helpers::mem_handle::id_t>& fixed_handles_;
+  const HandlesMap& handle2pointer_;
   size_t alignment_;
 
   int8_t* mem_start_ptr_ = nullptr;

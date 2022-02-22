@@ -127,8 +127,6 @@ device_memory::~device_memory() {
       PT_DEVMEM_DEBUG(
           "Some allocated buffers are in use during device memory destructor call.",
           " It may be caused by device memory leak");
-    handle2pointer_.clear();
-    handle_id_generator_.reset();
   }
   if (suballoc_) {
     suballoc_->pool_destroy();
@@ -143,9 +141,6 @@ void device_memory::reset_pool() {
       PT_DEVMEM_DEBUG(
           "Some allocated buffers are in use during device memory destructor call."
           "It may be caused by device memory leak");
-    handle2pointer_.clear();
-    handle_id_generator_.reset();
-    fixed_handles_.clear();
   }
   if (suballoc_) {
     suballoc_->pool_destroy();
@@ -202,17 +197,9 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
   uint64_t ptr{0};
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     std::unique_lock<std::mutex> lock(mutex_);
-    bool inserted;
-    decltype(handle2pointer_)::iterator iter;
 
-    std::tie(iter, inserted) = handle2pointer_.emplace(
-        handle_id_generator_.get(), ptr_with_size{nullptr, size});
-
-    if (!inserted) {
-      PT_DEVMEM_FATAL("Handle ", mem_handle(iter->first), " already exists");
-    }
-
-    ptr = mem_handle::reinterpret_to_pointer(mem_handle(iter->first));
+    ptr = mem_handle::reinterpret_to_pointer(
+        mem_handle(handle2pointer_.Insert(size)));
 
     *v_ptr = reinterpret_cast<void*>(ptr);
   } else {
@@ -245,21 +232,11 @@ synStatus device_memory::free(void* free_ptr) {
 
     std::unique_lock<std::mutex> lock(mutex_);
     const auto id = h.id();
-    auto iter = handle2pointer_.find(id);
-    if (iter == handle2pointer_.end()) {
-      PT_DEVMEM_FATAL("Handle ", h, " does not exist");
+    auto ptr_and_size = handle2pointer_.GetPtrSize(id);
+    handle2pointer_.Erase(id);
+    if (ptr_and_size.ptr_ != nullptr) {
+      deallocate(ptr_and_size.ptr_);
     }
-
-    void* ptr;
-    size_t size;
-
-    std::tie(ptr, size) = iter->second;
-    if (ptr != nullptr) {
-      status = deallocate(ptr);
-    }
-
-    handle2pointer_.erase(iter);
-    handle_id_generator_.put(id);
   } else {
     status = deallocate(free_ptr);
   }
@@ -314,9 +291,6 @@ void* device_memory::workspace_alloc(
         std::unique_lock<std::mutex> lock(mutex_);
         void* v_ptr{nullptr};
         v_ptr = suballoc_->extend_high_memory_allocation(new_workspace_size);
-        MemoryStats stats;
-        get_memory_stats(&stats);
-        PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
         return v_ptr;
       };
 
@@ -358,9 +332,8 @@ void device_memory::fix_address(void* ptr) {
     PT_DEVMEM_FATAL("Cannot fix offseted handle ", h);
   }
 
+  handle2pointer_.MarkMemoryFixed(h.id());
   get_pointer(h);
-  std::unique_lock<std::mutex> lock(mutex_);
-  fixed_handles_.insert(h.id());
 }
 
 void device_memory::check_and_limit_recipe_execution() {
@@ -385,13 +358,13 @@ class Lock : public device_ptr_lock_interface {
   Lock& operator=(const Lock&) = delete;
   Lock& operator=(Lock&&) = delete;
 
-  device_ptr_lock_interface::iterator_t begin() override {
+  device_ptr_lock_interface::iterator_t begin() const override {
     return locked_addresses_.data();
   }
-  device_ptr_lock_interface::iterator_t end() override {
+  device_ptr_lock_interface::iterator_t end() const override {
     return locked_addresses_.data() + locked_addresses_.size();
   }
-  device_ptr at(size_t position) override {
+  device_ptr at(size_t position) const override {
     return locked_addresses_.at(position);
   }
 
@@ -441,13 +414,14 @@ struct HandleMover {
 
   void Allocate(
       pool_allocator::SubAllocator& allocator,
-      device_memory::handle2pointer_map& h2pMap,
+      HandlesMap& h2pMap,
       bool workspace) {
     destination_pointer_ = allocator.pool_alloc_chunk(size_, workspace);
     if (destination_pointer_ == nullptr) {
       PT_DEVMEM_FATAL("destination_pointer_ allocation failed");
     }
-    h2pMap[handle_] = std::make_pair(destination_pointer_, size_);
+    h2pMap.SetPtrSize(
+        handle_, HandlesMap::PtrSize(destination_pointer_, size_));
   }
 
   void MoveData(device& dev) const {
@@ -553,7 +527,7 @@ bool device_memory::defragment_memory(
 
   PT_DEVMEM_DEBUG("Collecting memory information");
   defragment_helpers::MemoryDefragementer defragmenter(
-      *suballoc_, handle2pointer_, fixed_handles_, alignment);
+      *suballoc_, handle2pointer_, alignment);
 
   std::vector<defragment_helpers::MemoryBlock> memory_blocks;
   if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
@@ -665,7 +639,7 @@ bool device_memory::defragment_memory(
 }
 
 device_ptr_lock device_memory::lock_addresses(
-    const std::vector<device_ptr>& addresses) {
+    absl::Span<const device_ptr> addresses) {
   // no of recipes in queue if it exceeds a limit
   // there is unpredictable behaviour because of
   // resource contraint. so limit the recipes in
@@ -698,25 +672,14 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   }
 
   auto get_and_alloc_mem = [&]() -> std::pair<void*, size_t> {
-    void* ptr = nullptr;
-    size_t size = 0;
-
     std::unique_lock<std::mutex> lock(mutex_);
-    auto iter = handle2pointer_.find(h.id());
-    if (iter == handle2pointer_.end()) {
-      PT_DEVMEM_FATAL("Handle ", h.unoffseted(), " does not exist");
-    }
 
-    std::tie(ptr, size) = iter->second;
-    if (ptr == nullptr) {
-      alloc(&ptr, size);
-      iter->second = ptr_with_size{ptr, size};
-      MemoryStats stats;
-      get_memory_stats(&stats);
-      PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
+    auto ptr_size = handle2pointer_.GetPtrSize(h.id());
+    if (ptr_size.ptr_ == nullptr) {
+      alloc(&ptr_size.ptr_, ptr_size.size_);
+      handle2pointer_.SetPtrSize(h.id(), ptr_size);
     }
-
-    return {ptr, size};
+    return {ptr_size.ptr_, ptr_size.size_};
   };
 
   void* ptr = nullptr;
@@ -737,11 +700,6 @@ device_ptr device_memory::get_pointer(mem_handle h) {
             " requested size ",
             size);
         std::tie(ptr, size) = get_and_alloc_mem();
-        if (ptr == nullptr) {
-          MemoryStats stats;
-          get_memory_stats(&stats);
-          PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
-        }
       } while (counter_state > 1 && ptr == nullptr);
     }
   }

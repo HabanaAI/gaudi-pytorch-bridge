@@ -105,6 +105,11 @@ CoalescedStringentPooling::CoalescedStringentPooling(
   small_allocs_ = nullptr;
   max_merge_count = max_count;
   enable_lfu_merging = enable_merge;
+  auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC);
+  if (val > 100)
+    mem_threshold = 100;
+  else
+    mem_threshold = val;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -306,9 +311,7 @@ void CoalescedStringentPooling::pool_destroy() const {
 }
 
 bool CoalescedStringentPooling::is_mem_threshold_hit() const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  if (bytes_in_use > (max_pool_size * 0.8))
-    return true;
+  // not used in case of CoalescedStringentPooling
   return false;
 }
 
@@ -432,6 +435,7 @@ void CoalescedStringentPooling::print_pool_stats() const {
   free_chunks_size = 0;
   pool_status.str("");
   pool_status.clear();
+  GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC);
   return;
 }
 
@@ -567,6 +571,22 @@ Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
   return nullptr;
 }
 
+static bool check_mem_threshold_hit(
+    size_t limit,
+    size_t bytes_in_use,
+    uint32_t threshold) {
+  size_t threshold_val = (limit * (threshold / 100.0));
+  if (bytes_in_use > threshold_val) {
+    PT_DEVMEM_DEBUG(
+        "bytes exceed the threshold limit threshold::",
+        threshold_val,
+        " bytes_in_use::",
+        bytes_in_use);
+    return true;
+  }
+  return false;
+}
+
 void* CoalescedStringentPooling::extend_high_memory_allocation(
     uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
@@ -604,6 +624,11 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
     return (void*)tail_chunk->memptr;
   }
 
+  // check if the memory threshold has reached, if reached
+  // return nullptr.
+  if (check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
+    return nullptr;
+  }
   // merge lfu chunks if any
   if (!chunks_to_merge.empty()) {
     // Merge timestamped chunks whose counts have become safe for general use.
@@ -650,6 +675,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   tail_chunk->used = true;
 
   stats.UpdateStats((tail_chunk->size - current_ws_size), true);
+  bytes_in_use += (tail_chunk->size - current_ws_size);
   stats.scratch_mem_in_use = tail_chunk->size;
   return (void*)tail_chunk->memptr;
 }
@@ -676,6 +702,13 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
     return nullptr;
   }
+
+  // check if the memory threshold has reached, if reached
+  // return nullptr.
+  if (check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
+    return nullptr;
+  }
+
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
