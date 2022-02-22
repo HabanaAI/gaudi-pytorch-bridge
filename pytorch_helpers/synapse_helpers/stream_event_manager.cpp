@@ -176,7 +176,6 @@ void stream_event_manager::enqueue_wait_event(
 }
 
 void stream_event_manager::wait_until_done(device_ptr device_address) {
-  wait_for_future(device_address);
   shared_event evnt{};
   {
     std::lock_guard<std::mutex> lock_guard(mut_);
