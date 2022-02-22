@@ -761,7 +761,10 @@ StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
   auto it = context->view_table.find(id);
-  HABANA_ASSERT(it != context->view_table.end());
+  TORCH_CHECK(
+      it != context->view_table.end(),
+      "incorrect tensor id for view table access ",
+      id);
   return it->second;
 }
 
@@ -5547,13 +5550,19 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
     auto out = at::native::transpose(self, dim0_, dim1_);
-    auto hb_result = GetHbLazyTensor(out);
-    auto& strided_param = getViewTableParams(hb_result);
-    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
-        GetHbLazyTensor(self).getTensorUniqueId()) {
-      strided_param.optype = kStridedOpTranspose;
-      StridedOpTransposeParams transpose_param = {dim0_, dim1_};
-      strided_param.params.transpose_param = transpose_param;
+    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
+    auto out_id = GetHbLazyTensor(out).getTensorUniqueId();
+
+    // at::native::transpose can return back self w/o invoking as_strided under
+    // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
+    if (out_id != self_id) {
+      auto hb_result = GetHbLazyTensor(out);
+      auto& strided_param = getViewTableParams(hb_result);
+      if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() == self_id) {
+        strided_param.optype = kStridedOpTranspose;
+        StridedOpTransposeParams transpose_param = {dim0_, dim1_};
+        strided_param.params.transpose_param = transpose_param;
+      }
     }
     return out;
   }
