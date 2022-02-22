@@ -261,13 +261,15 @@ class TensorFetcher(object):
         code += "      std::vector<at::Tensor> {} = {{{}}};\n".format(
             self.tvar_name, ", ".join(self.tensors)
         )
-        code += ("      habana_lazy::HpuGatherLazyFallbackTensorList({}, tensors_to_execute);\n").format(
-            self.tvar_name
-        )
+        code += (
+            "      habana_lazy::HpuGatherLazyFallbackTensorList({}, tensors_to_execute);\n"
+        ).format(self.tvar_name)
         # Handles conversion of c10::optional<at::Tensor> if exists
         if self.opt_tensors:
-            code += "      std::vector<c10::optional<at::Tensor>> {} = {{{}}};\n".format(
-                self.toptvar_name, ", ".join(self.opt_tensors)
+            code += (
+                "      std::vector<c10::optional<at::Tensor>> {} = {{{}}};\n".format(
+                    self.toptvar_name, ", ".join(self.opt_tensors)
+                )
             )
             code += (
                 "      habana_lazy::HpuGatherLazyFallbackOptTensorList({}, tensors_to_execute);\n"
@@ -670,7 +672,7 @@ def generate_return_stmt(
     rtype = t.children[0]
     ctype = type_core(rtype)
     out_fn = is_out_fn(fname)
-    if ctype == "std::tuple":
+    if ctype == "::std::tuple":
         retstr = get_tuple_return(
             rtype,
             rtype_str,
@@ -867,7 +869,7 @@ def generate_aten_to_hpu(
             if wrapped_type == "Tensor":
                 tfetcher_gather.add_opt(pname)
     code += tfetcher_gather.generate_fetches_gather()
-    code += ("      habana_lazy::HbLazyTensor::SyncTensorsGraph(&tensors_to_execute);\n")
+    code += "      habana_lazy::HbLazyTensor::SyncTensorsGraph(&tensors_to_execute);\n"
     code += "    }\n"
     code += "  }\n"
     for p in params:
@@ -1114,7 +1116,7 @@ def requires_registration(fgen, overrides):
 def generate_functions(fgens, overrides):
     code = ""
     for fgen in fgens:
-        if fgen.code: # and requires_registration(fgen, overrides):
+        if fgen.code:  # and requires_registration(fgen, overrides):
             code += "{}\n\n".format(fgen.code)
     return code
 
@@ -1122,7 +1124,7 @@ def generate_functions(fgens, overrides):
 def generate_class_functions(fgens, overrides):
     code = ""
     for fgen in fgens:
-        if fgen.code: # and requires_registration(fgen, overrides):
+        if fgen.code:  # and requires_registration(fgen, overrides):
             code += "  static {};\n".format(fgen.rwsig)
     return code
 
