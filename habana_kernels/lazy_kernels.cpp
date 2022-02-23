@@ -3176,13 +3176,10 @@ Tensor index_put_hpu_lazy(
     return index_put_op.call();
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
-      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
-      (indices_in[0].scalar_type() == c10::ScalarType::Bool &&
-       value_in.dim() > 1)) {
+      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     return index_put_frontend_impl_hpu_lazy(
         self, indices_in, value_in, accumulate);
   }
-
   // handle views for tensorlist indices
   TensorList indices_in_list(indices_vec);
   indices_vec = HandleViewsTensorList(indices_in_list);
