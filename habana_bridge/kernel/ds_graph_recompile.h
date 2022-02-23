@@ -35,7 +35,8 @@ void PrintStack(torch::jit::Stack& st);
 bool CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
     habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
-    habana_helpers::Bucket& new_bucket);
+    habana_helpers::Bucket& new_bucket,
+    size_t& new_recipe_key);
 
 bool RefineBucketDS(double time_improve_factor);
 

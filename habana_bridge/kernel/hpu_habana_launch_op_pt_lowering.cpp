@@ -266,7 +266,10 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
 
   rv.populate_syn_tensor_ids();
   TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
-  rv.key = cur_rargpsh->hashCode();
+
+  rv.set_key(cur_rargpsh->hashCode());
+  rv.set_graph_key(graph_key);
+  rv.set_op_strs(cur_rargpsh->get_op_strs());
 }
 
 void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {

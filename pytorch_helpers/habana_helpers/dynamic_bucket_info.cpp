@@ -410,8 +410,10 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
       "--------------------");
 
   bool is_compiled{false};
+  size_t new_recipe_key{0};
   try {
-    is_compiled = habana::CompileGraphWithRange(rvpsh, result, new_bucket);
+    is_compiled = habana::CompileGraphWithRange(
+        rvpsh, result, new_bucket, new_recipe_key);
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "Recipe compilation failed with exception '", e.what(), "'");
@@ -430,6 +432,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     uint64_t new_bucket_id = buckets_.size() - 1;
     auto& new_bucket = buckets_.back();
     new_bucket.SetIndex(new_bucket_id);
+    SetRecipeKeyForBucket(new_bucket_id, new_recipe_key);
 
     PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket with id ",

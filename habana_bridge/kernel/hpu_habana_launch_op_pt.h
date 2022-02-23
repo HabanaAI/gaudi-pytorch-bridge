@@ -158,7 +158,8 @@ class HabanaLaunchOpPT {
   void CompileGraphWithRange(
       torch::jit::Stack& stack,
       habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
-      habana_helpers::Bucket& new_bucket);
+      habana_helpers::Bucket& new_bucket,
+      size_t& new_recipe_key);
 
   void run(torch::jit::Stack& stack);
 

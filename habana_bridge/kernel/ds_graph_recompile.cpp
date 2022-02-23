@@ -16,6 +16,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
+#include "habana_lazy/visualize.h"
 
 #include "habana_kernels/lazy_kernels.h"
 
@@ -76,7 +77,8 @@ bool habana::RefineBucketDS(double time_improve_factor) {
 bool habana::CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
     habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
-    habana_helpers::Bucket& new_bucket) {
+    habana_helpers::Bucket& new_bucket,
+    size_t& new_recipe_key) {
   bool ret{true};
 
   // wait till the execution complete
@@ -111,14 +113,18 @@ bool habana::CompileGraphWithRange(
     PT_DYNAMIC_SHAPE_DEBUG(
         "JIT_IR_Graph_BEGIN\n", mp_g_->toString(), "JIT_IR_Graph_END");
 
-    size_t graphIndex{0xABCDEF};
+    size_t graphKey{rvpsh->get_graph_key()};
+    size_t graphIndex{visualize::GetGraphIndex(graphKey)};
+    std::string graphName{"HabanaFusedOpLazy"};
+    std::string opStr{rvpsh->get_op_strs()};
+
     habana::HabanaLaunchOpPT habanaFusedOp{
         mp_g_,
         std::make_shared<habana::HabanaMetaDataToLowering>(
-            false, graphIndex, std::string(), std::string(), 0)};
+            false, graphIndex, graphName, opStr, graphKey)};
     try {
       habanaFusedOp.CompileGraphWithRange(
-          input_stack, input_ranges, new_bucket);
+          input_stack, input_ranges, new_bucket, new_recipe_key);
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaLaunchOpPT::Compile returned exception '", e.what(), "'");

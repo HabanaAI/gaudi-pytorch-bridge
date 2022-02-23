@@ -2019,7 +2019,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 void HabanaLaunchOpPT::CompileGraphWithRange(
     torch::jit::Stack& input_st,
     habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
-    habana_helpers::Bucket& new_bucket) {
+    habana_helpers::Bucket& new_bucket,
+    size_t& new_recipe_key) {
   PT_BRIDGE_BEGIN;
   ProcessInputStack(input_st);
 
@@ -2175,9 +2176,10 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   PT_DYNAMIC_SHAPE_DEBUG("Compilation completed");
 
   // Add the <key,value> pair to the map
-  cur_rvalpsh->key = cur_rargpsh->hashCode();
+  cur_rvalpsh->set_op_strs(cur_rargpsh->get_op_strs());
   cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
   RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
+  new_recipe_key = cur_rargpsh->hashCode();
   // Add the recipe to the corresponding bucket
   new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
   PT_DYNAMIC_SHAPE_DEBUG(

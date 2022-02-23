@@ -300,12 +300,13 @@ std::string RecipeValueSpec::header_str() {
 
 std::string RecipeValueSpec::build_header_str() const {
   std::ostringstream O;
-  O << "\n key " << key << "\n num_inputs " << num_inputs
-    << "\n num_induplicates " << num_induplicates << "\n num_dma_inputs "
-    << num_dma_inputs << "\n num_intermediates " << num_intermediates
-    << "\n num_outputs " << num_outputs << "\n num_outduplicates "
-    << num_outduplicates << "\n num_input_to_outduplicates "
-    << num_input_to_outduplicates << "\n num_intermediate_to_outduplicates "
+  O << "\n key " << key << "\n graph_key " << graph_key << "\n num_inputs "
+    << num_inputs << "\n num_induplicates " << num_induplicates
+    << "\n num_dma_inputs " << num_dma_inputs << "\n num_intermediates "
+    << num_intermediates << "\n num_outputs " << num_outputs
+    << "\n num_outduplicates " << num_outduplicates
+    << "\n num_input_to_outduplicates " << num_input_to_outduplicates
+    << "\n num_intermediate_to_outduplicates "
     << num_intermediate_to_outduplicates << "\n size "
     << synapse_helpers::get_mem_str(ntensorbytes);
   O << "\n " << (dynamic_graph ? "dynamic graph" : "static graph");
@@ -387,6 +388,8 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, num_output_to_outduplicates);
   deserialize(is, ntensorbytes);
   deserialize(is, key);
+  deserialize(is, graph_key);
+  deserialize(is, opstrs);
   deserialize(is, header);
   deserialize(is, num_tensors);
   tensor_ids = new uint64_t[num_tensors];
@@ -437,6 +440,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, num_output_to_outduplicates);
   serialize(os, ntensorbytes);
   serialize(os, key);
+  serialize(os, graph_key);
+  serialize(os, opstrs);
   serialize(os, header);
   serialize(os, num_tensors);
   for (size_t i = 0; i < num_tensors; i++) {

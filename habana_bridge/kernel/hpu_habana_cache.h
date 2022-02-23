@@ -123,6 +123,10 @@ struct RecipeArgumentSpec {
     return dynamic_hash_code;
   }
 
+  std::string get_op_strs() {
+    return opstrs;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
@@ -270,6 +274,27 @@ struct RecipeValueSpec {
     }
   }
 
+  size_t get_key() {
+    return key;
+  }
+  void set_key(size_t k) {
+    key = k;
+  }
+
+  size_t get_graph_key() {
+    return graph_key;
+  }
+  void set_graph_key(size_t k) {
+    graph_key = k;
+  }
+
+  std::string get_op_strs() {
+    return opstrs;
+  }
+  void set_op_strs(std::string s) {
+    opstrs = s;
+  }
+
   void Serialize(std::ostream& os) const;
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
@@ -301,6 +326,8 @@ struct RecipeValueSpec {
   size_t ntensorbytes{0};
 
   size_t key{0};
+  size_t graph_key{0};
+  std::string opstrs;
 
   std::string header;
   size_t num_tensors{0};
