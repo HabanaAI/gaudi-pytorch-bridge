@@ -5541,9 +5541,23 @@ Tensor& cat_hpu_lazy_out(
     int64_t dim_) {
   PT_LAZY_TRACE;
 
-  auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
-  LazyOp<at::Tensor&> k{"aten::cat", {tensors, dim_, result}, {out_size}};
-  return k.call(result);
+  // if view on out result tensor it gets released after cat_hpu_lazy_out
+  // WA to use cat_hpu_lazy() and strided_insert_hpu_lazy().
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  auto id = GetHbLazyTensor(result).getTensorUniqueId();
+  auto it = context->view_table.find(id);
+  if (it != context->view_table.end()) {
+    auto temp = cat_hpu_lazy(tensors, dim_);
+    strided_insert_hpu_lazy(result, temp);
+  } else {
+    // handle views for tensor list
+    auto t_list = HandleViewsTensorList(tensors);
+    const TensorList view_list{t_list};
+    auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
+    LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
+    return k.call(result);
+  }
+  return result;
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {

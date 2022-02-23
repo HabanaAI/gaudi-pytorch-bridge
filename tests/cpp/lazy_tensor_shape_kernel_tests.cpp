@@ -100,6 +100,34 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
   EXPECT_EQ(allclose(result, exp), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, CatOutViewTest) {
+  auto A = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+  auto B = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+  auto C = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+
+  auto aV = A.view({1, 64});
+  auto bV = B.view({1, 64});
+  auto cV = C.view({1, 64});
+
+  auto hAV = A.to(torch::kHPU).view({1, 64});
+  auto hBV = B.to(torch::kHPU).view({1, 64});
+  auto hCV = C.to(torch::kHPU).view({1, 64});
+
+  auto out_cpu = torch::zeros({3 * 8 * 8}).to(torch::kBFloat16).view({3, 64});
+  auto out_hpu = torch::zeros({3 * 8 * 8})
+                     .to(torch::kBFloat16)
+                     .to(torch::kHPU)
+                     .view({3, 64});
+
+  torch::cat_out(out_cpu, {aV, bV, cV});
+  torch::cat_out(out_hpu, {hAV, hBV, hCV});
+
+  out_cpu.add_(1.0);
+  out_hpu.add_(1.0);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(4.0).reshape({2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
