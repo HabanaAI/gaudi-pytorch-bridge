@@ -522,6 +522,8 @@ void strided_insert_hpu_lazy(
   // update orig tensor map
   auto param_id = GetHbLazyTensor(params_ptr->t).getTensorUniqueId();
   context->orig_tensor_map[param_id] = out;
+
+  PT_VIEWTABLE_DEBUG("orig tensor map entry created for ", param_id);
   return;
 }
 
@@ -753,6 +755,15 @@ void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
+  PT_VIEWTABLE_DEBUG(
+      "updateViewTable tensor id - ",
+      id,
+      " sizes ",
+      params.sizes,
+      " strides ",
+      params.strides,
+      " offset ",
+      params.offset);
   context->view_table[id] = params;
 }
 
@@ -1690,9 +1701,11 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
     auto& strided_param = getViewTableParams(hb_result);
     // There could be some cases where slice/select/etc followed by view, in
     // those cases use as_strided instead of using the ViewOP.
-    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
-        GetHbLazyTensor(self).getTensorUniqueId()) {
+    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
+    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() == self_id) {
       strided_param.optype = kStridedOpView;
+
+      PT_VIEWTABLE_DEBUG("view fallback- tensor id: ", self_id, "size ", size);
     }
     return out;
   } else {
@@ -3362,11 +3375,24 @@ Tensor slice_hpu_lazy(
     auto& strided_param = getViewTableParams(hb_result);
     // There could be some cases where view/select/etc followed by slice, in
     // those cases use as_strided instead of using the SliceOP.
-    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
-        GetHbLazyTensor(self_in).getTensorUniqueId()) {
+    auto self_id = GetHbLazyTensor(self_in).getTensorUniqueId();
+
+    if (GetHbLazyTensor(strided_param.t).getTensorUniqueId() == self_id) {
       strided_param.optype = kStridedOpSlice;
       StridedOpSliceParams slice_param = {dim, start, end, step};
       strided_param.params.slice_param = slice_param;
+
+      PT_VIEWTABLE_DEBUG(
+          "slice fallback tensor id ",
+          self_id,
+          " dim ",
+          dim,
+          " start ",
+          start.has_value() ? start.value() : 0,
+          " end ",
+          end.has_value() ? end.value() : -1,
+          " step ",
+          step);
     }
     return out;
   }
@@ -3593,12 +3619,20 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
         (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d);
     // There could be some cases where view/slice/etc followed by slice, in
     // those cases use as_strided instead of using the SelectOp.
+    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
     if ((!is_5d_cl) &&
-        (GetHbLazyTensor(strided_param.t).getTensorUniqueId() ==
-         GetHbLazyTensor(self).getTensorUniqueId())) {
+        (GetHbLazyTensor(strided_param.t).getTensorUniqueId() == self_id)) {
       strided_param.optype = kStridedOpSelect;
       StridedOpSelectParams select_param = {dim, index};
       strided_param.params.select_param = select_param;
+
+      PT_VIEWTABLE_DEBUG(
+          "select fallback tensor id ",
+          self_id,
+          " dim ",
+          dim,
+          " index ",
+          index);
     }
     return out;
   }
@@ -5703,6 +5737,14 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
         strided_param.optype = kStridedOpTranspose;
         StridedOpTransposeParams transpose_param = {dim0_, dim1_};
         strided_param.params.transpose_param = transpose_param;
+
+        PT_VIEWTABLE_DEBUG(
+            "transpose fallback tensor id ",
+            self_id,
+            " dim0 ",
+            dim0_,
+            " dim1 ",
+            dim1_);
       }
     }
     return out;

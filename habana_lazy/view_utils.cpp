@@ -86,6 +86,17 @@ bool is_aliased_view(
     aliased = other_base_id == self_id;
   }
 
+  PT_VIEWTABLE_DEBUG(
+      "is_aliased view ",
+      aliased,
+      " self_is_view ",
+      self_is_view,
+      " other_is_view ",
+      other_is_view,
+      " self_base_id ",
+      self_base_id,
+      " other_base_id ",
+      other_base_id);
   return aliased;
 }
 

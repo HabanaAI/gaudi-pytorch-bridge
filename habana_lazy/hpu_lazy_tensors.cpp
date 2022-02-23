@@ -64,10 +64,14 @@ void HbContextArena::UnregisterTensor(Data* data) {
   // clear the entry in view tables
   auto it = context->orig_tensor_map.find(data->unique_id);
   if (it != context->orig_tensor_map.end()) {
+    PT_VIEWTABLE_DEBUG(
+        "unregister tensor: clearing orig_tensor_map entry ", data->unique_id);
     context->orig_tensor_map.erase(it);
   }
   auto view_it = context->view_table.find(data->unique_id);
   if (view_it != context->view_table.end()) {
+    PT_VIEWTABLE_DEBUG(
+        "unregister tensor: clearing view_table entry ", data->unique_id);
     context->view_table.erase(view_it);
   }
   context->UnregisterTensor(data);

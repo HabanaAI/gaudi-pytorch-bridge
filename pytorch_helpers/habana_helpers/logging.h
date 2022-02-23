@@ -219,6 +219,7 @@ class PtLogger {
     DEVMEM = 0x800,
     HABHELPER = 0x1000,
     IRGRAPH = 0x2000,
+    VIEWTABLE = 0x4000,
   };
 };
 
@@ -520,6 +521,8 @@ class PTOpTrace {
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 #define PT_IRGRAPH_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
+#define PT_VIEWTABLE_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::VIEWTABLE, __VA_ARGS__)
 #define PT_HABANAHOOKS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 #define PT_FALLBACK_DEBUG(...) \
