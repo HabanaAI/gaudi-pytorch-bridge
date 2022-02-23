@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"

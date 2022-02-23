@@ -391,6 +391,11 @@ class RecipeCacheLRU {
     return (map_.size() == 0);
   }
 
+  void clear() {
+    map_.clear();
+    list_.clear();
+  }
+
   bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
     bool ret_flag{false};
     if (!empty() && map_.end() != map_.find(key)) {

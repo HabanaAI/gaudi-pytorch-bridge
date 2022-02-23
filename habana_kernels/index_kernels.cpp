@@ -1937,39 +1937,45 @@ void NarrowOperator::AllocateAndAddSynapseNode(
 std::vector<int64_t> SliceOperator::compute_output_shape(
     const Tensor& self,
     int64_t& dim,
-    int64_t& start,
-    int64_t& end,
+    int64_t& start_val,
+    int64_t& end_val,
     int64_t& step) {
-  // convert dim to positive value if required
-  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  auto sizes = self.sizes().vec();
-  if (start < 0) {
-    start += sizes[dim];
+  // reuse the logic in at::native::slice
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
-  if (end < 0) {
-    end += sizes[dim];
+  dim = at::maybe_wrap_dim(dim, ndim);
+  std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
+
+  // TODO: support negative strides
+  TORCH_CHECK(step > 0, "slice step must be positive");
+
+  // INT64_MAX stands for default value.
+  if (start_val == INT64_MAX) {
+    start_val = 0;
   }
-  if (start < 0) {
-    start = 0;
-  } else if (start >= sizes[dim]) {
-    start = sizes[dim];
+  if (start_val < 0) {
+    start_val += sizes[dim];
   }
-  if (end < start) {
-    end = start;
-  } else if (end >= sizes[dim]) {
-    end = sizes[dim];
+  if (end_val < 0) {
+    end_val += sizes[dim];
+  }
+  if (start_val < 0) {
+    start_val = 0;
+  } else if (start_val >= sizes[dim]) {
+    start_val = sizes[dim];
+  }
+  if (end_val < start_val) {
+    end_val = start_val;
+  } else if (end_val >= sizes[dim]) {
+    end_val = sizes[dim];
   }
 
-  // compute output shape
-  auto len = 0;
-  for (auto i = start; i < end; i += step) {
-    len++;
-  }
-  auto shape = self.sizes().vec();
-  shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, len);
+  auto len = end_val - start_val;
+  sizes[dim] = (len + step - 1) / step; // round-up
 
-  return shape;
+  return sizes;
 }
 Tensor SliceOperator::AllocateOutputTensor(
     const Tensor& self,
@@ -2006,11 +2012,27 @@ void SliceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 void SliceOperator::ValidateSliceInputs(
     std::vector<int64_t>& inp_shape,
+    std::vector<int64_t>& out_shape,
+    std::vector<int64_t>& step,
     std::vector<int64_t>& start) {
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     TORCH_CHECK(
         (start[i] < inp_shape[i]),
         "Slice invalid starts param, which is greater or equal to the dimension");
+
+    // original equation as per at::native::slice
+    // sizes[dim] = (end_val - start_val + step - 1) / step; // round-up
+
+    // inverse to find end
+    // end_val = sizes[dim]*step + 1 - step + start_val
+    auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
+
+    TORCH_CHECK(
+        (end_val <= inp_shape[i]),
+        "Slice invalid end param, which is greater or equal to the dimension",
+        end_val,
+        " ",
+        inp_shape[i]);
   }
 }
 
@@ -2039,8 +2061,11 @@ void SliceOperator::AllocateAndAddSynapseNode(
         "Synapse input4 type expected to be shape tensor");
     shape = p_context_->syn_inputs_[1].ref().pt_shape();
     auto inp_shape = self.sizes().vec();
+    auto out_shape = inputs[1].toTensor().sizes().vec();
+    auto step = inputs[2].toTensor().sizes().vec();
     auto start = inputs[3].toTensor().sizes().vec();
-    ValidateSliceInputs(inp_shape, start);
+
+    ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {
     TORCH_CHECK(
         inputs.size() == 5,

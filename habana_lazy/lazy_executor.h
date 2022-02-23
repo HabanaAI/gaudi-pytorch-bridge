@@ -56,10 +56,17 @@ union OpParams {
 struct StrideParams {
   // storing the tensor helps to retain extend the lifetime of tensor until all
   // the views have expired
-  at::Tensor t;
+  // base is used as node input for torch.as_strided. For rest of the view like
+  // ops like view, select, slice, transpose etc we should the parent. This is
+  // because only for as_strided the following relation holds true b =
+  // torch.as_strided(a) c = as_strided(b) this is same as c = as_strided(a)
+  // with the composite stride, size and offset params
+  at::Tensor base;
+  at::Tensor parent;
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
   int64_t offset;
+  int64_t parent_id;
   StrideOPType optype;
   OpParams params;
 };

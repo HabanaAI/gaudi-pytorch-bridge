@@ -467,3 +467,16 @@ TEST_F(LazyBasicKernelTest, d2hsync) {
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, viewtranspose) {
+  torch::Tensor A = torch::randn({4});
+  auto hA = A.to(torch::kHPU);
+  auto B = A.view({2, 2});
+  auto C = torch::transpose(B, 0, 1);
+
+  auto hB = hA.view({2, 2});
+
+  auto hC = torch::transpose(hB, 0, 1);
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}

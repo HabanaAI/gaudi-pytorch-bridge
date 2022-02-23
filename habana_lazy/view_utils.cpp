@@ -52,7 +52,7 @@ bool is_aliased_view(
         auto it = context->view_table.find(tensor_id);
         if (it != context->view_table.end()) {
           const StrideParams& params = context->view_table[tensor_id];
-          auto updated_tensor = get_recent_base_tensor(params.t);
+          auto updated_tensor = get_recent_base_tensor(params.base);
           base_id = GetHbLazyTensor(updated_tensor).getTensorUniqueId();
           is_view = true;
         } else {

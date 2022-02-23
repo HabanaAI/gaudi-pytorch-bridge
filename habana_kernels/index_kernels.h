@@ -67,6 +67,8 @@ class SliceOperator : public HabanaOperator {
       int64_t& step);
   void ValidateSliceInputs(
       std::vector<int64_t>& inp_shape,
+      std::vector<int64_t>& out_shape,
+      std::vector<int64_t>& step,
       std::vector<int64_t>& start);
 };
 
