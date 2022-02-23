@@ -17,6 +17,8 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/upsample_kernels.h"
 
+#include "habana_lazy/lazy_executor.h"
+
 using namespace torch;
 using namespace habana;
 
@@ -42,6 +44,10 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
   std::vector<int64_t> out_shape;
   bool is_input_5d = is_tensor_5d(shape_in);
   if (scales.has_value()) {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    auto isLowering = context->getExecutionMode();
+
     auto scale_factor_in_double = scales.value().vec();
     // Cast scale_factor from double -> float. This is required so that output
     // shape computed matches OFM computation in TPC Glue code for resize
@@ -52,7 +58,8 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
       TORCH_CHECK(
           memory_format != c10::MemoryFormat::ChannelsLast,
           "Upsample_nearest3d input called with memory format ChannelsLast");
-      if (memory_format == c10::MemoryFormat::ChannelsLast3d) // Layout NDHWC
+      if (memory_format == c10::MemoryFormat::ChannelsLast3d &&
+          isLowering) // Layout NDHWC
         out_shape = {
             shape_in[0],
             static_cast<int64_t>(shape_in[1] * scale_factor[0]),
@@ -70,7 +77,8 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
       TORCH_CHECK(
           memory_format != c10::MemoryFormat::ChannelsLast3d,
           "Upsample_nearest2d input called with memory format ChannelsLast3d");
-      if (memory_format == c10::MemoryFormat::ChannelsLast) // Layout NHWC
+      if (memory_format == c10::MemoryFormat::ChannelsLast &&
+          isLowering) // Layout NHWC
         out_shape = {
             shape_in[0],
             static_cast<int64_t>(shape_in[1] * scale_factor[0]),
