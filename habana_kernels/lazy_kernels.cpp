@@ -2707,6 +2707,33 @@ Tensor& _index_put_impl_hpu_lazy_(
   return index_put_hpu_lazy_(self, indices, value, accumulate);
 }
 
+Tensor slice_shape_tensor(const Tensor& shape_tensor) {
+  std::vector<at::IValue> vector_of_inputs = {shape_tensor, 0, 1};
+  auto end_shape = DimVector{1};
+
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(const std::vector<at::IValue>& vector_of_inputs)
+        : LazyOp<T>("aten::select", vector_of_inputs, {}, {}, -1) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto end_shape = DimVector{1};
+      return empty_hpu_lazy(
+          end_shape,
+          self.options().dtype(c10::ScalarType::Long),
+          self.suggest_memory_format(),
+          false);
+    }
+  };
+
+  Kernel kernel{vector_of_inputs};
+  return kernel.call();
+}
+
 Tensor nonzero_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto input_shape = self.sizes();
@@ -2767,20 +2794,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   auto shape_tensor = std::get<1>(result_nonzero);
 
   // Select second element from shape tensor
-  auto node_slice = std::make_shared<ir::Slice>(shape_tensor, 0, 1);
-  auto end_shape = DimVector{1};
-  auto end_tensor = empty_hpu_lazy(
-      end_shape, hb_options, self.suggest_memory_format(), false);
-  auto hl_end = GetHbLazyTensor(end_tensor);
-  ir::Value& end_out = hl_end.CurrentIrValue();
-  end_out.SetNode(
-      node_slice,
-      hl_end.GetDevice(),
-      hl_end.GetSizes(),
-      hl_end.dtype_optional());
-  // Force an exections here to capture second element of shape tensor.
-  // This element is required to determine shape of next node's output
-  updateDstDependencies(hl_end, end_tensor);
+  auto end_tensor = slice_shape_tensor(shape_tensor);
   PT_IRGRAPH_DEBUG("step marker due to non zero");
   // .item() internally triggers a mark_step
   auto end = end_tensor.item<int64_t>();
