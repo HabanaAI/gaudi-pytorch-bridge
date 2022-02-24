@@ -247,6 +247,55 @@ TEST_F(LazyTensorShapeKernelTest, SelectBackwardTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, SelectBackwardTest_2) {
+  double rtol = 0; // 1e-03;
+  double atol = 0; // 1e-03;
+
+  std::array<int64_t, 3> input_sizes = {5, 4, 2};
+
+  torch::Tensor a = torch::randn({5, 2}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+
+  int64_t dim = 1;
+  int64_t index = 1;
+
+  Tensor h_out = torch::select_backward(h_a, input_sizes, dim, index);
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::select_backward(a, input_sizes, dim, index);
+
+  EXPECT_EQ(allclose(h_cout, cout, rtol, atol), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, SelectBackwardTest_3) {
+  double rtol = 0; // 1e-03;
+  double atol = 0; // 1e-03;
+
+  std::array<int64_t, 3> input_sizes = {5, 4, 2};
+
+  torch::Tensor t = torch::randn({5, 4, 2}, torch::requires_grad(true));
+  torch::Tensor h_t = t.to(torch::kHPU);
+
+  torch::Tensor a = torch::randn({5, 2}, torch::requires_grad(true));
+  torch::Tensor h_a = a.to(torch::kHPU);
+
+  int64_t dim = 1;
+  int64_t index = 1;
+
+  torch::Tensor sel_h_out = torch::select(h_t, dim, index);
+
+  auto sel_h_cout = sel_h_out.to(torch::kCPU);
+  auto sel_cout = torch::select(t, dim, index);
+
+  EXPECT_EQ(allclose(sel_h_cout, sel_cout), true);
+
+  torch::Tensor h_out =
+      torch::select_backward(sel_h_out, input_sizes, dim, index);
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::select_backward(sel_cout, input_sizes, dim, index);
+
+  EXPECT_EQ(allclose(h_cout, cout, rtol, atol), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
