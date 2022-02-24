@@ -6209,12 +6209,24 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   permuted_sizes[2] = input_size[3];
   permuted_sizes[3] = input_size[1];
 
-  LazyOp<at::Tensor> k(
-      "aten::upsample_nearest2d_backward",
-      {grad_output_cast, output_size, permuted_sizes, scale_factors},
-      {1, 2, 3},
-      {input_size.vec()});
+  std::string op;
+  Stack args;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    op = "hpu::upsample_nearest2d_backward";
+    auto input_shape = empty_hpu_lazy(
+        permuted_sizes,
+        grad_output.options(),
+        grad_output.suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
+    args = {grad_output_cast, output_size, input_shape, scale_factors};
+  } else {
+    op = "aten::upsample_nearest2d_backward";
+    args = {grad_output_cast, output_size, permuted_sizes, scale_factors};
+  }
+  LazyOp<at::Tensor> k(op, args, {input_size.vec()});
   auto result = k.call();
+
   if (grad_output.scalar_type() == c10::ScalarType::Byte) {
     auto result_cast = result;
     // f32 -> i32
