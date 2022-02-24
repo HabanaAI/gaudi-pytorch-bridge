@@ -321,7 +321,8 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto output_shape = ComputeOutputShapes(stack, true)[0];
   synTensor input_tensor = syn_in(0);
 
-  if (self.scalar_type() == torch::kBool) {
+  if ((self.scalar_type() == torch::kBool) ||
+      (self.scalar_type() == torch::kInt8)) {
     auto cast = CastHelper(
         graph, input_tensor, input_shape, self.scalar_type(), torch::kInt32);
     input_tensor = cast.get();
