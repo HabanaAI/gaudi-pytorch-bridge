@@ -5548,7 +5548,8 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
     auto out = at::native::transpose(self, dim0_, dim1_);
     auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
     auto out_id = GetHbLazyTensor(out).getTensorUniqueId();

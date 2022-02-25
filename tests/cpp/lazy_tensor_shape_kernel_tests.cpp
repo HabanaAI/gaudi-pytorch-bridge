@@ -312,14 +312,16 @@ TEST_F(LazyTensorShapeKernelTest, TransposeCloneTest) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, TransposeInPlaceAddTest) {
-  torch::Tensor A = torch::randn({2, 3, 4, 5}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor hOut = torch::transpose(hA, 2, 3);
-  torch::Tensor Out = torch::transpose(A, 2, 3);
-  hOut.add_(1);
-  Out.add_(1);
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
-  EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
+    torch::Tensor A = torch::randn({2, 3, 4, 5}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::transpose(hA, 2, 3);
+    torch::Tensor Out = torch::transpose(A, 2, 3);
+    hOut.add_(1);
+    Out.add_(1);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+    EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  }
 }
 
 TEST_F(LazyTensorShapeKernelTest, TransposeTest3) {
