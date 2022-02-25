@@ -2805,83 +2805,123 @@ uniform_:
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
 upsample_bicubic2d:
+  custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleBicubic2DFwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_bicubic2d.out:
-  custom_output_shape: UpsampleBicubic2DFwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_fwd
-  op_backend: UpsampleBicubic2DFwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_bicubic2d.out:
+#   custom_fill_params: FillBicubicFwdParams
+#   custom_output_shape: UpsampleBicubic2DFwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_fwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_bicubic2d.vec:
+  custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleBicubic2DFwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
 upsample_bicubic2d_backward:
+  custom_fill_params: FillBicubicBwdParams
   custom_output_shape: UpsampleBicubic2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleBicubic2DBwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_bicubic2d_backward.grad_input:
-  custom_output_shape: UpsampleBicubic2DBwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_bwd
-  op_backend: UpsampleBicubic2DBwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_bicubic2d_backward.grad_input:
+#   custom_fill_params: FillBicubicBwdParams
+#   custom_output_shape: UpsampleBicubic2DBwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_bwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_bicubic2d_backward.vec:
+  custom_fill_params: FillBicubicBwdParams
   custom_output_shape: UpsampleBicubic2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleBicubic2DBwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
 upsample_bilinear2d:
+  custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleBilinear2DFwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_bilinear2d.out:
-  custom_output_shape: UpsampleBilinear2DFwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_fwd
-  op_backend: UpsampleBilinear2DFwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_bilinear2d.out:
+#   custom_fill_params: FillBilinearFwdParams
+#   custom_output_shape: UpsampleBilinear2DFwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_fwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_bilinear2d.vec:
+  custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpsampleBilinear2DFwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
 upsample_bilinear2d_backward:
+  custom_fill_params: FillBilinearBwdParams
   custom_output_shape: UpsampleBilinear2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleBilinear2DBwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_bilinear2d_backward.grad_input:
-  custom_output_shape: UpsampleBilinear2DBwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_bwd
-  op_backend: UpsampleBilinear2DBwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_bilinear2d_backward.grad_input:
+#   custom_fill_params: FillBilinearBwdParams
+#   custom_output_shape: UpsampleBilinear2DBwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_bwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_bilinear2d_backward.vec:
+  custom_fill_params: FillBilinearBwdParams
   custom_output_shape: UpsampleBilinear2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpsampleBilinear2DBwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
 upsample_linear1d:
@@ -2965,30 +3005,44 @@ upsample_nearest1d_backward.vec:
   out_ids: [0]
 
 upsample_nearest2d:
+  custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_fwd
-  op_backend: UpSampleNearest2DFwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_nearest2d.out:
-  custom_output_shape: UpsampleNearest2DFwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_fwd
-  op_backend: UpSampleNearest2DFwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_nearest2d.out:
+#   custom_fill_params: FillNearestFwdParams
+#   custom_output_shape: UpsampleNearest2DFwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_fwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_nearest2d_backward:
+  custom_fill_params: FillNearestBwdParams
   custom_output_shape: UpsampleNearest2DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
-  op_backend: UpSampleNearest2DBwdOperator
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
   out_ids: [0]
 
-upsample_nearest2d_backward.grad_input:
-  custom_output_shape: UpsampleNearest2DBwdOutputShape
-  dtypes: [BFloat16, Float]
-  guid: resize_bwd
-  op_backend: UpSampleNearest2DBwdOperator
+# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
+# upsample_nearest2d_backward.grad_input:
+#   custom_fill_params: FillNearestBwdParams
+#   custom_output_shape: UpsampleNearest2DBwdOutputShape
+#   dtypes: [BFloat16, Float]
+#   guid: resize_bwd
+#   layouts:
+#   - [NHWC, NCHW]
+#   - [NHWC]
 
 upsample_nearest3d.out:
   custom_output_shape: UpsampleNearest3DFwdOutputShape

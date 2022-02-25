@@ -56,12 +56,12 @@
       input_height,                                                                      \
       ") and (D: ",                                                                      \
       input_depth,                                                                       \
-      ")                                           \
+      ")                                                                                 \
       output (W: ",                                                                      \
       output_width,                                                                      \
       ") and (H: ",                                                                      \
       output_height,                                                                     \
-      ")                                          \
+      ")                                                                                 \
       and (D: ",                                                                         \
       output_depth,                                                                      \
       ") for Upsample3D");
@@ -201,112 +201,196 @@ sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack, bool) {
   return {stack.at(2).toIntVector()};
 }
 // Forward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleBilinear2DFwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  if (!out_size.isNone()) {
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        out_size.toIntVector().at(0),
-        out_size.toIntVector().at(1)};
-  } else if (!scale.isNone()) {
-    double scale_w = scale.toDoubleVector().at(1);
-    double scale_h = scale.toDoubleVector().at(0);
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        static_cast<int64_t>(self.sizes()[2] * scale_h),
-        static_cast<int64_t>(self.sizes()[3] * scale_w)};
+  if (!isLowering) {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1)};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          static_cast<int64_t>(self.sizes()[2] * scale_h),
+          static_cast<int64_t>(self.sizes()[3] * scale_w)};
+    }
+  } else {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1),
+          self.sizes()[3]};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          static_cast<int64_t>(self.sizes()[1] * scale_h),
+          static_cast<int64_t>(self.sizes()[2] * scale_w),
+          self.sizes()[3]};
+    }
   }
+
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
   return {out_shape};
 }
 // Backward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleBilinear2DBwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
+  std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  if (!isLowering) {
+    return {outshape};
+  } else { // always in NHWC - backend
+    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
+  }
 }
 // Forward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest2DFwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale)
-  if (!out_size.isNone()) {
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        out_size.toIntVector().at(0),
-        out_size.toIntVector().at(1)};
-  } else if (!scale.isNone()) {
-    double scale_w = scale.toDoubleVector().at(1);
-    double scale_h = scale.toDoubleVector().at(0);
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        static_cast<int64_t>(self.sizes()[2] * scale_h),
-        static_cast<int64_t>(self.sizes()[3] * scale_w)};
+  if (!isLowering) {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1)};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          static_cast<int64_t>(self.sizes()[2] * scale_h),
+          static_cast<int64_t>(self.sizes()[3] * scale_w)};
+    }
+  } else {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1),
+          self.sizes()[3]};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          static_cast<int64_t>(self.sizes()[1] * scale_h),
+          static_cast<int64_t>(self.sizes()[2] * scale_w),
+          self.sizes()[3]};
+    }
   }
+
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
   return {out_shape};
 }
 // Backward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest2DBwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
+  std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  if (!isLowering) {
+    return {outshape};
+  } else {
+    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
+  }
 }
 // Forward Output Shape - Bicubic2D
-sizes_vec UpsampleBicubic2DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleBicubic2DFwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  if (!out_size.isNone()) {
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        out_size.toIntVector().at(0),
-        out_size.toIntVector().at(1)};
-  } else if (!scale.isNone()) {
-    double scale_w = scale.toDoubleVector().at(1);
-    double scale_h = scale.toDoubleVector().at(0);
-    out_shape = {
-        self.sizes()[0],
-        self.sizes()[1],
-        static_cast<int64_t>(self.sizes()[2] * scale_h),
-        static_cast<int64_t>(self.sizes()[3] * scale_w)};
+  if (!isLowering) {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1)};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          self.sizes()[1],
+          static_cast<int64_t>(self.sizes()[2] * scale_h),
+          static_cast<int64_t>(self.sizes()[3] * scale_w)};
+    }
+  } else {
+    if (!out_size.isNone()) {
+      out_shape = {
+          self.sizes()[0],
+          out_size.toIntVector().at(0),
+          out_size.toIntVector().at(1),
+          self.sizes()[3]};
+    } else if (!scale.isNone()) {
+      double scale_w = scale.toDoubleVector().at(1);
+      double scale_h = scale.toDoubleVector().at(0);
+      out_shape = {
+          self.sizes()[0],
+          static_cast<int64_t>(self.sizes()[1] * scale_h),
+          static_cast<int64_t>(self.sizes()[2] * scale_w),
+          self.sizes()[3]};
+    }
   }
+
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
   return {out_shape};
 }
 // Backward Output Shape - Bicubic2D
-sizes_vec UpsampleBicubic2DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleBicubic2DBwdOutputShape(
+    const at::Stack& stack,
+    bool isLowering) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
+  std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  if (!isLowering) {
+    return {outshape};
+  } else { // always in NHWC - backend
+    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
+  }
 }
 // Forward Output Shape - Nearest3D
 sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack, bool) {
@@ -324,9 +408,9 @@ sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack, bool) {
         out_size.toIntVector().at(1),
         out_size.toIntVector().at(2)};
   } else if (!scale.isNone()) {
-    double scale_d = stack.at(2).toDouble();
-    double scale_w = stack.at(3).toDouble();
-    double scale_h = stack.at(4).toDouble();
+    double scale_d = scale.toDoubleVector().at(0);
+    double scale_h = scale.toDoubleVector().at(1);
+    double scale_w = scale.toDoubleVector().at(2);
     out_shape = {
         self.sizes()[0],
         self.sizes()[1],
@@ -348,9 +432,10 @@ sizes_vec UpsampleNearest3DBwdOutputShape(const at::Stack& stack, bool) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
+  auto outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_3d_common_check(grad_in, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  return {outshape};
 }
 
 enum modes { nearest, linear, bicubic };
@@ -412,7 +497,167 @@ std::shared_ptr<void> FillResizeParams(
   }
   return params;
 }
-// Transpose NCW/NCHW/NCDHW to NWC/NHWC/NDHWC and vice versa
+
+std::shared_ptr<void> FillBicubicFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  // scales
+  auto scales = stack.at(3);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(3).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(4).toDouble();
+  }
+  return FillResizeParams(
+      self.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners);
+}
+
+std::shared_ptr<void> FillBicubicBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  // scales
+  auto scales = stack.at(4);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(4).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(5).toDouble();
+  }
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners);
+}
+
+std::shared_ptr<void> FillBilinearFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  // scales
+  auto scales = stack.at(3);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(3).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(4).toDouble();
+  }
+  return FillResizeParams(
+      self.dim(),
+      size,
+      linear,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners);
+}
+
+std::shared_ptr<void> FillBilinearBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  // scales
+  auto scales = stack.at(4);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(4).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(5).toDouble();
+  }
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      linear,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners);
+}
+
+std::shared_ptr<void> FillNearestFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  // scales
+  auto scales = stack.at(2);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(2).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(3).toDouble();
+  }
+  return FillResizeParams(
+      self.dim(),
+      size,
+      nearest,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      false /*align_corners*/);
+}
+
+std::shared_ptr<void> FillNearestBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  // scales
+  auto scales = stack.at(3);
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(3).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(4).toDouble();
+  }
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      nearest,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      false /*align_corners*/);
+}
+// Transpose NCW/NCHW/NCDHW to NWC/NDHWC and vice versa
 static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -428,12 +673,6 @@ static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
   }
   if (variant_type == 3) { // 1D variant
     std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-  } else if (variant_type == 4 && !persistant) { // 2D variant Fwd
-    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-  } else if (variant_type == 4 && persistant) { // 2D variant Bwd
-    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
   } else if (variant_type == 5 && !persistant) { // 3D variant Fwd
     std::swap(trans_params.permutation[2], trans_params.permutation[3]);
     std::swap(trans_params.permutation[1], trans_params.permutation[2]);
@@ -516,8 +755,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   // Transpose MemLayout
   if (variant_type == 3) { // 1D - N,C,W to N,W,C
     out_shape_temp = {shape_in[0], shape_in[2], shape_in[1]};
-  } else if (variant_type == 4) { // 2D - N,C,H,W to N,H,W,C
-    out_shape_temp = {shape_in[0], shape_in[2], shape_in[3], shape_in[1]};
   } else if (variant_type == 5) { // 3D - N,C,D,H,W to N,D,H,W,C
     out_shape_temp = {
         shape_in[0], shape_in[2], shape_in[3], shape_in[4], shape_in[1]};
@@ -533,16 +770,12 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     transpose.front() = OpBackend::BuildReshape(
         op, graph, transpose[0].get(), out_shape_temp, op->ScalarType());
   }
-
   // Resize
   // modify input width value with output width value
   // when both size and scale is provided with align_corners=false
   if (isForward && !align_corners && (!out_size.isNone() && !scales.isNone())) {
     if (variant_type == 3) { // 1D
       out_shape_temp.at(2) = static_cast<int64_t>(shape_in[2] * scale_w);
-    } else if (variant_type == 4) { // 2D
-      out_shape_temp.at(1) = static_cast<int64_t>(shape_in[2] * scale_h);
-      out_shape_temp.at(2) = static_cast<int64_t>(shape_in[3] * scale_w);
     } else if (variant_type == 5) { // 3D
       out_shape_temp.at(1) = static_cast<int64_t>(shape_in[2] * scale_d);
       out_shape_temp.at(2) = static_cast<int64_t>(shape_in[3] * scale_h);
@@ -551,9 +784,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   } else {
     if (variant_type == 3) { // 1D
       out_shape_temp.at(2) = outshape.at(2);
-    } else if (variant_type == 4) { // 2D
-      out_shape_temp.at(1) = outshape.at(2);
-      out_shape_temp.at(2) = outshape.at(3);
     } else if (variant_type == 5) { // 3D
       out_shape_temp.at(1) = outshape.at(2);
       out_shape_temp.at(2) = outshape.at(3);
@@ -579,8 +809,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     std::vector<int64_t> slice_shape;
     if (variant_type == 3) { // 1D
       slice_shape = {shape_in[0], 1 /*H*/, outshape.at(2), shape_in[1]};
-    } else if (variant_type == 4) { // 2D
-      slice_shape = {shape_in[0], outshape.at(2), outshape.at(3), shape_in[1]};
     } else if (variant_type == 5) { // 3D
       slice_shape = {
           shape_in[0],
@@ -600,7 +828,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     resize.front() = OpBackend::BuildReshape(
         op, graph, resize[0].get(), out_shape_3d, op->ScalarType());
   }
-
   // Transpose to Pytorch MemLayout
   return Transpose_MemFormat(
       op, graph, variant_type, {resize[0].get()}, outshape, true, 0);
@@ -739,221 +966,6 @@ void UpsampleNearest1DBwdOperator::AddNode(
   );
   syn_out(0) = std::move(result.at(0));
 }
-// AddNode FWD 2D Bilinear function
-void UpsampleBilinear2DFwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = UpsampleBilinear2DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  auto align_corners = stack.at(2).toBool();
-  // scales
-  auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(3).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(4).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      linear, /*upsample_mode*/
-      true, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      align_corners,
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
-// AddNode BWD 2D Bilinear function
-void UpsampleBilinear2DBwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = UpsampleBilinear2DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  auto align_corners = stack.at(3).toBool();
-  // scales
-  auto scales = stack.at(4);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(4).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(5).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      linear, /*upsample_mode*/
-      false, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      align_corners,
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
-// AddNode FWD 2D Nearest function
-void UpSampleNearest2DFwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = UpsampleNearest2DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  // scales
-  auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(2).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(3).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      nearest, /*upsample_mode*/
-      true, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      false, /*align_corners*/
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
-// AddNode BWD 2D Nearest function
-void UpSampleNearest2DBwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  // outshape
-  auto output_shape = UpsampleNearest2DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  // scales
-  auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(2).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(3).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      nearest, /*upsample_mode*/
-      false, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      false, /*align_corners*/
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
-// AddNode FWD 2D Bicubic function
-void UpsampleBicubic2DFwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = UpsampleBicubic2DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  auto align_corners = stack.at(2).toBool();
-  // scales
-  auto scales = stack.at(3);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(3).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(4).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      bicubic, /*upsample_mode*/
-      true, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      align_corners,
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
-// AddNode BWD 2D Bicubic function
-void UpsampleBicubic2DBwdOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = UpsampleBicubic2DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
-  auto out_size = stack.at(1);
-  auto align_corners = stack.at(3).toBool();
-  // scales
-  auto scales = stack.at(4);
-  double scale_w = 1.0, scale_h = 1.0;
-  if (!scales.isNone()) {
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
-                                 : stack.at(4).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
-                                 : stack.at(5).toDouble();
-  }
-  auto result = UpsampleCommonFunc(
-      this,
-      graph,
-      bicubic, /*upsample_mode*/
-      false, /*isForward*/
-      {syn_in(0)},
-      shape_in,
-      out_size,
-      align_corners,
-      scales,
-      scale_w,
-      scale_h,
-      1.0 /*scale_d*/,
-      output_shape,
-      self.dim() /*variant_type - 2D*/
-  );
-  syn_out(0) = std::move(result.at(0));
-}
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
@@ -1006,9 +1018,9 @@ void UpSampleNearest3DBwdOperator::AddNode(
   if (!scales.isNone()) {
     scale_d = !scales.isScalar() ? scales.toDoubleVector().at(0)
                                  : stack.at(3).toDouble();
-    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(1)
                                  : stack.at(4).toDouble();
-    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(2)
                                  : stack.at(5).toDouble();
   }
   auto result = UpsampleCommonFunc(
