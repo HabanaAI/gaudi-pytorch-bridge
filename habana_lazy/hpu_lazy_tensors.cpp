@@ -764,8 +764,23 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
   std::vector<int> indices;
-  for (size_t i = 0; i < tensors->size(); ++i) {
-    indices.push_back(i);
+  // Temporary workaround to make Batch Norm working. Batch Norm has 5
+  // Output tensors and the order in which they are prepared in the
+  // GetLiveTensors is different than the order they come from Pytorch Op.
+  // During cache miss path we follow GetLiveTensors flow while during cache hit
+  // it does not go through that flow rather taking tensors from the Pytorch Op
+  // itself so re-ordering is needed.
+  if (tensors->size() == 5 &&
+      lazyFrontEndInfo->get_lazy_op_name().find("native_batch_norm")) {
+    indices.push_back(1);
+    indices.push_back(2);
+    indices.push_back(0);
+    indices.push_back(3);
+    indices.push_back(4);
+  } else {
+    for (size_t i = 0; i < tensors->size(); ++i) {
+      indices.push_back(i);
+    }
   }
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(
