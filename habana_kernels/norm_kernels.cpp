@@ -159,8 +159,7 @@ void BatchNormForwardOperator::insert_memcopy_op(
       std::move(p_context_->syn_inputs_[in_position]));
   // No need for output PT tensor as its non persistent
   torch::jit::Stack stack = {IValue(src)};
-  memcopyOp->SetOutputPersistence({false});
-  memcopyOp->AllocateAndAddSynapseNode_Helper(graph, stack);
+  memcopyOp->AllocateAndAddSynapseNode(graph, stack, false);
   synapse_helpers::tensor& syn_tensor = memcopyOp->GetSynOutputs()[0];
   mean_var_temp.emplace_back(std::move(syn_temp));
   p_context_->syn_inputs_[in_position] = std::move(syn_tensor);
@@ -1953,8 +1952,7 @@ void NormOperator::AllocateAndAddSynapseNode(
           this->p_context_->device_id_, scalar_type);
       identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       torch::jit::Stack stack = {IValue(self)};
-      identityOp->SetOutputPersistence({false});
-      identityOp->AllocateAndAddSynapseNode_Helper(graph, stack);
+      identityOp->AllocateAndAddSynapseNode(graph, stack, false);
       stack.clear();
 
       auto mulOp = make_operator<habana::MulOperator>(

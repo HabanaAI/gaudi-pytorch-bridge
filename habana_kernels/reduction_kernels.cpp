@@ -1612,8 +1612,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
       identityOp->SetOutputMetadata(output_metadata_);
 
       torch::jit::Stack stack = {IValue(self)};
-      identityOp->SetOutputPersistence({is_output_persistent});
-      identityOp->AllocateAndAddSynapseNode_Helper(graph, stack);
+      identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
       p_context_->syn_outputs_.emplace_back(
           std::move(identityOp->GetSynOutputs()[0]));

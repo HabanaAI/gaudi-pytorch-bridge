@@ -945,8 +945,7 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, scalar_type);
     identityOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack stack = {IValue(self)};
-    identityOp->SetOutputPersistence({false});
-    identityOp->AllocateAndAddSynapseNode_Helper(graph, stack);
+    identityOp->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
 
     auto mulpow1Op =
