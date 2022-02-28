@@ -14,6 +14,7 @@
 #include <c10d/Types.hpp>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
+#include "pytorch_helpers/habana_helpers/job_thread.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 #include <hccl.h>
@@ -80,6 +81,17 @@ hcclRedOp_t getHCCLReduceOp(const c10d::ReduceOp& reduceOp) {
   }
 }
 
+class JobThreadLazyHCCL {
+ public:
+  static std::shared_ptr<habana_helpers::JobThread> getInstance() {
+    static std::shared_ptr<habana_helpers::JobThread> job(
+        new habana_helpers::JobThread);
+    return job;
+  }
+};
+
+constexpr int64_t kSynchronizeBusyWaitMillis = 1;
+
 template <typename Fn>
 void collective(
     std::vector<PtTensorInfoShared>& inputs,
@@ -89,7 +101,6 @@ void collective(
     bool async,
     synapse_helpers::event_done_callback done_cb,
     Fn fn) {
-  hcclResult_t hccl_result{hcclSuccess};
 
   for (size_t i = 0; i < inputs.size(); ++i) {
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
@@ -106,34 +117,67 @@ void collective(
     deviceCtxt->lock_address(inputs.at(i)->get_buffer(), &input_address);
     deviceCtxt->lock_address(outputs.at(i)->get_buffer(), &output_address);
 
-    PT_LAZY_DEBUG(
-        "Collective call. input = ",
-        inputs.at(i),
-        ", output = ",
-        outputs.at(i),
-        ", input_address = ",
-        input_address,
-        ", ouptput_address = ",
-        output_address,
-        ", comm_id = ",
-        comm->GetId(),
-        ", stream = ",
-        collective_stream);
-    hccl_result =
-        fn(inputs.at(i),
-           outputs.at(i),
-           input_address,
-           output_address,
-           comm,
-           collective_stream);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
-    deviceCtxt->submit_events(collective_stream, output_storage_ptr, done_cb);
-    if (!async) {
-      synStatus syn_result = synSuccess;
-      syn_result = synStreamSynchronize(collective_stream);
-      TORCH_CHECK(
-          syn_result == synSuccess,
-          "synStreamSynchronize for synchronized collective call failed");
+    auto pr = std::make_shared<std::promise<bool>>();
+    std::future<bool> fut = pr->get_future();
+    auto func = [fn = fn,
+                 input = inputs.at(i),
+                 output = outputs.at(i),
+                 input_address = input_address,
+                 output_address = output_address,
+                 comm = comm,
+                 collective_stream = collective_stream,
+                 async = async,
+                 deviceCtxt = deviceCtxt,
+                 output_storage_ptr = output_storage_ptr,
+                 done_cb = done_cb,
+                 pr = pr]() mutable {
+      PT_LAZY_DEBUG(
+          "Collective call. input = ",
+          input,
+          ", output = ",
+          output,
+          ", input_address = ",
+          input_address,
+          ", ouptput_address = ",
+          output_address,
+          ", comm_id = ",
+          comm->GetId(),
+          ", stream = ",
+          collective_stream);
+      hcclResult_t hccl_result =
+          fn(input,
+             output,
+             input_address,
+             output_address,
+             comm,
+             collective_stream);
+      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      deviceCtxt->submit_events(collective_stream, output_storage_ptr, done_cb);
+      pr->set_value(hccl_result == hcclSuccess);
+
+      if (!async) {
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(
+            syn_result == synSuccess,
+            "synStreamSynchronize for synchronized collective call failed");
+
+        while (JobThreadLazyHCCL::getInstance()->jobCounter() != 0) {
+          PT_LAZY_DEBUG(
+              "[PYT-DIST] Waiting for lazy collectives jobs to complete");
+          std::this_thread::sleep_for(
+              std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+        }
+      }
+
+      return true;
+    };
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+      func();
+    } else {
+      JobThreadLazyHCCL::getInstance()->addJob(std::move(func));
+      deviceCtxt->submit_future(output_storage_ptr, std::move(fut));
     }
   }
 }
@@ -147,7 +191,6 @@ void pointToPoint(
     synapse_helpers::event_done_callback done_cb,
     Fn fn,
     int peerRank) {
-  hcclResult_t hccl_result{hcclSuccess};
 
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
@@ -160,28 +203,57 @@ void pointToPoint(
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
     deviceCtxt->lock_address(tensors.at(i)->get_buffer(), &tensor_address);
 
-    PT_LAZY_DEBUG(
-        "pointToPoint call. input = ",
-        tensors.at(i),
-        ", input_address = ",
-        tensor_address,
-        ", comm_id = ",
-        comm->GetId(),
-        ", stream = ",
-        collective_stream,
-        ", peerRank = ",
-        peerRank);
+    auto pr = std::make_shared<std::promise<bool>>();
+    std::future<bool> fut = pr->get_future();
+    auto func = [fn = fn,
+                 tensor = tensors.at(i),
+                 address = tensor_address,
+                 comm = comm,
+                 collective_stream = collective_stream,
+                 peerRank = peerRank,
+                 async = async,
+                 deviceCtxt = deviceCtxt,
+                 tensor_storage_ptr = tensor_storage_ptr,
+                 done_cb = done_cb,
+                 pr = pr]() mutable {
+      PT_LAZY_DEBUG(
+          "pointToPoint call. input = ",
+          tensor,
+          ", input_address = ",
+          address,
+          ", comm_id = ",
+          comm->GetId(),
+          ", stream = ",
+          collective_stream,
+          ", peerRank = ",
+          peerRank);
 
-    hccl_result =
-        fn(tensors.at(i), tensor_address, comm, collective_stream, peerRank);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
-    deviceCtxt->submit_events(collective_stream, tensor_storage_ptr, done_cb);
-    if (!async) {
-      synStatus syn_result = synSuccess;
-      syn_result = synStreamSynchronize(collective_stream);
-      TORCH_CHECK(
-          syn_result == synSuccess,
-          "synStreamSynchronize for synchronized collective call failed");
+      auto hccl_result = fn(tensor, address, comm, collective_stream, peerRank);
+      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      deviceCtxt->submit_events(collective_stream, tensor_storage_ptr, done_cb);
+      pr->set_value(hccl_result == hcclSuccess);
+
+      if (!async) {
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(
+            syn_result == synSuccess,
+            "synStreamSynchronize for synchronized collective call failed");
+        while (JobThreadLazyHCCL::getInstance()->jobCounter() != 0) {
+          PT_LAZY_DEBUG(
+              "[PYT-DIST] Waiting for lazy collectives jobs to complete");
+          std::this_thread::sleep_for(
+              std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+        }
+      }
+      return true;
+    };
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+      func();
+    } else {
+      JobThreadLazyHCCL::getInstance()->addJob(std::move(func));
+      deviceCtxt->submit_future(tensor_storage_ptr, std::move(fut));
     }
   }
 }
@@ -220,7 +292,8 @@ void HcclBroadcastOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](__attribute__((unused)) PtTensorInfoShared& input,
+      [data_type = data_type_, root_rank = root_rank_](
+          __attribute__((unused)) PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -230,8 +303,8 @@ void HcclBroadcastOperator::RunCollective(
             send_buffer,
             recv_buffer,
             input->get_numel(),
-            getHCCLDataType(data_type_),
-            root_rank_,
+            getHCCLDataType(data_type),
+            root_rank,
             *comm->GetHcclHandle(),
             stream);
       });
@@ -274,7 +347,8 @@ void HcclAllreduceOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](__attribute__((unused)) PtTensorInfoShared& input,
+      [data_type = data_type_, reduce_op = reduce_op_](
+          __attribute__((unused)) PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -283,7 +357,7 @@ void HcclAllreduceOperator::RunCollective(
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
-            c10::elementSize(getInternalScalarType(data_type_));
+            c10::elementSize(getInternalScalarType(data_type));
         size_t chunk_size = getHCCLSliceSizeMB() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
@@ -293,8 +367,8 @@ void HcclAllreduceOperator::RunCollective(
               (void*)((uint64_t)send_buffer + data_offset),
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
-              getHCCLDataType(data_type_),
-              getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
+              getHCCLDataType(data_type),
+              getHCCLReduceOp((c10d::ReduceOp)reduce_op),
               *comm->GetHcclHandle(),
               stream);
           TORCH_CHECK(
@@ -343,7 +417,8 @@ void HcclReduceOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](__attribute__((unused)) PtTensorInfoShared& input,
+      [data_type = data_type_, reduce_op = reduce_op_, dst_rank = dst_rank_](
+          __attribute__((unused)) PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -352,7 +427,7 @@ void HcclReduceOperator::RunCollective(
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
-            c10::elementSize(getInternalScalarType(data_type_));
+            c10::elementSize(getInternalScalarType(data_type));
         size_t chunk_size = getHCCLSliceSizeMB() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
@@ -362,9 +437,9 @@ void HcclReduceOperator::RunCollective(
               (void*)((uint64_t)send_buffer + data_offset),
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
-              getHCCLDataType(data_type_),
-              getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
-              dst_rank_,
+              getHCCLDataType(data_type),
+              getHCCLReduceOp((c10d::ReduceOp)reduce_op),
+              dst_rank,
               *comm->GetHcclHandle(),
               stream);
           TORCH_CHECK(
@@ -408,7 +483,8 @@ void HcclAllToAllOutOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](PtTensorInfoShared& input,
+      [data_type = data_type_](
+          PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -417,8 +493,8 @@ void HcclAllToAllOutOperator::RunCollective(
         int numRanks = comm->GetSize();
         size_t count = input->get_numel() / numRanks;
         size_t rank_offset =
-            count * c10::elementSize(getInternalScalarType(data_type_));
-        auto type = getHCCLDataType(data_type_);
+            count * c10::elementSize(getInternalScalarType(data_type));
+        auto type = getHCCLDataType(data_type);
 
         hcclGroupStart();
         hcclResult_t hccl_result{hcclSuccess};
@@ -482,7 +558,8 @@ void HcclAllgatherOutOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](PtTensorInfoShared& input,
+      [data_type = data_type_](
+          PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -492,7 +569,7 @@ void HcclAllgatherOutOperator::RunCollective(
             send_buffer,
             recv_buffer,
             input->get_numel(),
-            getHCCLDataType(data_type_),
+            getHCCLDataType(data_type),
             *comm->GetHcclHandle(),
             stream);
         return hccl_result;
@@ -534,7 +611,8 @@ void HcclReduceScatterOutOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](__attribute__((unused)) PtTensorInfoShared& input,
+      [data_type = data_type_, reduce_op = reduce_op_](
+          __attribute__((unused)) PtTensorInfoShared& input,
           PtTensorInfoShared& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -544,8 +622,8 @@ void HcclReduceScatterOutOperator::RunCollective(
             send_buffer,
             recv_buffer,
             output->get_numel(),
-            getHCCLDataType(data_type_),
-            getHCCLReduceOp((c10d::ReduceOp)reduce_op_),
+            getHCCLDataType(data_type),
+            getHCCLReduceOp((c10d::ReduceOp)reduce_op),
             *comm->GetHcclHandle(),
             stream);
         return hccl_result;
@@ -585,7 +663,8 @@ void HcclSendOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](PtTensorInfoShared& input,
+      [data_type = data_type_](
+          PtTensorInfoShared& input,
           const void* send_buff,
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream,
@@ -593,7 +672,7 @@ void HcclSendOperator::RunCollective(
         return hcclSend(
             send_buff,
             input->get_numel(),
-            getHCCLDataType(data_type_),
+            getHCCLDataType(data_type),
             peerRank,
             *comm->GetHcclHandle(),
             stream);
@@ -634,7 +713,8 @@ void HcclRecvOperator::RunCollective(
       {comm_id_},
       async,
       done_cb,
-      [&](PtTensorInfoShared& input,
+      [data_type = data_type_](
+          PtTensorInfoShared& input,
           void* recv_buff,
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream,
@@ -642,7 +722,7 @@ void HcclRecvOperator::RunCollective(
         return hcclRecv(
             recv_buff,
             input->get_numel(),
-            getHCCLDataType(data_type_),
+            getHCCLDataType(data_type),
             peerRank,
             *comm->GetHcclHandle(),
             stream);

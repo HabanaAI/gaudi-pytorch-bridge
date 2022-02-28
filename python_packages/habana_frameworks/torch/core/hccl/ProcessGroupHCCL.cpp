@@ -21,6 +21,7 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
+#include "pytorch_helpers/habana_helpers/job_thread.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "pytorch_helpers/synapse_helpers/device_context.h"
 
@@ -143,61 +144,11 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 
 class JobThreadHCCL {
  public:
-  static std::shared_ptr<JobThreadHCCL> getInstance() {
-    static std::shared_ptr<JobThreadHCCL> job(new JobThreadHCCL);
+  static std::shared_ptr<habana_helpers::JobThread> getInstance() {
+    static std::shared_ptr<habana_helpers::JobThread> job(
+        new habana_helpers::JobThread);
     return job;
   }
-
-  ~JobThreadHCCL() {
-    {
-      std::lock_guard<std::mutex> lock(mMut);
-      mFuncs.push([] { return false; });
-    }
-    mCondVar.notify_one();
-    mTh.join();
-    TORCH_CHECK(mJobCounter == 0, "Unfinished collectives");
-  }
-
-  void addJob(std::function<bool()> func) {
-    {
-      std::lock_guard<std::mutex> lock(mMut);
-      mFuncs.push(func);
-      ++mJobCounter;
-    }
-    mCondVar.notify_one();
-  }
-
- private:
-  JobThreadHCCL() : mJobCounter{0} {
-    mTh = std::thread(&JobThreadHCCL::threadFunction, this);
-  }
-
-  void threadFunction() {
-    while (true) {
-      std::unique_lock<std::mutex> lock(mMut);
-      mCondVar.wait(lock, [this] { return !mFuncs.empty(); });
-
-      while (!mFuncs.empty()) {
-        auto func = mFuncs.front();
-        mFuncs.pop();
-        lock.unlock();
-        if (!func()) {
-          // func() returns False only when it is queued by Destructor
-          return;
-        }
-        lock.lock();
-        mJobCounter--;
-      }
-    }
-  }
-
-  std::thread mTh;
-  std::mutex mMut;
-  std::atomic<int> mJobCounter;
-  std::queue<std::function<bool()>> mFuncs;
-  std::condition_variable mCondVar;
-
-  friend class ProcessGroupHCCL::WorkHCCL;
 };
 
 } // namespace
@@ -357,7 +308,7 @@ void ProcessGroupHCCL::WorkHCCL::synchronize() {
     deviceCtxts_[i]->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
   }
-  while (JobThreadHCCL::getInstance()->mJobCounter != 0) {
+  while (JobThreadHCCL::getInstance()->jobCounter() != 0) {
     PT_DISTRIBUTED_DEBUG("[PYT-DIST] Waiting for collectives jobs to complete");
     std::this_thread::sleep_for(
         std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
