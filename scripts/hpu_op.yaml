@@ -1704,6 +1704,7 @@ maximum:
   legacy_eager: true
 
 maximum.out:
+  broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
 
