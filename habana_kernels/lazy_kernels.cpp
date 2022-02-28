@@ -62,7 +62,6 @@
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
-#include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/view.h"
@@ -5266,36 +5265,14 @@ Tensor softmax_hpu_lazy(
     const int64_t dim,
     const bool half_to_float) {
   PT_LAZY_TRACE;
-  auto node = std::make_shared<ir::LogSoftMax>(
-      self, dim, half_to_float, "aten::_softmax");
-  // infer shape
-  auto shape_out = SoftmaxOperator::compute_output_shape(self);
-  at::Tensor result;
-  if (self.dtype() == c10::ScalarType::BFloat16) {
-    result = empty_hpu_lazy(
-        shape_out,
-        self.options().dtype(c10::ScalarType::BFloat16),
-        self.suggest_memory_format(),
-        false);
-  } else {
-    result = empty_hpu_lazy(
-        shape_out,
-        self.options().dtype(c10::ScalarType::Float),
-        self.suggest_memory_format(),
-        false);
-  }
 
-  auto hl_result = GetHbLazyTensor(result);
+  LazyOp<at::Tensor> k(
+      "aten::_softmax",
+      {self, dim, half_to_float},
+      {1},
+      {SoftmaxOperator::compute_output_shape(self)});
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+  return k.call();
 }
 
 Tensor softmax_backward_hpu_lazy(
@@ -5304,24 +5281,14 @@ Tensor softmax_backward_hpu_lazy(
     int64_t dim,
     const Tensor& input) {
   PT_LAZY_TRACE;
-  auto node = std::make_shared<ir::LogSoftMaxBackward>(
-      grad, output, dim, input, "aten::_softmax_backward_data");
-  // infer output shape
-  auto shape_out = SoftmaxBackwardOperator::compute_output_shape(input);
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
 
-  auto hl_result = GetHbLazyTensor(result);
+  LazyOp<at::Tensor> k(
+      "aten::_softmax_backward_data",
+      {grad, output, dim, input},
+      {2},
+      {SoftmaxBackwardOperator::compute_output_shape(input)});
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+  return k.call();
 }
 
 void InitSizesAndStrides(
