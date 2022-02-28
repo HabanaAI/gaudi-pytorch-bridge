@@ -4039,23 +4039,12 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   std::vector<at::IValue> vector_of_inputs;
   vector_of_inputs = {self, mat2};
   using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::bmm", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto mat2 = inputs[1].toTensor();
-      auto shape_out = BmmOperator::compute_output_shape(self, mat2);
-      return empty_hpu_lazy(
-          shape_out, self.options(), self.suggest_memory_format(), false);
-    }
-  };
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  LazyOp<T> k{
+      "aten::bmm",
+      vector_of_inputs,
+      {},
+      {BmmOperator::compute_output_shape(self, mat2)}};
+  return k.call();
 }
 
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
