@@ -31,6 +31,7 @@
 #include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/reduction2_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
@@ -5072,10 +5073,10 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     c10::optional<Generator> gen) {
   PT_LAZY_TRACE;
   struct FusedDropout : LazyOp<std::tuple<Tensor, Tensor>> {
-    FusedDropout(const Tensor& self, double p, c10::optional<Generator> gen)
+    FusedDropout(const Tensor& self, double p, const Tensor& seed)
         : LazyOp<std::tuple<Tensor, Tensor>>(
-              "aten::_fused_dropout",
-              {self, p, std::move(gen)},
+              "hpu::_fused_dropout",
+              {self, p, seed},
               {},
               {},
               -1) {}
@@ -5092,8 +5093,9 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
       return {result0, result1};
     }
   };
-
-  FusedDropout op(self, p, std::move(gen));
+  // use gen to create a seed and forward it to the op
+  auto seed = habana::get_seed_tensor_hpu(gen);
+  FusedDropout op(self, p, seed);
   return op.call();
 }
 

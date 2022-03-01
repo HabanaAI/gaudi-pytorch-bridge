@@ -19,24 +19,25 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   auto in = torch::randn({2, 3, 4}, torch::dtype(torch::kFloat));
   constexpr double p = 0.3;
 
-  at::Tensor eager_result1, eager_result2;
-  ExecuteEager([&]() {
-    SetSeed();
-    auto h_in = in.to(torch::kHPU);
-    auto eager_results = torch::_fused_dropout(h_in, p);
-    eager_result1 = std::get<0>(eager_results).to("cpu");
-    eager_result2 = std::get<1>(eager_results).to("cpu");
-  });
-
+  SetLazyMode(1);
   SetSeed();
-  auto lazy_h_in = in.to(torch::kHPU);
-  auto lazy_results = torch::_fused_dropout(lazy_h_in, p);
+  auto h_in = in.to(torch::kHPU);
+  auto lazy1_results = torch::_fused_dropout(h_in, p);
+  auto lazy1_result1 = std::get<0>(lazy1_results).to("cpu");
+  auto lazy1_result2 = std::get<1>(lazy1_results).to("cpu");
+  RestoreMode();
 
-  auto lResult1 = std::get<0>(lazy_results).to("cpu");
-  auto lResult2 = std::get<1>(lazy_results).to("cpu");
+  SetLazyMode(2);
+  SetSeed();
+  auto lazy2_h_in = in.to(torch::kHPU);
+  auto lazy2_results = torch::_fused_dropout(lazy2_h_in, p);
 
-  EXPECT_TRUE(allclose(eager_result1, lResult1));
-  EXPECT_TRUE(allclose(eager_result2, lResult2));
+  auto lazy2_result1 = std::get<0>(lazy2_results).to("cpu");
+  auto lazy2_result2 = std::get<1>(lazy2_results).to("cpu");
+  RestoreMode();
+
+  EXPECT_TRUE(allclose(lazy1_result1, lazy2_result1));
+  EXPECT_TRUE(allclose(lazy1_result2, lazy2_result2));
 }
 
 TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {

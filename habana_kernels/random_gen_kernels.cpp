@@ -616,7 +616,7 @@ void DropoutOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2 || (inputs.size() == 3 && inputs[2].isNone()),
+      inputs.size() == 3,
       "Incorrect size",
       inputs.size(),
       " of inputs expected for DropoutOperator Operator");
@@ -626,7 +626,9 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isDouble(),
       "Input arg2 expected to be Double for DropoutOperator Operator");
-  // inputs[2] is Generator which we won't be using as such in this kernel
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg3 expected to be Tensor for DropoutOperator Operator");
 
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toDouble();
@@ -734,8 +736,9 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(p), IValue(gen)};
-  auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+  auto seed_tensor = habana::get_seed_tensor_hpu(gen);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(p), IValue(seed_tensor)};
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, seed_tensor};
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -878,5 +881,5 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
         .add("hpu::randperm_out_ds", KERNEL_FN(RandpermOperator))
-        .add("aten::_fused_dropout", KERNEL_FN(DropoutOperator))
+        .add("hpu::_fused_dropout", KERNEL_FN(DropoutOperator))
         .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator));

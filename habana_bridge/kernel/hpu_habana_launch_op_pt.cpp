@@ -622,21 +622,15 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     // seed_tensor only once that is why the check on 1st non-tensor input
     // argument.
     else if (
-        (!strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
-         1 == input_idx) ||
         (!strcmp("hpu::randperm_out", node->kind().toQualString()) &&
          0 == input_idx) ||
         (!strcmp("hpu::randperm_out_ds", node->kind().toQualString()) &&
          1 == input_idx)) {
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
-      at::Tensor seed_tensor;
       // as an IValues
-      if (!strcmp("hpu::randperm_out", node->kind().toQualString()) ||
-          !strcmp("hpu::randperm_out_ds", node->kind().toQualString()))
-        seed_tensor = RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
-      else
-        seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+      at::Tensor seed_tensor =
+          RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
 
       auto& syn_tensor =
           habana_op->AllocateSynapseInput(*syn_graph_ptr, seed_tensor, true);
