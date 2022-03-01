@@ -948,8 +948,6 @@ class LazyOp {
             const auto& t = li.toTensor();
             opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
             list_input_pt_vec.emplace_back(t);
-            // TensorList is also an input to the op node itself
-            input_pt_vec.emplace_back(t);
           }
         }
 

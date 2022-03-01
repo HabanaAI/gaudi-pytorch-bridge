@@ -211,8 +211,11 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
       HABANA_ASSERT(input_pt_idx < input_pt_vec.size());
       m_input_pt_tensors.emplace_back(input_pt_vec[input_pt_idx]);
     } else if (
-        c10::Symbol::fromQualString("prim::constant") == inp.mp_node->op()) {
-      // Skip this input index
+        c10::Symbol::fromQualString("prim::constant") == inp.mp_node->op() ||
+        c10::Symbol::fromQualString("prim::ListConstruct") ==
+            inp.mp_node->op()) {
+      // Skip this input index for constant and list construct
+      // For list construct AddInputPtTensors() is handled separately
       continue;
     }
     input_pt_idx++;

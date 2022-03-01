@@ -388,13 +388,7 @@ class OptimizerFusedLambPhase1 : public Node {
         GetOrCreateHbLazyTensor(bias_correction2_t, c10::kHPU);
     AddInput(hl_bias_correction2_t.GetIrValue());
 
-    // Added tensors corresponding to tensorlist just as placeholder inorder to
-    // get correct index for input_pt_vec
     std::vector<at::Tensor> input_pt_vec{
-        gradients[0],
-        weights[0],
-        exp_avg[0],
-        exp_avg_sq[0],
         clip_global_grad_norm,
         bias_correction1_t,
         bias_correction2_t};
@@ -476,13 +470,7 @@ class OptimizerFusedLambPhase2 : public Node {
     auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
     AddInput(hl_neg_step_t.GetIrValue());
 
-    std::vector<at::Tensor> input_pt_vec{
-        weight_vec[0],
-        adam_norm_vec[0],
-        weight_norm_vec[0],
-        adam_step_vec[0],
-        trust_ratio_vec[0],
-        neg_step_t};
+    std::vector<at::Tensor> input_pt_vec{neg_step_t};
     AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(
