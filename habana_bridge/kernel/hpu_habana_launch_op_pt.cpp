@@ -92,7 +92,11 @@ std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
     const std::string& name,
     size_t g_index) {
   if (id_str == std::string()) {
-    id_str = makeIdStr(name, g_index);
+    if (IS_BRIDGE_DEBUG_ENABLED) {
+      id_str = makeIdStr(name, g_index);
+    } else {
+      id_str = name;
+    }
   }
   return id_str;
 }
