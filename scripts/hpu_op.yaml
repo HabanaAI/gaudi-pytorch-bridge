@@ -1804,6 +1804,7 @@ minimum:
   legacy_eager: true
 
 minimum.out:
+  broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
 

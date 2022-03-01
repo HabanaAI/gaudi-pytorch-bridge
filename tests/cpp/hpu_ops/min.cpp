@@ -174,3 +174,27 @@ TEST_F(HpuOpTest, min_out_neg_keepdim_false) {
   Compare(min_val, hmin_val);
   Compare(min_indice, hmin_indice);
 }
+
+TEST_F(HpuOpTest, min_out) {
+  GenerateInputs(2, {{2, 2}, {2, 2}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = expected.to("hpu");
+
+  torch::min_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  torch::min_outf(GetHpuInput(0), GetHpuInput(1), result);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, min_out_with_broadcast) {
+  GenerateInputs(2, {{2, 1, 2}, {5, 2}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = expected.to("hpu");
+
+  torch::min_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  torch::min_outf(GetHpuInput(0), GetHpuInput(1), result);
+  Compare(expected, result);
+}
