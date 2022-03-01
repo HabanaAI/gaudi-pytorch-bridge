@@ -474,9 +474,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_intOp =
           make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
       bf_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      inputs[1] = c10::ScalarType::Float;
       bf_to_floatOp->AllocateAndAddSynapseNode(
           graph, inputs, habana::OutputMetaDataVector(1));
       float_to_intOp->SetSynapseInput(bf_to_floatOp->GetSynOutputs()[0]);
+      inputs[1] = c10::ScalarType::Int;
       float_to_intOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
       p_context_->syn_outputs_.emplace_back(
           std::move(float_to_intOp->GetSynOutputs()[0]));
@@ -490,9 +492,11 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       auto float_to_bfOp = make_operator<CastOperator>(
           self.device().index(), "cast_f32_to_bf16");
       byte_to_floatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      inputs[1] = IValue(c10::ScalarType::Float);
       byte_to_floatOp->AllocateAndAddSynapseNode(
           graph, inputs, habana::OutputMetaDataVector(1));
       float_to_bfOp->SetSynapseInput(byte_to_floatOp->GetSynOutputs()[0]);
+      inputs[1] = IValue(c10::ScalarType::BFloat16);
       float_to_bfOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
       p_context_->syn_outputs_.emplace_back(
           std::move(float_to_bfOp->GetSynOutputs()[0]));
