@@ -9,6 +9,7 @@
  */
 
 #include "view_utils.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/lazy_executor.h"
 
 using namespace habana;
@@ -32,6 +33,7 @@ namespace habana_lazy {
  *           is_alias_of(self, other) -> returns true
  *        or, when self is a view of other above.
  */
+
 bool is_aliased_view(
     HbLazyTensorImpl& self_impl,
     HbLazyTensorImpl& other_impl) {
@@ -50,8 +52,15 @@ bool is_aliased_view(
         auto it = context->view_table.find(tensor_id);
         if (it != context->view_table.end()) {
           const StrideParams& params = context->view_table[tensor_id];
-          base_id = GetHbLazyTensor(params.t).getTensorUniqueId();
+          auto updated_tensor = get_recent_base_tensor(params.t);
+          base_id = GetHbLazyTensor(updated_tensor).getTensorUniqueId();
           is_view = true;
+        } else {
+          auto it = context->orig_tensor_map.find(tensor_id);
+          if (it != context->orig_tensor_map.end()) {
+            base_id = GetHbLazyTensor((it->second)).getTensorUniqueId();
+            is_view = true;
+          }
         }
         return std::make_tuple(base_id, is_view);
       }};
@@ -62,9 +71,9 @@ bool is_aliased_view(
   std::tie(self_base_id, self_is_view) = find_view_base(self_id);
   std::tie(other_base_id, other_is_view) = find_view_base(other_id);
 
-  // Case 1: At least one of self and other need to be in context->view_table
+  // Case 1: Both of them are not views, alias if self_id same as other_id
   if (!self_is_view && !other_is_view) {
-    aliased = false;
+    aliased = self_id == other_id;
   } else if (self_is_view && other_is_view) {
     // Case 2: If both self and other are views
     aliased = self_base_id == other_base_id;
