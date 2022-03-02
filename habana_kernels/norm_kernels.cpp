@@ -1319,7 +1319,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       habana_helpers::createPTTensor(input_reshaped, false),
       OutputMetaData());
 
-  AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(0));
+  AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(1));
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
