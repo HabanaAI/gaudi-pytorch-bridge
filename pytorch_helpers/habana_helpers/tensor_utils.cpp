@@ -1196,6 +1196,7 @@ void habana_helpers::copy_data_to_device(
             dst.storage().data_ptr().get()),
         src.nbytes(),
         [srcRef, dstRef]() { return; },
+        non_blocking,
         is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
@@ -1207,6 +1208,7 @@ void habana_helpers::copy_data_to_device(
             dst.storage().data_ptr().get()),
         src.nbytes(),
         [&copyDone]() { copyDone = true; },
+        false,
         is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion

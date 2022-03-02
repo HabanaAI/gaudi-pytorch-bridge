@@ -166,6 +166,7 @@ class device {
       device_ptr event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb,
+      bool non_blocking = false,
       bool is_pinned = false);
   synapse_error copy_data_to_host(
       device_ptr device_data,
@@ -423,6 +424,17 @@ class device {
 
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};
+
+  std::set<synapse_helpers::device_ptr> copy_tensor_set_{};
+
+  // private inline method
+  inline bool copy_data_to_device_(
+      void* cpu_data,
+      device_ptr destination,
+      device_ptr event_addr,
+      size_t total_bytes,
+      const event_done_callback& done_cb,
+      bool is_pinned);
 
   // Empty be default, framework can register its function to be called before
   // device is released

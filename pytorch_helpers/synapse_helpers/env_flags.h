@@ -271,6 +271,11 @@ ENV_STRUCT_DEFINITION(PT_HPU_DYNAMIC_MAX_POLICY_DEFAULT, unsigned, 2);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, bool, false);
 
+// Options to enable/disable std::copy to async thread for non blocking copy
+// and minimum tensor size limit for non blocking copy, Default 1 MB.
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE, unsigned, 1048576);
+
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes
 // read from disk.

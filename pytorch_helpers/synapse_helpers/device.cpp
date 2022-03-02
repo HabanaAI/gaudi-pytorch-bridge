@@ -344,6 +344,12 @@ void device::cleanup() {
     return;
   }
   cleanup_done_ = true;
+  // Wait for H2D copy tensors if any pending
+  std::set<synapse_helpers::device_ptr>::iterator itr;
+  for (itr = copy_tensor_set_.begin(); itr != copy_tensor_set_.end(); itr++) {
+    sem_.enqueue_wait_event(*itr, stream_h2d_);
+  }
+
   flush_stream_events();
 
   if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
@@ -438,7 +444,7 @@ void device::free(device_ptr ptr) {
   return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
-synapse_error device::copy_data_to_device(
+inline bool device::copy_data_to_device_(
     void* cpu_data,
     device_ptr destination,
     device_ptr event_addr,
@@ -454,18 +460,13 @@ synapse_error device::copy_data_to_device(
       total_bytes);
   synStatus status;
 
-  /* in case of write, we can invoke a fill (compute)
-   * stream or via DMA. if we have a fill and a copy
-   * Need to wait for the fill compute stream to complete
-   * before copy, so wait */
-  sem_.enqueue_wait_event(event_addr, stream_h2d_);
   void* mapped_cpu_data = cpu_data;
   uint8_t* dst_ptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_WARN("Host malloc failed: ", status);
-      return synapse_error{"Host Malloc failed with status.", status};
+      PT_SYNHELPER_FATAL("Host malloc failed with ", status);
+      return false;
     }
     std::copy(
         reinterpret_cast<uint8_t*>(cpu_data),
@@ -510,7 +511,8 @@ synapse_error device::copy_data_to_device(
       if (!is_pinned) {
         host_memory_.free((void*)dst_ptr);
       }
-      return synapse_error{"DMA to HPU start failed.", status};
+      PT_SYNHELPER_FATAL("DMA to HPU start failed with ", status);
+      return false;
     }
   } while (++attempt < max_dma_copy_retry_count_);
 
@@ -523,7 +525,48 @@ synapse_error device::copy_data_to_device(
         done_cb();
         locked = nullptr;
       });
+  return true;
+}
 
+synapse_error device::copy_data_to_device(
+    void* cpu_data,
+    device_ptr destination,
+    device_ptr event_addr,
+    size_t total_bytes,
+    const event_done_callback& done_cb,
+    bool non_blocking,
+    bool is_pinned) {
+  /* in case of write, we can invoke a fill (compute)
+   * stream or via DMA. if we have a fill and a copy
+   * Need to wait for the fill compute stream to complete
+   * before copy, so wait */
+  sem_.enqueue_wait_event(event_addr, stream_h2d_);
+
+  /*
+   * If non-blocking copy and non pinned memory and tensor size >= 1 MB
+   *  - Schedule copy data function to a async thread and add future
+   * Else
+   *  - Continue copy data function in the same main thread
+   */
+  if (true == non_blocking && false == is_pinned &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD) &&
+      total_bytes >= GET_ENV_FLAG_NEW(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE)) {
+    std::future<bool> copy_future = std::async(
+        std::launch::async | std::launch::deferred,
+        &device::copy_data_to_device_,
+        this,
+        cpu_data,
+        destination,
+        event_addr,
+        total_bytes,
+        done_cb,
+        is_pinned);
+    submit_future(destination, std::move(copy_future));
+    copy_tensor_set_.insert(destination);
+  } else { // Continue in the same main thread
+    (void)device::copy_data_to_device_(
+        cpu_data, destination, event_addr, total_bytes, done_cb, is_pinned);
+  }
   return {};
 }
 
