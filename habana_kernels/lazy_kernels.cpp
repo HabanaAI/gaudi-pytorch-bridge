@@ -7155,6 +7155,88 @@ Tensor habana_nms_hpu_lazy(
   return result;
 }
 
+Tensor batched_nms_hpu_lazy(
+    const Tensor& boxes,
+    const Tensor& scores,
+    const Tensor& indexes,
+    float iou_threshold) {
+  PT_LAZY_TRACE;
+  // Ensuring that the boxes and scores input to batched_nms is always FP32,
+  // this is because CGUID expects boxes to be f32. TBD: move this cast addition
+  // to HMP
+  Tensor boxes_cast = boxes;
+  Tensor scores_cast = scores;
+  if (boxes.scalar_type() == c10::ScalarType::BFloat16) {
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {boxes, c10::ScalarType::Float},
+        {boxes.sizes().vec()},
+        c10::ScalarType::Float};
+    boxes_cast = k_.call();
+  }
+  if (scores.scalar_type() == c10::ScalarType::BFloat16) {
+    LazyOp<at::Tensor> s_{
+        "hpu::cast",
+        {scores, c10::ScalarType::Float},
+        {scores.sizes().vec()},
+        c10::ScalarType::Float};
+    scores_cast = s_.call();
+  }
+
+  struct BatchedNMSLazy : LazyOp<std::tuple<at::Tensor, at::Tensor>> {
+   public:
+    explicit BatchedNMSLazy(
+        const std::vector<at::IValue>& inputs,
+        const std::vector<std::vector<int64_t>>& out_shapes = {})
+        : LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+              "hpu::batched_nms",
+              inputs,
+              {},
+              out_shapes,
+              -1) {}
+
+    std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
+      std::tuple<at::Tensor, at::Tensor> results;
+      auto inputs = get_inputs();
+      auto scores = inputs[1].toTensor();
+      auto box_id_out_shape = get_out_shapes()[0];
+      auto shape_tensor_shape = get_out_shapes()[1];
+      std::get<0>(results) = empty_hpu_lazy(
+          box_id_out_shape,
+          scores.options().dtype(c10::ScalarType::Long),
+          scores.suggest_memory_format(),
+          false);
+      std::get<1>(results) = empty_hpu_lazy(
+          shape_tensor_shape,
+          scores.options().dtype(c10::ScalarType::Int),
+          scores.suggest_memory_format(),
+          false);
+      return results;
+    }
+  };
+
+  std::vector<int64_t> box_id_out_shape{scores.sizes()[0]};
+  std::vector<int64_t> shape_tensor_shape{5};
+  BatchedNMSLazy k(
+      {boxes_cast, scores_cast, indexes, Scalar(iou_threshold)},
+      {box_id_out_shape, shape_tensor_shape});
+  auto result_nms = k.call();
+  auto box_id_out = std::get<0>(result_nms);
+  auto shape_tensor = std::get<1>(result_nms);
+
+  // Force an execution here to capture valid_box_id_out.
+  // This element is required to determine shape of next node's output
+  PT_IRGRAPH_DEBUG("step marker due to nms");
+  // .item() internally triggers a mark_step
+  auto end = shape_tensor[0].item<int64_t>();
+
+  // Extract correct output using shape information.
+  // Add a slice node to capture relevent elements
+  auto result = slice_hpu_lazy(box_id_out, 0, 0, end, 1);
+  flush_op(result);
+  return result;
+}
+
 at::Tensor roi_align_fwd_hpu_lazy(
     const at::Tensor& images,
     const at::Tensor& rois,

@@ -325,6 +325,57 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(postnms_op->GetOutputs()[2]));
 }
 
+void BatchedNMSOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for HabanaBatchedNms operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for HabanaBatchedNms operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for HabanaBatchedNms operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg3 expected to be tensor for HabanaBatchedNms operator");
+  TORCH_CHECK(
+      inputs[3].isScalar(),
+      "Input arg4 expected to be scalar for HabanaBatchedNms operator");
+
+  auto boxes = inputs[0].toTensor();
+  auto scores = inputs[1].toTensor();
+  auto indexes = inputs[2].toTensor();
+  auto iou = inputs[3].toScalar();
+
+  auto box_id_out = habana_helpers::createPTTensor(
+      indexes,
+      {static_cast<int>(indexes.sizes()[0])},
+      indexes.options(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(
+      graph,
+      box_id_out,
+      output_metadata.at(0),
+      false); // is_shape_tensor
+
+  auto shape_tensor = habana_helpers::createPTTensor(
+      indexes, {5}, indexes.options(), output_metadata.at(1).persistent);
+  AllocateSynapseOutput(graph, shape_tensor, output_metadata.at(1), false);
+
+  // max_classes set for COCO dataset for now, can be increased in future based
+  // on requirement. larger max_classes => smaller max size for num_boxes
+  // allowed because of memory trade-off.
+  constexpr int max_classes = 81;
+  ns_BatchedNmsKernel::Params params{};
+  params.nms_threshold = iou.toFloat();
+  params.max_num_classes =
+      std::min(max_classes, static_cast<int>(scores.sizes()[0]));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 at::Tensor habana_nms_hpu(
     const at::Tensor& boxes,
     const at::Tensor& scores,
@@ -373,10 +424,19 @@ at::Tensor habana_nms_hpu(
   return output;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "hpu::habana_nms",
-    [](int device_id, c10::ScalarType scalar_type) {
-      std::string node_type =
-          "habana_nms_" + habana_helpers::name_suffix_from_type(scalar_type);
-      return std::make_shared<HabanaNMSOperator>(device_id, node_type);
-    });
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::habana_nms",
+            [](int device_id, c10::ScalarType scalar_type) {
+              std::string node_type = "habana_nms_" +
+                  habana_helpers::name_suffix_from_type(scalar_type);
+              return std::make_shared<HabanaNMSOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::batched_nms",
+            [](int device_id, c10::ScalarType scalar_type) {
+              std::string node_type = "batched_nms_fwd_" +
+                  habana_helpers::name_suffix_from_type(scalar_type);
+              return std::make_shared<BatchedNMSOperator>(device_id, node_type);
+            });

@@ -151,6 +151,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &torchvision_nms_hpu_wrap,
       "NMS operation for boxes of a single class");
   m.def(
+      "batched_nms",
+      &batched_nms_hpu_wrap,
+      "NMS operation for boxes of a multiple classes");
+  m.def(
       "embedding_bag_sum_fwd",
       &embedding_bag_sum_hpu_wrap,
       "embedding bag sum forward");

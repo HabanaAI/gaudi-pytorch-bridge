@@ -819,6 +819,11 @@ at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+at::Tensor batched_nms_hpu_lazy(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    const at::Tensor& indexes,
+    float iou_threshold);
 at::Tensor roi_align_fwd_hpu_lazy(
     const at::Tensor& images,
     const at::Tensor& rois,

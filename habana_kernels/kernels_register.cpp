@@ -3982,6 +3982,14 @@ Tensor habana_nms_hpu_wrap(
   }
 }
 
+Tensor batched_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    const at::Tensor& indices,
+    float iou_threshold) {
+  return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
+}
+
 Tensor hpu_wrap::_masked_scale(
     const Tensor& self,
     const Tensor& mask,
@@ -4391,6 +4399,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "batched_nms(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold) -> (Tensor, Tensor)");
   m.def(
       "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> (Tensor)");
   m.def(

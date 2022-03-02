@@ -64,4 +64,17 @@ class HabanaNMSOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
+class BatchedNMSOperator : public HabanaOperator {
+ public:
+  BatchedNMSOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 } // namespace habana
