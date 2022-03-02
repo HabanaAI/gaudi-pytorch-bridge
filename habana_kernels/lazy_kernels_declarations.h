@@ -863,11 +863,6 @@ at::Tensor& diag_hpu_lazy_out(
     const at::Tensor& self,
     int64_t diagonal,
     at::Tensor& out);
-at::Tensor frobenius_norm_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim);
-
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,
     int64_t root_rank,

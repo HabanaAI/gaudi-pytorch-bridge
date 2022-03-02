@@ -4680,7 +4680,9 @@ Tensor norm_scalar_dim_hpu_lazy(
   }
   if (!self.dim())
     return self;
-
+  if (dim.size() == 0) {
+    return norm_scalar_hpu_lazy(self, p.value_or(2.0));
+  }
   // NOTE: Casting a large integer to a double/float will introduce some error,
   // but for practical purposes, it won't matter since a large order/p.value()
   // will usually give an infinite result
@@ -4695,7 +4697,7 @@ Tensor norm_scalar_dim_hpu_lazy(
   if (p.has_value() &&
       (p.value().toFloat() == 0.0 ||
        p.value().toFloat() == LoweringUtil::FP_INFINITY ||
-       p.value().toFloat() == LoweringUtil::FP_NEG_INFINITY)) { // L0 Norm
+       p.value().toFloat() == LoweringUtil::FP_NEG_INFINITY)) { // L0,LInf Norm
     auto out_shape =
         NormOperator::compute_output_shape(input_t, wrapped_dims, keepdim);
     LazyOp<at::Tensor> k{
@@ -7338,7 +7340,7 @@ Tensor cumsum_hpu_lazy(
   LazyOp<at::Tensor> k{"aten::cumsum", {self_updated_dtype, dim, dtype}};
   return k.call();
 }
-
+#if 0
 at::Tensor frobenius_norm_hpu_lazy(
     const Tensor& self,
     at::IntArrayRef dim,
@@ -7354,6 +7356,7 @@ at::Tensor frobenius_norm_hpu_lazy(
     return norm_scalar_dim_hpu_lazy(self, p, dim, keepdim);
   }
 }
+#endif
 
 Tensor floor_divide_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   // floor_divide now do truncation:

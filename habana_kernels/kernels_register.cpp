@@ -1967,61 +1967,6 @@ Tensor hpu_wrap::norm(
   }
 }
 
-Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
-  if (!hpu_check_inputs_impl("frobenius_norm", {self}))
-    return AtenHpuTypeDefault::frobenius_norm(self);
-
-  struct FrobeniusNorm : public torch::autograd::Function<FrobeniusNorm> {
-    static at::Tensor forward(
-        torch::autograd::AutogradContext*,
-        const at::Tensor& self) {
-      return frobenius_norm_hpu_lazy(self, std::vector<int64_t>{}, false);
-    }
-
-    // Implemented for convention, not to be invoked
-    static torch::autograd::variable_list backward(
-        torch::autograd::AutogradContext*,
-        const torch::autograd::variable_list&) {
-      HABANA_ASSERT(
-          0 &&
-          "autograd::Function<FrobeniusNorm>::backward - should not be reached.");
-      return {};
-    }
-  };
-
-  return FrobeniusNorm::apply(self);
-}
-
-Tensor hpu_wrap::frobenius_norm(
-    const Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim) {
-  if (!hpu_check_inputs_impl("frobenius_norm", {self}))
-    return AtenHpuTypeDefault::frobenius_norm(self);
-
-  struct FrobeniusNorm : public torch::autograd::Function<FrobeniusNorm> {
-    static at::Tensor forward(
-        torch::autograd::AutogradContext*,
-        const at::Tensor& self,
-        at::IntArrayRef dim,
-        bool keepdim) {
-      return frobenius_norm_hpu_lazy(self, dim, keepdim);
-    }
-
-    // Implemented for convention, not to be invoked
-    static torch::autograd::variable_list backward(
-        torch::autograd::AutogradContext*,
-        const torch::autograd::variable_list&) {
-      HABANA_ASSERT(
-          0 &&
-          "autograd::Function<FrobeniusNorm>::backward - should not be reached.");
-      return {};
-    }
-  };
-
-  return FrobeniusNorm::apply(self, dim, keepdim);
-}
-
 Tensor hpu_wrap::instance_norm(
     const Tensor& input,
     const c10::optional<Tensor>& weight_opt,

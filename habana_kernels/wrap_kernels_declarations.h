@@ -16,11 +16,6 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
-  static at::Tensor frobenius_norm(const at::Tensor& self);
-  static at::Tensor frobenius_norm(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim);
   static at::Tensor& silu_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor cumsum(
       const at::Tensor& self,

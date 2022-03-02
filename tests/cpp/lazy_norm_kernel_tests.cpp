@@ -678,6 +678,28 @@ TEST_F(LazyNormKernelTest, NormScalarDimDtypeTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
 
+TEST_F(LazyNormKernelTest, NormScalarDimEmptyCasepGenTest) {
+  torch::Tensor A = torch::randn({2, 2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  std::vector<int64_t> dimarr{};
+  c10::IntArrayRef dims(dimarr.data(), dimarr.size());
+  torch::Tensor hOut = torch::norm(hA, 3.0, dimarr, false);
+  torch::Tensor Out = torch::norm(A, 3.0, dimarr, false);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}
+
+TEST_F(LazyNormKernelTest, NormScalarDimEmptyCasep0Test) {
+  torch::Tensor A = torch::randn({2, 2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  std::vector<int64_t> dimarr{};
+  c10::IntArrayRef dims(dimarr.data(), dimarr.size());
+  torch::Tensor hOut = torch::norm(hA, 0.0, dimarr, false);
+  torch::Tensor Out = torch::norm(A, 0.0, dimarr, false);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}
+
 TEST_F(LazyNormKernelTest, NormScalarDimBFDtypeTest) {
   torch::Tensor A =
       torch::randn({2, 2, 2}, at::device(at::kCPU).dtype(at::kBFloat16));
@@ -690,6 +712,18 @@ TEST_F(LazyNormKernelTest, NormScalarDimBFDtypeTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
 
+TEST_F(LazyNormKernelTest, NormScalarDimEmptyCasepInfTest) {
+  torch::Tensor A = torch::randn({2, 2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  std::vector<int64_t> dimarr{};
+  c10::IntArrayRef dims(dimarr.data(), dimarr.size());
+  torch::Tensor hOut =
+      torch::norm(hA, std::numeric_limits<float>::infinity(), dimarr, false);
+  torch::Tensor Out =
+      torch::norm(A, std::numeric_limits<float>::infinity(), dimarr, false);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}
 /*
 TEST_F(LazyNormKernelTest, NormScalarNonFloatDimTest) {
   auto options = torch::TensorOptions().dtype(torch::kByte);
@@ -703,7 +737,6 @@ TEST_F(LazyNormKernelTest, NormScalarNonFloatDimTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
 */
-
 TEST_F(LazyNormKernelTest, L0NormScalarDimTest) {
   torch::Tensor A = torch::randn({2, 2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
