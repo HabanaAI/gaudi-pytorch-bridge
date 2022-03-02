@@ -693,7 +693,7 @@ std::vector<at::Tensor> UpdateViewDistributed(std::vector<at::Tensor>& in_vec) {
 
       // note: this strided insert will be executed lazily after the execution
       // of collectives
-      strided_insert_hpu_lazy(t, t);
+      strided_insert_hpu_lazy(t, t, false);
     } else {
       // check for updated version
       t_updated = get_recent_base_tensor(t);

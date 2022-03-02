@@ -45,3 +45,6 @@ if __name__ == "__main__":
    world_size = 2
 
    mp.spawn(reduce_op_worker, args=(world_size, ), nprocs=world_size, join=True)
+   os.environ['PT_HPU_LAZY_MODE'] = '2'
+   mp.spawn(reduce_op_worker, args=(world_size, ), nprocs=world_size, join=True)
+   os.environ['PT_HPU_LAZY_MODE'] = '1'
