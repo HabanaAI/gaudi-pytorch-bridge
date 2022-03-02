@@ -33,6 +33,7 @@ class HcclCommunicator {
 
   std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(
       int device_id);
+  std::vector<hcclStream_t> getCommStreams();
   hcclStream_t getCommStream(int device_id);
   std::shared_ptr<hcclComm_t> GetHcclHandle();
 

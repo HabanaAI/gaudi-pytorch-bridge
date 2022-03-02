@@ -117,6 +117,11 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
   c10::intrusive_ptr<ProcessGroup::Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
+ private:
+  void hostBarrier();
+  c10::intrusive_ptr<Store> store_;
+  size_t barrier_cnt_;
+
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;
 };

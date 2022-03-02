@@ -7,16 +7,26 @@
  *
  ******************************************************************************
  */
+#include <hccl.h>
+#include <hccl_types.h>
+#include <hcl_api.h>
 
 #include "process_group_lazy_hccl.hpp"
 #include "habana_kernels/lazy_kernels_declarations.h"
-//#include "hpu_ops/generated/hpu_op.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 namespace c10d {
 
 namespace {
+
+#define HOST_SYNC()                                   \
+  {                                                   \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_PT_STORE_SYNC)) { \
+      hostBarrier();                                  \
+    }                                                 \
+  }
+
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
 // ensure compatibility with the corresponding tensor in `other'.
 std::vector<at::Tensor> flatten_for_scatter_gather(
@@ -65,7 +75,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     int rank,
     int size,
     const std::chrono::milliseconds& timeout)
-    : ProcessGroup(rank, size) {
+    : ProcessGroup(rank, size), store_(store), barrier_cnt_(0) {
   PT_LAZY_DEBUG("Create ProcessGroupLazyHCCL, rank = ", rank, " size = ", size);
   comm_ = habana::HcclCommunicator::Create(
       rank,
@@ -88,6 +98,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
 
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
   PT_LAZY_DEBUG("Destroy ProcessGroupLazyHCCL");
+  HOST_SYNC()
   comm_.reset();
 };
 
@@ -329,9 +340,53 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recvAnysource(
       "recvAnysource is currently not supported with HCCL");
 };
 
+constexpr int64_t kSynchronizeBusyWaitMillis = 1;
+// Minumum three keys are required to avoid race condition
+constexpr int64_t kNumBarrierKeys = 3;
+void ProcessGroupLazyHCCL::hostBarrier() {
+  PT_DISTRIBUTED_BEGIN;
+
+  auto hccl_rank = getRank();
+  std::string barrier_key = std::string("HOST_BARRIER:");
+  std::string storeKey = std::to_string(barrier_cnt_);
+  storeKey += barrier_key;
+  storeKey += std::to_string(size_);
+
+  auto first_count = store_->add(storeKey, 1);
+  TORCH_CHECK(first_count - 1 < size_, "Host barrier Key error");
+  auto worker_count = store_->add(storeKey, 0);
+  while (worker_count != size_) {
+    worker_count = store_->add(storeKey, 0);
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+  }
+
+  if (hccl_rank == 0) {
+    // Delete the previous key
+    std::string storeKey_pre = std::to_string(
+        barrier_cnt_ == 0 ? (kNumBarrierKeys - 1) : barrier_cnt_ - 1);
+    storeKey_pre += barrier_key;
+    storeKey_pre += std::to_string(size_);
+    store_->deleteKey(storeKey_pre);
+  }
+
+  barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
+  PT_DISTRIBUTED_END;
+}
+
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts) {
-  throw std::runtime_error("barrier is currently not supported with HCCL");
+  HOST_SYNC()
+  habana_lazy::HbLazyTensor::StepMarker();
+
+  auto comm = habana::HcclCommunicator::Get(comm_->GetId());
+  std::vector<hcclStream_t> collective_streams = comm->getCommStreams();
+  for (size_t i = 0; i < collective_streams.size(); i++) {
+    hcclBarrier(*comm->GetHcclHandle(), collective_streams.at(i));
+  }
+
+  std::vector<at::Tensor> tensors;
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
 } // namespace c10d
