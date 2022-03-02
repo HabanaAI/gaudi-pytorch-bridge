@@ -137,13 +137,73 @@ class AeonSSDConfigurator:
 
     def _handle_ssd_cropping(self, t):
         self.transforms_config["crop_enabled"] = False #crop is handled by batch_samplers
-        self.transforms_config["center"] = False #crop is handled by batch_samplers
-        #for e in t.sample_options:
+        self.transforms_config["center"] = False
+        self.transforms_config["emit_constraint_type"] = "center" #emit bboxes whos center not within crop
         self.transforms_config["batch_samplers"] = [
             {
                 "max_trials": 1,
                 "max_sample": 1,
-            }]
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0]
+                }
+            },
+            {
+                "max_trials": 1,
+                "max_sample": 1,
+                "sample_constraint": {
+                    "min_jaccard_overlap": 0.1,
+                },
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0]
+                }
+            },
+            {
+                "max_trials": 1,
+                "max_sample": 1,
+                "sample_constraint": {
+                    "min_jaccard_overlap": 0.3,
+                },
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0],
+                }
+            },
+            {
+                "max_trials": 1,
+                "max_sample": 1,
+                "sample_constraint": {
+                    "min_jaccard_overlap": 0.5,
+                },
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0],
+                }
+            },
+            {
+                "max_trials": 1,
+                "max_sample": 1,
+                "sample_constraint": {
+                    "min_jaccard_overlap": 0.7
+                },
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0],
+                }
+            },
+            {
+                "max_trials": 1,
+                "max_sample": 1,
+                "sample_constraint": {
+                    "min_jaccard_overlap": 0.9
+                },
+                "sampler": {
+                    "aspect_ratio": [0.5, 2.0],
+                    "scale": [0.3, 1.0],
+                }
+            }
+            ]
 
     def _handle_random_horizontal_flip(self, t):
         if t.p != 0.5:
@@ -163,7 +223,6 @@ class AeonSSDConfigurator:
         if std != [0.229, 0.224, 0.225]:
             raise ValueError("aeon Normalize supports only std of [0.229, 0.224, 0.225]")
 
-        #TODO: is required for SSD?
         self.transforms_config["caffe_mode"] = True
 
     def _get_image_config(self):
@@ -179,6 +238,7 @@ class AeonSSDConfigurator:
     def _get_ssd_config(self):
         ssd_config = {
             "type": "localization_ssd",
+            "pt_mode":True,
             "max_gt_boxes": 64,
             "class_names": [f"{v}" for v in self.dataset.label_info.values()],
             "height": self.transforms_config["height"],
@@ -192,13 +252,17 @@ class AeonSSDConfigurator:
         }
         if self.train:
             augmentation_config["caffe_mode"] = self.transforms_config.get("caffe_mode", True)
+            augmentation_config["pt_mode"] = self.transforms_config.get("pt_mode", True)
             augmentation_config["crop_enable"] = self.transforms_config.get("crop_enabled", False)
+            augmentation_config["center"] = self.transforms_config.get("center", False)
             augmentation_config["flip_enable"] = self.transforms_config.get("flip_enable", False)
             augmentation_config["contrast"] = self.transforms_config.get("contrast", [1,1])
             augmentation_config["brightness"] = self.transforms_config.get("brightness", [1,1])
             augmentation_config["saturation"] = self.transforms_config.get("saturation", [1,1])
             augmentation_config["hue"] = self.transforms_config.get("hue", [0,0])
             augmentation_config["batch_samplers"]= self.transforms_config.get("batch_samplers", [])
+            augmentation_config["emit_constraint_type"]= self.transforms_config.get("emit_constraint_type", "")
+            augmentation_config["emit_constraint_type"] = "center"
         else:
             augmentation_config["validation_mode"] = True
         return augmentation_config
