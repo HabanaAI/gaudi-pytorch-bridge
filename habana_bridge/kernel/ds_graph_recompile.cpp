@@ -37,7 +37,7 @@ at::Tensor habana::CreateEmptyTensor(
 
 torch::jit::Stack habana::CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    habana_helpers::DynamicBucketInfo::TensorShapes& input_shapes) {
+    habana_helpers::TensorShapes& input_shapes) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_input_stack;
 
@@ -76,7 +76,7 @@ bool habana::RefineBucketDS(double time_improve_factor) {
 
 bool habana::CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
+    habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key) {
   bool ret{true};
@@ -92,7 +92,7 @@ bool habana::CompileGraphWithRange(
   } while (use_flag);
   rvpsh->set_use_flag(true);
   PT_DYNAMIC_SHAPE_DEBUG(
-      "BucketRefinement: Will use the following recipe for compilation\n",
+      "BucketRefinement: Will use the following recipe for compilation",
       rvpsh->header_str());
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -117,7 +117,6 @@ bool habana::CompileGraphWithRange(
     size_t graphIndex{visualize::GetGraphIndex(graphKey)};
     std::string graphName{"HabanaFusedOpLazy"};
     std::string opStr{rvpsh->get_op_strs()};
-
     habana::HabanaLaunchOpPT habanaFusedOp{
         mp_g_,
         std::make_shared<habana::HabanaMetaDataToLowering>(

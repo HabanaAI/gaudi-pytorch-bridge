@@ -64,20 +64,16 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
   void LogCompilation(
       DynamicDimsPolicy,
       DynamicDimsPolicy,
-      DynamicBucketInfo::ResultShapes,
+      ResultShapes,
       uint64_t,
       const std::string&,
       CompilationPass,
       uint64_t) override{};
-  void LogUsedBucket(int, DynamicBucketInfo::ResultShapes, bool, uint64_t)
-      override{};
+  void LogUsedBucket(int, ResultShapes, bool, uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
-  void LogRefineCompilation(
-      DynamicBucketInfo::ResultShapes,
-      uint64_t,
-      uint64_t,
-      uint64_t) override{};
+  void LogRefineCompilation(ResultShapes, uint64_t, uint64_t, uint64_t)
+      override{};
   void LogRefineResult(const std::string&, uint64_t) override{};
   uint64_t GetCurrentStep() override {
     return 0;
@@ -121,7 +117,7 @@ void CompilationStatistics::LogShape(
 void CompilationStatistics::LogCompilation(
     DynamicDimsPolicy min_policy,
     DynamicDimsPolicy max_policy,
-    DynamicBucketInfo::ResultShapes ranges,
+    ResultShapes ranges,
     uint64_t signature,
     const std::string& result,
     CompilationPass last_compilation_pass,
@@ -143,7 +139,7 @@ void CompilationStatistics::LogCompilation(
 
 void CompilationStatistics::LogUsedBucket(
     int id,
-    DynamicBucketInfo::ResultShapes ranges,
+    ResultShapes ranges,
     bool refine_candidate,
     uint64_t step) {
   json json_bucket;
@@ -164,7 +160,7 @@ void CompilationStatistics::LogLaunch(uint64_t ms, uint64_t step) {
 }
 
 void CompilationStatistics::LogRefineCompilation(
-    DynamicBucketInfo::ResultShapes ranges,
+    ResultShapes ranges,
     uint64_t signature,
     uint64_t bucket,
     uint64_t step) {
@@ -199,8 +195,7 @@ std::string CompilationStatistics::GetStep(uint64_t step) {
       "%0*d", leading_zeros, step > 0 ? step : GetCurrentStep());
 }
 
-nlohmannV340::json CompilationStatistics::GetRanges(
-    DynamicBucketInfo::ResultShapes ranges) {
+nlohmannV340::json CompilationStatistics::GetRanges(ResultShapes ranges) {
   json result;
   for (auto range : ranges.min_shapes) {
     auto index = range.first;

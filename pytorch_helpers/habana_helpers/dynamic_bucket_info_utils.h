@@ -1,0 +1,367 @@
+/******************************************************************************
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#pragma once
+
+#include <climits>
+
+#include <map>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "pytorch_helpers/habana_helpers/tensor_shape.h"
+
+namespace habana_helpers {
+constexpr size_t max_elements_to_print = 64;
+
+template <typename T, typename A>
+inline std::ostream& operator<<(std::ostream& O, const std::vector<T, A>& V) {
+  if (V.empty()) {
+    O << "empty";
+  } else {
+    if (V.size() <= max_elements_to_print) {
+      bool is_first(true);
+      O << '[';
+      for (auto a : V) {
+        O << (is_first ? "" : " ") << a;
+        is_first = false;
+      }
+      O << ']';
+    } else {
+      O << "has " << V.size() << " elements which is greater than"
+        << " max_elements_to_print=" << max_elements_to_print
+        << ", will skip printing";
+    }
+  }
+  return O;
+}
+
+inline std::ostream& operator<<(std::ostream& O, const std::vector<bool>& V) {
+  if (V.empty()) {
+    O << "empty";
+  } else {
+    for (auto a : V) {
+      O << a;
+    }
+  }
+  return O;
+}
+
+template <typename T, typename U>
+inline std::ostream& operator<<(
+    std::ostream& O,
+    const std::vector<std::pair<T, U>>& V) {
+  if (V.empty()) {
+    O << "empty";
+  } else {
+    bool is_first(true);
+    for (const auto& a : V) {
+      O << (is_first ? "" : " ") << '(' << a.first << ", " << a.second << ')';
+      is_first = false;
+    }
+  }
+  return O;
+}
+
+// DynamicRanges: vector of <low, high> representing ranges
+// This is a flat array, containing all ranges.
+using DynamicRanges = std::vector<std::pair<int64_t, int64_t>>;
+// DynamicDims : input_idx => {dim_idx => range_idx in DynamicRanges}
+using DynamicDims = std::map<int64_t, std::map<int64_t, int64_t>>;
+// Example
+// Invocation 1: T0=[10,40, 45], T1=[30,60]
+// Invocation 1: T0=[20,40, 55], T1=[30,80]
+// For the above invocations DynamicRanges: <10,20>, <45,55>, <60,80>
+// DynamicDims : [0->[0->0,
+//                    2->1],
+//                1-[1->2]]
+
+// DimsHistoryElement : input_idx => {dim_idx => dim_val}
+using DimsHistoryElement = std::map<int64_t, std::map<int64_t, int64_t>>;
+
+// Only use for reference tensor shape
+inline std::string DebugString(const DimsHistoryElement& d) {
+  std::ostringstream O;
+  for (auto tensor_it : d) {
+    O << '\n' << " [";
+    bool is_first{true};
+    for (auto dim_it : tensor_it.second) {
+      O << (is_first ? "" : ",");
+      O << dim_it.second;
+      is_first = false;
+    }
+    O << "]";
+  }
+  return O.str();
+}
+
+inline std::string DebugString(
+    const DimsHistoryElement& d,
+    const DimsHistoryElement& ref) {
+  std::ostringstream O;
+  for (auto tensor_it : ref) {
+    const auto& tensor_idx{tensor_it.first};
+    O << '\n' << " [";
+    bool is_first{true};
+    for (auto dim_it : tensor_it.second) {
+      const auto& dim_idx{dim_it.first};
+      auto dim_val{dim_it.second};
+      if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
+        dim_val = d.at(tensor_idx).at(dim_idx);
+      }
+      O << (is_first ? "" : ",") << dim_val;
+      is_first = false;
+    }
+    O << "]";
+  }
+  return O.str();
+}
+
+inline std::ostream& operator<<(std::ostream& O, const DynamicDims& d) {
+  O << "dynamic dims ::";
+  if (d.empty()) {
+    O << ' ' << "empty";
+  } else {
+    for (const auto& r : d) {
+      O << "  " << r.first << "->";
+      bool is_first{true};
+      O << '(';
+      for (const auto& a : r.second) {
+        O << (is_first ? "" : ",");
+        O << a.first << "->" << a.second;
+        is_first = false;
+      }
+      O << ')';
+    }
+  }
+  O << '\n';
+
+  return O;
+}
+
+inline std::ostream& operator<<(
+    std::ostream& O,
+    const std::map<int64_t, habana_helpers::TensorShape>& t) {
+  for (const auto& a : t) {
+    O << '\n' << " " << a.second;
+  }
+  return O;
+}
+
+inline std::ostream& operator<<(
+    std::ostream& O,
+    const std::unordered_map<int64_t, habana_helpers::TensorShape>& t) {
+  std::vector<int64_t> tensor_idx_vec;
+  tensor_idx_vec.reserve(t.size());
+  for (const auto& a : t) {
+    tensor_idx_vec.push_back(a.first);
+  }
+  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
+  for (const auto i : tensor_idx_vec) {
+    O << "  " << i << ":" << t.at(i);
+    O << '\n';
+  }
+  return O;
+}
+
+inline std::ostream& operator<<(
+    std::ostream& O,
+    const std::unordered_map<uint64_t, habana_helpers::TensorShape>& t) {
+  std::vector<uint64_t> tensor_idx_vec;
+  tensor_idx_vec.reserve(t.size());
+  for (const auto& a : t) {
+    tensor_idx_vec.push_back(a.first);
+  }
+  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
+  for (const auto i : tensor_idx_vec) {
+    O << "  " << i << ":" << t.at(i);
+    O << '\n';
+  }
+  return O;
+}
+
+class TimeStat {
+ public:
+  TimeStat() = default;
+  void Update(uint64_t elapsed_time) {
+    total_time_ += elapsed_time;
+    num_samples_++;
+    average_time_ = total_time_ / num_samples_;
+    min_time_ = std::min(min_time_, elapsed_time);
+    max_time_ = std::max(max_time_, elapsed_time);
+  }
+  uint64_t GetAvgTime() const {
+    return average_time_;
+  }
+  uint64_t GetMinTime() const {
+    return min_time_;
+  }
+  uint64_t GetMaxTime() const {
+    return max_time_;
+  }
+
+  void Reset() {
+    total_time_ = 0;
+    average_time_ = 0;
+    min_time_ = {std::numeric_limits<uint64_t>::max()};
+    max_time_ = 0;
+    num_samples_ = 0;
+  }
+
+  friend inline std::ostream& operator<<(std::ostream& O, const TimeStat& t) {
+    O << "<#samples=" << t.num_samples_ << " min="
+      << (t.min_time_ == std::numeric_limits<uint64_t>::max() ? 0 : t.min_time_)
+      << " max=" << t.max_time_ << " avg=" << t.average_time_
+      << " total=" << t.total_time_ << '>';
+    return O;
+  }
+
+ private:
+  uint64_t total_time_{};
+  uint64_t average_time_{};
+  uint64_t min_time_{std::numeric_limits<uint64_t>::max()};
+  uint64_t max_time_{};
+  uint64_t num_samples_{};
+};
+
+using InpTensorShapes = std::map<int64_t, habana_helpers::TensorShape>;
+using TensorShapes = std::unordered_map<int64_t, habana_helpers::TensorShape>;
+
+struct ResultShapes {
+  TensorShapes min_shapes;
+  TensorShapes max_shapes;
+
+  /*
+  void populate_shapes(TensorShapes &shapes, const DimsHistoryElement& ref) {
+    for (auto tensor_it : ref) {
+      const auto& tensor_idx{tensor_it.first};
+      shapes.emplace(tensor_idx, )
+      for (auto dim_it : tensor_it.second) {
+        const auto& dim_idx{dim_it.first};
+        auto dim_val{dim_it.second};
+        auto dim_mid{dist_mid[tensor_idx][dim_idx]};
+        auto dim_diff = (dim_mid - dim_val) * (dim_mid - dim_val);
+        //PT_TEST_DEBUG_TH(" tensor_idx=", tensor_idx, ", dim_idx=", dim_idx, ",
+  dim_val=", dim_val); cur_dist += dim_diff;
+      }
+    }
+  }
+  */
+
+  ResultShapes(const InpTensorShapes& inp_shapes)
+      : min_shapes(inp_shapes.begin(), inp_shapes.end()),
+        max_shapes(inp_shapes.begin(), inp_shapes.end()) {}
+
+  /*
+  ResultShapes(const DimsHistoryElement& lo, const DimsHistoryElement& hi) {
+  }
+  */
+
+  bool empty() const {
+    return (min_shapes.empty() && max_shapes.empty());
+  }
+  // SynapseShapes syn_shapes;
+  std::string DebugString();
+  std::string DebugString(const InpTensorShapes& inp_shapes);
+};
+
+struct HistoryItem {
+  DimsHistoryElement tshapes_;
+  size_t bucket_index_{ULONG_MAX};
+  uint64_t run_time_{0};
+
+  HistoryItem(DimsHistoryElement&& e, size_t i, uint64_t t)
+      : tshapes_(std::move(e)), bucket_index_(i), run_time_(t) {}
+
+  bool IsInRange(const ResultShapes& r);
+  uint64_t run_time() const {
+    return run_time_;
+  }
+  const DimsHistoryElement& tshapes() const {
+    return tshapes_;
+  }
+  DimsHistoryElement& tshapes() {
+    return tshapes_;
+  }
+};
+
+inline std::string DebugString(
+    const HistoryItem& h,
+    const DimsHistoryElement& ref) {
+  std::ostringstream O;
+  O << " Input shape:" << DebugString(h.tshapes_, ref) << '\n'
+    << " Bucket id: " << h.bucket_index_ << '\n'
+    << " Runtime: " << h.run_time_;
+  return O.str();
+}
+
+struct HistoryItemLog {
+  DimsHistoryElement ref_tshapes_;
+  std::vector<HistoryItem> hist_items_;
+
+  DimsHistoryElement clone_ref_with(int64_t val = 0) const {
+    DimsHistoryElement d{ref_tshapes_};
+    for (auto tensor_it : d) {
+      const auto& tensor_idx{tensor_it.first};
+      for (auto dim_it : tensor_it.second) {
+        const auto& dim_idx{dim_it.first};
+        d[tensor_idx][dim_idx] = val;
+      }
+    }
+
+    return d;
+  }
+
+  const DimsHistoryElement& ref_tshapes() const {
+    return ref_tshapes_;
+  }
+  DimsHistoryElement& ref_tshapes() {
+    return ref_tshapes_;
+  }
+
+  const std::vector<HistoryItem>& hist_items() const {
+    return hist_items_;
+  }
+  std::vector<HistoryItem>& hist_items() {
+    return hist_items_;
+  }
+
+  size_t size() {
+    return hist_items_.size();
+  }
+  const HistoryItem& operator[](size_t i) const {
+    return hist_items_[i];
+  }
+  HistoryItem& operator[](size_t i) {
+    return hist_items_[i];
+  }
+  std::tuple<size_t, bool> FindMidPoint(
+      const std::vector<size_t>& bucket_input_hist_idxes);
+  size_t WithinRangeCount(
+      const DimsHistoryElement& lo,
+      const DimsHistoryElement& hi,
+      const std::vector<size_t>& bucket_input_hist_idxes);
+};
+
+inline std::string DebugString(const HistoryItemLog h) {
+  std::ostringstream O;
+  for (size_t i{}; i < h.hist_items_.size(); i++) {
+    O << "History [" << i << "]:\n"
+      << DebugString(h.hist_items_.at(i), h.ref_tshapes_) << '\n';
+  }
+  return O.str();
+}
+
+} // namespace habana_helpers

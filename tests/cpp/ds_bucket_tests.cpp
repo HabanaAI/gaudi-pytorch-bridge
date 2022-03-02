@@ -54,7 +54,7 @@ class InpShapeGen {
   static inline void print_dbi(
       const habana_helpers::DynamicBucketInfo& bucket_info,
       size_t input_idx,
-      habana_helpers::DynamicBucketInfo::InpTensorShapes& input_shapes,
+      habana_helpers::InpTensorShapes& input_shapes,
       size_t bidx) {
     PT_TEST_DEBUG(
         "====================\n",
@@ -73,8 +73,7 @@ class InpShapeGen {
         "Using min_dim = ", min_dim, ", dyn_dims shape [ ", d1, " ", d0, " ]");
   }
   static inline void print_input_shapes(
-      const std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>&
-          input_shapes_vec) {
+      const std::vector<habana_helpers::InpTensorShapes>& input_shapes_vec) {
     PT_TEST_DEBUG("Will use the following input tensor shapes:");
     size_t in_idx{0};
     for (auto a : input_shapes_vec) {
@@ -82,17 +81,15 @@ class InpShapeGen {
     }
   }
 
-  std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>
-  get_input_shapes_vec(
+  std::vector<habana_helpers::InpTensorShapes> get_input_shapes_vec(
       std::vector<std::vector<std::vector<int64_t>>>& dyn_dimvals_arg) {
     print_dyn_dimvals(dyn_dimvals_arg.size(), dyn_dimvals_arg[0].size());
 
     c10::ScalarType typ(c10::ScalarType::Long);
-    std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes>
-        input_shapes_vec;
+    std::vector<habana_helpers::InpTensorShapes> input_shapes_vec;
     for (auto inputs : dyn_dimvals_arg) {
       int64_t input_idx{0};
-      habana_helpers::DynamicBucketInfo::InpTensorShapes input_shapes;
+      habana_helpers::InpTensorShapes input_shapes;
       for (auto dimvals : inputs) {
         habana_helpers::TensorShape ts(dimvals, typ);
         input_shapes.emplace(input_idx, ts);
@@ -118,8 +115,9 @@ class InpShapeGen {
   static std::unordered_map<size_t, uint64_t> exp_result_map_sw60162;
   static std::unordered_map<size_t, uint64_t> exp_result_map_sw61032;
   static std::unordered_map<size_t, uint64_t> exp_result_map_sw57731;
-  static std::unordered_map<size_t, uint64_t> exp_result_map_c;
-  static std::unordered_map<size_t, uint64_t> exp_result_map_h;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_cal;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_cur;
+  static std::unordered_map<size_t, uint64_t> exp_result_map_his;
 };
 
 int64_t InpShapeGen::min_dim =
@@ -192,7 +190,9 @@ std::vector<std::vector<std::vector<int64_t>>> InpShapeGen::dyn_dimvals = {
     {{10}, {17, 33}, {37, 55, 60}},
     {{10}, {20, 22}, {40, 50, 60}},
 };
-std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_c = {
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_cal =
+    {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 1}};
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_cur = {
     {0, 0},
     {1, 1},
     {2, 2},
@@ -200,7 +200,7 @@ std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_c = {
     {4, 4},
     {5, 5},
 };
-std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_h =
+std::unordered_map<size_t, uint64_t> InpShapeGen::exp_result_map_his =
     {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 1}};
 
 class DynamicDimsTest : public ::testing::TestWithParam<std::tuple<
@@ -239,11 +239,15 @@ INSTANTIATE_TEST_SUITE_P(
             habana_helpers::DynamicDimsPolicy::CALCULATED),
         std::make_tuple(
             InpShapeGen::dyn_dimvals,
-            InpShapeGen::exp_result_map_c,
+            InpShapeGen::exp_result_map_his,
+            habana_helpers::DynamicDimsPolicy::HISTORIC),
+        std::make_tuple(
+            InpShapeGen::dyn_dimvals,
+            InpShapeGen::exp_result_map_cur,
             habana_helpers::DynamicDimsPolicy::CURRENT),
         std::make_tuple(
             InpShapeGen::dyn_dimvals,
-            InpShapeGen::exp_result_map_h,
+            InpShapeGen::exp_result_map_cal,
             habana_helpers::DynamicDimsPolicy::CALCULATED)));
 
 TEST_P(DynamicDimsTest, BucketingPolicy) {
@@ -289,7 +293,7 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
         "For input shapes",
         "[",
         ddim_idx,
-        "]: ",
+        "]:",
         input_shapes,
         '\n',
         "Returned bucket id : ",
@@ -311,11 +315,9 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
   }
 }
 
-habana_helpers::DynamicBucketInfo::InpTensorShapes get_shape(
-    int64_t d1,
-    int64_t d2) {
+habana_helpers::InpTensorShapes get_shape(int64_t d1, int64_t d2) {
   c10::ScalarType t(c10::ScalarType::Long);
-  return habana_helpers::DynamicBucketInfo::InpTensorShapes{
+  return habana_helpers::InpTensorShapes{
       {0, {{d1, 10, 8, 9}, t}}, {1, {{10, 20, 30, d2}, t}}};
 };
 
@@ -358,7 +360,7 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
       {min_dim * 12, min_dim * 22},
       {min_dim * 6, min_dim * 15},
   };
-  std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes> s;
+  std::vector<habana_helpers::InpTensorShapes> s;
   s.reserve(dyn_dims.size());
   for (auto dim : dyn_dims) {
     s.push_back(get_shape(dim[0], dim[1]));
@@ -394,8 +396,8 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
                     << "Returned bucket id : " << bidx << '\n';
           auto ranges = bucket_info.CalculateShapes(bidx);
           if (!ranges.empty()) {
-            habana_helpers::DynamicBucketInfo::InpTensorShapes min_intshapes;
-            habana_helpers::DynamicBucketInfo::InpTensorShapes max_intshapes;
+            habana_helpers::InpTensorShapes min_intshapes;
+            habana_helpers::InpTensorShapes max_intshapes;
             min_intshapes.insert(
                 ranges.min_shapes.begin(), ranges.min_shapes.end());
             max_intshapes.insert(

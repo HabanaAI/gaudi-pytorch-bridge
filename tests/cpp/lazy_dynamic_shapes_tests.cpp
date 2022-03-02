@@ -392,12 +392,19 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
 TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
   int A = 50;
   const int C = 30;
-  std::vector<int> input_sizes{14, 16};
-  std::vector<int> rounds{1, 6};
+  // std::vector<int> input_sizes{14, 16, 30, 16, 30, 16, 30};
+  // std::vector<int> test_rounds{1, 1, 2, 4, 2, 4, 2};
+
+  // std::vector<int> input_sizes{30, 16, 30, 16, 30, 16};
+  // std::vector<int> test_rounds{1, 1, 2, 4, 4, 6};
+
+  std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
+  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 6};
+
   int num;
 
   for (int i = 0; i < input_sizes.size(); i++) {
-    for (int j = 1; j <= rounds[i]; j++) {
+    for (int j = 1; j <= test_rounds[i]; j++) {
       int B = input_sizes[i];
       PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
 

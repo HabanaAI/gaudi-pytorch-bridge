@@ -73,7 +73,7 @@ class CompilationStatistics {
   virtual void LogCompilation(
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy,
-      DynamicBucketInfo::ResultShapes ranges,
+      ResultShapes ranges,
       uint64_t signature,
       const std::string& result,
       CompilationPass last_compilation_pass,
@@ -90,7 +90,7 @@ class CompilationStatistics {
    */
   virtual void LogUsedBucket(
       int id,
-      DynamicBucketInfo::ResultShapes ranges,
+      ResultShapes ranges,
       bool refine_candidate,
       uint64_t step = 0);
 
@@ -122,7 +122,7 @@ class CompilationStatistics {
    * assigned to current iteration
    */
   virtual void LogRefineCompilation(
-      DynamicBucketInfo::ResultShapes ranges,
+      ResultShapes ranges,
       uint64_t signature,
       uint64_t bucket,
       uint64_t step = 0);
@@ -156,7 +156,7 @@ class CompilationStatistics {
   nlohmannV340::json json_file_;
 
   std::string GetStep(uint64_t step);
-  nlohmannV340::json GetRanges(DynamicBucketInfo::ResultShapes ranges);
+  nlohmannV340::json GetRanges(ResultShapes ranges);
   CompilationStatistics(absl::string_view path, uint64_t global_count);
 
   // TF_DISALLOW_COPY_AND_ASSIGN(CompilationStatistics);

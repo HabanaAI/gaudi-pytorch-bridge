@@ -64,12 +64,12 @@ enum ControlEdgeType {
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 
 struct DynamicShapeInfo {
-  habana_helpers::DynamicBucketInfo::InpTensorShapes act_input_tshapes;
-  habana_helpers::DynamicBucketInfo::InpTensorShapes min_input_tshapes;
-  habana_helpers::DynamicBucketInfo::InpTensorShapes max_input_tshapes;
+  habana_helpers::InpTensorShapes act_input_tshapes;
+  habana_helpers::InpTensorShapes min_input_tshapes;
+  habana_helpers::InpTensorShapes max_input_tshapes;
   habana_helpers::DynamicDimsPolicy min_policy;
   habana_helpers::DynamicDimsPolicy max_policy;
-  uint64_t current_bucket_id;
+  size_t current_bucket_id;
 };
 
 class PassException : public std::exception {
@@ -157,7 +157,7 @@ class HabanaLaunchOpPT {
 
   void CompileGraphWithRange(
       torch::jit::Stack& stack,
-      habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
+      habana_helpers::ResultShapes& input_ranges,
       habana_helpers::Bucket& new_bucket,
       size_t& new_recipe_key);
 
@@ -472,8 +472,7 @@ class HabanaLaunchOpPT {
   template <class T>
   void ClearMember(T& m_container) {
     T empty;
-    using std::swap;
-    swap(m_container, empty);
+    std::swap(m_container, empty);
   }
 
   void CompileSynapseGraph();
@@ -492,12 +491,12 @@ class HabanaLaunchOpPT {
   // --------------------
 
   // Dynamic shape specific parts
-  uint64_t current_bucket_id_{};
+  size_t current_bucket_id_{};
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
   void CreateDynamicBucketInputShapes(
-      habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);
+      habana_helpers::InpTensorShapes& shape_map);
 
   synapse_helpers::tensor& AllocateSynapseTensor(
       const HabanaOperatorPtr& habana_op,
@@ -513,7 +512,7 @@ class HabanaLaunchOpPT {
   void CompileAndRunDynamicGraph(DynamicShapeInfo& graph_input_info);
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,
-      habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes);
+      habana_helpers::InpTensorShapes& dynamic_shapes);
   inline void try_run_shape_inference(
       const ShapeInfo::InferencePass& pass,
       DynamicShapeInfo& graph_input_info) {

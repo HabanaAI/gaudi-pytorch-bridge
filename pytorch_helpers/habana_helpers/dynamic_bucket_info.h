@@ -12,23 +12,18 @@
  */
 #pragma once
 
+#include "pytorch_helpers/habana_helpers/dynamic_bucket_info_utils.h"
+
 #include <cstdint>
 
 #include <algorithm>
 #include <atomic>
 #include <iostream>
 #include <limits>
-#include <map>
 #include <mutex>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
 
 #include "torch/csrc/jit/ir/ir.h"
 
-#include "pytorch_helpers/habana_helpers/tensor_shape.h"
 #include "pytorch_helpers/synapse_helpers/habana_tensor.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 #include "pytorch_helpers/synapse_helpers/time_slot.h"
@@ -38,7 +33,6 @@ class RecipeValueSpec;
 }
 
 namespace habana_helpers {
-const size_t max_elements_to_print = 64;
 enum class SplitPolicy { UNSPECIFIED, DYNAMIC };
 
 enum class CompilationPass {
@@ -57,55 +51,6 @@ enum class DynamicDimsPolicy {
 
 constexpr DynamicDimsPolicy MIN_POLICY_DEFAULT{DynamicDimsPolicy::HISTORIC};
 constexpr DynamicDimsPolicy MAX_POLICY_DEFAULT{DynamicDimsPolicy::CALCULATED};
-
-template <typename T, typename A>
-inline std::ostream& operator<<(std::ostream& O, const std::vector<T, A>& V) {
-  if (V.empty()) {
-    O << "empty";
-  } else {
-    if (V.size() <= max_elements_to_print) {
-      bool is_first(true);
-      O << '[';
-      for (auto a : V) {
-        O << (is_first ? "" : " ") << a;
-        is_first = false;
-      }
-      O << ']';
-    } else {
-      O << "has " << V.size() << " elements which is greater than"
-        << " max_elements_to_print=" << max_elements_to_print
-        << ", will skip printing";
-    }
-  }
-  return O;
-}
-
-inline std::ostream& operator<<(std::ostream& O, const std::vector<bool>& V) {
-  if (V.empty()) {
-    O << "empty";
-  } else {
-    for (auto a : V) {
-      O << a;
-    }
-  }
-  return O;
-}
-
-template <typename T, typename U>
-inline std::ostream& operator<<(
-    std::ostream& O,
-    const std::vector<std::pair<T, U>>& V) {
-  if (V.empty()) {
-    O << "empty";
-  } else {
-    bool is_first(true);
-    for (const auto& a : V) {
-      O << (is_first ? "" : " ") << '(' << a.first << ", " << a.second << ')';
-      is_first = false;
-    }
-  }
-  return O;
-}
 
 inline std::ostream& operator<<(std::ostream& O, const SplitPolicy& p) {
   switch (p) {
@@ -138,159 +83,6 @@ inline std::string DebugString(const DynamicDimsPolicy& d) {
 inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
   return O << DebugString(d);
 }
-
-// DynamicRanges: vector of <low, high> representing ranges
-// This is a flat array, containing all ranges.
-using DynamicRanges = std::vector<std::pair<int64_t, int64_t>>;
-// DynamicDims : input_idx => {dim_idx => range_idx in DynamicRanges}
-using DynamicDims = std::map<int64_t, std::map<int64_t, int64_t>>;
-// Example
-// Invocation 1: T0=[10,40, 45], T1=[30,60]
-// Invocation 1: T0=[20,40, 55], T1=[30,80]
-// For the above invocations DynamicRanges: <10,20>, <45,55>, <60,80>
-// DynamicDims : [0->[0->0,
-//                    2->1],
-//                1-[1->2]]
-
-// DimsHistoryElement : input_idx => {dim_idx => dim_val}
-using DimsHistoryElement = std::map<int64_t, std::map<int64_t, int64_t>>;
-
-// Only use for reference tensor shape
-inline std::string DebugString(const DimsHistoryElement& d) {
-  std::ostringstream O;
-  for (auto tensor_it : d) {
-    O << '\n' << " [";
-    bool is_first{true};
-    for (auto dim_it : tensor_it.second) {
-      O << (is_first ? "" : ",");
-      O << dim_it.second;
-      is_first = false;
-    }
-    O << "]";
-  }
-  return O.str();
-}
-
-inline std::string DebugString(
-    const DimsHistoryElement& d,
-    const DimsHistoryElement& ref) {
-  std::ostringstream O;
-  for (auto tensor_it : ref) {
-    const auto& tensor_idx{tensor_it.first};
-    O << '\n' << " [";
-    bool is_first{true};
-    for (auto dim_it : tensor_it.second) {
-      const auto& dim_idx{dim_it.first};
-      auto dim_val{dim_it.second};
-      if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
-        dim_val = d.at(tensor_idx).at(dim_idx);
-      }
-      O << (is_first ? "" : ",") << dim_val;
-      is_first = false;
-    }
-    O << "]";
-  }
-  return O.str();
-}
-
-inline std::ostream& operator<<(std::ostream& O, const DynamicDims& d) {
-  O << "dynamic dims ::";
-  if (d.empty()) {
-    O << ' ' << "empty";
-  } else {
-    for (const auto& r : d) {
-      O << "  " << r.first << "->";
-      bool is_first{true};
-      O << '(';
-      for (const auto& a : r.second) {
-        O << (is_first ? "" : ",");
-        O << a.first << "->" << a.second;
-        is_first = false;
-      }
-      O << ')';
-    }
-  }
-  O << '\n';
-
-  return O;
-}
-
-inline std::ostream& operator<<(
-    std::ostream& O,
-    const std::map<int64_t, habana_helpers::TensorShape>& t) {
-  for (const auto& a : t) {
-    O << '\n' << " " << a.second;
-  }
-  return O;
-}
-
-inline std::ostream& operator<<(
-    std::ostream& O,
-    const std::unordered_map<int64_t, habana_helpers::TensorShape>& t) {
-  std::vector<int64_t> tensor_idx_vec;
-  tensor_idx_vec.reserve(t.size());
-  for (const auto& a : t) {
-    tensor_idx_vec.push_back(a.first);
-  }
-  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
-  for (const auto i : tensor_idx_vec) {
-    O << "  " << i << ":" << t.at(i);
-    O << '\n';
-  }
-  return O;
-}
-
-inline std::ostream& operator<<(
-    std::ostream& O,
-    const std::unordered_map<uint64_t, habana_helpers::TensorShape>& t) {
-  std::vector<uint64_t> tensor_idx_vec;
-  tensor_idx_vec.reserve(t.size());
-  for (const auto& a : t) {
-    tensor_idx_vec.push_back(a.first);
-  }
-  std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
-  for (const auto i : tensor_idx_vec) {
-    O << "  " << i << ":" << t.at(i);
-    O << '\n';
-  }
-  return O;
-}
-
-class TimeStat {
- public:
-  TimeStat() = default;
-  void Update(uint64_t elapsed_time) {
-    total_time_ += elapsed_time;
-    num_samples_++;
-    average_time_ = total_time_ / num_samples_;
-    min_time_ = std::min(min_time_, elapsed_time);
-    max_time_ = std::max(max_time_, elapsed_time);
-  }
-  uint64_t GetAvgTime() const {
-    return average_time_;
-  }
-  uint64_t GetMinTime() const {
-    return min_time_;
-  }
-  uint64_t GetMaxTime() const {
-    return max_time_;
-  }
-
-  friend inline std::ostream& operator<<(std::ostream& O, const TimeStat& t) {
-    O << "<#samples=" << t.num_samples_ << " min="
-      << (t.min_time_ == std::numeric_limits<uint64_t>::max() ? 0 : t.min_time_)
-      << " max=" << t.max_time_ << " avg=" << t.average_time_
-      << " total=" << t.total_time_ << '>';
-    return O;
-  }
-
- private:
-  uint64_t total_time_{};
-  uint64_t average_time_{};
-  uint64_t min_time_{std::numeric_limits<uint64_t>::max()};
-  uint64_t max_time_{};
-  uint64_t num_samples_{};
-};
 
 struct SplitStatImplBase {
   SplitStatImplBase(SplitPolicy sp) : split_policy_(sp) {}
@@ -390,28 +182,6 @@ struct InputOutputShapes {
 };
 using PadShapes = std::unordered_map<int64_t, InputOutputShapes>;
 
-inline bool IsInRange(
-    const DynamicRanges& ranges,
-    const std::vector<int64_t>& dims,
-    const std::set<int64_t>& skipped_ranges) {
-  TORCH_CHECK(
-      ranges.size() <= dims.size(),
-      "wrong dynamic dims size ",
-      dims.size(),
-      ", expected greater or equal to ",
-      ranges.size());
-
-  for (size_t i = 0; i < ranges.size(); ++i) {
-    if (skipped_ranges.find(i) != skipped_ranges.end()) {
-      continue;
-    }
-    if (dims[i] < ranges[i].first || ranges[i].second < dims[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
 class Bucket {
  public:
   Bucket(
@@ -431,15 +201,9 @@ class Bucket {
     idx_ = i;
   }
   Bucket CreateNewBucket(SplitPolicy sp);
+
   uint64_t GetRunCount() const {
     return run_count_;
-  }
-  void ResetRunCount() {
-    hit_count_ = 0;
-    run_count_ = 0;
-    if (split_stat_impl_) {
-      split_stat_impl_->Reset();
-    }
   }
   uint64_t getScore() const {
     return score_;
@@ -477,18 +241,23 @@ class Bucket {
   };
 
   bool IsStatic() const {
-    return (idx_ == 0);
+    return (ranges_.empty());
   }
   bool IsRefinementCandidate() const {
-    // Bucket with idx_ 0 is always a static bucket
-    return (!IsStatic() && refine_candidate_);
+    return (!IsStatic() && refine_candidate_ && time_improvement_met_);
   };
   void UpdateCompileTime(uint64_t t_ns) {
     compile_time_ += t_ns;
   }
   void UpdateRunTime(uint64_t t_ns);
+  void ResetBaseLine(const HistoryItemLog& hist);
+  void ResetRunCount() {
+    run_count_ = input_hist_idxes_.size();
+    if (split_stat_impl_) {
+      split_stat_impl_->Reset();
+    }
+  }
   void IncrementHitCount() {
-    hit_count_++;
     cumu_hit_count_++;
   }
   void IncrementRunCount() {
@@ -500,8 +269,12 @@ class Bucket {
     // Present summary stats
     std::ostringstream O;
     O << " recipe key: " << recipe_key_ << '\n'
-      << " hit count: " << cumu_hit_count_ << '\n'
-      << " miss count: " << (cumu_run_count_ - cumu_hit_count_) << '\n';
+      << " total launch count: " << cumu_run_count_ << '\n'
+      << " current launch count: " << run_count_ << '\n';
+
+    O << "Historical input indices:" << '\n'
+      << " inherited: " << inherited_input_hist_idxes_ << '\n'
+      << " accumulated: " << input_hist_idxes_ << '\n';
 
     if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
       O << " compile time stat: " << compile_time_ << '\n'
@@ -519,23 +292,42 @@ class Bucket {
     return rvpwk_.lock();
   }
 
+  void AppendInputHistIndex(size_t hidx) {
+    input_hist_idxes_.push_back(hidx);
+  }
+
+  std::vector<size_t>& GetInputHistIdxes() {
+    return input_hist_idxes_;
+  };
+  void SetInputHistIdxes(std::vector<size_t>& v) {
+    std::swap(input_hist_idxes_, v);
+    // input_hist_idxes_.clear();
+    // input_hist_idxes_ = v;
+  };
+
+  std::vector<size_t>& GetInheritedInputHistIdxes() {
+    return inherited_input_hist_idxes_;
+  };
+  void SetInheritedInputHistIdxes(std::vector<size_t>& v) {
+    std::swap(inherited_input_hist_idxes_, v);
+    // inherited_input_hist_idxes_.clear();
+    // inherited_input_hist_idxes_ = v;
+  };
+
   static constexpr uint64_t uninitialized_token = 1000000006;
 
  private:
-  static constexpr uint64_t max_number_of_dims = 20;
-  static constexpr uint64_t max_number_of_dims_fixed = sizeof(uint64_t);
-
   static constexpr double time_improve_factor_ = 0.90;
   static constexpr double polarization_factor_ = 0.75;
 
   uint64_t score_{0};
-  // hit_count_ tracks the number of cache hits for the associated recipe
-  uint64_t hit_count_{0};
-  // run_count_ tracks the number of launches for the associated recipe
-  uint64_t run_count_{0};
+  uint64_t run_count_{0}; // tracks the number of launches
+
   uint64_t token_{uninitialized_token};
   size_t idx_{0};
-  size_t recipe_key_{};
+  size_t parent_idx_{ULONG_MAX};
+  size_t recipe_key_{0};
+  bool is_first_launch_{true};
 
   DynamicRanges ranges_;
   DynamicDims dynamic_dims_;
@@ -544,14 +336,20 @@ class Bucket {
   void CreateSplitStatImpl(SplitPolicy sp);
 
   // Stats related data members
-  uint64_t compile_time_{};
+  uint64_t base_time_{0};
+  uint64_t compile_time_{0};
   uint64_t cumu_hit_count_{0};
   uint64_t cumu_run_count_{0};
-  TimeStat run_time_stat_;
-  uint64_t base_time_{};
 
+  TimeStat run_time_stat_;
+
+  // Refinement related
   bool keep_time_{true};
   bool refine_candidate_{true};
+  bool time_improvement_met_{true};
+  std::vector<size_t> input_hist_idxes_;
+  std::vector<size_t> inherited_input_hist_idxes_;
+
   std::weak_ptr<habana::RecipeValueSpec> rvpwk_;
 };
 
@@ -566,8 +364,6 @@ class DynamicBucketInfo {
     refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   };
 
-  using TensorShapes = std::unordered_map<int64_t, habana_helpers::TensorShape>;
-  using InpTensorShapes = std::map<int64_t, habana_helpers::TensorShape>;
   using DimMultipliers =
       std::map<int64_t, std::map<int64_t, std::pair<int64_t, int64_t>>>;
   using DimSizes = std::map<int64_t, int64_t>;
@@ -575,28 +371,23 @@ class DynamicBucketInfo {
   bool AreDynamicDimsContained() const {
     return buckets_.size() > 1;
   }
-  struct ResultShapes {
-    TensorShapes min_shapes;
-    TensorShapes max_shapes;
-
-    bool empty() const {
-      return (min_shapes.empty() && max_shapes.empty());
-    }
-    // SynapseShapes syn_shapes;
-    std::string DebugString();
-    std::string DebugString(const InpTensorShapes& inp_shapes);
-  };
 
   ResultShapes CalculateShapes(uint64_t bucket);
 
   void CollectDynamicDims(const InpTensorShapes& shapes);
 
-  uint64_t GetBucketId(
+  size_t GetBucketId(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes = PadShapes{});
   absl::optional<uint64_t> CheckForSplitBucket();
+  Bucket ConstructNewBucket(
+      ResultShapes& result_computed,
+      const Bucket& mfu_bucket,
+      size_t min_dist_idx,
+      bool choose_lower);
+
   bool UpdateBucketWithPolicy(
-      uint64_t bucket_id,
+      size_t bucket_id,
       const InpTensorShapes& shapes,
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy);
@@ -629,36 +420,12 @@ class DynamicBucketInfo {
   std::string bucket_range_str(const Bucket& bucket, bool is_first = false)
       const;
   std::string digest_str() const;
+  std::string history_str() const;
   friend inline std::ostream& operator<<(
       std::ostream& O,
       const DynamicBucketInfo& d) {
     O << d.digest_str();
-    O << "Dims history len: " << d.dims_history_.size()
-      << ", contents :" << '\n';
-    bool skipped{false};
-    size_t i{0};
-    O << " history[" << i << "]:" << DebugString(d.ref_tensor_shapes_) << '\n';
-    i += 1;
-    for (; i < d.dims_history_.size(); i++) {
-      const auto& a = d.dims_history_[i];
-      if (a == d.dims_history_[i - 1]) {
-        skipped = true;
-        continue;
-      }
-      if (skipped) {
-        skipped = false;
-        O << "  "
-          << "..." << '\n';
-      }
-      O << " history[" << i << "]:" << DebugString(a, d.ref_tensor_shapes_)
-        << '\n';
-    }
-    if (skipped) {
-      skipped = false;
-      O << "  "
-        << "..." << '\n';
-    }
-    O << "--------------------" << '\n';
+    O << d.history_str();
     return O;
   }
 
@@ -671,7 +438,7 @@ class DynamicBucketInfo {
   bool NeedRunTimeSlot(uint64_t bucket_idx);
   void RegisterTimeSlot(
       const std::shared_ptr<synapse_helpers::TimeSlotBase>& ts,
-      int bucket);
+      uint64_t bucket);
   void UpdateRunTimes();
   uint64_t GetTime(uint64_t bucket_idx) const {
     return buckets_.at(bucket_idx).GetTime();
@@ -735,6 +502,12 @@ class DynamicBucketInfo {
     return global_count;
   }
 
+  void split_history(
+      const std::vector<size_t>& input_hist_idxes,
+      const ResultShapes& new_result,
+      std::vector<size_t>& input_hist_move,
+      std::vector<size_t>& input_hist_retain);
+
   static constexpr int64_t default_max_multiplier_ = 2;
   static constexpr int64_t default_min_value_ = 2;
   static constexpr uint64_t max_buckets_number_ = 20;
@@ -742,7 +515,8 @@ class DynamicBucketInfo {
   static constexpr float density_coefficient_ = 0.75;
 
  private:
-  void UpdateMFUBucketDetails(uint64_t bucket_id);
+  void ComputeMFUBucketDetails();
+  void UpdateMFUBucketDetails(size_t bucket_id);
   std::vector<int64_t> ExtractDynamicDimsValue(const InpTensorShapes& shapes);
   bool IsInRangeStaticDims(const std::vector<int64_t>& dims, int64_t num) const;
   int64_t GetMaxMultiplier(const PadShapes& pad_shapes);
@@ -782,22 +556,30 @@ class DynamicBucketInfo {
   // All modifications to the bucket should be done through the handler
   // functions in DynamicBucketInfo class.
   std::vector<Bucket> buckets_;
+  // std::queue<
+  // std::pair<std::shared_ptr<synapse_helpers::TimeSlotBase>, uint64_t>>
+  // run_time_states;
+  // The following queue is used to store the time events for capturing
+  // the time spent by a recipe in the compute stream
+  // Each element is a tuple of time_slot, bucket_id, input_history_idx
   std::queue<
-      std::pair<std::shared_ptr<synapse_helpers::TimeSlotBase>, uint64_t>>
-      run_time_states;
+      std::
+          tuple<std::shared_ptr<synapse_helpers::TimeSlotBase>, size_t, size_t>>
+      run_time_q_;
 
   uint64_t global_count = 0;
   uint64_t mfu_bucket_id{0};
   uint64_t mfu_bucket_run_count{0};
+  uint64_t current_run_count{0};
 
   InpTensorShapes shapes_;
-  DimsHistoryElement ref_tensor_shapes_;
-  size_t prev_dynamic_dims_{};
   DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
   DynamicDimsPolicy max_policy_{MAX_POLICY_DEFAULT};
-  std::vector<DimsHistoryElement> dims_history_;
   bool refine_enabled_ = true;
   SplitPolicy split_policy_{SplitPolicy::DYNAMIC};
+
+  HistoryItemLog input_history_;
+  size_t current_input_idx_{ULONG_MAX};
 
   struct DynamicDimsElement {
     int64_t num;
@@ -840,7 +622,7 @@ class DynamicBucketInfo {
     }
   };
 
-  DynamicDimsHelper dynamic_dims_;
+  DynamicDimsHelper dynamic_dims_helper_;
 
   // Corresponding JIT IR graph
   size_t graph_key_{};
@@ -883,4 +665,4 @@ class UniqueTokenGenerator {
   static std::atomic_uint64_t current_token_;
 };
 
-}; // namespace habana_helpers
+} // namespace habana_helpers

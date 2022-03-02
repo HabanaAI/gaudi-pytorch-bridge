@@ -1486,15 +1486,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       continue;
     }
 
-      if ((strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) ||
-          (strcmp(node->kind().toQualString(), "hpu::restride") == 0)) {
-        bool is_restride_cl =
-            (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0)
-            ? true
-            : false;
-        handleRestrideNode(node, is_restride_cl);
-        continue;
-      }
+    if ((strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) ||
+        (strcmp(node->kind().toQualString(), "hpu::restride") == 0)) {
+      bool is_restride_cl =
+          (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0)
+          ? true
+          : false;
+      handleRestrideNode(node, is_restride_cl);
+      continue;
+    }
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =
@@ -1632,7 +1632,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 }
 
 void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
-    habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map) {
+    habana_helpers::InpTensorShapes& shape_map) {
   for (size_t i = 0; i < input_refs.size(); i++) {
     auto input = input_refs[i];
     if (input.isTensor()) {
@@ -1654,7 +1654,7 @@ void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
 
 torch::jit::Stack HabanaLaunchOpPT::CreateStack(
     const torch::jit::Stack& stack,
-    habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes) {
+    habana_helpers::InpTensorShapes& dynamic_shapes) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_stack;
 
@@ -1799,6 +1799,17 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
 
+      PT_TEST_DEBUG(
+          "HabanaOp recipe cache hit :: key ",
+          cur_rargpsh->hashCode(),
+          "\n",
+          "Recipe Header::",
+          rv.header_str(),
+          "\n",
+          rv.digest_str(),
+          "\n",
+          "--------------------");
+
       // Initiate recipe execution time collection
       InitiateSynlaunchTimeCapture(rv);
 
@@ -1838,18 +1849,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
       PT_DYNAMIC_SHAPE_DEBUG(
-          id_str,
-          ": ",
-          "HabanaOp recipe cache hit :: key ",
-          cur_rargpsh->hashCode(),
-          "\n",
-          current_dbipsh_->digest_str(),
-          "Recipe Header::",
-          rv.header_str(),
-          "\n",
-          rv.digest_str(),
-          "\n",
-          "--------------------");
+          current_dbipsh_->digest_str(), current_dbipsh_->history_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
 
       statistics_->LogSelectedRecipe(cur_rargpsh->hashCode(), 0);
@@ -1858,11 +1858,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       PT_BRIDGE_END;
       return;
     } else {
-      PT_DYNAMIC_SHAPE_DEBUG(
-          id_str,
-          ": ",
-          "HabanaOp recipe cache miss :: key ",
-          cur_rargpsh->hashCode());
+      PT_TEST_DEBUG(
+          "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
@@ -2033,16 +2030,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
 void HabanaLaunchOpPT::CompileGraphWithRange(
     torch::jit::Stack& input_st,
-    habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
+    habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key) {
   PT_BRIDGE_BEGIN;
   ProcessInputStack(input_st);
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Input range for new bucket ",
-      new_bucket.GetIndex(),
-      ":\n",
+      "Input range for new bucket:\n",
       "Min\n",
       input_ranges.min_shapes,
       "Max\n",
@@ -2092,7 +2087,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       run_pass();
     } catch (std::exception& e) {
       error_str = e.what();
-      PT_DYNAMIC_SHAPE_WARN(
+      PT_TEST_DEBUG(
           "Exception occured in Pass = ",
           m_map_shape.m_pass,
           " - Details :\n",
@@ -2139,7 +2134,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       run_pass();
     } catch (std::exception& e) {
       error_str = e.what();
-      PT_DYNAMIC_SHAPE_WARN(
+      PT_TEST_DEBUG(
           "Exception occured in Pass = ",
           m_map_shape.m_pass,
           " - Details :\n",
@@ -2182,23 +2177,24 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       ConstructPatchingTable();
     } catch (std::exception& e) {
       error_str = e.what();
-      PT_DYNAMIC_SHAPE_WARN(
+      PT_TEST_DEBUG(
           "Exception occured in compilation - Details :\n", error_str);
 
       throw;
     }
   }
-  PT_DYNAMIC_SHAPE_DEBUG("Compilation completed");
+  PT_TEST_DEBUG("Compilation completed");
 
   // Add the <key,value> pair to the map
-  cur_rvalpsh->set_op_strs(cur_rargpsh->get_op_strs());
   cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
+  cur_rvalpsh->set_op_strs(cur_rargpsh->get_op_strs());
+  cur_rvalpsh->set_refined();
   RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
   new_recipe_key = cur_rargpsh->hashCode();
   // Add the recipe to the corresponding bucket
   new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
-  PT_DYNAMIC_SHAPE_DEBUG(
-      "HabanaOp recipe cache :: adding new recipe to cache ::\n",
+  PT_TEST_DEBUG(
+      "HabanaOp recipe cache :: adding new recipe to cache ::",
       cur_rvalpsh->header_str(),
       "\n",
       cur_rvalpsh->digest_str(),

@@ -216,13 +216,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
       O << *a << '\n';
     }
   }
-  O << "---- jit graph :: begin" << '\n';
-  if (v.jit_graph_) {
-    O << v.jit_graph_->toString();
-  } else {
-    O << "empty jit graph" << '\n';
-  }
-  O << "---- jit graph :: end" << '\n';
   O << "---- recipe details :: end" << '\n';
 
   return O;
@@ -309,8 +302,9 @@ std::string RecipeValueSpec::build_header_str() const {
     << "\n num_input_to_outduplicates " << num_input_to_outduplicates
     << "\n num_intermediate_to_outduplicates "
     << num_intermediate_to_outduplicates << "\n size "
-    << synapse_helpers::get_mem_str(ntensorbytes);
-  O << "\n " << (dynamic_graph ? "dynamic graph" : "static graph");
+    << synapse_helpers::get_mem_str(ntensorbytes) << "\n "
+    << (dynamic_graph ? "dynamic graph" : "static graph") << " - "
+    << (is_refined ? "refined" : "original");
   return O.str();
 }
 
@@ -404,6 +398,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     tensor_names[i] = tmp;
   }
   deserialize(is, dynamic_graph);
+  deserialize(is, is_refined);
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
@@ -453,6 +448,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   }
 
   serialize(os, dynamic_graph);
+  serialize(os, is_refined);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
 

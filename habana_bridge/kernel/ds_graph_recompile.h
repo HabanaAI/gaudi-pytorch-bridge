@@ -29,12 +29,12 @@ at::Tensor CreateEmptyTensor(
 
 torch::jit::Stack CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    habana_helpers::DynamicBucketInfo::TensorShapes& input_shapes);
+    habana_helpers::TensorShapes& input_shapes);
 void PrintStack(torch::jit::Stack& st);
 
 bool CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    habana_helpers::DynamicBucketInfo::ResultShapes& input_ranges,
+    habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key);
 

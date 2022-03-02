@@ -255,12 +255,8 @@ struct RecipeValueSpec {
     return launch_count;
   }
 
-  bool get_enable_time_scope() {
-    return enable_time_scope;
-  }
-
-  void set_enable_time_scope(bool flag) {
-    enable_time_scope = flag;
+  void set_refined() {
+    is_refined = true;
   }
 
   void increment_recipe_count() {
@@ -338,6 +334,7 @@ struct RecipeValueSpec {
   const char** tensor_names{nullptr};
   bool dynamic_graph{false};
   bool enable_time_scope{false};
+  bool is_refined{false};
 
   // Multiple recipes can be queued up, so each recipe would need
   // a dedicated time slot for itself
