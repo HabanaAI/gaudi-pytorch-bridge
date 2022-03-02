@@ -1988,8 +1988,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     return;
   }
 
-  cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-      false, input_refs, jit_ir_graph, graph_key, op_strs);
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED || refine_ds_enabled_) {
+    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+        false, input_refs, jit_ir_graph, graph_key, op_strs);
+  }
 
   // caching :: begin
   if (enable_caching_) {

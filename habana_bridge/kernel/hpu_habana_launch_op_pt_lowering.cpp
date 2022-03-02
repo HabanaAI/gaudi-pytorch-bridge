@@ -274,11 +274,13 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
       rv.dtensorinfos->size());
 
   rv.populate_syn_tensor_ids();
-  TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
 
-  rv.set_key(cur_rargpsh->hashCode());
-  rv.set_graph_key(graph_key);
-  rv.set_op_strs(cur_rargpsh->get_op_strs());
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED || refine_ds_enabled_) {
+    TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
+    rv.set_key(cur_rargpsh->hashCode());
+    rv.set_graph_key(graph_key);
+    rv.set_op_strs(cur_rargpsh->get_op_strs());
+  }
 }
 
 void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
