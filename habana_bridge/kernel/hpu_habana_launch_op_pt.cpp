@@ -1410,7 +1410,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
      op");*/
 }
 
-std::string HabanaLaunchOpPT::DumpNode(torch::jit::Node* node) {
+std::string HabanaLaunchOpPT::DumpNodeInputs(torch::jit::Node* node) {
   std::ostringstream o;
   node->print(o, 0, nullptr);
   auto str = o.str();
@@ -1428,6 +1428,12 @@ std::string HabanaLaunchOpPT::DumpNode(torch::jit::Node* node) {
       }
     }
   }
+  return str;
+}
+std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
+  std::ostringstream o;
+  node->print(o, 0, nullptr);
+  auto str = o.str();
   if (node->output(0)->type() != torch::ListType::ofTensors()) {
     for (auto value_out : node->outputs()) {
       if (value_to_ivalue[value_out]->isTensor()) {
@@ -1526,7 +1532,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     // setup the config params for the kernels
     OutputMetaDataVector outputs_metadata = nodeOutputMetaData(node);
-
+    PT_BRIDGE_DEBUG(DumpNodeInputs(node));
     if ((outputs_metadata.size() == 1) && (!is_shape_inference) &&
         (outputs_metadata.at(0).persistent == true) &&
         (std::string(node->kind().toQualString()).find("strided_insert") !=
@@ -1551,7 +1557,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // We set type so that the created tensor is propagated throughout graph
     ProcessSynapseOutputs(HabanaKernel, node);
 
-    PT_BRIDGE_DEBUG(DumpNode(node));
+    PT_BRIDGE_DEBUG(DumpNodeOutputs(node));
     // The kernel corresponding to current IR node, HabanaKernel, might create
     // one or more appended tensors. These are tensors which do not have a
     // corresponding ValPtr in the IR graph. These are either duplicate of

@@ -178,7 +178,8 @@ class HabanaLaunchOpPT {
 
   std::vector<TensorMetaData> input_tms;
 
-  std::string DumpNode(torch::jit::Node* node);
+  std::string DumpNodeInputs(torch::jit::Node* node);
+  std::string DumpNodeOutputs(torch::jit::Node* node);
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
