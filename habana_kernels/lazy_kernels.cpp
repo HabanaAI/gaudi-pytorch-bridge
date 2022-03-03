@@ -3064,6 +3064,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
     flush_op(result);
     return result;
   }
+
   // Broadcast indices
   auto broadcasted_indices = at::broadcast_tensors(indices_out_list);
   auto shape_broadcasted = broadcasted_indices[0].sizes().vec();
@@ -3111,7 +3112,6 @@ Tensor index_put_frontend_impl_hpu_lazy(
   for (int i = rank_idx; i < rank_inp; i++)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto broadcasted_values = value.broadcast_to(value_upd_dim);
-
   if (!accumulate) {
     LazyOp<Tensor> scatter_nd_op(
         "hpu::scatter_nd_onnx",
@@ -3271,8 +3271,15 @@ Tensor index_put_hpu_lazy(
     if ((value_in.numel() >
          1)) { // if values has more than 1 elem, we have to assume the valid
                // count in indices will match values numel
-      for (int i = 0; i < value_in.dim(); i++)
-        value_upd_dim.push_back(value_in.sizes().vec()[i]);
+      if (indices[0].dim() != self.dim() &&
+          value_in.dim() != (1 + (self.dim() - indices[0].dim()))) {
+        value_upd_dim.push_back(nonzero_outputs[0].sizes().vec()[0]);
+        for (int i = rank_idx; i < rank_inp; i++)
+          value_upd_dim.push_back(self.sizes().vec()[i]);
+      } else {
+        for (int i = 0; i < value_in.dim(); i++)
+          value_upd_dim.push_back(value_in.sizes().vec()[i]);
+      }
     } else { // We are assuming uses passes value shapes correctly for scatter
       value_upd_dim.push_back(nonzero_outputs[0].sizes().vec()[0]);
       for (int i = rank_idx; i < rank_inp; i++)

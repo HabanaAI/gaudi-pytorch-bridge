@@ -966,8 +966,15 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
       (values.numel() >
        1)) { // if values has more than 1 elem, we have to assume the valid
              // count in indices will match values numel
-    for (int i = 0; i < values.dim(); i++)
-      value_upd_dim.push_back(values.sizes().vec()[i]);
+    if (indices[0].dim() != self.dim() &&
+        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
+      value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
+      for (int i = rank_idx; i < rank_inp; i++)
+        value_upd_dim.push_back(self.sizes().vec()[i]);
+    } else {
+      for (int i = 0; i < values.dim(); i++)
+        value_upd_dim.push_back(values.sizes().vec()[i]);
+    }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(non_zero_op->GetOutputs()[0].sizes().vec()[0]);
     for (int i = rank_idx; i < rank_inp; i++)
