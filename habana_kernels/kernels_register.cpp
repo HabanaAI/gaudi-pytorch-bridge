@@ -1099,7 +1099,14 @@ Tensor& hpu_wrap::index_put_(
 
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
-    indices_list.push_back(input.value_or(Tensor()));
+    if (input.has_value() && !input->defined()) {
+      auto self_cpu =
+          AtenHpuTypeDefault::index_put(self, indices, value, accumulate);
+      return self.copy_(self_cpu);
+    } else {
+      indices_list.push_back(input.value_or(Tensor()));
+    }
+    // indices_list.push_back(input.value_or(Tensor()));
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return index_put_hpu_lazy_(self, indices_list, value, accumulate);
