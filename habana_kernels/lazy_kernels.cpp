@@ -95,6 +95,29 @@ static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
     return k.call(self);                                       \
   }
 
+bool is_inplace(at::Symbol symbol) {
+  bool is_inplace = false;
+
+  auto node_name = symbol.toQualString();
+  /*
+  Since as_strided_lazy is now out of place op, we need a control edge to create
+  new tensor for fill to avoid GC error
+  %5 : Float(*, requires_grad=0,
+  device=hpu:0) = hpu::as_strided_lazy(%id:3, %2, %3, %4)
+  %6 : Float(*, requires_grad=0, device=hpu:0) = aten::fill_(%5, %1)
+  */
+
+  if (strcmp(node_name, "aten::fill_")) {
+    size_t len = strlen(node_name);
+    char endch = node_name[len - 1];
+
+    if (endch == '_') {
+      is_inplace = true;
+    }
+  }
+  return is_inplace;
+}
+
 bool to_lower_as_strided() {
   return GET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
