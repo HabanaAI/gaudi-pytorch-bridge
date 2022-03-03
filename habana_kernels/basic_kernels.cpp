@@ -762,6 +762,30 @@ Tensor pin_memory_hpu(
   return tensor;
 }
 
+bool StridedInsertOperator::verifyViewMemoryAccess(
+    at::Tensor& real,
+    at::Tensor& view,
+    at::Tensor& strides,
+    at::Tensor& offset) {
+  auto rv = real.sizes().vec();
+  const uint64_t realTensorElements =
+      std::accumulate(rv.begin(), rv.end(), 1, std::multiplies<unsigned>());
+  if (realTensorElements == 0) {
+    return true;
+  }
+  uint64_t lastElementOffset = 0;
+  for (unsigned d = 0; d < view.dim(); d++) {
+    if (view.sizes()[d] == 0) {
+      return true;
+    }
+    lastElementOffset += strides.sizes()[d] * (view.sizes()[d] - 1);
+  }
+  if (offset.sizes()[0] + lastElementOffset >= realTensorElements) {
+    return false;
+  }
+  return true;
+}
+
 void StridedInsertOperator::compute_params(
     synStridedOpParams& params,
     Stack& inputs,
@@ -777,6 +801,14 @@ void StridedInsertOperator::compute_params(
     TORCH_CHECK(p_context_->syn_inputs_[3].ref().is_shape_tensor());
     strides = p_context_->syn_inputs_[2].ref().pt_shape();
     offset = p_context_->syn_inputs_[3].ref().pt_shape()[0];
+    bool memAccessCheck = verifyViewMemoryAccess(
+        inputs[0].toTensor(),
+        inputs[1].toTensor(),
+        inputs[2].toTensor(),
+        inputs[3].toTensor());
+    TORCH_CHECK(
+        inputs[0].toTensor().numel() == 0 || memAccessCheck,
+        "Strided Insert will access memory outside of original tensor range!");
   } else {
     strides = inputs[2].toIntVector();
     offset = inputs[3].toInt();
@@ -867,7 +899,7 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   }
 }
 
-bool StridedViewOperator::verifiyViewMemoryAccess(
+bool StridedViewOperator::verifyViewMemoryAccess(
     at::Tensor& real,
     at::Tensor& view,
     at::Tensor& strides,
@@ -916,7 +948,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     // For dynamic min-max inference, validate the mem access of
     // elements. If the calculation dosen't match, fail here for inference
     // fallback to kick in. if GC compile fails, the fallback penalty is huge.
-    bool memAccessCheck = verifiyViewMemoryAccess(
+    bool memAccessCheck = verifyViewMemoryAccess(
         inputs[0].toTensor(),
         inputs[1].toTensor(),
         inputs[2].toTensor(),

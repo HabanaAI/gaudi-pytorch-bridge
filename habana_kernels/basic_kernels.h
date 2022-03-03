@@ -177,6 +177,11 @@ class StridedInsertOperator : public habana::HabanaOperator {
       synStridedOpParams&,
       torch::jit::Stack& inputs,
       synapse_helpers::graph& graph);
+  bool verifyViewMemoryAccess(
+      at::Tensor& real,
+      at::Tensor& view,
+      at::Tensor& strides,
+      at::Tensor& offset);
 };
 
 class StridedInsertClOperator : public StridedInsertOperator {
@@ -214,7 +219,7 @@ class StridedViewOperator : public habana::HabanaOperator {
       const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
-  bool verifiyViewMemoryAccess(
+  bool verifyViewMemoryAccess(
       at::Tensor& real,
       at::Tensor& view,
       at::Tensor& strides,
