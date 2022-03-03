@@ -2739,6 +2739,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   PT_IRGRAPH_DEBUG("step marker due to non zero");
   // .item() internally triggers a mark_step
   auto end = end_tensor.item<int64_t>();
+  DebugHelper::getInstance().setStageSubmissionFlow();
 
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
@@ -2811,6 +2812,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   auto cpu_end_tensor = end_tensor.to(c10::kCPU);
   auto end = cpu_end_tensor.item<int64_t>();
+  DebugHelper::getInstance().setStageSubmissionFlow();
 
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
@@ -6809,6 +6811,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   // .item() internally triggers a mark_step
   PT_IRGRAPH_DEBUG("step marker due to unique");
   auto end = valid_count.item<int64_t>();
+  DebugHelper::getInstance().setStageSubmissionFlow();
 
   // Add a slice node to capture relevent elements from feature_map
   auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
@@ -6999,6 +7002,7 @@ Tensor habana_nms_hpu_lazy(
   PT_IRGRAPH_DEBUG("step marker due to nms");
   // .item() internally triggers a mark_step
   auto end = valid_box_id_out.item<int64_t>();
+  DebugHelper::getInstance().setStageSubmissionFlow();
 
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements

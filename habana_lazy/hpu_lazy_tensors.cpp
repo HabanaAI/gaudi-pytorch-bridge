@@ -512,6 +512,7 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
   // Generate the tensor data if its not been generated yet
   if (CurrentIrValue() && !CurrentTensorData()) {
     if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
+      DebugHelper::getInstance().resetStageSubmissionFlow();
       HbLazyTensor::StepMarker({});
     } else {
       std::lock_guard<std::recursive_mutex> lock(
@@ -931,6 +932,7 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   PT_LAZY_TRACE;
   PT_IRGRAPH_DEBUG("step marker due to host step marker");
   PT_LAZY_DEBUG("step marker due to host step marker");
+  DebugHelper::getInstance().resetStageSubmissionFlow();
   StepMarker(device_str);
 }
 
