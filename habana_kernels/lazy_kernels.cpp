@@ -5095,18 +5095,9 @@ Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
     self = copy_hpu_lazy_(self, self_in, true);
   }
 
-  ir::NodePtr node = std::make_shared<ir::Sum>(self, dtype);
-  auto result =
-      empty_hpu_lazy({0}, self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
+  LazyOp<at::Tensor> k{"aten::sum", {self, dtype}, {}, {{}}};
+
+  Tensor result = k.call();
   result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   return result;
 }

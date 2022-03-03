@@ -18,29 +18,6 @@
 namespace habana_lazy {
 namespace ir {
 enum class SumIndex { kDtypIdx = 1 };
-class Sum : public Node {
- public:
-  Sum() = delete;
-  Sum(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
-      : Node(c10::Symbol::fromQualString("aten::sum")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    auto ir_value = hl_self.GetIrValue();
-    AddInput(ir_value);
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dtype, static_cast<size_t>(SumIndex::kDtypIdx));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", dtype="
-       << m_meta_data.get(static_cast<size_t>(SumIndex::kDtypIdx));
-    return ss.str();
-  }
-};
 
 enum class ProdIndex { kDtypIdx = 1 };
 class Prod : public Node {
