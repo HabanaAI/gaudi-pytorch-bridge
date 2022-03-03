@@ -62,10 +62,6 @@ class DebugHelper {
     return curr_number_of_accumulated_ops;
   }
 
-  void resetCurrentAccumulatedOps() {
-    curr_number_of_accumulated_ops = 0;
-  }
-
   void incrementAccumulatedOps() {
     curr_number_of_accumulated_ops++;
   }
@@ -74,16 +70,35 @@ class DebugHelper {
     return (curr_number_of_accumulated_ops >= max_number_of_accumulated_ops);
   }
 
+  void incrementCompoundOps() {
+    curr_number_of_compound_ops++;
+  }
+
+  bool isExceededMaxCompoundSize() {
+    return (curr_number_of_compound_ops >= max_number_of_compound_ops);
+  }
+
+  void resetCurrentAccumulatedOps() {
+    curr_number_of_accumulated_ops = 0;
+    // Resetting to -1 to handle PT_HPU_MAX_COMPOUND_OP_SIZE=1,
+    // otherwise StepMarker always cause max_number_of_compound_ops
+    curr_number_of_compound_ops = -1;
+  }
+
  private:
   DebugHelper()
       : curr_number_of_accumulated_ops(0),
-        max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)) {
-  }
+        curr_number_of_compound_ops(0),
+        max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)),
+        max_number_of_compound_ops(
+            GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE)) {}
   ~DebugHelper() {}
   DebugHelper(const DebugHelper&);
   DebugHelper& operator=(const DebugHelper&);
   std::atomic<size_t> curr_number_of_accumulated_ops;
+  std::atomic<int64_t> curr_number_of_compound_ops;
   const size_t max_number_of_accumulated_ops;
+  const int64_t max_number_of_compound_ops;
 };
 
 } // namespace habana_lazy

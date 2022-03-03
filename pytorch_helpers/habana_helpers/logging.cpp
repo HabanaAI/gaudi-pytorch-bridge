@@ -10,6 +10,7 @@
 #include "logging.h"
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
+#include "habana_lazy/debug_utils.h"
 
 namespace Logger {
 void habana_assert(
@@ -30,3 +31,26 @@ void habana_assert(
           c10::get_backtrace(1)));
 }
 } // namespace Logger
+
+static std::atomic<size_t> compound_op_counter = 0;
+
+PTOpTrace::PTOpTrace() {
+  compound_op_counter++;
+}
+
+PTOpTrace::~PTOpTrace() {
+  compound_op_counter--;
+
+  if (compound_op_counter == 0) {
+    increment_compound_ops();
+  }
+}
+
+void PTOpTrace::increment_compound_ops() {
+  habana_lazy::DebugHelper::getInstance().incrementCompoundOps();
+
+  if (habana_lazy::DebugHelper::getInstance().isExceededMaxCompoundSize()) {
+    PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
+    habana_lazy::HbLazyTensor::StepMarker({});
+  }
+}
