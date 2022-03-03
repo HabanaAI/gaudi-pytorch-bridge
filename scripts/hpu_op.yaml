@@ -1690,11 +1690,11 @@ lt.Tensor:
   legacy_eager: true
 
 max.dim_max:
-  custom_output_shape: MinOutputShape
-  custom_fill_params: FillMinParams
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
   dtypes: [BFloat16, Float, Int]
   guid: reduce_max_fwd
-  op_backend: MaxOut
+  op_backend: MinMaxOut
 
 maximum:
   broadcast: true
@@ -1782,12 +1782,19 @@ median.dim:
   out_ids: [0,0]
 
 min.dim:
-  custom_output_shape: MinOutputShape
-  custom_fill_params: FillMinParams
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
   dtypes: [BFloat16, Float]
   op_backend: Min
   op_frontend: LazyMin
   out_ids: [0,0]
+
+min.dim_min:
+  custom_output_shape: MinMaxOutputShape
+  custom_fill_params: FillMinMaxParams
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_min_fwd
+  op_backend: MinMaxOut
 
 minimum:
   broadcast: true

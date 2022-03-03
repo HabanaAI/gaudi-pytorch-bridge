@@ -12,20 +12,20 @@
 
 namespace habana {
 
-void MaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
 
   auto outshape = self.sizes().vec();
-  auto shape = MinOutputShape(stack)[0];
+  auto shape = MinMaxOutputShape(stack)[0];
   // Negative dimension
   dim = c10::maybe_wrap_dim(dim, self.dim(), true);
   outshape[dim] = 1;
-  // FillMinParams, MinOutputShape does the same function as expected for this
-  // op, so these functions are reused here
+  // FillMinMaxParams, MinMaxOutputShape does the same function as expected for
+  // this op, so these functions are reused here
   size_t size = 0;
-  const auto& params = FillMinParams(stack, size);
+  const auto& params = FillMinMaxParams(stack, size);
   auto dtype = c10::ScalarType::Int;
 
   if (!keepdim) {

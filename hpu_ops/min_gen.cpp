@@ -30,7 +30,7 @@ template <>
   const auto& inputs =
       habana_lazy::LazyOp<::std::tuple<at::Tensor, at::Tensor>>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
-  auto shape = MinOutputShape(inputs)[0];
+  auto shape = MinMaxOutputShape(inputs)[0];
   auto values = habana_lazy::empty_hpu_lazy(
       shape, t.options(), t.suggest_memory_format(), false);
   auto indices = habana_lazy::empty_hpu_lazy(
@@ -38,7 +38,7 @@ template <>
   return ::std::tuple<at::Tensor, at::Tensor>(values, indices);
 }
 
-sizes_vec MinOutputShape(const at::Stack& stack, bool) {
+sizes_vec MinMaxOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
@@ -56,7 +56,7 @@ sizes_vec MinOutputShape(const at::Stack& stack, bool) {
   return {shape, shape};
 }
 
-std::shared_ptr<void> FillMinParams(const at::Stack& stack, size_t& size) {
+std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_Reduction::Params);
   auto dim = stack.at(1).toInt();
   dim = (dim >= 0)
@@ -79,7 +79,7 @@ void Min::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   outshape[dim] = 1;
 
   size_t size = 0;
-  const auto& params = FillMinParams(stack, size);
+  const auto& params = FillMinMaxParams(stack, size);
   auto dtype = c10::ScalarType::Int;
 
   auto reduce_min = BuildOp(

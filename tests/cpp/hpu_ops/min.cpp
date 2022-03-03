@@ -66,3 +66,111 @@ TEST_F(HpuOpTest, min_dim_0_keepdim_false) {
   Compare(get<0>(expected), get<0>(result));
   Compare(get<1>(expected), get<1>(result));
 }
+
+TEST_F(HpuOpTest, min_out_keepdim_true) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), 2 /*dim*/, true /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), 2 /*dim*/, true /*keepdim*/, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
+
+TEST_F(HpuOpTest, min_out_keepdim_false) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), 2 /*dim*/, false /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), 2 /*dim*/, false /*keepdim */, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
+
+TEST_F(HpuOpTest, min_out_dim_0_keepdim_true) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), 0 /*dim*/, true /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), 0 /*dim*/, true /*keepdim*/, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
+
+TEST_F(HpuOpTest, min_out_dim_0_keepdim_false) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), 0 /*dim*/, false /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), 0 /*dim*/, false /*keepdim */, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
+
+TEST_F(HpuOpTest, min_out_neg_keepdim_true) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), -3 /*dim*/, true /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), -3 /*dim*/, true /*keepdim*/, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
+
+TEST_F(HpuOpTest, min_out_neg_keepdim_false) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto min_val = torch::empty(0, dtype);
+  auto hmin_val = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  auto min_indice = torch::empty(0, torch::kLong);
+  auto hmin_indice = min_indice.to("hpu");
+
+  torch::min_outf(
+      GetCpuInput(0), -3 /*dim*/, false /*keepdim*/, min_val, min_indice);
+  torch::min_outf(
+      GetHpuInput(0), -3 /*dim*/, false /*keepdim */, hmin_val, hmin_indice);
+  Compare(min_val, hmin_val);
+  Compare(min_indice, hmin_indice);
+}
