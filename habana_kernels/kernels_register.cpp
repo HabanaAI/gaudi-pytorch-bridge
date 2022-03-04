@@ -1949,21 +1949,13 @@ Tensor hpu_wrap::norm(
     at::ScalarType dtype) {
   if (!hpu_check_inputs_impl("norm", {self}))
     return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
-  // norm is supported on HPU only if either self's type or dtype param is Float
-  // we do self's cast here to Float to avoid special case casts in lowering
-  // part of norm op.
-  if (c10::isFloatingType(dtype) || c10::isFloatingType(self.scalar_type())) {
+  // norm is supported on HPU only if either self's type and dtype param is FP
+  // types we do self's cast here to Float to avoid special case casts in
+  // lowering part of norm op.
+  if (c10::isFloatingType(dtype) && c10::isFloatingType(self.scalar_type())) {
     Tensor self_cast = self;
-    if (self.scalar_type() != c10::ScalarType::Float &&
-        dtype == c10::ScalarType::Float) {
-      self_cast = self.to(c10::ScalarType::Float);
-    } else if (
-        self.scalar_type() != c10::ScalarType::BFloat16 &&
-        dtype == c10::ScalarType::BFloat16) {
-      self_cast = self.to(c10::ScalarType::BFloat16);
-    } else {
-      // self type is Float or BFloat, but dtype is non FP
-      return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+    if (self.scalar_type() != dtype) {
+      self_cast = self.to(dtype);
     }
     return hpu_wrap::norm(self_cast, p, dim, keepdim);
   } else {
