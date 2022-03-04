@@ -632,6 +632,281 @@ def test_hpu_index_put_mrcnn3(N, C, acc):
     out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
     np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+@pytest.mark.parametrize("N, C", [(64, 32768),])
+@pytest.mark.parametrize("acc", [False])
+def test_hpu_index_put_transformer2(N, C, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randn(N, C)
+    label_hpu = label.to(hpu)
+    mask = label > 0
+    mask_hpu = label_hpu > 0
+    value_tensor = torch.tensor(1.)
+    value_tensor_hpu = value_tensor.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
+    out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+
+
+@pytest.mark.parametrize("N", [(16),])
+@pytest.mark.parametrize("acc", [False])
+def test_hpu_index_put_transformer3(N, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N]
+    label = torch.randn(N)
+    label_hpu = label.to(hpu)
+    mask = torch.tensor([3, 2])
+    mask_hpu = mask.to(hpu)
+    value_tensor = torch.tensor(True)
+    value_tensor_hpu = value_tensor.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True) > 5
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    print("input type {}".format(input_tensor.dtype))
+    print("mask shape {}".format(mask.shape))
+    print("mask type {}".format(mask.dtype))
+    print("value shape {}".format(value_tensor.shape))
+    print("value type {}".format(value_tensor.dtype))
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
+    out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+transformer_list = [*range(1, 257, 1)]
+@pytest.mark.parametrize("N", transformer_list)
+@pytest.mark.parametrize("C", [4])
+@pytest.mark.parametrize("acc", [False])
+def test_hpu_index_put_transformer1(N, C, acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randn(N, C)
+    label_hpu = label.to(hpu)
+    mask = label > 0
+    mask_hpu = label_hpu > 0
+    value_tensor = torch.tensor(True)
+    value_tensor_hpu = value_tensor.to(hpu)
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
+    input_tensor = input_tensor > 3
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
+    out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+def test_hpu_index_put_transformer_ip():
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    eos_mask  = torch.tensor([[False, False, False, False, False, False, False, False],
+    [ True, False,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False,  True, False, False, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False,  True, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False,  True, False, False, False, False, False],
+    [ True,  True, False,  True, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False,  True, False, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [ True,  True, False, False,  True, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True, False, False,  True, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [False, False,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False,  True,  True, False, False,  True,  True],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False]])
+    eos_mask_hpu = eos_mask.to(hpu)
+    beam_size = 4
+    cands_to_ignore  = torch.tensor([[False, False, False, False],
+    [True, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False]])
+    cands_hpu = cands_to_ignore.to(hpu)
+
+    print("eos_mask shape '{}'".format(eos_mask.shape))
+    print("eos_mask type {}".format(eos_mask.dtype))
+    print("cands_to_ignore shape {}".format(cands_to_ignore.shape))
+    print("cands_to_ignore type {}".format(cands_to_ignore.dtype))
+    print("beam_size  {}".format(beam_size))
+
+    eos_mask = eos_mask[:, :beam_size]
+    eos_mask_hpu = eos_mask.to(hpu)
+    eos_mask[cands_to_ignore] = torch.tensor(0).to(eos_mask)
+    eos_mask_hpu[cands_hpu] = torch.tensor(0).to(hpu).to(eos_mask)
+
+    print(eos_mask)
+    print(eos_mask_hpu.to(cpu))
+
+    np.testing.assert_allclose(eos_mask_hpu.to(cpu).detach().numpy(), eos_mask.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+def test_hpu_index_put_transformer_case():
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    eos_mask  = torch.tensor([[False, False, False, False, False, False, False, False],
+    [ True, False,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False,  True, False, False, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False,  True, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False,  True, False, False, False, False, False],
+    [ True,  True, False,  True, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False,  True, False, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [ True,  True, False, False,  True, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True, False, False,  True, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [False, False,  True, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [ True,  True,  True, False, False, False, False, False],
+    [ True,  True, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False],
+    [False, False,  True,  True, False, False,  True,  True],
+    [False, False, False, False, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True,  True,  True,  True, False, False, False, False],
+    [ True, False, False, False, False, False, False, False],
+    [False, False, False, False, False, False, False, False]])
+    eos_mask_hpu = eos_mask.to(hpu)
+    beam_size = 4
+    cands_to_ignore  = torch.tensor([[False, False, False, False],
+    [True, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False],
+    [False, False, False, False]])
+    cands_hpu = cands_to_ignore.to(hpu)
+
+    print("eos_mask shape '{}'".format(eos_mask.shape))
+    print("eos_mask type {}".format(eos_mask.dtype))
+    print("cands_to_ignore shape {}".format(cands_to_ignore.shape))
+    print("cands_to_ignore type {}".format(cands_to_ignore.dtype))
+    print("beam_size  {}".format(beam_size))
+
+    eos_mask[:, :beam_size][cands_to_ignore] = torch.tensor(0).to(eos_mask)
+    eos_mask_hpu[:, :beam_size][cands_hpu] = torch.tensor(0).to(hpu).to(eos_mask)
+    # eos_mask_temp = eos_mask_hpu[:, :beam_size]
+    # out_hpu = torch.index_put(input=eos_mask_temp, indices=[cands_hpu], values=torch.tensor(0).to(hpu).to(eos_mask), accumulate=False)
+    # eos_mask_hpu[:, :beam_size] = out_hpu
+    print(eos_mask)
+    print(eos_mask_hpu.to(cpu))
+
+    #print(eos_mask_temp.to(cpu))
+    np.testing.assert_allclose(eos_mask_hpu.to(cpu).detach().numpy(), eos_mask.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])
     test_hpu_view(*test_case_list[0])
