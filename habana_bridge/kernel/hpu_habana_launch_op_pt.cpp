@@ -555,11 +555,9 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
-      if ((strcmp(
-               value_in->node()->kind().toQualString(), "hpu::restride_cl") ==
-           0) ||
-          (strcmp(value_in->node()->kind().toQualString(), "hpu::restride") ==
-           0)) {
+      auto node_qual_str = value_in->node()->kind().toQualString();
+      if ((strcmp(node_qual_str, "hpu::restride_cl") == 0) ||
+          (strcmp(node_qual_str, "hpu::restride") == 0)) {
         auto restride_node = value_in->node();
         auto restride_value_in = restride_node->input(0);
         if (isInGraphInputs(restride_value_in) != -1) {
@@ -592,6 +590,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     torch::jit::Stack& stack) {
   auto node_ins = node->inputs();
   int input_idx = 0;
+  auto node_qual_str = node->kind().toQualString();
   for (const auto value_in : node_ins) {
     auto value_exists = value_to_ivalue.find(value_in);
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
@@ -629,10 +628,8 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     // seed_tensor only once that is why the check on 1st non-tensor input
     // argument.
     else if (
-        (!strcmp("hpu::randperm_out", node->kind().toQualString()) &&
-         0 == input_idx) ||
-        (!strcmp("hpu::randperm_out_ds", node->kind().toQualString()) &&
-         1 == input_idx)) {
+        (!strcmp("hpu::randperm_out", node_qual_str) && 0 == input_idx) ||
+        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx)) {
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
       // as an IValues
@@ -1493,7 +1490,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   size_t outputs_metadata_index = 0;
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;
-    std::string opname(node->kind().toQualString());
+    auto node_qual_str = node->kind().toQualString();
+    std::string opname(node_qual_str);
 
     if (watchlist_.empty() || watchlist_.find(opname) != watchlist_.end()) {
       watch_tensor_flag_ = true;
@@ -1505,7 +1503,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // If its a meta op we need to call the CPU impl and capture changes
     // Only valid for single tensor ops
     // Can we avoid the string match here?
-    if (HabanaMetaOpList::isHabanaMetaOp(node->kind().toQualString())) {
+    if (HabanaMetaOpList::isHabanaMetaOp(opname)) {
       handleMetaOps(node);
       continue;
     }
@@ -1516,12 +1514,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       continue;
     }
 
-    if ((strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) ||
-        (strcmp(node->kind().toQualString(), "hpu::restride") == 0)) {
+    if ((strcmp(node_qual_str, "hpu::restride_cl") == 0) ||
+        (strcmp(node_qual_str, "hpu::restride") == 0)) {
       bool is_restride_cl =
-          (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0)
-          ? true
-          : false;
+          (strcmp(node_qual_str, "hpu::restride_cl") == 0) ? true : false;
       handleRestrideNode(node, is_restride_cl);
       continue;
     }
@@ -1561,8 +1557,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     if ((outputs_metadata.size() == 1) && (!is_shape_inference) &&
         (outputs_metadata.at(0).persistent == true) &&
-        (std::string(node->kind().toQualString()).find("strided_insert") !=
-         std::string::npos)) {
+        (std::string(opname).find("strided_insert") != std::string::npos)) {
       ProcessStridedInsertAtOutput(
           node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {
@@ -1625,7 +1620,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           AddAtenIntermediate(ivpsh, tensor_name, irn, tensor_id);
           PT_BRIDGE_DEBUG(
               "Added appended tensor for ",
-              node->kind().toQualString(),
+              opname,
               " as persistent intermediate");
         }
       }
