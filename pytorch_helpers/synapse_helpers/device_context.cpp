@@ -30,7 +30,6 @@
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/hcl_communicator.h"
 #include "synapse_helpers/stream.h"
 
 namespace hccl_integration {

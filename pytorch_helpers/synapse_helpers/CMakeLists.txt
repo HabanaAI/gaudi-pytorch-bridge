@@ -21,7 +21,6 @@ foreach (FLAVOR abi11)
     graph.cpp
     habana_tensor.cpp
     hccl_communicator.cpp
-    hcl_communicator.cpp
     host_memory.cpp
     logger_stub.cpp
     mem_handle.cpp

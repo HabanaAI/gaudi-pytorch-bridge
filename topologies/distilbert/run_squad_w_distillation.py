@@ -896,11 +896,11 @@ def main():
 
         if args.local_rank != -1:
             try:
-                import habana_frameworks.torch.core
+                import habana_frameworks.torch.core.hccl
             except:
                 assert False, "Could not import habana_frameworks.torch.core"
             os.environ["ID"] = str(args.local_rank)
-            torch.distributed.init_process_group(backend="hcl", rank=args.local_rank, world_size=world_size)
+            torch.distributed.init_process_group(backend="hccl", rank=args.local_rank, world_size=world_size)
             if args.local_rank in [-1, 0]:
                 logger.info("Enable distributed run")
         if args.use_lazy_mode:

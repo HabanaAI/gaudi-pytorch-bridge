@@ -420,8 +420,8 @@ def setup_training(args):
                 print("HCL_CONFIG_PATH is not set")
                 exit(0)
             os.environ["ID"] = str(args.local_rank)
-            import habana_frameworks.torch.core
-            torch.distributed.init_process_group('hcl',
+            import habana_frameworks.torch.core.hccl
+            torch.distributed.init_process_group('hccl',
                     rank=args.rank, world_size=args.world_size)
         if args.use_lazy_mode and args.local_rank != -1:
             args.allreduce_post_accumulation = True

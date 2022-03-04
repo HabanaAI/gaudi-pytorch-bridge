@@ -7,8 +7,6 @@
  *
  ******************************************************************************
  */
-#include "process_group_hcl.h" // "UNUSED" conflict in synapse_helpers/util.h & torch/include/c10d/Types.hpp
-
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
@@ -18,39 +16,6 @@
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
-
-template <typename T>
-using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
-static void torch_hcl_init() {
-  py::object module = py::module::import("torch.distributed");
-  py::object register_backend = module.attr("Backend").attr("register_backend");
-
-  register_backend(
-      "hcl",
-      py::cpp_function(
-          &c10d::ProcessGroupHCL::createProcessGroupHCL,
-          py::arg("store"),
-          py::arg("rank"),
-          py::arg("size"),
-          py::arg("timeout") = std::chrono::milliseconds(40 * 1000)));
-
-  auto processGroup = module.attr("ProcessGroup");
-  auto processGroupHCL = intrusive_ptr_class_<::c10d::ProcessGroupHCL>(
-      module, "ProcessGroupHCL", processGroup);
-
-  processGroupHCL.def(
-      py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
-                  int rank,
-                  int size,
-                  std::chrono::milliseconds timeout) {
-        return c10::make_intrusive<::c10d::ProcessGroupHCL>(
-            store, rank, size, timeout);
-      }),
-      py::arg("store"),
-      py::arg("rank"),
-      py::arg("size"),
-      py::arg("timeout") = std::chrono::milliseconds(10 * 1000));
-}
 
 bool IsAvailable() {
   try {
@@ -93,7 +58,6 @@ const std::string get_device_name(int device_id) {
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  torch_hcl_init();
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
     habana::HPUDeviceAllocator::print_memory_stats(msg);

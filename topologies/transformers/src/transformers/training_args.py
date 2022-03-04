@@ -311,10 +311,10 @@ class TrainingArguments:
                 if os.getenv('HCL_CONFIG_PATH') is None:
                     print("HCL_CONFIG_PATH is not set")
                     exit(0)
-                self.dist_backend = 'hcl'
+                self.dist_backend = 'hccl'
                 os.environ["ID"] = str(self.local_rank)
                 self.world_size = int(os.environ['WORLD_SIZE'])
-                import habana_frameworks.torch.core
+                import habana_frameworks.torch.core.hccl
                 torch.distributed.init_process_group(self.dist_backend, rank=self.local_rank, world_size=self.world_size)
                 n_gpu = 1
         elif self.no_cuda:

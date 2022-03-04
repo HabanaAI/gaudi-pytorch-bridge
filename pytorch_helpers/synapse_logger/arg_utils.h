@@ -117,19 +117,12 @@ struct FormattableObject {
   friend std::ostream& operator<<(
       std::ostream& out,
       const FormattableObject<ObjectT>& fobj) {
-    return fobj.Format(
-        out,
-        std::integral_constant<
-            bool,
-            std::is_same<ObjectT, HCL_Request>::value>{});
+    return fobj.Format(out);
   }
 
  private:
-  std::ostream& Format(std::ostream& out, std::false_type) const {
+  std::ostream& Format(std::ostream& out) const {
     return out << obj;
-  }
-  std::ostream& Format(std::ostream& out, std::true_type) const {
-    return out << reinterpret_cast<const uint64_t&>(obj);
   }
 };
 

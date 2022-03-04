@@ -223,8 +223,8 @@ def setup_dist(rank, world_size,backend):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
     os.environ["ID"] = str(rank)
-    if backend == "hcl":
-        import habana_frameworks.torch.core
+    if backend == "hccl":
+        import habana_frameworks.torch.core.hccl
     dist.init_process_group(backend, rank=rank, world_size=world_size)
 
 
@@ -268,7 +268,7 @@ def parse_args():
                         help='log live memory allocations on device at the given point')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     #Distributed parameters
-    parser.add_argument('--backend',default='hcl', help='Device backend for distributed')
+    parser.add_argument('--backend',default='hccl', help='Device backend for distributed')
     args = parser.parse_args()
     return args
 

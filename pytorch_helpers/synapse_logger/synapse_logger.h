@@ -11,7 +11,6 @@
 #include <absl/strings/string_view.h>
 #include <absl/types/variant.h>
 #include <dlfcn.h>
-#include <hcl_api_types.h>
 #include <unistd.h>
 #include <algorithm>
 #include <array>
@@ -42,10 +41,6 @@ constexpr std::array<const char*, 3> slog_levels = {{"ERROR", "INFO", "TRACE"}};
 const int enabled_slog_level = S_INFO;
 constexpr const char* get_slog_level(ErrorLevel level) {
   return synapse_logger::slog_levels[level];
-}
-
-inline bool is_status_success(HCLStatus status) {
-  return (eHCLSuccess == status);
 }
 
 inline bool is_status_success(synStatus status) {
