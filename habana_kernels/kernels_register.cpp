@@ -1745,10 +1745,14 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
   auto bias = bias_opt.value_or(Tensor());
   auto running_mean = running_mean_opt.value_or(Tensor());
   auto running_var = running_var_opt.value_or(Tensor());
-
+  // Additional check added  in case input dims are less than 4
+  // fall back to CPU since HPU supports only 4D inputs
+  // This can be removed once we implement support to reshape
+  // non 4D inputs in the bridge
   if (!hpu_check_inputs_impl(
           "native_batch_norm",
-          {input, weight, bias, running_mean, running_var}))
+          {input, weight, bias, running_mean, running_var}) ||
+      (input.dim() < 4))
     return AtenHpuTypeDefault::native_batch_norm(
         input,
         weight_opt,
