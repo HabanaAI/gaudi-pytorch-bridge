@@ -121,6 +121,67 @@ bool deviceMallocData::interesting_function(const std::string& name) {
   return interesting;
 }
 
+std::string deviceMallocData::get_formatted_func_name(
+    std::string string,
+    bool print_all_frames,
+    bool* dot_marker_placed) {
+  const std::string dot_dot_dot = "...";
+
+  // Find the mangled function name in the frame
+  const auto start_of_func_name = string.find('(');
+  std::string out_name = "";
+  std::size_t end_of_func_name;
+  bool formatted_name = true;
+  if (start_of_func_name != std::string::npos) {
+    end_of_func_name = string.find('+', start_of_func_name);
+    if ((end_of_func_name == std::string::npos) ||
+        (end_of_func_name == start_of_func_name + 1)) {
+      formatted_name = false;
+    }
+  } else {
+    formatted_name = false;
+  }
+  if (formatted_name) {
+    // Print demangled name
+    const auto len = end_of_func_name - start_of_func_name - 1;
+    int status;
+    const auto& name = string.substr(start_of_func_name + 1, len);
+    const auto demangled_name =
+        abi::__cxa_demangle(name.c_str(), nullptr, nullptr, &status);
+    if (!print_all_frames &&
+        !interesting_function((status == 0) ? demangled_name : name)) {
+      // If the function isn't of interest, don't print the frame
+      if (!*dot_marker_placed) {
+        out_name += ("    " + dot_dot_dot + "\n");
+        *dot_marker_placed = true;
+      }
+      return out_name;
+    }
+    *dot_marker_placed = false;
+    if (status == 0) {
+      std::string demang_name(demangled_name);
+      demang_name = demang_name.substr(0, demang_name.find("("));
+      out_name += ("    " + demang_name + "\n");
+    } else {
+      std::string name_(name);
+      name_ = name_.substr(0, name_.find("("));
+      out_name += ("    " + name_ + "\n");
+    }
+  } else {
+    if (!print_all_frames && !interesting_function(string)) {
+      // If the function isn't of interest, don't print the frame
+      if (!*dot_marker_placed) {
+        out_name += ("    " + dot_dot_dot + "\n");
+        *dot_marker_placed = true;
+      }
+      return out_name;
+    }
+    *dot_marker_placed = false;
+    out_name += ("    " + string + "\n");
+  }
+  return out_name;
+}
+
 /*
  * Print an entry from the log
  */
@@ -128,65 +189,21 @@ void deviceMallocData::print_an_entry(
     const std::pair<uint64_t, size_bt_pair_t>& entry,
     bool print_all_frames) {
   // Print the data pointer
-  std::cout << "ptr = 0x" << std::hex << entry.first << "\n" << std::flush;
+  std::cout << "ptr = 0x" << std::hex << entry.first << std::flush;
 
   // Print the allocated size
   const auto& size_bt = entry.second;
-  std::cout << "    size = " << std::dec << size_bt.first << "\n" << std::flush;
+  std::cout << ", size = " << std::dec << size_bt.first << "\n" << std::flush;
 
   // Print the backtrace
   if (take_bt) {
     const auto& bt_strings = size_bt.second;
-    std::cout << "    BACKTRACE\n" << std::flush;
-    const std::string dot_dot_dot = "...";
     bool dot_marker_placed = false;
     for (const auto& string : bt_strings) {
-      // Find the mangled function name in the frame
-      const auto start_of_func_name = string.find('(');
-      std::size_t end_of_func_name;
-      bool formatted_name = true;
-      if (start_of_func_name != std::string::npos) {
-        end_of_func_name = string.find('+', start_of_func_name);
-        if ((end_of_func_name == std::string::npos) ||
-            (end_of_func_name == start_of_func_name + 1)) {
-          formatted_name = false;
-        }
-      } else {
-        formatted_name = false;
-      }
-      if (formatted_name) {
-        // Print demangled name
-        const auto len = end_of_func_name - start_of_func_name - 1;
-        int status;
-        const auto& name = string.substr(start_of_func_name + 1, len);
-        const auto demangled_name =
-            abi::__cxa_demangle(name.c_str(), nullptr, nullptr, &status);
-        if (!print_all_frames &&
-            !interesting_function((status == 0) ? demangled_name : name)) {
-          // If the function isn't of interest, don't print the frame
-          if (!dot_marker_placed) {
-            std::cout << "    " << dot_dot_dot << "\n" << std::flush;
-            dot_marker_placed = true;
-          }
-          continue;
-        }
-        dot_marker_placed = false;
-        if (status == 0) {
-          std::cout << "    " << demangled_name << "\n" << std::flush;
-        } else {
-          std::cout << "    " << name << "\n" << std::flush;
-        }
-      } else {
-        if (!print_all_frames && !interesting_function(string)) {
-          // If the function isn't of interest, don't print the frame
-          if (!dot_marker_placed) {
-            std::cout << "    " << dot_dot_dot << "\n" << std::flush;
-            dot_marker_placed = true;
-          }
-          continue;
-        }
-        dot_marker_placed = false;
-        std::cout << "    " << string << "\n" << std::flush;
+      if (string.length()) {
+        std::cout << get_formatted_func_name(
+                         string, print_all_frames, &dot_marker_placed)
+                  << std::flush;
       }
     }
   }
@@ -200,17 +217,19 @@ void deviceMallocData::collect_backtrace(
     bool alloc,
     size_t size,
     bool failure) {
+  if (!logging_enabled_)
+    return;
+
   int nptrs;
   std::vector<void*> vbuf;
   vbuf.reserve(bt_depth);
   void** buffer = vbuf.data();
   char** strings = nullptr;
-
-  if (!logging_enabled_)
-    return;
-
   bool duplicate = false;
   std::vector<std::string> bt_string;
+  // TODO: keep a maximum limit for the backtrace buffer to avoid host memory
+  // exhaustion.
+
   // Take backtrace
   if (take_bt && (alloc || print_free_bt)) {
     nptrs = backtrace(buffer, bt_depth);
@@ -489,18 +508,22 @@ void deviceMallocData::report_fragmentation(bool from_free) {
   }
 }
 
+void deviceMallocData::print_to_file(const char* msg) {
+  if (!out.is_open())
+    out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
+  std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
+  std::cout.rdbuf(out.rdbuf());
+  std::cout << msg << "\n" << std::flush;
+  std::cout.rdbuf(coutbuf); // reset to standard output again
+  return;
+}
+
 /*
  * Print live allocation details at the given point.
  */
 void deviceMallocData::print_live_allocations(const char* msg) {
   if (!logging_enabled_) {
-    if (!out.is_open())
-      out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
-    std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(out.rdbuf());
-    std::cout << msg << "\n" << std::flush;
-    std::cout.rdbuf(coutbuf); // reset to standard output again
-    return;
+    return print_to_file(msg);
   }
   // Redirect output to logfile
   std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
@@ -526,8 +549,7 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   std::sort(sorted_by_size_log.begin(), sorted_by_size_log.end(), sort_by_size);
 
   // How many allocations are not freed yet?
-  std::cout << "#Allocations live " << record_id_msg << " : "
-            << sorted_by_size_log.size() << "\n"
+  std::cout << "#Allocations live : " << sorted_by_size_log.size() << "\n"
             << std::flush;
 
   // How much memory is held by our live allocations now?
@@ -535,19 +557,17 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   for (const auto& entry : sorted_by_size_log) {
     total_live_size += entry.second.first;
   }
-  std::cout << "Total memory held " << record_id_msg << " : " << total_live_size
-            << " (" << total_live_size / (1024 * 1024.) << " MB)\n"
+  std::cout << "Total memory held : " << total_live_size << " ("
+            << total_live_size / (1024 * 1024.) << " MB)\n"
             << std::flush;
 
   // Stats on peak memory usage
-  std::cout << "Peak memory usage " << record_id_msg << " : "
-            << overall_high_watermark << " ("
+  std::cout << "Peak memory usage : " << overall_high_watermark << " ("
             << overall_high_watermark / (1024 * 1024.) << " MB)\n"
             << std::flush;
 
-  std::cout << "Peak memory usage from last log " << record_id_msg << " : "
-            << iteration_high_watermark << " ("
-            << iteration_high_watermark / (1024 * 1024.) << " MB)\n"
+  std::cout << "Peak memory usage from last log : " << iteration_high_watermark
+            << " (" << iteration_high_watermark / (1024 * 1024.) << " MB)\n"
             << std::flush;
 
   ++iteration_number;
@@ -578,14 +598,17 @@ void deviceMallocData::print_live_allocations(const char* msg) {
     }
   }
 
-  // Print all entries that are live at this point
-  std::cout << "All live allocations\n" << std::flush;
-  for (const auto& entry : sorted_by_size_log) {
-    print_an_entry(entry);
+  if (!mem_statuscheck_running) {
+    // Print all entries that are live at this point
+    std::cout << "All live allocations\n" << std::flush;
+    int cnt = 0;
+    for (const auto& entry : sorted_by_size_log) {
+      std::cout << "Entry : " << ++cnt << " " << std::flush;
+      print_an_entry(entry);
+    }
   }
 
   std::cout.rdbuf(coutbuf); // reset to standard output again
-
   // Save current log to compare against next time log
   ptr_bt_map_last = ptr_bt_map;
 }
@@ -618,6 +641,10 @@ void log_synDeviceFree(uint64_t ptr, bool failed) {
   lk.unlock();
 }
 
+void print_to_file(const char* msg) {
+  deviceMallocData::singleton().print_to_file(msg);
+}
+
 /*
  * Print live allocation data at the given point
  */
@@ -632,4 +659,24 @@ void log_DRAM_start(uint64_t dram_start) {
 void log_DRAM_size(uint64_t dram_size) {
   deviceMallocData::singleton().set_dram_size(dram_size);
 }
+
+void set_back_trace(bool enable) {
+  deviceMallocData::singleton().set_back_trace(enable);
+}
+
+void set_memstats_check_flag(bool flag) {
+  deviceMallocData::singleton().set_memstats_check_flag(flag);
+}
+
+void memstats_dump(synapse_helpers::device& device, const char* msg) {
+  if (deviceMallocData::singleton().get_memstats_check_flag() ||
+      GET_ENV_FLAG_NEW(PT_HPU_MEM_STATS_DUMP)) {
+    synapse_helpers::MemoryStats stats;
+    device.get_device_memory().get_memory_stats(&stats);
+    std::string updated_msg = msg;
+    updated_msg = updated_msg + "\n" + stats.DebugString();
+    synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+}
+
 } // namespace synapse_helpers

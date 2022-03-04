@@ -62,6 +62,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("memstat_livealloc", [](const char* msg = "") {
     habana::HPUDeviceAllocator::print_memory_stats(msg);
   });
+  m.def(
+      "memstat_devmem_start_collect",
+      [](const char* msg = "", bool show_leaked_callstacks = true) {
+        habana::HPUDeviceAllocator::memstat_devmem_start_collect(
+            msg, show_leaked_callstacks);
+      });
+  m.def("memstat_devmem_stop_collect", [](const char* msg = "") {
+    habana::HPUDeviceAllocator::memstat_devmem_stop_collect(msg);
+  });
   m.def("get_fallback_op_count", []() {
     return habana::HpuFallbackHelper::get()->get_op_count();
   });

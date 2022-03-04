@@ -687,6 +687,10 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   std::tie(ptr, size) = get_and_alloc_mem();
 
   if (ptr == nullptr) {
+    synapse_helpers::memstats_dump(
+        device_,
+        "Allocation failed, stats before waiting for recipies to finish.");
+
     // check and wait for recipe execution to complete
     auto& recipe_counter = device_.get_active_recipe_counter();
     uint32_t counter_state{0};
@@ -721,7 +725,13 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   }
 
   if (ptr == nullptr) {
-    PT_DEVMEM_FATAL("Allocation failed for size::", size);
+    synapse_helpers::memstats_dump(device_, "Allocation failed.");
+    PT_DEVMEM_FATAL(
+        "Allocation failed for size::",
+        size,
+        " (",
+        size / (1024 * 1024.),
+        ")MB");
   }
 
   const auto offset = h.offset();

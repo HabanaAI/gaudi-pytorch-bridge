@@ -42,7 +42,7 @@ Bin* BinUtils::BinForSize(size_t bytes) const {
 
 void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
   PT_DEVMEM_DEBUG(
-      "POOL:: InsertFreeChunkIntoBin - memptr = ",
+      "CS_POOL:: InsertFreeChunkIntoBin - memptr = ",
       c->memptr,
       ", bin_index = ",
       c->bin_index);
@@ -59,7 +59,7 @@ void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
 
 void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
   PT_DEVMEM_DEBUG(
-      "POOL:: RemoveFreeChunkFromBin - memptr = ",
+      "CS_POOL:: RemoveFreeChunkFromBin - memptr = ",
       c->memptr,
       ", bin_index = ",
       c->bin_index);
@@ -81,7 +81,7 @@ void BinUtils::RemoveFreeChunkIterFromBin(
     const Bin::FreeChunkSet::iterator& citer) const {
   Chunk* c = *citer;
   PT_DEVMEM_DEBUG(
-      "POOL:: RemoveFreeChunkIterFromBin - memptr = ",
+      "CS_POOL:: RemoveFreeChunkIterFromBin - memptr = ",
       c->memptr,
       ", bin_index = ",
       c->bin_index);
@@ -131,7 +131,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
-        "POOL:: Cannot obtain device memory info. Status: ", status);
+        "CS_POOL:: Cannot obtain device memory info. Status: ", status);
   }
 
   // try to take max free memory when not set by user
@@ -149,7 +149,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     size = (0.99 * free_mem) - hccl_allowance_bytes;
 
     PT_DEVMEM_DEBUG(
-        "POOL:: use 99% of freepool size, free mem :: ",
+        "CS_POOL:: use 99% of freepool size, free mem :: ",
         free_mem,
         "hccl allowance bytes",
         hccl_allowance_bytes,
@@ -160,7 +160,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   auto p = new simple_coalesced_pool_t();
   if (!p) {
-    PT_DEVMEM_DEBUG("POOL:: Cannot obtain pool memory");
+    PT_DEVMEM_DEBUG("CS_POOL:: Cannot obtain pool memory");
     return false;
   }
 
@@ -168,7 +168,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   if (synStatus::synSuccess != status) {
     delete (p);
     PT_DEVMEM_FATAL(
-        "POOL:: Cannot obtain device memory size. Status: ", status);
+        "CS_POOL:: Cannot obtain device memory size. Status: ", status);
     return false;
   }
 
@@ -179,13 +179,13 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   p->end = p->basememptr + size;
   p->start = nullptr;
   p->top = p->start;
-  PT_DEVMEM_DEBUG("POOL:: static coalesced stringent pool created");
+  PT_DEVMEM_DEBUG("CS_POOL:: static coalesced stringent pool created");
   print_device_memory_stats(pool_id);
   prealloc_pool = p;
 
   // CoalescedStringentPooling::print_pool_stats();
   PT_DEVMEM_DEBUG(
-      "POOL:: Pool Created :: base host :: ",
+      "CS_POOL:: Pool Created :: base host :: ",
       p,
       " base ptr :: ",
       p->basememptr,
@@ -256,13 +256,18 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
 void CoalescedStringentPooling::pool_destroy() const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  PT_DEVMEM_DEBUG("CS_POOL:: pool_destroy");
   simple_coalesced_pool_t* s_pool = prealloc_pool;
-
+  {
+    std::string updated_msg = "pool_destroy: ";
+    updated_msg = updated_msg + "\n" + stats.DebugString();
+    PT_DEVMEM_DEBUG("CS_POOL:: pool_destroy stats:", updated_msg.c_str());
+  }
   CoalescedStringentPooling::print_pool_stats();
 
   if ((s_pool) && (chunk_count != 0)) {
-    PT_DEVMEM_DEBUG("POOL:: warning -- active chunks !!");
-    PT_DEVMEM_DEBUG("POOL:: total active chunks :: ", chunk_count);
+    PT_DEVMEM_DEBUG("CS_POOL:: warning -- active chunks !!");
+    PT_DEVMEM_DEBUG("CS_POOL:: total active chunks :: ", chunk_count);
   }
 
   if (s_pool) {
@@ -298,7 +303,7 @@ void CoalescedStringentPooling::pool_destroy() const {
     chunks_to_merge.clear();
     delete (s_pool);
     s_pool = nullptr;
-    PT_DEVMEM_DEBUG("POOL:: static coalesced pool destroyed");
+    PT_DEVMEM_DEBUG("CS_POOL:: static coalesced pool destroyed");
   }
   pool_id = 0;
   chunk_count = 0;
@@ -395,37 +400,39 @@ void CoalescedStringentPooling::print_pool_stats() const {
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
-            "POOL:: can be merged :: chunk :: ",
+            "CS_POOL:: can be merged :: chunk :: ",
             chunk->memptr,
             " with prev :: ",
             chunk->prev->memptr);
       }
       if (chunk->next && !chunk->next->used && chunk->next->size) {
         PT_DEVMEM_DEBUG(
-            "POOL:: can be merged :: chunk :: ",
+            "CS_POOL:: can be merged :: chunk :: ",
             chunk->memptr,
             " with next :: ",
             chunk->next->memptr);
       }
     }
   }
-  PT_DEVMEM_DEBUG("POOL:: total_chunks in the pool :: ", total_chunks);
-  PT_DEVMEM_DEBUG("POOL:: total_size in the pool :: ", total_size);
-  PT_DEVMEM_DEBUG("POOL:: occupied_chunks in the pool :: ", occupied_chunks);
-  PT_DEVMEM_DEBUG("POOL:: occupied_chunks size in the pool :: ", occupied_size);
-  PT_DEVMEM_DEBUG("POOL:: free chunks in the pool :: ", free_chunks);
-  PT_DEVMEM_DEBUG("POOL:: free chunks size in the pool :: ", free_chunks_size);
+  PT_DEVMEM_DEBUG("CS_POOL:: total_chunks in the pool :: ", total_chunks);
+  PT_DEVMEM_DEBUG("CS_POOL:: total_size in the pool :: ", total_size);
+  PT_DEVMEM_DEBUG("CS_POOL:: occupied_chunks in the pool :: ", occupied_chunks);
   PT_DEVMEM_DEBUG(
-      "POOL:: max contigous chunks size in the pool :: ",
+      "CS_POOL:: occupied_chunks size in the pool :: ", occupied_size);
+  PT_DEVMEM_DEBUG("CS_POOL:: free chunks in the pool :: ", free_chunks);
+  PT_DEVMEM_DEBUG(
+      "CS_POOL:: free chunks size in the pool :: ", free_chunks_size);
+  PT_DEVMEM_DEBUG(
+      "CS_POOL:: max contigous chunks size in the pool :: ",
       max_cntgs_free_chunks_size);
   PT_DEVMEM_DEBUG(
-      "POOL:: total_extra_spaced_chunks in the pool  :: ",
+      "CS_POOL:: total_extra_spaced_chunks in the pool  :: ",
       total_extra_spaced_chunks);
   PT_DEVMEM_DEBUG(
-      "POOL:: total_extra_size in the pool chunks :: ", total_exta_size);
-  PT_DEVMEM_DEBUG("POOL::{}", pool_status.str());
+      "CS_POOL:: total_extra_size in the pool chunks :: ", total_exta_size);
+  PT_DEVMEM_DEBUG("CS_POOL::{}", pool_status.str());
   PT_DEVMEM_DEBUG(
-      "POOL::Fragmentation = ",
+      "CS_POOL::Fragmentation = ",
       1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
   total_chunks = 0;
   total_size = 0;
@@ -451,7 +458,7 @@ Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
 
       if (chunk->size >= size) {
         PT_DEVMEM_DEBUG(
-            "POOL:: Return bigger chunk :: ",
+            "CS_POOL:: Return bigger chunk :: ",
             chunk,
             " chunk size :: ",
             chunk->size,
@@ -462,7 +469,7 @@ Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
       }
     }
   }
-  PT_DEVMEM_DEBUG("POOL:: no bigger chunks !!");
+  PT_DEVMEM_DEBUG("CS_POOL:: no bigger chunks !!");
   return nullptr;
 }
 
@@ -499,7 +506,7 @@ uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   };
   ctgs_chunks_size += chunk->size;
   PT_DEVMEM_DEBUG(
-      "POOL:: ctgs_chunks_size available :: ",
+      "CS_POOL:: ctgs_chunks_size available :: ",
       ctgs_chunks_size,
       " ctgs_chunks :: ",
       ctgs_chunks,
@@ -519,11 +526,11 @@ Chunk* CoalescedStringentPooling::try_defragmenting(uint64_t size) const {
   auto free_chunk = get_free_chunk(size);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
-        "POOL:: no more reusable chunk after defragment: extend pool !!");
+        "CS_POOL:: no more reusable chunk after defragment: extend pool !!");
     return nullptr;
   }
   PT_DEVMEM_DEBUG(
-      "POOL:: reusing chunk after defragment:: ",
+      "CS_POOL:: reusing chunk after defragment:: ",
       free_chunk->memptr,
       " req size :: ",
       size,
@@ -537,11 +544,12 @@ Chunk* CoalescedStringentPooling::try_defragmenting(uint64_t size) const {
 Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
   auto free_chunk = get_free_chunk(size);
   if (free_chunk == nullptr) {
-    PT_DEVMEM_DEBUG("POOL:: no more reusable chunk: defragment or extend !!");
+    PT_DEVMEM_DEBUG(
+        "CS_POOL:: no more reusable chunk: defragment or extend !!");
     return nullptr;
   }
   PT_DEVMEM_DEBUG(
-      "POOL:: reusing chunk :: ",
+      "CS_POOL:: reusing chunk :: ",
       free_chunk->memptr,
       " req size :: ",
       size,
@@ -593,31 +601,31 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   size = block_align(size);
   size_t current_ws_size = 0;
   if (size > max_pool_size) {
-    PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
+    PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
     return nullptr;
   }
 
   // get tail chunk
   if (prealloc_pool == nullptr) {
-    PT_DEVMEM_FATAL("POOL:: alloc invalid pool !!");
+    PT_DEVMEM_FATAL("CS_POOL:: alloc invalid pool !!");
   }
   Chunk* tail_chunk = prealloc_pool->top;
 
   if (tail_chunk == nullptr) {
-    PT_DEVMEM_FATAL("POOL:: extend_high_memory_alloc tail chunk invalid!!");
+    PT_DEVMEM_FATAL("CS_POOL:: extend_high_memory_alloc tail chunk invalid!!");
   }
 
   // high memory is not allocated and tail chunk used
   if (!high_memory_allocated_ && tail_chunk->used) {
     PT_DEVMEM_DEBUG(
-        "POOL:: no space for high memory allocation, already allocated!!");
+        "CS_POOL:: no space for high memory allocation, already allocated!!");
     return nullptr;
   }
 
   // if high_memory is already allocated, check the size with the requested size
   if (high_memory_allocated_ && (size <= tail_chunk->size)) {
     PT_DEVMEM_DEBUG(
-        "POOL:: no need to extend high memory allocation current size::",
+        "CS_POOL:: no need to extend high memory allocation current size::",
         tail_chunk->size,
         " Requested Size::",
         size);
@@ -647,7 +655,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
 
   if (tail_chunk->size < size) {
     PT_DEVMEM_DEBUG(
-        "POOL:: out of memory, when trying to extend high meory for size::",
+        "CS_POOL:: out of memory, when trying to extend high meory for size::",
         size);
     return nullptr;
   }
@@ -657,7 +665,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   auto size_left = tail_chunk->size - size;
 
   if (tail_chunk->bin_index == kInvalidBinNum) {
-    PT_DEVMEM_FATAL("POOL:: extend_high_memory_alloc tail chunk invalid!!");
+    PT_DEVMEM_FATAL("CS_POOL:: extend_high_memory_alloc tail chunk invalid!!");
   }
 
   if (size_left > 0) {
@@ -695,11 +703,12 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     ptr = small_allocs_->Allocate(size);
   if (ptr != nullptr) {
     ++stats.num_allocs;
+    ++stats.total_allocs;
     return ptr;
   }
 
   if (size > max_pool_size) {
-    PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
+    PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
     return nullptr;
   }
 
@@ -711,7 +720,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
 
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
   if (prealloc_pool != p) {
-    PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
+    PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
   }
 
   if (!chunks_to_merge.empty()) {
@@ -720,7 +729,10 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   }
 
   PT_DEVMEM_DEBUG(
-      "POOL:: pool_alloc_chunk request in pool :: ", p, " for size :: ", size);
+      "CS_POOL:: pool_alloc_chunk request in pool :: ",
+      p,
+      " for size :: ",
+      size);
   auto old_chunk = reuse_chunks(size);
   if (old_chunk) {
     ++chunk_count;
@@ -729,7 +741,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     // extra space available in blocks after split/coalasce
     old_chunk->extra_space = old_chunk->size - size;
     PT_DEVMEM_DEBUG(
-        "POOL:: pool_alloc_chunk allocated reuse chunk :: base:: ",
+        "CS_POOL:: pool_alloc_chunk allocated reuse chunk :: base:: ",
         old_chunk,
         " chunk memptr ::",
         old_chunk->memptr,
@@ -772,7 +784,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   }
   print_device_memory_stats(pool_id);
   print_pool_stats();
-  PT_DEVMEM_DEBUG("POOL:: pool exhausted !! for size :: ", size);
+  PT_DEVMEM_DEBUG("CS_POOL:: pool exhausted !! for size :: ", size);
   return nullptr;
 }
 
@@ -1040,18 +1052,22 @@ bool CoalescedStringentPooling::defragment_chunks(uint64_t size) const {
 
 void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  PT_DEVMEM_DEBUG("CS_POOL:: pool_free_chunk");
   delete_chunk(ptr);
 }
 
 void CoalescedStringentPooling::delete_chunk(void* ptr) const {
+  PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk");
   if ((uint64_t)ptr == 0) {
-    PT_DEVMEM_DEBUG("POOL:: null ptr");
+    PT_DEVMEM_DEBUG("CS_POOL:: null ptr");
     return;
   }
 
   if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
     small_allocs_->Deallocate(ptr);
     ++stats.num_frees;
+    ++stats.total_frees;
+    PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk reduced free");
     return;
   }
 
@@ -1064,6 +1080,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   --chunk_count;
   bytes_in_use -= chunk->size;
   stats.UpdateStats(chunk->size, false);
+  PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk UpdateStats incr total_frees");
 
   if (enable_lfu_merging) {
     chunk->freed_counter += 1;

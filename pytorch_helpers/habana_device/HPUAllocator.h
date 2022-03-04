@@ -53,6 +53,10 @@ class HPUDeviceAllocator final : public at::Allocator {
   // the middle of releasing tensors
   void flush_stream_events() const;
   static void print_memory_stats(const char* msg);
+  static void memstat_devmem_start_collect(
+      const char* msg,
+      bool show_leaked_callstacks);
+  static void memstat_devmem_stop_collect(const char* msg);
 };
 
 } // namespace habana

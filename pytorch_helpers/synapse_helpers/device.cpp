@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <synapse_api.h>
+#include "devmem_logger.h"
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/session.h"
@@ -369,6 +370,7 @@ void device::cleanup() {
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
   }
+  synapse_helpers::memstats_dump(*this, "Stats after cleanup.");
 }
 
 device::~device() {

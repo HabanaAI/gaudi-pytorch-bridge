@@ -14,6 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "device.h"
 
 namespace synapse_helpers {
 enum mem_log_level {
@@ -38,7 +39,7 @@ class deviceMallocData final {
 
   std::string filename;
   const char* fragment_csv_file = "habana_log.fragment.csv";
-  bool take_bt, print_free_bt, print_alloc_bt;
+  bool take_bt, print_free_bt, print_alloc_bt, mem_statuscheck_running;
   size_t bt_depth;
   bool logging_enabled_;
 
@@ -59,6 +60,10 @@ class deviceMallocData final {
       std::pair<uint64_t, size_bt_pair_t>& a,
       std::pair<uint64_t, size_bt_pair_t>& b);
   bool interesting_function(const std::string& name);
+  std::string get_formatted_func_name(
+      std::string string,
+      bool print_all_frames,
+      bool* dot_marker_placed);
   void print_an_entry(
       const std::pair<uint64_t, size_bt_pair_t>& entry,
       bool print_all_frames = false);
@@ -67,7 +72,9 @@ class deviceMallocData final {
       bool alloc,
       size_t size = 0,
       bool alloc_failure = false);
+  void print_to_file(const char* msg);
   void print_live_allocations(const char* msg = "");
+  void dump_collected_data(const char* msg = "");
   void report_fragmentation(bool from_free = false);
   void set_dram_start(uint64_t dram_start) {
     dram_start_ = dram_start;
@@ -80,6 +87,19 @@ class deviceMallocData final {
     return logging_enabled_;
   }
 
+  void set_back_trace(bool enable) {
+    take_bt = enable;
+    logging_enabled_ = (take_bt || print_free_bt || print_alloc_bt);
+  }
+
+  void set_memstats_check_flag(bool flag) {
+    mem_statuscheck_running = flag;
+  }
+
+  bool get_memstats_check_flag() {
+    return mem_statuscheck_running;
+  }
+
   // TBD:: Make it private
   std::mutex m;
 
@@ -89,7 +109,11 @@ class deviceMallocData final {
 
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed = false);
 void log_synDeviceFree(uint64_t ptr, bool failed = false);
+void print_to_file(const char* msg);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);
 void log_DRAM_size(uint64_t dram_size);
+void set_back_trace(bool enable);
+void set_memstats_check_flag(bool flag);
+void memstats_dump(synapse_helpers::device& device, const char* msg);
 } // namespace synapse_helpers

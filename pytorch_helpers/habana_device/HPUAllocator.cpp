@@ -286,6 +286,48 @@ void HPUDeviceAllocator::print_memory_stats(const char* msg) {
     synapse_helpers::print_live_allocations(msg);
   }
 }
+
+void HPUDeviceAllocator::memstat_devmem_start_collect(
+    const char* msg,
+    bool show_leaked_callstacks) {
+  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
+    return;
+  }
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+  if (device.IsStreamASyncEnabled()) {
+    PT_DEVICE_WARN(
+        "Warning: Set PT_ENABLE_HABANA_STREAMASYNC=0 for device memory "
+        "statistics/leaks collection so that errors due to async behavior can be reduced");
+  }
+
+  if (device.get_device_memory().get_pool_strategy() !=
+      synapse_helpers::pool_allocator::strategy_none) {
+    synapse_helpers::set_memstats_check_flag(true);
+    std::string updated_msg = msg;
+    updated_msg = updated_msg + "\nMemory statistics collection started!!";
+    synapse_helpers::memstats_dump(device, updated_msg.c_str());
+    synapse_helpers::set_back_trace(show_leaked_callstacks);
+    device.get_device_memory().clear_memory_stats();
+  }
+}
+
+void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
+  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
+    return;
+  }
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+  if (device.get_device_memory().get_pool_strategy() !=
+      synapse_helpers::pool_allocator::strategy_none) {
+    std::string updated_msg = msg;
+    updated_msg = updated_msg +
+        "\nMemory statistics collection stopped and dumping data...";
+    synapse_helpers::memstats_dump(device, updated_msg.c_str());
+    device.get_device_memory().clear_memory_stats();
+  }
+}
+
 } // namespace habana
 
 namespace synapse_helpers {
