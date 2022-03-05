@@ -856,7 +856,7 @@ eq.Scalar_out:
   type_promotion: true
 
 eq.Tensor_out:
-  custom_output_shape: BinaryOutputShape
+  broadcast: true
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   legacy_eager: true
@@ -886,7 +886,7 @@ eq.Scalar:
   legacy_eager: true
 
 eq.Tensor:
-  custom_output_shape: BinaryOutputShape
+  broadcast: true
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   op_frontend: LazyCmp
