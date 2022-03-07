@@ -876,7 +876,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, ArangeTestHt) {
+TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestHt) {
   // std::vector<int> start_sizes{1, 1, 1, 1};
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
@@ -931,7 +931,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTestFloat) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, ArangeTestFloatHt) {
+TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloatHt) {
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
