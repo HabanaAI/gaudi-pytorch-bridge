@@ -322,7 +322,7 @@ class HabanaOperator {
 
   // For populating the inputs that need to be created in host and DMA
   // transferred to the device before the execution of the graph.
-  virtual getDMAInputTensorCBType getDMAInputTensorCB();
+  virtual DMAInputGeneratorType getDMAInputGeneratorType();
 
   // To communicate patching info for tensors which are not part of graph
   virtual std::vector<std::tuple<std::string, at::Tensor, uint64_t>>

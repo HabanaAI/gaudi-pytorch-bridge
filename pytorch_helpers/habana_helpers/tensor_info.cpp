@@ -21,6 +21,32 @@
 
 #include "pytorch_helpers/habana_helpers/logging.h"
 
+void DMAInputGenerators::populateSeedTensor(
+    const PtTensorInfo& ti,
+    at::Tensor& dma_tensor) {
+  auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
+      c10::nullopt, at::detail::getDefaultCPUGenerator());
+
+  // Acquire lock when using random generators
+  std::vector<int> seed_vec;
+  std::lock_guard<std::mutex> lock(gen->mutex_);
+  for (size_t i = 0; i < ti.get_numel(); i++) {
+    seed_vec.push_back((int)gen->random());
+  }
+
+  auto vec_size = seed_vec.size() * sizeof(seed_vec[0]);
+  TORCH_CHECK(
+      vec_size == ti.get_size(),
+      " cpu vec size ",
+      vec_size,
+      " mismatch with ti.get_size ",
+      ti.get_size());
+
+  at::IntArrayRef tshape{ti.get_shape()};
+  habana_helpers::copy_scalar_to_device(
+      seed_vec.data(), dma_tensor, ti.get_size());
+}
+
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
@@ -28,7 +54,7 @@ void PtTensorInfo::populate_tinfo(
     const bool wflag,
     const uint64_t tensor_id,
     const synTensorType stt,
-    const getDMAInputTensorCBType dma_cb) {
+    DMAInputGeneratorType dma_gen_id) {
   ir_name_ = irn;
   syn_name_ = sn;
   tensor_id_ = tensor_id;
@@ -54,7 +80,7 @@ void PtTensorInfo::populate_tinfo(
   offset_ = (get_buffer_syn() - get_buffer_start_syn());
   is_view_tensor_ = (offset_ != 0);
 
-  dma_cb_ = dma_cb;
+  dma_gen_id_ = dma_gen_id;
 
   tensor_type_ = stt;
 
@@ -86,8 +112,8 @@ PtTensorInfo::PtTensorInfo(
     const bool wflag,
     const uint64_t tensor_id,
     const synTensorType stt,
-    const getDMAInputTensorCBType dma_cb) {
-  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_cb);
+    DMAInputGeneratorType dma_gen_id) {
+  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
 }
 
 PtTensorInfo::PtTensorInfo(
@@ -97,11 +123,11 @@ PtTensorInfo::PtTensorInfo(
     const bool wflag,
     const uint64_t tensor_id,
     const synTensorType stt,
-    const getDMAInputTensorCBType dma_cb) {
+    DMAInputGeneratorType dma_gen_id) {
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
-  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_cb);
+  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
 }
 
 void PtTensorInfo::update_shape_syn() {
@@ -149,6 +175,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, tensor_type_);
   deserialize(is, dma_tensor_idx_);
   deserialize(is, tensor_id_);
+  deserialize(is, dma_gen_id_);
 
   update_shape_syn(); // constructs syn_shape_ according to shape_ and
                       // tensor_type_
@@ -175,6 +202,7 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, tensor_type_);
   serialize(os, dma_tensor_idx_);
   serialize(os, tensor_id_);
+  serialize(os, dma_gen_id_);
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {

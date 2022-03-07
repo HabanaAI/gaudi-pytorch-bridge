@@ -256,9 +256,9 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-getDMAInputTensorCBType habana::HabanaOperator::getDMAInputTensorCB() {
+DMAInputGeneratorType habana::HabanaOperator::getDMAInputGeneratorType() {
   HABANA_ASSERT(false, "This call needs to be supported by the derived op");
-  return {};
+  return DMAInputGeneratorType::INVALID;
 }
 
 std::vector<std::tuple<std::string, at::Tensor, uint64_t>> habana::

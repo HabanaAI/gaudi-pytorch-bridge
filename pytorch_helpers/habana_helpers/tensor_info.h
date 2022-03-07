@@ -14,7 +14,9 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
 #include <string>
+#include <utility>
 
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -32,6 +34,33 @@ class PtTensorInfo;
 typedef void (
     *getDMAInputTensorCBType)(const PtTensorInfo& ti, at::Tensor& dma_tensor);
 
+enum class DMAInputGeneratorType { INVALID, SEEDTENSOR, MAX };
+
+// This structure enables serialization of Recipes for DiskCache.
+// A Tensor may have corresponding Generator associated with it.
+// This structure holds all the Generator functions.
+// While serialization we'll dump the enum associated with its Generator
+// function. While deserialization we'll use the enum to get back the original
+// Generator function.
+struct DMAInputGenerators {
+  static getDMAInputTensorCBType getGenerator(DMAInputGeneratorType id) {
+    switch (id) {
+      case DMAInputGeneratorType::SEEDTENSOR:
+        return populateSeedTensor;
+        break;
+      default:
+        return nullptr;
+    }
+  }
+
+  static void populateSeedTensor(
+      const PtTensorInfo& ti,
+      at::Tensor& dma_tensor);
+
+  // Add any future generators here and link it with its own entry in
+  // DMAInputGeneratorType
+};
+
 using PtTensorInfoShared = std::shared_ptr<PtTensorInfo>;
 
 class PtTensorInfo {
@@ -45,7 +74,7 @@ class PtTensorInfo {
       const bool wflag,
       const uint64_t tensor_id,
       const synTensorType stt = DATA_TENSOR,
-      const getDMAInputTensorCBType dma_cb = nullptr);
+      DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
   PtTensorInfo(
       const at::Tensor& pt_tensor,
       const std::string& sn,
@@ -53,7 +82,7 @@ class PtTensorInfo {
       const bool wflag,
       const uint64_t tensor_id,
       const synTensorType stt = DATA_TENSOR,
-      const getDMAInputTensorCBType dma_cb = nullptr);
+      DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
 
   PtTensorInfo(std::istream& is);
   // access functions for read write data members
@@ -204,7 +233,7 @@ class PtTensorInfo {
     dma_tensor_idx_ = i;
   }
   getDMAInputTensorCBType get_dma_cb() const {
-    return dma_cb_;
+    return DMAInputGenerators::getGenerator(dma_gen_id_);
   }
   habana_lazy::LayoutFormat getHbInternalLayoutFormat() const {
     return hb_internal_lf_;
@@ -271,10 +300,10 @@ class PtTensorInfo {
   // uint64_t shape_ndim_{0};
 
   size_t dma_tensor_idx_{ULONG_MAX};
-  getDMAInputTensorCBType dma_cb_{nullptr};
   uint64_t tensor_id_{synapse_helpers::INVALID_SYN_TENSOR_ID};
 
   void* host_ptr_{nullptr};
+  DMAInputGeneratorType dma_gen_id_;
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,
@@ -283,6 +312,6 @@ class PtTensorInfo {
       const bool wflag,
       const uint64_t tensor_id,
       const synTensorType stt,
-      const getDMAInputTensorCBType dma_cb);
+      DMAInputGeneratorType dma_gen_id);
   void update_shape_syn();
 };

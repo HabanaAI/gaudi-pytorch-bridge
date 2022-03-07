@@ -617,7 +617,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       auto& syn_tensor =
           habana_op->AllocateSynapseInput(*syn_graph_ptr, seed_tensor, true);
 
-      auto dma_cb = habana_op->getDMAInputTensorCB();
       std::ostringstream oss;
       oss << "%dma_input" << '_' << dma_input_idx;
       dma_input_idx++;
@@ -629,7 +628,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           watch_tensor_flag_,
           syn_tensor.id(),
           DATA_TENSOR,
-          dma_cb);
+          habana_op->getDMAInputGeneratorType());
       ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
       auto dma_tensor_idx = aten_dma_inputs.size();
       ti->set_dma_tensor_idx(dma_tensor_idx);

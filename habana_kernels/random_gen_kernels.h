@@ -113,12 +113,8 @@ class DropoutOperator : public HabanaOperator {
       const torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata);
 
-  static void populateSeedTensor(
-      const PtTensorInfo& ti,
-      at::Tensor& dma_tensor);
-
-  virtual getDMAInputTensorCBType getDMAInputTensorCB() override {
-    return DropoutOperator::populateSeedTensor;
+  virtual DMAInputGeneratorType getDMAInputGeneratorType() override {
+    return DMAInputGeneratorType::SEEDTENSOR;
   }
 
   using HabanaOperator::SetPTOutputs;
@@ -155,8 +151,8 @@ class RandpermOperator : public HabanaOperator {
   static at::Tensor GenerateAndCopySeedToHPU(
       torch::jit::Stack& inputs,
       bool is_persistent);
-  getDMAInputTensorCBType getDMAInputTensorCB() override {
-    return DropoutOperator::populateSeedTensor;
+  DMAInputGeneratorType getDMAInputGeneratorType() override {
+    return DMAInputGeneratorType::SEEDTENSOR;
   }
 };
 } // namespace habana
