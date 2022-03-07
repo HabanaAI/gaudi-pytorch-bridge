@@ -1308,21 +1308,23 @@ RecipeCacheLRU::RecipeCacheLRU() {
 
 void RecipeCacheLRU::InitDiskCache() {
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  if (IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH)) {
-    const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
-  }
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  if (!IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH))
+    return;
+
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
   // Reset disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  if (IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH)) {
-    const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    if (disk_cache_) {
-      disk_cache_.reset();
-    }
-    disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  if (!IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH))
+    return;
+
+  if (disk_cache_) {
+    disk_cache_.reset();
   }
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 std::shared_ptr<habana_helpers::DynamicBucketInfo> DynamicBucketInfoMap::get(
