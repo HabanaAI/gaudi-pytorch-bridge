@@ -94,28 +94,19 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
   return isInRange;
 }
 
-std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
+std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
     const std::vector<size_t>& bucket_input_hist_idxes) {
   // Compute the distribution midpoint of input_hist_idxes_
-  PT_TEST_DEBUG_TH("History input indices: ", bucket_input_hist_idxes);
+  PT_TEST_DEBUG("History input indices: ", bucket_input_hist_idxes);
 
   DimsHistoryElement distr_lo{clone_ref_with(LONG_MAX)};
   DimsHistoryElement distr_hi{clone_ref_with(0)};
   DimsHistoryElement distr_mid{clone_ref_with(LONG_MAX)};
 
-  // PT_TEST_DEBUG_TH(
-  //"\nDistribution LO:",
-  // DebugString(distr_lo),
-  //"\nDistribution HI:",
-  // DebugString(distr_hi),
-  //"\nDistribution MID:",
-  // DebugString(distr_mid));
-
   const DimsHistoryElement& ref{ref_tshapes_};
 
   for (auto i : bucket_input_hist_idxes) {
     const DimsHistoryElement& d{hist_items_[i].tshapes_};
-    // PT_TEST_DEBUG_TH("History [", i, "]:", DebugString(d, ref));
     for (auto tensor_it : ref) {
       const auto& tensor_idx{tensor_it.first};
       for (auto dim_it : tensor_it.second) {
@@ -124,8 +115,6 @@ std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
         if (d.count(tensor_idx) && d.at(tensor_idx).count(dim_idx)) {
           dim_val = d.at(tensor_idx).at(dim_idx);
         }
-        // PT_TEST_DEBUG_TH(" tensor_idx=", tensor_idx, ", dim_idx=", dim_idx,
-        // ", dim_val=", dim_val);
         distr_lo[tensor_idx][dim_idx] =
             std::min(distr_lo[tensor_idx][dim_idx], dim_val);
         distr_hi[tensor_idx][dim_idx] =
@@ -141,27 +130,14 @@ std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
       auto dim_min{distr_lo[tensor_idx][dim_idx]};
       auto dim_max{distr_hi[tensor_idx][dim_idx]};
       distr_mid[tensor_idx][dim_idx] = (dim_min + dim_max) / 2;
-      // PT_TEST_DEBUG_TH(
-      //" tensor_idx=", tensor_idx, ", dim_idx=", dim_idx, ", dim_min=",
-      // dim_min, ", dim_max=", dim_max);
     }
   }
-
-  PT_TEST_DEBUG_TH(
-      "After computation of mid point",
-      "\nDistribution LO:",
-      DebugString(distr_lo),
-      "\nDistribution HI:",
-      DebugString(distr_hi),
-      "\nDistribution MID:",
-      DebugString(distr_mid));
 
   // Find the nearest from mid point
   uint64_t min_dist{ULONG_MAX};
   size_t min_dist_idx{ULONG_MAX};
   for (auto i : bucket_input_hist_idxes) {
     const DimsHistoryElement& d{hist_items_[i].tshapes_};
-    // PT_TEST_DEBUG_TH("History [", i, "]:", DebugString(d, ref));
     uint64_t cur_dist{0};
     for (auto tensor_it : ref) {
       const auto& tensor_idx{tensor_it.first};
@@ -173,8 +149,6 @@ std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
         }
         auto dim_mid{distr_mid[tensor_idx][dim_idx]};
         auto dim_diff = (dim_mid - dim_val) * (dim_mid - dim_val);
-        // PT_TEST_DEBUG_TH(" tensor_idx=", tensor_idx, ", dim_idx=", dim_idx,
-        // ", dim_val=", dim_val);
         cur_dist += dim_diff;
       }
     }
@@ -183,17 +157,12 @@ std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
       min_dist_idx = i;
     }
   }
+
+  if (min_dist == 0) {
+    return std::make_tuple(false, 0, false);
+  }
+
   const DimsHistoryElement& distr_split{hist_items_[min_dist_idx].tshapes_};
-  PT_TEST_DEBUG_TH(
-      "Nearest history item from mid point is history[",
-      min_dist_idx,
-      "] with distance=",
-      min_dist,
-      DebugString(distr_split, ref),
-      "\nEndpoint LO:",
-      DebugString(distr_lo),
-      "\nEndpoint HI:",
-      DebugString(distr_hi));
 
   // Count the hits at lower as well as upper half based on the nearest mid
   // point
@@ -203,16 +172,7 @@ std::tuple<size_t, bool> HistoryItemLog::FindMidPoint(
       WithinRangeCount(distr_split, distr_hi, bucket_input_hist_idxes);
   bool choose_lower{(lo_hit_cnt > hi_hit_cnt)};
 
-  PT_TEST_DEBUG_TH(
-      "With range endpoint [min, split], #hits=",
-      lo_hit_cnt,
-      '\n',
-      "With range endpoint [split, max], #hits=",
-      hi_hit_cnt,
-      "\nChoose lower:",
-      choose_lower);
-
-  return std::make_tuple(min_dist_idx, choose_lower);
+  return std::make_tuple(true, min_dist_idx, choose_lower);
 }
 
 size_t HistoryItemLog::WithinRangeCount(
@@ -250,8 +210,7 @@ size_t HistoryItemLog::WithinRangeCount(
         break;
       }
     }
-    // PT_TEST_DEBUG_TH("History [", i, "]:", DebugString(d, ref),
-    //"\n  within_range: ", within_range);
+
     if (within_range) {
       within_range_cnt++;
     }

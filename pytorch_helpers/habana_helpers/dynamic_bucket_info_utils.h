@@ -243,32 +243,11 @@ struct ResultShapes {
   TensorShapes min_shapes;
   TensorShapes max_shapes;
 
-  /*
-  void populate_shapes(TensorShapes &shapes, const DimsHistoryElement& ref) {
-    for (auto tensor_it : ref) {
-      const auto& tensor_idx{tensor_it.first};
-      shapes.emplace(tensor_idx, )
-      for (auto dim_it : tensor_it.second) {
-        const auto& dim_idx{dim_it.first};
-        auto dim_val{dim_it.second};
-        auto dim_mid{dist_mid[tensor_idx][dim_idx]};
-        auto dim_diff = (dim_mid - dim_val) * (dim_mid - dim_val);
-        //PT_TEST_DEBUG_TH(" tensor_idx=", tensor_idx, ", dim_idx=", dim_idx, ",
-  dim_val=", dim_val); cur_dist += dim_diff;
-      }
-    }
-  }
-  */
 
   ResultShapes() = default;
   ResultShapes(const InpTensorShapes& inp_shapes)
       : min_shapes(inp_shapes.begin(), inp_shapes.end()),
         max_shapes(inp_shapes.begin(), inp_shapes.end()) {}
-
-  /*
-  ResultShapes(const DimsHistoryElement& lo, const DimsHistoryElement& hi) {
-  }
-  */
 
   bool empty() const {
     return (min_shapes.empty() && max_shapes.empty());
@@ -348,7 +327,7 @@ struct HistoryItemLog {
   HistoryItem& operator[](size_t i) {
     return hist_items_[i];
   }
-  std::tuple<size_t, bool> FindMidPoint(
+  std::tuple<bool, size_t, bool> FindMidPoint(
       const std::vector<size_t>& bucket_input_hist_idxes);
   size_t WithinRangeCount(
       const DimsHistoryElement& lo,

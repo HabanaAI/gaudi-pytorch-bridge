@@ -352,7 +352,6 @@ void DynamicBucketInfo::ComputeMFUBucketDetails() {
   for (auto& b : buckets_) {
     // Skip the refinement of the static bucket
     if (b.IsStatic()) {
-      PT_TEST_DEBUG(__FUNCTION__, ": Skipping a static bucket.");
       continue;
     }
     uint64_t cur_bucket_run_count{b.GetRunCount()};
@@ -366,7 +365,6 @@ void DynamicBucketInfo::ComputeMFUBucketDetails() {
 void DynamicBucketInfo::UpdateMFUBucketDetails(size_t bucket_id) {
   // Skip the refinement of the static bucket
   if (buckets_[bucket_id].IsStatic()) {
-    PT_TEST_DEBUG(__FUNCTION__, ": Skipping a static bucket.");
     return;
   }
   current_run_count += 1;
@@ -455,18 +453,18 @@ size_t DynamicBucketInfo::GetBucketId(
 }
 
 absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
-  PT_TEST_DEBUG("Checking buckets for refinement");
+  PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");
   if (refine_enabled_ == false) {
-    PT_TEST_DEBUG("Refinement is not enabled");
+    PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
     return {};
   }
   if (buckets_.size() >= max_buckets_number_) {
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Maxed out total number=", max_buckets_number_, " of buckets");
     return {};
   }
   if (current_run_count < min_iterations_to_split_) {
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Yet to reach ",
         min_iterations_to_split_,
         " for graph, currently at ",
@@ -474,7 +472,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     return {};
   }
   if (mfu_bucket_run_count < min_iterations_to_split_) {
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Yet to reach ",
         min_iterations_to_split_,
         " for mfu bucket, currently at ",
@@ -483,45 +481,41 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   }
 
   if (mfu_bucket_id == 0) {
-    PT_TEST_DEBUG("Can not refine static bucket");
+    PT_DYNAMIC_SHAPE_DEBUG("Can not refine static bucket");
     return {};
   }
 
   auto& mfu_bucket = buckets_[mfu_bucket_id];
   if (mfu_bucket.IsRefinementCandidate() == false) {
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket ", mfu_bucket_id, " is not a candidate for refinement");
     return {};
   }
 
-  PT_TEST_DEBUG("Current mfu bucket is eligible for refinement");
+  PT_DYNAMIC_SHAPE_DEBUG("Current mfu bucket is eligible for refinement");
   auto rvpsh = mfu_bucket.GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
-    PT_TEST_DEBUG("Recipe for mfu bucket is null");
+    PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");
     return {};
   }
 
+  bool is_valid_split{};
   size_t min_dist_idx{};
   bool choose_lower{};
-  std::tie(min_dist_idx, choose_lower) =
+  std::tie(is_valid_split, min_dist_idx, choose_lower) =
       input_history_.FindMidPoint(mfu_bucket.GetInputHistIdxes());
-  PT_TEST_DEBUG_TH(
-      "Nearest history item from mid point is history[",
-      min_dist_idx,
-      "], choose lower: ",
-      choose_lower);
+
+  if (is_valid_split == false) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Range mid point is matching with one of the endpoints.",
+        " Abandoning refinement.");
+    return {};
+  }
 
   // Use the split history input as lo or hi depending on choose_lower
   ResultShapes result_computed(shapes_);
   Bucket new_bucket_computed = ConstructNewBucket(
       result_computed, mfu_bucket, min_dist_idx, choose_lower);
-  PT_TEST_DEBUG_TH(
-      "With new method, input range for new bucket:\n",
-      "Min\n",
-      result_computed.min_shapes,
-      "Max\n",
-      result_computed.max_shapes,
-      "--------------------");
 
   Bucket& new_bucket_candidate{new_bucket_computed};
   ResultShapes& new_range{result_computed};
@@ -531,22 +525,16 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     is_compiled = habana::CompileGraphWithRange(
         rvpsh, new_range, new_bucket_candidate, new_recipe_key);
   } catch (std::exception& e) {
-    PT_TEST_DEBUG("Recipe compilation failed with exception '", e.what(), "'");
+    PT_DYNAMIC_SHAPE_WARN(
+        "Recipe compilation failed with exception '", e.what(), "'");
     return {};
   }
-  PT_TEST_DEBUG(
+  PT_DYNAMIC_SHAPE_DEBUG(
       "Recipe compilation for new bucket: ",
       (is_compiled ? "successful" : "failed"));
 
   // Only push this bucket if the compilation is successful
   if (is_compiled) {
-    PT_TEST_DEBUG(
-        "Compiled new bucket with input range:\n",
-        "Min\n",
-        new_range.min_shapes,
-        "Max\n",
-        new_range.max_shapes,
-        "--------------------");
     // Move the history
     // Find the previous hits
     auto& input_hist_idxes{mfu_bucket.GetInputHistIdxes()};
@@ -582,7 +570,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     new_bucket.ResetBaseLine(input_history_);
     SetRecipeKeyForBucket(new_bucket_id, new_recipe_key);
 
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket with id ",
         mfu_bucket_id,
         " is split and new bucket is created with id ",
@@ -609,12 +597,6 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
   const DimsHistoryElement& distr_split{input_history_[min_dist_idx].tshapes()};
   const DimsHistoryElement& ref{input_history_.ref_tshapes()};
   DynamicRanges new_ranges{ranges};
-  PT_TEST_DEBUG_TH(
-      "Before computing new_ranges",
-      ", ranges: ",
-      ranges,
-      ", new_ranges: ",
-      new_ranges);
 
   for (auto& input : dynamic_dims) {
     auto tensor_idx{input.first};
@@ -640,13 +622,6 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     result_computed.min_shapes[input.first] = shape_min;
     result_computed.max_shapes[input.first] = shape_max;
   }
-
-  PT_TEST_DEBUG_TH(
-      "After computing new_ranges",
-      ", ranges: ",
-      ranges,
-      ", new_ranges: ",
-      new_ranges);
 
   return Bucket(std::move(new_ranges), dynamic_dims, true, split_policy_);
 }
