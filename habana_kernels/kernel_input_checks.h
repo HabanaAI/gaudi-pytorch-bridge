@@ -1892,6 +1892,7 @@ static const std::
                   at::ScalarType::BFloat16,
                   at::ScalarType::Char,
                   at::ScalarType::Int,
+                  at::ScalarType::Bool,
                   at::ScalarType::Short,
                   at::ScalarType::Long}},
             },
