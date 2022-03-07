@@ -315,7 +315,7 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
-TEST_F(LazyTensorShapeKernelTest, DISABLED_SliceTestZeroDimSize) {
+TEST_F(LazyTensorShapeKernelTest, SliceTestZeroDimSize) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;

@@ -61,7 +61,7 @@ TEST_F(LazyControlEdgeTest, ControlEdgeCycle) {
   EXPECT_TRUE(allclose(c3, h3_c, rtol, atol));
 }
 
-TEST_F(LazyControlEdgeTest, DISABLED_stridedinsertreuse) {
+TEST_F(LazyControlEdgeTest, stridedinsertreuse) {
   torch::Tensor A = torch::randn({4});
   auto b = torch::relu(A);
   auto v1 = A.view(-1);

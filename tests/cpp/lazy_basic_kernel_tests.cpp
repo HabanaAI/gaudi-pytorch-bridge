@@ -46,7 +46,7 @@ TEST_F(LazyBasicKernelTest, DISABLED_BasicThreadSafety) {
   hA = hA.div_(2);
 
   HbLazyTensor::StepMarker({});
-  EXPECT_EQ(allclose(A, hA.to("cpu")), true) << A << hA.to("cpu");
+  EXPECT_EQ(allclose(A, hA.to("cpu"), 0.001, 0.001), true);
 }
 
 TEST_F(LazyBasicKernelTest, DoubleCopyTest) {
@@ -177,8 +177,7 @@ TEST_F(LazyBasicKernelTest, noncontigD2H_test2) {
   EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
-  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
+TEST_F(LazyBasicKernelTest, ViewCopy) {
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
   Tensor Out = A.narrow(0, 2, 5);
@@ -199,11 +198,9 @@ TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
   hA = hA.div_(2);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
-  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
-  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
 
@@ -224,7 +221,6 @@ TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
   HbLazyTensor::StepMarker({});
 
   EXPECT_EQ(allclose(hA.cpu(), A), true);
-  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, ControlEdge) {
@@ -251,7 +247,6 @@ TEST_F(LazyBasicKernelTest, ControlEdge) {
   EXPECT_EQ(allclose(out, B), true);
 }
 TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
-  SET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED, true, 1);
   torch::Tensor A = torch::randn({16});
   auto hA = A.to(torch::kHPU);
   std::vector<int64_t> sz{4};
@@ -261,7 +256,6 @@ TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
   int64_t offset = 0;
   auto hB = as_strided_hpu_lazy(hA, sizes, strides, offset);
   Tensor out = hB.to(kCPU);
-  UNSET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
 TEST_F(LazyBasicKernelTest, weightsharinggraphcycle) {
@@ -384,7 +378,7 @@ TEST_F(LazyBasicKernelTest, allreduce) {
   EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, DISABLED_allreducewithcontroledge) {
+TEST_F(LazyBasicKernelTest, allreducewithcontroledge) {
   torch::Tensor A = torch::randn({4});
   auto b = torch::relu(A);
   auto v1 = A.view(-1);
@@ -422,29 +416,30 @@ TEST_F(LazyBasicKernelTest, InplaceViewon3d) {
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
 
-TEST_F(LazyBasicKernelTest, DISABLED_InplaceViewonChlast) {
+TEST_F(LazyBasicKernelTest, InplaceSliceonChlast) {
   int N = 2, C = 3, H = 4, W = 5;
   torch::Tensor A =
       torch::randn({N, C, H, W}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);
-  auto B = A.view(-1);
+  auto B = A.slice(1, 1, 3, 1);
   B.add_(0.5);
+
   // hpu
-  auto hB = hA.view(-1);
+  auto hB = hA.slice(1, 1, 3, 1);
   hB.add_(0.5);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
 
-TEST_F(LazyBasicKernelTest, DISABLED_InplaceViewonChlast3d) {
+TEST_F(LazyBasicKernelTest, InplaceSliceonChlast3d) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   torch::Tensor A = torch::randn({N, C, D, H, W})
                         .contiguous(c10::MemoryFormat::ChannelsLast3d);
   auto hA = A.to(torch::kHPU);
-  auto B = A.view(-1);
+  auto B = A.slice(1, 1, 3, 1);
   B.add_(0.5);
   // hpu
-  auto hB = hA.view(-1);
+  auto hB = hA.slice(1, 1, 3, 1);
   hB.add_(0.5);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(A, hA.cpu()), true);

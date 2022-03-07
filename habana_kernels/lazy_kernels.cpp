@@ -1316,68 +1316,46 @@ ir::NodePtr create_as_strided_node(
     c10::optional<int64_t> storage_offset) {
   ir::NodePtr node = nullptr;
 
-  std::vector<int64_t> out_size_vec;
-  std::vector<int64_t> out_stride_vec;
-  std::tie(out_size_vec, out_stride_vec) =
-      AsStridedOperator::compute_output_shape(self, size, stride);
-  IntArrayRef out_size(out_size_vec.data(), out_size_vec.size());
-  IntArrayRef out_stride(out_stride_vec.data(), out_stride_vec.size());
   auto offset = storage_offset.value_or(self.storage_offset());
   auto mf = self.suggest_memory_format();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-      std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                              (mf == c10::MemoryFormat::ChannelsLast3d))
-          ? "hpu::strided_view_cl_ds"
-          : "hpu::strided_view_ds";
 
-      auto out_size_st = empty_hpu_lazy(
-          out_size,
-          self.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      auto out_stride_st = empty_hpu_lazy(
-          out_stride,
-          self.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      std::vector<int64_t> offset_vec = {offset};
-      IntArrayRef offset_ref(offset_vec.data(), offset_vec.size());
-      auto offset_st = empty_hpu_lazy(
-          offset_ref,
-          self.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                            (mf == c10::MemoryFormat::ChannelsLast3d))
+        ? "hpu::strided_view_cl_ds"
+        : "hpu::strided_view_ds";
 
-      node = std::make_shared<ir::StridedView>(
-          self, out_size_st, out_stride_st, offset_st, node_str);
-      return node;
-    } else {
-      std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                              (mf == c10::MemoryFormat::ChannelsLast3d))
-          ? "hpu::strided_view_cl"
-          : "hpu::strided_view";
-      node = std::make_shared<ir::StridedView>(
-          self, out_size, out_stride, offset, node_str);
-    }
+    auto out_size_st = empty_hpu_lazy(
+        size,
+        self.options(),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+    auto out_stride_st = empty_hpu_lazy(
+        stride,
+        self.options(),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+    std::vector<int64_t> offset_vec = {offset};
+    IntArrayRef offset_ref(offset_vec.data(), offset_vec.size());
+    auto offset_st = empty_hpu_lazy(
+        offset_ref,
+        self.options(),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+
+    node = std::make_shared<ir::StridedView>(
+        self, out_size_st, out_stride_st, offset_st, node_str);
+    return node;
   } else {
-    if ((stride.size() == 0) ||
-        ((out_stride_vec.size() > 0) &&
-         (out_stride_vec[out_stride_vec.size() - 1] == 1))) {
-      int64_t offset = storage_offset ? storage_offset.value() : 0;
-
-      auto mf = self.suggest_memory_format();
-      std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                              (mf == c10::MemoryFormat::ChannelsLast3d))
-          ? "hpu::as_strided_lazy_cl_"
-          : "hpu::as_strided_lazy_";
-
-      node = std::make_shared<ir::AsStrided>(
-          self, out_size, out_stride, offset, node_str);
-    }
+    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                            (mf == c10::MemoryFormat::ChannelsLast3d))
+        ? "hpu::strided_view_cl"
+        : "hpu::strided_view";
+    node =
+        std::make_shared<ir::StridedView>(self, size, stride, offset, node_str);
   }
   return node;
 }
@@ -1434,10 +1412,18 @@ Tensor add_strided_view_node(
   StrideParams params;
   params.base = self_;
   params.parent = self;
-  params.sizes = size.vec();
-  params.strides = stride.vec();
   params.offset = storage_offset;
   params.optype = kStridedOpDefault;
+
+  std::vector<int64_t> out_size_vec, out_stride_vec;
+  std::tie(out_size_vec, out_stride_vec) =
+      AsStridedOperator::compute_output_shape(self, size, stride);
+  IntArrayRef out_size(out_size_vec.data(), out_size_vec.size());
+  IntArrayRef out_stride(out_stride_vec.data(), out_stride_vec.size());
+
+  params.sizes = out_size_vec;
+  params.strides = out_stride_vec;
+
   if (is_update_view) {
     updateViewTable(hb_result, params);
   } else {
