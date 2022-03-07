@@ -6623,48 +6623,14 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
 
 Tensor gelu_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHPU);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::gelu"), {hl_input.GetIrValue()});
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::gelu", {self}};
+  return k.call();
 }
 
 Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::gelu_backward"),
-      {hl_grad.GetIrValue(), hl_self.GetIrValue()});
-
-  auto result = empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{grad, self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::gelu_backward", {grad, self}};
+  return k.call();
 }
 
 Tensor& exp_hpu_lazy_(Tensor& self) {

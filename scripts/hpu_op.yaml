@@ -1132,12 +1132,12 @@ ge.Tensor:
   legacy_eager: true
 
 gelu.out:
-  dtypes: [Float,BFloat16]
-  guid: gelu_fwd
+  dtypes: [BFloat16, Float]
+  op_backend: Gelu
 
 gelu_backward.grad_input:
   dtypes: [BFloat16, Float]
-  guid: gelu_bwd
+  op_backend: GeluBwd
 
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
