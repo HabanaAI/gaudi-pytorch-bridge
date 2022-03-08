@@ -149,7 +149,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/sbs_debug.cpp
   habana_lazy/sbs_runner.cpp
   habana_lazy/visualize.cpp
-  habana_lazy/view_utils.cpp
+  habana_lazy/lazy_storage.cpp
 )
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)

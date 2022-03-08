@@ -61,8 +61,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   bool has_storage() const override;
 
-  bool is_alias_of(const TensorImpl& other) const override;
-
  private:
   void SetupSizeProperties();
   void SetStorage(at::Storage storage);

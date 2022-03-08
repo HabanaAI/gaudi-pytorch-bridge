@@ -12,7 +12,6 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include "habana_helpers/logging.h"
-#include "habana_lazy/view_utils.h"
 #include "synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
@@ -187,26 +186,6 @@ const at::Storage& HbLazyTensorImpl::storage() const {
 
 bool HbLazyTensorImpl::has_storage() const {
   return storage_;
-}
-
-/**
- * is_alias_of is overleaded for HPU storageless tensor
- */
-bool HbLazyTensorImpl::is_alias_of(const TensorImpl& other) const {
-  bool alias = true;
-  // The following change is the correct way to check for alias.
-  // This is dependent on as_strided view_table implementation and
-  // will be enabled once the corresponding infrastructure is added.
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE),
-      "is_alias_of works only when PT_HPU_ENABLE_VIEW_TABLE flag "
-      "is enabled");
-  TensorImpl* other_impl = const_cast<TensorImpl*>(&other);
-  HbLazyTensorImpl* other_lazy_impl =
-      dynamic_cast<HbLazyTensorImpl*>(other_impl);
-  alias =
-      is_aliased_view(*(const_cast<HbLazyTensorImpl*>(this)), *other_lazy_impl);
-  return alias;
 }
 
 void HbLazyTensorImpl::AtenInitialize() {

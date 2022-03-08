@@ -810,8 +810,9 @@ bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst) {
   return is_view;
 }
 
-void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params) {
+void updateViewTable(at::Tensor& result, StrideParams& params) {
   PT_LAZY_TRACE;
+  auto hl_view_t = GetHbLazyTensor(result);
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
   PT_VIEWTABLE_DEBUG(
@@ -823,6 +824,9 @@ void updateViewTable(HbLazyTensor& hl_view_t, StrideParams& params) {
       params.strides,
       " offset ",
       params.offset);
+  auto storage = params.parent.storage();
+  result.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
+
   context->view_table[id] = params;
 }
 
@@ -1457,7 +1461,6 @@ Tensor add_strided_view_node(
     result = empty_strided_hpu_lazy(
         size, stride, self_.options(), false, DATA_TENSOR, storage_offset);
   }
-  auto hb_result = GetHbLazyTensor(result);
 
   StrideParams params;
   params.base = self_;
@@ -1475,8 +1478,9 @@ Tensor add_strided_view_node(
   params.strides = out_stride_vec;
 
   if (is_update_view) {
-    updateViewTable(hb_result, params);
+    updateViewTable(result, params);
   } else {
+    auto hb_result = GetHbLazyTensor(result);
     ir::Value& out = hb_result.CurrentIrValue();
     ir::NodePtr node =
         create_as_strided_node(params.base, size, stride, storage_offset);

@@ -11,6 +11,7 @@
 #include "habana_helpers/misc_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_storage.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/hpu_input.h"
 namespace habana_lazy {
@@ -32,8 +33,13 @@ at::Tensor AtenFromHbLazyTensor(
     c10::optional<c10::IntArrayRef> stride,
     c10::optional<c10::MemoryFormat> mem_format) {
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
-  at::Tensor tensor = at::Tensor(
-      c10::make_intrusive<HbLazyTensorImpl>(std::move(HbLazy_tensor)));
+  auto storage_size = scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize();
+  c10::IntArrayRef shape_size = size.has_value() ? size.value() : 0;
+  storage_size *= c10::multiply_integers(shape_size);
+  auto lazy_storage =
+      c10::Storage(c10::make_intrusive<HbLazyStorageImpl>(storage_size));
+  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
+      std::move(HbLazy_tensor), std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
   return tensor;
 }
