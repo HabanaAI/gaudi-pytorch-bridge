@@ -49,7 +49,24 @@ enum class DynamicDimsPolicy {
   CURRENT,
   CALCULATED,
   HISTORIC,
+  LOCAL_HISTORIC,
   FLATTENED
+};
+
+inline DynamicDimsPolicy getPolicy(unsigned int policy_num) {
+  switch (policy_num) {
+    case 1:
+      return DynamicDimsPolicy::CURRENT;
+    case 2:
+      return DynamicDimsPolicy::CALCULATED;
+    case 3:
+      return DynamicDimsPolicy::HISTORIC;
+    case 4:
+      return DynamicDimsPolicy::LOCAL_HISTORIC;
+    default:
+      PT_DYNAMIC_SHAPE_WARN("Invalid policy number ", policy_num);
+  }
+  return DynamicDimsPolicy::HISTORIC;
 };
 
 constexpr DynamicDimsPolicy MIN_POLICY_DEFAULT{DynamicDimsPolicy::HISTORIC};
@@ -79,6 +96,8 @@ inline std::string DebugString(const DynamicDimsPolicy& d) {
       return std::string("FLATTENED");
     case DynamicDimsPolicy::CURRENT:
       return std::string("CURRENT");
+    case DynamicDimsPolicy::LOCAL_HISTORIC:
+      return std::string("LOCAL_HISTORIC");
   }
   return std::string();
 }
@@ -459,8 +478,16 @@ class DynamicBucketInfo {
     max_policy_ = policy;
   }
   void SetDefaultPolicy() {
-    min_policy_ = MIN_POLICY_DEFAULT;
-    max_policy_ = MAX_POLICY_DEFAULT;
+    auto min_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_DEFAULT);
+    auto max_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_DEFAULT);
+    min_policy_ = getPolicy(min_policy_num);
+    max_policy_ = getPolicy(max_policy_num);
+  }
+  void RestoreLocalMinHistory() {
+    local_min_history_tensor_shapes_ = local_min_history_success_shapes_;
+  }
+  void RestoreLocalMaxHistory() {
+    local_max_history_tensor_shapes_ = local_max_history_success_shapes_;
   }
   size_t GetGraphKey() {
     return graph_key_;
@@ -552,6 +579,8 @@ class DynamicBucketInfo {
         std::less<int64_t>(),
         std::numeric_limits<int64_t>::min());
   }
+  void CalculateLocalHistoricMin(const InpTensorShapes& shapes);
+  void CalculateLocalHistoricMax(const InpTensorShapes& shapes);
 
   DynamicRanges CalculateRanges(
       const InpTensorShapes& shapes,
@@ -580,6 +609,10 @@ class DynamicBucketInfo {
 
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
   InpTensorShapes shapes_;
+  DimsHistoryElement local_min_history_tensor_shapes_;
+  DimsHistoryElement local_min_history_success_shapes_;
+  DimsHistoryElement local_max_history_tensor_shapes_;
+  DimsHistoryElement local_max_history_success_shapes_;
   DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
   DynamicDimsPolicy max_policy_{MAX_POLICY_DEFAULT};
   bool refine_enabled_ = true;

@@ -2302,6 +2302,15 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // case
     case ShapeInfo::InferencePass::MIN_SHAPE:
       switch (graph_input_info.min_policy) {
+        case habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC:
+          graph_input_info.min_policy =
+              habana_helpers::DynamicDimsPolicy::HISTORIC;
+          current_dbipsh_->RestoreLocalMinHistory();
+          break;
+        case habana_helpers::DynamicDimsPolicy::CALCULATED:
+          graph_input_info.min_policy =
+              habana_helpers::DynamicDimsPolicy::HISTORIC;
+          break;
         case habana_helpers::DynamicDimsPolicy::HISTORIC:
           graph_input_info.min_policy =
               habana_helpers::DynamicDimsPolicy::CURRENT;
@@ -2318,6 +2327,11 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // case
     case ShapeInfo::InferencePass::MAX_SHAPE:
       switch (graph_input_info.max_policy) {
+        case habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC:
+          graph_input_info.max_policy =
+              habana_helpers::DynamicDimsPolicy::CALCULATED;
+          current_dbipsh_->RestoreLocalMaxHistory();
+          break;
         case habana_helpers::DynamicDimsPolicy::CALCULATED:
           graph_input_info.max_policy =
               habana_helpers::DynamicDimsPolicy::HISTORIC;
@@ -2333,10 +2347,11 @@ void HabanaLaunchOpPT::handle_pass_exception(
           break;
       }
       break;
-    // In OUTPUT_SHAPE inference exception if min and max both was current,
-    // meaning the failure is in static(fallback path), bail out execution by
-    // throwing error. Otherwise the compilation error has occured and we need
-    // to rerun with min and max policy as CURRENT.
+    // The OUTPUT_SHAPE inference exception is compile exception.
+    // if min and max both was current, meaning the failure is in
+    // static(fallback path), bail out execution by throwing error. Otherwise
+    // the compilation error has occured and we need to rerun with fallback min
+    // and max policy.
     case ShapeInfo::InferencePass::OUTPUT_SHAPE:
       if (graph_input_info.min_policy ==
               habana_helpers::DynamicDimsPolicy::CURRENT &&
@@ -2346,8 +2361,27 @@ void HabanaLaunchOpPT::handle_pass_exception(
         throw std::runtime_error("Exception was not handled ..");
         break;
       }
-      graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
-      graph_input_info.max_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
+      // With min and max policy as Local_Historic or calculated the compilation
+      // can fail, if we didn't cache issue and GC did. Fallback to historic
+      // in this case
+      if (graph_input_info.min_policy ==
+              habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC ||
+          graph_input_info.min_policy ==
+              habana_helpers::DynamicDimsPolicy::CALCULATED ||
+          graph_input_info.max_policy ==
+              habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC ||
+          graph_input_info.max_policy ==
+              habana_helpers::DynamicDimsPolicy::CALCULATED) {
+        graph_input_info.min_policy =
+            habana_helpers::DynamicDimsPolicy::HISTORIC;
+        graph_input_info.max_policy =
+            habana_helpers::DynamicDimsPolicy::HISTORIC;
+      } else {
+        graph_input_info.min_policy =
+            habana_helpers::DynamicDimsPolicy::CURRENT;
+        graph_input_info.max_policy =
+            habana_helpers::DynamicDimsPolicy::CURRENT;
+      }
       break;
     default:
       PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
@@ -2365,11 +2399,9 @@ void HabanaLaunchOpPT::handle_pass_exception(
   auto fallback_ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
 
-  // After calculating ranges set bucket_info policy to HISTORIC
-  // so that for next bucket created the starting policy be HISTORIC to save
-  // fallback
-  current_dbipsh_->SetMinPolicy(habana_helpers::DynamicDimsPolicy::HISTORIC);
-  current_dbipsh_->SetMaxPolicy(habana_helpers::DynamicDimsPolicy::HISTORIC);
+  // After calculating ranges set bucket_info policy to DEFAULT
+  // so that for next bucket created the starting policy be started again
+  current_dbipsh_->SetDefaultPolicy();
 
   switch (e.Pass()) {
     // In reruning min pass, clear the min name-shape map and rerun

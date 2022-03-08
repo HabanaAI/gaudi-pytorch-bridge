@@ -34,6 +34,8 @@ std::string stringify(DynamicDimsPolicy policy) {
       return "FLATTENED";
     case DynamicDimsPolicy::HISTORIC:
       return "HISTORIC";
+    case DynamicDimsPolicy::LOCAL_HISTORIC:
+      return "LOCAL_HISTORIC";
     default:
       LOG(FATAL) << "Unknown compilation policy";
   }
