@@ -3,6 +3,7 @@ from typing import Callable, Iterable
 import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
+import habana_frameworks.torch.core as htcore
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
@@ -53,6 +54,8 @@ class FusedSGD(Optimizer):
         self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(
             hpu, non_blocking=True
         )
+
+        htcore.mark_step()
 
     def step(self, closure: Callable = None):
         """
@@ -115,6 +118,8 @@ class FusedSGD(Optimizer):
                     grad_list.append(grad)
                     d_p_list.append(weight)
                     state = self.state[p]
+                    if 'momentum_buffer' not in state:
+                        state["momentum_buffer"] = torch.zeros(grad.shape).to('hpu')
                     momentum_buffer_list.append(state["momentum_buffer"])
 
                 _hpex_C.fused_sgd_momentum(

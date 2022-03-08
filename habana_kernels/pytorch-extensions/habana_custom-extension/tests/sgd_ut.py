@@ -13,7 +13,7 @@ if __name__ == "__main__":
     weight_decay=0.1
     dampening=0.0
     nesterov=False
-    cnt = 2
+    cnt = 4
 
     u1 = torch.rand(d1, d2)
     v1 = u1.clone()
@@ -30,7 +30,8 @@ if __name__ == "__main__":
     x2.requires_grad = True
 
     # Modify the parameters by subtracting the gradient
-    optim_x = torch.optim.SGD([x1, x2], lr=lr, momentum=momentum, dampening=dampening, weight_decay=weight_decay, nesterov=nesterov)
+    optim_x = torch.optim.SGD([x1], lr=lr, momentum=momentum, dampening=dampening, weight_decay=weight_decay, nesterov=nesterov)
+    optim_x.add_param_group({'params': [x2]})
 
     # print('before adam.step x ::\n{}'.format(x.to(cpu)))
     for i in range(0, cnt):
@@ -40,6 +41,7 @@ if __name__ == "__main__":
         loss_x = x.sum()
 
         # Compute gradients of the parameters w.r.t. the loss
+        optim_x.zero_grad(True)
         loss_x.backward()
 
         optim_x.step()
@@ -55,9 +57,7 @@ if __name__ == "__main__":
     habana = torch.device("hpu")
 
     import habana_frameworks.torch.core as htcore
-    from hb_custom import FusedSGD
-    htcore.enable_eliminate_common_subexpression(False)
-    htcore.enable_constant_pooling(False)
+    from habana_frameworks.torch.hpex.optimizers import FusedSGD
 
     y1 = v1.detach().to(habana)
     y1.requires_grad = True
@@ -66,7 +66,8 @@ if __name__ == "__main__":
     y2.requires_grad = True
 
     # Modify the parameters by subtracting the gradient
-    optim_y = FusedSGD([y1, y2], lr=lr, momentum=momentum, dampening=dampening, weight_decay=weight_decay, nesterov=nesterov)
+    optim_y = FusedSGD([y1], lr=lr, momentum=momentum, dampening=dampening, weight_decay=weight_decay, nesterov=nesterov)
+    optim_y.add_param_group({'params': [y2]})
 
     # print('before adam_habana.step y ::\n{}'.format(y.to(cpu)))
     for i in range(0, cnt):
@@ -76,10 +77,10 @@ if __name__ == "__main__":
         loss_y = y.sum()
 
         # Compute gradients of the parameters w.r.t. the loss
+        optim_y.zero_grad(True)
         loss_y.backward()
 
         optim_y.step()
-        htcore.mark_step()
         # for group in optim_y.param_groups:
         #     for p in group["params"]:
         #         state = optim_y.state[p]
@@ -98,8 +99,8 @@ if __name__ == "__main__":
     # print(x2_cpu)
     # print(y2_cpu)
 
-    comp1 = np.allclose(x1_cpu.detach().numpy(), y1_cpu.detach().numpy(), atol=1.e-7, rtol=1.e-5, equal_nan=True)
-    comp2 = np.allclose(x2_cpu.detach().numpy(), y2_cpu.detach().numpy(), atol=1.e-7, rtol=1.e-5, equal_nan=True)
+    comp1 = np.allclose(x1_cpu.detach().numpy(), y1_cpu.detach().numpy(), atol=1.e-3, rtol=1.e-3, equal_nan=True)
+    comp2 = np.allclose(x2_cpu.detach().numpy(), y2_cpu.detach().numpy(), atol=1.e-3, rtol=1.e-3, equal_nan=True)
 
     print('Optimizer output match :: {}'.format(comp1))
     print('Optimizer output match :: {}'.format(comp2))
