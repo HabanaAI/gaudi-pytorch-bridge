@@ -140,7 +140,7 @@ void HbLazyTensorImpl::SetupSizeProperties() {
     // implementation uses in its APIs.
     auto sizes_l = m_tensor.GetSizes();
     sizes_and_strides_.set_sizes(sizes_l);
-    at::IntArrayRef new_stride = ComputeArrayStrides(sizes_l);
+    std::vector<int64_t> new_stride = ComputeArrayStrides(sizes_l);
     const auto new_dim = sizes_l.size();
     if (new_dim > 0) {
       for (size_t dim = new_dim - 1;; dim--) {
