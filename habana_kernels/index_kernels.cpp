@@ -1287,8 +1287,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         IValue(ravelled_indices.dim() - 1),
         IValue(true),
         IValue(true)};
-    OutputMetaDataVector output_metadata(2);
-    sort_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+    sort_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(2));
     stack.clear();
 
     auto sorted_results = sort_op->GetOutputs()[0];
