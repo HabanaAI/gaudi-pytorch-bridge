@@ -152,6 +152,14 @@ void SBSRunner::populateInputForCPUOp(
       if (input.isTensor()) {
         PT_LAZY_DEBUG("SBS: input index: ", i, " is metadata, tensor");
         stack[i] = at::IValue();
+      } else if (input.isDevice()) {
+        PT_LAZY_DEBUG(
+            "SBS: input index: ",
+            i,
+            " is metadata device: ",
+            input.toDevice().str(),
+            " setting to CPU");
+        stack[i] = c10::Device(c10::kCPU);
       } else {
         PT_LAZY_DEBUG("SBS: input index: ", i, " is metadata, not tensor");
         stack[i] = std::move(input);
