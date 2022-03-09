@@ -97,8 +97,13 @@ class WeightIdentificationPass {
   const std::set<std::string> StridedKernels = {
       "hpu::as_strided_lazy",
       "hpu::strided_insert",
+      "hpu::strided_insert_cl",
+      "hpu::strided_insert_ds",
+      "hpu::strided_insert_cl_ds",
       "hpu::strided_view",
-      "hpu::strided_view_cl"};
+      "hpu::strided_view_cl",
+      "hpu::strided_view_ds",
+      "hpu::strided_view_cl_ds"};
 
   const std::unordered_map<std::string, std::vector<size_t>>
       customOptimizerWeightIdx = {
