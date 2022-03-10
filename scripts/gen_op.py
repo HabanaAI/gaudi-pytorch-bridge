@@ -237,6 +237,9 @@ class Op(object):
     def use_meta(self):
         return self.op.get("use_meta", False)
 
+    def force_default(self):
+        return self.op.get("force_default", None)
+
     def supports_type_promotion(self):
         return self.op.get("type_promotion", False)
 
@@ -582,7 +585,7 @@ def lazyop(
             ctxop.get_custom_output_shape() is None
         ), "Both use_meta and custom_output_shape are defined for {}".format(fname)
 
-        assert fn, "{} does not exists in aten.".format(fname)
+        assert fn, "{} does not exist in aten.".format(fname)
 
         code += tfetcher.generate_meta_fetches()
         code += "  at::TensorList metavar = {}({});\n".format(fn, ", ".join(meta_vars))
@@ -835,10 +838,6 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     return op_frontend, op_backend, op_backend_class, ctxop
 
 
-def requires_registration(fgen):
-    return fgen.dispatch #and not fgen.default
-
-
 def get_aten_opname(aten_sig):
     return aten_sig.split("(")[0].split("::")[1]
 
@@ -856,9 +855,21 @@ def get_hpu_wrapper(fndef, ctx):
         return "HpuOp::{}".format(x)
 
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
-    if requires_registration(fndef) and get_aten_opname(aten_sig) in ctx.op_data:
+    if get_aten_opname(aten_sig) in ctx.op_data:
+        assert fndef.dispatch, "{} has dispatch=False".format(get_aten_opname(aten_sig))
         op_frontend, op_backend, cname, ctxop = generate_code(
             ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params
+        )
+        if ctxop.force_default() is not None:
+            default = ctxop.force_default()
+            assert (
+                default != fndef.default
+            ), "No need to force it to False for {}".format(get_aten_opname(aten_sig))
+        else:
+            default = fndef.default
+
+        assert not default, "{} has default={}".format(
+            get_aten_opname(aten_sig), default
         )
 
         return OpGen(
@@ -1163,7 +1174,7 @@ def generate(args):
             print("Failed to generate op {}: {}".format(ts, e), file=sys.stderr)
             errors.append(e)
     print("Generated {} ops from {}".format(len(fgens), args.yaml), file=sys.stdout)
-    assert len(errors) == 0, errors
+    assert len(errors) == 0, "Found {} errors: {}".format(len(errors), errors)
     assert len(ctx.op_data) == len(
         fgens
     ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
