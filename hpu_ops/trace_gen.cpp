@@ -11,6 +11,27 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
+
+template <>
+LazyTrace<at::Tensor>::LazyTrace(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  auto x = inputs.at(0).toTensor();
+  // In CPU trace op promotes all int dtype input to Long.
+  // Setting the HPU output to be of dtype = Long, as the CPU output for int
+  // dtype input is Long.
+  if (x.scalar_type() == c10::ScalarType::Int)
+    set_scalar_type(c10::ScalarType::Long);
+}
+
+template <>
+at::Tensor LazyTrace<at::Tensor>::get_result_overrideable() {
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return {};
+}
+
 sizes_vec TraceOutputShape(const at::Stack&, bool) {
   return {{}};
 }

@@ -2957,7 +2957,8 @@ threshold_backward.grad_input:
 
 trace:
   custom_output_shape: TraceOutputShape
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float, Int]
+  op_frontend: LazyTrace
   op_backend: Trace
   out_ids: [0]
 
