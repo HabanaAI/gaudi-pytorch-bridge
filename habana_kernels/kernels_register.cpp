@@ -3621,27 +3621,8 @@ Tensor& hpu_wrap::bitwise_and_out(
   if (!hpu_check_inputs_impl("bitwise_and_out", {out, self, other}))
     return AtenHpuTypeDefault::bitwise_and_out(self, other, out);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bitwise_and_out_hpu_lazy(out, self, other);
-  } else {
-    return bitwise_and_out_hpu(out, self, other);
-  }
+  return bitwise_and_out_hpu(out, self, other);
 }
-
-/*
-Tensor& hpu_wrap::bitwise_and_out(
-    Tensor& out,
-    const Tensor& self,
-    Scalar other) {
-  if (!hpu_check_inputs_impl("bitwise_and_out", {out, self});
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bitwise_and_out_hpu_lazy(out, self, other);
-  } else {
-    return bitwise_and_out_hpu(out, self, other);
-  }
-}
-*/
 
 Tensor& hpu_wrap::bitwise_or_out(
     const Tensor& self,
@@ -3650,11 +3631,7 @@ Tensor& hpu_wrap::bitwise_or_out(
   if (!hpu_check_inputs_impl("bitwise_or_out", {out, self, other}))
     return AtenHpuTypeDefault::bitwise_or_out(self, other, out);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bitwise_or_out_hpu_lazy(out, self, other);
-  } else {
-    return bitwise_or_out_hpu(out, self, other);
-  }
+  return bitwise_or_out_hpu(out, self, other);
 }
 
 Tensor& hpu_wrap::bitwise_xor_out(
