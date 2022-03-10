@@ -80,6 +80,7 @@ struct Data {
   c10::optional<at::Tensor> tensor_data;
   c10::optional<at::Tensor> cpu_tensor_data;
   bool sbs_live_tensor = false;
+  bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
@@ -155,6 +156,8 @@ class HbLazyTensor {
   void SetCPUTensorData(at::Tensor tensor_data);
   void SetSBSLiveTensorIndication(bool live);
   bool GetSBSLiveTensorIndication() const;
+  void SetSBSCompareIndication(bool compare);
+  bool GetSBSCompareIndication() const;
   void UpdateSBSTensorVersion();
   int GetSBSTensorVersion() const;
   const c10::optional<at::Tensor>& GetCPUTensorData() const;

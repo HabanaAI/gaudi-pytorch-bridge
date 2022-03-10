@@ -301,6 +301,14 @@ bool HbLazyTensor::GetSBSLiveTensorIndication() const {
   return data()->sbs_live_tensor;
 }
 
+void HbLazyTensor::SetSBSCompareIndication(bool compare) {
+  data()->sbs_compare_tensor = compare;
+}
+
+bool HbLazyTensor::GetSBSCompareIndication() const {
+  return data()->sbs_compare_tensor;
+}
+
 void HbLazyTensor::UpdateSBSTensorVersion() {
   data()->sbs_tensor_version++;
   PT_LAZY_DEBUG(

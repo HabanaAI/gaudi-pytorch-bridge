@@ -20,6 +20,11 @@
 
 namespace habana_lazy {
 
+class HbLazyTensor;
+class SBSInterface;
+typedef std::map<std::string, std::shared_ptr<SBSInterface>> SBSInterfaceMap;
+typedef std::set<size_t> SBSTensorIndexSet;
+
 class SBSInterface {
  public:
   static std::shared_ptr<SBSInterface> getSBSHandler(std::string op_type);
@@ -57,7 +62,7 @@ class SBSInterface {
   static size_t m_number_of_tensor_copies;
 
  private:
-  static std::map<std::string, std::shared_ptr<SBSInterface>> m_special_sbs_ops;
+  static SBSInterfaceMap m_special_sbs_ops;
 };
 
 class SBSDisabledOp : public SBSInterface {
@@ -78,6 +83,9 @@ class SBSDisabledOp : public SBSInterface {
 
 class SBSRunner : public SBSInterface {
  public:
+  SBSRunner(SBSTensorIndexSet disabled_output_tensors = {})
+      : m_disabled_output_tensors(disabled_output_tensors) {}
+
   void populateInputForCPUOp(
       const std::vector<at::IValue>& inputs,
       const ir::MetaData& metadata,
@@ -96,6 +104,10 @@ class SBSRunner : public SBSInterface {
       const at::Tensor& input,
       std::vector<at::IValue>& inputs_modified);
   virtual at::Tensor prepareTensorToCPU(const at::Tensor& tensor, size_t index);
+  virtual void processOutputCPUTensor(
+      HbLazyTensor hl_result,
+      at::Tensor& cpu_tensor,
+      size_t index);
 
  private:
   at::IValue gatherInputForCPUOp(const at::Tensor& input, size_t index);
@@ -110,6 +122,10 @@ class SBSRunner : public SBSInterface {
       std::string ir_name,
       ir::NodePtr node,
       const std::vector<at::IValue>& inputs);
+
+  // used in special cases when the CPU tensor value is knowingly different than
+  // the HPU
+  SBSTensorIndexSet m_disabled_output_tensors;
 };
 
 class SBSPermutable : public SBSRunner {

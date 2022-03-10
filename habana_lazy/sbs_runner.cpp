@@ -13,27 +13,22 @@
 #include <sstream>
 #include "aten_lazy_bridge.h"
 #include "debug_utils.h"
+#include "habana_helpers/tensor_utils.h" // for validateDownCast
 #include "lazy_executor.h"
 #include "passes/pass_utils.h"
 #include "sbs_debug.h"
 
 namespace habana_lazy {
 
-std::map<std::string, std::shared_ptr<SBSInterface>>
-    SBSInterface::m_special_sbs_ops = {
-        {"aten::convolution_overrideable",
-         std::static_pointer_cast<SBSInterface>(
-             std::make_shared<SBSPermutable>(1 /*weight index*/))},
-        {"hpu::nonzero",
-         std::static_pointer_cast<SBSInterface>(
-             std::make_shared<SBSDisabledOp>())},
-        {"aten::ones_like",
-         std::static_pointer_cast<SBSInterface>(
-             std::make_shared<SBSDisabledOp>())},
-        // Failed in LazyIndexKernelTest.IndexTest
-        {"hpu::index",
-         std::static_pointer_cast<SBSInterface>(
-             std::make_shared<SBSDisabledOp>())},
+SBSInterfaceMap SBSInterface::m_special_sbs_ops = {
+    {"aten::convolution_overrideable",
+     std::static_pointer_cast<SBSInterface>(
+         std::make_shared<SBSPermutable>(1 /*weight index*/))},
+    {"hpu::nonzero",
+     std::static_pointer_cast<SBSInterface>(std::make_shared<SBSDisabledOp>())},
+    // Failed in LazyIndexKernelTest.IndexTest
+    {"hpu::index",
+     std::static_pointer_cast<SBSInterface>(std::make_shared<SBSDisabledOp>())},
 };
 
 size_t SBSInterface::m_number_of_handled_ops = 0;
@@ -306,81 +301,13 @@ void SBSRunner::run(
           output.toTensor().device().type() == c10::DeviceType::CPU,
           "SBS: CPU output tensor is not in cpu. stack index =",
           i);
-      auto cpu_res = output.toTensor();
-      auto hl_result = GetHbLazyTensor(result);
-      PT_LAZY_DEBUG(
-          "SBS: Setting CPU tensor to HPU (single). id=",
-          hl_result.getTensorUniqueId(),
-          " (op name: ",
-          node->GetName(),
-          " type: ",
-          node->op().toQualString(),
-          ") ir name=",
-          hl_result.CurrentIrValue().ToString(),
-          " version: ",
-          hl_result.GetSBSTensorVersion());
-      hl_result.SetCPUTensorData(cpu_res);
-      // Treating an inplace tensor as non-live until set
-      // otherwise, to save graph flushes when the HPU tensor is not
-      // yet available
-      hl_result.SetSBSLiveTensorIndication(false);
-      hl_result.UpdateSBSTensorVersion();
-      ++m_number_of_tensor_runs;
-      PT_LAZY_DEBUG(
-          __FUNCTION__,
-          " SBS: Current number of op tensors runs: ",
-          m_number_of_tensor_runs,
-          " current tensor name: ",
-          hl_result.CurrentIrValue().ToString(),
-          " id=",
-          hl_result.getTensorUniqueId(),
-          " version: ",
-          hl_result.GetSBSTensorVersion());
-      if (hl_result.CurrentTensorData() != c10::nullopt) {
-        PT_LAZY_DEBUG(
-            "SBS: HPU tensor is available, calling CompareTensors (single)");
-        std::vector<habana_lazy::HbLazyTensor> resultVec = {hl_result};
-        SBSDebug::getInstance().CompareTensors(resultVec);
-      }
+      PT_LAZY_DEBUG("SBS: calling process CPU tensor (single)");
+      processOutputCPUTensor(GetHbLazyTensor(result), output.toTensor(), i);
     } else if (output.isTensorList()) {
-      for (const at::Tensor& tensor : output.toTensorList()) {
+      for (at::Tensor tensor : output.toTensorList()) {
         // TODO: Are we sure this is the right thing?
-        auto cpu_res = tensor;
-        auto hl_result = GetHbLazyTensor(result);
-        PT_LAZY_DEBUG(
-            "SBS: Setting CPU tensor to HPU (from list). id=",
-            hl_result.getTensorUniqueId(),
-            " (op name: ",
-            node->GetName(),
-            " type: ",
-            node->op().toQualString(),
-            ") ir name=",
-            hl_result.CurrentIrValue().ToString(),
-            " version: ",
-            hl_result.GetSBSTensorVersion());
-        hl_result.SetCPUTensorData(cpu_res);
-        // Treating an inplace tensor as non-live until set
-        // otherwise, to save graph flushes when the HPU tensor is not
-        // yet available
-        hl_result.SetSBSLiveTensorIndication(false);
-        hl_result.UpdateSBSTensorVersion();
-        ++m_number_of_tensor_runs;
-        PT_LAZY_DEBUG(
-            __FUNCTION__,
-            " SBS: Current number of op tensors runs: ",
-            m_number_of_tensor_runs,
-            " current tensor name: ",
-            hl_result.CurrentIrValue().ToString(),
-            " id=",
-            hl_result.getTensorUniqueId(),
-            " version: ",
-            hl_result.GetSBSTensorVersion());
-        if (hl_result.CurrentTensorData() != c10::nullopt) {
-          PT_LAZY_DEBUG(
-              "SBS: HPU tensor is available, calling CompareTensors (from list)");
-          std::vector<habana_lazy::HbLazyTensor> resultVec = {hl_result};
-          SBSDebug::getInstance().CompareTensors(resultVec);
-        }
+        PT_LAZY_DEBUG("SBS: calling process CPU tensor (from list)");
+        processOutputCPUTensor(GetHbLazyTensor(result), tensor, i);
       }
     }
   }
@@ -513,6 +440,7 @@ at::Tensor SBSRunner::prepareTensorToCPU(
     std::vector<habana_lazy::HbLazyTensor> tens = {hb_tensor};
     HbLazyTensor::SyncTensorsGraph(&tens);
   }
+  PT_LAZY_DEBUG("SBS: Copying tensor to CPU");
   auto tens_cpu = tensor.to(c10::kCPU);
 
   return tens_cpu;
@@ -548,6 +476,56 @@ at::Tensor SBSPermutable::prepareTensorToCPU(
     PT_LAZY_DEBUG("SBS: ", __FUNCTION__, " New tensor sizes: ", out.sizes());
   }
   return out;
+}
+
+void SBSRunner::processOutputCPUTensor(
+    habana_lazy::HbLazyTensor hl_result,
+    at::Tensor& cpu_tensor,
+    size_t index) {
+  PT_LAZY_DEBUG("SBSRunner::", __FUNCTION__);
+  PT_LAZY_DEBUG(
+      "SBS: Setting CPU tensor to HPU[",
+      index,
+      "]. id=",
+      hl_result.getTensorUniqueId(),
+      " ir name=",
+      hl_result.CurrentIrValue().ToString(),
+      " version: ",
+      hl_result.GetSBSTensorVersion());
+  hl_result.SetCPUTensorData(cpu_tensor);
+  // Treating an inplace tensor as non-live until set
+  // otherwise, to save graph flushes when the HPU tensor is not
+  // yet available
+  hl_result.SetSBSLiveTensorIndication(false);
+  if (m_disabled_output_tensors.count(index)) {
+    PT_LAZY_DEBUG(
+        "SBS: disabling compare of tensor[",
+        index,
+        "], name: ",
+        hl_result.CurrentIrValue().ToString());
+    hl_result.SetSBSCompareIndication(false);
+  }
+  hl_result.UpdateSBSTensorVersion();
+  ++m_number_of_tensor_runs;
+  PT_LAZY_DEBUG(
+      __FUNCTION__,
+      " SBS: Current number of op tensors runs: ",
+      m_number_of_tensor_runs,
+      " current tensor name: ",
+      hl_result.CurrentIrValue().ToString(),
+      " id=",
+      hl_result.getTensorUniqueId(),
+      " version: ",
+      hl_result.GetSBSTensorVersion(),
+      " scalar type: ",
+      cpu_tensor.scalar_type(),
+      " dtype: ",
+      cpu_tensor.dtype());
+  if (hl_result.CurrentTensorData() != c10::nullopt) {
+    PT_LAZY_DEBUG("SBS: HPU tensor is available, calling CompareTensors");
+    std::vector<habana_lazy::HbLazyTensor> resultVec = {hl_result};
+    SBSDebug::getInstance().CompareTensors(resultVec);
+  }
 }
 
 bool SBSRunner::getNodeInfo(

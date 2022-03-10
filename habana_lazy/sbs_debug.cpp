@@ -49,6 +49,13 @@ static std::string handle_name_duplicates(const std::string& op_type) {
 bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
   static std::map<int64_t, int> checked_tensors_versions;
   auto id = hb_tensor.getTensorUniqueId();
+  if (!hb_tensor.GetSBSCompareIndication()) {
+    PT_LAZY_DEBUG(
+        "SBS: Tensor is disabled for comparison. Name: ",
+        hb_tensor.CurrentIrValue().ToString());
+    return false;
+  }
+  auto version = hb_tensor.GetSBSTensorVersion();
   auto it = checked_tensors_versions.find(id);
   if (it != checked_tensors_versions.end()) {
     auto prev_compared_version = it->second;
@@ -59,15 +66,13 @@ bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
         id,
         " previously compared version: ",
         prev_compared_version);
-    if (hb_tensor.GetSBSTensorVersion() == prev_compared_version) {
+    if (version == prev_compared_version) {
       return false;
     }
   }
   if (update) {
-    PT_LAZY_DEBUG(
-        "SBS: Updating compared tensor version to ",
-        hb_tensor.GetSBSTensorVersion());
-    checked_tensors_versions[id] = hb_tensor.GetSBSTensorVersion();
+    PT_LAZY_DEBUG("SBS: Updating compared tensor version to ", version);
+    checked_tensors_versions[id] = version;
   }
   return true;
 }
@@ -151,9 +156,12 @@ void SBSDebug::compare_tensors_cos(
     void* cpu_data = cpu_res_compare.data_ptr();
     bool success = true;
     switch (scalarType) {
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Byte, unsigned char);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Char, signed char);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Short, short);
+      // TODO: Fix when this is resolved: SW-78371
+      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Byte, unsigned char);
+      // TODO: Fix when this is resolved: SW-78371
+      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Char, signed char);
+      // TODO: Fix when this is resolved: SW-78371
+      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Short, short);
       CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Long, long);
       CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Half, float16);
       CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Float, float);
