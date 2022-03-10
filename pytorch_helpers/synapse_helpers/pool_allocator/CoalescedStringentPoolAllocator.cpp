@@ -924,6 +924,7 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   c2->next = nullptr;
   c2->prev = nullptr;
 
+  delete c2;
   PT_DEVMEM_DEBUG(
       "Merged Chunk C1::",
       c1,
