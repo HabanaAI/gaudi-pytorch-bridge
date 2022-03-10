@@ -19,21 +19,37 @@ namespace habana {
 class CollectiveOperator : public habana::HabanaOperator {
  public:
   CollectiveOperator() = delete;
-  CollectiveOperator(const std::string guid) : HabanaOperator(guid){};
+  CollectiveOperator(
+      const std::string guid,
+      int device_id,
+      c10::ScalarType scalar_type)
+      : HabanaOperator(guid),
+        device_id_(device_id),
+        scalar_type_(scalar_type){};
   virtual void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) = 0;
-  const std::string& GetGuid() {
-    return guid_;
-  }
+
+  int GetDeviceId() const {
+    return device_id_;
+  };
+  c10::ScalarType GetScalarType() const {
+    return scalar_type_;
+  };
+
+  virtual void Serialize(std::ostream& os) const = 0;
+  virtual void Deserialize(std::istream& is) = 0;
+
+ protected:
+  int device_id_;
+  c10::ScalarType scalar_type_;
 };
 
 class HcclBroadcastOperator : public CollectiveOperator {
  public:
-  HcclBroadcastOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::broadcast_") {
-    static_cast<void>(scalarType);
+  HcclBroadcastOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::broadcast_", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -41,25 +57,23 @@ class HcclBroadcastOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  // TODO: SW-68563 add patching function to be called when the recipe is
-  // desiralized update internal mebers e.g device_, root_rank
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t comm_id_;
   int root_rank_;
-  at::ScalarType data_type_;
 };
 
 class HcclAllreduceOperator : public CollectiveOperator {
  public:
-  HcclAllreduceOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::allreduce_") {
-    static_cast<void>(scalarType);
+  HcclAllreduceOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::allreduce_", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -67,23 +81,23 @@ class HcclAllreduceOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   uint8_t reduce_op_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 
 class HcclReduceOperator : public CollectiveOperator {
  public:
-  HcclReduceOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::reduce_") {
-    static_cast<void>(scalarType);
+  HcclReduceOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::reduce_", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -91,24 +105,24 @@ class HcclReduceOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t dst_rank_;
   uint8_t reduce_op_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 
 class HcclAllToAllOutOperator : public CollectiveOperator {
  public:
-  HcclAllToAllOutOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::alltoall_out") {
-    static_cast<void>(scalarType);
+  HcclAllToAllOutOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::alltoall_out", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -116,28 +130,32 @@ class HcclAllToAllOutOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 
 class HcclAllgatherOutOperator : public CollectiveOperator {
  public:
-  HcclAllgatherOutOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::allgather_out") {
-    static_cast<void>(scalarType);
+  HcclAllgatherOutOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::allgather_out", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
 
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
@@ -145,16 +163,13 @@ class HcclAllgatherOutOperator : public CollectiveOperator {
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 
 class HcclReduceScatterOutOperator : public CollectiveOperator {
  public:
-  HcclReduceScatterOutOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::reduce_scatter_out") {
-    static_cast<void>(scalarType);
+  HcclReduceScatterOutOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::reduce_scatter_out", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -162,22 +177,22 @@ class HcclReduceScatterOutOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   uint8_t reduce_op_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 class HcclSendOperator : public CollectiveOperator {
  public:
-  HcclSendOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::send_") {
-    static_cast<void>(scalarType);
+  HcclSendOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::send_", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -185,23 +200,23 @@ class HcclSendOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t dst_rank_;
   int64_t tag_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 class HcclRecvOperator : public CollectiveOperator {
  public:
-  HcclRecvOperator(int device_id, c10::ScalarType scalarType)
-      : CollectiveOperator("hccl::recv_") {
-    static_cast<void>(scalarType);
+  HcclRecvOperator(int device_id, c10::ScalarType scalar_type)
+      : CollectiveOperator("hccl::recv_", device_id, scalar_type) {
     this->CreateSynContext(device_id);
   }
   void AllocateAndAddSynapseNode(
@@ -209,16 +224,17 @@ class HcclRecvOperator : public CollectiveOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  void Serialize(std::ostream& os) const override;
+  void Deserialize(std::istream& is) override;
+
   void RunCollective(
       std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
  private:
-  int64_t device_;
   int64_t src_rank_;
   int64_t tag_;
   int64_t comm_id_;
-  at::ScalarType data_type_;
 };
 } // namespace habana

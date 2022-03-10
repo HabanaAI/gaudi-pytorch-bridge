@@ -17,7 +17,7 @@ class PtTensorInfo;
 using PtTensorInfoShared = std::shared_ptr<PtTensorInfo>;
 
 namespace habana {
-class HabanaOperator;
+class CollectiveOperator;
 }
 
 namespace habana_helpers {
@@ -25,7 +25,7 @@ namespace habana_helpers {
 struct collective_kernel_info {
   std::vector<PtTensorInfoShared> input_tensor_infos;
   std::vector<PtTensorInfoShared> output_tensor_infos;
-  std::shared_ptr<habana::HabanaOperator> kernel;
+  std::shared_ptr<habana::CollectiveOperator> kernel;
 };
 
 } // namespace habana_helpers

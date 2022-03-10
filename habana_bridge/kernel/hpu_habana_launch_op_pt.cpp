@@ -1670,7 +1670,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           kernel_info->output_tensor_infos.push_back(nullptr);
         }
       }
-      kernel_info->kernel = HabanaKernel;
+      kernel_info->kernel =
+          std::dynamic_pointer_cast<CollectiveOperator>(HabanaKernel);
       collective_kernels_info.push_back(kernel_info);
     }
 

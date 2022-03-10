@@ -137,7 +137,7 @@ void RecipeCache::store(
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
   int meta_fd_to_unlock = pop_meta_fd(metadata_path);
 
-  if (recipeHandle->syn_recipe_handle_ != nullptr) {
+  if (recipeHandle && recipeHandle->syn_recipe_handle_ != nullptr) {
     auto status = synRecipeSerialize(
         recipeHandle->syn_recipe_handle_, recipe_path.c_str());
     if (status != synSuccess) {

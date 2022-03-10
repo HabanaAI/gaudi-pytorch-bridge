@@ -33,6 +33,47 @@
 
 #include "habana_kernels/hccl_kernels.h"
 
+namespace {
+template <typename T>
+std::vector<int64_t> ptr_array_indices(
+    const std::vector<std::shared_ptr<T>>& elements,
+    const std::vector<std::shared_ptr<T>>& src_array) {
+  std::vector<int64_t> indices;
+  indices.reserve(elements.size());
+  for (const auto& e : elements) {
+    if (e.get() == nullptr) {
+      indices.push_back(-1);
+      continue;
+    }
+    auto iter = std::find(src_array.begin(), src_array.end(), e);
+    TORCH_CHECK(iter != src_array.end(), "Failed to find element in src_array");
+    indices.push_back(std::distance(src_array.begin(), iter));
+  }
+  return indices;
+}
+
+template <typename T>
+std::vector<std::shared_ptr<T>> indices_array_to_ptr_array(
+    const std::vector<int64_t>& indices,
+    const std::vector<std::shared_ptr<T>>& src_array) {
+  std::vector<std::shared_ptr<T>> ptr_array;
+  ptr_array.resize(indices.size());
+  for (const auto& idx : indices) {
+    if (idx == -1) {
+      continue;
+    }
+
+    TORCH_CHECK(
+        idx <= (int64_t)src_array.size(),
+        "idx ",
+        idx,
+        " out of range. src array size = ",
+        src_array.size());
+    ptr_array.push_back(src_array.at(idx));
+  }
+  return ptr_array;
+}
+} // namespace
 namespace habana {
 
 // static initializations
@@ -401,9 +442,42 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
+  size_t num_collective_kernels = 0;
+  deserialize(is, num_collective_kernels);
+  for (size_t i = 0; i < num_collective_kernels; i++) {
+    auto kernel_info =
+        std::make_shared<habana_helpers::collective_kernel_info>();
 
-  // TODO: SW-68563 deserialize tensorinfo map for collectives
-  // link collective tensor info to their matching in dtensorinfo
+    std::vector<int64_t> input_indices;
+    deserialize(is, input_indices);
+    kernel_info->input_tensor_infos =
+        indices_array_to_ptr_array(input_indices, *dtensorinfos);
+
+    std::vector<int64_t> output_indices;
+    deserialize(is, output_indices);
+    kernel_info->output_tensor_infos =
+        indices_array_to_ptr_array(output_indices, *dtensorinfos);
+
+    std::string guid;
+    int device_id;
+    c10::ScalarType scalar_type;
+    deserialize(is, guid);
+    deserialize(is, device_id);
+    deserialize(is, scalar_type);
+    c10::OperatorName op_name(guid, "");
+    HabanaOperatorPtr habana_kernel =
+        KernelRegistry().get(device_id, op_name, scalar_type);
+    auto collective_kernel =
+        std::dynamic_pointer_cast<CollectiveOperator>(habana_kernel);
+    TORCH_CHECK(
+        collective_kernel,
+        "Failed to find collective kernel for ",
+        guid,
+        "during recipe load from disk");
+    collective_kernel->Deserialize(is);
+    kernel_info->kernel = collective_kernel;
+    collective_kernels_info.emplace_back(kernel_info);
+  }
 }
 
 void RecipeValueSpec::Serialize(std::ostream& os) const {
@@ -450,8 +524,21 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, is_refined);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
+  serialize(os, collective_kernels_info.size());
+  for (const auto& collective_kernel : collective_kernels_info) {
+    auto input_indices =
+        ptr_array_indices(collective_kernel->input_tensor_infos, *dtensorinfos);
+    serialize(os, input_indices);
 
-  // TODO: SW-68563 serialize tensorinfo map for collectives
+    auto output_indices = ptr_array_indices(
+        collective_kernel->output_tensor_infos, *dtensorinfos);
+    serialize(os, output_indices);
+
+    serialize(os, collective_kernel->kernel->GetGuid());
+    serialize(os, collective_kernel->kernel->GetDeviceId());
+    serialize(os, collective_kernel->kernel->GetScalarType());
+    collective_kernel->kernel->Serialize(os);
+  }
 }
 
 void RecipeValueSpec::update_patching_table(
@@ -1391,9 +1478,11 @@ void DiskCache::Add(
   static const auto dump_debug_info =
       GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_DUMP_DEBUG);
   if (dump_debug_info) {
+    static int debug_id = 0;
+    std::string recipe_name =
+        valSpec.recipe ? valSpec.recipe->recipe_name_ : "recipe " + debug_id++;
     std::string hash_content_filepath = recipe_cache_.get_cache_path() + "/" +
-        hashCode + cache_id_suffix_ + "_" + valSpec.recipe->recipe_name_ +
-        ".hash_content";
+        hashCode + cache_id_suffix_ + "_" + recipe_name + ".hash_content";
     std::ofstream hash_content_file(hash_content_filepath.c_str());
     if (!hash_content_file.is_open()) {
       LOG(FATAL) << "Failed to open hash content file for writing...";

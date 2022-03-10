@@ -370,13 +370,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     intermediate_tensors_ptr->push_back(ivpsh);
   }
 
-  rv.launch(input_refs, intermediate_tensors_ptr);
-  rv.update_hit_count();
-
-  if (enable_tensor_dump_) {
-    DumpTensors(rv);
-  }
-
+  // Save cache before calling launch to unblock other ranks who may wait on
+  // this cache entry to be flushed to disk
   if (enable_caching_) {
     // Add the <key,value> pair to the map
     if (refine_ds_enabled_) {
@@ -388,6 +383,14 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
+
+  rv.launch(input_refs, intermediate_tensors_ptr);
+  rv.update_hit_count();
+
+  if (enable_tensor_dump_) {
+    DumpTensors(rv);
+  }
+
   if (enable_caching_ && refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         current_dbipsh_->digest_str(),
