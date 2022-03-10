@@ -33,6 +33,26 @@ class DistSetup:
     def __del__(self):
         dist.destroy_process_group()
 
+# Test: Functional test of synchronous Reduce
+def sync_reduce_func(hpu, world_size, dtype):
+    _tensor_ref = world_size * torch.ones(TENSOR_LEN).to(dtype).to(device)
+
+    for i in range(ITER):
+        src_hpu = i % world_size
+        _tensor = torch.ones(TENSOR_LEN).to(dtype).to(device)
+        # Only Rank-0 will receive the result
+        torch.distributed.reduce(_tensor, src_hpu)
+        if hpu==src_hpu:
+            assert(torch.equal(_tensor, _tensor_ref) and _tensor.dtype == dtype)
+
+# Test: Functional test of synchronous Reduce
+def sync_reduceScatter_func(hpu, world_size, dtype):
+    for i in range(ITER):
+        _tensor_inp = list(torch.ones(TENSOR_LEN * world_size).to(dtype).to(device).chunk(world_size))
+        _tensor_out = torch.empty_like(_tensor_inp[hpu]).to(dtype).to(device)
+        # Only Rank-0 will receive the result
+        torch.distributed.reduce_scatter(_tensor_out, _tensor_inp)
+
 # Test: Functional test of synchronous AllReduce
 def sync_allReduce_func(hpu, world_size, dtype):
     _tensor_ref = world_size * torch.ones(TENSOR_LEN).to(dtype).to(device)
@@ -162,6 +182,9 @@ def main(hpu, world_size, dtype, func):
 @pytest.mark.parametrize("dtype", [torch.float])
 @pytest.mark.parametrize("n_hpus", [8])
 @pytest.mark.parametrize("func", [
+                                sync_reduce_func,
+                                sync_reduceScatter_func,
+
                                 sync_allReduce_func,
                                 sync_allReduce_tensorLife,
                                 async_allReduce_tensorLife,

@@ -674,19 +674,20 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
   return collective(
       tensors,
       tensors,
-      [&](at::Tensor& input,
+      [root = opts.rootRank * tensors.size() + opts.rootTensor,
+       reduceOp = opts.reduceOp](
+          at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
-        const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
         return hcclReduce(
             send_buffer,
             recv_buffer,
             input.numel(),
             getHCCLDataType(input.scalar_type()),
-            getHCCLReduceOp(opts.reduceOp),
+            getHCCLReduceOp(reduceOp),
             root,
             hccl_comm,
             stream);
@@ -715,14 +716,13 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   return collective(
       inputTensors,
       outputTensors,
-      [&](at::Tensor& input,
+      [numRanks = getSize(), rank = getRank()](
+          at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
-        int numRanks = getSize();
-        int rank = getRank();
         size_t count = input.numel() / numRanks;
         size_t rank_offset = count *
             c10::elementSize(getInternalScalarType(input.scalar_type()));
@@ -849,7 +849,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
   return collective(
       inputFlattened,
       outputTensors,
-      [&](at::Tensor& input,
+      [reduceOp = opts.reduceOp](
+          at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -861,7 +862,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
             recv_buffer,
             output.numel(),
             getHCCLDataType(input.scalar_type()),
-            getHCCLReduceOp(opts.reduceOp),
+            getHCCLReduceOp(reduceOp),
             hccl_comm,
             stream);
 
@@ -875,11 +876,11 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
     int tag) {
   return pointToPoint(
       tensors,
-      [&](at::Tensor& input,
-          const void* send_buff,
-          hcclComm_t& hccl_comm,
-          hcclStream_t stream,
-          int peerRank) {
+      [](at::Tensor& input,
+         const void* send_buff,
+         hcclComm_t& hccl_comm,
+         hcclStream_t stream,
+         int peerRank) {
         return hcclSend(
             send_buff,
             input.numel(),
@@ -897,11 +898,11 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
     int tag) {
   return pointToPoint(
       tensors,
-      [&](at::Tensor& tensor,
-          void* recv_buff,
-          hcclComm_t& hccl_comm,
-          hcclStream_t stream,
-          int peerRank) {
+      [](at::Tensor& tensor,
+         void* recv_buff,
+         hcclComm_t& hccl_comm,
+         hcclStream_t stream,
+         int peerRank) {
         return hcclRecv(
             recv_buff,
             tensor.numel(),
