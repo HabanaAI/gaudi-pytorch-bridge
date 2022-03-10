@@ -674,8 +674,9 @@ def parse_args():
                         'Use associated env vars to set dataset size/num classes if necessary')
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
-    parser.add_argument('--run-lazy-mode', action='store_true',
-                        help='run model in lazy execution mode')
+    parser.add_argument('--run-lazy-mode', default='True', type=lambda x: x.lower() == 'true',
+                        help='run model in lazy execution mode(enabled by default).'
+                        'Any value other than True(case insensitive) disables lazy mode')
     args = parser.parse_args()
 
     return args
