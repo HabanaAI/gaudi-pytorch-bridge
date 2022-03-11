@@ -53,8 +53,8 @@ std::shared_ptr<hccl_integration::device_context> HcclCommunicator::
 
 std::vector<hcclStream_t> HcclCommunicator::getCommStreams() {
   std::vector<hcclStream_t> streams;
-  for (auto const& [device_id, stream] : comm_streams_) {
-    streams.emplace_back(stream);
+  for (auto const& stream : comm_streams_) {
+    streams.emplace_back(stream.second);
   }
   return streams;
 }
