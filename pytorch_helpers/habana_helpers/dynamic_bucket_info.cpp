@@ -270,7 +270,7 @@ DynamicBucketInfo::DynamicBucketInfo()
 }
 
 ResultShapes DynamicBucketInfo::CalculateShapes(uint64_t bucket) {
-  ResultShapes result(shapes_);
+  ResultShapes result;
   TORCH_CHECK(
       bucket < buckets_.size(),
       "Invalid bucket index ",

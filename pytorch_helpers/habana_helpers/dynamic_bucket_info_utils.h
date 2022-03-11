@@ -260,6 +260,7 @@ struct ResultShapes {
   }
   */
 
+  ResultShapes() = default;
   ResultShapes(const InpTensorShapes& inp_shapes)
       : min_shapes(inp_shapes.begin(), inp_shapes.end()),
         max_shapes(inp_shapes.begin(), inp_shapes.end()) {}
