@@ -17,6 +17,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/bitwise_kernels.h"
 #include "habana_kernels/compare_kernels.h"
@@ -1759,7 +1760,11 @@ Tensor addcmul_hpu_lazy(
     const Tensor& tensor2,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::addcmul", {self, tensor1, tensor2, alpha}};
+  LazyOp<at::Tensor> k{
+      "aten::addcmul",
+      {self, tensor1, tensor2, alpha},
+      {},
+      {AddcmulOperator::compute_output_shape(self, tensor1, tensor2)}};
   return k.call();
 }
 Tensor& addcmul_hpu_lazy_(
@@ -1786,7 +1791,11 @@ Tensor addcdiv_hpu_lazy(
     const Tensor& tensor2,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::addcdiv", {self, tensor1, tensor2, alpha}};
+  LazyOp<at::Tensor> k{
+      "aten::addcdiv",
+      {self, tensor1, tensor2, alpha},
+      {},
+      {AddcmulOperator::compute_output_shape(self, tensor1, tensor2)}};
   return k.call();
 }
 

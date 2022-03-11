@@ -22,6 +22,14 @@
 using namespace torch;
 using namespace habana;
 
+std::vector<int64_t> AddcmulOperator::compute_output_shape(
+    const Tensor& arg1,
+    const Tensor& arg2,
+    const Tensor& arg3) {
+  auto tmp = at::infer_size(arg1.sizes(), arg2.sizes());
+  return {at::infer_size(tmp, arg3.sizes())};
+}
+
 /***************************************************************************
  * @brief Kernel implementation for out = self.addcmul(tensor1, tensor2,alpha)
  * out = self + value*tensor1*tensor2
@@ -47,7 +55,6 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[3].isScalar(),
       "Input arg4 expected to be Scalar for Addcmul operator");
-
   auto self = inputs[0].toTensor();
   auto tensor1 = inputs[1].toTensor();
   auto tensor2 = inputs[2].toTensor();
@@ -65,7 +72,6 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(tensor2));
   mulOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
-
   // Create Add operator
   auto addOp =
       make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
@@ -76,7 +82,6 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(alphaValue));
   addOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   stack.clear();
-
   p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
 }

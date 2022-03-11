@@ -175,7 +175,6 @@ Tensor hpu_wrap::addcmul(
     return AtenHpuTypeDefault::addcmul(self, tensor1, tensor2, alpha);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addcmul_hpu_lazy(self, tensor1, tensor2, alpha);
-
   } else {
     return addcmul_hpu(self, tensor1, tensor2, alpha);
   }
@@ -1762,7 +1761,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
   if (!hpu_check_inputs_impl(
           "native_batch_norm",
           {input, weight, bias, running_mean, running_var}) ||
-      (input.dim() < 4))
+      (input.dim() < 4)) {
     return AtenHpuTypeDefault::native_batch_norm(
         input,
         weight_opt,
@@ -1772,6 +1771,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
         training,
         momentum,
         eps);
+  }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_norm_hpu_lazy(

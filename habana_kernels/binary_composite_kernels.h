@@ -30,6 +30,10 @@ class AddcmulOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& arg1,
+      const at::Tensor& arg2,
+      const at::Tensor& arg3);
 };
 
 //
