@@ -13,7 +13,6 @@
 
 #include <hccl.h>
 #include <hccl_types.h>
-#include <hcl_api.h>
 
 #include "habana_helpers/logging.h"
 #include "hccl_communicator.h"

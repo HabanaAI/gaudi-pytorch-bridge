@@ -15,7 +15,6 @@
 #include <map>
 #include "hccl.h"
 #include "hccl_types.h"
-#include "hcl_api.h"
 #include "synapse_helpers/env_flags.h"
 
 #include <pybind11/chrono.h>

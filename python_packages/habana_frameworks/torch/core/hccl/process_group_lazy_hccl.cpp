@@ -9,7 +9,6 @@
  */
 #include <hccl.h>
 #include <hccl_types.h>
-#include <hcl_api.h>
 
 #include "process_group_lazy_hccl.hpp"
 #include "habana_kernels/lazy_kernels_declarations.h"

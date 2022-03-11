@@ -18,7 +18,6 @@
 
 #include <hccl.h>
 #include <hccl_types.h>
-#include <hcl_api.h>
 
 using namespace torch;
 namespace habana {

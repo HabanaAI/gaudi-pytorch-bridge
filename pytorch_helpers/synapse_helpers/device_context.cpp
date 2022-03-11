@@ -320,8 +320,6 @@ hcclResult_t device_context::barrier() {
   PT_DISTRIBUTED_BEGIN;
   PT_DISTRIBUTED_DEBUG("[PYT-DIST] barrier");
 
-  // HCL_Sync(hcl_comm(), get_sync_tag());
-
   PT_DISTRIBUTED_END;
   return {};
 }
