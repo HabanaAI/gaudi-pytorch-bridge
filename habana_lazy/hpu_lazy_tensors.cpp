@@ -964,6 +964,25 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   if (data_tensor.has_value()) {
     dest->SetTensorData(*data_tensor);
   }
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto src_id = this->getTensorUniqueId();
+  auto dst_id = dest->getTensorUniqueId();
+
+  // if src is a view, create an entry in view table for dst as well
+  auto it = context->view_table.find(src_id);
+  if (it != context->view_table.end()) {
+    StrideParams params = it->second;
+    context->view_table[dst_id] = params;
+  }
+
+  // if src has an updated version, create an entry in orig_tensor_map for the
+  // destination
+  auto ori_tensor_map_it = context->orig_tensor_map.find(src_id);
+  if (ori_tensor_map_it != context->orig_tensor_map.end()) {
+    auto updated_base = ori_tensor_map_it->second;
+    context->orig_tensor_map[dst_id] = updated_base;
+  }
 }
 
 void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
