@@ -3281,9 +3281,6 @@ Tensor& index_put_hpu_lazy_(
   std::vector<Tensor> indices_vec{indices_in.vec()};
   auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
   auto self_clone = self;
-  // if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-  // self_clone = clone_hpu_lazy(self, self.suggest_memory_format());
-  // }
   auto index_put_result =
       index_put_hpu_lazy(self_clone, indices_in, value, accumulate);
 

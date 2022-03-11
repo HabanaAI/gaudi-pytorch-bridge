@@ -906,6 +906,24 @@ def test_hpu_index_put_transformer_case():
     #print(eos_mask_temp.to(cpu))
     np.testing.assert_allclose(eos_mask_hpu.to(cpu).detach().numpy(), eos_mask.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+@pytest.mark.parametrize("acc", [True])
+def test_hpu_index_put_point( acc):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    x = torch.randint(0, 23, (24, 128, 64), dtype=torch.long)
+    y = torch.randint(0, 23, (24, 128, 64), dtype=torch.long)
+    x_hpu = x.to(hpu)
+    y_hpu = y.to(hpu)
+    indices = [x, y]
+    indices_hpu = [x_hpu, y_hpu]
+    value = torch.rand([24, 128, 64, 128], dtype=torch.float32)
+    tensor = torch.rand([24,512,128], dtype=torch.float32)
+    value_hpu = value.to(hpu)
+    tensor_hpu = tensor.to(hpu)
+    out_cpu = torch.index_put(input=tensor, indices=indices, values=value, accumulate=acc)
+    print(out_cpu.shape)
+    out_hpu = torch.index_put(input=tensor_hpu, indices=indices_hpu, values=value_hpu, accumulate=acc)
+    #np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])

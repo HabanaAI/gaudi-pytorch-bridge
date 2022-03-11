@@ -1070,7 +1070,8 @@ Tensor hpu_wrap::index_put(
     const Tensor& value,
     bool accumulate) {
   if (!hpu_check_inputs_impl(
-          "index_put", {self, indices[0].value_or(Tensor()), value}))
+          "index_put", {self, indices[0].value_or(Tensor()), value}) ||
+      self.dim() < value.dim())
     return AtenHpuTypeDefault::index_put(self, indices, value, accumulate);
   // TODO: Need a better way to handle this rather than converting everywhere
   std::vector<at::Tensor> indices_list;
@@ -1092,7 +1093,8 @@ Tensor& hpu_wrap::index_put_(
     const Tensor& value,
     bool accumulate) {
   if (!hpu_check_inputs_impl(
-          "index_put_", {self, indices[0].value_or(Tensor()), value}))
+          "index_put_", {self, indices[0].value_or(Tensor()), value}) ||
+      self.dim() < value.dim())
     return AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
 
   std::vector<at::Tensor> indices_list;
@@ -1136,7 +1138,8 @@ Tensor& hpu_wrap::_index_put_impl_(
     const bool accumulate,
     const bool unsafe) {
   if (!hpu_check_inputs_impl(
-          "_index_put_impl_", {self, indices[0].value_or(Tensor())}))
+          "_index_put_impl_", {self, indices[0].value_or(Tensor())}) ||
+      self.dim() < value.dim())
     return AtenHpuTypeDefault::_index_put_impl_(
         self, indices, value, accumulate, unsafe);
 
