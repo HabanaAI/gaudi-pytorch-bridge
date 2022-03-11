@@ -27,5 +27,7 @@ class NonZeroOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };
 } // namespace habana

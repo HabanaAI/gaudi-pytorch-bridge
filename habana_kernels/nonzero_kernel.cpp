@@ -62,6 +62,15 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(outputs);
 }
 
+std::vector<int64_t> NonZeroOperator::compute_output_shape(
+    const at::Tensor& self) {
+  auto input_shape = self.sizes();
+  int dimensions = input_shape.size();
+  auto elements = self.numel();
+  std::vector<int64_t> output_shape{elements, dimensions};
+  return output_shape;
+}
+
 void NonZeroOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -78,35 +87,76 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
 
-  auto input_shape = self.sizes();
-  int dimensions = input_shape.size();
-  int elements = self.numel();
-  auto output_shape = DimVector{elements, dimensions};
-  auto shape_tensor_shape = DimVector{5};
-  auto cordinates_of_true = habana_helpers::createPTTensor(
-      self,
-      output_shape,
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      output_metadata.at(0).persistent);
-  auto shape_tensor = habana_helpers::createPTTensor(
-      self,
-      shape_tensor_shape,
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      output_metadata.at(1).persistent);
-  // shape_tensor is of type UINT32 not supported by ScalarType, use synDataType
-  synDataType synType = syn_type_uint32;
-  AllocateSynapseOutput(graph, cordinates_of_true, output_metadata.at(0));
-  AllocateSynapseOutput(
-      graph,
-      shape_tensor,
-      synType,
-      output_metadata.at(1),
-      graph.is_dynamic_graph() ? true : false);
-  AddNodeToSynapseGraph(graph, nullptr, 0);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NONZERO_CGUID) == false) ||
+      (self.dim() > 4)) {
+    auto output_shape = compute_output_shape(self);
+    auto shape_tensor_shape = DimVector{5};
+    auto cordinates_of_true = habana_helpers::createPTTensor(
+        self,
+        output_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        output_metadata.at(0).persistent);
+    auto shape_tensor = habana_helpers::createPTTensor(
+        self,
+        shape_tensor_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        output_metadata.at(1).persistent);
+    // shape_tensor is of type UINT32 not supported by ScalarType, use
+    // synDataType
+    synDataType synType = syn_type_uint32;
+    AllocateSynapseOutput(graph, cordinates_of_true, output_metadata.at(0));
+    AllocateSynapseOutput(
+        graph,
+        shape_tensor,
+        synType,
+        output_metadata.at(1),
+        graph.is_dynamic_graph() ? true : false);
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    SetGuid(
+        "non_zero_v2_fwd_" +
+        habana_helpers::name_suffix_from_type(self.scalar_type()));
+    auto output_shape = compute_output_shape(self);
+    auto shape_tensor_shape = DimVector{5};
+    auto cordinates_of_true = habana_helpers::createPTTensor(
+        self,
+        output_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        output_metadata.at(0).persistent);
+    auto shape_tensor = habana_helpers::createPTTensor(
+        self,
+        shape_tensor_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        output_metadata.at(1).persistent);
+    // shape_tensor is of type UINT32 not supported by ScalarType, use
+    // synDataType
+    synDataType synType = syn_type_uint32;
+    AllocateSynapseOutput(graph, cordinates_of_true, output_metadata.at(0));
+    AllocateSynapseOutput(
+        graph, shape_tensor, synType, output_metadata.at(1), false);
+
+    constexpr int group_size = 64;
+    constexpr int max_chunks = 8;
+    auto group_size_f = static_cast<float>(group_size);
+    auto last_dim_rounded =
+        std::ceil(self.sizes()[self.dim() - 1] / group_size_f) * group_size_f;
+    auto pad = static_cast<unsigned int>(
+        last_dim_rounded - self.sizes()[self.dim() - 1]);
+    ns_NonzeroV2::Params params;
+    params.max_chunks = max_chunks;
+    params.group_size = group_size;
+    std::fill_n(params.pads, 2 * MAX_DIMENSIONS_NUM, 0);
+    params.pads[self.dim()] = pad;
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 /*************************************************************************

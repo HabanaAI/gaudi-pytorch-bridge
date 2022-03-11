@@ -2918,7 +2918,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   };
 
   // Add nonzero node
-  std::vector<int64_t> output_shape{elements, dimensions};
+  auto output_shape = NonZeroOperator::compute_output_shape(self);
   std::vector<int64_t> shape_tensor_shape{5};
   NonZero k({self}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
