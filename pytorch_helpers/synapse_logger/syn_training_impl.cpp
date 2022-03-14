@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <vector>
 
 #include "absl/strings/string_view.h"
@@ -176,6 +177,16 @@ void LoadSymbols(void* lib_handle) {
 
 } // namespace lib_synapse
 
+std::map<synStreamType, std::string> streamNameMap = {
+    {STREAM_TYPE_COPY_DEVICE_TO_HOST, "STREAM_TYPE_COPY_DEVICE_TO_HOST"},
+    {STREAM_TYPE_COPY_HOST_TO_DEVICE, "STREAM_TYPE_COPY_HOST_TO_DEVICE"},
+    {STREAM_TYPE_COPY_DEVICE_TO_DEVICE, "STREAM_TYPE_COPY_DEVICE_TO_DEVICE"},
+    {STREAM_TYPE_COMPUTE, "STREAM_TYPE_COMPUTE"},
+    {STREAM_TYPE_NETWORK_COLLECTIVE, "STREAM_TYPE_NETWORK_COLLECTIVE"},
+    {STREAM_TYPE_COMPUTE_MEDIA, "STREAM_TYPE_COMPUTE_MEDIA"},
+    {STREAM_TYPE_MAX_USER_TYPES, "STREAM_TYPE_RESERVED_1"},
+    {STREAM_TYPE_MAX, "STREAM_TYPE_MAX"}};
+
 synStatus synDestroyTensor(synTensor tensor) {
   API_LOG_CALL(ARG(tensor));
   synStatus status = lib_synapse::synDestroyTensor(tensor);
@@ -212,7 +223,13 @@ synStatus SYN_API_CALL synStreamCreate(
     const synStreamType streamType,
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(pStreamHandle), ARG(deviceId), ARG(streamType), ARG(flags));
+  const std::string streamName = streamNameMap.at(streamType);
+  API_LOG_CALL(
+      ARG(pStreamHandle),
+      ARG(deviceId),
+      ARG(streamType),
+      ARG(flags),
+      ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synStreamCreate, pStreamHandle, deviceId, streamType, flags)
