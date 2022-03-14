@@ -1193,6 +1193,12 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // First get the lazy tensor
   auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
 
+  if (self_hb_tensor.CurrentIrValue() &&
+      !self_hb_tensor.CurrentIrValue().IsHpuInputNode()) {
+    PT_LAZY_DEBUG("Triggering mark_step before H2D copy");
+    HbLazyTensor::StepMarker({});
+  }
+
   // Set the tensor as input and mark as input
   setTensorAsInputNode(self_hb_tensor);
   context->MarkTensorStatus(
@@ -1205,10 +1211,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // This is the internal tensor, it isn't a lazy tensor
   auto self_internal_tesor = self_hb_tensor_data.value();
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
-
-  // TODO (SW-75700): Flush only if there is a pending graph for dest tensor
-  PT_LAZY_DEBUG("Triggering a mark_step before H2D copy");
-  flush_op(self);
 
   // self may have been resized, so re-set its size and strides
   self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
