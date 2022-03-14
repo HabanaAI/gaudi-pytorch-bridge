@@ -47,7 +47,7 @@ class device_memory {
   synStatus malloc(void** ptr, size_t size);
   synStatus free(void* ptr);
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
-  void fix_address(void* ptr);
+  device_ptr fix_address(void* ptr);
   bool is_mem_threshold_hit();
   void get_memory_stats(MemoryStats* stats);
   void clear_memory_stats();

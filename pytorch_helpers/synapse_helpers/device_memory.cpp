@@ -327,21 +327,24 @@ void* device_memory::workspace_alloc(
   }
 }
 
-// special case handling for preallocated buffer
-void device_memory::fix_address(void* ptr) {
+device_ptr device_memory::fix_address(void* ptr) {
   if (ptr == nullptr) {
     PT_DEVMEM_FATAL("fix_address ptr is null");
   }
 
-  auto h =
-      mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    auto h =
+        mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
 
-  if (h.offset() != 0) {
-    PT_DEVMEM_FATAL("Cannot fix offseted handle ", h);
+    if (h.offset() != 0) {
+      PT_DEVMEM_FATAL("Cannot fix offseted handle ", h);
+    }
+
+    handle2pointer_.MarkMemoryFixed(h.id());
+    return get_pointer(h);
+  } else {
+    return reinterpret_cast<uint64_t>(ptr);
   }
-
-  handle2pointer_.MarkMemoryFixed(h.id());
-  get_pointer(h);
 }
 
 /* recipe count is incremented before the allocation

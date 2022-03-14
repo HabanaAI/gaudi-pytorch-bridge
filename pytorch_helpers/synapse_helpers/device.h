@@ -160,6 +160,10 @@ class device {
     return lock_addresses(absl::Span<const device_ptr>{ptrs});
   }
 
+  device_ptr get_fixed_address(void* ptr) {
+    return device_memory_.fix_address(ptr);
+  }
+
   synapse_error copy_data_to_device(
       void* cpu_data,
       device_ptr destination,

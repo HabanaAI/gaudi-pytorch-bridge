@@ -43,12 +43,17 @@ int GetCurrentThreadDevice() {
 }
 
 intptr_t GetDataPtr(const at::Tensor& t) {
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0,
-      "htcore.data_ptr() is only available for lazy mode."
-      " Set PT_HPU_LAZY_MODE=1 or PT_HPU_LAZY_MODE=2.");
-  return reinterpret_cast<intptr_t>(
-      habana_lazy::HbLazyTensor::lazyTensorDataPtr(t));
+  void* data_ptr;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    data_ptr = habana_lazy::HbLazyTensor::lazyTensorDataPtr(t);
+  } else {
+    data_ptr = reinterpret_cast<void*>(t.storage().data_ptr().get());
+  }
+  size_t device_id = t.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
+  return reinterpret_cast<intptr_t>(address);
 }
 
 const std::string get_device_name(int device_id) {

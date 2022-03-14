@@ -348,12 +348,13 @@ c10::optional<c10::Device> GetHpuDevice(
 
 void* GetLazyTensorDataPtr(const at::Tensor& t) {
   auto lazy_t = GetHbLazyTensor(t);
-  auto interal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
+  auto internal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
   TORCH_CHECK(
-      interal_tensor,
-      "Intenal error: GetLazyTensorDataPtr doesn't have "
+      internal_tensor,
+      "Internal error: GetLazyTensorDataPtr doesn't have "
       "tensor with HBM storage");
-  return interal_tensor->data_ptr();
+
+  return internal_tensor->data_ptr();
 }
 
 } // namespace habana_lazy

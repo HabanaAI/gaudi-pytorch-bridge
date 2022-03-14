@@ -109,12 +109,6 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             # Try aeon when HPUMediaPipe is not available
             if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 try:
-
-                    # TBD: To be removed once pool strategy 5 works with habana mediapipe
-                    if os.getenv('PT_HPU_POOL_STRATEGY') != '3':
-                        print("Warning: Please set pool strategy 3 to work with Habana media dataloader\nFallback to aeon dataloader")
-                        self.aeon_fallback_activated = True
-
                     from medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
 
                 except (ImportError) as e:
