@@ -198,7 +198,7 @@ void SBSRunner::handleTensorForCPUInput(
   }
   if (input.device().type() != c10::DeviceType::HPU) {
     // a special case when tensor is still on CPU - see set_inputs()
-    inputs_modified.push_back(std::move(input.to(c10::kHPU)));
+    inputs_modified.push_back(std::move(input.detach().to(c10::kHPU)));
     ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
     // validate sbs run in test
     return;
@@ -206,7 +206,8 @@ void SBSRunner::handleTensorForCPUInput(
   auto hl_input = GetHbLazyTensor(input);
   c10::optional<at::Tensor> pTensor = hl_input.GetCPUTensorData();
   if ((pTensor != c10::nullopt) && hl_input.GetSBSLiveTensorIndication()) {
-    inputs_modified.push_back(std::move(pTensor.value().to(c10::kHPU)));
+    inputs_modified.push_back(
+        std::move(pTensor.value().detach().to(c10::kHPU)));
     ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
     // validate sbs run in test
   } else {
@@ -449,7 +450,7 @@ at::Tensor SBSRunner::prepareTensorToCPU(
     HbLazyTensor::SyncTensorsGraph(&tens);
   }
   PT_LAZY_DEBUG("SBS: Copying tensor to CPU");
-  auto tens_cpu = tensor.to(c10::kCPU);
+  auto tens_cpu = tensor.to(c10::kCPU).detach();
 
   return tens_cpu;
 }

@@ -98,7 +98,7 @@ void SBSDebug::compare_tensors_cos(
       GetHbLazyTensor(hpu_res).getTensorUniqueId(),
       " version: ",
       GetHbLazyTensor(hpu_res).GetSBSTensorVersion());
-  const auto& hpu_res_on_host = hpu_res.to(c10::kCPU);
+  const auto& hpu_res_on_host = hpu_res.to(c10::kCPU).detach();
   PT_LAZY_DEBUG(
       __FUNCTION__,
       " after flush, comparing tensor name=",
