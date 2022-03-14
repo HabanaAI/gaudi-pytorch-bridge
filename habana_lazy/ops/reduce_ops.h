@@ -44,42 +44,6 @@ class Prod : public Node {
   }
 };
 
-enum class SumDimIntListIndex { kDimIdx = 1, kKeepdimIdx = 2, kDtypeIdx = 3 };
-class SumDimIntList : public Node {
- public:
-  SumDimIntList() = delete;
-  SumDimIntList(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim,
-      c10::optional<at::ScalarType> dtype)
-      : Node(c10::Symbol::fromQualString("hpu::sum_dim_IntList")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    auto ir_value = hl_self.GetIrValue();
-    AddInput(ir_value);
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dim, static_cast<size_t>(SumDimIntListIndex::kDimIdx));
-    m_meta_data.set(
-        keepdim, static_cast<size_t>(SumDimIntListIndex::kKeepdimIdx));
-    m_meta_data.set(dtype, static_cast<size_t>(SumDimIntListIndex::kDtypeIdx));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", dim="
-       << m_meta_data.get(static_cast<size_t>(SumDimIntListIndex::kDimIdx))
-       << ", keepdim="
-       << m_meta_data.get(static_cast<size_t>(SumDimIntListIndex::kKeepdimIdx))
-       << ", dtype="
-       << m_meta_data.get(static_cast<size_t>(SumDimIntListIndex::kDtypeIdx));
-    return ss.str();
-  }
-};
-
 enum class ProdDimIntIndex { kDimIdx = 1, kKeepdimIdx = 2, kDtypeIdx = 3 };
 class ProdDimInt : public Node {
  public:

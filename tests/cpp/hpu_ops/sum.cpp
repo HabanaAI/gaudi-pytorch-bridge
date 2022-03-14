@@ -1,0 +1,97 @@
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
+#include "util.h"
+
+class HpuOpTest : public HpuOpTestUtil {};
+
+TEST_F(HpuOpTest, sum_4d_2d_keepdim) {
+  GenerateInputs(1, {{2, 3, 4, 5}});
+  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::nansum(GetCpuInput(0), dim, true /*keepdim*/);
+  auto result = torch::nansum(GetHpuInput(0), dim, true /*keepdim*/);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, sum_3d_2d_keepdim_Int) {
+  torch::ScalarType dtype = torch::kInt;
+  GenerateInputs(1, {{5, 3, 6}}, dtype);
+  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::sum(GetCpuInput(0), dim, true /*keepdim*/, dtype);
+  auto result = torch::sum(GetHpuInput(0), dim, true /*keepdim*/, dtype);
+
+  Compare(expected, result.to("hpu"));
+}
+
+TEST_F(HpuOpTest, sum_3d) {
+  torch::ScalarType dtype = torch::kInt;
+  GenerateInputs(1, {{5, 3, 6}}, dtype);
+  //  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::sum(GetCpuInput(0), dtype);
+  auto result = torch::sum(GetHpuInput(0), dtype);
+
+  Compare(expected, result.to("hpu"));
+}
+
+TEST_F(HpuOpTest, sum_4d_2d_keepdim_Int) {
+  torch::ScalarType dtype = torch::kInt;
+  GenerateInputs(1, {{5, 3, 6, 4}}, dtype);
+  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::sum(GetCpuInput(0), dim, true /*keepdim*/, dtype);
+  auto result = torch::sum(GetHpuInput(0), dim, true /*keepdim*/, dtype);
+
+  Compare(expected, result.to("hpu"));
+}
+
+TEST_F(HpuOpTest, sum_4d_2d_Int) {
+  torch::ScalarType dtype = torch::kInt;
+  GenerateInputs(1, {{5, 3, 6, 4}}, dtype);
+  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::sum(GetCpuInput(0), dim, false /*keepdim*/, dtype);
+  auto result = torch::sum(GetHpuInput(0), dim, false /*keepdim*/, dtype);
+
+  Compare(expected, result.to("hpu"));
+}
+
+TEST_F(HpuOpTest, sum_4d_3d_reduce_dim) {
+  GenerateInputs(1, {{3, 6, 5, 4}});
+  const std::vector<int64_t> dim{3, 1, 0};
+
+  auto expected = torch::nansum(GetCpuInput(0), dim, false /*keepdim*/);
+  auto result = torch::nansum(GetHpuInput(0), dim, false /*keepdim*/);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, sum) {
+  GenerateInputs(1, {{3, 3, 4, 6}});
+
+  auto expected = torch::nansum(GetCpuInput(0));
+  auto result = torch::nansum(GetHpuInput(0));
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, sum_UNET) {
+  torch::ScalarType dtype = torch::kInt;
+  GenerateInputs(1, {{5, 3, 6, 3}}, dtype);
+  const std::vector<int64_t> dim{0, 2, 3};
+
+  auto expected = torch::sum(GetCpuInput(0), dim, false /*keepdim*/, dtype);
+  auto result = torch::sum(GetHpuInput(0), dim, false /*keepdim*/, dtype);
+
+  Compare(expected, result.to("hpu"));
+}

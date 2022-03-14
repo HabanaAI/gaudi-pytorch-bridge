@@ -5294,41 +5294,25 @@ Tensor sum_dim_IntList_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  at::Tensor self_cast = self;
+
+  at::Tensor self_updated_dtype = self;
+
+  if (dtype.has_value() &&
+      (dtype.value() != self_updated_dtype.scalar_type())) {
+    self_updated_dtype = self.to(dtype.value());
+  }
 
   if (self.scalar_type() == c10::ScalarType::Bool ||
       self.scalar_type() == c10::ScalarType::Byte) {
-    auto node = std::make_shared<ir::Cast>(self, c10::ScalarType::Int, true);
-    at::TensorOptions hb_options = self.options().dtype(c10::ScalarType::Int);
-    self_cast = empty_hpu_lazy(
-        self.sizes(), hb_options, self.suggest_memory_format(), false);
-    auto hl_cast = GetHbLazyTensor(self_cast);
-    hl_cast = HandleViewsOrUpdate(self_cast, hl_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
+    self_updated_dtype = self.to(c10::ScalarType::Int);
   }
-  auto hl_self = GetOrCreateHbLazyTensor(self_cast, c10::kHPU);
-  hl_self = HandleViewsOrUpdate(self_cast, hl_self);
-  ir::NodePtr node =
-      std::make_shared<ir::SumDimIntList>(self_cast, dim, keepdim, dtype);
-  auto result = empty_hpu_lazy(
-      ReduceOperator::compute_output_shape(self_cast, dim, keepdim),
-      self_cast.options(),
-      self_cast.suggest_memory_format(),
-      false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  flush_op(result);
+
+  LazyOp<at::Tensor> k(
+      "hpu::sum_dim_IntList",
+      {self_updated_dtype, dim, keepdim, dtype},
+      {},
+      {ReduceOperator::compute_output_shape(self_updated_dtype, dim, keepdim)});
+  auto result = k.call();
   return result;
 }
 
