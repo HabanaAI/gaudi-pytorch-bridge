@@ -61,20 +61,27 @@ class graph {
       void* const params,
       const unsigned params_size,
       const synapse_error_v<std::string>& node_type,
-      synNodeId* ret_node_id = nullptr);
+      synNodeId* ret_node_id = nullptr,
+      const char** input_layouts = nullptr,
+      const char** output_layouts = nullptr);
 
   template <typename ParamsT>
   synapse_error_o add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
       ParamsT* const params,
-      const synapse_error_v<std::string>& node_type) {
+      const synapse_error_v<std::string>& node_type,
+      const char** input_layouts = nullptr,
+      const char** output_layouts = nullptr) {
     return add_node(
         std::move(inputs),
         std::move(outputs),
         params,
         sizeof(*params),
-        node_type);
+        node_type,
+        nullptr,
+        input_layouts,
+        output_layouts);
   }
 
   synStatus set_synapse_control_edges_pt(

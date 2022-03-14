@@ -12,6 +12,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy/layout_utils.h"
 #include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/env_flags.h"
@@ -384,12 +385,19 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     syn_outputs.emplace_back(tensor.get());
   }
 
+  auto input_layouts =
+      habana_lazy::layouts::LayoutUtils::getInputLayouts(guid_);
+  auto output_layouts =
+      habana_lazy::layouts::LayoutUtils::getOutputLayouts(guid_);
   graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
       params,
       params_size,
-      std::move(guid_));
+      std::move(guid_),
+      nullptr,
+      input_layouts,
+      output_layouts);
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {

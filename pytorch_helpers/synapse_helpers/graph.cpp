@@ -169,7 +169,9 @@ synapse_error_o graph::add_node(
     void* const params,
     const unsigned params_size,
     const synapse_error_v<std::string>& node_type_or_err,
-    synNodeId* ret_node_id) {
+    synNodeId* ret_node_id,
+    const char** input_layouts,
+    const char** output_layouts) {
   if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
     return {};
@@ -217,8 +219,8 @@ synapse_error_o graph::add_node(
       node_type.c_str(),
       node_name.c_str(),
       &nodeId,
-      nullptr,
-      nullptr);
+      input_layouts,
+      output_layouts);
   if (status != synStatus::synSuccess) {
     PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
   }

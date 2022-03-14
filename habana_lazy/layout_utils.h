@@ -88,5 +88,36 @@ enum LegacyLayoutIndex {
 LIST_OF_LAYOUT_IDX
 #undef SET_LAYOUT_IDX_VAR
 
+class LayoutUtils {
+ public:
+  static const char** getInputLayouts(const std::string& guid);
+  static const char** getOutputLayouts(const std::string& guid);
+
+ private:
+  static constexpr char dont_care[] = "";
+  static constexpr char pt_default_data_layout[] = "WHCN";
+  static constexpr char pt_default_3d_data_layout[] = "WHDCN";
+  static constexpr char pt_default_weight_layout[] = "SRCK";
+  static constexpr char pt_default_3d_weight_layout[] = "SRQCK";
+
+  // Conv
+  static const char* pt_conv_input_layout[];
+  static const char* pt_conv_output_layout[];
+  static const char* pt_conv3d_input_layout[];
+  static const char* pt_conv3d_output_layout[];
+
+  // dedw
+  static const char* pt_dedw_input_layout[];
+  static const char* pt_dedw_output_layout[];
+  static const char* pt_dedw3d_input_layout[];
+  static const char* pt_dedw3d_output_layout[];
+
+  // dedx
+  static const char* pt_dedx_input_layout[];
+  static const char* pt_dedx_output_layout[];
+  static const char* pt_dedx3d_input_layout[];
+  static const char* pt_dedx3d_output_layout[];
+};
+
 } // namespace layouts
 } // namespace habana_lazy
