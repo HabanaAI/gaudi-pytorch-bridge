@@ -29,6 +29,7 @@
 #include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/stream.h"
+#include "synapse_helpers/tensor_builder_base.h"
 #include "synapse_helpers/util.h"
 #include "util/time_measure.h"
 
@@ -184,6 +185,7 @@ synapse_error_o graph::add_node(
   if (current_op_name_) {
     node_name += *current_op_name_ + "/" + node_type;
   }
+  synapse_helpers::detail::tensor_name_generator::to_netron_syntax(node_name);
 
   PT_SYNHELPER_DEBUG(
       "graph ",

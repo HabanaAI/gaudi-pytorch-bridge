@@ -162,7 +162,21 @@ std::string tensor_name_generator::get_next_tensor_name(
 std::string tensor_name_generator::generate(const std::string& suffix) {
   std::string tensor_name = get_next_tensor_name(suffix);
   syn_tensor_id++;
+  to_netron_syntax(tensor_name);
   return tensor_name;
+}
+
+// netron app doesn't handle '::' in nodes and tensors
+// changing them to '/' for display purposes
+void tensor_name_generator::to_netron_syntax(std::string& name) {
+  std::vector<std::string> symbols_to_replace = {"::", "."};
+  for (auto& s : symbols_to_replace) {
+    size_t pos = 0;
+    while ((pos = name.find(s, pos)) != std::string::npos) {
+      name.replace(pos, s.size(), "/");
+      pos += s.length();
+    }
+  }
 }
 
 void tensor_name_generator::set_tensor_id(uint64_t id) {

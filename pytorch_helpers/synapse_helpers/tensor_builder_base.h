@@ -49,6 +49,7 @@ class tensor_name_generator {
   static std::string generate(const std::string& suffix = std::string());
   static void set_tensor_id(uint64_t id);
   static uint64_t get_tensor_id();
+  static void to_netron_syntax(std::string& name);
 
   // to make unit testing possible
   static void reset();
