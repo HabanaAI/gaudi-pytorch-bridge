@@ -66,17 +66,11 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   }
 
   auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
-  habana::HabanaLaunchOpPT launch{
-      mp_g_,
-      std::make_shared<habana::HabanaMetaDataToLowering>(
-          false,
-          graphIndex,
-          opName,
-          mp_g_and_meta_data_->get_cached_opstrs(),
-          mp_g_and_meta_data_->get_cached_graph_key(),
-          mp_g_and_meta_data_)};
+  mp_g_and_meta_data_->SetGraphIndex(graphIndex);
+  mp_g_and_meta_data_->SetOpName(opName);
+  habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
   try {
-    launch.run(stack);
+    habanaLoweringOp.run(stack);
   } catch (std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
     context->setExecutionMode(kLAZY);

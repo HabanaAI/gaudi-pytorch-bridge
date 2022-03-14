@@ -76,23 +76,6 @@ std::string makeIdStr(const std::string& name, size_t graph_index) {
   return oss.str();
 }
 
-HabanaMetaDataToLowering::HabanaMetaDataToLowering(
-    const bool& debug,
-    const size_t& graphIndex,
-    const std::string OpName,
-    const std::string& op_strs,
-    const size_t graph_key,
-    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-        jit_graph_and_meta_data_to_lowering,
-    bool is_optimized_lazy_eager)
-    : dbg(debug),
-      graph_index(graphIndex),
-      op_name(OpName),
-      opstrs(op_strs),
-      graphKey(graph_key),
-      jitGraphAndMetaData(jit_graph_and_meta_data_to_lowering),
-      isOptimizedLazyEager(is_optimized_lazy_eager) {}
-
 std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
     const std::string& name,
     size_t g_index) {
@@ -120,19 +103,18 @@ void HabanaLaunchOpPT::SetOpName(const std::string& name) {
 }
 
 HabanaLaunchOpPT::HabanaLaunchOpPT(
-    std::shared_ptr<torch::jit::Graph> graph,
-    std::shared_ptr<HabanaMetaDataToLowering> hb_meta_data_to_lowering)
-    : name(hb_meta_data_to_lowering->GetOpName()),
-      graph_index(hb_meta_data_to_lowering->GetGraphIndex()),
-      jit_ir_graph{std::move(graph)},
-      debug(hb_meta_data_to_lowering->GetDbgFlag()) {
+    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+        optimized_jit_graph_and_meta_data)
+    : name(optimized_jit_graph_and_meta_data->GetOpName()),
+      graph_index(optimized_jit_graph_and_meta_data->GetGraphIndex()),
+      jit_ir_graph(optimized_jit_graph_and_meta_data->get_cached_graph()),
+      debug(optimized_jit_graph_and_meta_data->GetDbgFlag()) {
   refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  op_strs = hb_meta_data_to_lowering->GetOpStrs();
-  graph_key = hb_meta_data_to_lowering->GetGraphKey();
+  op_strs = optimized_jit_graph_and_meta_data->get_cached_opstrs();
+  graph_key = optimized_jit_graph_and_meta_data->get_cached_graph_key();
   bool is_optimized_lazy_eager =
-      hb_meta_data_to_lowering->GetOptimizedLazyEagerFlag();
-  jit_graph_and_meta_data =
-      hb_meta_data_to_lowering->GetOptimizedJITGraphAndMetaData();
+      optimized_jit_graph_and_meta_data->GetOptimizedLazyEagerFlag();
+  jit_graph_and_meta_data = optimized_jit_graph_and_meta_data;
 
   SetOpName(name);
 

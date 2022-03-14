@@ -234,12 +234,46 @@ void LazyArgumentSpec::GetArgSpecKey(
   m_hash_code = at::hash_combine(m_hash_code, mf_hash_code);
 }
 
+OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() {}
+
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
     const at::ArrayRef<torch::jit::IValue>& input_refs)
     : jit_graph_to_lowering(JitGraphToLowering) {
   // Compute the graph hash
   ComputeGraphHashCode(JitGraphToLowering, "", input_refs, opstrs, graphKey);
+}
+
+std::string& OptimizedJITGraphAndMetaData::GetOpName() {
+  return op_name;
+}
+
+void OptimizedJITGraphAndMetaData::SetOpName(std::string name) {
+  op_name = name;
+}
+
+size_t OptimizedJITGraphAndMetaData::GetGraphIndex() {
+  return graph_index;
+}
+
+void OptimizedJITGraphAndMetaData::SetGraphIndex(size_t index) {
+  graph_index = index;
+}
+
+bool OptimizedJITGraphAndMetaData::GetDbgFlag() {
+  return dbg;
+}
+
+void OptimizedJITGraphAndMetaData::SetDbgFlag(bool flag) {
+  dbg = flag;
+}
+
+bool OptimizedJITGraphAndMetaData::GetOptimizedLazyEagerFlag() {
+  return isOptimizedLazyEager;
+}
+
+void OptimizedJITGraphAndMetaData::SetOptimizedLazyEagerFlag(bool flag) {
+  isOptimizedLazyEager = flag;
 }
 
 void OptimizedJITGraphAndMetaData::set_jit_cached_graph_info_available_flag(

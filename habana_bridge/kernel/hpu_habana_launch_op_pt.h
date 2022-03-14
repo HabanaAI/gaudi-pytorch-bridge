@@ -107,62 +107,11 @@ struct TensorMetaData {
       : sizes(sz), strides(st), mf(f) {}
 };
 
-struct HabanaMetaDataToLowering {
-  HabanaMetaDataToLowering(
-      const bool& debug,
-      const size_t& graphIndex,
-      const std::string OpName,
-      const std::string& op_strs,
-      const size_t graph_key,
-      std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-          jit_graph_and_meta_data_to_lowering = nullptr,
-      bool is_optimized_lazy_eager = false);
-
-  std::string GetOpStrs() {
-    return opstrs;
-  }
-
-  size_t GetGraphKey() {
-    return graphKey;
-  }
-
-  std::string& GetOpName() {
-    return op_name;
-  }
-
-  size_t GetGraphIndex() {
-    return graph_index;
-  }
-
-  bool GetDbgFlag() {
-    return dbg;
-  }
-
-  bool GetOptimizedLazyEagerFlag() {
-    return isOptimizedLazyEager;
-  }
-
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-  GetOptimizedJITGraphAndMetaData() {
-    return jitGraphAndMetaData;
-  }
-
- private:
-  bool dbg = false;
-  size_t graph_index = 0;
-  std::string op_name = std::string();
-  std::string opstrs = std::string();
-  size_t graphKey = 0;
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      jitGraphAndMetaData = nullptr;
-  bool isOptimizedLazyEager = false;
-};
-
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(
-      std::shared_ptr<torch::jit::Graph> graph,
-      std::shared_ptr<HabanaMetaDataToLowering> hb_meta_data_to_lowering);
+      std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+          optimized_jit_graph_and_meta_data);
   ~HabanaLaunchOpPT();
 
   void CompileGraphWithRange(

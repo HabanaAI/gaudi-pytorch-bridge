@@ -809,18 +809,11 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
   context->setExecutionMode(kLOWERING);
 
-  habana::HabanaLaunchOpPT launch{
-      fast_path_jit_ir_and_mdata->get_cached_graph(),
-      std::make_shared<habana::HabanaMetaDataToLowering>(
-          false,
-          0,
-          lazyFrontEndInfo->get_lazy_op_name(),
-          fast_path_jit_ir_and_mdata->get_cached_opstrs(),
-          fast_path_jit_ir_and_mdata->get_cached_graph_key(),
-          fast_path_jit_ir_and_mdata,
-          true)};
+  fast_path_jit_ir_and_mdata->SetOpName(lazyFrontEndInfo->get_lazy_op_name());
+  fast_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
+  habana::HabanaLaunchOpPT habanaLoweringOp{fast_path_jit_ir_and_mdata};
   try {
-    launch.run(stack);
+    habanaLoweringOp.run(stack);
   } catch (std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
     context->setExecutionMode(kLAZY);

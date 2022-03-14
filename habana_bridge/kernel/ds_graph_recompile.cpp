@@ -117,10 +117,15 @@ bool habana::CompileGraphWithRange(
     size_t graphIndex{visualize::GetGraphIndex(graphKey)};
     std::string graphName{"HabanaFusedOpLazy"};
     std::string opStr{rvpsh->get_op_strs()};
-    habana::HabanaLaunchOpPT habanaFusedOp{
-        mp_g_,
-        std::make_shared<habana::HabanaMetaDataToLowering>(
-            false, graphIndex, graphName, opStr, graphKey)};
+    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+        jit_ir_graph_and_mdata =
+            std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+    jit_ir_graph_and_mdata->set_cached_graph(mp_g_);
+    jit_ir_graph_and_mdata->set_cached_graph_key(graphKey);
+    jit_ir_graph_and_mdata->SetGraphIndex(graphIndex);
+    jit_ir_graph_and_mdata->SetOpName(graphName);
+    jit_ir_graph_and_mdata->set_cached_opstrs(opStr);
+    habana::HabanaLaunchOpPT habanaFusedOp{jit_ir_graph_and_mdata};
     try {
       habanaFusedOp.CompileGraphWithRange(
           input_stack, input_ranges, new_bucket, new_recipe_key);

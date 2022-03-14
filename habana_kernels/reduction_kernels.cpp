@@ -1665,11 +1665,13 @@ Tensor all_hpu(const Tensor& self) {
 
   habana_lazy::transform_graph(graph);
 
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      jit_ir_graph_and_mdata =
+          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+  jit_ir_graph_and_mdata->set_cached_graph(graph);
+  jit_ir_graph_and_mdata->SetOpName("all");
   // Execute OP graph
-  HabanaLaunchOpPT launch{
-      graph,
-      std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "all", "", 0, nullptr, false)};
+  HabanaLaunchOpPT launch{jit_ir_graph_and_mdata};
   launch.run(stack);
 
   // Pop output from stack
@@ -1694,11 +1696,13 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
 
   habana_lazy::transform_graph(graph);
 
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      jit_ir_graph_and_mdata =
+          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+  jit_ir_graph_and_mdata->set_cached_graph(graph);
+  jit_ir_graph_and_mdata->SetOpName("all_dim");
   // Execute OP graph
-  HabanaLaunchOpPT launch{
-      graph,
-      std::make_shared<habana::HabanaMetaDataToLowering>(
-          false, 0, "all_dim", "", 0, nullptr, false)};
+  HabanaLaunchOpPT launch{jit_ir_graph_and_mdata};
   launch.run(stack);
 
   // Pop output from stack

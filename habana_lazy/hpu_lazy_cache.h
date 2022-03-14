@@ -132,6 +132,7 @@ class LazyArgumentSpec {
 };
 
 struct OptimizedJITGraphAndMetaData {
+  OptimizedJITGraphAndMetaData();
   OptimizedJITGraphAndMetaData(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
       const at::ArrayRef<torch::jit::IValue>& input_refs);
@@ -140,13 +141,41 @@ struct OptimizedJITGraphAndMetaData {
     return jit_graph_to_lowering;
   }
 
+  void set_cached_graph(std::shared_ptr<torch::jit::Graph> graph) {
+    jit_graph_to_lowering = graph;
+  }
+
   std::string get_cached_opstrs() {
     return opstrs;
+  }
+
+  void set_cached_opstrs(std::string op_strs) {
+    opstrs = op_strs;
   }
 
   size_t get_cached_graph_key() {
     return graphKey;
   }
+
+  void set_cached_graph_key(size_t key) {
+    graphKey = key;
+  }
+
+  std::string& GetOpName();
+
+  void SetOpName(std::string name);
+
+  size_t GetGraphIndex();
+
+  void SetGraphIndex(size_t index);
+
+  bool GetDbgFlag();
+
+  void SetDbgFlag(bool flag);
+
+  bool GetOptimizedLazyEagerFlag();
+
+  void SetOptimizedLazyEagerFlag(bool flag);
 
   void set_jit_cached_graph_info_available_flag(bool flag);
 
@@ -174,6 +203,10 @@ struct OptimizedJITGraphAndMetaData {
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
   size_t graphKey = 0;
+  bool dbg = false;
+  size_t graph_index = 0;
+  std::string op_name = std::string();
+  bool isOptimizedLazyEager = false;
   bool isJITCachedGraphInfoAvailable = false;
   std::vector<habana::OutputMetaDataVector> outputs_metadata{};
   std::vector<IValPtrShared> prim_nodes_ivals{};
