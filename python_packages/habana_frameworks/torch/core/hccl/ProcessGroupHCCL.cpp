@@ -254,7 +254,7 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 }
 
 void ProcessGroupHCCL::destroy() {
-  HOST_SYNC()
+  hostBarrier();
   for (auto element : hccl_communicator_) {
     hcclCommDestroy(*(element.second));
   }
@@ -525,6 +525,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
+  HOST_SYNC()
   return collective(
       tensors,
       tensors,
@@ -560,7 +561,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
-
+  HOST_SYNC()
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
@@ -722,7 +723,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
     const AllgatherOptions& opts) {
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
-
+  HOST_SYNC()
   auto work = collective(
       inputTensors,
       outputFlattened,
@@ -902,7 +903,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
   auto comms = getCommList(devices);
   auto commStreams = getCommStreams(devices);
 
-  HOST_SYNC()
+  hostBarrier();
   for (size_t i = 0; i < comms.size(); i++) {
     hcclBarrier(*comms[i], commStreams[i]);
   }

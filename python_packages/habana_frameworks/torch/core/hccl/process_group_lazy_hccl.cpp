@@ -97,7 +97,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
 
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
   PT_LAZY_DEBUG("Destroy ProcessGroupLazyHCCL");
-  HOST_SYNC()
+  hostBarrier();
   comm_.reset();
 };
 
@@ -139,6 +139,7 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupLazyHCCL::WorkLazy::
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
+  HOST_SYNC()
   for (auto& t : tensors) {
     habana_lazy::broadcast_hpu_lazy_(t, opts.rootRank, comm_->GetId());
   }
@@ -148,6 +149,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::broadcast(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
+  HOST_SYNC()
   for (auto& t : tensors) {
     auto data_type = t.scalar_type();
     bool cast_tensor =
@@ -206,7 +208,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allgather(
     const AllgatherOptions& opts) {
   auto output_flattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
-
+  HOST_SYNC()
   for (size_t index = 0; index < output_flattened.size(); ++index) {
     habana_lazy::allgather_hpu_lazy_out(
         inputTensors.at(index), comm_->GetId(), output_flattened.at(index));
@@ -375,7 +377,7 @@ void ProcessGroupLazyHCCL::hostBarrier() {
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts) {
-  HOST_SYNC()
+  hostBarrier();
   habana_lazy::HbLazyTensor::StepMarker();
 
   auto comm = habana::HcclCommunicator::Get(comm_->GetId());
