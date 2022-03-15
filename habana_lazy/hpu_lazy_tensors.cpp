@@ -631,6 +631,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   auto context = habana_lazy_executor.getDeviceExecutionContext(
       (*tensors)[0].GetDevice().index());
 
+  // Initiate non-blocking copy to device for all scalar inputs
+  if (!context->copy_scalar_to_hpu_tensor_list.empty()) {
+    habana_helpers::copy_scalars_to_device(
+        context->copy_scalar_to_hpu_tensor_list);
+    context->copy_scalar_to_hpu_tensor_list.clear();
+  }
+
   auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
 
   exec::HlExec hlexec{};

@@ -554,6 +554,55 @@ void habana_helpers::copy_scalar_to_device(
   }
 }
 
+/******************************************************************************
+ * @brief helper function for copying scalars tensor data from host to device
+ * @param[in] tensor_list - list of tensor pairs i.e. src and dst
+ *****************************************************************************/
+void habana_helpers::copy_scalars_to_device(
+    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list) {
+  if (tensors_list.empty()) {
+    return;
+  }
+
+  synapse_helpers::device::transfer_manifest manifest;
+  std::vector<at::Tensor> src_list;
+  std::vector<at::Tensor> dst_list;
+  for (auto pair : tensors_list) {
+    auto src = pair.first;
+    auto dst = pair.second;
+    TORCH_CHECK(dst.nbytes() >= src.nbytes());
+
+    synapse_helpers::device::transfer_desc desc;
+    desc.src = reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr());
+    desc.bytes_to_transfer = src.nbytes();
+    desc.dst = reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr());
+    desc.dst_event_addr = reinterpret_cast<synapse_helpers::device_ptr>(
+        dst.storage().data_ptr().get());
+    manifest.push_back(desc);
+
+    src_list.push_back(src);
+    dst_list.push_back(dst);
+  }
+
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.IsStreamASyncEnabled()) {
+    // src list and dst list keeps a reference to the tensors it is
+    // operating on to prevent it from being deallocated while the
+    // operation is still in flight.
+    auto syn_error = device.copy_data_to_device(
+        manifest, [src_list, dst_list]() { return; });
+  } else {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_device(
+        manifest, [&copyDone]() { copyDone = true; });
+
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
+  }
+}
+
 synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::IntArrayRef& shape,
     UNUSED const c10::IntArrayRef& stride,

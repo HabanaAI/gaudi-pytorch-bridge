@@ -207,6 +207,8 @@ class HbExecutionContext {
       EqualFn>
       scalar_to_tensor_map;
 
+  std::vector<std::pair<at::Tensor, at::Tensor>> copy_scalar_to_hpu_tensor_list;
+
   // maps tensor id corresponding to as_strided's o/p with its i/p stride params
   std::unordered_map<int64_t, StrideParams> view_table;
   // maintains most recent version of the original tensor map

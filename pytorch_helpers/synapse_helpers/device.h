@@ -199,6 +199,10 @@ class device {
       event_done_callback unref_cb,
       stream* const next_operation_stream = nullptr);
 
+  synapse_error copy_data_to_device(
+      transfer_manifest const& transfers,
+      event_done_callback unref_cb);
+
   stream& get_compute_stream() {
     return stream_comp_;
   }

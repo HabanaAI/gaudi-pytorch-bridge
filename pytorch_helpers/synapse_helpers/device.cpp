@@ -572,6 +572,101 @@ synapse_error device::copy_data_to_device(
   return {};
 }
 
+synapse_error device::copy_data_to_device(
+    transfer_manifest const& transfers,
+    event_done_callback unref_cb) {
+  synStatus status;
+
+  for (std::size_t i = 0; i < transfers.size(); ++i) {
+    sem_.enqueue_wait_event(transfers[i].dst_event_addr, stream_h2d_);
+  }
+
+  std::vector<std::uint64_t> mapped_srcs(transfers.size());
+  std::vector<std::uint64_t> lens(transfers.size());
+  std::vector<std::uint64_t> dsts(transfers.size());
+  std::vector<std::uint64_t> dsts_event_addr(transfers.size());
+
+  // Allocate host memory for all cpu tensors
+  uint8_t* host_mem_ptr;
+  auto total_bytes = std::accumulate(
+      transfers.begin(),
+      transfers.end(),
+      0,
+      [&](size_t total, const transfer_desc& curr) {
+        return total + curr.bytes_to_transfer;
+      });
+  status = host_memory_.malloc((void**)&host_mem_ptr, total_bytes);
+  if (status != synStatus::synSuccess) {
+    PT_SYNHELPER_FATAL("Host malloc failed with ", status);
+    return {};
+  }
+
+  // Copy cpu tensors data to host memory
+  uint8_t* mem_ptr = host_mem_ptr;
+  for (std::size_t i = 0; i < transfers.size(); ++i) {
+    auto src = transfers[i].src;
+    auto len = transfers[i].bytes_to_transfer;
+    std::copy(
+        reinterpret_cast<uint8_t*>(src),
+        reinterpret_cast<uint8_t*>(src) + len,
+        mem_ptr);
+    mapped_srcs[i] = reinterpret_cast<uint64_t>(mem_ptr);
+    mem_ptr += len;
+    lens[i] = len;
+    dsts[i] = transfers[i].dst;
+    dsts_event_addr[i] = transfers[i].dst_event_addr;
+  }
+
+  unsigned attempt = 0;
+  auto locked =
+      std::make_shared<device_ptr_lock>(std::move(lock_addresses(dsts)));
+  HABANA_ASSERT(
+      transfers.size() ==
+      std::size_t(std::distance(locked->begin(), locked->end())));
+  absl::Span<const device_ptr> locked_dsts{locked->begin(), transfers.size()};
+  do {
+    status = synMemCopyAsyncMultiple(
+        stream_h2d_,
+        mapped_srcs.data(),
+        lens.data(),
+        locked_dsts.data(),
+        synDmaDir::HOST_TO_DRAM,
+        transfers.size());
+
+    if (status == synStatus::synSuccess) {
+      if (attempt != 0) {
+        PT_SYNHELPER_WARN(
+            "DMA to HPU start succeeded on ", attempt + 1, " attempt.");
+      }
+      break;
+    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+      PT_SYNHELPER_WARN(
+          "DMA to HPU start failed with status ",
+          status,
+          ". Attempt ",
+          attempt + 1,
+          "/",
+          max_dma_copy_retry_count_,
+          ".");
+      std::this_thread::sleep_for(dma_copy_retry_delay_);
+    } else {
+      host_memory_.free((void*)host_mem_ptr);
+      PT_SYNHELPER_FATAL("DMA to HPU start failed with ", status);
+      return {};
+    }
+  } while (++attempt < max_dma_copy_retry_count_);
+
+  sem_.add_producer(
+      std::move(dsts_event_addr),
+      stream_h2d_,
+      [this, host_mem_ptr, unref_cb, locked]() mutable {
+        host_memory_.free((void*)host_mem_ptr);
+        unref_cb();
+        locked = nullptr;
+      });
+  return {};
+}
+
 synapse_error device::copy_data_to_host(
     device_ptr device_data,
     void* destination,

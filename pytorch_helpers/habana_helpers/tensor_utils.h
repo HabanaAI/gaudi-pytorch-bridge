@@ -239,6 +239,8 @@ void copy_data_within_device(
 
 void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
 void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
+void copy_scalars_to_device(
+    const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list);
 
 at::Tensor GenerateAndCopyTensorToHPU(
     const at::Tensor& ref_tensor,

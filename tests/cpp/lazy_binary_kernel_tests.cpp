@@ -162,6 +162,22 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
   EXPECT_EQ(allclose(generated, expected, 0.001, 0.001), true);
 }
 
+TEST_F(LazyBinaryKernelTest, DivTensorByScalar) {
+  auto a = torch::ones({2, 3, 4});
+  auto b = torch::div(a, 2);
+  auto c = torch::div(b, 3);
+  auto d = torch::div(c, 4);
+  auto out = torch::div(d, 5);
+
+  auto ha = a.to("hpu");
+  auto hb = torch::div(ha, 2);
+  auto hc = torch::div(hb, 3);
+  auto hd = torch::div(hc, 4);
+  auto hout = torch::div(hd, 5);
+
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
+}
+
 TEST_F(LazyBinaryKernelTest, MulOutScalar) {
   torch::Tensor input1 = torch::randn({2, 2});
   int divFactor_ = 2;

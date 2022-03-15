@@ -275,6 +275,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE, unsigned, 1048576);
 
+// Add scalars to list and copy using synMemCopyAsyncMultiple()
+ENV_STRUCT_DEFINITION(PT_HPU_SCALAR_H2D_COPY_MULTIPLE, bool, true);
+
 // Option to skip cache versioning mechanism.
 // This will skip the check of Libs and Env compatibility of serialized recipes
 // read from disk.
