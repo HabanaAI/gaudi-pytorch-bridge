@@ -13,7 +13,6 @@
 #include <sstream>
 #include "aten_lazy_bridge.h"
 #include "debug_utils.h"
-#include "habana_helpers/tensor_utils.h" // for validateDownCast
 #include "lazy_executor.h"
 #include "passes/pass_utils.h"
 #include "sbs_debug.h"
@@ -288,10 +287,10 @@ void SBSRunner::run(
     std::string error_str = e.what();
     std::stringstream ss;
     ss << "Failed to run CPU Op. Details :\n" << error_str;
-    LogError(
-        ir_name,
-        "Failed to run CPU Op. Check lazy log for details and call stack",
-        ss.str());
+    std::string first_error_line = error_str.substr(0, error_str.find('\n'));
+    std::string error_short = std::string("Failed to run CPU Op: ") +
+        first_error_line + " (Check lazy log for call stack)";
+    LogError(ir_name, error_short, ss.str());
     return;
   }
 

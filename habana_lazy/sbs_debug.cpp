@@ -17,20 +17,23 @@ class float16;
 class bfloat16;
 namespace habana_lazy {
 
-#define TENSOR_COMPARE_TYPE(primitive_type)                                   \
-  PT_LAZY_DEBUG("SBS: comparing tensors with type: ", cpu_res.scalar_type()); \
-  success = mp_tc->compare(                                                   \
-      tensor_name,                                                            \
-      (primitive_type*)hpu_data,                                              \
-      (primitive_type*)cpu_data,                                              \
-      cpu_res.numel(),                                                        \
-      compare_method,                                                         \
-      true);                                                                  \
+#define TENSOR_COMPARE_TYPE(primitive_type)                      \
+  PT_LAZY_DEBUG("SBS: comparing tensors with type: ", cpu_type); \
+  success = mp_tc->compare(                                      \
+      tensor_name,                                               \
+      (primitive_type*)hpu_data,                                 \
+      (primitive_type*)cpu_data,                                 \
+      cpu_res.numel(),                                           \
+      compare_method,                                            \
+      true);                                                     \
   break;
 
-#define CASE_TENSOR_COMPARE_TYPE(scalar_type, primitive_type) \
-  case scalar_type:                                           \
+#define CASE_TENSOR_COMPARE_TYPE_WITH_CPP(scalar_type, primitive_type) \
+  case scalar_type:                                                    \
     TENSOR_COMPARE_TYPE(primitive_type)
+#define CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE(scalar_type) \
+  CASE_TENSOR_COMPARE_TYPE_WITH_CPP(                      \
+      scalar_type, decltype(c10::impl::ScalarTypeToCPPType<scalar_type>::t))
 
 // handling duplicate names (adding a counter suffix)
 static std::string handle_name_duplicates(const std::string& op_type) {
@@ -81,7 +84,86 @@ void SBSDebug::report(const std::string& log_message, size_t& log_counter) {
   mp_tc->makeReport(m_report_file_name, TensorComparison::ExportType::CSV);
   ++log_counter;
   PT_LAZY_DEBUG(
-      "SBS: Current number of ", log_message, " reported: ", log_counter);
+      "SBS: Current number of ",
+      log_message,
+      " reported: ",
+      log_counter,
+      " total lines: ",
+      GetNumberOfReportLines());
+}
+
+bool castToHigherType(
+    at::Tensor& hpu_res_on_host_compare,
+    at::Tensor& cpu_res_compare,
+    std::string& original_types_str) {
+  auto hpu_type = hpu_res_on_host_compare.scalar_type();
+  auto cpu_type = cpu_res_compare.scalar_type();
+  PT_LAZY_DEBUG(
+      "SBS: Comparing different types, casting to the higher type. Assuming tensor types should be related. CPU: ",
+      cpu_type,
+      " HPU: ",
+      hpu_type);
+  bool cast_cpu_tensor;
+  c10::ScalarType from_type;
+  c10::ScalarType to_type;
+  if (c10::isFloatingType(hpu_type) &&
+      c10::isIntegralType(cpu_type, /*includeBool*/ true)) {
+    PT_LAZY_DEBUG(
+        "SBS: Trying to cast to the more precise type.",
+        " HPU is floating, CPU is integral.");
+    from_type = cpu_type;
+    to_type = hpu_type;
+    cast_cpu_tensor = true;
+  } else if (
+      c10::isIntegralType(hpu_type, /*includeBool*/ true) &&
+      c10::isFloatingType(cpu_type)) {
+    PT_LAZY_DEBUG(
+        "SBS: Trying to cast to the more precise type.",
+        " HPU is integral, CPU is floating.");
+    from_type = hpu_type;
+    to_type = cpu_type;
+    cast_cpu_tensor = false;
+  } else if (c10::elementSize(hpu_type) > c10::elementSize(cpu_type)) {
+    PT_LAZY_DEBUG(
+        "SBS: Trying to cast to the bigger sized type: HPU.",
+        " (None or both are floating types)");
+    from_type = cpu_type;
+    to_type = hpu_type;
+    cast_cpu_tensor = true;
+  } else {
+    PT_LAZY_DEBUG(
+        "SBS: Trying to cast to the bigger sized type: CPU.",
+        " (None or both are floating types)");
+    from_type = hpu_type;
+    to_type = cpu_type;
+    cast_cpu_tensor = false;
+  }
+  if (!c10::canCast(from_type, to_type)) {
+    PT_LAZY_DEBUG(
+        "SBS: Cannot cast from type: ",
+        c10::toString(from_type),
+        " to type: ",
+        c10::toString(to_type));
+    return false;
+  }
+  original_types_str =
+      std::string("Performed type casting. Original types: HPU: ") +
+      c10::toString(hpu_type) + " CPU: " + c10::toString(cpu_type) +
+      ". Compare type: " + c10::toString(to_type);
+  PT_LAZY_DEBUG(
+      "SBS: Casting ",
+      cast_cpu_tensor ? "CPU" : "HPU",
+      " tensor from ",
+      from_type,
+      " to ",
+      to_type);
+  if (cast_cpu_tensor) {
+    cpu_res_compare.detach().to(to_type);
+  } else {
+    hpu_res_on_host_compare.detach().to(to_type);
+  }
+
+  return true;
 }
 
 void SBSDebug::compare_tensors_cos(
@@ -107,90 +189,101 @@ void SBSDebug::compare_tensors_cos(
       GetHbLazyTensor(hpu_res).getTensorUniqueId(),
       " version: ",
       GetHbLazyTensor(hpu_res).GetSBSTensorVersion());
-  if (hpu_res_on_host.scalar_type() == cpu_res.scalar_type()) {
-    auto cpu_res_compare = cpu_res.contiguous();
-    auto hpu_res_on_host_compare = hpu_res_on_host.contiguous();
+  auto cpu_res_compare = cpu_res.contiguous();
+  auto hpu_res_on_host_compare = hpu_res_on_host.contiguous();
 
-    std::stringstream ss;
-    ss << "HPU Shape: " << hpu_res.sizes();
-    ss << " Strides: " << hpu_res.strides();
-    ss << " Channel last: "
-       << hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
-        hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
-    ss << " HPU comparison Shape: " << hpu_res_on_host_compare.sizes();
-    ss << " Strides: " << hpu_res_on_host_compare.strides();
-    ss << " Channel last: "
-       << hpu_res_on_host_compare.is_contiguous(
-              c10::MemoryFormat::ChannelsLast) ||
-        hpu_res_on_host_compare.is_contiguous(
-            c10::MemoryFormat::ChannelsLast3d);
-    ss << " CPU Shape: " << cpu_res_compare.sizes();
-    ss << " Strides: " << cpu_res_compare.strides();
-    ss << " Channel last: "
-       << cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
-        cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
-    std::string shapes_string(ss.str());
-    if ((!hpu_res_on_host_compare.strides().empty()) &&
-        (!cpu_res_compare.strides().empty()) &&
-        (hpu_res_on_host_compare.strides() != cpu_res_compare.strides())) {
-      std::stringstream ss;
-      ss << "Could not compare this tensor: Different strides structure. "
-         << shapes_string;
-      LogError(tensor_name, ss.str());
-      return;
-    }
-    if ((!hpu_res_on_host_compare.sizes().empty()) &&
-        (!cpu_res_compare.sizes().empty()) &&
-        (hpu_res_on_host_compare.sizes() != cpu_res_compare.sizes())) {
-      std::stringstream ss;
-      ss << "Could not compare this tensor: Different shape structure. "
-         << shapes_string;
-      LogError(tensor_name, ss.str());
-      return;
-    }
-    auto scalarType = cpu_res_compare.scalar_type();
-    TensorComparison::ComparisonMethods compare_method;
-    compare_method.set(); // all test methods
-
-    void* hpu_data = hpu_res_on_host_compare.data_ptr();
-    void* cpu_data = cpu_res_compare.data_ptr();
-    bool success = true;
-    switch (scalarType) {
-      // TODO: Fix when this is resolved: SW-78371
-      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Byte, unsigned char);
-      // TODO: Fix when this is resolved: SW-78371
-      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Char, signed char);
-      // TODO: Fix when this is resolved: SW-78371
-      // CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Short, short);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Long, long);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Half, float16);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::Float, float);
-      CASE_TENSOR_COMPARE_TYPE(c10::ScalarType::BFloat16, bfloat16);
-      default:
-        LogError(
-            tensor_name,
-            std::string("Could not compare this tensor: Unsupported type: ") +
-                c10::toString(hpu_res_on_host_compare.scalar_type()));
-        return;
-    }
-
-    if (!success) {
-      PT_LAZY_WARN("Tensor Comparator failed to execute");
-      return;
-    }
-
-    PT_LAZY_DEBUG("SBS: Adding shapes data: ", shapes_string);
-    mp_tc->addComment(tensor_name, shapes_string);
-    PT_LAZY_DEBUG("SBS: printing compare result for tensor: ", tensor_name);
-    report("successful compares", m_number_of_successful_compares);
-  } else {
+  auto hpu_type = hpu_res_on_host_compare.scalar_type();
+  auto cpu_type = cpu_res_compare.scalar_type();
+  std::string original_types_str = "";
+  if ((hpu_type != cpu_type) &&
+      !castToHigherType(
+          hpu_res_on_host_compare, cpu_res_compare, original_types_str)) {
     LogError(
         tensor_name,
         std::string(
             "Could not compare this tensor: Different types. HPU type: ") +
-            c10::toString(hpu_res_on_host.scalar_type()) +
-            " CPU type: " + c10::toString(cpu_res.scalar_type()));
+            c10::toString(hpu_type) + " CPU type: " + c10::toString(cpu_type));
+    return;
   }
+
+  std::stringstream ss;
+  ss << "HPU Shape: " << hpu_res.sizes();
+  ss << " Strides: " << hpu_res.strides();
+  ss << " Channel last: "
+     << hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+      hpu_res.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
+  ss << " HPU comparison Shape: " << hpu_res_on_host_compare.sizes();
+  ss << " Strides: " << hpu_res_on_host_compare.strides();
+  ss << " Channel last: "
+     << hpu_res_on_host_compare.is_contiguous(
+            c10::MemoryFormat::ChannelsLast) ||
+      hpu_res_on_host_compare.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
+  ss << " CPU Shape: " << cpu_res_compare.sizes();
+  ss << " Strides: " << cpu_res_compare.strides();
+  ss << " Channel last: "
+     << cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+      cpu_res_compare.is_contiguous(c10::MemoryFormat::ChannelsLast3d);
+  std::string shapes_string(ss.str());
+  std::string comment_string(shapes_string);
+  if (!original_types_str.empty()) {
+    comment_string += " " + original_types_str;
+  }
+  if ((!hpu_res_on_host_compare.strides().empty()) &&
+      (!cpu_res_compare.strides().empty()) &&
+      (hpu_res_on_host_compare.strides() != cpu_res_compare.strides())) {
+    std::stringstream ss1;
+    ss1 << "Could not compare this tensor: Different strides structure. "
+        << comment_string;
+    LogError(tensor_name, ss1.str());
+    return;
+  }
+  if ((!hpu_res_on_host_compare.sizes().empty()) &&
+      (!cpu_res_compare.sizes().empty()) &&
+      (hpu_res_on_host_compare.sizes() != cpu_res_compare.sizes())) {
+    std::stringstream ss1;
+    ss1 << "Could not compare this tensor: Different shape structure. "
+        << comment_string;
+    LogError(tensor_name, ss1.str());
+    return;
+  }
+  auto scalarType = cpu_res_compare.scalar_type();
+  TensorComparison::ComparisonMethods compare_method;
+  compare_method.set(); // all test methods
+
+  void* hpu_data = hpu_res_on_host_compare.data_ptr();
+  void* cpu_data = cpu_res_compare.data_ptr();
+  bool success = true;
+  switch (scalarType) {
+    // TODO: Fix when this is resolved: SW-78371
+    // CASE_TENSOR_COMPARE_TYPE_WITH_CPP(c10::ScalarType::Byte, unsigned char);
+    // TODO: Fix when this is resolved: SW-78371
+    // CASE_TENSOR_COMPARE_TYPE_WITH_CPP(c10::ScalarType::Char, signed char);
+    // TODO: Fix when this is resolved: SW-78371
+    // CASE_TENSOR_COMPARE_TYPE_WITH_CPP(c10::ScalarType::Short, short);
+    CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE(c10::ScalarType::Int);
+    CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE(c10::ScalarType::Long);
+    // TODO: [SW-73217] change to CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE
+    CASE_TENSOR_COMPARE_TYPE_WITH_CPP(c10::ScalarType::Half, float16);
+    CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE(c10::ScalarType::Float);
+    // TODO: [SW-73217] change to CASE_TENSOR_COMPARE_TYPE_SCALAR_TYPE
+    CASE_TENSOR_COMPARE_TYPE_WITH_CPP(c10::ScalarType::BFloat16, bfloat16);
+    default:
+      LogError(
+          tensor_name,
+          std::string("Could not compare this tensor: Unsupported type: ") +
+              c10::toString(hpu_res_on_host_compare.scalar_type()));
+      return;
+  }
+
+  if (!success) {
+    PT_LAZY_WARN("Tensor Comparator failed to execute");
+    return;
+  }
+
+  PT_LAZY_DEBUG("SBS: Adding comment: ", comment_string);
+  mp_tc->addComment(tensor_name, comment_string);
+  PT_LAZY_DEBUG("SBS: printing compare result for tensor: ", tensor_name);
+  report("successful compares", m_number_of_successful_compares);
 }
 
 at::Tensor FetchAtenFromHbLazyTensor(HbLazyTensor hb_tensor) {
