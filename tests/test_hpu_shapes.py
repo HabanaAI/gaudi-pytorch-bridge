@@ -925,6 +925,57 @@ def test_hpu_index_put_point( acc):
     out_hpu = torch.index_put(input=tensor_hpu, indices=indices_hpu, values=value_hpu, accumulate=acc)
     #np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+@pytest.mark.parametrize("N, C", [(16, 100),])
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+def test_hpu_masked_scatter(N, C, dtype):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randint(low=1, high=N, size=tuple([C]), requires_grad=False)
+    label_hpu = label.to(hpu)
+    mask = label < C/2
+    print(mask.shape)
+    print(torch.nonzero(mask).shape)
+    mask_hpu = mask.to(hpu)
+
+    value_tensor = torch.randn(N, torch.nonzero(mask).shape[0]).to(dtype)
+    value_tensor_cpu = value_tensor
+    value_tensor_hpu = value_tensor_cpu.to(hpu)
+    print(value_tensor_cpu.shape)
+
+    input_tensor = torch.randn(tuple(dim_list), requires_grad=True).to(dtype)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = torch.masked_scatter(input=input_tensor, mask=mask, source=value_tensor_cpu)
+    out_hpu = torch.masked_scatter(input=input_tensor_hpu, mask=mask_hpu, source=value_tensor_hpu)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, C", [(16, 100),])
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+def test_hpu_masked_scatter_inplace(N, C, dtype):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    dim_list = [N, C]
+    label = torch.randint(low=1, high=N, size=tuple([C]), requires_grad=False)
+    label_hpu = label.to(hpu)
+    mask = label < C/2
+    print(mask.shape)
+    print(torch.nonzero(mask).shape)
+    mask_hpu = mask.to(hpu)
+
+    value_tensor = torch.randn(N, torch.nonzero(mask).shape[0]).to(dtype)
+    value_tensor_cpu = value_tensor
+    value_tensor_hpu = value_tensor_cpu.to(hpu)
+    print(value_tensor_cpu.shape)
+
+    input_tensor = torch.randn(tuple(dim_list)).to(dtype)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    out_cpu = input_tensor.masked_scatter_(mask=mask, source=value_tensor_cpu)
+    out_hpu = input_tensor_hpu.masked_scatter_(mask=mask_hpu, source=value_tensor_hpu)
+    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])
     test_hpu_view(*test_case_list[0])

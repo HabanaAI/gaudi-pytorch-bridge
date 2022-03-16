@@ -1099,6 +1099,7 @@ Tensor hpu_wrap::index_put(
     return index_put_hpu(self, at::TensorList(indices_list), value, accumulate);
   }
 };
+
 Tensor& hpu_wrap::index_put_(
     Tensor& self,
     const c10::List<c10::optional<Tensor>>& indices,
@@ -1127,6 +1128,19 @@ Tensor& hpu_wrap::index_put_(
     return index_put_hpu_(self, indices_list, value, accumulate);
   }
 };
+
+Tensor& hpu_wrap::masked_scatter_(
+    Tensor& self,
+    const Tensor& mask,
+    const Tensor& source) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return masked_scatter_hpu_lazy_(self, mask, source);
+  } else {
+    HABANA_ASSERT(0 && "masked_scatter is not implemented for eager mode");
+    return masked_scatter_hpu_lazy_(self, mask, source);
+  }
+};
+
 Tensor hpu_wrap::index(
     const at::Tensor& self,
     const c10::List<c10::optional<Tensor>>& indices) {

@@ -3370,6 +3370,21 @@ Tensor& index_put_hpu_lazy_(
   return self;
 }
 
+Tensor& masked_scatter_hpu_lazy_(
+    Tensor& self,
+    const Tensor& mask,
+    const Tensor& source) {
+  PT_LAZY_TRACE;
+  auto broadcasted_mask = mask.broadcast_to(self.sizes().vec());
+  auto flattened_size = std::accumulate(
+      std::begin(source.sizes()),
+      std::end(source.sizes()),
+      1,
+      std::multiplies<size_t>());
+  auto flattened_values = at::reshape(source, {flattened_size});
+  return index_put_hpu_lazy_(self, {broadcasted_mask}, flattened_values, false);
+}
+
 Tensor index_select_hpu_lazy(
     const Tensor& self,
     int64_t dim_,

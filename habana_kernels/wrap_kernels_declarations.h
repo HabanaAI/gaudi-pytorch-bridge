@@ -235,6 +235,10 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& mask,
       at::Tensor& out);
+  static at::Tensor& masked_scatter_(
+      at::Tensor& self,
+      const at::Tensor& mask,
+      const at::Tensor& source);
   static at::Tensor gather(
       const at::Tensor& self,
       int64_t dim_,
