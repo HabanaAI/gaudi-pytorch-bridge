@@ -787,28 +787,36 @@ StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {
 }
 
 /* checks if fallback to original op is possible*/
-bool is_fallback_original_op(const Tensor& self) {
+bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
   PT_LAZY_TRACE;
-  bool is_fallback = true;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-  // trace until the base tensor is reached and check if there are any
-  // as_strided ops fall back not possible if there are as_strided ops in the
-  // sequence.
-  auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
-  auto it = context->view_table.find(self_id);
-  while (it != context->view_table.end()) {
-    StrideParams* params_ptr = &it->second;
-    if (params_ptr->optype == kStridedOpDefault) {
-      is_fallback = false;
-      break;
+  if (GET_ENV_FLAG_NEW(PT_HPU_FCD_STRIDE_OPT)) {
+    bool is_fallback = true;
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+    // trace until the base tensor is reached and check if there are any
+    // as_strided ops fall back not possible if there are as_strided ops in the
+    // sequence.
+    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
+    auto it = context->view_table.find(self_id);
+    while (it != context->view_table.end()) {
+      StrideParams* params_ptr = &it->second;
+      if (params_ptr->optype == kStridedOpDefault) {
+        is_fallback = false;
+        break;
+      }
+
+      auto parent_id = GetHbLazyTensor(params_ptr->parent).getTensorUniqueId();
+      it = context->view_table.find(parent_id);
     }
-
-    auto parent_id = GetHbLazyTensor(params_ptr->parent).getTensorUniqueId();
-    it = context->view_table.find(parent_id);
+    return is_fallback;
+  } else {
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    return (
+        GetHbLazyTensor(self).getTensorUniqueId() ==
+        GetHbLazyTensor(strided_param.base).getTensorUniqueId());
   }
-
-  return is_fallback;
 }
 
 /**
@@ -1732,7 +1740,7 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
     auto& strided_param = getViewTableParams(hb_result);
     // There could be some cases where slice/select/etc followed by view, in
     // those cases use as_strided instead of using the ViewOP.
-    if (is_fallback_original_op(self)) {
+    if (is_fallback_original_op(self, out)) {
       strided_param.optype = kStridedOpView;
 
       PT_VIEWTABLE_DEBUG(
@@ -3470,7 +3478,7 @@ Tensor slice_hpu_lazy(
     auto& strided_param = getViewTableParams(hb_result);
     // There could be some cases where view/select/etc followed by slice, in
     // those cases use as_strided instead of using the SliceOP.
-    if (is_fallback_original_op(self_in)) {
+    if (is_fallback_original_op(self_in, out)) {
       strided_param.optype = kStridedOpSlice;
       StridedOpSliceParams slice_param = {dim, start, end, step};
       strided_param.params.slice_param = slice_param;
@@ -3714,7 +3722,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
         (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d);
     // There could be some cases where view/slice/etc followed by slice, in
     // those cases use as_strided instead of using the SelectOp.
-    if ((!is_5d_cl) && is_fallback_original_op(self)) {
+    if ((!is_5d_cl) && is_fallback_original_op(self, out)) {
       auto hb_result = GetHbLazyTensor(out);
       auto& strided_param = getViewTableParams(hb_result);
       strided_param.optype = kStridedOpSelect;
@@ -5797,7 +5805,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 
     // at::native::transpose can return back self w/o invoking as_strided under
     // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
-    if ((out_id != self_id) && (is_fallback_original_op(self))) {
+    if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
       auto hb_result = GetHbLazyTensor(out);
       auto& strided_param = getViewTableParams(hb_result);
       strided_param.optype = kStridedOpTranspose;
