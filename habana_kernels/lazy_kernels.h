@@ -626,11 +626,6 @@ class LazyOp {
         m_sbs_runner->populateInputForCPUOp(
             get_inputs(), node->GetMetaData(), sbs_stack);
       }
-
-      if (force_flush) {
-        PT_LAZY_DEBUG("Triggering mark_step due to force_flush");
-        HbLazyTensor::StepMarker();
-      }
     } else {
       HandleViewsInplace(self, hl_self);
     }
