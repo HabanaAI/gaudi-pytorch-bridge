@@ -2120,9 +2120,15 @@ static const std::
             },
             {
                 "repeat",
-                {{at::ScalarType::Float,
+                {{at::ScalarType::Short,
+                  at::ScalarType::Int,
+                  at::ScalarType::Long,
+                  at::ScalarType::Char,
+                  at::ScalarType::Double,
+                  at::ScalarType::Float,
                   at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
+                  at::ScalarType::Byte,
+                  at::ScalarType::Bool}},
             },
             {
                 "nonzero",
@@ -3732,12 +3738,6 @@ static const std::
             },
             {
                 "relu_keep_index_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "repeat_",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
