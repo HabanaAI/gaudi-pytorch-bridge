@@ -51,7 +51,6 @@
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch::jit;
-
 namespace habana {
 
 // static initializations
@@ -2345,7 +2344,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     run_pass();
   } catch (std::exception& e) {
     error_str = e.what();
-    PT_DYNAMIC_SHAPE_WARN("Exception occured in Pass = ", pass);
+    PT_DYNAMIC_SHAPE_DEBUG("Exception occured in Pass = ", pass);
     PT_DYNAMIC_SHAPE_DEBUG("Exception Details :\n", error_str);
     throw_exception = true;
   }
@@ -2365,94 +2364,73 @@ void HabanaLaunchOpPT::handle_pass_exception(
     DynamicShapeInfo& graph_input_info,
     const PassException& e) {
   PT_BRIDGE_BEGIN;
-  PT_DYNAMIC_SHAPE_WARN("Handling the exception .. ");
+  PT_DYNAMIC_SHAPE_DEBUG("Handling the exception .. ");
   switch (e.Pass()) {
     // Min inference pass can have exception only in HISTORIC if exception is
     // in policy = CURRENT, it is unrecoverable, throw runtime error in this
     // case
-    case ShapeInfo::InferencePass::MIN_SHAPE:
-      switch (graph_input_info.min_policy) {
-        case habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC:
-          graph_input_info.min_policy =
-              habana_helpers::DynamicDimsPolicy::HISTORIC;
-          current_dbipsh_->RestoreLocalMinHistory();
-          break;
-        case habana_helpers::DynamicDimsPolicy::CALCULATED:
-          graph_input_info.min_policy =
-              habana_helpers::DynamicDimsPolicy::HISTORIC;
-          break;
-        case habana_helpers::DynamicDimsPolicy::HISTORIC:
-          graph_input_info.min_policy =
-              habana_helpers::DynamicDimsPolicy::CURRENT;
-          break;
-        default:
-          PT_DYNAMIC_SHAPE_FATAL(
-              "Unhandled Min Policy exiting .. ", graph_input_info.min_policy);
-          throw std::runtime_error("Exception was not handled ..");
-          break;
+    case ShapeInfo::InferencePass::MIN_SHAPE: {
+      // In case there is fallback for LOCAL_HISTORIC we need to discard the
+      // current running min and reset running min to previous successfull one
+      if (graph_input_info.min_policy ==
+          habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC) {
+        current_dbipsh_->RestoreLocalMinHistory();
+      }
+      graph_input_info.set_next_min_policy();
+      std::string min_policy_seq =
+          GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER);
+      // If the size of fallback sequence is less than equal to the
+      // index we calculte to get the next fallback policy, means there no more
+      // policy to fallback. Exit the execution.
+      if (min_policy_seq.size() > graph_input_info.min_fallback_seq_num) {
+        graph_input_info.min_policy = habana_helpers::getPolicy(
+            min_policy_seq.at(graph_input_info.min_fallback_seq_num) -
+            habana_helpers::zero_offset);
+      } else {
+        throw std::runtime_error("No more fallback exiting ..");
       }
       break;
+    }
     // Max inference pass can have exception only in CALCULATED if exception is
     // in policy = CURRENT, it is unrecoverable, throw runtime error in this
     // case
-    case ShapeInfo::InferencePass::MAX_SHAPE:
-      switch (graph_input_info.max_policy) {
-        case habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC:
-          graph_input_info.max_policy =
-              habana_helpers::DynamicDimsPolicy::CALCULATED;
-          current_dbipsh_->RestoreLocalMaxHistory();
-          break;
-        case habana_helpers::DynamicDimsPolicy::CALCULATED:
-          graph_input_info.max_policy =
-              habana_helpers::DynamicDimsPolicy::HISTORIC;
-          break;
-        case habana_helpers::DynamicDimsPolicy::HISTORIC:
-          graph_input_info.max_policy =
-              habana_helpers::DynamicDimsPolicy::CURRENT;
-          break;
-        default:
-          PT_DYNAMIC_SHAPE_FATAL(
-              "Unhandled Max Policy exiting .. ", graph_input_info.max_policy);
-          throw std::runtime_error("Exception was not handled ..");
-          break;
+    case ShapeInfo::InferencePass::MAX_SHAPE: {
+      // In case there is fallback for LOCAL_HISTORIC we need to discard the
+      // current running max and reset running max to previous successfult one
+      if (graph_input_info.max_policy ==
+          habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC) {
+        current_dbipsh_->RestoreLocalMaxHistory();
+      }
+      graph_input_info.set_next_max_policy();
+      std::string max_policy_seq =
+          GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
+      // If the size of fallback sequence is less than equal to the
+      // index we calculte to get the next fallback policy, means there no more
+      // policy to fallback. Exit the execution.
+      if (max_policy_seq.size() > graph_input_info.max_fallback_seq_num) {
+        graph_input_info.max_policy = habana_helpers::getPolicy(
+            max_policy_seq.at(graph_input_info.max_fallback_seq_num) -
+            habana_helpers::zero_offset);
+      } else {
+        throw std::runtime_error("No more fallback exiting ..");
       }
       break;
-    // The OUTPUT_SHAPE inference exception is compile exception.
+    }
+    // The OUTPUT_SHAPE inference exception is actually compile exception.
     // if min and max both was current, meaning the failure is in
-    // static(fallback path), bail out execution by throwing error. Otherwise
-    // the compilation error has occured and we need to rerun with fallback min
-    // and max policy.
-    case ShapeInfo::InferencePass::OUTPUT_SHAPE:
+    // static(fallback path), bail out execution by throwing error.
+    case ShapeInfo::InferencePass::OUTPUT_SHAPE: {
       if (graph_input_info.min_policy ==
               habana_helpers::DynamicDimsPolicy::CURRENT &&
           graph_input_info.max_policy ==
               habana_helpers::DynamicDimsPolicy::CURRENT) {
         PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
         throw std::runtime_error("Exception was not handled ..");
-        break;
       }
-      // With min and max policy as Local_Historic or calculated the compilation
-      // can fail, if we didn't cache issue and GC did. Fallback to historic
-      // in this case
-      if (graph_input_info.min_policy ==
-              habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC ||
-          graph_input_info.min_policy ==
-              habana_helpers::DynamicDimsPolicy::CALCULATED ||
-          graph_input_info.max_policy ==
-              habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC ||
-          graph_input_info.max_policy ==
-              habana_helpers::DynamicDimsPolicy::CALCULATED) {
-        graph_input_info.min_policy =
-            habana_helpers::DynamicDimsPolicy::HISTORIC;
-        graph_input_info.max_policy =
-            habana_helpers::DynamicDimsPolicy::HISTORIC;
-      } else {
-        graph_input_info.min_policy =
-            habana_helpers::DynamicDimsPolicy::CURRENT;
-        graph_input_info.max_policy =
-            habana_helpers::DynamicDimsPolicy::CURRENT;
-      }
+      graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
+      graph_input_info.max_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
       break;
+    }
     default:
       PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
       throw std::runtime_error("Exception was not handled ..");
@@ -2468,7 +2446,6 @@ void HabanaLaunchOpPT::handle_pass_exception(
       graph_input_info.max_policy);
   auto fallback_ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
-
   // After calculating ranges set bucket_info policy to DEFAULT
   // so that for next bucket created the starting policy be started again
   current_dbipsh_->SetDefaultPolicy();
@@ -2505,7 +2482,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // CURRENT and pass as OUTPUT_PASS which breaks the handling and throws
     // runtime error.
     case ShapeInfo::InferencePass::OUTPUT_SHAPE:
-      PT_DYNAMIC_SHAPE_WARN("Rerun with policy CURRENT ..");
+      PT_DYNAMIC_SHAPE_DEBUG("Rerun with policy CURRENT ..");
       graph_input_info.min_input_tshapes.clear();
       graph_input_info.max_input_tshapes.clear();
       graph_input_info.max_input_tshapes.insert(
@@ -2600,7 +2577,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       ConstructPatchingTable();
       ExecuteSynapseGraph();
     } catch (std::exception& e) {
-      PT_DYNAMIC_SHAPE_WARN("Exception in BuildSynapseGraph");
+      PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
       PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
       ClearMembers(true);
       ClearStatics(true);

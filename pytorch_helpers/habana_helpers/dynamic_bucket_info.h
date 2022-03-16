@@ -33,7 +33,7 @@ class RecipeValueSpec;
 }
 
 namespace habana_helpers {
-
+constexpr char zero_offset = '0';
 class CompilationStatistics;
 
 enum class SplitPolicy { UNSPECIFIED, DYNAMIC };
@@ -64,7 +64,7 @@ inline DynamicDimsPolicy getPolicy(unsigned int policy_num) {
     case 4:
       return DynamicDimsPolicy::LOCAL_HISTORIC;
     default:
-      PT_DYNAMIC_SHAPE_WARN("Invalid policy number ", policy_num);
+      PT_DYNAMIC_SHAPE_FATAL("Invalid policy number ", policy_num);
   }
   return DynamicDimsPolicy::HISTORIC;
 };
@@ -478,10 +478,12 @@ class DynamicBucketInfo {
     max_policy_ = policy;
   }
   void SetDefaultPolicy() {
-    auto min_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_DEFAULT);
-    auto max_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_DEFAULT);
-    min_policy_ = getPolicy(min_policy_num);
-    max_policy_ = getPolicy(max_policy_num);
+    std::string min_policy_seq =
+        GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER);
+    std::string max_policy_seq =
+        GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
+    min_policy_ = getPolicy(min_policy_seq.at(0) - zero_offset);
+    max_policy_ = getPolicy(max_policy_seq.at(0) - zero_offset);
   }
   void RestoreLocalMinHistory() {
     local_min_history_tensor_shapes_ = local_min_history_success_shapes_;

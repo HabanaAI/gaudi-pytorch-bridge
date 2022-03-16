@@ -70,7 +70,21 @@ struct DynamicShapeInfo {
   habana_helpers::InpTensorShapes max_input_tshapes;
   habana_helpers::DynamicDimsPolicy min_policy;
   habana_helpers::DynamicDimsPolicy max_policy;
-  size_t current_bucket_id;
+  size_t current_bucket_id{};
+  // The min_fallback_seq_num holds the index of char from environment
+  // variable specifying fallback sequence, the fallback char is extracted
+  // from sequence string based on this index.
+  uint64_t min_fallback_seq_num{};
+  uint64_t max_fallback_seq_num{};
+  // To go from one fallback sequence to next the value of index is incremented
+  // by 2 for eg: Fallback seq = 4,3,2 -> the gap between consequtive number is
+  // 2
+  void set_next_min_policy() {
+    min_fallback_seq_num += 2;
+  };
+  void set_next_max_policy() {
+    max_fallback_seq_num += 2;
+  };
 };
 
 class PassException : public std::exception {

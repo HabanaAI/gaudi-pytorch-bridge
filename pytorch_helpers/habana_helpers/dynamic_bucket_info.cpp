@@ -219,54 +219,12 @@ DynamicBucketInfo::DynamicBucketInfo()
     max_policy_ = DynamicDimsPolicy::CURRENT;
     return;
   }
-  auto min_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_DEFAULT);
-  switch (min_policy_num) {
-    case 1:
-      min_policy_ = DynamicDimsPolicy::CURRENT;
-      break;
-    case 2:
-      min_policy_ = DynamicDimsPolicy::CALCULATED;
-      break;
-    case 3:
-      min_policy_ = DynamicDimsPolicy::HISTORIC;
-      break;
-    case 4:
-      min_policy_ = DynamicDimsPolicy::LOCAL_HISTORIC;
-      break;
-    default:
-      PT_DYNAMIC_SHAPE_WARN(
-          "Invalid min policy value ",
-          min_policy_num,
-          " specified\n.",
-          "  Supported values are 1:CURRENT, 2:CALCULATED, 3:HISTORIC, 4:LOCAL_HISTORIC\n",
-          "  Default min policy ",
-          min_policy_,
-          " will be used");
-  }
-  auto max_policy_num = GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_DEFAULT);
-  switch (max_policy_num) {
-    case 1:
-      max_policy_ = DynamicDimsPolicy::CURRENT;
-      break;
-    case 2:
-      max_policy_ = DynamicDimsPolicy::CALCULATED;
-      break;
-    case 3:
-      max_policy_ = DynamicDimsPolicy::HISTORIC;
-      break;
-    case 4:
-      max_policy_ = DynamicDimsPolicy::LOCAL_HISTORIC;
-      break;
-    default:
-      PT_DYNAMIC_SHAPE_WARN(
-          "Invalid max policy value ",
-          max_policy_num,
-          " specified\n.",
-          "  Supported values are 1:CURRENT, 2:CALCULATED, 3:HISTORIC, 4:LOCAL_HISTORIC\n",
-          "  Default max policy ",
-          max_policy_,
-          " will be used");
-  }
+  std::string min_policy_seq =
+      GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER);
+  std::string max_policy_seq =
+      GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
+  min_policy_ = getPolicy(min_policy_seq.at(0) - zero_offset);
+  max_policy_ = getPolicy(max_policy_seq.at(0) - zero_offset);
 }
 
 ResultShapes DynamicBucketInfo::CalculateShapes(uint64_t bucket) {

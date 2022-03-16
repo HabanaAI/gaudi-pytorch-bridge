@@ -194,12 +194,12 @@ TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
 TEST_F(LazyDynamicFallbackTest, ViewTest) {
   int N = 2;
   int C = 4;
-  int H = 4;
   at::Scalar alpha = 1.0;
   at::Scalar Y = 2.0;
   std::vector<int> in_sizes{6, 8, 10};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
+    int H = in_sizes[i] / 2;
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);

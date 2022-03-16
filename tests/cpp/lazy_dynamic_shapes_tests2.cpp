@@ -279,3 +279,41 @@ TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
     unsetenv("PT_HPU_ENABLE_MIN_MAX_AS_CURRENT");
   }
 }
+
+TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
+  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+  }
+  {
+    SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "1", 1);
+    habana_helpers::DynamicBucketInfo bucket_info;
+    ASSERT_EQ(
+        bucket_info.GetMaxPolicy(), habana_helpers::DynamicDimsPolicy::CURRENT);
+  }
+  {
+    SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "2", 1);
+    habana_helpers::DynamicBucketInfo bucket_info;
+    ASSERT_EQ(
+        bucket_info.GetMaxPolicy(),
+        habana_helpers::DynamicDimsPolicy::CALCULATED);
+  }
+  {
+    SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "3", 1);
+    habana_helpers::DynamicBucketInfo bucket_info;
+    ASSERT_EQ(
+        bucket_info.GetMaxPolicy(),
+        habana_helpers::DynamicDimsPolicy::HISTORIC);
+  }
+  {
+    SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "4", 1);
+    habana_helpers::DynamicBucketInfo bucket_info;
+    ASSERT_EQ(
+        bucket_info.GetMaxPolicy(),
+        habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC);
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
+  if (!refine_enabled) {
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  }
+}
