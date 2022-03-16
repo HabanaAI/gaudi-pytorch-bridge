@@ -40,7 +40,7 @@ HbContextArena* HbContextArena::Get() {
 };
 
 void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
-  std::lock_guard<std::recursive_mutex> lock(m_mtx);
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
   HbContext* devctx = GetHbContext(data->device);
   devctx->tensors_data.emplace(data->unique_id, data);
   // Register to execution context as well, we can merge these two contexts
@@ -52,7 +52,7 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
 }
 
 void HbContextArena::UnregisterTensor(Data* data) {
-  std::lock_guard<std::recursive_mutex> lock(m_mtx);
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
   HbContext* devctx = GetHbContext(data->device);
   devctx->tensors_data.erase(data->unique_id);
   // UnRegister from execution context as well, we can merge these two contexts
@@ -152,6 +152,11 @@ HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
   return it->second;
 }
 
+HbContext* HbContextArena::GetHbContext() {
+  HABANA_ASSERT(mp_device_contexts.size() == 1);
+  return mp_device_contexts.begin()->second;
+}
+
 Data::~Data() {
   auto context = HbContextArena::Get();
   context->UnregisterTensor(this);
@@ -181,7 +186,7 @@ HbLazyTensor HbLazyTensor::Create(
     const at::Tensor& tensor,
     const c10::Device& device) {
   HbLazyTensor habana_tensor(tensor, device);
-  HbContextArena::Get()->RegisterTensor(habana_tensor.data_ptr());
+  HbContextArena::Get()->RegisterTensor(habana_tensor.getDataPtr());
   return habana_tensor;
 }
 
@@ -193,7 +198,7 @@ HbLazyTensor HbLazyTensor::Create(
     const at::Device& device,
     c10::optional<at::ScalarType> logical_element_type) {
   HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
-  HbContextArena::Get()->RegisterTensor(hb_tensor.data_ptr());
+  HbContextArena::Get()->RegisterTensor(hb_tensor.getDataPtr());
   return hb_tensor;
 }
 at::Tensor CopyTensor(const at::Tensor& ref) {
@@ -269,7 +274,7 @@ void HbLazyTensor::MarkStep(const c10::Device& device) {
   HbContextArena::Get()->MarkStep(device);
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       device.index());
-  context->MarkAllTensorsExecuted();
+  context->MarkAllTensorsExecuted(device);
 }
 
 bool HbLazyTensor::isStorageAttached() {
@@ -344,7 +349,7 @@ c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
   if (context != nullptr) {
-    auto status = context->getTensorExecutionStatus(data()->unique_id);
+    auto status = context->getTensorExecutionStatus(getDataPtr());
     if (status == kEXECUTION_COMPLETE || status == kINPUT) {
       return data()->tensor_data;
     } else {
@@ -628,8 +633,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     return;
   }
 
-  auto context = habana_lazy_executor.getDeviceExecutionContext(
-      (*tensors)[0].GetDevice().index());
+  auto device = (*tensors)[0].GetDevice();
+  auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
 
   // Initiate non-blocking copy to device for all scalar inputs
   if (!context->copy_scalar_to_hpu_tensor_list.empty()) {
@@ -671,7 +676,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
-    context->MarkTensorExecuting(d->unique_id);
+    context->MarkTensorExecuting(d);
     executing_indices.push_back(d->unique_id);
   }
 
@@ -695,7 +700,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
         ir::Value val = tensor.createIrValueFromData();
         tensor.AssignIrValue(val);
-        context->MarkTensorExecuted(data->unique_id);
+        context->MarkTensorExecuted(data);
         executing_indices.erase(
             std::remove(
                 executing_indices.begin(),
@@ -733,7 +738,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     executing_indices.push_back(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
   }
-  context->MarkTensorsExecuted(executing_indices);
+  context->MarkTensorsExecuted(device, executing_indices);
 
   if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
     SBSDebug::getInstance().CompareTensors(*tensors);
@@ -790,8 +795,8 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     }
   }
 
-  auto context = habana_lazy_executor.getDeviceExecutionContext(
-      (*tensors)[0].GetDevice().index());
+  auto device = (*tensors)[0].GetDevice();
+  auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
 
   torch::jit::Stack stack;
   stack.reserve(std::max(input_values.size(), indices.size()));
@@ -803,7 +808,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
-    context->MarkTensorExecuting(d->unique_id);
+    context->MarkTensorExecuting(d);
     executing_indices.push_back(d->unique_id);
   }
 
@@ -859,7 +864,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     executing_indices.push_back(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
   }
-  context->MarkTensorsExecuted(executing_indices);
+  context->MarkTensorsExecuted(device, executing_indices);
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

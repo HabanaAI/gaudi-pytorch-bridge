@@ -85,7 +85,7 @@ struct Data {
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
-  LazyTensorExecutionStatus execution_status;
+  LazyTensorExecutionStatus execution_status = kUN_REGISTERED;
   ir::LazyView parent_view;
   int num_views = 0;
   // Version counter tracks the number of times we use tensor as output
@@ -239,6 +239,10 @@ class HbLazyTensor {
       return -1;
   }
 
+  std::shared_ptr<Data> getDataPtr() const {
+    return mp_data;
+  }
+
   // returns true if we have already created an aten tensor with storage and
   // attached
   bool isStorageAttached();
@@ -324,13 +328,14 @@ class HbContextArena {
   std::recursive_mutex& GetMutex() {
     return m_mtx;
   }
+  HbContext* GetHbContext(const c10::Device& device);
+  HbContext* GetHbContext();
 
  private:
   std::vector<HbContext*> GetAllHbContexts();
   void ForAllHbContexts(
       const std::function<void(HbContext*)>& fn,
       const c10::Device* device);
-  HbContext* GetHbContext(const c10::Device& device);
   std::unordered_map<c10::Device, HbContext*> mp_device_contexts;
   std::recursive_mutex m_mtx;
 };

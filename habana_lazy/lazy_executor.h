@@ -95,40 +95,59 @@ class HbExecutionContext {
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
   void MarkTensorsExecuted() {
+    HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext();
+    std::lock_guard<std::recursive_mutex> lock(
+        habana_lazy::HbContextArena::Get()->GetMutex());
     std::for_each(
-        m_tensor_execution_status.begin(),
-        m_tensor_execution_status.end(),
-        [](std::pair<const int64_t, LazyTensorExecutionStatus>& p) {
-          if (p.second == kEXECUTING)
-            p.second = kEXECUTION_COMPLETE;
+        devctx->tensors_data.begin(),
+        devctx->tensors_data.end(),
+        [](std::pair<int64_t, std::weak_ptr<Data>> p) {
+          std::shared_ptr<Data> data = p.second.lock();
+          if ((data != nullptr) && (data->execution_status == kEXECUTING)) {
+            data->execution_status = kEXECUTION_COMPLETE;
+          }
         });
   }
-  void MarkTensorsExecuted(const std::vector<uint64_t>& indices) {
+
+  void MarkTensorsExecuted(
+      const c10::Device& device,
+      const std::vector<uint64_t>& indices) {
     std::lock_guard<std::recursive_mutex> lock(
-        HbContextArena::Get()->GetMutex());
+        habana_lazy::HbContextArena::Get()->GetMutex());
+    HbContext* devctx =
+        habana_lazy::HbContextArena::Get()->GetHbContext(device);
     for (const auto& k : indices) {
-      m_tensor_execution_status.at(k) = kEXECUTION_COMPLETE;
+      if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
+        std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
+        if (data != nullptr) {
+          data->execution_status = kEXECUTION_COMPLETE;
+        }
+      }
     }
   }
-  void MarkAllTensorsExecuted() {
+
+  void MarkAllTensorsExecuted(const c10::Device& device) {
+    HbContext* devctx =
+        habana_lazy::HbContextArena::Get()->GetHbContext(device);
+    std::lock_guard<std::recursive_mutex> lock(
+        habana_lazy::HbContextArena::Get()->GetMutex());
     std::for_each(
-        m_tensor_execution_status.begin(),
-        m_tensor_execution_status.end(),
-        [](std::pair<const int64_t, LazyTensorExecutionStatus>& p) {
-          p.second = kEXECUTION_COMPLETE;
+        devctx->tensors_data.begin(),
+        devctx->tensors_data.end(),
+        [](std::pair<int64_t, std::weak_ptr<Data>> p) {
+          std::shared_ptr<Data> data = p.second.lock();
+          if (data != nullptr) {
+            data->execution_status = kEXECUTION_COMPLETE;
+          }
         });
   }
-  void MarkTensorExecuting(int64_t tensor_id);
-  void MarkTensorExecuted(int64_t tensor_id);
-  void MarkTensorRegistered(int64_t tensor_id);
-  void MarkTensorStatus(int64_t tensor_id, LazyTensorExecutionStatus status);
-
-  LazyTensorExecutionStatus getTensorExecutionStatus(int64_t index);
-
-  std::unordered_map<int64_t, LazyTensorExecutionStatus>&
-  getTensorExecutionStatus() {
-    return m_tensor_execution_status;
-  }
+  void MarkTensorExecuting(std::shared_ptr<Data> data);
+  void MarkTensorExecuted(std::shared_ptr<Data> data);
+  void MarkTensorStatus(
+      std::shared_ptr<Data> data,
+      LazyTensorExecutionStatus status);
+  LazyTensorExecutionStatus getTensorExecutionStatus(
+      std::shared_ptr<Data> data);
 
   void removeRetainedTensor(at::Tensor& tensor) {
     for (auto i = m_retained_tensor_list.begin();
@@ -218,14 +237,6 @@ class HbExecutionContext {
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
 
  private:
-  // A map between unique lazy tensor ID and execution status
-  // Although our execution modes are per thread but tensor status is per
-  // device This is because we might be juggling between various threads and
-  // we want a common state set for our tensors that are flowing throught the
-  // device. Device view seems to be most suited for that
-  std::unordered_map<int64_t, LazyTensorExecutionStatus>
-      m_tensor_execution_status;
-
   GraphPtr mp_g;
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;

@@ -321,8 +321,7 @@ class LazyOp {
             result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
           }
           context->MarkTensorStatus(
-              hl_result.getTensorUniqueId(),
-              LazyTensorExecutionStatus::kREGISTERED);
+              hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
           ++i;
         });
     runSBS(tensors);
@@ -356,8 +355,7 @@ class LazyOp {
             result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
           }
           context->MarkTensorStatus(
-              hl_result.getTensorUniqueId(),
-              LazyTensorExecutionStatus::kREGISTERED);
+              hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
           ++i;
         });
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
@@ -643,7 +641,7 @@ class LazyOp {
     }
 
     context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
 
     runSBS(self, sbs_stack);
     flush_op(self, info_to_lazy_backend);
@@ -672,7 +670,7 @@ class LazyOp {
     }
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
     HbLazyTensor::SyncTensorsGraphFast(
@@ -735,7 +733,7 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     runSBS(self);
     flush_op(self, info_to_lazy_backend);
     return self;
@@ -760,7 +758,7 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
     HbLazyTensor::SyncTensorsGraphFast(

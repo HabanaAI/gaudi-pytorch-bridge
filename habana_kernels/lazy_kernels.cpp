@@ -1301,7 +1301,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto context =
       habana_lazy_executor.getDeviceExecutionContext(self.device().index());
   context->MarkTensorStatus(
-      self_hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
+      self_hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 
   // We need to mark this tensor as executed
   // As this will be an input coming from host side, its doesnt need further
@@ -1669,7 +1669,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       dst.device().index());
-  context->MarkTensorRegistered(hl_dst.getTensorUniqueId());
+  context->RegisterTensor(hl_dst.getDataPtr());
   habana_lazy::ir::Value& out = hl_dst.CurrentIrValue();
   out.SetNode(
       copy_node,
@@ -5750,7 +5750,7 @@ Tensor empty_hpu_lazy(
       //    habana_lazy_executor.getDeviceExecutionContext(
       //        options.device().index());
       // context->MarkTensorStatus(
-      //    hb_tensor.getTensorUniqueId(),
+      //    hb_tensor.getDataPtr(),
       //    LazyTensorExecutionStatus::kINPUT);
       // setTensorAsInputNode(hb_tensor);
     }
