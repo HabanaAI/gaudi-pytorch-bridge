@@ -249,3 +249,114 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
     EXPECT_EQ(equal, true);
   }
 }
+
+TEST_F(LazyCustomKernelTest, EMATest) {
+  torch::manual_seed(0);
+  int num_params = 1;
+  int M = 4;
+  int N = 4;
+  auto decay = 0.4567;
+  auto d = torch::tensor({decay}).to(torch::kHPU);
+  std::vector<torch::Tensor> model_inputs; // msd - prev val
+  std::vector<torch::Tensor> updated_ema; // ema - value
+
+  std::vector<torch::Tensor> model_inputs_cpu;
+  std::vector<torch::Tensor> updated_ema_cpu;
+
+  auto t_in = torch::randn({M, N});
+  for (auto i = 0; i < num_params; i++) {
+    model_inputs_cpu.push_back(t_in);
+    auto t = t_in.to(torch::kHPU);
+    model_inputs.push_back(t);
+
+    updated_ema_cpu.push_back(torch::ones_like(t_in));
+    auto tH_w = torch::ones_like(t_in).to(torch::kHPU);
+    updated_ema.push_back(tH_w);
+  }
+
+  TensorList mdIn(model_inputs);
+  TensorList updtEma(updated_ema);
+
+  optimizer_ema_hpu_wrap(mdIn, updtEma, d);
+
+  HbLazyTensor::StepMarker({});
+
+  // CPU calculations
+  // for k, v in self.ema.state_dict().items():
+  // v *= d
+  // v += (1. - d) * msd[k]
+
+  // v = updated_ema
+  // d = decay
+  // msd = model.module.state_dict() - module_inputs
+
+  for (auto i = 0; i < num_params; i++) {
+    updated_ema_cpu[i] = updated_ema_cpu[i].mul(decay);
+    model_inputs_cpu[i] = model_inputs_cpu[i].mul((1.0 - decay));
+    updated_ema_cpu[i] = updated_ema_cpu[i].add_(model_inputs_cpu[i]);
+  }
+
+  for (auto i = 0; i < num_params; i++) {
+    // std::cout << "CPU " << updated_ema_cpu[i].to(torch::kCPU) << "\n HPU " <<
+    // updated_ema[i].to(torch::kCPU) << "i " << i << "\n";
+    bool equal = updated_ema_cpu[i].allclose(
+        updated_ema[i].to(torch::kCPU), 0.001, 0.001);
+    EXPECT_EQ(equal, true);
+  }
+}
+
+TEST_F(LazyCustomKernelTest, EMATest_1) {
+  torch::manual_seed(0);
+  int num_params = 5;
+  int M = 4;
+  int N = 4;
+  auto decay = 0.9999;
+  auto d = torch::tensor({decay}).to(torch::kHPU);
+
+  std::vector<torch::Tensor> model_inputs; // msd - prev val
+  std::vector<torch::Tensor> updated_ema; // ema - value
+
+  std::vector<torch::Tensor> model_inputs_cpu;
+  std::vector<torch::Tensor> updated_ema_cpu;
+
+  auto t_in = torch::randn({M, N});
+  for (auto i = 0; i < num_params; i++) {
+    model_inputs_cpu.push_back(t_in);
+    auto t = t_in.to(torch::kHPU);
+    model_inputs.push_back(t);
+
+    updated_ema_cpu.push_back(torch::ones_like(t_in));
+    auto tH_w = torch::ones_like(t_in).to(torch::kHPU);
+    updated_ema.push_back(tH_w);
+  }
+
+  TensorList mdIn(model_inputs);
+  TensorList updtEma(updated_ema);
+
+  optimizer_ema_hpu_wrap(mdIn, updtEma, d);
+
+  HbLazyTensor::StepMarker({});
+
+  // CPU calculations
+  // for k, v in self.ema.state_dict().items():
+  // v *= d
+  // v += (1. - d) * msd[k]
+
+  // v = updated_ema
+  // d = decay
+  // msd = model.module.state_dict() - module_inputs
+
+  for (auto i = 0; i < num_params; i++) {
+    updated_ema_cpu[i] = updated_ema_cpu[i].mul(decay);
+    model_inputs_cpu[i] = model_inputs_cpu[i].mul((1.0 - decay));
+    updated_ema_cpu[i] = updated_ema_cpu[i].add_(model_inputs_cpu[i]);
+  }
+
+  for (auto i = 0; i < num_params; i++) {
+    // std::cout << "CPU " << updated_ema_cpu[i].to(torch::kCPU) << "\n HPU " <<
+    // updated_ema[i].to(torch::kCPU) << "i " << i << "\n";
+    bool equal = updated_ema_cpu[i].allclose(
+        updated_ema[i].to(torch::kCPU), 0.001, 0.001);
+    EXPECT_EQ(equal, true);
+  }
+}

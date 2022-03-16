@@ -107,6 +107,21 @@ class OptimizerSGDOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+class OptimizerFusedEMAOperator : public HabanaOperator {
+ public:
+  OptimizerFusedEMAOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "dummy_fusedema_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 class OptimizerFusedSGDOperator : public HabanaOperator {
  public:
   OptimizerFusedSGDOperator(int device_id, c10::ScalarType scalar_type)

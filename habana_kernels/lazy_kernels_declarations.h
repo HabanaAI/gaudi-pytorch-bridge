@@ -786,6 +786,10 @@ void optimizer_lamb_phase2_hpu_lazy(
     const float step,
     const float weight_decay,
     const int use_lamb);
+void optimizer_ema_hpu_lazy(
+    const at::TensorList& model_inputs,
+    at::TensorList& updated_ema,
+    const at::Tensor& decay);
 at::Tensor& optimizer_adagrad_hpu_lazy(
     const at::TensorList& gradients,
     at::TensorList& weights,

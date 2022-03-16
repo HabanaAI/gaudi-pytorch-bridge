@@ -887,6 +887,86 @@ Tensor& optimizer_sgd_hpu(
   return lr;
 }
 
+void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs for fused ema optimizer graph creation call");
+
+  TORCH_CHECK(
+      inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be Tensor");
+
+  auto model_inputs = inputs[0].toTensorList();
+  auto updated_ema = inputs[1].toTensorList();
+  auto decay = inputs[2].toTensor();
+
+  auto device_id = updated_ema.get(0).device().index();
+  auto scalar_type = updated_ema.get(0).scalar_type();
+  auto num_params = static_cast<unsigned int>(updated_ema.size());
+
+  torch::jit::Stack stack;
+
+  OutputMetaDataVector outputMetaData(1);
+  for (auto& md : outputMetaData) {
+    md.persistent = true;
+  }
+
+  // EMA Kernel Computations
+  // for k, v in self.ema.state_dict().items():
+  // v *= d
+  // v += (1. - d) * msd[k]
+
+  // v = updated_ema
+  // d = decay
+  // msd = model.module.state_dict() - module_inputs
+
+  auto d = decay.item();
+  for (unsigned int i = 0; i < num_params; i++) {
+    auto mul_in_exp =
+        make_operator<habana::MulOperator>(device_id, scalar_type);
+    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
+    stack.emplace_back(IValue(updated_ema.get(i)));
+    stack.emplace_back(IValue(Scalar((d.toDouble()))));
+    mul_in_exp->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto mul_exp = make_operator<habana::MulOperator>(device_id, scalar_type);
+    mul_exp->SetSynapseInput(p_context_->syn_inputs_[i]);
+    stack.emplace_back(IValue(model_inputs.get(i)));
+    stack.emplace_back(IValue(Scalar(1.0 - d.toDouble())));
+    mul_exp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto update_exp =
+        make_operator<habana::AddOperator>(device_id, scalar_type);
+
+    synapse_helpers::tensor& updt_syn_T =
+        update_exp->SetSynapseInput(mul_exp->GetSynOutputs()[0]);
+    update_exp->SetSynapseInput(mul_in_exp->GetSynOutputs()[0]);
+
+    stack.emplace_back(IValue(mul_exp->GetOutputs()[0]));
+    stack.emplace_back(IValue(mul_in_exp->GetOutputs()[0]));
+    // dummy input
+    stack.emplace_back(IValue(Scalar(1.0)));
+    update_exp->AllocateAndAddSynapseNode(graph, stack, outputMetaData);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(update_exp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(update_exp->GetOutputs()[0]);
+
+    auto synInput = habana_helpers::duplicate_tensor_in_memory_section(
+        updt_syn_T, graph, output_metadata.at(0).external);
+  }
+}
+
 void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1107,4 +1187,7 @@ static auto& KernelRegistry =
             KERNEL_FN(OptimizerFusedSGDOperator))
         .add(
             "hpu::habanaOptimizerFusedSGDMomentum",
-            KERNEL_FN(OptimizerFusedSGDMomentumOperator));
+            KERNEL_FN(OptimizerFusedSGDMomentumOperator))
+        .add(
+            "hpu::habanaOptimizerFusedEMA",
+            KERNEL_FN(OptimizerFusedEMAOperator));

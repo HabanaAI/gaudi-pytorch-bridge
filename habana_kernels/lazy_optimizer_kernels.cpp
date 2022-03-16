@@ -74,6 +74,41 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   return k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
 }
 
+void optimizer_ema_hpu_lazy(
+    const at::TensorList& model_inputs,
+    at::TensorList& updated_ema,
+    const at::Tensor& decay) {
+  PT_LAZY_TRACE;
+
+  ir::NodePtr node =
+      std::make_shared<ir::OptimizerFusedEMA>(model_inputs, updated_ema, decay);
+
+  int64_t out_index = 0;
+
+  auto hl_ema = GetHbLazyTensor(updated_ema[0]);
+  ir::Value& out = hl_ema.CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out.SetNode(
+      node, hl_ema.GetDevice(), hl_ema.GetSizes(), hl_ema.dtype_optional());
+
+  ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
+
+  for (size_t i = 0; i < updated_ema.size(); i++) {
+    auto hl_updtema = GetHbLazyTensor(updated_ema[i]);
+    ir::Value& out1 = hl_updtema.CurrentIrValue();
+    out1.SetNode(
+        node_unpack,
+        hl_updtema.GetDevice(),
+        hl_updtema.GetSizes(),
+        hl_updtema.dtype_optional(),
+        out_index++);
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    HbLazyTensor::StepMarker({});
+  }
+}
+
 void optimizer_adamw_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,
