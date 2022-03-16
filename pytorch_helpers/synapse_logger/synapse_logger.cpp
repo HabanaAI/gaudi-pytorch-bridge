@@ -43,9 +43,6 @@ uint64_t NowMicros() {
 namespace lib_synapse {
 void LoadSymbols(void* lib_handle);
 }
-namespace lib_hcl {
-void LoadSymbols(void* lib_handle_);
-}
 #ifndef BINARY_NAME
 #define BINARY_NAME "pytorch_synapse_logger.so"
 #endif
@@ -85,7 +82,6 @@ SynapseLogger::SynapseLogger()
   static_cast<void>(dev_attr_recorded);
   std::signal(SIGUSR1, SynapseLogger::command_signal_handler);
   lib_synapse::LoadSymbols(synapse_lib_handle_.get());
-  lib_hcl::LoadSymbols(synapse_lib_handle_.get());
   link_map* l_map = nullptr;
   CHECK_TRUE(dlinfo(synapse_lib_handle_.get(), RTLD_DI_LINKMAP, &l_map) == 0);
   synapse_lib_path_ = l_map->l_name;
