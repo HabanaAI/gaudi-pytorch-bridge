@@ -166,8 +166,7 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   // HPU
 
   auto int_tensor = std::make_unique<at::Tensor>();
-
-  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING) &&
+  if (!habana_lazy::isDeviceInLoweringMode() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma in case we need backend end tensor in future we
@@ -196,8 +195,7 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
   // TODO Remove this cast on CPU when int32->int64_t cast available on
   // HPU
   auto long_tensor = std::make_unique<at::Tensor>();
-
-  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING) &&
+  if (!habana_lazy::isDeviceInLoweringMode() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma

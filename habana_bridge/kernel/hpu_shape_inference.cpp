@@ -14,7 +14,7 @@
 using namespace habana;
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
-ShapeInfo* ShapeInference::m_shape_info(nullptr);
+thread_local ShapeInfo* ShapeInference::m_shape_info(nullptr);
 
 void ShapeInference::Capture(ShapeInfo* shape_info) {
   HABANA_ASSERT(shape_info);

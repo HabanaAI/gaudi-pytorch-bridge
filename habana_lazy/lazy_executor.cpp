@@ -11,31 +11,13 @@
 namespace habana_lazy {
 
 ////////////////////////////////////////////////////////////////////////////UTILITIES////////////////////////////////////////////////////////////////////////////////////////
+thread_local LazyExecutionMode HbExecutionContextArena::execution_mode{
+    LazyExecutionMode::kLAZY};
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
-bool allocateTensorWithStorage(int device_index) {
-  device_index = 0;
-  bool allocate = false;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(device_index);
-  if (context != nullptr) {
-    auto exec_mode = context->getExecutionMode();
-    allocate = exec_mode == kLOWERING ? true : false;
-  } else {
-    TORCH_CHECK(false, "Lazy mode execution context not found");
-  }
-  return allocate;
-}
-
-bool isDeviceInLoweringMode(int device_index) {
-  device_index = 0;
-  bool is_in_lowering_mode = false;
-  auto context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_index);
-  if (context != nullptr) {
-    auto exec_mode = context->getExecutionMode();
-    is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
-  }
-  return is_in_lowering_mode;
+bool isDeviceInLoweringMode() {
+  return (
+      habana_lazy_executor.getExecutionMode() == LazyExecutionMode::kLOWERING);
 }
 ////////////////////////////////////////////////////////////////////////////CONTEXT////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,29 +104,6 @@ void HbExecutionContext::saveInputsAndOutputs(
     m_hblazy_tensors.emplace_back((tensors)[i]);
   }
 }
-const LazyExecutionMode& HbExecutionContext::getExecutionMode() {
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  auto mode = per_thread_execution_mode.find(pthread_self());
-  if (mode != std::end(per_thread_execution_mode)) {
-    return mode->second;
-  }
-  // If its the first time we are calling it for the thread it means its not
-  // initialized yet and we can mark it in lazy mode as threads start from
-  // there Need to check if threads can start executing from lowering statge
-  // itself?
-  per_thread_execution_mode[pthread_self()] = kLAZY;
-  return per_thread_execution_mode[pthread_self()];
-}
-
-void HbExecutionContext::setExecutionMode(LazyExecutionMode mode) {
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  if (per_thread_execution_mode.find(pthread_self()) !=
-      std::end(per_thread_execution_mode)) {
-    per_thread_execution_mode.at(pthread_self()) = mode;
-  } else {
-    per_thread_execution_mode[pthread_self()] = mode;
-  }
-}
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
@@ -179,5 +138,13 @@ void HbExecutionContextArena::removeExecutionContext(int index) {
 
 HbExecutionContextArena HbExecutionContextArena::Get() {
   return HbExecutionContextArena();
+}
+
+const LazyExecutionMode& HbExecutionContextArena::getExecutionMode() {
+  return execution_mode;
+}
+
+void HbExecutionContextArena::setExecutionMode(LazyExecutionMode m) {
+  execution_mode = m;
 }
 } // namespace habana_lazy

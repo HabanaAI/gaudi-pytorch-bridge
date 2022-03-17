@@ -54,8 +54,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // not do env variable based check anymore
   // We have short-circuited certain utilities in synapse helpers, we need to
   // remove that code
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
-  context->setExecutionMode(kLOWERING);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
 
   // save the graph for perf mode
   context->saveGraph(mp_g_);
@@ -73,13 +72,11 @@ void HlExec::Launch(torch::jit::Stack& stack) {
     habanaLoweringOp.run(stack);
   } catch (std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
-    context->setExecutionMode(kLAZY);
-    UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
 
-  context->setExecutionMode(kLAZY);
-  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
 }
 
 /*

@@ -806,8 +806,7 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   // TODO : Not seting this would cause the synapse graph creation set to
   // dry run. Hence not setting this would cause synpase graph to be not be
   // created. This needs to be optimized.
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
-  context->setExecutionMode(kLOWERING);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
 
   fast_path_jit_ir_and_mdata->SetOpName(lazyFrontEndInfo->get_lazy_op_name());
   fast_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
@@ -816,13 +815,11 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
     habanaLoweringOp.run(stack);
   } catch (std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
-    context->setExecutionMode(kLAZY);
-    UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
 
-  context->setExecutionMode(kLAZY);
-  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   HABANA_ASSERT(stack.size() == indices.size());
 
   size_t i = 0;

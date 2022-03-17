@@ -1155,9 +1155,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
       self.sizes(),
       c10::nullopt,
       self.suggest_memory_format());
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-  auto exec_mode = context->getExecutionMode();
+  auto exec_mode = habana_lazy_executor.getExecutionMode();
   if (exec_mode != kLOWERING) {
     auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     // WE need to add storage if it wasnt created
@@ -1212,6 +1210,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   // Set the tensor as input and mark as input
   setTensorAsInputNode(self_hb_tensor);
+  auto context =
+      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
   context->MarkTensorStatus(
       self_hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
 
@@ -1380,20 +1380,15 @@ Tensor add_strided_view_node(
     stride = initvec;
   }
 
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-
   // when we get a call from lowering, we create a storage based backend
   // tensor
-  if (context != nullptr) {
-    auto exec_mode = context->getExecutionMode();
-    if (exec_mode == kLOWERING) {
-      auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
-      if (is_0d_tensor) {
-        result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-      }
-      return result;
+  auto exec_mode = habana_lazy_executor.getExecutionMode();
+  if (exec_mode == kLOWERING) {
+    auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
+    if (is_0d_tensor) {
+      result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
     }
+    return result;
   }
 
   auto self_ = get_base_tensor(self);
@@ -1472,9 +1467,7 @@ Tensor as_strided_hpu_lazy(
         storage_offset_val,
         true /*is_update_view*/,
         c10::nullopt);
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    if (context->getExecutionMode() != kLOWERING) {
+    if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
       flush_op(out);
     }
     return out;
@@ -1491,20 +1484,15 @@ Tensor as_strided_hpu_lazy(
       stride = initvec;
     }
 
-    auto context =
-        habana_lazy_executor.getDeviceExecutionContext(self.device().index());
-
     // when we get a call from lowering, we create a storage based backend
     // tensor
-    if (context != nullptr) {
-      auto exec_mode = context->getExecutionMode();
-      if (exec_mode == kLOWERING) {
-        auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
-        if (is_0d_tensor) {
-          result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-        }
-        return result;
+    auto exec_mode = habana_lazy_executor.getExecutionMode();
+    if (exec_mode == kLOWERING) {
+      auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
+      if (is_0d_tensor) {
+        result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
       }
+      return result;
     }
 
     auto hb_tensor = GetOrCreateHbLazyTensor(self);
@@ -5648,11 +5636,9 @@ Tensor empty_hpu_lazy(
 
     Tensor at_tensor;
     bool is_in_lowering_mode = false;
-    auto context = habana_lazy_executor.getDeviceExecutionContext(
-        options.device().index());
-    if (context != nullptr) {
-      auto exec_mode = context->getExecutionMode();
-      is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
+    if (habana_lazy_executor.getExecutionMode() ==
+        LazyExecutionMode::kLOWERING) {
+      is_in_lowering_mode = true;
     }
 
     // This call could have come from a .to call and not from a lowering

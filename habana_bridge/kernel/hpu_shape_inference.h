@@ -104,7 +104,7 @@ class ShapeInference {
   /*
    * Stores all the shape information
    */
-  static ShapeInfo* m_shape_info;
+  static thread_local ShapeInfo* m_shape_info;
 };
 
 inline std::ostream& operator<<(

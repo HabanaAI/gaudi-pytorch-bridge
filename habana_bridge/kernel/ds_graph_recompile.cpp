@@ -68,6 +68,8 @@ void habana::PrintStack(torch::jit::Stack& st) {
 
 bool habana::RefineBucketDS(double time_improve_factor) {
   bool is_refined{true};
+  habana_lazy::habana_lazy_executor.setExecutionMode(
+      LazyExecutionMode::kLOWERING);
   PT_BRIDGE_DEBUG(
       "Current improvement factor for refinement is ", time_improve_factor);
   DynamicBucketInfoMap::get_instance().refine();
@@ -95,12 +97,6 @@ bool habana::CompileGraphWithRange(
   PT_DYNAMIC_SHAPE_DEBUG(
       "BucketRefinement: Will use the following recipe for compilation",
       rvpsh->header_str());
-
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto hl_context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
-  hl_context->setExecutionMode(kLOWERING);
 
   torch::jit::Stack input_stack =
       habana::CreateInputStack(rvpsh, input_ranges.min_shapes);
@@ -134,15 +130,9 @@ bool habana::CompileGraphWithRange(
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaLaunchOpPT::Compile returned exception '", e.what(), "'");
 
-      hl_context->setExecutionMode(kLAZY);
-      hl_context->MarkTensorsExecuted();
-      UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
       throw;
     }
     PT_DYNAMIC_SHAPE_DEBUG("Completed compilation ...");
-    hl_context->setExecutionMode(kLAZY);
-    hl_context->MarkTensorsExecuted();
-    UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
   } else {
     PT_DYNAMIC_SHAPE_DEBUG("Empty JIT graph");
   }

@@ -12,6 +12,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/habana_helpers/graph.h"
 
 using namespace habana_lazy;
@@ -66,7 +67,8 @@ TEST_F(LazyTensorAPITest, DataPtr) {
 }
 
 TEST_F(LazyTensorAPITest, ShapeTensorTest) {
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING, 1, 1);
+  LazyExecutionMode exec_mode{habana_lazy_executor.getExecutionMode()};
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -76,5 +78,5 @@ TEST_F(LazyTensorAPITest, ShapeTensorTest) {
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input, syn_graph, false, INPUT_DESCRIBING_SHAPE_TENSOR);
   ASSERT_TRUE(syn_shape_input.is_persistent());
-  UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_LOWERING);
+  habana_lazy_executor.setExecutionMode(exec_mode);
 }

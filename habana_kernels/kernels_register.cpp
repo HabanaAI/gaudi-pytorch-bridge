@@ -3832,7 +3832,7 @@ Tensor& optimizer_sgd_hpu_wrap(
     const float mom,
     const float damp,
     const bool nesterov) {
-  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
+  if (!habana_lazy::isDeviceInLoweringMode() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
   } else {
@@ -3852,7 +3852,7 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
     const float mom,
     const float damp,
     const bool nesterov) {
-  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
+  if (!habana_lazy::isDeviceInLoweringMode() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     optimizer_sgd_momentum_hpu_lazy(
         gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);

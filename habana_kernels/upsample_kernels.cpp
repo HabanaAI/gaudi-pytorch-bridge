@@ -44,9 +44,7 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
   std::vector<int64_t> out_shape;
   bool is_input_5d = is_tensor_5d(shape_in);
   if (scales.has_value()) {
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    auto isLowering = context->getExecutionMode();
+    auto isLowering = habana_lazy::isDeviceInLoweringMode();
 
     auto scale_factor_in_double = scales.value().vec();
     // Cast scale_factor from double -> float. This is required so that output

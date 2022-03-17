@@ -15,7 +15,7 @@
 #include "synapse_helpers/util.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-enum LazyExecutionMode { kLAZY = 0, kLOWERING };
+enum LazyExecutionMode { kLAZY, kLOWERING };
 
 using Graph = torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
@@ -92,8 +92,6 @@ class HbExecutionContext {
   HbExecutionContext() = default;
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
-  const LazyExecutionMode& getExecutionMode();
-  void setExecutionMode(LazyExecutionMode mode);
   void MarkTensorsExecuted() {
     std::for_each(
         m_tensor_execution_status.begin(),
@@ -128,14 +126,6 @@ class HbExecutionContext {
   std::unordered_map<int64_t, LazyTensorExecutionStatus>&
   getTensorExecutionStatus() {
     return m_tensor_execution_status;
-  }
-
-  bool isExecutionInLoweringMode() {
-    auto mode = per_thread_execution_mode.find(pthread_self());
-    if (mode != std::end(per_thread_execution_mode)) {
-      return mode->second == kLOWERING;
-    }
-    return false;
   }
 
   void removeRetainedTensor(at::Tensor& tensor) {
@@ -232,9 +222,6 @@ class HbExecutionContext {
   std::unordered_map<int64_t, LazyTensorExecutionStatus>
       m_tensor_execution_status;
 
-  // LazyExecutionMode : per thread execution mode is maintained
-  std::unordered_map<pthread_t, LazyExecutionMode> per_thread_execution_mode;
-
   GraphPtr mp_g;
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
@@ -249,6 +236,9 @@ class HbExecutionContextArena {
   HbExecutionContext* createExecutionContext(int device);
   void removeExecutionContext(int device);
   HbExecutionContextArena() = default;
+  const LazyExecutionMode& getExecutionMode();
+  void setExecutionMode(LazyExecutionMode m);
+  static thread_local LazyExecutionMode execution_mode;
 
  private:
   // Keep a map of all the execution contexts in play
@@ -275,6 +265,5 @@ extern HbExecutionContextArena habana_lazy_executor;
  * 3. Lowering creates a tensor
  *    - Create a tensor with storage and return.
  */
-bool allocateTensorWithStorage(int device_index);
-bool isDeviceInLoweringMode(int device_index);
+bool isDeviceInLoweringMode();
 }; // namespace habana_lazy
