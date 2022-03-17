@@ -448,7 +448,9 @@ at::Tensor SBSRunner::prepareTensorToCPU(
     std::vector<habana_lazy::HbLazyTensor> tens = {hb_tensor};
     HbLazyTensor::SyncTensorsGraph(&tens);
   }
-  PT_LAZY_DEBUG("SBS: Copying tensor to CPU");
+  PT_LAZY_DEBUG(
+      "SBS: Copying tensor to CPU. Name: ",
+      hb_tensor.CurrentIrValue().ToString());
   auto tens_cpu = tensor.to(c10::kCPU).detach();
 
   return tens_cpu;

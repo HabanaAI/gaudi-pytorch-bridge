@@ -252,12 +252,16 @@ class LazyOp {
     auto results = get_result();
     int i = 0;
     std::vector<HbLazyTensor> hl_tensors;
-    for_each_in_tuple(results, [&i, &hl_tensors](const auto& result) {
+    std::vector<at::Tensor> tensors;
+    tensors.reserve(std::tuple_size<T>::value);
+    for_each_in_tuple(results, [&i, &hl_tensors, &tensors](const auto& result) {
       auto hl_result = GetHbLazyTensor(result);
       hl_tensors.push_back(hl_result);
+      tensors.push_back(result);
       i++;
     });
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+    runSBS(tensors);
     HbLazyTensor::SyncTensorsGraphFast(
         &hl_tensors, input_values, info_to_lazy_backend);
     return results;
@@ -343,10 +347,14 @@ class LazyOp {
         out_shapes.size() == std::tuple_size<T>::value);
 
     std::vector<HbLazyTensor> hl_tensors;
+    std::vector<at::Tensor> tensors;
+    tensors.reserve(std::tuple_size<T>::value);
     for_each_in_tuple(
-        results, [&i, &hl_tensors, out_shapes, context](const auto& result) {
+        results,
+        [&i, &hl_tensors, &tensors, out_shapes, context](const auto& result) {
           auto hl_result = GetHbLazyTensor(result);
           hl_tensors.push_back(hl_result);
+          tensors.push_back(result);
           const auto& out_shape = out_shapes.at(i);
           if (result.sizes() != out_shape) {
             auto impl = hl_result.getAttachedTensorImpl();
@@ -359,6 +367,7 @@ class LazyOp {
           ++i;
         });
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+    runSBS(tensors);
     HbLazyTensor::SyncTensorsGraphFast(
         &hl_tensors, input_values, info_to_lazy_backend);
     return results;
@@ -404,7 +413,7 @@ class LazyOp {
         hl_result.GetSizes(),
         hl_result.dtype_optional());
     updateDstDependencies(hl_result, result, false);
-
+    runSBS(result);
     return result.item().template to<T>();
   }
 
@@ -437,6 +446,7 @@ class LazyOp {
     auto hl_result = GetHbLazyTensor(result);
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_result};
+    runSBS(result);
     HbLazyTensor::SyncTensorsGraphFast(
         &hl_tensors, input_values, info_to_lazy_backend);
     return result;
@@ -673,6 +683,7 @@ class LazyOp {
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
+    runSBS(self);
     HbLazyTensor::SyncTensorsGraphFast(
         &hl_tensors, input_values, info_to_lazy_backend);
     return self;
@@ -761,6 +772,7 @@ class LazyOp {
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
+    runSBS(self);
     HbLazyTensor::SyncTensorsGraphFast(
         &hl_tensors, input_values, info_to_lazy_backend);
     return self;
