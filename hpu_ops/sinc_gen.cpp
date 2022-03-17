@@ -41,22 +41,20 @@ void Sinc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {value[0].get()},
       {{outshape, ScalarType()}});
 
-  auto reciprocal = BuildOp(
+  // reciprocal and mul replaced with div
+  // Jira link: https://jira.habana-labs.com/browse/SW-79483
+  auto div = BuildOp(
       graph,
-      "reciprocal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {value[0].get()},
+      "div_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      {sine[0].get(), value[0].get()},
       {{outshape, ScalarType()}});
 
-  auto prod = BuildOp(
-      graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
-      {sine[0].get(), reciprocal[0].get()},
-      {{outshape, ScalarType()}});
-
+  // div out is replaced by masked out(value 1)
+  // when input is zero so div by zero is handled
   auto out = BuildOp(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {mask[0].get(), const_one.get(), prod[0].get()},
+      {mask[0].get(), const_one.get(), div[0].get()},
       {{outshape, ScalarType(), 0}});
 
   // output of where_outer is the output of this op
