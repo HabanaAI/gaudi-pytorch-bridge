@@ -185,8 +185,8 @@ synStatus synDestroyTensor(synTensor tensor) {
 
 synStatus synInitialize() {
   API_LOG_CALL();
-  synStatus status;
-  CALL_SYN_FUNC(lib_synapse::synInitialize)
+  // Directly calling synInitialize() due to null backend functionality
+  synStatus status = lib_synapse::synInitialize();
   API_LOG_RESULT();
   return status;
 }
