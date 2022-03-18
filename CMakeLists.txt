@@ -163,6 +163,7 @@ target_link_libraries(habana_pytorch_plugin
     pytorch_synapse_helpers_abi11
     json
     tensor_comparator_core
+    -lstdc++fs
 )
 
   target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
