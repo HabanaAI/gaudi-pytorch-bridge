@@ -2104,7 +2104,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     torch::jit::Stack& input_st,
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
-    size_t& new_recipe_key) {
+    size_t& new_recipe_key,
+    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh) {
   PT_BRIDGE_BEGIN;
   ProcessInputStack(input_st);
 
@@ -2234,6 +2235,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());
 
   // Compile the graph
+  uint64_t current_step{statpsh->GetCurrentStep()};
   {
     CreateValueToIvalueMapForInputs();
 
@@ -2241,17 +2243,24 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
     std::string error_str;
     try {
-      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
-      BuildSynapseGraph(syn_graph);
-      CompileSynapseGraph();
       cur_ds_token_ = new_bucket.getToken();
       cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
           input_refs, graph_key, op_strs, cur_ds_token_);
+      new_recipe_key = cur_rargpsh->hashCode();
+      statpsh->LogRefineCompilation(
+          input_ranges, new_recipe_key, new_bucket.GetIndex(), current_step);
+
+      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
+      BuildSynapseGraph(syn_graph);
+      CompileSynapseGraph();
       ConstructPatchingTable();
     } catch (std::exception& e) {
       error_str = e.what();
       PT_TEST_DEBUG(
           "Exception occured in compilation - Details :\n", error_str);
+
+      std::string result_str{"FAIL"};
+      statpsh->LogRefineResult(result_str, current_step);
 
       throw;
     }
@@ -2263,9 +2272,13 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   cur_rvalpsh->set_op_strs(cur_rargpsh->get_op_strs());
   cur_rvalpsh->set_refined();
   RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
-  new_recipe_key = cur_rargpsh->hashCode();
+
   // Add the recipe to the corresponding bucket
   new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
+
+  std::string result_str{"OK"};
+  statpsh->LogRefineResult(result_str, current_step);
+
   PT_TEST_DEBUG(
       "HabanaOp recipe cache :: adding new recipe to cache ::",
       cur_rvalpsh->header_str(),

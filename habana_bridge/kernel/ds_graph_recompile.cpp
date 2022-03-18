@@ -78,7 +78,8 @@ bool habana::CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
-    size_t& new_recipe_key) {
+    size_t& new_recipe_key,
+    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh) {
   bool ret{true};
 
   // wait till the execution complete
@@ -128,7 +129,7 @@ bool habana::CompileGraphWithRange(
     habana::HabanaLaunchOpPT habanaFusedOp{jit_ir_graph_and_mdata};
     try {
       habanaFusedOp.CompileGraphWithRange(
-          input_stack, input_ranges, new_bucket, new_recipe_key);
+          input_stack, input_ranges, new_bucket, new_recipe_key, statpsh);
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaLaunchOpPT::Compile returned exception '", e.what(), "'");
