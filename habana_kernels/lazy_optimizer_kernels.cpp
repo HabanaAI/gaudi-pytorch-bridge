@@ -207,20 +207,12 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
   auto clip_norm = get_tensor_for_scalar(1.0);
   ir::NodePtr node =
       std::make_shared<ir::LambFusedNorm>(grad, max_grad_norm, clip_norm);
+  std::vector<int64_t> sizes{1};
 
-  auto result = empty_hpu_lazy(
-      {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
-  auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.SetNode(
-      node,
-      hlresult.GetDevice(),
-      hlresult.GetSizes(),
-      hlresult.dtype_optional());
+  LazyOp<at::Tensor, ir::LambFusedNorm> k(
+      node, {grad[0], max_grad_norm, clip_norm}, {sizes});
 
-  updateDstDependencies(hlresult, result);
-
-  return result;
+  return k.call();
 }
 
 std::tuple<
