@@ -11,7 +11,7 @@
 #pragma once
 
 namespace scaleoutdemoloader {
-enum LoaderDataType { IMAGE, LABEL, BBOX, BBOX_LABEL };
+enum LoaderDataType { IMAGE, LABEL, BBOX, BBOX_LABEL, IMAGE_SHAPE, IMAGE_ID };
 
 void* create_data_loader();
 void destroy_data_loader(void* data_loader);

@@ -46,6 +46,8 @@ class AeonSSDConfigurator:
         self._get_or_create_aeon_manifest()
 
     def _get_or_create_aeon_manifest(self):
+        if not self.train:
+            self.manifest = f"val_{self.manifest}"
         manifest_file = os.path.join(self.out_folder, self.manifest)
         if not os.path.exists(manifest_file):
             os.makedirs(self.out_folder, exist_ok=True)
@@ -75,7 +77,7 @@ class AeonSSDConfigurator:
         update = 100 # update progress of generation every # images
         restrict_images = 0 #image num restriction disabled
 
-        manifest = ["@FILE\tFILE\n"]
+        manifest = ["@FILE\tFILE\tASCII_INT\n"]
         manifest_filename = "manifest.cfg"
         dataset_size = restrict_images if restrict_images != 0 else len(self.dataset.images)
         print(f"Generating aeon manifest for {dataset_size} images:")
@@ -96,7 +98,7 @@ class AeonSSDConfigurator:
             dict_config = {"size":dict_size,"object":objects}
             with open(os.path.join(self.out_folder, json_out), 'w') as f:
                 json.dump(dict_config,f)
-            manifest.append(f"{json_out}\t../{image}\n")
+            manifest.append(f"{json_out}\t../{image}\t{id}\n")
 
             if (count % update == 0):
                 self.show_progress(count, dataset_size, "Generating Aeon manifest: ")
@@ -104,7 +106,9 @@ class AeonSSDConfigurator:
             if count == dataset_size:
                 break
 
-        with open(os.path.join(self.out_folder, manifest_filename), 'w') as m:
+        print("Done!")
+
+        with open(os.path.join(self.out_folder, self.manifest), 'w') as m:
             m.writelines(manifest)
 
     def _make_transforms_config(self, additional=[]):
@@ -249,22 +253,33 @@ class AeonSSDConfigurator:
         ssd_config = {
             "type": "localization_ssd",
             "pt_mode":True,
-            "max_gt_boxes": 8732,
+            "val": not self.train,
+            "max_gt_boxes": 8732 if self.train else 200,
             "class_names": [f"{v}" for v in self.dataset.label_info.values()],
             "height": self.transforms_config["height"],
             "width": self.transforms_config["width"],
         }
         return ssd_config
 
+    def _get_blob_config(self):
+        blob_config = {
+            "type": "blob",
+            "output_count": 1,
+            "output_type": "int32_t"
+        }
+        return blob_config
+
     def _get_augmentation_config(self):
         augmentation_config = {
             "type": "image"
         }
+
+        augmentation_config["caffe_mode"] = self.transforms_config.get("caffe_mode", False)
+        augmentation_config["crop_enable"] = self.transforms_config.get("crop_enabled", False)
+        augmentation_config["center"] = self.transforms_config.get("center", False)
+        augmentation_config["pt_mode"] = True
+
         if self.train:
-            augmentation_config["caffe_mode"] = self.transforms_config.get("caffe_mode", True)
-            augmentation_config["pt_mode"] = self.transforms_config.get("pt_mode", True)
-            augmentation_config["crop_enable"] = self.transforms_config.get("crop_enabled", False)
-            augmentation_config["center"] = self.transforms_config.get("center", False)
             augmentation_config["flip_enable"] = self.transforms_config.get("flip_enable", False)
             augmentation_config["contrast"] = self.transforms_config.get("contrast", [1,1])
             augmentation_config["brightness"] = self.transforms_config.get("brightness", [1,1])
@@ -273,20 +288,19 @@ class AeonSSDConfigurator:
             augmentation_config["batch_samplers"]= self.transforms_config.get("batch_samplers", [])
             augmentation_config["emit_constraint_type"]= self.transforms_config.get("emit_constraint_type", "")
             augmentation_config["emit_constraint_type"] = "center"
-        else:
-            augmentation_config["validation_mode"] = True
         return augmentation_config
 
     def get_config(self):
         image_config = self._get_image_config()
         ssd_config = self._get_ssd_config()
+        blob_config = self._get_blob_config()
         augmentation_config = self._get_augmentation_config()
-        instance_id = _get_rank()
-        num_instances = _get_world_size()
+        instance_id = _get_rank() if self.train else 0 # Currently only single node validation is supported
+        num_instances = _get_world_size()  if self.train else 1
         aeon_config = {
             "manifest_filename": os.path.join(self.out_folder, self.manifest),
             "manifest_root": self.out_folder+'/',
-            "etl": (ssd_config, image_config),
+            "etl": (ssd_config, image_config, blob_config),
             "augmentation": [augmentation_config],
             "batch_size": self.batch_size,
             "file_shuffle_seed": 5,
@@ -303,3 +317,6 @@ class AeonSSDConfigurator:
             aeon_config["fread_thread_count"] = 1
             aeon_config["shuffle_manifest"] = False
         return aeon_config
+
+    def is_train(self):
+        return self.train

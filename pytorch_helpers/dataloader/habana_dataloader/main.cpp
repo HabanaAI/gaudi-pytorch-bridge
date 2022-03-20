@@ -285,18 +285,14 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
         {torch::MemoryFormat::Contiguous});
     auto bbox = torch::empty({m_batch_size, m_max_gt_boxes, 4}, bbox_options);
     auto label = torch::empty({m_batch_size, m_max_gt_boxes}, label_options);
-    auto img_id = torch::full(
-        {m_batch_size},
-        -1,
-        img_id_options); // aeon doesn't fetch img_id and img_size - SW-77049
-    auto img_size = torch::full(
-        {m_batch_size, 2}, m_img_height, img_size_options); // todo: proper init
+    auto img_id = torch::empty({m_batch_size}, img_id_options);
+    auto img_shape = torch::empty({m_batch_size, 2}, img_size_options);
     if (m_pin_memory) {
       label = at::native::pin_memory(label, torch::kHPU);
       image = at::native::pin_memory(image, torch::kHPU);
       bbox = at::native::pin_memory(bbox, torch::kHPU);
       img_id = at::native::pin_memory(img_id, torch::kHPU);
-      img_size = at::native::pin_memory(img_size, torch::kHPU);
+      img_shape = at::native::pin_memory(img_shape, torch::kHPU);
     }
 
     const int image_size =
@@ -306,7 +302,11 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     const int bbox_size = m_batch_size * m_max_gt_boxes * 4 * sizeof(float);
     char* bbox_ptr = (char*)bbox.data_ptr();
     const int label_size = m_batch_size * m_max_gt_boxes * sizeof(uint32_t);
+    const int img_id_size = m_batch_size * sizeof(uint32_t);
     char* label_ptr = (char*)label.data_ptr();
+    char* img_id_ptr = (char*)img_id.data_ptr();
+    const int img_shape_size = 2 * m_batch_size * sizeof(uint32_t);
+    char* img_shape_ptr = (char*)img_shape.data_ptr();
 
     // // Copy data to the ptr
     aeondataloader::data_loader_get_data(
@@ -315,6 +315,10 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
         m_loader, aeondataloader::BBOX_LABEL, label_size, label_ptr);
     aeondataloader::data_loader_get_data(
         m_loader, aeondataloader::BBOX, bbox_size, bbox_ptr);
+    aeondataloader::data_loader_get_data(
+        m_loader, aeondataloader::IMAGE_SHAPE, img_shape_size, img_shape_ptr);
+    aeondataloader::data_loader_get_data(
+        m_loader, aeondataloader::IMAGE_ID, img_id_size, img_id_ptr);
     // get_data API does not advance iterator
     aeondataloader::data_loader_inc(m_loader);
 
@@ -332,7 +336,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
       image = image.permute({0, 3, 1, 2});
     }
 
-    return make_vec(image, img_id, img_size, bbox, label);
+    return make_vec(image, img_id, img_shape, bbox, label);
   }
 
  private:

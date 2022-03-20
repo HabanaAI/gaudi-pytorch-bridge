@@ -36,6 +36,7 @@ class CocoDataLoader(torch.utils.data.DataLoader):
 
         self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest)
         aeon_config = self.configurator.get_config()
+
         self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(aeon_config,
                                                                                       True, # pin_memory
                                                                                       True, # use_prefetch
@@ -50,6 +51,9 @@ class CocoDataLoader(torch.utils.data.DataLoader):
         return len(self.aeon)
     def __next__(self):
         img, img_id, img_size, bbox, label = next(self.iter)
+        if not self.configurator.is_train():
+            img_size = torch.split(img_size, 1, dim=1)
+            img_size = (img_size[1].squeeze(dim=1), img_size[0].squeeze(dim=1))
 
         if self.encoder:
             bbox_out = torch.empty((self.batch_size, 8732, 4), dtype = bbox.dtype)
@@ -295,4 +299,3 @@ class HabanaDataloaderWrapper:
         return self
     def __next__(self):
         return next(self.iter)
-
