@@ -184,7 +184,6 @@ class tensor_builder_base {
   }
 
   ConcreteBuilder& mark_external(const bool is_external = true) {
-    PT_LAZY_DEBUG("tensor builder mark_external ", is_external);
     is_external_ = is_external;
     return static_cast<ConcreteBuilder&>(*this);
   }

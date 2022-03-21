@@ -412,8 +412,6 @@ synapse_error_o tensor::create() {
   }
 
   SYNAPSE_SUCCESS_CHECK_WITH_OP("Tensor create failed.", status, cleanup());
-  PT_LAZY_DEBUG(
-      "creating tensor ", tensor_name_, " is external = ", is_external_);
   if (is_external_) {
     HABANA_ASSERT(is_persistent_);
     status = synTensorSetExternal(tensor_, is_external_);
