@@ -9,7 +9,6 @@
  */
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/ops/optimizer.h"
-#include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 #include "habana_lazy/ops/unpack.h"
 
 using namespace at;
@@ -29,35 +28,26 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     bool nesterov) {
   PT_LAZY_TRACE;
   HbLazyTensor::StepMarker({});
-  ir::NodePtr node = std::make_shared<ir::OptimizerSparseSgdValidCount>(
-      gradients,
-      weights_in,
-      moments_in,
-      indices,
-      learning_rate,
-      valid_count_tensor,
-      mom,
-      nesterov);
+  LazyOp<::std::tuple<at::Tensor&, at::Tensor&>> k{
+      "hpu::habanaOptimizerSparseSgd",
+      {gradients,
+       weights_in,
+       moments_in,
+       indices,
+       learning_rate,
+       valid_count_tensor,
+       mom,
+       nesterov},
+      {},
+      {weights_in.sizes().vec(), moments_in.sizes().vec()}};
 
-  auto hlweights = GetHbLazyTensor(weights_in);
-  ir::Value& out1 = hlweights.CurrentIrValue();
-  out1.SetNode(
-      node,
-      hlweights.GetDevice(),
-      hlweights.GetSizes(),
-      hlweights.dtype_optional());
-  auto hlmoments = GetHbLazyTensor(moments_in);
-  ir::Value& out2 = hlmoments.CurrentIrValue();
-  out2.SetNode(
-      node,
-      hlmoments.GetDevice(),
-      hlmoments.GetSizes(),
-      hlmoments.dtype_optional(),
-      1);
+  auto result =
+      k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
     HbLazyTensor::StepMarker({});
   }
-  return std::tie(weights_in, moments_in);
+  return result;
 }
 
 std::tuple<torch::Tensor&, torch::Tensor&>

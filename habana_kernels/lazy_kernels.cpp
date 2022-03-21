@@ -58,7 +58,6 @@
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/optimizer.h"
-#include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
