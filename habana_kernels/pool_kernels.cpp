@@ -662,8 +662,8 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   //  dialation, ceil_mode}
   inputs.insert(inputs.begin(), IValue(grad_input));
   auto& indices = inputs.back();
-  inputs.pop_back();
   inputs.insert(inputs.begin() + 3, indices);
+  inputs.pop_back();
 
   MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, output_metadata);
@@ -681,8 +681,8 @@ void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
       at::empty_like(input, input.options(), input.suggest_memory_format());
   inputs.insert(inputs.begin(), IValue(grad_input));
   auto& indices = inputs.back();
-  inputs.pop_back();
   inputs.insert(inputs.begin() + 3, indices);
+  inputs.pop_back();
 
   MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(inputs);
 }
