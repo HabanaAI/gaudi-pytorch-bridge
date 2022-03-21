@@ -119,9 +119,15 @@ class OptPassCfg {
     return pass.enable_fuse_bn_relu_optimization;
   }
   bool IsEnabledPermutePass() const {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      return false;
+    }
     return pass.enable_permute_pass;
   }
   bool IsEnabledWeightPermutePass() const {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      return false;
+    }
     return pass.enable_weight_permute_pass;
   }
   bool IsEnabledReplaceInplaceOps() const {
