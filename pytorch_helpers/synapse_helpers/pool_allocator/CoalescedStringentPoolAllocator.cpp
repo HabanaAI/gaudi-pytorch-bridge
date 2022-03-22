@@ -143,7 +143,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     std::size_t hccl_allowance_bytes = 0;
     if (std::getenv("ID") != nullptr) {
       const std::size_t HCCL_MEMORY_ALLOWANCE_MB{
-          GET_ENV_FLAG(PT_HCCL_MEMORY_ALLOWANCE_MB)};
+          GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB)};
       hccl_allowance_bytes = 1048576 * HCCL_MEMORY_ALLOWANCE_MB;
     }
     size = (0.99 * free_mem) - hccl_allowance_bytes;

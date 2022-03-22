@@ -79,10 +79,6 @@ namespace env_flags {
 // Synapse-specific env var.
 // Colon-separated list of tpc kernel libs to be loaded for GC
 
-struct PT_HCCL_MEMORY_ALLOWANCE_MB : public std::numeric_limits<unsigned> {
-  static constexpr unsigned default_value = 200;
-};
-
 // Overloads for different type of default value
 
 template <class T>
@@ -260,6 +256,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_MEDIA_PIPE, bool, true);
 // memory threshold precentage
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_MEM_THRESHOLD_PERC, unsigned, 90);
+ENV_STRUCT_DEFINITION(PT_HCCL_MEMORY_ALLOWANCE_MB, unsigned, 200);
 
 // Dynamic shape related env variables
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK, bool, true);
