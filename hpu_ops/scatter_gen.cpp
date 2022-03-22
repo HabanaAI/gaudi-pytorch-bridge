@@ -27,10 +27,14 @@ void ScatterOperator::AddNode(
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   ns_ScatterKernel::Params params{};
   params.axis = static_cast<int>(self.dim() - dim - 1);
-  bool bool_val = false;
-  bool is_bool = false;
-  at::Scalar val;
-  if (!stack.at(3).isTensor()) {
+
+  synTensor src_or_val;
+  std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
+  if (stack.at(3).isTensor()) {
+    src_or_val = p_context_->syn_inputs_.at(2).ref().get();
+  } else {
+    at::Scalar val;
+    at::IValue ival = stack.at(3);
     // Why do we need to do this?
     // We are converting the val to a real Bool (0 or 1) for src=Bool case.
     // If we don't do this, the kernel will execute, but the result from
@@ -39,29 +43,22 @@ void ScatterOperator::AddNode(
     // final scattered output from TPC but for CPU the scattered result will
     // be 1. Hence the explicit conversion of val to bool.
     if (self.scalar_type() == c10::ScalarType::Bool) {
-      is_bool = true;
-      if (stack.at(3).isBool()) {
-        bool_val = stack.at(3).toBool();
-      } else if (stack.at(3).isInt()) {
-        bool_val = stack.at(3).toInt() != 0;
-      } else if (stack.at(3).isDouble()) {
-        bool_val = static_cast<bool>(stack.at(3).toDouble());
+      if (ival.isBool()) {
+        val = ival.toBool();
+      } else if (ival.isInt()) {
+        val = ival.toInt() != 0;
+      } else if (ival.isDouble()) {
+        val = static_cast<bool>(ival.toDouble());
       } else {
-        bool_val = false;
+        val = false;
       }
+    } else if (c10::isIntegralType(self.scalar_type(), false)) {
+      val = ival.isDouble() ? static_cast<int>(ival.toDouble()) : ival.toInt();
+    } else {
+      val = ival.toScalar();
     }
-  }
-
-  synTensor src_or_val;
-  std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
-  if (stack.at(3).isTensor()) {
-    src_or_val = p_context_->syn_inputs_.at(2).ref().get();
-  } else {
-    tmp_tensor = std::make_unique<synapse_helpers::tensor>(ConstantHelper(
-        graph,
-        (is_bool ? bool_val : stack.at(3).toScalar()),
-        ScalarType(),
-        outshape));
+    tmp_tensor = std::make_unique<synapse_helpers::tensor>(
+        ConstantHelper(graph, val, ScalarType(), outshape));
     src_or_val = tmp_tensor->get();
   }
 
