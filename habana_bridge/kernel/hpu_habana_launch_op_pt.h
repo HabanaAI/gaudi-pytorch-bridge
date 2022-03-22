@@ -299,15 +299,11 @@ class HabanaLaunchOpPT {
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
-  int64_t isInGraphInputs(torch::jit::Value* value);
-  bool isInGraphOutputs(const torch::jit::Value* value);
-  bool isInGraphOutputs(const torch::jit::Node* node, size_t index);
   bool nodeOutputPersistencePerValue(
       torch::jit::Node* node,
       torch::jit::Value* value_out);
   bool IsValueExternal(torch::jit::Value* value);
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
-  bool isInplace(torch::jit::Node* node);
   bool isControlEdge(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
@@ -369,15 +365,6 @@ class HabanaLaunchOpPT {
   void handlePrimNodes(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
-
-  bool IsOutputToRestride(const torch::jit::Value* val);
-  torch::jit::Value* GetRestridedOutvalue(const torch::jit::Value* val);
-
-  bool isPermuteInGraphOutputs(torch::jit::Value* value);
-  bool IsOutputToPermute(torch::jit::Value* value);
-  torch::jit::Value* GetPermuteOutvalue(torch::jit::Value* val);
-
-  torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
   void PrintRecipeInputs();
 

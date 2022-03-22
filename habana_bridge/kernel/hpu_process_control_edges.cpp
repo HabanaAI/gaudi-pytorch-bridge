@@ -3,8 +3,10 @@
 #include <habana_device/hpu_cached_devices.h>
 #include <synapse_helpers/device.h>
 #include "hpu_ops/hpu_op_helper.h"
+#include "pytorch_helpers/util/jitgraph_utils.h"
 
 using namespace torch::jit;
+using namespace jitgraph_utils;
 using namespace habana;
 
 bool HabanaLaunchOpPT::isControlEdge(torch::jit::Node* node) {
@@ -20,22 +22,6 @@ bool HabanaLaunchOpPT::isControlEdge(torch::jit::Node* node) {
   }
 
   return is_controledge;
-}
-
-bool HabanaLaunchOpPT::isInplace(torch::jit::Node* node) {
-  bool is_inplace = false;
-
-  if (!isControlEdge(node)) {
-    auto node_name = node->kind().toQualString();
-
-    size_t len = strlen(node_name);
-    char endch = node_name[len - 1];
-
-    if (endch == '_') {
-      is_inplace = true;
-    }
-  }
-  return is_inplace;
 }
 
 ControlEdgeType HabanaLaunchOpPT::nodeRequiresControlEdge(

@@ -36,8 +36,10 @@
 #include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "pytorch_helpers/util/jitgraph_utils.h"
 
 using namespace torch::jit;
+using namespace jitgraph_utils;
 using namespace habana;
 
 void HabanaLaunchOpPT::set_persistence_input(torch::jit::Node* node) {

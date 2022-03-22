@@ -52,9 +52,12 @@
 
 #include "hpu_ops/hpu_op_helper.h"
 
+#include "pytorch_helpers/util/jitgraph_utils.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch::jit;
+using namespace jitgraph_utils;
+
 namespace habana {
 
 // static initializations
@@ -217,109 +220,6 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", GetSynapseGraphName());
 }
 
-bool HabanaLaunchOpPT::IsOutputToRestride(const torch::jit::Value* value) {
-  auto uses = value->uses();
-  for (auto u : uses) {
-    auto restride_node = u.user;
-    if ((strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") ==
-         0) ||
-        (strcmp(restride_node->kind().toQualString(), "hpu::restride") == 0)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
-    const torch::jit::Value* val) {
-  for (auto u : val->uses()) {
-    auto restride_node = u.user;
-    if ((strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") ==
-         0) ||
-        (strcmp(restride_node->kind().toQualString(), "hpu::restride") == 0)) {
-      return restride_node->output(0);
-    }
-  }
-  return nullptr;
-}
-
-bool HabanaLaunchOpPT::IsOutputToPermute(torch::jit::Value* value) {
-  auto uses = value->uses();
-  for (auto u : uses) {
-    auto permute_node = u.user;
-    if (strcmp(permute_node->kind().toQualString(), "hpu::permute") == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-torch::jit::Value* HabanaLaunchOpPT::GetPermuteOutvalue(
-    torch::jit::Value* val) {
-  for (auto u : val->uses()) {
-    auto restride_node = u.user;
-    if (strcmp(restride_node->kind().toQualString(), "hpu::permute") == 0) {
-      return restride_node->output(0);
-    }
-  }
-  return nullptr;
-}
-
-bool HabanaLaunchOpPT::isPermuteInGraphOutputs(torch::jit::Value* value) {
-  // return if graph output is restrided node output
-  if (IsOutputToPermute(value)) {
-    auto value_permuted = GetPermuteOutvalue(value);
-    TORCH_CHECK(nullptr != value_permuted, "Permuted value output is null");
-    auto graph_outs = jit_ir_graph->outputs();
-    for (auto value_out : graph_outs) {
-      if (value_permuted->unique() == value_out->unique()) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-torch::jit::Node* HabanaLaunchOpPT::GetUnpackNodeFromTensorList(
-    torch::jit::Value* val) {
-  for (auto u : val->uses()) {
-    auto node = u.user;
-    if (strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0) {
-      return node;
-    }
-  }
-  return nullptr;
-}
-
-bool HabanaLaunchOpPT::isInGraphOutputs(const torch::jit::Value* value) {
-  auto graph_outs = jit_ir_graph->outputs();
-  for (auto value_out : graph_outs) {
-    if (value->unique() == value_out->unique()) {
-      return true;
-    }
-  }
-  // return if graph output is restrided node output
-  if (IsOutputToRestride(value)) {
-    auto value_restrided = GetRestridedOutvalue(value);
-    TORCH_CHECK(nullptr != value_restrided, "Restrided value output is null");
-    auto graph_outs = jit_ir_graph->outputs();
-    for (auto value_out : graph_outs) {
-      if (value_restrided->unique() == value_out->unique()) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-bool HabanaLaunchOpPT::isInGraphOutputs(
-    const torch::jit::Node* node,
-    size_t index) {
-  auto node_outs = node->outputs();
-  TORCH_CHECK(index <= node_outs.size());
-
-  return isInGraphOutputs(node_outs[index]);
-}
 
 bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
     torch::jit::Node* node,
@@ -834,22 +734,6 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
   for (auto& habana_op : habana_kernels) {
     ProcessSynapseShapeTensors(habana_op, node);
   }
-}
-
-int64_t HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
-  auto graph_ins = jit_ir_graph->inputs();
-  auto it = std::find_if(
-      graph_ins.cbegin(),
-      graph_ins.cend(),
-      [&](const torch::jit::Value* value_in) {
-        return (value->unique() == value_in->unique());
-      });
-
-  if (it != graph_ins.cend()) {
-    return (it - graph_ins.begin());
-  }
-
-  return -1;
 }
 
 void HabanaLaunchOpPT::create_duplicate_syn_tensor(
