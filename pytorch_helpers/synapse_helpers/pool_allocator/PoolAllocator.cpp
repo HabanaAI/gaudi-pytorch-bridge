@@ -95,9 +95,11 @@ void StaticPooling::pool_destroy() const {
 
     s_pool->memptr = 0;
     auto chunk = s_pool->_start;
+    Poolchunk* chunk_next = s_pool->_start;
     while (chunk != nullptr) {
+      chunk_next = chunk->next;
       freeHostMemory(chunk);
-      chunk = chunk->next;
+      chunk = chunk_next;
     }
     freeHostMemory(s_pool);
     s_pool = nullptr;
@@ -239,13 +241,13 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   while (chunk != nullptr) {
     if (chunk->memptr == (uint64_t)ptr) {
       chunk->used = false;
+      bytes_in_use -= chunk->size;
+      stats.UpdateStats(chunk->size, false);
       break;
     }
     chunk = chunk->next;
   }
-  bytes_in_use -= chunk->size;
   --block_count;
-  stats.UpdateStats(chunk->size, false);
   if (block_count == 0) {
     print_pool_stats();
     PT_DEVMEM_DEBUG("POOL:: All blocks freed before pool deletion !");
