@@ -4416,8 +4416,67 @@ Tensor kl_div_backward_hpu_lazy(
   return k.call();
 }
 
+/*
+For (N,C,L) inputs, reshape to (N,C,1,L) in PyTorch framework order
+For (N,C) inputs, reshape to (N,C,1,1) in Pytorch Framework order
+*/
+static inline Tensor bn_reshape_to_4d(const Tensor& in_t) {
+  Tensor reshaped_t;
+  std::vector<int64_t> ret_shape(4, 1);
+  auto in_shape = in_t.sizes().vec();
+  std::copy(in_shape.begin(), in_shape.end(), ret_shape.begin());
+  if (3 == in_shape.size()) { // For 3-D in_t[2] should be at reshaped_t[3]
+    std::swap(ret_shape[2], ret_shape[3]);
+  }
+  reshaped_t = in_t.reshape(ret_shape);
+  return reshaped_t;
+}
+
+static inline Tensor bn_reshape_from_4d_to_orig(
+    const Tensor& in_t,
+    std::vector<int64_t> in_sizes) {
+  Tensor res;
+  int dims = in_sizes.size();
+  switch (dims) {
+    case 1:
+      res = in_t.reshape({in_sizes[0]});
+      break;
+    case 2:
+      res = in_t.reshape({in_sizes[0], in_sizes[1]});
+      break;
+    case 3:
+      res = in_t.reshape({in_sizes[0], in_sizes[1], in_sizes[2]});
+      break;
+    default:
+      res = in_t;
+      break;
+  }
+  return res;
+}
+
+static inline Tensor bn_create_and_init_undefined_input(
+    const Tensor& in_t,
+    c10::MemoryFormat memfmt,
+    bool fill,
+    Scalar val) {
+  IntArrayRef rm_size;
+  Tensor ret_t;
+  if (memfmt == c10::MemoryFormat::ChannelsLast) {
+    rm_size = in_t.sizes()[3];
+  } else if (memfmt == c10::MemoryFormat::ChannelsLast3d) {
+    rm_size = in_t.sizes()[4];
+  } else {
+    rm_size = in_t.sizes()[1];
+  }
+  ret_t = empty_hpu_lazy(
+      rm_size, in_t.options(), in_t.suggest_memory_format(), true);
+  if (fill)
+    fill_hpu_lazy_(ret_t, val);
+  return ret_t;
+}
+
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
-    const Tensor& input,
+    const Tensor& input_,
     const Tensor& weight_tensor,
     const Tensor& bias_tensor,
     const Tensor& running_mean_,
@@ -4426,7 +4485,13 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
-
+  Tensor input;
+  auto in_sizes = input_.sizes().vec();
+  if (input_.ndimension() < 4) {
+    input = bn_reshape_to_4d(input_);
+  } else {
+    input = input_;
+  }
   Tensor running_mean, running_var, residual_add;
   // if RMV are undefined, create zero mean and unit variance tensors for
   // numerical stability of BN. Note that they should have same
@@ -4435,67 +4500,25 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   auto weight = weight_tensor;
   auto bias = bias_tensor;
   if (!weight.defined()) {
-    IntArrayRef rm_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rm_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rm_size = input.sizes()[4];
-    } else {
-      rm_size = input.sizes()[1];
+    weight = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), true, 1);
     }
-    weight = empty_hpu_lazy(
-        rm_size, input.options(), input.suggest_memory_format(), true);
-    fill_hpu_lazy_(weight, 1);
-  }
 
   if (!bias.defined()) {
-    IntArrayRef rm_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rm_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rm_size = input.sizes()[4];
-    } else {
-      rm_size = input.sizes()[1];
-    }
-
-    bias = empty_hpu_lazy(
-        rm_size, input.options(), input.suggest_memory_format(), true);
-    fill_hpu_lazy_(bias, 0);
+    bias = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), true, 0);
   }
 
   if (!running_mean_.defined()) {
-    IntArrayRef rm_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rm_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rm_size = input.sizes()[4];
-    } else {
-      rm_size = input.sizes()[1];
-    }
-
-    running_mean = empty_hpu_lazy(
-        rm_size, weight.options(), input.suggest_memory_format(), true);
-    fill_hpu_lazy_(running_mean, 0);
+    running_mean = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), true, 0);
   } else {
     running_mean = running_mean_;
   }
 
   if (!running_var_.defined()) {
-    IntArrayRef rv_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rv_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rv_size = input.sizes()[4];
-    } else {
-      rv_size = input.sizes()[1];
-    }
-    running_var = empty_hpu_lazy(
-        rv_size, weight.options(), input.suggest_memory_format(), true);
-    fill_hpu_lazy_(running_var, 1);
+    running_var = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), true, 1);
   } else {
     running_var = running_var_;
   }
@@ -4540,8 +4563,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
          training,
          momentum,
          eps});
-    auto res = op.call();
-    return {std::get<0>(res), std::get<3>(res), std::get<4>(res)};
+    auto res_ = op.call();
+    Tensor res;
+    auto res0 = std::get<0>(res_);
+    if (input_.ndimension() < 4) {
+      res = bn_reshape_from_4d_to_orig(res0, in_sizes);
+    } else {
+      res = res0;
+    }
+    return {res, std::get<3>(res_), std::get<4>(res_)};
   } else {
     LazyOp<Tensor> op(
         "hpu::native_batch_norm_inf",
@@ -4558,9 +4588,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
 }
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
-    const Tensor& grad_out,
-    const Tensor& input,
-    const Tensor& weight,
+    const Tensor& grad_out_,
+    const Tensor& input_,
+    const Tensor& weight_tensor,
     const Tensor& running_mean_,
     const Tensor& running_var_,
     const Tensor& save_mean,
@@ -4569,40 +4599,41 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     double eps,
     std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
+  Tensor input;
+  Tensor grad_out;
+  auto in_sizes = input_.sizes().vec();
+  auto gradout_sizes = grad_out_.sizes().vec();
+  if (input_.ndimension() < 4) {
+    input = bn_reshape_to_4d(input_);
+  } else {
+    input = input_;
+  }
+  if (grad_out_.ndimension() < 4) {
+    grad_out = bn_reshape_to_4d(grad_out_);
+  } else {
+    grad_out = grad_out_;
+  }
+  auto weight = weight_tensor;
+  if (!weight.defined()) {
+    weight = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), true, 1);
+  }
 
   Tensor running_mean, running_var;
   // create tensors if RMV are undefined. Note that they should have same
   // dtype as weight
-
   if (!running_mean_.defined()) {
-    IntArrayRef rm_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rm_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rm_size = input.sizes()[4];
-    } else {
-      rm_size = input.sizes()[1];
-    }
-
-    running_mean = empty_hpu_lazy(
-        rm_size, weight.options(), input.suggest_memory_format(), true);
+    running_mean = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), false, 0);
+    output_mask[1] = 1;
   } else {
     running_mean = running_mean_;
   }
 
   if (!running_var_.defined()) {
-    IntArrayRef rv_size;
-    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
-      rv_size = input.sizes()[3];
-    } else if (
-        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
-      rv_size = input.sizes()[4];
-    } else {
-      rv_size = input.sizes()[1];
-    }
-    running_var = empty_hpu_lazy(
-        rv_size, weight.options(), input.suggest_memory_format(), true);
+    running_var = bn_create_and_init_undefined_input(
+        input, input.suggest_memory_format(), false, 1);
+    output_mask[2] = 1;
   } else {
     running_var = running_var_;
   }
@@ -4626,7 +4657,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
         }
         return res;
       };
-
       return {
           create_res(0, input),
           create_res(1, running_mean),
@@ -4644,7 +4674,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
        train,
        eps,
        output_mask});
-  return op.call();
+  auto res_ = op.call();
+  auto res0 = std::get<0>(res_);
+  Tensor res;
+  if (input_.ndimension() < 4) {
+    res = bn_reshape_from_4d_to_orig(res0, in_sizes);
+  } else {
+    res = res0;
+  }
+  return {res, std::get<1>(res_), std::get<2>(res_)};
 }
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(

@@ -1788,8 +1788,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
   // non 4D inputs in the bridge
   if (!hpu_check_inputs_impl(
           "native_batch_norm",
-          {input, weight, bias, running_mean, running_var}) ||
-      (input.dim() < 4)) {
+          {input, weight, bias, running_mean, running_var})) {
     return AtenHpuTypeDefault::native_batch_norm(
         input,
         weight_opt,
@@ -1848,8 +1847,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
            running_mean,
            running_var,
            save_mean,
-           save_invstd}) ||
-      (input.dim() < 4))
+           save_invstd}))
     return AtenHpuTypeDefault::native_batch_norm_backward(
         grad_out,
         input,
