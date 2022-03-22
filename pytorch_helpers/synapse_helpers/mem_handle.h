@@ -79,7 +79,7 @@ class HandlesMap {
 
   HandlesMap();
 
-  mem_handle::id_t Insert(int size);
+  mem_handle::id_t Insert(size_t size);
   PtrSize GetPtrSize(mem_handle::id_t id) const;
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
   void Erase(mem_handle::id_t id);

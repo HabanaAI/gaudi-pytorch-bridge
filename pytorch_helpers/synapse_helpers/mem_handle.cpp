@@ -77,7 +77,7 @@ HandlesMap::HandlesMap() {
   handle_.emplace_back(Record{});
 }
 
-mem_handle::id_t HandlesMap::Insert(int size) {
+mem_handle::id_t HandlesMap::Insert(size_t size) {
   if (!free_handles_.empty()) {
     auto id = free_handles_.front();
     free_handles_.pop();
