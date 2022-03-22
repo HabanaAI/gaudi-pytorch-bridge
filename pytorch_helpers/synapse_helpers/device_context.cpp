@@ -310,7 +310,10 @@ hcclResult_t device_context::synchronize_output(
       ")");
   synapse_helpers::device_handle dev_handle = device_;
   HABANA_ASSERT(nullptr != dev_handle);
-  dev_handle->wait_until_address_ready(output_address);
+  dev_handle->wait_for_future(output_address);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
+    dev_handle->wait_until_address_ready(output_address);
+  }
   return hcclSuccess;
 }
 

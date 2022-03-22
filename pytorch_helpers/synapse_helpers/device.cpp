@@ -831,6 +831,10 @@ void device::wait_until_event_ready(const std::string& event_id) {
   sem_.wait_until_done(event_id);
 }
 
+void device::wait_for_future(device_ptr address) {
+  sem_.wait_for_future(address);
+}
+
 void device::wait_until_address_ready(device_ptr address) {
   sem_.wait_until_done(address);
 }

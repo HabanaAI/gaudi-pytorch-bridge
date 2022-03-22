@@ -97,49 +97,50 @@ TEST(EnvFlags, GetEnv) {
 
   // Test boolean env variables
   PT_TEST_DEBUG(
-      "PT_HPU_ENABLE_VIEW_TABLE ",
-      (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_VIEW_TABLE) ? "defined"
-                                                         : "not defined"));
+      "PT_HPU_ENABLE_SYNC_OUTPUT_HOST ",
+      (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)
+           ? "defined"
+           : "not defined"));
 
   // Get default value to restore it back if env var is defined.
   auto is_env_bool_val_org_defined =
-      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_VIEW_TABLE);
-  auto env_bool_val_org = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
+  auto env_bool_val_org = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
 
   // Unset the cached env flag
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
   auto is_env_bool_val_defined =
-      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_VIEW_TABLE);
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
   EXPECT_EQ(is_env_bool_val_defined, false);
 
   // Set "string" value to bool env var
-  setenv("PT_HPU_ENABLE_VIEW_TABLE", "false", 1);
+  setenv("PT_HPU_ENABLE_SYNC_OUTPUT_HOST", "false", 1);
 
   // Get env value and it is read correctly
-  bool env_bool_val = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
-  PT_TEST_DEBUG("PT_HPU_ENABLE_VIEW_TABLE=", env_bool_val);
+  bool env_bool_val = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
+  PT_TEST_DEBUG("PT_HPU_ENABLE_SYNC_OUTPUT_HOST=", env_bool_val);
   EXPECT_EQ(env_bool_val, false);
 
   // Unset the cached env flag
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
 
   // Set non "string" value to bool env var
-  setenv("PT_HPU_ENABLE_VIEW_TABLE", "1", 1);
+  setenv("PT_HPU_ENABLE_SYNC_OUTPUT_HOST", "1", 1);
 
-  env_bool_val = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
-  PT_TEST_DEBUG("PT_HPU_ENABLE_VIEW_TABLE=", env_bool_val);
+  env_bool_val = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
+  PT_TEST_DEBUG("PT_HPU_ENABLE_SYNC_OUTPUT_HOST=", env_bool_val);
   EXPECT_EQ(env_bool_val, true);
 
   // Unset the cached env flag
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST);
 
   if (is_env_bool_val_org_defined) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE, env_bool_val_org, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST, env_bool_val_org, 1);
     PT_TEST_DEBUG(
-        "Restore original PT_HPU_ENABLE_VIEW_TABLE=", env_bool_val_org);
+        "Restore original PT_HPU_ENABLE_SYNC_OUTPUT_HOST=", env_bool_val_org);
   }
   // unset env flag
-  unsetenv("PT_HPU_ENABLE_VIEW_TABLE");
+  unsetenv("PT_HPU_ENABLE_SYNC_OUTPUT_HOST");
 }
 
 TEST(EnvFlags, FatalMessage) {

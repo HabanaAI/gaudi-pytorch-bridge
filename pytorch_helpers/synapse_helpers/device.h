@@ -273,6 +273,7 @@ class device {
   void register_producer_on_stream(stream& stream, shared_event event);
 
   void add_event_id(const std::string& event_id, const std::string& new_id);
+  void wait_for_future(device_ptr address);
   void wait_until_address_ready(device_ptr address);
   void wait_until_event_ready(const std::string& event_id);
   void wait_for_event(shared_event& event);
