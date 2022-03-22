@@ -69,48 +69,19 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
   PT_LAZY_TRACE;
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("hpu::habanaOptimizerSparseAdagrad"), {});
 
-  std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHPU));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
+  LazyOp<::std::tuple<at::Tensor&, at::Tensor&>> k{
+      "hpu::habanaOptimizerSparseAdagrad",
+      {gradients,
+       weights_in,
+       moments_in,
+       indices,
+       learning_rate,
+       valid_count_tensor},
+      {},
+      {weights_in.sizes().vec(), moments_in.sizes().vec()}};
 
-  for (auto& i : hl_tensors) {
-    node->AddInput(i.GetIrValue());
-  }
-
-  auto hlweights = GetHbLazyTensor(weights_in);
-  ir::Value& out1 = hlweights.CurrentIrValue();
-  out1.SetNode(
-      node,
-      hlweights.GetDevice(),
-      hlweights.GetSizes(),
-      hlweights.dtype_optional());
-  auto hlmoments = GetHbLazyTensor(moments_in);
-  ir::Value& out2 = hlmoments.CurrentIrValue();
-  out2.SetNode(
-      node,
-      hlmoments.GetDevice(),
-      hlmoments.GetSizes(),
-      hlmoments.dtype_optional(),
-      1);
-
-  std::vector<at::Tensor> input_pt_vec{
-      gradients,
-      weights_in,
-      moments_in,
-      indices,
-      learning_rate,
-      valid_count_tensor};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op({weights_in, moments_in});
-  return std::tie(weights_in, moments_in);
+  return k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
 }
 
 void optimizer_adamw_hpu_lazy(
