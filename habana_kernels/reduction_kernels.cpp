@@ -417,14 +417,22 @@ void SumDimOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for SumDim operator");
   TORCH_CHECK(
       inputs[1].isIntList(),
-      "Input arg3 expected to be IntList for SumDim operator");
+      "Input arg2 expected to be IntList for SumDim operator");
   TORCH_CHECK(
-      inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
+      inputs[2].isBool(), "Input arg3 expected to be Bool for SumDim operator");
 
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toIntVector();
   bool keepdim = inputs[2].toBool();
 
+  // Check if dim = [], if yes, reduce input along all dims
+  // dim = tuple(range(self.dim))
+  if (dim.size() == 0) {
+    for (int i = 0; i < self.dim(); ++i) {
+      dim.push_back(i);
+    }
+    inputs[1] = dim;
+  }
   // Remove duplicates in dim list
   LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
   // compute number of output dims
