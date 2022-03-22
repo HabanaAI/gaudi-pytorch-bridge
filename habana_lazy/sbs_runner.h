@@ -119,7 +119,7 @@ class SBSRunner : public SBSInterface {
       std::string& ir_name);
 
   std::shared_ptr<torch::jit::Operator> createCPUOperator(
-      std::string ir_name,
+      const std::string& ir_name,
       ir::NodePtr node,
       const std::vector<at::IValue>& inputs);
 

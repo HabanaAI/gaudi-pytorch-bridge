@@ -162,7 +162,8 @@ class LazyOp {
       : m_node{std::move(node)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_node->op().toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(
+            m_node ? m_node->op().toQualString() : "")} {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -179,7 +180,8 @@ class LazyOp {
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_node->op().toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(
+            m_node ? m_node->op().toQualString() : "")} {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");

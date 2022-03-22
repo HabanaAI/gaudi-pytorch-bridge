@@ -55,7 +55,9 @@ bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
   if (!hb_tensor.GetSBSCompareIndication()) {
     PT_LAZY_DEBUG(
         "SBS: Tensor is disabled for comparison. Name: ",
-        hb_tensor.CurrentIrValue().ToString());
+        hb_tensor.CurrentIrValue().ToString(),
+        " sbs name: ",
+        hb_tensor.FetchSBSTensorName());
     return false;
   }
   auto version = hb_tensor.GetSBSTensorVersion();
@@ -65,6 +67,8 @@ bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
     PT_LAZY_DEBUG(
         "SBS: Tensor name: ",
         hb_tensor.CurrentIrValue().ToString(),
+        " sbs name: ",
+        hb_tensor.FetchSBSTensorName(),
         " id: ",
         id,
         " previously compared version: ",
@@ -176,6 +180,8 @@ void SBSDebug::compare_tensors_cos(
       __FUNCTION__,
       " flushing tensor name=",
       GetHbLazyTensor(hpu_res).CurrentIrValue().ToString(),
+      " sbs name: ",
+      GetHbLazyTensor(hpu_res).FetchSBSTensorName(),
       " id=",
       GetHbLazyTensor(hpu_res).getTensorUniqueId(),
       " version: ",
@@ -185,6 +191,8 @@ void SBSDebug::compare_tensors_cos(
       __FUNCTION__,
       " after flush, comparing tensor name=",
       GetHbLazyTensor(hpu_res).CurrentIrValue().ToString(),
+      " sbs name: ",
+      GetHbLazyTensor(hpu_res).FetchSBSTensorName(),
       " id=",
       GetHbLazyTensor(hpu_res).getTensorUniqueId(),
       " version: ",
@@ -311,9 +319,11 @@ void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
     if (cpu_ref == c10::nullopt) {
       PT_LAZY_DEBUG(
           "SBS: Tensor is live (comparison point), but has no CPU (SBS is not supported). Name: ",
-          hb_tensor.CurrentIrValue().ToString());
+          hb_tensor.CurrentIrValue().ToString(),
+          " sbs name: ",
+          hb_tensor.FetchSBSTensorName());
     } else if (NeedToCompare(hb_tensor, /*update*/ true)) {
-      std::string name = hb_tensor.CurrentIrValue().ToString();
+      std::string name = hb_tensor.FetchSBSTensorName();
       if (name.empty()) {
         name = std::string("Op Name N/A. ID ") +
             std::to_string(hb_tensor.getTensorUniqueId());
@@ -328,7 +338,9 @@ void SBSDebug::CompareTensors(std::vector<HbLazyTensor>& tensors) {
       at::Tensor at_tensor = FetchAtenFromHbLazyTensor(hb_tensor);
       PT_LAZY_DEBUG(
           "SBS: calling compare_tensors_cos. Name: ",
-          hb_tensor.CurrentIrValue().ToString());
+          hb_tensor.CurrentIrValue().ToString(),
+          " sbs name: ",
+          hb_tensor.FetchSBSTensorName());
       compare_tensors_cos(at_tensor, cpu_ref.value(), name);
     }
   }

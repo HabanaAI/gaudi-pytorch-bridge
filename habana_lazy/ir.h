@@ -290,8 +290,7 @@ class MetaData {
 class Node {
  public:
   Node() = delete;
-  Node(c10::Symbol op, bool _is_input = false)
-      : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {}
+  Node(c10::Symbol op, bool _is_input = false);
 
   const c10::Symbol op() const {
     return m_op;

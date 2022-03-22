@@ -82,6 +82,7 @@ struct Data {
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
+  std::string sbs_tensor_name = "";
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
@@ -160,6 +161,8 @@ class HbLazyTensor {
   bool GetSBSCompareIndication() const;
   void UpdateSBSTensorVersion();
   int GetSBSTensorVersion() const;
+  void SetSBSTensorName(const std::string& name);
+  std::string FetchSBSTensorName() const;
   const c10::optional<at::Tensor>& GetCPUTensorData() const;
   void AssignIrValue(ir::Value ir_value) const;
   c10::ScalarType dtype() const;

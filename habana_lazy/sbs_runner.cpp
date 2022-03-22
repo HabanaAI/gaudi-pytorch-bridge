@@ -90,7 +90,7 @@ void SBSDisabledOp::run(
     UNUSED const std::vector<at::IValue>& prealloc_stack,
     UNUSED const ir::NodePtr& prealloc_node) {
   auto hl_result = GetHbLazyTensor(results[0]);
-  LogError(hl_result.CurrentIrValue().ToString(), "SBS is disabled for op");
+  LogError(hl_result.FetchSBSTensorName(), "SBS is disabled for op");
 }
 
 at::IValue SBSRunner::gatherInputForCPUOp(
@@ -213,7 +213,9 @@ void SBSRunner::handleTensorForCPUInput(
     if (hl_input.GetSBSLiveTensorIndication()) {
       PT_LAZY_WARN(
           "SBS: Tensor is live (decision point), but has no CPU (SBS is not supported). Name: ",
-          hl_input.CurrentIrValue().ToString())
+          hl_input.CurrentIrValue().ToString(),
+          " sbs name: ",
+          hl_input.FetchSBSTensorName());
     }
     // There's no CPU input or this is not a decision point
     // >> we'll take the HPU data
@@ -325,7 +327,7 @@ void SBSRunner::run(
 }
 
 std::shared_ptr<torch::jit::Operator> SBSRunner::createCPUOperator(
-    std::string ir_name,
+    const std::string& ir_name,
     ir::NodePtr node,
     const std::vector<at::IValue>& inputs) {
   std::vector<torch::jit::Value*> node_inputs(
@@ -429,6 +431,13 @@ at::Tensor SBSRunner::prepareTensorToCPU(
   PT_LAZY_DEBUG("SBSRunner::", __FUNCTION__, " index=", index);
   auto hb_tensor = GetHbLazyTensor(tensor);
 
+  // Saving current tensor name, to be used later
+  PT_LAZY_DEBUG(
+      __FUNCTION__,
+      " Setting sbs tensor name: ",
+      hb_tensor.CurrentIrValue().ToString());
+  hb_tensor.SetSBSTensorName(hb_tensor.CurrentIrValue().ToString());
+
   // Special handling for view tensors - we need to sync before we copy to CPU
   auto id = hb_tensor.getTensorUniqueId();
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
@@ -500,6 +509,8 @@ void SBSRunner::processOutputCPUTensor(
       hl_result.getTensorUniqueId(),
       " ir name=",
       hl_result.CurrentIrValue().ToString(),
+      " sbs name: ",
+      hl_result.FetchSBSTensorName(),
       " version: ",
       hl_result.GetSBSTensorVersion());
   hl_result.SetCPUTensorData(cpu_tensor);
@@ -512,7 +523,9 @@ void SBSRunner::processOutputCPUTensor(
         "SBS: disabling compare of tensor[",
         index,
         "], name: ",
-        hl_result.CurrentIrValue().ToString());
+        hl_result.CurrentIrValue().ToString(),
+        " sbs name: ",
+        hl_result.FetchSBSTensorName());
     hl_result.SetSBSCompareIndication(false);
   }
   hl_result.UpdateSBSTensorVersion();
@@ -523,6 +536,8 @@ void SBSRunner::processOutputCPUTensor(
       m_number_of_tensor_runs,
       " current tensor name: ",
       hl_result.CurrentIrValue().ToString(),
+      " sbs name: ",
+      hl_result.FetchSBSTensorName(),
       " id=",
       hl_result.getTensorUniqueId(),
       " version: ",
@@ -545,7 +560,10 @@ bool SBSRunner::getNodeInfo(
   auto hl_result = GetHbLazyTensor(result);
   node = hl_result.CurrentIrValue().mp_node;
   ir_name = hl_result.CurrentIrValue().ToString();
-  if (ir_name.empty()) {
+  if (!ir_name.empty()) {
+    PT_LAZY_DEBUG(__FUNCTION__, " Setting sbs tensor name: ", ir_name);
+    hl_result.SetSBSTensorName(ir_name);
+  } else {
     // ir_name = std::string("Op Name N/A. ID ") +
     ir_name = std::string("Op Name N/A. id=") +
         std::to_string(hl_result.getTensorUniqueId());
@@ -577,8 +595,10 @@ bool SBSViews::getNodeInfo(
       __FUNCTION__,
       " result id=",
       id,
-      " name=",
+      " name: ",
       hl_result.CurrentIrValue().ToString(),
+      " sbs name: ",
+      hl_result.FetchSBSTensorName(),
       " version: ",
       hl_result.GetSBSTensorVersion());
 

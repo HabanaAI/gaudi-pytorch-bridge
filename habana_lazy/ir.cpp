@@ -73,6 +73,15 @@ size_t Use::operator()(const Use& in) const {
   return hash;
 };
 
+Node::Node(c10::Symbol op, bool _is_input)
+    : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    static std::atomic<uint64_t> id(0);
+    SetName(absl::StrFormat(
+        "n%d_%s/%s", id++, getCurrentModuleName(), m_op.toQualString()));
+  }
+}
+
 std::string Node::ToString() const {
   std::stringstream ss;
   ss << m_op.toQualString() << "{";
@@ -225,11 +234,6 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
-    static std::atomic<uint64_t> id(0);
-    node->SetName(absl::StrFormat(
-        "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));
-  }
   for (auto& i : inputs) {
     node->AddInput(i);
   }

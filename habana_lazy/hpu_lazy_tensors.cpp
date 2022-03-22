@@ -328,6 +328,17 @@ int HbLazyTensor::GetSBSTensorVersion() const {
   return data()->sbs_tensor_version;
 }
 
+void HbLazyTensor::SetSBSTensorName(const std::string& name) {
+  data()->sbs_tensor_name = name;
+}
+std::string HbLazyTensor::FetchSBSTensorName() const {
+  auto name = data()->sbs_tensor_name;
+  if (name.empty()) {
+    name = CurrentIrValue().ToString();
+  }
+  return name;
+}
+
 const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
   const auto& tens = data()->cpu_tensor_data;
   if (tens != c10::nullopt) {
