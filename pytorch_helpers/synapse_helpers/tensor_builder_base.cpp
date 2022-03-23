@@ -55,21 +55,27 @@ tensor::shape_t to_stride_t(
   auto size = size_of_syn_data_type(data_type);
 
   PT_SYNHELPER_DEBUG("to_stride_t : tensor element size = ", size);
-  std::string str = "to_stride_t : tensor shape {";
+  if (IS_SYNHELPER_DEBUG_ENABLED) {
+    std::string str = "to_stride_t : tensor shape {";
+    for (const auto& s : shape) {
+      str += std::to_string(s) + ", ";
+    }
+
+    str += "}";
+    PT_SYNHELPER_DEBUG(str);
+
+    str = "to_stride_t : tensor stride {";
+    for (const auto& s : stride) {
+      str += std::to_string(s) + ", ";
+    }
+    str += "}";
+    PT_SYNHELPER_DEBUG(str);
+  }
+
   auto tensor_size = size;
   for (const auto& s : shape) {
-    str += std::to_string(s) + ", ";
     tensor_size *= s;
   }
-  str += "}";
-  PT_SYNHELPER_DEBUG(str);
-
-  str = "to_stride_t : tensor stride {";
-  for (const auto& s : stride) {
-    str += std::to_string(s) + ", ";
-  }
-  str += "}";
-  PT_SYNHELPER_DEBUG(str);
 
   // write strides backwards
   // Synapse supports strides on FCD to be element size only

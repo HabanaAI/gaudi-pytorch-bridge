@@ -512,6 +512,8 @@ class PTOpTrace {
   IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
+#define IS_SYNHELPER_DEBUG_ENABLED \
+  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SYNHELPER)
 #define PT_HABHELPER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
 #define PT_DEVMEM_DEBUG(...) \
