@@ -40,6 +40,10 @@ namespace {
 const std::string graph_prefix = ".graph_dumps/";
 std::string get_unique_recipe_name(const std::string& name) {
   static uint64_t suffix = -1;
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      !(IS_SYNHELPER_DEBUG_ENABLED)) {
+    return std::to_string(++suffix);
+  }
 
   char* env_graph_prefix{getenv("HBN_TF_GRAPH_PREFIX")};
   if (env_graph_prefix != nullptr) {
