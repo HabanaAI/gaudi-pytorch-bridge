@@ -39,6 +39,6 @@ bool CompileGraphWithRange(
     size_t& new_recipe_key,
     std::shared_ptr<habana_helpers::CompilationStatistics> statpsh);
 
-bool RefineBucketDS(double time_improve_factor);
+bool RefineBucketDS(size_t graph_key);
 
 } // namespace habana

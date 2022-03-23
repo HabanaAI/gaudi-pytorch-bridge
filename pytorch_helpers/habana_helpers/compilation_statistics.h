@@ -114,11 +114,13 @@ class CompilationStatistics {
   /**
    * @brief Adds synLaunch time measurement
    *
-   * @param ms synLaunch time in miliseconds
+   * @param ns synLaunch time in nanoseconds
    * @param step iteration where this data belongs, leave to 0 and data will be
    * assigned to current iteration
    */
-  virtual void LogLaunch(uint64_t ms, uint64_t step = 0);
+  virtual void LogLaunchBase(uint64_t ns, uint64_t step = 0);
+  virtual void LogLaunch(uint64_t ns, uint64_t step = 0);
+  virtual void LogLaunchPerf(uint64_t base_ns, uint64_t ns, uint64_t step = 0);
 
   /**
    * @brief Adds refine compilation details

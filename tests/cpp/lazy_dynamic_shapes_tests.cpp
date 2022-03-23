@@ -19,6 +19,7 @@
 
 #include "habana_kernels/lazy_kernels_declarations.h"
 
+#include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
@@ -397,14 +398,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
 TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
   int A = 50;
   const int C = 30;
-  // std::vector<int> input_sizes{14, 16, 30, 16, 30, 16, 30};
-  // std::vector<int> test_rounds{1, 1, 2, 4, 2, 4, 2};
-
-  // std::vector<int> input_sizes{30, 16, 30, 16, 30, 16};
-  // std::vector<int> test_rounds{1, 1, 2, 4, 4, 6};
 
   std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
-  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 6};
+  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
 
   int num;
 
@@ -426,6 +422,10 @@ TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
       torch::Tensor h7_c = h7.to(torch::kCPU);
 
       PT_TEST_DEBUG("PTI_DBG :: TEST ", i + 1, ", round ", j, "  END");
+      habana_helpers::DynamicBucketInfo::DumpDynamicRecipeStat();
+      if (j > 30) {
+        habana_helpers::DynamicBucketInfo::DisableBucketRefinement();
+      }
     }
   }
 }

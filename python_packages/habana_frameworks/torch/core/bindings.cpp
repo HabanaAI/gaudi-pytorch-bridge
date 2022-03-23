@@ -15,6 +15,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 
 bool IsAvailable() {
@@ -58,7 +59,7 @@ const std::string get_device_name(int device_id) {
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  // python API to report device memory live allocation details
+  // python APIs to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
     habana::HPUDeviceAllocator::print_memory_stats(msg);
   });
@@ -71,6 +72,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("memstat_devmem_stop_collect", [](const char* msg = "") {
     habana::HPUDeviceAllocator::memstat_devmem_stop_collect(msg);
   });
+
+  // python APIs related to dynamic shape bucket refinement
+  m.def("dump_refined_recipe_stat", []() {
+    habana_helpers::DynamicBucketInfo::DumpDynamicRecipeStat();
+  });
+  m.def("disable_bucket_refinement", []() {
+    habana_helpers::DynamicBucketInfo::DisableBucketRefinement();
+  });
+
+  // python APIs related to cpu fallback
   m.def("get_fallback_op_count", []() {
     return habana::HpuFallbackHelper::get()->get_op_count();
   });
@@ -90,7 +101,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
 
-  // Lazy apis
+  // python APIs related to lazy mode
   m.def(
       "_mark_step",
       [](const std::string& device_str) {

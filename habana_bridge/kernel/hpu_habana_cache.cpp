@@ -88,8 +88,6 @@ size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 size_t RecipeValueSpec::compile_count = 0;
 size_t RecipeValueSpec::launch_count = 0;
 
-std::mutex DynamicBucketInfoMap::mutex_;
-
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   std::unordered_map<size_t, std::vector<int64_t>> shape_tensor_map;
   auto num_inputs = inputs.size();
@@ -440,6 +438,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   }
   deserialize(is, dynamic_graph);
   deserialize(is, is_refined);
+  deserialize(is, is_refined_wirt);
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
@@ -524,6 +523,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
 
   serialize(os, dynamic_graph);
   serialize(os, is_refined);
+  serialize(os, is_refined_wirt);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
   serialize(os, collective_kernels_info.size());
@@ -1005,6 +1005,7 @@ void RecipeValueSpec::launch(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
+  PT_BRIDGE_BEGIN;
   SelfCheck();
 
   if (IS_BRIDGE_DEBUG_ENABLED) {
@@ -1225,6 +1226,7 @@ void RecipeValueSpec::launch(
 
   num_launches++;
   increment_launch_count();
+  PT_BRIDGE_END;
 }
 
 void RecipeCacheLRU::add(
@@ -1432,17 +1434,16 @@ void DynamicBucketInfoMap::add(
   map_.emplace(key, val);
 }
 
-void DynamicBucketInfoMap::refine() {
-  std::lock_guard<std::recursive_mutex> recursive_lg(
-      habana_lazy::HbContextArena::Get()->GetMutex());
-  std::lock_guard<std::mutex> lg(mutex_);
+void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
   for (auto& p : map_) {
     auto dbipsh = p.second;
-    PT_TEST_DEBUG_TH(
-        "Iterating over DynamicBucketInfo for graph with key=",
-        dbipsh->GetGraphKey());
-    dbipsh->CheckForSplitBucket();
+    if (dbipsh->GetGraphKey() == graph_key) {
+      dbipsh->CheckForSplitBucket();
+      return;
+    }
   }
+  TORCH_CHECK(
+      false, "Graph key ", graph_key, " is missing from DynamicBucketInfoMap");
 }
 
 DiskCache::DiskCache(std::string cache_path)

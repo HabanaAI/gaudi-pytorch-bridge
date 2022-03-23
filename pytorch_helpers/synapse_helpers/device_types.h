@@ -116,7 +116,9 @@ class device_allocator {
 
 using create_allocator_fnc =
     std::function<std::unique_ptr<device_allocator>(synDeviceId device_id)>;
+
 using framework_specific_cleanup_fnc = std::function<void()>;
+using refinement_specific_cleanup_fnc = std::function<void()>;
 
 using device_handle = std::shared_ptr<device>;
 

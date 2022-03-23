@@ -12,6 +12,7 @@
  */
 
 #include "habana_bridge/kernel/ds_graph_recompile.h"
+#include "habana_bridge/kernel/hpu_habana_cache.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -22,6 +23,8 @@
 
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/tensor_info.h"
+
+std::mutex habana::DynamicBucketInfoMap::mutex_;
 
 at::Tensor habana::CreateEmptyTensor(
     const PtTensorInfo& ti,
@@ -58,21 +61,15 @@ torch::jit::Stack habana::CreateInputStack(
 }
 
 void habana::PrintStack(torch::jit::Stack& st) {
-  std::ostream& O = std::cout;
-
-  O << "aten_inputs #" << st.size() << "::" << '\n';
+  PT_BRIDGE_DEBUG("aten_inputs #", st.size(), "::");
   for (size_t idx = 0; idx < st.size(); idx++) {
     habana_helpers::DebugString(st.at(idx));
   }
 }
 
-bool habana::RefineBucketDS(double time_improve_factor) {
+bool habana::RefineBucketDS(size_t graph_key) {
   bool is_refined{true};
-  habana_lazy::habana_lazy_executor.setExecutionMode(
-      LazyExecutionMode::kLOWERING);
-  PT_BRIDGE_DEBUG(
-      "Current improvement factor for refinement is ", time_improve_factor);
-  DynamicBucketInfoMap::get_instance().refine();
+  DynamicBucketInfoMap::get_instance().refine_graph(graph_key);
   return is_refined;
 }
 

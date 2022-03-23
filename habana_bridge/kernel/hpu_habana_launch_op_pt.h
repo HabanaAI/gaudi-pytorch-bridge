@@ -401,9 +401,7 @@ class HabanaLaunchOpPT {
     }
     return rvpsh;
   }
-  void ReturnCachedRecipe(RecipeValueSpec& rv) {
-    rv.set_use_flag(false);
-  }
+  void ReturnCachedRecipe(RecipeValueSpec& rv);
 
   void create_duplicate_syn_tensor(
       at::Tensor* tensor,

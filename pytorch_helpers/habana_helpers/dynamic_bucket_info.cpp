@@ -35,6 +35,19 @@ constexpr int64_t DynamicBucketInfo::default_min_value_;
 constexpr uint64_t DynamicBucketInfo::min_iterations_to_split_;
 constexpr uint64_t DynamicBucketInfo::max_buckets_number_;
 
+size_t DynamicBucketInfo::original_recipe_count_{0};
+size_t DynamicBucketInfo::refined_recipe_count_{0};
+size_t DynamicBucketInfo::refined_recipe_wirt_count_{0};
+size_t DynamicBucketInfo::num_original_recipe_hits_{0};
+size_t DynamicBucketInfo::num_refined_recipe_hits_{0};
+size_t DynamicBucketInfo::num_refined_recipe_wirt_hits_{0};
+
+uint64_t DynamicBucketInfo::total_syn_runtime_{0};
+uint64_t DynamicBucketInfo::original_syn_runtime_{0};
+uint64_t DynamicBucketInfo::refined_syn_runtime_{0};
+
+std::unordered_map<uint64_t, bool> DynamicBucketInfo::improvement_map_;
+
 std::mutex UniqueTokenGenerator::mutex_;
 UniqueTokenGenerator* UniqueTokenGenerator::instance_{nullptr};
 std::atomic_uint64_t UniqueTokenGenerator::current_token_{
@@ -149,6 +162,11 @@ void Bucket::UpdateRunTime(uint64_t elapsed_time) {
   }
 
   run_time_stat_.Update(elapsed_time);
+  if (created_by_refinement_ == false) {
+    DynamicBucketInfo::inc_original_syn_runtime(elapsed_time);
+  } else {
+    DynamicBucketInfo::inc_refined_syn_runtime(elapsed_time);
+  }
   if (base_time_ > 0) {
     uint64_t time_to_beat = static_cast<uint64_t>(
         static_cast<double>(base_time_) * time_improve_factor_);
@@ -209,10 +227,11 @@ void Bucket::ResetBaseLine(const HistoryItemLog& hist) {
   ResetRunCount();
 }
 
-DynamicBucketInfo::DynamicBucketInfo()
+DynamicBucketInfo::DynamicBucketInfo(size_t key)
     : min_policy_(DynamicDimsPolicy::HISTORIC),
       max_policy_(DynamicDimsPolicy::CALCULATED),
       split_policy_(SplitPolicy::DYNAMIC) {
+  SetGraphKey(key);
   refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT)) {
     min_policy_ = DynamicDimsPolicy::CURRENT;
@@ -450,6 +469,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     return {};
   }
 
+  bool isRuntimeImproved{mfu_bucket.IsRuntimeImproved()};
+
   PT_DYNAMIC_SHAPE_DEBUG("Current mfu bucket is eligible for refinement");
   auto rvpsh = mfu_bucket.GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
@@ -476,6 +497,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
       result_computed, mfu_bucket, min_dist_idx, choose_lower);
 
   Bucket& new_bucket_candidate{new_bucket_computed};
+  uint64_t new_bucket_candidate_id = buckets_.size();
+  new_bucket_candidate.SetIndex(new_bucket_candidate_id);
   ResultShapes& new_range{result_computed};
   bool is_compiled{false};
   size_t new_recipe_key{0};
@@ -493,6 +516,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
 
   // Only push this bucket if the compilation is successful
   if (is_compiled) {
+    std::lock_guard<std::mutex> lg(refine_mutex_);
+
     // Move the history
     // Find the previous hits
     auto& input_hist_idxes{mfu_bucket.GetInputHistIdxes()};
@@ -526,7 +551,14 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     new_bucket.SetInheritedInputHistIdxes(inherited_input_hist_move);
     new_bucket.SetIndex(new_bucket_id);
     new_bucket.ResetBaseLine(input_history_);
+    new_bucket.SetCreatedByRefinement();
     SetRecipeKeyForBucket(new_bucket_id, new_recipe_key);
+    inc_refined_recipe_count();
+    new_bucket.GetSynapseRecipePtr()->set_refined();
+    if (isRuntimeImproved) {
+      inc_refined_recipe_wirt_count();
+      new_bucket.GetSynapseRecipePtr()->set_refined_wirt();
+    }
 
     PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket with id ",
@@ -1035,7 +1067,7 @@ void DynamicBucketInfo::RegisterTimeSlot(
     const std::shared_ptr<synapse_helpers::TimeSlotBase>& ts,
     uint64_t bucket_id) {
   UpdateRunTimes();
-  run_time_q_.emplace(ts, bucket_id, current_input_idx_);
+  run_time_q_.emplace_back(ts, bucket_id, current_input_idx_);
 }
 
 void DynamicBucketInfo::UpdateRunTimes() {
@@ -1049,10 +1081,13 @@ void DynamicBucketInfo::UpdateRunTimes() {
       break;
     }
     auto t_ns{time_opt.value()};
+    inc_total_syn_runtime(t_ns);
+    // Ignore the first launch runtime
+    if (!buckets_[bucket_id].IsFirstLaunch())
+      input_history_.hist_items_[input_hist_idx].run_time_ = t_ns;
     buckets_[bucket_id].UpdateRunTime(t_ns);
-    input_history_.hist_items_[input_hist_idx].run_time_ = t_ns;
     cumu_run_time_stat_.Update(t_ns);
-    run_time_q_.pop();
+    run_time_q_.pop_front();
   }
 }
 
@@ -1190,6 +1225,42 @@ std::shared_ptr<habana_helpers::CompilationStatistics> DynamicBucketInfo::
 void DynamicBucketInfo::create_statistics(
     std::unique_ptr<habana_helpers::CompilationStatistics> sptr) {
   statistics_ = std::move(sptr);
+}
+
+void DynamicBucketInfo::DumpDynamicRecipeStat() {
+  size_t launch_time_increase_cnt{0};
+  for (auto k : improvement_map_) {
+    if (k.second == false)
+      launch_time_increase_cnt += 1;
+  }
+  PT_REFINEMENT_DEBUG(
+      "  #original_recipes=",
+      DynamicBucketInfo::original_recipe_count_,
+      ", #refined_recipes=",
+      DynamicBucketInfo::refined_recipe_count_,
+      ", #refined_recipes_wirt=",
+      DynamicBucketInfo::refined_recipe_wirt_count_,
+      ", #original_recipe_hits=",
+      DynamicBucketInfo::num_original_recipe_hits_,
+      ", #refined_recipe_hits=",
+      DynamicBucketInfo::num_refined_recipe_hits_,
+      ", #refined_recipe_wirt_hits=",
+      DynamicBucketInfo::num_refined_recipe_wirt_hits_,
+      ", #total_syn_runtime=",
+      DynamicBucketInfo::total_syn_runtime_,
+      ", #total_syn_runtime=",
+      DynamicBucketInfo::original_syn_runtime_,
+      ", #refined_syn_runtime=",
+      DynamicBucketInfo::refined_syn_runtime_,
+      ", (",
+      launch_time_increase_cnt,
+      " | ",
+      improvement_map_.size(),
+      ")");
+}
+
+void DynamicBucketInfo::DisableBucketRefinement() {
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD, false, 1);
 }
 
 } // namespace habana_helpers

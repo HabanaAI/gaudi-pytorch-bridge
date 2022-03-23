@@ -97,8 +97,6 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
 std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
     const std::vector<size_t>& bucket_input_hist_idxes) {
   // Compute the distribution midpoint of input_hist_idxes_
-  PT_TEST_DEBUG("History input indices: ", bucket_input_hist_idxes);
-
   DimsHistoryElement distr_lo{clone_ref_with(LONG_MAX)};
   DimsHistoryElement distr_hi{clone_ref_with(0)};
   DimsHistoryElement distr_mid{clone_ref_with(LONG_MAX)};
@@ -158,7 +156,7 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
     }
   }
 
-  if (min_dist == 0) {
+  if (min_dist == 0 && (distr_mid == distr_hi || distr_mid == distr_lo)) {
     return std::make_tuple(false, 0, false);
   }
 

@@ -55,6 +55,10 @@ class graph {
       std::string name,
       bool dry_run = false);
 
+  static synapse_error_v<graph> create_for_refinement(
+      device& device,
+      std::string name);
+
   synapse_error_o add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
@@ -221,7 +225,6 @@ class graph {
   device& device_;
   const std::string name_;
   bool is_valid_{false};
-  static std::mutex instance_lock_;
   bool in_build_phase_{true};
   bool in_execution_phase_{false};
   bool graph_is_empty_{true};

@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "synapse_helpers/device.h"
+#include "pytorch_helpers/synapse_helpers/device.h"
 
 #include <absl/types/variant.h>
 #include <algorithm>
@@ -21,11 +21,15 @@
 #include <vector>
 
 #include <synapse_api.h>
-#include "devmem_logger.h"
-#include "habana_helpers/logging.h"
-#include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/session.h"
-#include "synapse_helpers/util.h"
+
+#include "habana_bridge/kernel/refinement_engine.h"
+
+#include "pytorch_helpers/habana_helpers/logging.h"
+
+#include "pytorch_helpers/synapse_helpers/devmem_logger.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/synapse_helpers/session.h"
+#include "pytorch_helpers/synapse_helpers/util.h"
 
 namespace synapse_helpers {
 /**
@@ -177,6 +181,9 @@ device::device(
   enable_memory_defragmentation_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION);
   enable_memory_defrag_info_ = GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO);
+
+  // Create the refinement thread
+  habana::RefinementEngine::GetEngine().Initialize();
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -345,6 +352,12 @@ void device::cleanup() {
     return;
   }
   cleanup_done_ = true;
+
+  // Refinement thread cleanup is the first call since
+  // it might be in the process of compiling a new recipe.
+  // The compilation is allowed to complete for graceful termination.
+  habana::RefinementEngine::GetEngine().Shutdown();
+
   // Wait for H2D copy tensors if any pending
   std::set<synapse_helpers::device_ptr>::iterator itr;
   for (itr = copy_tensor_set_.begin(); itr != copy_tensor_set_.end(); itr++) {

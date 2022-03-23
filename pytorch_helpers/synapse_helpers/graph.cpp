@@ -99,16 +99,14 @@ CHECK_KPARAMS_SIZE(ns_SoftmaxCrossEntropy, 8)
 graph::graph(device& device, std::string name)
     : device_{device}, name_{std::move(name)} {}
 
-std::mutex graph::instance_lock_{};
-
 synapse_error_v<graph> graph::create(
     device& device,
     std::string name,
     bool dry_run) {
+  PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
   PT_SYNHELPER_DEBUG("Graph Create.");
-  graph::instance_lock_.lock();
   synStatus status = synSuccess;
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
@@ -117,10 +115,26 @@ synapse_error_v<graph> graph::create(
   } else {
     status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
   }
-  SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "Graph creation failed.", status, graph::instance_lock_.unlock())
+  SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
   syn_graph.is_valid_ = true;
   syn_graph.dry_run_ = dry_run;
+  PT_SYNHELPER_END;
+  return {std::move(syn_graph)};
+}
+
+synapse_error_v<graph> graph::create_for_refinement(
+    device& device,
+    std::string name) {
+  PT_SYNHELPER_BEGIN;
+  graph syn_graph(device, std::move(name));
+
+  PT_SYNHELPER_DEBUG("Graph Create.");
+  synStatus status = synSuccess;
+  status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
+  SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
+  syn_graph.is_valid_ = true;
+  syn_graph.dry_run_ = false;
+  PT_SYNHELPER_END;
   return {std::move(syn_graph)};
 }
 
@@ -140,7 +154,6 @@ graph::~graph() {
   if (is_valid_) {
     PT_SYNHELPER_DEBUG("Graph destroy.");
     synGraphDestroy(graph_handle_);
-    graph::instance_lock_.unlock();
 
     is_valid_ = false;
   }
@@ -314,6 +327,7 @@ synapse_error_o graph::launch(
     std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events) {
+  PT_SYNHELPER_BEGIN;
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -410,6 +424,7 @@ synapse_error_o graph::launch(
   }
 
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
+  PT_SYNHELPER_END;
 
   return {};
 }

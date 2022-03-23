@@ -220,6 +220,7 @@ class PtLogger {
     HABHELPER = 0x1000,
     IRGRAPH = 0x2000,
     VIEWTABLE = 0x4000,
+    REFINEMENT = 0x8000,
   };
 };
 
@@ -532,6 +533,8 @@ class PTOpTrace {
 #define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::TEST, __VA_ARGS__)
 #define PT_DYNAMIC_SHAPE_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
+#define PT_REFINEMENT_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::REFINEMENT, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

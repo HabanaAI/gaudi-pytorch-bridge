@@ -32,7 +32,6 @@ using namespace habana_lazy;
 using ValueList = std::vector<ir::Value>;
 
 bool HbLazyTensor::switch_dynamic_mode = false;
-std::future<bool> HbLazyTensor::refinement_handle_{};
 
 HbContextArena* HbContextArena::Get() {
   static HbContextArena* arena = new HbContextArena();
@@ -634,7 +633,6 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
 void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
-  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   SyncTensorsGraphInternal(tensors, lazyFrontEndInfo);
 }
@@ -643,7 +641,6 @@ void HbLazyTensor::SyncTensorsGraphFast(
     std::vector<HbLazyTensor>* tensors,
     std::vector<ir::Value>& input_values,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
-  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   SyncTensorsGraphInternalFast(tensors, input_values, lazyFrontEndInfo);
 }
@@ -1088,11 +1085,6 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
 void HbLazyTensor::StepMarker(
     const std::string& device_str,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info) {
-  PT_LAZY_TRACE;
-
-  // Entry point of bucket refinement thread
-  InitiateBucketRefinement();
-
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
   if (!device.is_hpu()) {
@@ -1105,31 +1097,6 @@ void HbLazyTensor::StepMarker(
   if (switch_dynamic_mode) {
     UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     switch_dynamic_mode = false;
-  }
-}
-
-void HbLazyTensor::InitiateBucketRefinement() {
-  PT_LAZY_TRACE;
-  if (GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
-    // Start the separate compile thread
-    if (!HbLazyTensor::refinement_handle_.valid()) {
-      PT_TEST_DEBUG_TH(
-          "Bucket refine thread is not started. Starting a new thread ...");
-      HbLazyTensor::refinement_handle_ =
-          std::async(habana::RefineBucketDS, 0.9);
-    } else {
-      std::chrono::milliseconds span(0);
-      auto compile_status = HbLazyTensor::refinement_handle_.wait_for(span);
-      if (std::future_status::ready != compile_status) {
-        PT_TEST_DEBUG_TH("Bucket refine thread is running ...");
-      } else {
-        PT_TEST_DEBUG(
-            "Bucket refine thread is completed. Starting a new thread ...");
-        HbLazyTensor::refinement_handle_ =
-            std::async(habana::RefineBucketDS, 0.9);
-      }
-    }
   }
 }
 

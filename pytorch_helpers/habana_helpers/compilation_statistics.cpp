@@ -83,7 +83,9 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       uint64_t) override{};
   void LogUsedBucket(int, ResultShapes, bool, uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
+  void LogLaunchBase(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
+  void LogLaunchPerf(uint64_t, uint64_t, uint64_t) override{};
   void LogRefineCompilation(ResultShapes, uint64_t, uint64_t, uint64_t)
       override{};
   void LogRefineResult(const std::string&, uint64_t) override{};
@@ -210,8 +212,24 @@ void CompilationStatistics::LogSelectedRecipe(
   json_file_[GetStep(step)]["selected recipe"] = signature;
 }
 
-void CompilationStatistics::LogLaunch(uint64_t ms, uint64_t step) {
-  json_file_[GetStep(step)]["synLaunch time"] = ms;
+void CompilationStatistics::LogLaunchBase(uint64_t ns, uint64_t step) {
+  json_file_[GetStep(step)]["synLaunch time base"] = ns;
+}
+
+void CompilationStatistics::LogLaunch(uint64_t ns, uint64_t step) {
+  json_file_[GetStep(step)]["synLaunch time"] = ns;
+}
+
+void CompilationStatistics::LogLaunchPerf(
+    uint64_t base_ns,
+    uint64_t ns,
+    uint64_t step) {
+  if (base_ns == 0 || ns == 0) {
+    json_file_[GetStep(step)]["synLaunch time performance"] = "-";
+  } else {
+    json_file_[GetStep(step)]["synLaunch time performance"] =
+        (base_ns > ns ? "increased" : "decreased");
+  }
 }
 
 void CompilationStatistics::LogRefineCompilation(

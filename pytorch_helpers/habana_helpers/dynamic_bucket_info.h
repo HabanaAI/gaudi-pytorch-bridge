@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <deque>
 #include <iostream>
 #include <limits>
 #include <mutex>
@@ -255,6 +256,9 @@ class Bucket {
   uint64_t GetTime() const {
     return run_time_stat_.GetAvgTime();
   };
+  uint64_t GetTimeBase() const {
+    return base_time_;
+  };
   size_t GetRecipeKey() {
     return recipe_key_;
   };
@@ -267,6 +271,9 @@ class Bucket {
   }
   bool IsRefinementCandidate() const {
     return (!IsStatic() && refine_candidate_ && time_improvement_met_);
+  };
+  bool IsRuntimeImproved() const {
+    return ((base_time_ > 0) && time_improvement_met_);
   };
   void UpdateCompileTime(uint64_t t_ns) {
     compile_time_ += t_ns;
@@ -323,8 +330,6 @@ class Bucket {
   };
   void SetInputHistIdxes(std::vector<size_t>& v) {
     std::swap(input_hist_idxes_, v);
-    // input_hist_idxes_.clear();
-    // input_hist_idxes_ = v;
   };
 
   std::vector<size_t>& GetInheritedInputHistIdxes() {
@@ -332,9 +337,15 @@ class Bucket {
   };
   void SetInheritedInputHistIdxes(std::vector<size_t>& v) {
     std::swap(inherited_input_hist_idxes_, v);
-    // inherited_input_hist_idxes_.clear();
-    // inherited_input_hist_idxes_ = v;
   };
+
+  bool IsFirstLaunch() {
+    return is_first_launch_;
+  }
+
+  void SetCreatedByRefinement(bool f = true) {
+    created_by_refinement_ = f;
+  }
 
   static constexpr uint64_t uninitialized_token = 1000000006;
 
@@ -366,6 +377,7 @@ class Bucket {
   TimeStat run_time_stat_;
 
   // Refinement related
+  bool created_by_refinement_{false};
   bool keep_time_{true};
   bool refine_candidate_{true};
   bool time_improvement_met_{true};
@@ -377,7 +389,8 @@ class Bucket {
 
 class DynamicBucketInfo {
  public:
-  DynamicBucketInfo();
+  DynamicBucketInfo(size_t key = 0);
+  DynamicBucketInfo(const habana_helpers::DynamicBucketInfo&) = delete;
 
   DynamicBucketInfo(DynamicDimsPolicy min_policy, DynamicDimsPolicy max_policy)
       : min_policy_(min_policy),
@@ -465,6 +478,9 @@ class DynamicBucketInfo {
   uint64_t GetTime(uint64_t bucket_idx) const {
     return buckets_.at(bucket_idx).GetTime();
   };
+  uint64_t GetTimeBase(uint64_t bucket_idx) const {
+    return buckets_.at(bucket_idx).GetTimeBase();
+  };
   size_t GetRecipeKeyForBucket(size_t bucket_idx) {
     return buckets_.at(bucket_idx).GetRecipeKey();
   };
@@ -543,6 +559,43 @@ class DynamicBucketInfo {
       std::vector<size_t>& input_hist_move,
       std::vector<size_t>& input_hist_retain);
 
+  std::mutex& get_refine_mutex() {
+    return refine_mutex_;
+  }
+
+  static void inc_original_recipe_count() {
+    original_recipe_count_ += 1;
+  }
+  static void inc_refined_recipe_count() {
+    refined_recipe_count_ += 1;
+  }
+  static void inc_refined_recipe_wirt_count() {
+    refined_recipe_wirt_count_ += 1;
+  }
+  static void inc_num_original_recipe_hits() {
+    num_original_recipe_hits_ += 1;
+  }
+  static void inc_num_refined_recipe_hits() {
+    num_refined_recipe_hits_ += 1;
+  }
+  static void inc_num_refined_recipe_wirt_hits() {
+    num_refined_recipe_wirt_hits_ += 1;
+  }
+  static void inc_total_syn_runtime(uint64_t elapsed_time) {
+    total_syn_runtime_ += elapsed_time;
+  }
+  static void inc_original_syn_runtime(uint64_t elapsed_time) {
+    original_syn_runtime_ += elapsed_time;
+  }
+  static void inc_refined_syn_runtime(uint64_t elapsed_time) {
+    refined_syn_runtime_ += elapsed_time;
+  }
+  static void update_improvement_map(uint64_t key, bool flag) {
+    improvement_map_[key] = flag;
+  }
+  static void DumpDynamicRecipeStat();
+  static void DisableBucketRefinement();
+
   static constexpr int64_t default_max_multiplier_ = 2;
   static constexpr int64_t default_min_value_ = 2;
   static constexpr uint64_t max_buckets_number_ = 20;
@@ -593,13 +646,10 @@ class DynamicBucketInfo {
   // All modifications to the bucket should be done through the handler
   // functions in DynamicBucketInfo class.
   std::vector<Bucket> buckets_;
-  // std::queue<
-  // std::pair<std::shared_ptr<synapse_helpers::TimeSlotBase>, uint64_t>>
-  // run_time_states;
   // The following queue is used to store the time events for capturing
   // the time spent by a recipe in the compute stream
   // Each element is a tuple of time_slot, bucket_id, input_history_idx
-  std::queue<
+  std::deque<
       std::
           tuple<std::shared_ptr<synapse_helpers::TimeSlotBase>, size_t, size_t>>
       run_time_q_;
@@ -680,6 +730,22 @@ class DynamicBucketInfo {
 
   // Following map is only populated for exact shapes
   std::unordered_map<size_t, uint64_t> input_token_map_;
+
+  // Mutex for bucket history update while refinement
+  std::mutex refine_mutex_;
+
+  // static counts for tracking refinement
+  static size_t original_recipe_count_;
+  static size_t refined_recipe_count_;
+  static size_t refined_recipe_wirt_count_; // wirt with improved runtime
+  static size_t num_original_recipe_hits_;
+  static size_t num_refined_recipe_hits_;
+  static size_t num_refined_recipe_wirt_hits_;
+
+  static uint64_t total_syn_runtime_;
+  static uint64_t original_syn_runtime_;
+  static uint64_t refined_syn_runtime_;
+  static std::unordered_map<uint64_t, bool> improvement_map_;
 };
 
 class UniqueTokenGenerator {

@@ -812,6 +812,7 @@ void habana::HabanaLaunchOpPT::RestoreInputTensorMetadata() {
 }
 
 void habana::HabanaLaunchOpPT::UpdateOutputs() {
+  PT_BRIDGE_BEGIN;
   // Restore the metadata of the inputs
   RestoreInputTensorMetadata();
 
@@ -826,6 +827,7 @@ void habana::HabanaLaunchOpPT::UpdateOutputs() {
     IValPtrShared ivpsh = oit->second;
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
+  PT_BRIDGE_END;
 }
 
 void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {

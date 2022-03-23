@@ -255,8 +255,18 @@ struct RecipeValueSpec {
     return launch_count;
   }
 
+  bool get_refined() {
+    return is_refined;
+  }
   void set_refined() {
     is_refined = true;
+  }
+
+  bool get_refined_wirt() {
+    return is_refined_wirt;
+  }
+  void set_refined_wirt() {
+    is_refined_wirt = true;
   }
 
   void increment_recipe_count() {
@@ -342,7 +352,14 @@ struct RecipeValueSpec {
   const char** tensor_names{nullptr};
   bool dynamic_graph{false};
   bool enable_time_scope{false};
+  // is_refine becomes true if the recipe is created from the refinement thread
   bool is_refined{false};
+  // is_refine_wirt becomes true if the recipe is created from the refinement
+  // thread and it the runtime improvement condition for refinement is
+  // satisfied. The base time is not available for the first refinement for a
+  // graph, so the runtime improvement condition is not applicable for the first
+  // refinement.
+  bool is_refined_wirt{false};
 
   // Multiple recipes can be queued up, so each recipe would need
   // a dedicated time slot for itself
@@ -472,11 +489,7 @@ class DynamicBucketInfoMap {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> get(
       std::shared_ptr<RecipeArgumentSpec>& key);
 
-  void refine();
-
-  // Add print function for DynamicBucket
-  // friend std::ostream& operator<<(std::ostream& O, const
-  // DynamicBucketInfoMap& v);
+  void refine_graph(size_t graph_key);
 
  private:
   DynamicBucketInfoMap() = default;
