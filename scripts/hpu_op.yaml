@@ -804,15 +804,6 @@ cosh_:
   guid: cosh_fwd
   inplace_ids: [0]
 
-cross:
-  dtypes: [BFloat16, Float, Int]
-  op_backend: Cross
-  out_ids: [0]
-
-cross.out:
-  dtypes: [BFloat16, Float, Int]
-  op_backend: Cross
-
 cumprod:
   force_default: false
   custom_fill_params: FillCumsumParams
@@ -1532,6 +1523,7 @@ leaky_relu.out:
     - [1, double]
 
 lerp.Scalar:
+  force_default: false
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
@@ -1539,6 +1531,7 @@ lerp.Scalar:
   out_ids: [0]
 
 lerp.Tensor:
+  force_default: false
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
@@ -1556,6 +1549,7 @@ lerp.Tensor_out:
   op_backend: Lerp
 
 lerp_.Scalar:
+  force_default: false
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
@@ -1563,6 +1557,7 @@ lerp_.Scalar:
   inplace_ids: [0]
 
 lerp_.Tensor:
+  force_default: false
   custom_output_shape: LerpOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
@@ -1706,7 +1701,6 @@ _log_softmax_backward_data:
   custom_fill_params: FillLogSoftmaxBackwardParams
   op_backend: LogSoftmaxBackward
   out_ids: [0]
-  legacy_eager: true
 
 _log_softmax_backward_data.out:
   dtypes: [BFloat16, Float]
@@ -1929,6 +1923,7 @@ median.dim_values:
   op_backend: Mediandim
 
 min.dim:
+  force_default: false
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
   dtypes: [BFloat16, Float]
@@ -2740,6 +2735,7 @@ sinh_:
   inplace_ids: [0]
 
 smooth_l1_loss:
+  force_default: false
   custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossOperator
@@ -2979,6 +2975,7 @@ tril.out:
   guid: matrix_band_part_fwd
 
 tril_:
+  force_default: false
   custom_fill_params: FillTrilParams
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd
@@ -2997,6 +2994,7 @@ triu.out:
   guid: matrix_band_part_fwd
 
 triu_:
+  force_default: false
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd

@@ -15,7 +15,6 @@
 #include <utility>
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -71,6 +70,7 @@
 #include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
+#include "hpu_ops/cpu_fallback.h"
 
 using namespace habana;
 using namespace at;
@@ -371,6 +371,11 @@ Tensor add_strided_insert_node(
   return result;
 }
 
+Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
+  auto sizes = self.sizes().vec();
+  dst.resize_(self.sizes());
+  return dst.copy_(self);
+}
 Tensor add_view_lazy(
     const Tensor& self,
     IntArrayRef size,
@@ -3666,7 +3671,6 @@ Tensor slice_backward_hpu_lazy_legacy(
       index.options().pinned_memory_opt());
   auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
   auto result = HpuOp::scatter(grad_input, dim, expand_idx, grad_output);
-
   return result;
 }
 
@@ -5034,6 +5038,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       maxpool_node, input, kernel_size, stride, padding, dilation, ceil_mode);
   return k.call();
 }
+
 Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     Tensor& grad_input,
     const Tensor& grad_output,
@@ -5045,7 +5050,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode) {
   PT_LAZY_TRACE;
-  return AtenHpuTypeDefault::max_pool2d_with_indices_backward_out(
+  FALLBACK_IF_UNSUPPORTED_OP2_O(max_pool2d_with_indices_backward, PARAMS2(
       grad_output,
       input,
       kernel_size,
@@ -5054,8 +5059,9 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
       dilation,
       ceil_mode,
       indices,
-      grad_input);
+      grad_input),grad_input)
 }
+
 Tensor max_pool2d_with_indices_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& input,
@@ -5164,7 +5170,8 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   PT_LAZY_TRACE;
-  return AtenHpuTypeDefault::avg_pool2d_backward_out(
+
+  FALLBACK_IF_UNSUPPORTED_OP2_O(avg_pool2d_backward,PARAMS2(
       grad_output,
       input,
       kernel_size,
@@ -5173,8 +5180,9 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
       ceil_mode,
       count_include_pad,
       divisor_override,
-      grad_input);
+      grad_input),grad_input)
 }
+
 Tensor avg_pool2d_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& input,
@@ -5429,7 +5437,7 @@ Tensor& mean_dim_out_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  return AtenHpuTypeDefault::mean_out(self, dim, keepdim, dtype, output);
+  FALLBACK_IF_UNSUPPORTED_OP2_O(mean,PARAMS2(self, dim, keepdim, dtype, output),out)
 }
 
 Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
@@ -5656,14 +5664,14 @@ Tensor softmax_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& output,
     int64_t dim,
-    const Tensor& input) {
+    ScalarType input_dtype) {
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> k(
       "aten::_softmax_backward_data",
-      {grad, output, dim, input},
-      {2},
-      {SoftmaxBackwardOperator::compute_output_shape(input)});
+      {grad, output, dim, input_dtype},
+      {2, 3},
+      {SoftmaxBackwardOperator::compute_output_shape(grad)});
 
   return k.call();
 }
@@ -5834,8 +5842,6 @@ Tensor empty_strided_hpu_lazy(
     auto hl_empty = TryGetHbLazyTensor(empty_tensor);
     if (hl_empty) {
       setTensorAsInputNode(hl_empty.value());
-      hl_empty.value().getAttachedTensorImpl()->set_sizes_and_strides(
-          size, stride);
     }
   }
   return empty_tensor;

@@ -106,7 +106,7 @@ TEST(DS_CacheTest, ArgumentSpec) {
   std::string jit_grstr =
       "def fn(" + jit_instr + "):  return " + jit_instr + "\n";
   std::shared_ptr<torch::jit::Graph> gr =
-      torch::jit::compile(jit_grstr)->get_function("fn").graph();
+      toGraphFunction(torch::jit::compile(jit_grstr)->get_function("fn")).graph();
 
   torch::jit::ArgumentSpecCreator as_creator(*gr);
   bool with_grad{true};

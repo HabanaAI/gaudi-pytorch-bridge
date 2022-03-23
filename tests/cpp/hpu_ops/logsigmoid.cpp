@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, log_sigmoid_fwd) {
+TEST_F(HpuOpTest, DISABLED_log_sigmoid_fwd) {
   GenerateInputs(1);
 
   auto exp = torch::log_sigmoid_forward(GetCpuInput(0));
@@ -21,7 +21,7 @@ TEST_F(HpuOpTest, log_sigmoid_fwd) {
   Compare(std::get<1>(exp), std::get<1>(res));
 }
 
-TEST_F(HpuOpTest, log_sigmoid_fwd_out) {
+TEST_F(HpuOpTest, DISABLED_log_sigmoid_fwd_out) {
   GenerateInputs(1);
 
   auto out = torch::empty(0);
@@ -35,7 +35,7 @@ TEST_F(HpuOpTest, log_sigmoid_fwd_out) {
   Compare(buffer, hbuffer);
 }
 
-TEST_F(HpuOpTest, log_sigmoid_bwd) {
+TEST_F(HpuOpTest, DISABLED_log_sigmoid_bwd) {
   GenerateInputs(3);
 
   auto expected = torch::log_sigmoid_backward(
@@ -45,7 +45,7 @@ TEST_F(HpuOpTest, log_sigmoid_bwd) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, log_sigmoid_bwd_out) {
+TEST_F(HpuOpTest, DISABLED_log_sigmoid_bwd_out) {
   GenerateInputs(3);
 
   torch::ScalarType dtype = torch::kFloat;

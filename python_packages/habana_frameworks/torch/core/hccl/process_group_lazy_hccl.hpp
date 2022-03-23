@@ -46,6 +46,9 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
     friend class ProcessGroupLazyHCCL;
   };
 
+  const std::string getBackendName() const override {
+    return std::string("hccl");
+   }
   c10::intrusive_ptr<ProcessGroup::Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts = BroadcastOptions()) override;

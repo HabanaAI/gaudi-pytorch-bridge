@@ -537,7 +537,10 @@ def lazyop(
     ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, lazyop_call_args
 ):
     ns = "hpu" if ctxop.custom_schema() else "aten"
-    schema_fn = ns + "::" + get_aten_opname(aten_sig).split(".")[0]
+    aten_opname = get_aten_opname(aten_sig)
+    opname = aten_opname.split(".")[0]
+    overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
+    schema_fn = ns + "::" + opname
     code = ""
 
     dtypes = ctxop.get_dtypes()
@@ -550,20 +553,40 @@ def lazyop(
 
         # Check the promoted input when type promotion applies
         if ctxop.supports_type_promotion():
-            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE(at::result_type({}, {}), {}, {})\n".format(
-                param_vars[0],
-                param_vars[1],
-                fname,
-                ", ".join(param_vars),
-            )
-        else:
-            for t in input_tensors:
-                code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}({}, {}, {})\n".format(
-                    "_PER_TENSOR" if isinstance(dtypes, dict) else "",
-                    t,
-                    fname,
+            if overload:
+                code += "  FALLBACK_IF_UNSUPPORTED_DTYPE2(at::result_type({}, {}), {}, {}, {})\n".format(
+                    param_vars[0],
+                    param_vars[1],
+                    opname,
+                    overload,
                     ", ".join(param_vars),
                 )
+            else:
+                code += "  FALLBACK_IF_UNSUPPORTED_DTYPE(at::result_type({}, {}), {})\n".format(
+                    param_vars[0],
+                    param_vars[1],
+                    opname,
+                    ", ".join(param_vars),
+                )
+        else:
+            for t in input_tensors:
+                if overload:
+                    code += (
+                        "  FALLBACK_IF_UNSUPPORTED_DTYPE{}2({}, {}, {}, {})\n".format(
+                            "_PER_TENSOR" if isinstance(dtypes, dict) else "",
+                            t,
+                            opname,
+                            overload,
+                            ", ".join(param_vars),
+                        )
+                    )
+                else:
+                    code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}({}, {}, {})\n".format(
+                        "_PER_TENSOR" if isinstance(dtypes, dict) else "",
+                        t,
+                        opname,
+                        ", ".join(param_vars),
+                    )
         code += "\n"
 
     fallback_check = ctxop.get_fallback_check()
@@ -572,9 +595,14 @@ def lazyop(
         code += "  extern std::function<bool({})> {};\n".format(
             ", ".join(["decltype(" + p + ")" for p in param_vars]), fallback_check
         )
-        code += "  FALLBACK_IF_UNSUPPORTED_INPUTS({}, {}, {})\n".format(
-            fallback_check, fname, ", ".join(param_vars)
-        )
+        if overload:
+            code += "  FALLBACK_IF_UNSUPPORTED_INPUTS2({}, {}, {}, {})\n".format(
+                fallback_check, opname, overload, ", ".join(param_vars)
+            )
+        else:
+            code += "  FALLBACK_IF_UNSUPPORTED_INPUTS({}, {}, {})\n".format(
+                fallback_check, opname, ", ".join(param_vars)
+            )
         code += "\n"
 
     if ctxop.is_legacy_reqd():
@@ -987,7 +1015,7 @@ def generate_impl(aten_sig, overload, override_fn):
     return code
 
 
-def generate_dtype_macro(ctxop, fname):
+def generate_dtype_macro(ctxop, opname):
     def generate_line(dtypes, suffix):
         dtypes_set = set(dtypes)
         assert len(dtypes) == len(
@@ -1009,16 +1037,17 @@ def generate_dtype_macro(ctxop, fname):
             dtypes.append("Bool")
 
         return "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
-            suffix, ", ".join(["c10::ScalarType::" + d for d in dtypes])
+            suffix.replace(".", "_"),
+            ", ".join(["c10::ScalarType::" + d for d in dtypes]),
         )
 
     dtypes = ctxop.get_dtypes()
     if isinstance(dtypes, list):
-        return generate_line(dtypes, fname)
+        return generate_line(dtypes, opname)
     elif isinstance(dtypes, dict):
         lines = []
         for k, v in dtypes.items():
-            lines.append(generate_line(v, fname + k))
+            lines.append(generate_line(v, "{}_{}".format(opname, k)))
         return "\n".join(lines)
     else:
         assert dtypes is None, "dtypes support list/dict only."
@@ -1033,8 +1062,6 @@ def generate_all(fgens):
     krlines = []
 
     dtype_defs = ""
-    dtype_fnames = set()
-
     op_frontend_hfunctions = ""
     op_frontend_functions = ""
     op_backend = ""
@@ -1065,9 +1092,10 @@ def generate_all(fgens):
         )
 
         # Dtype definitions
-        if fgen.ctxop.get_dtypes() and fgen.func not in dtype_fnames:
-            dtype_defs += "{}\n".format(generate_dtype_macro(fgen.ctxop, fgen.func))
-            dtype_fnames.add(fgen.func)
+        if fgen.ctxop.get_dtypes():
+            dtype_defs += "{}\n".format(
+                generate_dtype_macro(fgen.ctxop, get_aten_opname(fgen.aten_sig))
+            )
 
         if fgen.op_frontend:
             # Lazy function declarations
@@ -1188,9 +1216,11 @@ def generate(args):
             errors.append(e)
     print("Generated {} ops from {}".format(len(fgens), args.yaml), file=sys.stdout)
     assert len(errors) == 0, "Found {} errors: {}".format(len(errors), errors)
-    assert len(ctx.op_data) == len(
-        fgens
-    ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
+
+    if len(ctx.op_data) != len(fgens):
+        fgen_data = [get_aten_opname(x.aten_sig) for x in fgens]
+        for op in ctx.op_data.keys():
+            assert op in fgen_data, "Cannot generate {}".format(op)
 
     op_backend_classes = generate_op_backend_hclasses(fgens)
     op_frontend_classes = generate_op_frontend_hclasses(fgens)

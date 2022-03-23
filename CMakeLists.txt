@@ -175,13 +175,13 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_defau
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/ops/
                    MAIN_DEPENDENCY scripts/gen.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/ops/
 )
 
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.cpp
@@ -190,12 +190,12 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.cpp
                      --output_folder=${CMAKE_SOURCE_DIR}/hpu_ops/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
                    MAIN_DEPENDENCY scripts/gen_op.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
 )
 
 # Create symlink to latest build from tests dir

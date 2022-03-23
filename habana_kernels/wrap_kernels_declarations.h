@@ -16,12 +16,15 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
+  static at::Tensor _copy_from_and_resize(
+      const at::Tensor& self,
+      const at::Tensor& dst);
   static at::Tensor& silu_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor cumsum(
       const at::Tensor& self,
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
-  static at::Tensor& linspace_out(
+  inline static at::Tensor& linspace_out(
       const at::Scalar& start,
       const at::Scalar& end,
       c10::optional<int64_t> steps,
@@ -269,13 +272,13 @@ struct hpu_wrap {
       int64_t dim_,
       const at::Tensor& index,
       const at::Tensor& src);
-  static at::Tensor& index_add_(
+  inline static at::Tensor& index_add_(
       at::Tensor& self,
       int64_t dim_,
       const at::Tensor& indices,
       const at::Tensor& source,
       const at::Scalar& alpha);
-  static at::Tensor& index_add_(
+  inline static at::Tensor& index_add_(
       at::Tensor& self,
       int64_t dim_,
       const at::Tensor& indices,
@@ -742,7 +745,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       const int64_t dim,
       const bool half_to_float);
-  static at::Tensor _log_softmax_backward_data(
+  inline static at::Tensor _log_softmax_backward_data(
       const at::Tensor& grad,
       const at::Tensor& output,
       int64_t dim,
@@ -759,7 +762,7 @@ struct hpu_wrap {
       const at::Tensor& grad,
       const at::Tensor& output,
       int64_t dim,
-      const at::Tensor& input);
+      at::ScalarType input_dtype);
   static at::Tensor _masked_scale(
       const at::Tensor& self,
       const at::Tensor& mask,

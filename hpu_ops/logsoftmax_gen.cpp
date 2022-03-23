@@ -38,7 +38,7 @@ std::shared_ptr<void> FillLogSoftmaxBackwardParams(
 void LogSoftmaxBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  constexpr int inputTensorPos = 3;
+  constexpr int inputTensorPos = 1; //PT v 11.1 paramters list is changed
   const auto& outshape = stack_tensor(stack, inputTensorPos).sizes();
 
   size_t size = 0;

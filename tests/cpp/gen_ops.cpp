@@ -478,7 +478,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::mse_loss_outf, torch::Reduction::Reduction::None);
   TestOut(torch::neg_outf);
   TestOut(torch::reciprocal_outf);
-  TestOut(torch::round_outf);
+  //TestOut(torch::round_outf);
   TestOut(torch::rsqrt_outf);
   TestOut(torch::sgn_outf);
   TestOut(torch::sigmoid_backward_outf);

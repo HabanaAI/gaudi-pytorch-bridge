@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include <ATen/ExpandUtils.h>
-#include <TH/THTensor.hpp>
 #include <torch/script.h>
 #include <memory>
 

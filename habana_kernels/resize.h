@@ -13,16 +13,32 @@
 #include <ATen/ATen.h>
 // TODO: In general we should remove this file.
 // Cuda includes THCTensor.hpp and we are including CPU header
-#include <TH/THTensor.hpp>
-
+#include <ATen/native/Resize.h>
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/unused_macro.h"
 #include "kernel_utils.h"
+#define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
 namespace at {
 namespace native {
-inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
+inline  StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
+// Within PyTorch, the invariant is that storage_ is always
+// initialized; we never have tensors that don't have any storage.
+// However, for Caffe2, this is not true, because they have permitted
+// tensors to be allocated without specifying what scalar type
+// they should be, only to be filled when GetMutableData is called
+// for the first time (providing the necessary type). It is an ERROR to
+// invoke any PyTorch operations on such a half-constructed storage,
+// and this check tests for that case.
+TORCH_CHECK(tensor->storage(), "Cannot use PyTorch operations on a half-constructed "
+"tensor. If this tensor came from Caffe2, please call GetMutableData on "
+"it first; otherwise, this is a bug, please report it.");
+return tensor->storage().unsafeGetStorageImpl();
+}
+
+//inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
+inline void THStorage_resizeBytes(c10::StorageImpl* self, ptrdiff_t size_bytes) {
   TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::HPUDeviceAllocator::allocator_active_device_id;
@@ -132,7 +148,8 @@ inline TensorImpl* resize_impl_hpu_(
 // THH = TorcH Habana
 // TODO: put it in proper namespace
 inline void THHTensor_resizeNd(
-    THTensor* self,
+    //THTensor* self,
+    c10::TensorImpl* self,
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {
@@ -150,7 +167,8 @@ inline void THHTensor_resizeNd(
 }
 
 inline void THHTensor_resizeNd_nonpersistent(
-    THTensor* self,
+    //THTensor* self,
+    c10::TensorImpl* self,
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {

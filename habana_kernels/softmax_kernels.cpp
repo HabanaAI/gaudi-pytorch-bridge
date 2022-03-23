@@ -518,13 +518,14 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
       inputs[2].isInt(),
       "Input type expected to be int for SoftmaxBackward operator");
   TORCH_CHECK(
-      inputs[3].isTensor(),
-      "Input type expected to be tensor for SoftmaxBackward operator");
+      inputs[3].isScalar(),
+      "Input type expected to be scalar for SoftmaxBackward operator");
 
   at::Tensor grad = inputs[0].toTensor();
   at::Tensor output = inputs[1].toTensor();
   int dim = inputs[2].toInt();
-  at::Tensor input = inputs[3].toTensor();
+  //auto dtype = inputs[3].toScalar();
+  auto input = grad;
 
   dim = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
 

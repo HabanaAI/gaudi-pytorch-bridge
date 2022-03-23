@@ -9,11 +9,11 @@
  */
 #include <torch/library.h>
 
-#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
+#include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -53,6 +53,10 @@ Tensor hpu_wrap::_to_copy(
   return r;
 }
 
+Tensor hpu_wrap::_copy_from_and_resize(const Tensor& self, const Tensor& dst) {
+  return _copy_from_and_resize_lazy(self, dst);
+}
+
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
@@ -76,7 +80,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
       self.device().type() == c10::DeviceType::HPU) {
     if (src.scalar_type() == c10::ScalarType::Float &&
         self.scalar_type() == c10::ScalarType::Byte) {
-      return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
+      FALLBACK_IF_UNSUPPORTED_OP2(copy_, PARAMS2(self, src, non_blocking))
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
@@ -86,7 +90,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
         self.device().type() == c10::DeviceType::HPU) {
       if (src.scalar_type() == c10::ScalarType::Float &&
           self.scalar_type() == c10::ScalarType::Long) {
-        return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
+       FALLBACK_IF_UNSUPPORTED_OP2(copy_,PARAMS2(self, src, non_blocking))
       }
     }
     return copy_hpu_(self, src, non_blocking);
@@ -97,8 +101,7 @@ Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride) {
-  if (!hpu_check_inputs_impl("_reshape_alias", {self}))
-    return AtenHpuTypeDefault::_reshape_alias(self, size, stride);
+  FALLBACK_IF_UNSUPPORTED_OP(_reshape_alias, PARAMS1( self ) ,PARAMS2(self, size, stride))
   // TODO: In order to align the changes of bert with Pytorchv1.9 we used
   // view inplace of as_strided implementation for the reshape of tensor
   // with no-change.
@@ -127,8 +130,7 @@ Tensor hpu_wrap::as_strided(
     c10::optional<int64_t> storage_offset) {
   // No CPU fallback for as_strided since H2D & D2H DMA support only contiguous
   // tensor transfers
-  // if (!hpu_check_inputs_impl("as_strided", {self}))
-  //  return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
+  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self), PARAMS2(self, size, stride, storage_offset))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return as_strided_hpu_lazy(self, size, stride, storage_offset);
@@ -143,9 +145,8 @@ Tensor& hpu_wrap::set_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  if (!hpu_check_inputs_impl("set_", {self}))
-    return AtenHpuTypeDefault::set_(self, source, storage_offset, size, stride);
 
+  FALLBACK_IF_UNSUPPORTED_OP_O(set_, PARAMS1( self ) ,PARAMS2(self, source, storage_offset, size, stride),source_Storage_storage_offset)
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return set_hpu_lazy_(self, source, storage_offset, size, stride);
 
@@ -155,8 +156,7 @@ Tensor& hpu_wrap::set_(
 };
 
 Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
-  if (!hpu_check_inputs_impl("view", {self}))
-    return AtenHpuTypeDefault::view(self, size);
+  FALLBACK_IF_UNSUPPORTED_OP(view,PARAMS1( self ) ,PARAMS2(self, size))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return view_hpu_lazy(self, size);
@@ -171,8 +171,7 @@ Tensor hpu_wrap::addcmul(
     const Tensor& tensor1,
     const Tensor& tensor2,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("addcmul", {self, tensor1, tensor2}))
-    return AtenHpuTypeDefault::addcmul(self, tensor1, tensor2, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP(addcmul, PARAMS1(self, tensor1, tensor2),PARAMS2(self, tensor1, tensor2, alpha))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addcmul_hpu_lazy(self, tensor1, tensor2, alpha);
   } else {
@@ -184,8 +183,7 @@ Tensor& hpu_wrap::addcmul_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("addcmul_", {self, tensor1, tensor2}))
-    return AtenHpuTypeDefault::addcmul_(self, tensor1, tensor2, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP(addcmul_, PARAMS1(self, tensor1, tensor2),PARAMS2(self, tensor1, tensor2, alpha))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addcmul_hpu_lazy_(self, tensor1, tensor2, alpha);
@@ -199,8 +197,7 @@ Tensor hpu_wrap::addcdiv(
     const Tensor& tensor1,
     const Tensor& tensor2,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("addcdiv", {self, tensor1, tensor2}))
-    return AtenHpuTypeDefault::addcdiv(self, tensor1, tensor2, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP(addcdiv, PARAMS1(self, tensor1, tensor2),PARAMS2(self, tensor1, tensor2, alpha))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addcdiv_hpu_lazy(self, tensor1, tensor2, alpha);
@@ -214,8 +211,7 @@ Tensor& hpu_wrap::addcdiv_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("addcdiv_", {self, tensor1, tensor2}))
-    return AtenHpuTypeDefault::addcdiv_(self, tensor1, tensor2, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP(addcdiv_, PARAMS1(self, tensor1, tensor2),PARAMS2(self, tensor1, tensor2, alpha))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addcdiv_hpu_lazy_(self, tensor1, tensor2, alpha);
@@ -228,8 +224,8 @@ Tensor hpu_wrap::add(
     const Tensor& self,
     const Tensor& other,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("add", {self, other}))
-    return AtenHpuTypeDefault::add(self, other, alpha);
+
+  FALLBACK_IF_UNSUPPORTED_OP_O(add, PARAMS1(self, other),PARAMS2(self, other, alpha),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return add_tensor_hpu_lazy(self, other, alpha);
@@ -241,8 +237,7 @@ Tensor hpu_wrap::add(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("add", {self}))
-    return AtenHpuTypeDefault::add(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(add, PARAMS1(self),PARAMS2(self, other, alpha),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return add_scalar_hpu_lazy(self, other, alpha);
@@ -252,8 +247,7 @@ Tensor hpu_wrap::add(
   }
 };
 Tensor& hpu_wrap::add_(Tensor& self, const Scalar& other, const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("add_", {self}))
-    return AtenHpuTypeDefault::add_(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(add_, PARAMS1(self),PARAMS2(self, other, alpha),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return add_scalar_hpu_lazy_(self, other, alpha);
@@ -263,8 +257,7 @@ Tensor& hpu_wrap::add_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   }
 };
 Tensor& hpu_wrap::add_(Tensor& self, const Tensor& other, const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("add_", {self, other}))
-    return AtenHpuTypeDefault::add_(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(add_, PARAMS1(self, other),PARAMS2(self, other, alpha),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return add_tensor_hpu_lazy_(self, other, alpha);
@@ -276,8 +269,7 @@ Tensor hpu_wrap::sub(
     const Tensor& self,
     const Tensor& other,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("sub", {self, other}))
-    return AtenHpuTypeDefault::sub(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sub, PARAMS1(self, other),PARAMS2(self, other, alpha),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sub_tensor_hpu_lazy(self, other, alpha);
@@ -287,8 +279,7 @@ Tensor hpu_wrap::sub(
   }
 };
 Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("sub_", {self, other}))
-    return AtenHpuTypeDefault::sub_(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sub_, PARAMS1(self, other),PARAMS2(self, other, alpha),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sub_tensor_hpu_lazy_(self, other, alpha);
@@ -301,8 +292,7 @@ Tensor hpu_wrap::sub(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("sub", {self}))
-    return AtenHpuTypeDefault::sub(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sub, PARAMS1(self),PARAMS2(self, other, alpha),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sub_scalar_hpu_lazy(self, other, alpha);
@@ -312,8 +302,7 @@ Tensor hpu_wrap::sub(
   }
 };
 Tensor& hpu_wrap::sub_(Tensor& self, const Scalar& other, const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("sub_", {self}))
-    return AtenHpuTypeDefault::sub_(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sub_, PARAMS1(self),PARAMS2(self, other, alpha),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sub_scalar_hpu_lazy_(self, other, alpha);
@@ -326,8 +315,7 @@ Tensor hpu_wrap::rsub(
     const Tensor& self,
     const Scalar& other,
     const Scalar& alpha) {
-  if (!hpu_check_inputs_impl("rsub", {self}))
-    return AtenHpuTypeDefault::rsub(self, other, alpha);
+  FALLBACK_IF_UNSUPPORTED_OP_O(rsub, PARAMS1(self),PARAMS2(self, other, alpha),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return rsub_scalar_hpu_lazy(self, other, alpha);
@@ -347,8 +335,7 @@ Tensor hpu_wrap::_s_where(
   }
 }
 Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("mul_", {self, other}))
-    return AtenHpuTypeDefault::mul_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul_, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_tensor_hpu_lazy_(self, other);
@@ -357,8 +344,7 @@ Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor hpu_wrap::mul(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("mul", {self, other}))
-    return AtenHpuTypeDefault::mul(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_tensor_hpu_lazy(self, other);
@@ -371,8 +357,7 @@ Tensor& hpu_wrap::mul_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("mul_out", {out, self, other}))
-    return AtenHpuTypeDefault::mul_out(self, other, out);
+  FALLBACK_IF_UNSUPPORTED_OP(mul_out, PARAMS1(out, self, other),PARAMS2(self, other, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_out_hpu_lazy(out, self, other);
@@ -382,8 +367,7 @@ Tensor& hpu_wrap::mul_out(
 };
 
 Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("mul", {self}))
-    return AtenHpuTypeDefault::mul(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_scalar_hpu_lazy(self, other);
@@ -393,8 +377,7 @@ Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
   }
 };
 Tensor& hpu_wrap::mul_(Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("mul_", {self}))
-    return AtenHpuTypeDefault::mul_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul_, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_scalar_hpu_lazy_(self, other);
@@ -404,8 +387,7 @@ Tensor& hpu_wrap::mul_(Tensor& self, const Scalar& other) {
   }
 };
 Tensor hpu_wrap::div(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("div", {self, other}))
-    return AtenHpuTypeDefault::div(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(div, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return div_tensor_hpu_lazy(self, other);
@@ -418,8 +400,7 @@ Tensor& hpu_wrap::div_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& result) {
-  if (!hpu_check_inputs_impl("div_out", {result, self, other}))
-    return AtenHpuTypeDefault::div_out(self, other, result);
+  FALLBACK_IF_UNSUPPORTED_OP(div_out, PARAMS1(result, self, other),PARAMS2(self, other, result))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return div_tensor_hpu_lazy_out(result, self, other);
@@ -429,8 +410,7 @@ Tensor& hpu_wrap::div_out(
   }
 };
 Tensor& hpu_wrap::div_(Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("div_", {self, other}))
-    return AtenHpuTypeDefault::div_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(div_, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return div_tensor_hpu_lazy_(self, other);
@@ -440,8 +420,7 @@ Tensor& hpu_wrap::div_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor hpu_wrap::div(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("div", {self}))
-    return AtenHpuTypeDefault::div(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(div, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return div_scalar_hpu_lazy(self, other);
@@ -451,8 +430,7 @@ Tensor hpu_wrap::div(const Tensor& self, const Scalar& other) {
   }
 };
 Tensor& hpu_wrap::div_(Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("div_", {self}))
-    return AtenHpuTypeDefault::div_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(div_, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return div_scalar_hpu_lazy_(self, other);
@@ -469,8 +447,7 @@ Tensor hpu_wrap::floor_divide(const Tensor& self, const Tensor& other) {
       "This results in incorrect rounding for negative values.\n"
       "To keep the current behavior, use torch.div(a, b, rounding_mode='trunc'), "
       "or for actual floor division, use torch.div(a, b, rounding_mode='floor').");
-  if (!hpu_check_inputs_impl("div", {self, other}))
-    return AtenHpuTypeDefault::floor_divide(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP(floor_divide, PARAMS1(self, other),PARAMS2(self, other))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return floor_divide_tensor_hpu_lazy(self, other);
   } else {
@@ -481,26 +458,22 @@ Tensor hpu_wrap::floor_divide(const Tensor& self, const Tensor& other) {
 };
 
 Tensor hpu_wrap::remainder(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("remainder", {self, other}))
-    return AtenHpuTypeDefault::remainder(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder, PARAMS1(self, other),PARAMS2(self, other),Tensor)
   return remainder_tensor_hpu(self, other);
 };
 
 Tensor& hpu_wrap::remainder_(Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("remainder_", {self, other}))
-    return AtenHpuTypeDefault::remainder_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder_, PARAMS1(self, other),PARAMS2(self, other),Tensor)
   return remainder_tensor_hpu_(self, other);
 };
 
 Tensor hpu_wrap::remainder(const Tensor& self, const at::Scalar& other) {
-  if (!hpu_check_inputs_impl("remainder", {self}))
-    return AtenHpuTypeDefault::remainder(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder, PARAMS1(self),PARAMS2(self, other),Scalar)
   return remainder_scalar_hpu(self, other);
 };
 
 Tensor& hpu_wrap::remainder_(Tensor& self, const at::Scalar& other) {
-  if (!hpu_check_inputs_impl("remainder_", {self}))
-    return AtenHpuTypeDefault::remainder_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder_, PARAMS1(self),PARAMS2(self, other),Scalar)
   return remainder_scalar_hpu_(self, other);
 };
 
@@ -508,8 +481,7 @@ Tensor& hpu_wrap::remainder_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& result) {
-  if (!hpu_check_inputs_impl("remainder_out", {self, other, result}))
-    return AtenHpuTypeDefault::remainder_out(self, other, result);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder, PARAMS1(self, other, result),PARAMS2(self, other, result),Tensor_out)
   return remainder_tensor_hpu_out(self, other, result);
 };
 
@@ -517,14 +489,12 @@ Tensor& hpu_wrap::remainder_out(
     const Tensor& self,
     const at::Scalar& other,
     Tensor& result) {
-  if (!hpu_check_inputs_impl("remainder_out", {self, result}))
-    return AtenHpuTypeDefault::remainder_out(self, other, result);
+  FALLBACK_IF_UNSUPPORTED_OP_O(remainder, PARAMS1(self, result),PARAMS2(self, other, result),Scalar_out)
   return remainder_scalar_hpu_out(self, other, result);
 };
 
 Tensor& hpu_wrap::diag_out(const Tensor& self, int64_t diagonal, Tensor& out) {
-  if (!hpu_check_inputs_impl("diag_out", {self, out}))
-    return AtenHpuTypeDefault::diag_out(self, diagonal, out);
+  FALLBACK_IF_UNSUPPORTED_OP(diag_out, PARAMS1(self, out),PARAMS2(self, diagonal, out))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return diag_hpu_lazy_out(self, diagonal, out);
   } else {
@@ -533,8 +503,7 @@ Tensor& hpu_wrap::diag_out(const Tensor& self, int64_t diagonal, Tensor& out) {
 }
 
 Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("pow", {self, other}))
-    return AtenHpuTypeDefault::pow(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(pow, PARAMS1(self, other),PARAMS2(self, other),Tensor_Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return pow_tensor_tensor_hpu_lazy(self, other);
@@ -544,8 +513,7 @@ Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   }
 };
 Tensor& hpu_wrap::pow_(Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("pow_", {self, other}))
-    return AtenHpuTypeDefault::pow_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(pow_, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return pow_tensor_tensor_hpu_lazy_(self, other);
@@ -555,8 +523,7 @@ Tensor& hpu_wrap::pow_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor hpu_wrap::pow(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("pow", {self}))
-    return AtenHpuTypeDefault::pow(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(pow, PARAMS1(self),PARAMS2(self, other),Tensor_Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return pow_tensor_scalar_hpu_lazy(self, other);
@@ -566,8 +533,7 @@ Tensor hpu_wrap::pow(const Tensor& self, const Scalar& other) {
   }
 };
 Tensor& hpu_wrap::pow_(Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("pow_", {self}))
-    return AtenHpuTypeDefault::pow_(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(pow_, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return pow_tensor_scalar_hpu_lazy_(self, other);
@@ -577,8 +543,7 @@ Tensor& hpu_wrap::pow_(Tensor& self, const Scalar& other) {
   }
 };
 Tensor hpu_wrap::pow(const Scalar& other, const Tensor& self) {
-  if (!hpu_check_inputs_impl("pow", {self}))
-    return AtenHpuTypeDefault::pow(other, self);
+  FALLBACK_IF_UNSUPPORTED_OP_O(pow, PARAMS1(self),PARAMS2(other, self),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return pow_scalar_tensor_hpu_lazy(other, self);
@@ -589,27 +554,23 @@ Tensor hpu_wrap::pow(const Scalar& other, const Tensor& self) {
 };
 
 Tensor hpu_wrap::maximum(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("maximum", {self, other}))
-    return AtenHpuTypeDefault::maximum(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP(maximum, PARAMS1(self, other),PARAMS2(self, other))
   return maximum_hpu(self, other);
 };
 
 Tensor hpu_wrap::minimum(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("minimum", {self, other}))
-    return AtenHpuTypeDefault::minimum(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP(minimum, PARAMS1(self, other),PARAMS2(self, other))
   return minimum_hpu(self, other);
 };
 
 Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("gt", {self, other}))
-    return AtenHpuTypeDefault::gt(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(gt, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   return gt_tensor_hpu(self, other);
 };
 
 Tensor hpu_wrap::gt(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("gt", {self}))
-    return AtenHpuTypeDefault::gt(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(gt, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   return gt_scalar_hpu(self, other);
 };
@@ -617,62 +578,52 @@ Tensor& hpu_wrap::eq_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("eq_out", {output, self, other}))
-    return AtenHpuTypeDefault::eq_out(self, other, output);
+  FALLBACK_IF_UNSUPPORTED_OP_O(eq, PARAMS1(output, self, other),PARAMS2(self, other, output),Tensor_out)
 
   return eq_tensor_out_hpu(output, self, other);
 };
 Tensor hpu_wrap::eq(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("eq", {self, other}))
-    return AtenHpuTypeDefault::eq(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(eq, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   return eq_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::eq(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("eq", {self}))
-    return AtenHpuTypeDefault::eq(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(eq, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   return eq_tensor_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::lt(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("lt", {self}))
-    return AtenHpuTypeDefault::lt(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(lt, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   return lt_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::lt(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("lt", {self, other}))
-    return AtenHpuTypeDefault::lt(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(lt, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   return lt_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::ge(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("ge", {self}))
-    return AtenHpuTypeDefault::ge(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(ge, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   return ge_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("ge", {self, other}))
-    return AtenHpuTypeDefault::ge(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(ge, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   return ge_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::le(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("le", {self}))
-    return AtenHpuTypeDefault::le(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(le, PARAMS1(self),PARAMS2(self, other),Scalar)
 
   return le_scalar_hpu(self, other);
 };
 Tensor hpu_wrap::le(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("le", {self, other}))
-    return AtenHpuTypeDefault::le(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(le, PARAMS1(self, other),PARAMS2(self, other),Tensor)
 
   return le_tensor_hpu(self, other);
 };
 Tensor hpu_wrap::ne(const Tensor& self, const Scalar& other) {
-  if (!hpu_check_inputs_impl("ne", {self}))
-    return AtenHpuTypeDefault::ne(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(ne, PARAMS1(self),PARAMS2(self, other),Scalar)
   /* This code will be exercised only in legacy eager mode. The following code
    * is used to replace the graph transformation based ne op implementation */
   Scalar c = 0.0;
@@ -680,8 +631,7 @@ Tensor hpu_wrap::ne(const Tensor& self, const Scalar& other) {
   return hpu_wrap::eq(e, c);
 };
 Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("ne", {self, other}))
-    return AtenHpuTypeDefault::ne(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP_O(ne, PARAMS1(self, other),PARAMS2(self, other),Tensor)
   /* This code will be exercised only in legacy eager mode. The following code
    * is used to replace the graph transformation based ne op implementation */
   Scalar c = 0.0;
@@ -690,8 +640,7 @@ Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
 };
 
 Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
-  if (!hpu_check_inputs_impl("all", {self}))
-    return AtenHpuTypeDefault::all(self, dim, keepdim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(all, PARAMS1(self),PARAMS2(self, dim, keepdim),dim)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return all_dim_hpu_lazy(self, dim, keepdim);
@@ -700,8 +649,7 @@ Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
   }
 };
 Tensor hpu_wrap::all(const Tensor& self) {
-  if (!hpu_check_inputs_impl("all", {self}))
-    return AtenHpuTypeDefault::all(self);
+  FALLBACK_IF_UNSUPPORTED_OP(all, PARAMS1(self),PARAMS2(self))
   return all_hpu(self);
 };
 Tensor hpu_wrap::convolution_overrideable(
@@ -715,8 +663,7 @@ Tensor hpu_wrap::convolution_overrideable(
     IntArrayRef output_padding,
     int64_t groups) {
   auto bias = bias_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl("convolution_overrideable", {input, weight, bias}))
-    return AtenHpuTypeDefault::convolution_overrideable(
+  FALLBACK_IF_UNSUPPORTED_OP(convolution_overrideable, PARAMS1(input, weight, bias),PARAMS2(
         input,
         weight,
         bias_opt,
@@ -725,7 +672,7 @@ Tensor hpu_wrap::convolution_overrideable(
         dilation,
         transposed,
         output_padding,
-        groups);
+        groups))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return convolution_hpu_lazy(
@@ -762,9 +709,8 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
-  if (!hpu_check_inputs_impl(
-          "convolution_backward_overrideable", {grad_output, input, weight}))
-    return AtenHpuTypeDefault::convolution_backward_overrideable(
+  FALLBACK_IF_UNSUPPORTED_OP(
+          convolution_backward_overrideable, PARAMS1(grad_output, input, weight),PARAMS2(
         grad_output,
         input,
         weight,
@@ -774,7 +720,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
         transposed,
         output_padding,
         groups,
-        output_mask);
+        output_mask))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return convolution_backward_hpu_lazy(
@@ -808,8 +754,7 @@ Tensor hpu_wrap::constant_pad_nd(
     const Tensor& self,
     IntArrayRef pad,
     const Scalar& value) {
-  if (!hpu_check_inputs_impl("constant_pad_nd", {self}))
-    return AtenHpuTypeDefault::constant_pad_nd(self, pad, value);
+  FALLBACK_IF_UNSUPPORTED_OP(constant_pad_nd, PARAMS1(self),PARAMS2(self, pad, value))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return constant_pad_hpu_lazy(self, pad, value);
@@ -832,11 +777,9 @@ Tensor hpu_wrap::embedding(
       IValue(scale_grad_by_freq),
       IValue(sparse)};
   check_handle->hpu_check_ivalues("embedding", op_stack);
-  if (!(hpu_check_inputs_impl("embedding", {weight, indices}) &&
-        (check_handle->get_status()))) {
-    return AtenHpuTypeDefault::embedding(
-        weight, indices, padding_idx, scale_grad_by_freq, sparse);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1(embedding, PARAMS1(weight, indices), PARAMS2(
+        weight, indices, padding_idx, scale_grad_by_freq, sparse))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return embedding_hpu_lazy(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
@@ -860,11 +803,9 @@ Tensor hpu_wrap::embedding_dense_backward(
       IValue(padding_idx),
       IValue(scale_grad_by_freq)};
   check_handle->hpu_check_ivalues("embedding_dense_backward", op_stack);
-  if (!(hpu_check_inputs_impl("embedding_dense_backward", {grad, indices}) &&
-        (check_handle->get_status()))) {
-    return AtenHpuTypeDefault::embedding_dense_backward(
-        grad, indices, num_weights, padding_idx, scale_grad_by_freq);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1( embedding_dense_backward, PARAMS1(grad, indices),PARAMS2(
+        grad, indices, num_weights, padding_idx, scale_grad_by_freq))
+  
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return embedding_dense_backward_hpu_lazy(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
@@ -906,8 +847,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
   }
 };
 Tensor& hpu_wrap::fill_(Tensor& self, const Scalar& value) {
-  if (!hpu_check_inputs_impl("fill_", {self}))
-    return AtenHpuTypeDefault::fill_(self, value);
+  FALLBACK_IF_UNSUPPORTED_OP_O(fill_, PARAMS1(self),PARAMS2(self, value),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return fill_hpu_lazy_(self, value);
@@ -919,8 +859,7 @@ Tensor& hpu_wrap::masked_fill_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
-  if (!hpu_check_inputs_impl("masked_fill_", {self, mask, value}))
-    return AtenHpuTypeDefault::masked_fill_(self, mask, value);
+  FALLBACK_IF_UNSUPPORTED_OP_O(masked_fill_, PARAMS1(self, mask, value),PARAMS2(self, mask, value),Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return masked_fill_hpu_lazy_(self, mask, value);
@@ -933,8 +872,7 @@ Tensor& hpu_wrap::masked_fill_(
     Tensor& self,
     const Tensor& mask,
     const Scalar& value) {
-  if (!hpu_check_inputs_impl("masked_fill_", {self, mask}))
-    return AtenHpuTypeDefault::masked_fill_(self, mask, value);
+  FALLBACK_IF_UNSUPPORTED_OP_O(masked_fill_, PARAMS1(self, mask),PARAMS2(self, mask, value),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return masked_fill_scalar_hpu_lazy_(self, mask, value);
@@ -944,8 +882,7 @@ Tensor& hpu_wrap::masked_fill_(
   }
 };
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
-  if (!hpu_check_inputs_impl("masked_select", {self, mask}))
-    return AtenHpuTypeDefault::masked_select(self, mask);
+  FALLBACK_IF_UNSUPPORTED_OP(masked_select, PARAMS1(self, mask),PARAMS2(self, mask))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return masked_select_hpu_lazy(self, mask);
   } else {
@@ -957,8 +894,7 @@ Tensor& hpu_wrap::masked_select_out(
     const Tensor& self,
     const Tensor& mask,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("masked_select_out", {self, mask, out}))
-    return AtenHpuTypeDefault::masked_select_out(self, mask, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(masked_select, PARAMS1(self, mask, out),PARAMS2(self, mask, out),out)
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return masked_select_out_hpu_lazy(self, mask, out);
   } else {
@@ -975,9 +911,7 @@ Tensor hpu_wrap::gather(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim_), IValue(index), IValue(sparse_grad)};
   check_handle->hpu_check_ivalues("gather_elements", op_stack);
-  if (!(hpu_check_inputs_impl("gather_elements", {self, index}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::gather(self, dim_, index, sparse_grad);
+  FALLBACK_IF_UNSUPPORTED_OP1(gather, PARAMS1(self, index),PARAMS2(self, dim_, index, sparse_grad))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return gather_src_hpu_lazy(self, dim_, index, sparse_grad);
@@ -991,8 +925,7 @@ Tensor& hpu_wrap::scatter_(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!hpu_check_inputs_impl("scatter_", {self, index, src}))
-    return AtenHpuTypeDefault::scatter_(self, dim_, index, src);
+  FALLBACK_IF_UNSUPPORTED_OP_O(scatter_, PARAMS1(self, index, src),PARAMS2(self, dim_, index, src),src)
 
   return scatter_inplace_src_hpu(self, dim_, index, src);
 };
@@ -1001,8 +934,7 @@ Tensor hpu_wrap::scatter(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!hpu_check_inputs_impl("scatter", {self, index, src}))
-    return AtenHpuTypeDefault::scatter(self, dim_, index, src);
+  FALLBACK_IF_UNSUPPORTED_OP_O(scatter, PARAMS1(self, index, src),PARAMS2(self, dim_, index, src),src)
 
   return scatter_src_hpu(self, dim_, index, src);
 };
@@ -1018,8 +950,7 @@ Tensor hpu_wrap::scatter_add(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!hpu_check_inputs_impl("scatter_add", {self, index, src}))
-    return AtenHpuTypeDefault::scatter_add(self, dim_, index, src);
+  FALLBACK_IF_UNSUPPORTED_OP(scatter_add, PARAMS1(self, index, src),PARAMS2(self, dim_, index, src))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return scatter_add_src_hpu_lazy(self, dim_, index, src);
@@ -1033,8 +964,7 @@ Tensor& hpu_wrap::scatter_add_(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!hpu_check_inputs_impl("scatter_add_", {self, index, src}))
-    return AtenHpuTypeDefault::scatter_add_(self, dim_, index, src);
+  FALLBACK_IF_UNSUPPORTED_OP(scatter_add_, PARAMS1(self, index, src),PARAMS2(self, dim_, index, src))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
@@ -1050,9 +980,8 @@ Tensor& hpu_wrap::index_add_(
     const Tensor& source,
     const Scalar& alpha) {
   Tensor alpha_times_source = hpu_wrap::mul(source, alpha);
-  if (!hpu_check_inputs_impl("index_add_", {self, indices, source}))
-    return AtenHpuTypeDefault::index_add_(
-        self, dim_, indices, alpha_times_source);
+  FALLBACK_IF_UNSUPPORTED_OP(index_add_, PARAMS1(self, indices, source),PARAMS2(
+        self, dim_, indices, alpha_times_source,alpha))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return index_add_hpu_lazy_(self, dim_, indices, alpha_times_source);
@@ -1066,8 +995,7 @@ Tensor& hpu_wrap::index_add_(
     int64_t dim_,
     const Tensor& indices,
     const Tensor& source) {
-  if (!hpu_check_inputs_impl("index_add_", {self, indices, source}))
-    return AtenHpuTypeDefault::index_add_(self, dim_, indices, source);
+  FALLBACK_IF_UNSUPPORTED_OP(index_add_, PARAMS1(self, indices, source),PARAMS2(self, dim_, indices, source,1))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return index_add_hpu_lazy_(self, dim_, indices, source);
@@ -1081,10 +1009,11 @@ Tensor hpu_wrap::index_put(
     const c10::List<c10::optional<Tensor>>& indices,
     const Tensor& value,
     bool accumulate) {
+
   if (!hpu_check_inputs_impl(
           "index_put", {self, indices[0].value_or(Tensor()), value}) ||
       self.dim() < value.dim())
-    return AtenHpuTypeDefault::index_put(self, indices, value, accumulate);
+    FALLBACK_IF_UNSUPPORTED_OP2(index_put, PARAMS2(self, indices, value, accumulate))
   // TODO: Need a better way to handle this rather than converting everywhere
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
@@ -1105,16 +1034,18 @@ Tensor& hpu_wrap::index_put_(
     const c10::List<c10::optional<Tensor>>& indices,
     const Tensor& value,
     bool accumulate) {
+
   if (!hpu_check_inputs_impl(
           "index_put_", {self, indices[0].value_or(Tensor()), value}) ||
       self.dim() < value.dim())
-    return AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+      FALLBACK_IF_UNSUPPORTED_OP2(
+              index_put_, PARAMS2(self, indices, value, accumulate))
 
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
     if (input.has_value() && !input->defined()) {
       auto self_cpu =
-          AtenHpuTypeDefault::index_put(self, indices, value, accumulate);
+          at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put)>::call(self, indices, value, accumulate);
       return self.copy_(self_cpu);
     } else {
       indices_list.push_back(input.value_or(Tensor()));
@@ -1144,15 +1075,14 @@ Tensor& hpu_wrap::masked_scatter_(
 Tensor hpu_wrap::index(
     const at::Tensor& self,
     const c10::List<c10::optional<Tensor>>& indices) {
-  if (!hpu_check_inputs_impl("index", {self, indices[0].value_or(Tensor())}))
-    return AtenHpuTypeDefault::index(self, indices);
+  FALLBACK_IF_UNSUPPORTED_OP_O(index, PARAMS1(self, indices[0].value_or(Tensor())),PARAMS2(self, indices),Tensor)
 
   // we dont support AdvanceIndexing where index tensor is empty
   // for now fallback to cpu, will add once we get tpc index kernel
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
     if (input.has_value() && !input->defined()) {
-      return AtenHpuTypeDefault::index(self, indices);
+      FALLBACK_IF_UNSUPPORTED_OP2_O(index, PARAMS2(self, indices),Tensor)
     } else {
       indices_list.push_back(input.value());
     }
@@ -1173,8 +1103,7 @@ Tensor& hpu_wrap::_index_put_impl_(
   if (!hpu_check_inputs_impl(
           "_index_put_impl_", {self, indices[0].value_or(Tensor())}) ||
       self.dim() < value.dim())
-    return AtenHpuTypeDefault::_index_put_impl_(
-        self, indices, value, accumulate, unsafe);
+      FALLBACK_IF_UNSUPPORTED_OP2(_index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
 
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
@@ -1184,8 +1113,7 @@ Tensor& hpu_wrap::_index_put_impl_(
     return _index_put_impl_hpu_lazy_(
         self, indices_list, value, accumulate, unsafe);
   } else {
-    return AtenHpuTypeDefault::_index_put_impl_(
-        self, indices, value, accumulate, unsafe);
+    FALLBACK_IF_UNSUPPORTED_OP2(_index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
   }
 }
 
@@ -1193,8 +1121,7 @@ Tensor hpu_wrap::index_select(
     const Tensor& self,
     int64_t dim,
     const Tensor& index) {
-  if (!hpu_check_inputs_impl("index_select", {self, index}))
-    return AtenHpuTypeDefault::index_select(self, dim, index);
+  FALLBACK_IF_UNSUPPORTED_OP(index_select, PARAMS1(self, index),PARAMS2(self, dim, index))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return index_select_hpu_lazy(self, dim, index);
@@ -1215,8 +1142,7 @@ Tensor gather2d_hpu_wrap(
   }
 };
 Tensor hpu_wrap::select(const Tensor& self, int64_t dim, int64_t index) {
-  if (!hpu_check_inputs_impl("select", {self}))
-    return AtenHpuTypeDefault::select(self, dim, index);
+  FALLBACK_IF_UNSUPPORTED_OP_O(select, PARAMS1(self),PARAMS2(self, dim, index),int)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return select_hpu_lazy(self, dim, index);
@@ -1230,8 +1156,7 @@ Tensor hpu_wrap::select_backward(
     at::IntArrayRef input_sizes,
     int64_t dim,
     int64_t index) {
-  if (!hpu_check_inputs_impl("select_backward", {grad}))
-    return AtenHpuTypeDefault::select_backward(grad, input_sizes, dim, index);
+  FALLBACK_IF_UNSUPPORTED_OP(select_backward, PARAMS1(grad),PARAMS2(grad, input_sizes, dim, index))
 
   return select_backward_hpu_lazy(grad, input_sizes, dim, index);
 };
@@ -1240,8 +1165,7 @@ Tensor& hpu_wrap::arange_out(
     const Scalar& end,
     const Scalar& step,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("arange_out", {output}))
-    return AtenHpuTypeDefault::arange_out(start, end, step, output);
+  FALLBACK_IF_UNSUPPORTED_OP_O(arange, PARAMS1(output),PARAMS2(start, end, step, output),start_out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return arange_hpu_lazy(output, start, end, step);
@@ -1251,8 +1175,7 @@ Tensor& hpu_wrap::arange_out(
   }
 };
 Tensor hpu_wrap::nonzero(const Tensor& self) {
-  if (!hpu_check_inputs_impl("nonzero", {self}))
-    return AtenHpuTypeDefault::nonzero(self);
+  FALLBACK_IF_UNSUPPORTED_OP(nonzero, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nonzero_hpu_lazy(self);
@@ -1261,8 +1184,7 @@ Tensor hpu_wrap::nonzero(const Tensor& self) {
   }
 };
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
-  if (!hpu_check_inputs_impl("nonzero_out", {self, out}))
-    return AtenHpuTypeDefault::nonzero_out(self, out);
+  FALLBACK_IF_UNSUPPORTED_OP(nonzero_out, PARAMS1(self, out),PARAMS2(self, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nonzero_out_hpu_lazy(self, out);
@@ -1272,8 +1194,7 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   }
 };
 Tensor hpu_wrap::mm(const at::Tensor& mat1, const at::Tensor& mat2) {
-  if (!hpu_check_inputs_impl("mm", {mat1, mat2}))
-    return AtenHpuTypeDefault::mm(mat1, mat2);
+  FALLBACK_IF_UNSUPPORTED_OP(mm, PARAMS1(mat1, mat2),PARAMS2(mat1, mat2))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mm_hpu_lazy(mat1, mat2);
@@ -1341,10 +1262,9 @@ Tensor hpu_wrap::addmm(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(mat1), IValue(mat2), IValue(beta), IValue(alpha)};
   check_handle->hpu_check_ivalues("addmm", op_stack);
-  if (!(hpu_check_inputs_impl("addmm", {self, mat1, mat2}) &&
-        check_handle->get_status())) {
-    return AtenHpuTypeDefault::addmm(self, mat1, mat2, beta, alpha);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1(addmm, PARAMS1( mat1, mat2),PARAMS2(self, mat1, mat2, beta, alpha))
+
+  
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
   } else {
@@ -1352,8 +1272,7 @@ Tensor hpu_wrap::addmm(
   }
 };
 Tensor& hpu_wrap::bmm_out(const Tensor& self, const Tensor& mat2, Tensor& out) {
-  if (!hpu_check_inputs_impl("bmm_out", {out, self, mat2}))
-    return AtenHpuTypeDefault::bmm_out(self, mat2, out);
+  FALLBACK_IF_UNSUPPORTED_OP(bmm_out, PARAMS1(out, self, mat2),PARAMS2(self, mat2, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_gemm_out_hpu_lazy(out, self, mat2);
@@ -1363,8 +1282,7 @@ Tensor& hpu_wrap::bmm_out(const Tensor& self, const Tensor& mat2, Tensor& out) {
   }
 };
 Tensor hpu_wrap::bmm(const Tensor& self, const Tensor& mat2) {
-  if (!hpu_check_inputs_impl("bmm", {self, mat2}))
-    return AtenHpuTypeDefault::bmm(self, mat2);
+  FALLBACK_IF_UNSUPPORTED_OP(bmm, PARAMS1(self, mat2),PARAMS2(self, mat2))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_gemm_hpu_lazy(self, mat2);
@@ -1374,8 +1292,7 @@ Tensor hpu_wrap::bmm(const Tensor& self, const Tensor& mat2) {
   }
 };
 Tensor hpu_wrap::dot(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("dot", {self, other}))
-    return AtenHpuTypeDefault::dot(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP(dot, PARAMS1(self, other),PARAMS2(self, other))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return dot_hpu_lazy(self, other);
@@ -1385,8 +1302,7 @@ Tensor hpu_wrap::dot(const Tensor& self, const Tensor& other) {
   }
 };
 Tensor hpu_wrap::mv(const Tensor& self, const Tensor& other) {
-  if (!hpu_check_inputs_impl("mv", {self, other}))
-    return AtenHpuTypeDefault::mv(self, other);
+  FALLBACK_IF_UNSUPPORTED_OP(mv, PARAMS1(self, other),PARAMS2(self, other))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mv_hpu_lazy(self, other);
@@ -1418,10 +1334,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss_forward(
         op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("nll_loss_forward", op_stack);
-  if (!(hpu_check_inputs_impl("nll_loss_forward", {self, target, weight}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::nll_loss_forward(
-        self, target, weight_opt, reduction, ignore_index);
+  FALLBACK_IF_UNSUPPORTED_OP1(nll_loss_forward, PARAMS1(self, target, weight),PARAMS2(
+        self, target, weight_opt, reduction, ignore_index))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nll_loss_forward_hpu_lazy(
@@ -1458,19 +1372,16 @@ Tensor hpu_wrap::nll_loss_backward(
         op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("nll_loss_backward", op_stack);
-  if (!(hpu_check_inputs_impl(
-            "nll_loss_backward",
-            {grad_output, self, target, weight, total_weight}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::nll_loss_backward(
+ FALLBACK_IF_UNSUPPORTED_OP1(
+            nll_loss_backward,
+            PARAMS1(grad_output, self, target, weight, total_weight),PARAMS2(
         grad_output,
         self,
         target,
         weight,
         reduction,
         ignore_index,
-        total_weight);
-
+        total_weight))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nll_loss_backward_hpu_lazy(
         grad_output,
@@ -1520,18 +1431,16 @@ Tensor hpu_wrap::nll_loss2d_backward(
         op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("nll_loss2d_backward", op_stack);
-  if (!(hpu_check_inputs_impl(
-            "nll_loss2d_backward",
-            {grad_output, self, target, weight, total_weight}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::nll_loss2d_backward(
+FALLBACK_IF_UNSUPPORTED_OP1(
+            nll_loss2d_backward,PARAMS1(
+        grad_output, self, target, weight, total_weight),PARAMS2(
         grad_output,
         self,
         target,
         weight,
         reduction,
         ignore_index,
-        total_weight);
+        total_weight))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nll_loss2d_backward_hpu_lazy(
@@ -1578,10 +1487,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
         op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("nll_loss2d_forward", op_stack);
-  if (!(hpu_check_inputs_impl("nll_loss2d_forward", {self, target, weight}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::nll_loss2d_forward(
-        self, target, weight, reduction, ignore_index);
+FALLBACK_IF_UNSUPPORTED_OP1(nll_loss2d_forward, PARAMS1(self, target, weight),PARAMS2(
+        self, target, weight, reduction, ignore_index))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return nll_loss2d_forward_hpu_lazy(
@@ -1597,8 +1504,7 @@ Tensor hpu_wrap::mse_loss(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  if (!hpu_check_inputs_impl("mse_loss", {self, target}))
-    return AtenHpuTypeDefault::mse_loss(self, target, reduction);
+  FALLBACK_IF_UNSUPPORTED_OP(mse_loss, PARAMS1(self, target),PARAMS2(self, target, reduction))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mse_loss_forward_hpu_lazy(self, target, reduction);
   } else {
@@ -1610,9 +1516,8 @@ Tensor hpu_wrap::mse_loss_backward(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  if (!hpu_check_inputs_impl("mse_loss_backward", {grad_output, self, target}))
-    return AtenHpuTypeDefault::mse_loss_backward(
-        grad_output, self, target, reduction);
+  FALLBACK_IF_UNSUPPORTED_OP(mse_loss_backward, PARAMS1(grad_output, self, target),PARAMS2(
+        grad_output, self, target, reduction))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
 
@@ -1630,10 +1535,8 @@ Tensor hpu_wrap::kl_div(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(target), IValue(reduction), IValue(log_target)};
   check_handle->hpu_check_ivalues("kl_div", op_stack);
-  if (!(hpu_check_inputs_impl("kl_div", {self, target}) &&
-        check_handle->get_status())) {
-    return AtenHpuTypeDefault::kl_div(self, target, reduction, log_target);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1(kl_div, PARAMS1(self, target),PARAMS2(self, target, reduction, log_target))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return kl_div_hpu_lazy(self, target, reduction, log_target);
   } else {
@@ -1655,11 +1558,9 @@ Tensor hpu_wrap::kl_div_backward(
       IValue(reduction),
       IValue(log_target)};
   check_handle->hpu_check_ivalues("kl_div_backward", op_stack);
-  if (!(hpu_check_inputs_impl("kl_div_backward", {grad, self, target}) &&
-        (check_handle->get_status()))) {
-    return AtenHpuTypeDefault::kl_div_backward(
-        grad, self, target, reduction, log_target);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1(kl_div_backward, PARAMS1(grad, self, target),PARAMS2(
+        grad, self, target, reduction, log_target))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
   } else {
@@ -1685,11 +1586,9 @@ Tensor hpu_wrap::binary_cross_entropy(
         op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("binary_cross_entropy", op_stack);
-  if (!(hpu_check_inputs_impl("binary_cross_entropy", {self, target, weight}) &&
-        check_handle->get_status())) {
-    return AtenHpuTypeDefault::binary_cross_entropy(
-        self, target, weight, reduction);
-  }
+  FALLBACK_IF_UNSUPPORTED_OP1(binary_cross_entropy, PARAMS1(self, target, weight),PARAMS2(
+        self, target, weight, reduction))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return binary_cross_entropy_hpu_lazy(self, target, weight, reduction);
 
@@ -1720,13 +1619,12 @@ Tensor hpu_wrap::binary_cross_entropy_backward(
         op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
   }
   check_handle->hpu_check_ivalues("binary_cross_entropy_backward", op_stack);
-  if (!(hpu_check_inputs_impl(
-            "binary_cross_entropy_backward",
-            {grad_output, self, target, weight}) &&
-        (check_handle->get_status()))) {
-    return AtenHpuTypeDefault::binary_cross_entropy_backward(
-        grad_output, self, target, weight, reduction);
-  }
+
+  FALLBACK_IF_UNSUPPORTED_OP1(
+            binary_cross_entropy_backward,
+            PARAMS1(grad_output, self, target, weight), PARAMS2(
+        grad_output, self, target, weight, reduction))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return binary_cross_entropy_backward_hpu_lazy(
         grad_output, self, target, weight, reduction);
@@ -1750,16 +1648,15 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
       IValue(pos_weight),
       IValue(reduction)};
   check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
-  if (!(hpu_check_inputs_impl(
-            "binary_cross_entropy_with_logits",
-            {self,
+
+  FALLBACK_IF_UNSUPPORTED_OP1(
+            binary_cross_entropy_with_logits,
+            PARAMS1(self,
              target,
              weight.value_or(Tensor()),
-             pos_weight.value_or(Tensor())}) &&
-        (check_handle->get_status()))) {
-    return AtenHpuTypeDefault::binary_cross_entropy_with_logits(
-        self, target, weight, pos_weight, reduction);
-  }
+             pos_weight.value_or(Tensor())), PARAMS2(
+        self, target, weight, pos_weight, reduction))
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return binary_cross_entropy_with_logits_hpu_lazy(
         self, target, weight, pos_weight, reduction);
@@ -1788,8 +1685,9 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
   // non 4D inputs in the bridge
   if (!hpu_check_inputs_impl(
           "native_batch_norm",
-          {input, weight, bias, running_mean, running_var})) {
-    return AtenHpuTypeDefault::native_batch_norm(
+          {input, weight, bias, running_mean, running_var}) ||
+      (input.dim() < 4)){
+      FALLBACK_IF_UNSUPPORTED_OP2(native_batch_norm,PARAMS2(
         input,
         weight_opt,
         bias_opt,
@@ -1797,8 +1695,8 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
         running_var_opt,
         training,
         momentum,
-        eps);
-  }
+        eps))
+   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_norm_hpu_lazy(
@@ -1839,16 +1737,15 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
   auto running_var = running_var_opt.value_or(Tensor());
   auto save_mean = save_mean_opt.value_or(Tensor());
   auto save_invstd = save_invstd_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl(
-          "native_batch_norm_backward",
-          {grad_out,
+  FALLBACK_IF_UNSUPPORTED_OP(
+          native_batch_norm_backward,
+          PARAMS1(grad_out,
            input,
            weight,
            running_mean,
            running_var,
            save_mean,
-           save_invstd}))
-    return AtenHpuTypeDefault::native_batch_norm_backward(
+           save_invstd),PARAMS2(
         grad_out,
         input,
         weight_opt,
@@ -1858,7 +1755,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
         save_invstd_opt,
         train,
         eps,
-        output_mask);
+        output_mask))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_norm_bwd_hpu_lazy(
@@ -1894,11 +1791,10 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm(
     const c10::optional<Tensor>& weight_opt,
     const c10::optional<Tensor>& bias_opt,
     double eps) {
-  if (!hpu_check_inputs_impl(
-          "native_layer_norm",
-          {input, weight_opt.value_or(Tensor()), bias_opt.value_or(Tensor())}))
-    return AtenHpuTypeDefault::native_layer_norm(
-        input, normalized_shape, weight_opt, bias_opt, eps);
+  FALLBACK_IF_UNSUPPORTED_OP(
+          native_layer_norm,
+          PARAMS1(input, weight_opt.value_or(Tensor()), bias_opt.value_or(Tensor())),PARAMS2(
+        input, normalized_shape, weight_opt, bias_opt, eps))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return layer_norm_hpu_lazy(
@@ -1917,10 +1813,9 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
     const c10::optional<Tensor>& weight_opt,
     const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
-  if (!hpu_check_inputs_impl(
-          "native_layer_norm_backward",
-          {dY, X, mean, rstd, weight_opt.value_or(Tensor())}))
-    return AtenHpuTypeDefault::native_layer_norm_backward(
+  FALLBACK_IF_UNSUPPORTED_OP(
+          native_layer_norm_backward,
+        PARAMS1(dY, X, mean, rstd, weight_opt.value_or(Tensor())),PARAMS2(
         dY,
         X,
         normalized_shape,
@@ -1928,7 +1823,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
         rstd,
         weight_opt,
         bias_opt,
-        grad_input_mask);
+        grad_input_mask))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return layer_norm_backward_hpu_lazy(
@@ -1959,8 +1854,7 @@ Tensor hpu_wrap::norm(
     const c10::optional<at::Scalar>& p,
     at::IntArrayRef dim,
     bool keepdim) {
-  if (!hpu_check_inputs_impl("norm", {self}))
-    return AtenHpuTypeDefault::norm(self, p, dim, keepdim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(norm, PARAMS1(self),PARAMS2(self, p, dim, keepdim),ScalarOpt_dim)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return norm_scalar_dim_hpu_lazy(self, p, dim, keepdim);
@@ -1971,8 +1865,7 @@ Tensor hpu_wrap::norm(
 }
 
 Tensor hpu_wrap::norm(const Tensor& self, const c10::Scalar& p) {
-  if (!hpu_check_inputs_impl("norm", {self}))
-    return AtenHpuTypeDefault::norm(self, p);
+  FALLBACK_IF_UNSUPPORTED_OP_O(norm, PARAMS1(self),PARAMS2(self, p),Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return norm_scalar_hpu_lazy(self, p);
@@ -1988,8 +1881,7 @@ Tensor hpu_wrap::norm(
     at::IntArrayRef dim,
     bool keepdim,
     at::ScalarType dtype) {
-  if (!hpu_check_inputs_impl("norm", {self}))
-    return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP_O(norm, PARAMS1(self),PARAMS2(self, p, dim, keepdim, dtype),ScalarOpt_dim_dtype)
   // norm is supported on HPU only if either self's type and dtype param is FP
   // types we do self's cast here to Float to avoid special case casts in
   // lowering part of norm op.
@@ -2000,7 +1892,7 @@ Tensor hpu_wrap::norm(
     }
     return hpu_wrap::norm(self_cast, p, dim, keepdim);
   } else {
-    return AtenHpuTypeDefault::norm(self, p, dim, keepdim, dtype);
+    FALLBACK_IF_UNSUPPORTED_OP2_O(norm, PARAMS2(self, p, dim, keepdim, dtype),ScalarOpt_dim_dtype)
   }
 }
 
@@ -2085,9 +1977,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::max_pool2d_with_indices(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  if (!hpu_check_inputs_impl("max_pool2d_with_indices", {input}))
-    return AtenHpuTypeDefault::max_pool2d_with_indices(
-        input, kernel_size, stride, padding, dilation, ceil_mode);
+  FALLBACK_IF_UNSUPPORTED_OP(max_pool2d_with_indices, PARAMS1(input),PARAMS2(
+        input, kernel_size, stride, padding, dilation, ceil_mode))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return max_pool2d_with_indices_hpu_lazy(
@@ -2108,10 +1999,9 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
     bool ceil_mode,
     const Tensor& indices,
     Tensor& grad_input) {
-  if (!hpu_check_inputs_impl(
-          "max_pool2d_with_indices_backward_out",
-          {grad_input, grad_output, input, indices}))
-    return AtenHpuTypeDefault::max_pool2d_with_indices_backward_out(
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+          max_pool2d_with_indices_backward,
+          PARAMS1(grad_input, grad_output, input, indices),PARAMS2(
         grad_output,
         input,
         kernel_size,
@@ -2120,7 +2010,7 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
         dilation,
         ceil_mode,
         indices,
-        grad_input);
+        grad_input),grad_input)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return max_pool2d_with_indices_backward_out_hpu_lazy(
@@ -2156,9 +2046,8 @@ Tensor hpu_wrap::max_pool2d_with_indices_backward(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  if (!hpu_check_inputs_impl(
-          "max_pool2d_with_indices_backward", {grad_output, input, indices}))
-    return AtenHpuTypeDefault::max_pool2d_with_indices_backward(
+  FALLBACK_IF_UNSUPPORTED_OP(
+          max_pool2d_with_indices_backward, PARAMS1(grad_output, input, indices),PARAMS2(
         grad_output,
         input,
         kernel_size,
@@ -2166,7 +2055,7 @@ Tensor hpu_wrap::max_pool2d_with_indices_backward(
         padding,
         dilation,
         ceil_mode,
-        indices);
+        indices))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return max_pool2d_with_indices_backward_hpu_lazy(
@@ -2208,16 +2097,15 @@ Tensor hpu_wrap::avg_pool2d(
       IValue(count_include_pad),
       IValue(divisor_override)};
   check_handle->hpu_check_ivalues("avg_pool2d", op_stack);
-  if (!(hpu_check_inputs_impl("avg_pool2d", {input}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::avg_pool2d(
+
+  FALLBACK_IF_UNSUPPORTED_OP1(avg_pool2d, PARAMS1(input),PARAMS2(
         input,
         kernel_size,
         stride,
         padding,
         ceil_mode,
         count_include_pad,
-        divisor_override);
+        divisor_override))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return avg_pool2d_hpu_lazy(
@@ -2262,10 +2150,9 @@ Tensor& hpu_wrap::avg_pool2d_backward_out(
       IValue(divisor_override),
       IValue(grad_input)};
   check_handle->hpu_check_ivalues("avg_pool2d_backward_out", op_stack);
-  if (!(hpu_check_inputs_impl(
-            "avg_pool2d_backward_out", {grad_input, grad_output, input}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::avg_pool2d_backward_out(
+
+  FALLBACK_IF_UNSUPPORTED_OP1_O(
+            avg_pool2d_backward, PARAMS1(grad_input, grad_output, input),PARAMS2(
         grad_output,
         input,
         kernel_size,
@@ -2274,7 +2161,7 @@ Tensor& hpu_wrap::avg_pool2d_backward_out(
         ceil_mode,
         count_include_pad,
         divisor_override,
-        grad_input);
+        grad_input),grad_input)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return avg_pool2d_backward_out_hpu_lazy(
@@ -2321,9 +2208,8 @@ Tensor hpu_wrap::avg_pool2d_backward(
       IValue(count_include_pad),
       IValue(divisor_override)};
   check_handle->hpu_check_ivalues("avg_pool2d_backward", op_stack);
-  if (!(hpu_check_inputs_impl("avg_pool2d_backward", {grad_output, input}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::avg_pool2d_backward(
+
+  FALLBACK_IF_UNSUPPORTED_OP1(avg_pool2d_backward, PARAMS1(grad_output, input),PARAMS2(
         grad_output,
         input,
         kernel_size,
@@ -2331,7 +2217,7 @@ Tensor hpu_wrap::avg_pool2d_backward(
         padding,
         ceil_mode,
         count_include_pad,
-        divisor_override);
+        divisor_override))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return avg_pool2d_backward_hpu_lazy(
@@ -2361,8 +2247,7 @@ Tensor& hpu_wrap::uniform_(
     double from,
     double to,
     c10::optional<Generator> gen) {
-  if (!hpu_check_inputs_impl("uniform_", {self}))
-    return AtenHpuTypeDefault::uniform_(self, from, to, gen);
+  FALLBACK_IF_UNSUPPORTED_OP(uniform_, PARAMS1(self),PARAMS2(self, from, to, gen))
 
   return uniform_hpu(self, from, to, gen);
 }
@@ -2372,15 +2257,13 @@ Tensor& hpu_wrap::normal_(
     double mean,
     double std,
     c10::optional<Generator> gen) {
-  if (!hpu_check_inputs_impl("normal_", {self}))
-    return AtenHpuTypeDefault::normal_(self, mean, std, gen);
+  FALLBACK_IF_UNSUPPORTED_OP(normal_, PARAMS1(self),PARAMS2(self, mean, std, gen))
 
   return normal_hpu(self, mean, std, gen);
 }
 
 Tensor hpu_wrap::bernoulli(const Tensor& self, c10::optional<Generator> gen) {
-  if (!hpu_check_inputs_impl("bernoulli", {self}))
-    return AtenHpuTypeDefault::bernoulli(self, gen);
+  FALLBACK_IF_UNSUPPORTED_OP(bernoulli, PARAMS1(self),PARAMS2(self, gen))
 
   return bernoulli_hpu(self, gen);
 }
@@ -2389,8 +2272,7 @@ Tensor& hpu_wrap::bernoulli_(
     Tensor& self,
     double p,
     c10::optional<Generator> gen) {
-  if (!hpu_check_inputs_impl("bernoulli_", {self}))
-    return AtenHpuTypeDefault::bernoulli_(self, p, gen);
+  FALLBACK_IF_UNSUPPORTED_OP_O(bernoulli_, PARAMS1(self),PARAMS2(self, p, gen),float)
 
   return bernoulli_scalar_hpu(self, p, gen);
 }
@@ -2399,8 +2281,7 @@ Tensor& hpu_wrap::randperm_out(
     int64_t n,
     c10::optional<Generator> gen,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("random_shuffle", {out}))
-    return AtenHpuTypeDefault::randperm_out(n, gen, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(randperm, PARAMS1(out),PARAMS2(n, gen, out),generator_out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return randperm_hpu_lazy(out, n, gen);
@@ -2413,8 +2294,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
     const Tensor& self,
     double p,
     c10::optional<Generator> gen) {
-  if (!hpu_check_inputs_impl("_fused_dropout", {self}))
-    return AtenHpuTypeDefault::_fused_dropout(self, p, gen);
+  FALLBACK_IF_UNSUPPORTED_OP(_fused_dropout, PARAMS1(self),PARAMS2(self, p, gen))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return fused_dropout_hpu_lazy(self, p, gen);
@@ -2424,8 +2304,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
 }
 
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
-  if (!hpu_check_inputs_impl("repeat", {self}))
-    return AtenHpuTypeDefault::repeat(self, repeats);
+  FALLBACK_IF_UNSUPPORTED_OP(repeat, PARAMS1(self),PARAMS2(self, repeats))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return repeat_hpu_lazy(self, repeats);
   } else {
@@ -2438,8 +2317,7 @@ Tensor hpu_wrap::sum(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("sum_dim_IntList", {self}))
-    return AtenHpuTypeDefault::sum(self, dim, keepdim, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sum, PARAMS1(self),PARAMS2(self, dim, keepdim, dtype),dim_IntList)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sum_dim_IntList_hpu_lazy(self, dim, keepdim, dtype);
@@ -2454,8 +2332,7 @@ Tensor& hpu_wrap::sum_out(
     bool keepdim,
     c10::optional<ScalarType> dtype,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("sum_out", {output, self}))
-    return AtenHpuTypeDefault::sum_out(self, dim, keepdim, dtype, output);
+  FALLBACK_IF_UNSUPPORTED_OP_O(sum, PARAMS1(output, self),PARAMS2(self, dim, keepdim, dtype, output),IntList_out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sum_out_hpu_lazy(self, dim, keepdim, dtype, output);
@@ -2468,8 +2345,7 @@ Tensor hpu_wrap::cumsum(
     const Tensor& self,
     int64_t dim,
     c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("cumsum", {self}))
-    return AtenHpuTypeDefault::cumsum(self, dim, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP(cumsum, PARAMS1(self),PARAMS2(self, dim, dtype))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return cumsum_hpu_lazy(self, dim, dtype);
@@ -2483,8 +2359,7 @@ Tensor hpu_wrap::mean(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("mean", {self}))
-    return AtenHpuTypeDefault::mean(self, dim, keepdim, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP_O(mean, PARAMS1(self),PARAMS2(self, dim, keepdim, dtype),dim)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mean_dim_hpu_lazy(self, dim, keepdim, dtype);
@@ -2499,8 +2374,7 @@ Tensor& hpu_wrap::mean_out(
     bool keepdim,
     c10::optional<ScalarType> dtype,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("mean_out", {output, self}))
-    return AtenHpuTypeDefault::mean_out(self, dim, keepdim, dtype, output);
+  FALLBACK_IF_UNSUPPORTED_OP(mean_out, PARAMS1(output, self),PARAMS2(self, dim, keepdim, dtype, output))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mean_dim_out_hpu_lazy(output, self, dim, keepdim, dtype);
@@ -2510,8 +2384,7 @@ Tensor& hpu_wrap::mean_out(
   }
 };
 Tensor hpu_wrap::sum(const Tensor& self, c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("sum", {self}))
-    return AtenHpuTypeDefault::sum(self, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP(sum, PARAMS1(self),PARAMS2(self, dtype))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sum_hpu_lazy(self, dtype);
@@ -2521,8 +2394,7 @@ Tensor hpu_wrap::sum(const Tensor& self, c10::optional<ScalarType> dtype) {
   }
 };
 Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("mean", {self}))
-    return AtenHpuTypeDefault::mean(self, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP(mean, PARAMS1(self),PARAMS2(self, dtype))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mean_hpu_lazy(self, dtype);
@@ -2532,8 +2404,7 @@ Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
   }
 };
 Tensor hpu_wrap::prod(const Tensor& self, c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("prod", {self}))
-    return AtenHpuTypeDefault::prod(self, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP(prod, PARAMS1(self),PARAMS2(self, dtype))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return prod_hpu_lazy(self, dtype);
@@ -2547,8 +2418,7 @@ Tensor hpu_wrap::prod(
     int64_t dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!hpu_check_inputs_impl("prod", {self}))
-    return AtenHpuTypeDefault::prod(self, dim, keepdim, dtype);
+  FALLBACK_IF_UNSUPPORTED_OP_O(prod, PARAMS1(self),PARAMS2(self, dim, keepdim, dtype),dim_int)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return prod_dim_hpu_lazy(self, dim, keepdim, dtype);
@@ -2561,8 +2431,7 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim) {
-  if (!hpu_check_inputs_impl("max", {self}))
-    return AtenHpuTypeDefault::max(self, dim, keepdim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(max, PARAMS1(self),PARAMS2(self, dim, keepdim),dim)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return max_dim_hpu_lazy(self, dim, keepdim);
@@ -2571,8 +2440,7 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
   }
 };
 at::Tensor hpu_wrap::max(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("max", {self}))
-    return AtenHpuTypeDefault::max(self);
+  FALLBACK_IF_UNSUPPORTED_OP(max, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return max_hpu_lazy(self);
@@ -2582,8 +2450,7 @@ at::Tensor hpu_wrap::max(const at::Tensor& self) {
 };
 
 at::Tensor hpu_wrap::min(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("min", {self}))
-    return AtenHpuTypeDefault::min(self);
+  FALLBACK_IF_UNSUPPORTED_OP(min, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return min_hpu_lazy(self);
@@ -2597,8 +2464,7 @@ Tensor& hpu_wrap::any_out(
     int64_t dim,
     bool keepdim,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("any", {self, output}))
-    return AtenHpuTypeDefault::any_out(self, dim, keepdim, output);
+  FALLBACK_IF_UNSUPPORTED_OP(any_out, PARAMS1(self, output),PARAMS2(self, dim, keepdim, output))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return any_dim_out_hpu_lazy(self, dim, keepdim, output);
@@ -2607,8 +2473,7 @@ Tensor& hpu_wrap::any_out(
   }
 }
 Tensor hpu_wrap::any(const Tensor& self, int64_t dim, bool keepdim) {
-  if (!hpu_check_inputs_impl("any", {self}))
-    return AtenHpuTypeDefault::any(self, dim, keepdim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(any, PARAMS1(self),PARAMS2(self, dim, keepdim),dim)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return any_dim_hpu_lazy(self, dim, keepdim);
@@ -2618,8 +2483,7 @@ Tensor hpu_wrap::any(const Tensor& self, int64_t dim, bool keepdim) {
   }
 };
 Tensor hpu_wrap::any(const Tensor& self) {
-  if (!hpu_check_inputs_impl("any", {self}))
-    return AtenHpuTypeDefault::any(self);
+  FALLBACK_IF_UNSUPPORTED_OP(any, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return any_hpu_lazy(self);
@@ -2630,8 +2494,7 @@ Tensor hpu_wrap::any(const Tensor& self) {
 }
 
 Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
-  if (!hpu_check_inputs_impl("one_hot", {self}))
-    return AtenHpuTypeDefault::one_hot(self, num_classes);
+  FALLBACK_IF_UNSUPPORTED_OP(one_hot, PARAMS1(self),PARAMS2(self, num_classes))
   struct OneHot : public torch::autograd::Function<OneHot> {
     static at::Tensor forward(
         torch::autograd::AutogradContext*,
@@ -2658,9 +2521,8 @@ Tensor hpu_wrap::_log_softmax(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim), IValue(half_to_float)};
   check_handle->hpu_check_ivalues("_log_softmax", op_stack);
-  if (!(hpu_check_inputs_impl("_log_softmax", {self}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::_log_softmax(self, dim, half_to_float);
+
+  FALLBACK_IF_UNSUPPORTED_OP1(_log_softmax, PARAMS1(self),PARAMS2(self, dim, half_to_float))
 
   return log_softmax_hpu(self, dim, half_to_float);
 }
@@ -2670,10 +2532,9 @@ Tensor hpu_wrap::_log_softmax_backward_data(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  if (!hpu_check_inputs_impl(
-          "_log_softmax_backward_data", {grad, output, input}))
-    return AtenHpuTypeDefault::_log_softmax_backward_data(
-        grad, output, dim, input);
+  FALLBACK_IF_UNSUPPORTED_OP(
+          _log_softmax_backward_data, PARAMS1(grad, output, input),PARAMS2(
+        grad, output, dim, input.scalar_type()))
 
   return log_softmax_backward_hpu(grad, output, dim, input);
 };
@@ -2685,9 +2546,8 @@ Tensor hpu_wrap::_softmax(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim), IValue(half_to_float)};
   check_handle->hpu_check_ivalues("_softmax", op_stack);
-  if (!(hpu_check_inputs_impl("_softmax", {self}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::_softmax(self, dim, half_to_float);
+
+  FALLBACK_IF_UNSUPPORTED_OP1(_softmax, PARAMS1(self),PARAMS2(self, dim, half_to_float))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return softmax_hpu_lazy(self, dim, half_to_float);
@@ -2696,19 +2556,19 @@ Tensor hpu_wrap::_softmax(
     return softmax_hpu(self, dim, half_to_float);
   }
 };
+
 Tensor hpu_wrap::_softmax_backward_data(
     const Tensor& grad,
     const Tensor& output,
     int64_t dim,
-    const Tensor& input) {
-  if (!hpu_check_inputs_impl("_softmax_backward_data", {grad, output, input}))
-    return AtenHpuTypeDefault::_softmax_backward_data(grad, output, dim, input);
+    ScalarType input_dtype) {
+  FALLBACK_IF_UNSUPPORTED_OP(_softmax_backward_data, PARAMS1(grad, output),PARAMS2(grad, output, dim, input_dtype))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return softmax_backward_hpu_lazy(grad, output, dim, input);
+    return softmax_backward_hpu_lazy(grad, output, dim, input_dtype);
 
   } else {
-    return softmax_backward_hpu(grad, output, dim, input);
+    return softmax_backward_hpu(grad, output, dim, grad);
   }
 };
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
@@ -2739,7 +2599,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
     auto input = saved_vars[1];
     auto dim = ctx->saved_data["dim"].toInt();
     auto result =
-        hpu_wrap::_softmax_backward_data(grad_output[0], output, dim, input);
+        hpu_wrap::_softmax_backward_data(grad_output[0], output, dim, input.scalar_type());
     return {result, torch::Tensor(), torch::Tensor()};
   }
 };
@@ -2777,9 +2637,8 @@ Tensor hpu_wrap::empty_strided(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory) {
-  if (!hpu_check_inputs_impl("empty_strided", {}))
-    return AtenHpuTypeDefault::empty_strided(
-        size, stride, dtype, layout, device, pin_memory);
+  FALLBACK_IF_UNSUPPORTED_OP(empty_strided, PARAMS1(),PARAMS2(
+        size, stride, dtype, layout, device, pin_memory))
 
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))
@@ -2795,8 +2654,7 @@ Tensor hpu_wrap::empty_strided(
 Tensor hpu_wrap::clone(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
-  if (!hpu_check_inputs_impl("clone", {self}))
-    return AtenHpuTypeDefault::clone(self, memory_format);
+  FALLBACK_IF_UNSUPPORTED_OP(clone, PARAMS1(self),PARAMS2(self, memory_format))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return clone_hpu_lazy(self, memory_format);
@@ -2806,8 +2664,7 @@ Tensor hpu_wrap::clone(
   }
 };
 Tensor& hpu_wrap::zero_(Tensor& self) {
-  if (!hpu_check_inputs_impl("zero_", {self}))
-    return AtenHpuTypeDefault::zero_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(zero_, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return zero_hpu_lazy(self);
@@ -2817,8 +2674,7 @@ Tensor& hpu_wrap::zero_(Tensor& self) {
   }
 };
 Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
-  if (!hpu_check_inputs_impl("cat", {tensors[0]}))
-    return AtenHpuTypeDefault::cat(tensors, dim_);
+  FALLBACK_IF_UNSUPPORTED_OP(cat, PARAMS1(tensors[0]),PARAMS2(tensors, dim_))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return cat_hpu_lazy(tensors, dim_);
@@ -2831,8 +2687,7 @@ Tensor& hpu_wrap::cat_out(
     const TensorList tensors,
     int64_t dim_,
     Tensor& result) {
-  if (!hpu_check_inputs_impl("cat_out", {result, tensors[0]}))
-    return AtenHpuTypeDefault::cat_out(tensors, dim_, result);
+  FALLBACK_IF_UNSUPPORTED_OP(cat_out, PARAMS1(result, tensors[0]),PARAMS2(tensors, dim_, result))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return cat_hpu_lazy_out(result, tensors, dim_);
@@ -2842,8 +2697,7 @@ Tensor& hpu_wrap::cat_out(
   }
 };
 Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  if (!hpu_check_inputs_impl("transpose", {self}))
-    return AtenHpuTypeDefault::transpose(self, dim0_, dim1_);
+  FALLBACK_IF_UNSUPPORTED_OP_O(transpose, PARAMS1(self),PARAMS2(self, dim0_, dim1_),int)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return transpose_hpu_lazy(self, dim0_, dim1_);
@@ -2854,8 +2708,7 @@ Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 };
 
 Tensor hpu_wrap::t(const Tensor& self) {
-  if (!hpu_check_inputs_impl("t", {self}))
-    return AtenHpuTypeDefault::t(self);
+  FALLBACK_IF_UNSUPPORTED_OP(t, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return t_hpu_lazy(self);
@@ -2866,8 +2719,7 @@ Tensor hpu_wrap::t(const Tensor& self) {
 };
 
 Tensor hpu_wrap::permute(const Tensor& self, IntArrayRef dims_) {
-  if (!hpu_check_inputs_impl("permute", {self}))
-    return AtenHpuTypeDefault::permute(self, dims_);
+  FALLBACK_IF_UNSUPPORTED_OP(permute, PARAMS1(self),PARAMS2(self, dims_))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return permute_hpu_lazy(self, dims_);
@@ -2877,8 +2729,7 @@ Tensor hpu_wrap::permute(const Tensor& self, IntArrayRef dims_) {
   }
 };
 Tensor hpu_wrap::expand(const Tensor& self, IntArrayRef size, bool implicit) {
-  if (!hpu_check_inputs_impl("expand", {self}))
-    return AtenHpuTypeDefault::expand(self, size, implicit);
+  FALLBACK_IF_UNSUPPORTED_OP(expand, PARAMS1(self),PARAMS2(self, size, implicit))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return expand_hpu_lazy(self, size, implicit);
@@ -2891,8 +2742,7 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     IntArrayRef split_sizes,
     int64_t dim) {
-  if (!hpu_check_inputs_impl("split_with_sizes", {self}))
-    return AtenHpuTypeDefault::split_with_sizes(self, split_sizes, dim);
+  FALLBACK_IF_UNSUPPORTED_OP(split_with_sizes, PARAMS1(self),PARAMS2(self, split_sizes, dim))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return split_with_sizes_hpu_lazy(self, split_sizes, dim);
@@ -2909,9 +2759,9 @@ Tensor hpu_wrap::threshold_backward(
   std::vector<c10::IValue> op_stack = {
       IValue(grad_output), IValue(self), IValue(threshold)};
   check_handle->hpu_check_ivalues("threshold_backward", op_stack);
-  if (!(hpu_check_inputs_impl("threshold_backward", {grad_output, self}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::threshold_backward(grad_output, self, threshold);
+
+  FALLBACK_IF_UNSUPPORTED_OP1(threshold_backward, PARAMS1(grad_output, self),PARAMS2(grad_output, self, threshold))
+
   return threshold_backward_hpu(grad_output, self, threshold);
 };
 std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
@@ -2932,10 +2782,9 @@ std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
       IValue(values),
       IValue(indices)};
   check_handle->hpu_check_ivalues("topk", op_stack);
-  if (!(hpu_check_inputs_impl("topk_out", {values, indices, self}) &&
-        check_handle->get_status()))
-    return AtenHpuTypeDefault::topk_out(
-        self, k, dim_, largest, sorted, values, indices);
+
+  FALLBACK_IF_UNSUPPORTED_OP1_O(topk, PARAMS1(values, indices, self),PARAMS2(
+        self, k, dim_, largest, sorted, values, indices),values)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return topk_out_hpu_lazy(self, k, dim_, largest, sorted, values, indices);
@@ -2954,8 +2803,9 @@ std::tuple<Tensor, Tensor> hpu_wrap::topk(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(k), IValue(dim), IValue(largest), IValue(sorted)};
   check_handle->hpu_check_ivalues("topk", op_stack);
-  if (!(hpu_check_inputs_impl("topk", {self}) && check_handle->get_status()))
-    return AtenHpuTypeDefault::topk(self, k, dim, largest, sorted);
+
+  FALLBACK_IF_UNSUPPORTED_OP1(topk, PARAMS1(self),PARAMS2(self, k, dim, largest, sorted))
+
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return topk_hpu_lazy(self, k, dim, largest, sorted);
@@ -2972,8 +2822,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim), IValue(descending)};
   check_handle->hpu_check_ivalues("sort", op_stack);
-  if (!(hpu_check_inputs_impl("sort", {self}) && check_handle->get_status()))
-    return AtenHpuTypeDefault::sort(self, dim, descending);
+  FALLBACK_IF_UNSUPPORTED_OP1(sort, PARAMS1(self),PARAMS2(self, dim, descending))
+
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sort_hpu_lazy(self, dim, descending);
@@ -2992,8 +2842,7 @@ at::Tensor hpu_wrap::elu(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
   check_handle->hpu_check_ivalues("elu", op_stack);
-  if (!(hpu_check_inputs_impl(__func__, {self}) && check_handle->get_status()))
-    return AtenHpuTypeDefault::elu(self, alpha, scale, input_scale);
+  FALLBACK_IF_UNSUPPORTED_OP(elu, PARAMS1(self),PARAMS2(self, alpha, scale, input_scale))
   return elu_hpu_lazy(self, alpha, scale, input_scale);
 }
 
@@ -3006,25 +2855,23 @@ at::Tensor& hpu_wrap::elu_(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
   check_handle->hpu_check_ivalues("elu", op_stack);
-  if (!(hpu_check_inputs_impl(__func__, {self}) && check_handle->get_status()))
-    return AtenHpuTypeDefault::elu_(self, alpha, scale, input_scale);
+
+  FALLBACK_IF_UNSUPPORTED_OP1(elu_, PARAMS1(self),PARAMS2(self, alpha, scale, input_scale))
+
   return elu_hpu_lazy_(self, alpha, scale, input_scale);
 }
 
 Tensor hpu_wrap::relu(const Tensor& input) {
-  if (!hpu_check_inputs_impl("relu", {input}))
-    return AtenHpuTypeDefault::relu(input);
+  FALLBACK_IF_UNSUPPORTED_OP(relu, PARAMS1(input),PARAMS2(input))
   return relu_hpu(input);
 };
 Tensor& hpu_wrap::relu_(Tensor& self) {
-  if (!hpu_check_inputs_impl("relu_", {self}))
-    return AtenHpuTypeDefault::relu_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(relu_, PARAMS1(self),PARAMS2(self))
   return relu_hpu_(self);
 }
 
 Tensor& hpu_wrap::leaky_relu_(Tensor& self, const Scalar& negative_slope) {
-  if (!hpu_check_inputs_impl("leaky_relu_", {self}))
-    return AtenHpuTypeDefault::leaky_relu_(self, negative_slope);
+  FALLBACK_IF_UNSUPPORTED_OP(leaky_relu_, PARAMS1(self),PARAMS2(self, negative_slope))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return leaky_relu_lazy_(self, negative_slope);
@@ -3038,9 +2885,8 @@ at::Tensor hpu_wrap::leaky_relu_backward(
     const at::Tensor& self,
     const at::Scalar& negative_slope,
     bool self_is_result) {
-  if (!hpu_check_inputs_impl("leaky_relu_backward", {grad_output, self}))
-    return AtenHpuTypeDefault::leaky_relu_backward(
-        grad_output, self, negative_slope, self_is_result);
+  FALLBACK_IF_UNSUPPORTED_OP(leaky_relu_backward, PARAMS1(grad_output, self),PARAMS2(
+        grad_output, self, negative_slope, self_is_result))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return leaky_relu_backward_lazy(
         grad_output, self, negative_slope, self_is_result);
@@ -3053,8 +2899,7 @@ at::Tensor hpu_wrap::leaky_relu_backward(
 at::Tensor hpu_wrap::leaky_relu(
     const at::Tensor& self,
     const at::Scalar& negative_slope) {
-  if (!hpu_check_inputs_impl("leaky_relu", {self}))
-    return AtenHpuTypeDefault::leaky_relu(self, negative_slope);
+  FALLBACK_IF_UNSUPPORTED_OP(leaky_relu, PARAMS1(self),PARAMS2(self, negative_slope))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return leaky_relu_lazy(self, negative_slope);
@@ -3064,51 +2909,43 @@ at::Tensor hpu_wrap::leaky_relu(
 }
 
 Tensor hpu_wrap::sigmoid(const Tensor& input) {
-  if (!hpu_check_inputs_impl("sigmoid", {input}))
-    return AtenHpuTypeDefault::sigmoid(input);
+  FALLBACK_IF_UNSUPPORTED_OP(sigmoid, PARAMS1(input),PARAMS2(input))
   return sigmoid_hpu(input);
 };
 Tensor hpu_wrap::sigmoid_backward(const Tensor& grad_in, const Tensor& input) {
-  if (!hpu_check_inputs_impl("sigmoid_backward", {grad_in, input}))
-    return AtenHpuTypeDefault::sigmoid_backward(grad_in, input);
+  FALLBACK_IF_UNSUPPORTED_OP(sigmoid_backward, PARAMS1(grad_in, input),PARAMS2(grad_in, input))
   return sigmoid_backward_hpu(grad_in, input);
 };
 
 at::Tensor& hpu_wrap::hardsigmoid_(at::Tensor& self) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
-    return AtenHpuTypeDefault::hardsigmoid_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(hardsigmoid_, PARAMS1(self),PARAMS2(self))
 
   return hardsigmoid_hpu_lazy_(self);
 }
 
 at::Tensor hpu_wrap::hardsigmoid(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
-    return AtenHpuTypeDefault::hardsigmoid(self);
+  FALLBACK_IF_UNSUPPORTED_OP(hardsigmoid, PARAMS1(self),PARAMS2(self))
   return hardsigmoid_hpu_lazy(self);
 }
 
 at::Tensor hpu_wrap::hardsigmoid_backward(
     const at::Tensor& grad_output,
     const at::Tensor& self) {
-  if (!hpu_check_inputs_impl(__func__, {grad_output, self}))
-    return AtenHpuTypeDefault::hardsigmoid_backward(grad_output, self);
+  FALLBACK_IF_UNSUPPORTED_OP(hardsigmoid_backward, PARAMS1(grad_output, self),PARAMS2(grad_output, self))
   return hardsigmoid_backward_hpu_lazy(grad_output, self);
 }
 
 Tensor hpu_wrap::sqrt(const Tensor& input) {
-  if (!hpu_check_inputs_impl("sqrt", {input}))
-    return AtenHpuTypeDefault::sqrt(input);
+  FALLBACK_IF_UNSUPPORTED_OP(sqrt, PARAMS1(input),PARAMS2(input))
   return sqrt_hpu(input);
 };
 
 Tensor hpu_wrap::tanh(const Tensor& input) {
-  if (!hpu_check_inputs_impl("tanh", {input}))
-    return AtenHpuTypeDefault::tanh(input);
+  FALLBACK_IF_UNSUPPORTED_OP(tanh, PARAMS1(input),PARAMS2(input))
   return tanh_hpu(input);
 };
 Tensor& hpu_wrap::tanh_(Tensor& self) {
-  if (!hpu_check_inputs_impl("tanh_", {self}))
-    return AtenHpuTypeDefault::tanh_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(tanh_, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return tanh_hpu_lazy_(self);
@@ -3118,8 +2955,7 @@ Tensor& hpu_wrap::tanh_(Tensor& self) {
   }
 };
 Tensor& hpu_wrap::tanh_out(const Tensor& self, Tensor& out) {
-  if (!hpu_check_inputs_impl("tanh_out", {out, self}))
-    return AtenHpuTypeDefault::tanh_out(self, out);
+  FALLBACK_IF_UNSUPPORTED_OP(tanh_out, PARAMS1(out, self),PARAMS2(self, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return tanh_out_hpu_lazy(out, self);
@@ -3129,13 +2965,11 @@ Tensor& hpu_wrap::tanh_out(const Tensor& self, Tensor& out) {
   }
 };
 Tensor hpu_wrap::tanh_backward(const Tensor& grad_in, const Tensor& input) {
-  if (!hpu_check_inputs_impl("tanh_backward", {grad_in, input}))
-    return AtenHpuTypeDefault::tanh_backward(grad_in, input);
+  FALLBACK_IF_UNSUPPORTED_OP(tanh_backward, PARAMS1(grad_in, input),PARAMS2(grad_in, input))
   return tanh_backward_hpu(grad_in, input);
 };
 Tensor hpu_wrap::gelu(const Tensor& self) {
-  if (!hpu_check_inputs_impl("gelu", {self}))
-    return AtenHpuTypeDefault::gelu(self);
+  FALLBACK_IF_UNSUPPORTED_OP(gelu, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return gelu_hpu_lazy(self);
@@ -3145,8 +2979,7 @@ Tensor hpu_wrap::gelu(const Tensor& self) {
   }
 };
 Tensor hpu_wrap::gelu_backward(const Tensor& grad, const Tensor& self) {
-  if (!hpu_check_inputs_impl("gelu_backward", {grad, self}))
-    return AtenHpuTypeDefault::gelu_backward(grad, self);
+  FALLBACK_IF_UNSUPPORTED_OP(gelu_backward, PARAMS1(grad, self),PARAMS2(grad, self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return gelu_backward_hpu_lazy(grad, self);
@@ -3157,20 +2990,17 @@ Tensor hpu_wrap::gelu_backward(const Tensor& grad, const Tensor& self) {
 };
 
 Tensor& hpu_wrap::erf_(Tensor& self) {
-  if (!hpu_check_inputs_impl("erf_", {self}))
-    return AtenHpuTypeDefault::erf_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(erf_, PARAMS1(self),PARAMS2(self))
 
   return erf_hpu_(self);
 };
 Tensor hpu_wrap::erf(const Tensor& self) {
-  if (!hpu_check_inputs_impl("erf", {self}))
-    return AtenHpuTypeDefault::erf(self);
+  FALLBACK_IF_UNSUPPORTED_OP(erf, PARAMS1(self),PARAMS2(self))
 
   return erf_hpu(self);
 };
 Tensor& hpu_wrap::exp_(Tensor& self) {
-  if (!hpu_check_inputs_impl("exp_", {self}))
-    return AtenHpuTypeDefault::exp_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(exp_, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return exp_hpu_lazy_(self);
@@ -3180,8 +3010,7 @@ Tensor& hpu_wrap::exp_(Tensor& self) {
   }
 };
 Tensor hpu_wrap::exp(const Tensor& self) {
-  if (!hpu_check_inputs_impl("exp", {self}))
-    return AtenHpuTypeDefault::exp(self);
+  FALLBACK_IF_UNSUPPORTED_OP(exp, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return exp_hpu_lazy(self);
@@ -3191,8 +3020,7 @@ Tensor hpu_wrap::exp(const Tensor& self) {
   }
 };
 Tensor& hpu_wrap::neg_out(const Tensor& input, Tensor& result) {
-  if (!hpu_check_inputs_impl("neg_out", {result, input}))
-    return AtenHpuTypeDefault::neg_out(input, result);
+  FALLBACK_IF_UNSUPPORTED_OP(neg_out, PARAMS1(result, input),PARAMS2(input, result))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return neg_out_hpu_lazy(result, input);
@@ -3202,8 +3030,7 @@ Tensor& hpu_wrap::neg_out(const Tensor& input, Tensor& result) {
   }
 };
 Tensor& hpu_wrap::reciprocal_(Tensor& self) {
-  if (!hpu_check_inputs_impl("reciprocal_", {self}))
-    return AtenHpuTypeDefault::reciprocal_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(reciprocal_, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return reciprocal_hpu_lazy_(self);
@@ -3213,8 +3040,7 @@ Tensor& hpu_wrap::reciprocal_(Tensor& self) {
   }
 };
 Tensor hpu_wrap::reciprocal(const Tensor& self) {
-  if (!hpu_check_inputs_impl("reciprocal", {self}))
-    return AtenHpuTypeDefault::reciprocal(self);
+  FALLBACK_IF_UNSUPPORTED_OP(reciprocal, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return reciprocal_hpu_lazy(self);
@@ -3224,8 +3050,7 @@ Tensor hpu_wrap::reciprocal(const Tensor& self) {
   }
 };
 Tensor& hpu_wrap::reciprocal_out(const Tensor& self, Tensor& result) {
-  if (!hpu_check_inputs_impl("reciprocal_out", {result, self}))
-    return AtenHpuTypeDefault::reciprocal_out(self, result);
+  FALLBACK_IF_UNSUPPORTED_OP(reciprocal_out, PARAMS1(result, self),PARAMS2(self, result))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return reciprocal_out_hpu_lazy(result, self);
@@ -3235,30 +3060,26 @@ Tensor& hpu_wrap::reciprocal_out(const Tensor& self, Tensor& result) {
   }
 };
 Tensor hpu_wrap::clamp_min(const Tensor& self, const Scalar& min) {
-  if (!hpu_check_inputs_impl("clamp_min", {self}))
-    return AtenHpuTypeDefault::clamp_min(self, min);
+  FALLBACK_IF_UNSUPPORTED_OP(clamp_min, PARAMS1(self),PARAMS2(self, min))
   return clamp_min_hpu(self, min);
 };
 Tensor& hpu_wrap::clamp_(
     Tensor& self,
     const c10::optional<Scalar>& min,
     const c10::optional<Scalar>& max) {
-  if (!hpu_check_inputs_impl("clamp_", {self}))
-    return AtenHpuTypeDefault::clamp_(self, min, max);
+  FALLBACK_IF_UNSUPPORTED_OP(clamp_, PARAMS1(self),PARAMS2(self, min, max))
   return clamp_hpu_(self, min, max);
 };
 Tensor hpu_wrap::clamp(
     const Tensor& self,
     const c10::optional<Scalar>& min,
     const c10::optional<Scalar>& max) {
-  if (!hpu_check_inputs_impl("clamp", {self}))
-    return AtenHpuTypeDefault::clamp(self, min, max);
+  FALLBACK_IF_UNSUPPORTED_OP(clamp, PARAMS1(self),PARAMS2(self, min, max))
   return clamp_hpu(self, min, max);
 };
 
 Tensor hpu_wrap::isnan(const Tensor& self) {
-  if (!hpu_check_inputs_impl("isnan", {self}))
-    return AtenHpuTypeDefault::isnan(self);
+  FALLBACK_IF_UNSUPPORTED_OP(isnan, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return isnan_hpu_lazy(self);
@@ -3268,15 +3089,13 @@ Tensor hpu_wrap::isnan(const Tensor& self) {
 };
 
 Tensor hpu_wrap::silu(const Tensor& self) {
-  if (!hpu_check_inputs_impl("silu", {self}))
-    return AtenHpuTypeDefault::silu(self);
+  FALLBACK_IF_UNSUPPORTED_OP(silu, PARAMS1(self),PARAMS2(self))
 
   return silu_hpu(self);
 };
 
 Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
-  if (!hpu_check_inputs_impl("silu_backward", {grad, self}))
-    return AtenHpuTypeDefault::silu_backward(grad, self);
+  FALLBACK_IF_UNSUPPORTED_OP(silu_backward, PARAMS1(grad, self),PARAMS2(grad, self))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return silu_backward_hpu_lazy(grad, self);
   } else {
@@ -3286,8 +3105,7 @@ Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
 };
 
 Tensor hpu_wrap::abs(const Tensor& self) {
-  if (!hpu_check_inputs_impl("abs", {self}))
-    return AtenHpuTypeDefault::abs(self);
+  FALLBACK_IF_UNSUPPORTED_OP(abs, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return abs_hpu_lazy(self);
@@ -3297,8 +3115,7 @@ Tensor hpu_wrap::abs(const Tensor& self) {
   }
 };
 Tensor& hpu_wrap::abs_(Tensor& self) {
-  if (!hpu_check_inputs_impl("abs_", {self}))
-    return AtenHpuTypeDefault::abs_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(abs_, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     auto& t = abs_hpu_lazy_(self);
@@ -3308,28 +3125,23 @@ Tensor& hpu_wrap::abs_(Tensor& self) {
   }
 };
 Tensor hpu_wrap::round(const Tensor& self) {
-  if (!hpu_check_inputs_impl("round", {self}))
-    return AtenHpuTypeDefault::round(self);
+  FALLBACK_IF_UNSUPPORTED_OP(round, PARAMS1(self),PARAMS2(self))
   return round_hpu(self);
 };
 Tensor& hpu_wrap::round_(Tensor& self) {
-  if (!hpu_check_inputs_impl("round_", {self}))
-    return AtenHpuTypeDefault::round_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(round_, PARAMS1(self),PARAMS2(self))
   return round_hpu_(self);
 };
 Tensor hpu_wrap::rsqrt(const Tensor& self) {
-  if (!hpu_check_inputs_impl("rsqrt", {self}))
-    return AtenHpuTypeDefault::rsqrt(self);
+  FALLBACK_IF_UNSUPPORTED_OP(rsqrt, PARAMS1(self),PARAMS2(self))
   return rsqrt_hpu(self);
 };
 Tensor& hpu_wrap::rsqrt_(Tensor& self) {
-  if (!hpu_check_inputs_impl("rsqrt_", {self}))
-    return AtenHpuTypeDefault::rsqrt_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(rsqrt_, PARAMS1(self),PARAMS2(self))
   return rsqrt_hpu_(self);
 };
 Tensor hpu_wrap::neg(const Tensor& self) {
-  if (!hpu_check_inputs_impl("neg", {self}))
-    return AtenHpuTypeDefault::neg(self);
+  FALLBACK_IF_UNSUPPORTED_OP(neg, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return neg_hpu_lazy(self);
@@ -3338,8 +3150,7 @@ Tensor hpu_wrap::neg(const Tensor& self) {
   }
 };
 Tensor hpu_wrap::sin(const Tensor& self) {
-  if (!hpu_check_inputs_impl("sin", {self}))
-    return AtenHpuTypeDefault::sin(self);
+  FALLBACK_IF_UNSUPPORTED_OP(sin, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sin_hpu_lazy(self);
@@ -3348,8 +3159,7 @@ Tensor hpu_wrap::sin(const Tensor& self) {
   }
 };
 Tensor hpu_wrap::cos(const Tensor& self) {
-  if (!hpu_check_inputs_impl("cos", {self}))
-    return AtenHpuTypeDefault::cos(self);
+  FALLBACK_IF_UNSUPPORTED_OP(cos, PARAMS1(self),PARAMS2(self))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return cos_hpu_lazy(self);
@@ -3358,34 +3168,28 @@ Tensor hpu_wrap::cos(const Tensor& self) {
   }
 };
 Tensor hpu_wrap::floor(const Tensor& input) {
-  if (!hpu_check_inputs_impl("floor", {input}))
-    return AtenHpuTypeDefault::floor(input);
+  FALLBACK_IF_UNSUPPORTED_OP(floor, PARAMS1(input),PARAMS2(input))
   return floor_hpu(input);
 };
 Tensor& hpu_wrap::floor_(Tensor& self) {
-  if (!hpu_check_inputs_impl("floor_", {self}))
-    return AtenHpuTypeDefault::floor_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(floor_, PARAMS1(self),PARAMS2(self))
   return floor_hpu_(self);
 };
 
 Tensor hpu_wrap::log(const Tensor& input) {
-  if (!hpu_check_inputs_impl("log", {input}))
-    return AtenHpuTypeDefault::log(input);
+  FALLBACK_IF_UNSUPPORTED_OP(log, PARAMS1(input),PARAMS2(input))
   return log_hpu(input);
 };
 Tensor& hpu_wrap::log_(Tensor& self) {
-  if (!hpu_check_inputs_impl("log_", {self}))
-    return AtenHpuTypeDefault::log_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(log_, PARAMS1(self),PARAMS2(self))
   return log_hpu_(self);
 };
 Tensor hpu_wrap::log2(const Tensor& input) {
-  if (!hpu_check_inputs_impl("log2", {input}))
-    return AtenHpuTypeDefault::log2(input);
+  FALLBACK_IF_UNSUPPORTED_OP(log2, PARAMS1(input),PARAMS2(input))
   return log2_hpu(input);
 };
 Tensor& hpu_wrap::log2_(Tensor& self) {
-  if (!hpu_check_inputs_impl("log2_", {self}))
-    return AtenHpuTypeDefault::log2_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(log2_, PARAMS1(self),PARAMS2(self))
   return log2_hpu_(self);
 }
 Tensor hpu_wrap::argmax(
@@ -3412,9 +3216,8 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
       IValue(return_counts)};
   check_handle->hpu_check_ivalues("unique", op_stack);
 
-  if (!(hpu_check_inputs_impl("unique", {self}) && check_handle->get_status()))
-    return AtenHpuTypeDefault::_unique2(
-        self, sorted, return_inverse, return_counts);
+  FALLBACK_IF_UNSUPPORTED_OP1(_unique2, PARAMS1(self),PARAMS2(
+            self, sorted, return_inverse, return_counts))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
@@ -3424,15 +3227,13 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
 }
 
 std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
-  if (!hpu_check_inputs_impl("unbind", {self}))
-    return AtenHpuTypeDefault::unbind(self, dim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(unbind, PARAMS1(self),PARAMS2(self, dim),int)
 
   return at::native::unbind(self, dim);
 }
 
 Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
-  if (!hpu_check_inputs_impl("stack", {tensors[0]}))
-    return AtenHpuTypeDefault::stack(tensors, dim);
+  FALLBACK_IF_UNSUPPORTED_OP(stack, PARAMS1(tensors[0]),PARAMS2(tensors, dim))
 
   return at::native::stack(tensors, dim);
 }
@@ -3440,7 +3241,8 @@ Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
 // Issue with cat_out, see SW-76145
 // Remove this when fixed
 Tensor& hpu_wrap::stack_out(TensorList tensors, int64_t dim, Tensor& out) {
-  return AtenHpuTypeDefault::stack_out(tensors, dim, out);
+  return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(stack_out)>::call(
+      tensors, dim, out);
 }
 
 Tensor hpu_wrap::alias(const at::Tensor& self) {
@@ -3449,50 +3251,43 @@ Tensor hpu_wrap::alias(const at::Tensor& self) {
 }
 
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
-  if (!hpu_check_inputs_impl("_unsafe_view", {self}))
-    return AtenHpuTypeDefault::_unsafe_view(self, size);
+  FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self),PARAMS2(self, size))
 
   return at::native::_unsafe_view(self, size);
 }
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("squeeze", {self}))
-    return AtenHpuTypeDefault::squeeze(self);
+  FALLBACK_IF_UNSUPPORTED_OP(squeeze, PARAMS1(self),PARAMS2(self))
 
   return at::native::squeeze(self);
 }
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self, int64_t dim) {
-  if (!hpu_check_inputs_impl("squeeze", {self}))
-    return AtenHpuTypeDefault::squeeze(self, dim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(squeeze, PARAMS1(self),PARAMS2(self, dim),dim)
 
   return at::native::squeeze(self, dim);
 }
 
 at::Tensor& hpu_wrap::squeeze_(at::Tensor& self) {
-  if (!hpu_check_inputs_impl("squeeze_", {self}))
-    return AtenHpuTypeDefault::squeeze_(self);
+  FALLBACK_IF_UNSUPPORTED_OP(squeeze_, PARAMS1(self),PARAMS2(self))
 
   return at::native::squeeze_(self);
 }
 
 at::Tensor& hpu_wrap::squeeze_(at::Tensor& self, int64_t dim) {
-  if (!hpu_check_inputs_impl("squeeze_", {self}))
-    return AtenHpuTypeDefault::squeeze_(self, dim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(squeeze_, PARAMS1(self),PARAMS2(self, dim),dim)
 
   return at::native::squeeze_(self, dim);
 }
 
 at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
-  if (!hpu_check_inputs_impl("unsqueeze", {self}))
-    return AtenHpuTypeDefault::unsqueeze(self, dim);
+  FALLBACK_IF_UNSUPPORTED_OP(unsqueeze, PARAMS1(self),PARAMS2(self, dim))
 
   return at::native::unsqueeze(self, dim);
 }
 
 at::Tensor& hpu_wrap::unsqueeze_(at::Tensor& self, int64_t dim) {
-  if (!hpu_check_inputs_impl("unsqueeze_", {self}))
-    return AtenHpuTypeDefault::unsqueeze_(self, dim);
+  FALLBACK_IF_UNSUPPORTED_OP(unsqueeze_, PARAMS1(self),PARAMS2(self, dim))
 
   return at::native::unsqueeze_(self, dim);
 }
@@ -3504,7 +3299,7 @@ const at::Tensor& hpu_wrap::as_strided_(
     c10::optional<int64_t> storage_offset) {
   // No CPU fallback for as_strided_ since H2D & D2H DMA support only contiguous
   // tensor transfers
-  // if (!hpu_check_inputs_impl("as_strided_", {self}))
+  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self)
   //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
   //  storage_offset);
 
@@ -3515,8 +3310,7 @@ std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
     int64_t split_size,
     int64_t dim) {
-  if (!hpu_check_inputs_impl("split", {self}))
-    return AtenHpuTypeDefault::split(self, split_size, dim);
+  FALLBACK_IF_UNSUPPORTED_OP_O(split, PARAMS1(self),PARAMS2(self, split_size, dim),Tensor)
 
   // lower aten::split as split_with_sizes using the logic used in Fork
   int64_t dim_size = self.size(dim);
@@ -3551,9 +3345,8 @@ Tensor hpu_wrap::upsample_nearest2d(
     const Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
-  if (!hpu_check_inputs_impl("upsample_nearest2d", {input}))
-    return AtenHpuTypeDefault::upsample_nearest2d(
-        input, output_size, scale_factors);
+  FALLBACK_IF_UNSUPPORTED_OP_O(upsample_nearest2d, PARAMS1(input),PARAMS2(
+        input, output_size, scale_factors),vec)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return upsample_nearest2d_hpu_lazy(input, output_size, scale_factors);
@@ -3567,9 +3360,8 @@ Tensor hpu_wrap::upsample_nearest2d_backward(
     c10::optional<at::IntArrayRef> output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
-  if (!hpu_check_inputs_impl("upsample_nearest2d_backward", {grad_output}))
-    return AtenHpuTypeDefault::upsample_nearest2d_backward(
-        grad_output, output_size, input_size, scale_factors);
+  FALLBACK_IF_UNSUPPORTED_OP_O(upsample_nearest2d_backward, PARAMS1(grad_output),PARAMS2(
+        grad_output, output_size, input_size, scale_factors),vec)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return upsample_nearest2d_backward_hpu_lazy(
@@ -3584,9 +3376,8 @@ Tensor hpu_wrap::upsample_nearest3d(
     const Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
-  if (!hpu_check_inputs_impl("upsample_nearest3d", {input}))
-    return AtenHpuTypeDefault::upsample_nearest3d(
-        input, output_size, scale_factors);
+  FALLBACK_IF_UNSUPPORTED_OP_O(upsample_nearest3d, PARAMS1(input),PARAMS2(
+        input, output_size, scale_factors),vec)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return upsample_nearest3d_hpu_lazy(input, output_size, scale_factors);
@@ -3600,9 +3391,8 @@ Tensor hpu_wrap::upsample_nearest3d_backward(
     c10::optional<at::IntArrayRef> output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
-  if (!hpu_check_inputs_impl("upsample_nearest3d_backward", {grad_output}))
-    return AtenHpuTypeDefault::upsample_nearest3d_backward(
-        grad_output, output_size, input_size, scale_factors);
+  FALLBACK_IF_UNSUPPORTED_OP_O(upsample_nearest3d_backward, PARAMS1(grad_output),PARAMS2(
+        grad_output, output_size, input_size, scale_factors),vec)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return upsample_nearest3d_backward_hpu_lazy(
@@ -3625,8 +3415,7 @@ Tensor& hpu_wrap::bitwise_and_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("bitwise_and_out", {out, self, other}))
-    return AtenHpuTypeDefault::bitwise_and_out(self, other, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(bitwise_and, PARAMS1(out, self, other),PARAMS2(self, other, out),Tensor_out)
 
   return bitwise_and_out_hpu(out, self, other);
 }
@@ -3635,8 +3424,7 @@ Tensor& hpu_wrap::bitwise_or_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("bitwise_or_out", {out, self, other}))
-    return AtenHpuTypeDefault::bitwise_or_out(self, other, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(bitwise_or, PARAMS1(out, self, other),PARAMS2(self, other, out),Tensor_out)
 
   return bitwise_or_out_hpu(out, self, other);
 }
@@ -3645,8 +3433,7 @@ Tensor& hpu_wrap::bitwise_xor_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& out) {
-  if (!hpu_check_inputs_impl("bitwise_xor_out", {out, self, other}))
-    return AtenHpuTypeDefault::bitwise_xor_out(self, other, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(bitwise_xor, PARAMS1(out, self, other),PARAMS2(self, other, out),Tensor_out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return bitwise_xor_out_hpu_lazy(out, self, other);
@@ -3656,8 +3443,7 @@ Tensor& hpu_wrap::bitwise_xor_out(
 }
 
 Tensor& hpu_wrap::bitwise_not_out(const Tensor& self, Tensor& out) {
-  if (!hpu_check_inputs_impl("bitwise_not_out", {out, self}))
-    return AtenHpuTypeDefault::bitwise_not_out(self, out);
+  FALLBACK_IF_UNSUPPORTED_OP(bitwise_not_out, PARAMS1(out, self),PARAMS2(self, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return bitwise_not_out_hpu_lazy(out, self);
@@ -3799,9 +3585,8 @@ Tensor hpu_wrap::ones_like(
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory,
     c10::optional<c10::MemoryFormat> memory_format) {
-  if (!hpu_check_inputs_impl("ones_like", {self}))
-    return AtenHpuTypeDefault::ones_like(
-        self, dtype, layout, device, pin_memory, memory_format);
+  FALLBACK_IF_UNSUPPORTED_OP(ones_like, PARAMS1(self),PARAMS2(
+        self, dtype, layout, device, pin_memory, memory_format))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return ones_like_hpu_lazy(
@@ -3986,8 +3771,7 @@ Tensor hpu_wrap::_masked_scale(
     const Tensor& self,
     const Tensor& mask,
     double scale) {
-  if (!hpu_check_inputs_impl("_masked_scale", {self, mask}))
-    return AtenHpuTypeDefault::_masked_scale(self, mask, scale);
+  FALLBACK_IF_UNSUPPORTED_OP(_masked_scale, PARAMS1(self, mask),PARAMS2(self, mask, scale))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return masked_scale_hpu_lazy(self, mask, scale);
   } else {
@@ -4180,8 +3964,7 @@ Tensor& hpu_wrap::linspace_out(
         "only once per process.");
   }
 
-  if (!hpu_check_inputs_impl("linspace_out", {out}))
-    return AtenHpuTypeDefault::linspace_out(start, end, steps, out);
+  FALLBACK_IF_UNSUPPORTED_OP_O(linspace, PARAMS1(out),PARAMS2(start, end, steps.value(), out),out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return linspace_out_hpu_lazy(start, end, steps, out);
@@ -4231,8 +4014,7 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
 }
 
 Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
-  if (!hpu_check_inputs_impl("flip", {self}))
-    return AtenHpuTypeDefault::flip(self, dims);
+  FALLBACK_IF_UNSUPPORTED_OP(flip, PARAMS1(self),PARAMS2(self, dims))
 
   // Lazy mode is not implemented
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
@@ -4243,8 +4025,7 @@ Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
 }
 
 Tensor hpu_wrap::diag(const Tensor& self, int64_t diagonal) {
-  if (!hpu_check_inputs_impl("diag", {self}))
-    return AtenHpuTypeDefault::diag(self, diagonal);
+  FALLBACK_IF_UNSUPPORTED_OP(diag, PARAMS1(self),PARAMS2(self, diagonal))
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return diag_hpu_lazy(self, diagonal);
   } else {

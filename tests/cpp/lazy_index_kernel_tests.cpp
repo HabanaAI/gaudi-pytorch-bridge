@@ -31,7 +31,7 @@ TEST_F(LazyIndexKernelTest, IndexSelectTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
-TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
+TEST_F(LazyIndexKernelTest, DISABLED_IndexAddInplaceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -416,11 +416,11 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
 }
 */
 
-TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
+TEST_F(LazyIndexKernelTest, DISABLED_LinspaceOutPosToNeFraction) {
   const int64_t constStepsValue = 45;
   torch::Scalar start = 0.70f;
   torch::Scalar end = -0.03f;
-  c10::optional<int64_t> step = constStepsValue;
+  int64_t step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
@@ -432,10 +432,10 @@ TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   EXPECT_EQ(allclose(hOut_cpu, out, 0.0001), true);
 }
 
-TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
+TEST_F(LazyIndexKernelTest, DISABLED_LinspaceOutSameStartEnd) {
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
-  c10::optional<int64_t> step = 100; // wrong value
+  int64_t step = 100; // wrong value
   torch::Tensor out = torch::randn({10}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
 

@@ -9,7 +9,6 @@
  */
 
 #include <ATen/ExpandUtils.h>
-#include <TH/THTensor.hpp>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 #include <memory>

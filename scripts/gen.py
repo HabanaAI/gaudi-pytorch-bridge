@@ -103,6 +103,7 @@ _FN_AUTOGRAD_HPU = set(
 _FN_BLACKLIST_REGEX = [
     # ATEN functions
     r"[^(]*cudnn",
+    r"[^(]*_cufft",
 ]
 
 _FN_OUT = {}
@@ -201,11 +202,17 @@ _RESULT_NAME = "h_result"
 
 class Context(object):
     def __init__(self, functions):
-        with open(functions, "r") as ff:
-            self.functions_data = ff.read()
+        # files = os.listdir(functions)
+        files.append("../RedispatchFunctions.h")
+        for f in files:
+            with open(os.path.join(functions, f), "r") as ff:
+                self.functions_data = ff.read()
 
     def get_function(self, name):
-        if self.functions_data.find(" {}(".format(name)) >= 0:
+        if (
+            not name.endswith("_")
+            and self.functions_data.find(" {}(".format(name)) >= 0
+        ):
             return "at::{}".format(name + "f" if is_out_fn(name) else name)
 
 
@@ -1093,7 +1100,7 @@ def generate_registrations(fgens, overrides):
             override_fn = "hpu_wrap::{}".format(fgen.func)
             overridden.add(mapsig_key)
         else:
-            override_fn = fgen.xfunc if fgen.code else None
+            override_fn = None  # fgen.xfunc if fgen.code else None
         if override_fn:
             pos = fgen.funsig.find("(")
             overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
@@ -1198,6 +1205,8 @@ def generate(args):
     hfunctions = generate_class_functions(fgens, overrides)
     regs, overridden = generate_registrations(fgens, overrides)
     assert check_overrides(overrides, overridden)
+    functions = ""
+    hfunctions = ""
     # Create output files ...
     print(
         _H_HEADER.format(gen=os.path.basename(sys.argv[0]), hfuncs=hfunctions),
@@ -1235,8 +1244,8 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "functions",
         type=str,
-        metavar="FUNCTIONS_FILE",
-        help="The path to the Functions.h file",
+        metavar="FUNCTIONS_DIR",
+        help="The path to the ATen/ops dir",
     )
     args, files = arg_parser.parse_known_args()
     generate(args)

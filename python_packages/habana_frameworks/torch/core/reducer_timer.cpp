@@ -1,7 +1,7 @@
 #include <c10d/reducer_timer.hpp>
-
 #include <c10/core/DeviceGuard.h>
 #include "habana_helpers/logging.h"
+
 namespace c10d {
 namespace {
 

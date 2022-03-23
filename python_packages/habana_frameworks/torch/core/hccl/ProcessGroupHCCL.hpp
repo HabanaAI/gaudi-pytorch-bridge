@@ -80,6 +80,9 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
 
   virtual ~ProcessGroupHCCL();
   void abort();
+  const std::string getBackendName() const override {
+    return std::string("hccl");
+   }
 
   c10::intrusive_ptr<ProcessGroup::Work> broadcast(
       std::vector<at::Tensor>& tensors,

@@ -295,10 +295,10 @@ Tensor& set_hpu_(
           source_storage->device(),
           "\".  This is no longer allowed; the devices must match.");
       self_->set_storage_keep_dtype(
-          at::Storage(c10::intrusive_ptr<THStorage>::reclaim(source_storage)));
+          at::Storage(c10::intrusive_ptr<c10::StorageImpl>::reclaim(source_storage)));
     } else {
-      auto THHStorage_new = []() -> THStorage* {
-        THStorage* storage = c10::make_intrusive<at::StorageImpl>(
+      auto THHStorage_new = []() -> c10::StorageImpl* {
+        c10::StorageImpl* storage = c10::make_intrusive<at::StorageImpl>(
                                  c10::StorageImpl::use_byte_size_t(),
                                  0,
                                  habana::getHABANADeviceAllocator(),
@@ -316,7 +316,7 @@ Tensor& set_hpu_(
           THHStorage_new()->device(),
           "\".  This is no longer allowed; the devices must match.");
       self_->set_storage_keep_dtype(at::Storage(
-          c10::intrusive_ptr<THStorage>::reclaim(THHStorage_new())));
+          c10::intrusive_ptr<c10::StorageImpl>::reclaim(THHStorage_new())));
     }
   }
 

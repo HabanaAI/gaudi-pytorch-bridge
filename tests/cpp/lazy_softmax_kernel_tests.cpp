@@ -87,14 +87,14 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   torch::Tensor houtput = output.to(torch::kHPU);
 
   int dim = 0;
-  auto hout_backward = torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput);
+  auto hout_backward = torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput.scalar_type());
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout2_back = hout_backward.to(torch::kCPU);
 
-  auto cout_back = _log_softmax_backward_data(grad, output, dim, input);
+  auto cout_back = _log_softmax_backward_data(grad, output, dim, input.scalar_type());
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 
@@ -126,14 +126,14 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
   torch::Tensor houtput = output.to(torch::kHPU);
 
   int dim = 0;
-  auto hout_backward = torch::_softmax_backward_data(hgrad, houtput, dim, hinput);
+  auto hout_backward = torch::_softmax_backward_data(hgrad, houtput, dim, hinput.scalar_type());
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout2_back = hout_backward.to(torch::kCPU);
 
-  auto cout_back = _softmax_backward_data(grad, output, dim, input);
+  auto cout_back = _softmax_backward_data(grad, output, dim, input.scalar_type());
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
@@ -165,12 +165,12 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
   torch::Tensor houtConv =
       torch::conv2d(hinput0, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto hout_backward =
-      torch::_softmax_backward_data(houtConv, houtput, dim, hinput);
+      torch::_softmax_backward_data(houtConv, houtput, dim, hinput.scalar_type());
   auto hout2_back = hout_backward.to(torch::kCPU);
 
   torch::Tensor outConv =
       torch::conv2d(input0, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  auto cout_back = torch::_softmax_backward_data(outConv, output, dim, input);
+  auto cout_back = torch::_softmax_backward_data(outConv, output, dim, input.scalar_type());
 
   EXPECT_EQ(allclose(hout2_back, cout_back, 0.01, 0.01), true);
 }

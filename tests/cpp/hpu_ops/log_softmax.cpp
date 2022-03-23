@@ -7,7 +7,6 @@
  *
  ******************************************************************************
  */
-
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -78,13 +77,13 @@ TEST_F(HpuOpTest, LogSoftMaxBwdOutTest1D) {
       GetCpuInput(0),
       GetCpuInput(1),
       /*dim*/ 0,
-      GetCpuInput(2),
+      GetCpuInput(2).scalar_type(),
       GetCpuInput(3));
   torch::_log_softmax_backward_data_outf(
       GetHpuInput(0),
       GetHpuInput(1),
       /*dim*/ 0,
-      GetHpuInput(2),
+      GetHpuInput(2).scalar_type(),
       GetHpuInput(3));
 
   Compare(GetCpuInput(3), GetHpuInput(3));
@@ -102,13 +101,13 @@ TEST_F(HpuOpTest, LogSoftMaxBwdOutTest2D) {
       GetCpuInput(0),
       GetCpuInput(1),
       /*dim*/ -1,
-      GetCpuInput(2),
+      GetCpuInput(2).scalar_type(),
       GetCpuInput(3));
   torch::_log_softmax_backward_data_outf(
       GetHpuInput(0),
       GetHpuInput(1),
       /*dim*/ -1,
-      GetHpuInput(2),
+      GetHpuInput(2).scalar_type(),
       GetHpuInput(3));
 
   Compare(GetCpuInput(3), GetHpuInput(3), 1.4e-2, 1.4e-2);
@@ -122,13 +121,13 @@ TEST_F(HpuOpTest, LogSoftMaxBwdOutTest3D) {
       GetCpuInput(0),
       GetCpuInput(1),
       /*dim*/ 2,
-      GetCpuInput(2),
+      GetCpuInput(2).scalar_type(),
       GetCpuInput(3));
   torch::_log_softmax_backward_data_outf(
       GetHpuInput(0),
       GetHpuInput(1),
       /*dim*/ 2,
-      GetHpuInput(2),
+      GetHpuInput(2).scalar_type(),
       GetHpuInput(3));
 
   Compare(GetCpuInput(3), GetHpuInput(3));
@@ -146,13 +145,13 @@ TEST_F(HpuOpTest, LogSoftMaxBwdOutTest4D) {
       GetCpuInput(0),
       GetCpuInput(1),
       /*dim*/ -2,
-      GetCpuInput(2),
+      GetCpuInput(2).scalar_type(),
       GetCpuInput(3));
   torch::_log_softmax_backward_data_outf(
       GetHpuInput(0),
       GetHpuInput(1),
       /*dim*/ -2,
-      GetHpuInput(2),
+      GetHpuInput(2).scalar_type(),
       GetHpuInput(3));
 
   Compare(GetCpuInput(3), GetHpuInput(3), 2.8e-2, 2.8e-2);
@@ -166,13 +165,13 @@ TEST_F(HpuOpTest, LogSoftMaxBwdOutTest5D) {
       GetCpuInput(0),
       GetCpuInput(1),
       /*dim*/ -3,
-      GetCpuInput(2),
+      GetCpuInput(2).scalar_type(),
       GetCpuInput(3));
   torch::_log_softmax_backward_data_outf(
       GetHpuInput(0),
       GetHpuInput(1),
       /*dim*/ -3,
-      GetHpuInput(2),
+      GetHpuInput(2).scalar_type(),
       GetHpuInput(3));
 
   Compare(GetCpuInput(3), GetHpuInput(3));

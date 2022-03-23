@@ -20,7 +20,6 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/index_kernels.h"
@@ -34,6 +33,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
 #include "synapse_helpers/tensor_builder_base.h"
+#include "hpu_ops/cpu_fallback.h"
 
 using namespace torch;
 using namespace habana;
@@ -1719,7 +1719,7 @@ Tensor& index_put_hpu_(
   }
   if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
       (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
-    AtenHpuTypeDefault::index_put_(self, indices_list, value, accumulate);
+      at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put_)>::call(self, indices_list, value, accumulate);
     PT_KERNEL_END;
     return self;
   }
@@ -2968,7 +2968,7 @@ Tensor index_hpu(const at::Tensor& input, TensorList indices) {
     for (size_t i = 0; i < tensorlist.size(); i++) {
       indices_list.push_back(c10::make_optional(tensorlist[i]));
     }
-    return AtenHpuTypeDefault::index(input, indices_list);
+    FALLBACK_IF_UNSUPPORTED_OP2_O(index, PARAMS2(input, indices_list),Tensor)
   }
 
   // if there is only 1 indices tensor, then operation is equivalent to gather

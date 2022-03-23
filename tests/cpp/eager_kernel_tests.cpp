@@ -33,7 +33,7 @@ TEST_F(EagerKernelTest, LinspaceOutCache) {
   const int64_t constStepsValue = 11;
   torch::Scalar start = 0.0f;
   torch::Scalar end = 10.0f;
-  c10::optional<int64_t> step = constStepsValue;
+  int64_t step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
@@ -54,7 +54,7 @@ TEST_F(EagerKernelTest, LinspaceOutNeToPosStep1) {
   const int64_t constStepsValue = 12; // set incorrect size
   torch::Scalar start = -100.0f;
   torch::Scalar end = 200.0f;
-  c10::optional<int64_t> step = 1;
+  int64_t step = 1;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
@@ -1095,11 +1095,11 @@ TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
 
   int dim = 0;
   auto hout_backward =
-      torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput);
+      torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput.scalar_type());
 
   auto hout2_back = hout_backward.to(torch::kCPU);
 
-  auto cout_back = _log_softmax_backward_data(grad, output, dim, input);
+  auto cout_back = _log_softmax_backward_data(grad, output, dim, input.scalar_type());
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }

@@ -603,8 +603,11 @@ at::Tensor softmax_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& output,
     int64_t dim,
-    const at::Tensor& input);
+    at::ScalarType input_type);
 
+at::Tensor _copy_from_and_resize_lazy(
+    const at::Tensor& self,
+    const at::Tensor& dst);
 at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,

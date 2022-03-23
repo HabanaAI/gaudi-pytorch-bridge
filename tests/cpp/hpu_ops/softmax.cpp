@@ -77,9 +77,9 @@ TEST_F(HpuOpTest, softmax_bwd_out_float) {
   auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::_softmax_backward_data_outf(
-      GetCpuInput(1), GetCpuInput(2), /*dim*/ -1, GetCpuInput(0), expected);
+      GetCpuInput(1), GetCpuInput(2), /*dim*/ -1, GetCpuInput(0).scalar_type(), expected);
   torch::_softmax_backward_data_outf(
-      hgrad_out, houtput, /*dim*/ -1, GetHpuInput(0), result);
+      hgrad_out, houtput, /*dim*/ -1, GetHpuInput(0).scalar_type(), result);
 
   Compare(expected, result);
 }
@@ -101,9 +101,9 @@ TEST_F(HpuOpTest, softmax_bwd_out_bfloat) {
   auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::_softmax_backward_data_outf(
-      GetCpuInput(1), GetCpuInput(2), /*dim*/ 3, GetCpuInput(0), expected);
+      GetCpuInput(1), GetCpuInput(2), /*dim*/ 3, GetCpuInput(0).scalar_type(), expected);
   torch::_softmax_backward_data_outf(
-      hgrad_out, houtput, /*dim*/ 3, GetHpuInput(0), result);
+      hgrad_out, houtput, /*dim*/ 3, GetHpuInput(0).scalar_type(), result);
 
   Compare(expected, result, 1e-03, 6e-02);
 }

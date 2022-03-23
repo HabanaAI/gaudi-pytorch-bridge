@@ -9,6 +9,7 @@
  */
 #pragma once
 #include <utility>
+#include "cpu_fallback.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 namespace habana {
@@ -352,21 +353,50 @@ class OpBackend : public HabanaOperator {
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes) \
   const static SupportedDtypes fn##_supported_dtypes supported_dtypes;
 
-#define FALLBACK_IF_UNSUPPORTED_DTYPE(input, fn, args...)        \
-  if (ABSL_PREDICT_FALSE(!fn##_supported_dtypes.count(input))) { \
-    return AtenHpuTypeDefault::fn(args);                         \
+#define FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)                  \
+  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(input))) {           \
+    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
+        args);                                                                 \
   }
 
-#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, fn, args...)    \
-  if (ABSL_PREDICT_FALSE(                                                \
-          tensor.defined() &&                                            \
-          !fn##tensor##_supported_dtypes.count(tensor.scalar_type()))) { \
-    return AtenHpuTypeDefault::fn(args);                                 \
+#define FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...)   \
+  if (ABSL_PREDICT_FALSE(                                                  \
+          !opname##_##overload##_supported_dtypes.count(input))) {         \
+    return at::native::                                                    \
+        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
+            args);                                                         \
   }
 
-#define FALLBACK_IF_UNSUPPORTED_INPUTS(check_fn, op, args...) \
-  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                  \
-    return AtenHpuTypeDefault::op(args);                      \
+#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, opname, args...)      \
+  if (ABSL_PREDICT_FALSE(                                                      \
+          tensor.defined() &&                                                  \
+          !opname##_##tensor##_supported_dtypes.count(                         \
+              tensor.scalar_type()))) {                                        \
+    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
+        args);                                                                 \
+  }
+
+#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR2(                         \
+    tensor, opname, overload, args...)                                     \
+  if (ABSL_PREDICT_FALSE(                                                  \
+          tensor.defined() &&                                              \
+          !opname##_##overload##_##tensor##_supported_dtypes.count(        \
+              tensor.scalar_type()))) {                                    \
+    return at::native::                                                    \
+        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
+            args);                                                         \
+  }
+
+#define FALLBACK_IF_UNSUPPORTED_INPUTS(check_fn, op, args...)              \
+  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                               \
+    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(op)>::call( \
+        args);                                                             \
+  }
+
+#define FALLBACK_IF_UNSUPPORTED_INPUTS2(check_fn, op, overload, args...)     \
+  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                                 \
+    return at::native::                                                      \
+        call_fallback_fn<&cpu_fallback, ATEN_OP2(op, overload)>::call(args); \
   }
 
 #define FALLBACK_CHECK(check_fn, signature...)          \
