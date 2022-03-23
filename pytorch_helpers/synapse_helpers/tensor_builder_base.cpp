@@ -158,9 +158,12 @@ thread_local uint64_t tensor_name_generator::syn_tensor_id = 0;
 
 std::string tensor_name_generator::get_next_tensor_name(
     const std::string& suffix) {
-  std::string tensor_name = "tensor_" + std::to_string(syn_tensor_id);
-  if (!suffix.empty()) {
-    tensor_name.append("_" + suffix);
+  std::string tensor_name = std::to_string(syn_tensor_id);
+  if (IS_SYNHELPER_DEBUG_ENABLED || GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    tensor_name = "tensor_" + tensor_name;
+    if (!suffix.empty()) {
+      tensor_name.append("_" + suffix);
+    }
   }
   return tensor_name;
 }
@@ -168,7 +171,9 @@ std::string tensor_name_generator::get_next_tensor_name(
 std::string tensor_name_generator::generate(const std::string& suffix) {
   std::string tensor_name = get_next_tensor_name(suffix);
   syn_tensor_id++;
-  to_netron_syntax(tensor_name);
+  if (IS_SYNHELPER_DEBUG_ENABLED || GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    to_netron_syntax(tensor_name);
+  }
   return tensor_name;
 }
 
