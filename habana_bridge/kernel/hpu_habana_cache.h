@@ -294,6 +294,13 @@ struct RecipeValueSpec {
     opstrs = s;
   }
 
+  std::string get_graph_name() {
+    return graph_name;
+  }
+  void set_graph_name(const std::string& name) {
+    graph_name = name;
+  }
+
   void Serialize(std::ostream& os) const;
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
@@ -329,6 +336,7 @@ struct RecipeValueSpec {
   std::string opstrs;
 
   std::string header;
+  std::string graph_name;
   size_t num_tensors{0};
   uint64_t* tensor_ids{nullptr};
   const char** tensor_names{nullptr};

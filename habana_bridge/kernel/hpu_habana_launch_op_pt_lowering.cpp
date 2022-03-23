@@ -289,6 +289,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
     TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
     rv.set_key(cur_rargpsh->hashCode());
     rv.set_graph_key(graph_key);
+    rv.set_graph_name(GetSynapseGraphName());
     rv.set_op_strs(cur_rargpsh->get_op_strs());
   }
 }

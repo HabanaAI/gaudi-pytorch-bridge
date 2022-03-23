@@ -112,7 +112,7 @@ bool habana::CompileGraphWithRange(
 
     size_t graphKey{rvpsh->get_graph_key()};
     size_t graphIndex{visualize::GetGraphIndex(graphKey)};
-    std::string graphName{"HabanaFusedOpLazy"};
+    std::string graphName{rvpsh->get_graph_name()};
     std::string opStr{rvpsh->get_op_strs()};
     std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
         jit_ir_graph_and_mdata =

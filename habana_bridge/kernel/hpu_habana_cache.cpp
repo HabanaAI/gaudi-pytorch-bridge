@@ -427,6 +427,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, opstrs);
   deserialize(is, header);
   deserialize(is, num_tensors);
+  deserialize(is, graph_name);
   tensor_ids = new uint64_t[num_tensors];
   for (size_t i = 0; i < num_tensors; i++) {
     deserialize(is, tensor_ids[i]);
@@ -513,6 +514,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, opstrs);
   serialize(os, header);
   serialize(os, num_tensors);
+  serialize(os, graph_name);
   for (size_t i = 0; i < num_tensors; i++) {
     serialize(os, tensor_ids[i]);
   }
