@@ -28,15 +28,12 @@ class SBSWithParamsTest
     std::cout << "PT_SBS=" << m_sbs_mode
               << " perform mark_step = " << m_perform_markstep << std::endl;
 
-    m_numberOfPotentialSBSOps = 0;
-    m_numberOfPotentialSBSOpTensors = 0;
-    m_numberOfCopiesToHPU = 0; // copy is not a lazy op, but it is aggregated
-                               // in the value GetNumberOfAccumulatedOps
+    ResetOpCounters();
+    ResetSBSHandlers();
   }
 
   void TearDown() override {
-    habana_lazy::SBSDebug::getInstance().reset();
-    habana_lazy::SBSInterface::reset();
+    ResetSBSHandlers();
     UNSET_ENV_FLAG_NEW(PT_SBS);
 
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
@@ -47,11 +44,19 @@ class SBSWithParamsTest
   int m_sbs_mode = habana_lazy::SBS_MODE_DISABLED;
   bool m_perform_markstep = false;
 
+  void ResetSBSHandlers() {
+    habana_lazy::SBSDebug::getInstance().reset();
+    habana_lazy::SBSInterface::reset();
+  }
+
   // count validation
   size_t m_numberOfPotentialSBSOps = 0;
   size_t m_numberOfPotentialSBSOpTensors = 0;
   size_t m_numberOfCopiesToHPU =
       0; // copy is not a lazy op, but it is aggregated
+         // in the value GetNumberOfAccumulatedOps
+  size_t m_numberOfViewOps =
+      0; // view op currently unhandled, but it is aggregated
          // in the value GetNumberOfAccumulatedOps
 
   void PerformMarkStep() {
@@ -65,6 +70,11 @@ class SBSWithParamsTest
     ++m_numberOfCopiesToHPU;
   }
 
+  // TODO: [SW-75044] support view ops, then remove this
+  void IncreaseNumberOfViewOps(size_t num) {
+    m_numberOfViewOps += num;
+  }
+
   void UpdateOpCounters() {
     m_numberOfPotentialSBSOps +=
         habana_lazy::SBSDebug::getInstance().GetNumberOfAccumulatedOps();
@@ -73,15 +83,25 @@ class SBSWithParamsTest
             .GetNumberOfAccumulatedOpOutputTensors();
   }
 
+  void ResetOpCounters() {
+    m_numberOfPotentialSBSOps = 0;
+    m_numberOfPotentialSBSOpTensors = 0;
+    m_numberOfCopiesToHPU = 0; // copy is not a lazy op, but it is aggregated
+    // in the value GetNumberOfAccumulatedOps
+    m_numberOfViewOps = 0; // view op currently unhandled, but it is aggregated
+                           // in the value GetNumberOfAccumulatedOps
+  }
+
   void ValidateCounters() {
     // in lazy1 we might skip comparing middle-graph tensors, as we don't sync
     // all of the tensors. This includes inplace tensors.
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
       m_numberOfCopiesToHPU +=
           habana_lazy::SBSInterface::getNumberOfTensorCopies();
-      // subtracting the copy_to_hpu op
-      m_numberOfPotentialSBSOps -= m_numberOfCopiesToHPU;
-      m_numberOfPotentialSBSOpTensors -= m_numberOfCopiesToHPU;
+      // subtracting the copy_to_hpu and view related ops
+      m_numberOfPotentialSBSOps -= (m_numberOfCopiesToHPU + m_numberOfViewOps);
+      m_numberOfPotentialSBSOpTensors -=
+          (m_numberOfCopiesToHPU + m_numberOfViewOps);
       EXPECT_EQ(
           m_numberOfPotentialSBSOps,
           habana_lazy::SBSInterface::getNumberOfHandledOps() +
@@ -108,19 +128,19 @@ TEST_P(SBSWithParamsTest, AddScalarSBS) {
   // HPU and SBS Run
   auto hpu_in =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
+  IncrementNumberOfCopiesToHPU();
   auto hpu_other =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
+  IncrementNumberOfCopiesToHPU();
   auto hpu_res = torch::add(hpu_in, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto hpu_res2 = torch::add(hpu_res, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto hpu_res3 = torch::add(hpu_res, hpu_res2);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto hpu_res4 = hpu_res3 + 5;
-  auto hpu_res4_cpu = hpu_res4.to("cpu");
+  UpdateOpCounters();
+  auto hpu_res4_cpu = hpu_res4.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
     auto hl_res4 = habana_lazy::GetHbLazyTensor(hpu_res4);
@@ -130,9 +150,7 @@ TEST_P(SBSWithParamsTest, AddScalarSBS) {
     auto hpu_res4_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(hpu_res4_cpu_ref, hpu_res4_cpu));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -154,18 +172,18 @@ TEST_P(SBSWithParamsTest, AddTensorsSBS) {
   // HPU and SBS Run
   auto hpu_in =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
+  IncrementNumberOfCopiesToHPU();
   auto hpu_other =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
+  IncrementNumberOfCopiesToHPU();
   auto hpu_res = torch::add(hpu_in, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto hpu_res2 = torch::add(hpu_res, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto hpu_res3 = hpu_res.add(hpu_res2);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
-  auto hpu_res3_cpu = hpu_res3.to("cpu");
+  PerformMarkStep();
+  UpdateOpCounters();
+  auto hpu_res3_cpu = hpu_res3.to(torch::kCPU);
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
     auto hl_res3 = habana_lazy::GetHbLazyTensor(hpu_res3);
     c10::optional<at::Tensor> pTensor = hl_res3.GetCPUTensorData();
@@ -174,9 +192,7 @@ TEST_P(SBSWithParamsTest, AddTensorsSBS) {
     auto hpu_res3_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(hpu_res3_cpu_ref, hpu_res3_cpu));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -200,11 +216,14 @@ TEST_P(SBSWithParamsTest, MulSBS) {
   torch::Tensor C = torch::randn({2, 3});
 
   auto hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto exp = torch::mul(A, C);
 
   auto hC = C.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto result = torch::mul(hA, hC);
-  torch::Tensor out = result.to(c10::kCPU);
+  UpdateOpCounters();
+  torch::Tensor out = result.to(torch::kCPU);
 
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
@@ -215,9 +234,7 @@ TEST_P(SBSWithParamsTest, MulSBS) {
     auto result_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -231,17 +248,20 @@ TEST_P(SBSWithParamsTest, MulAddInplaceSBS) {
   torch::Tensor C = torch::randn({2, 3});
 
   auto hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto hB = B.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto hC = C.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   A = A.add_(B);
   auto exp = torch::mul(A, C);
 
   hA = hA.add_(hB);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto result = torch::mul(hA, hC);
-  torch::Tensor out = result.to(c10::kCPU);
+  UpdateOpCounters();
+  torch::Tensor out = result.to(torch::kCPU);
 
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
@@ -252,9 +272,7 @@ TEST_P(SBSWithParamsTest, MulAddInplaceSBS) {
     auto result_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -283,7 +301,7 @@ TEST_P(SBSWithParamsTest, AddInplaceSBS) {
   hA = hA.add_(hB);
   auto result = torch::add(hA, hC);
   UpdateOpCounters();
-  torch::Tensor out = result.to(c10::kCPU);
+  torch::Tensor out = result.to(torch::kCPU);
 
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
@@ -304,10 +322,12 @@ TEST_P(SBSWithParamsTest, AddInplaceSBS) {
 TEST_P(SBSWithParamsTest, TopkSBSTest) {
   auto self = torch::randn({3, 5});
   auto hself = self.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   auto out_cpu = at::topk(self, 2, 1, true, true);
   at::Tensor cout = std::get<0>(out_cpu);
   auto out_hpu = at::topk(hself, 2, 1, true, true);
+  UpdateOpCounters();
   at::Tensor hout = std::get<0>(out_hpu).to(torch::kCPU);
   at::Tensor hout_hpu = std::get<0>(out_hpu);
 
@@ -323,9 +343,7 @@ TEST_P(SBSWithParamsTest, TopkSBSTest) {
 
     EXPECT_TRUE(allclose(hout, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -337,7 +355,9 @@ TEST_P(SBSWithParamsTest, DISABLED_GraphTextDump1SBSTest) {
   auto A = torch::randn({2, 2}, torch::requires_grad(false));
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
   auto hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto hB = B.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto I = torch::add(hA, hB, 1.0);
   auto J = torch::relu(I);
   std::string string_J;
@@ -398,25 +418,29 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
   torch::Tensor input_tensor =
       torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   torch::Tensor weight_tensor =
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   if (!habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
   }
 
   auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   torch::Tensor houtConv =
       torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::nn::CrossEntropyLoss loss;
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
   auto outhpu = loss->forward(houtConv, htarget);
+  UpdateOpCounters();
   torch::Tensor out = outhpu.to(torch::kCPU);
 
   torch::Tensor outConv = torch::conv2d(
@@ -432,6 +456,8 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
     auto result_cpu_ref = pTensor.value();
 
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
+
+    ValidateCounters();
 
     // currently failing, see this: [SW-75400]
     // EXPECT_EQ(
@@ -455,6 +481,7 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
             torch::dtype(torch::kFloat).requires_grad(false))
             .to(format);
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU).contiguous(format);
+  IncrementNumberOfCopiesToHPU();
 
   torch::Tensor weight_tensor = random
       ? torch::rand({2, 2, 3, 3}, torch::requires_grad(false))
@@ -465,14 +492,17 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
               {{-10, -20, -30}, {40, 50, 60}, {-70, -80, -90}}}},
             torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   if (!habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
   }
 
   torch::Tensor houtConv =
       torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+  UpdateOpCounters();
   torch::Tensor out = houtConv.to(torch::kCPU);
 
   torch::Tensor outConv = torch::conv2d(
@@ -488,9 +518,7 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
 
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -549,13 +577,16 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     torch::Tensor bias2 =
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
     torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor h_bias2 = bias2.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor weight_tensor = torch::add(bias1, bias2);
     torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
     // out_conv = Conv3x3(Data, weight)
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
     if (!habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
@@ -575,9 +606,13 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor h_beta = beta.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor h_mean = mean.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor h_var = var.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     float mom = 0.1;
     float eps = 1e-5;
     auto h_bn_outs = torch::native_batch_norm(
@@ -591,8 +626,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
         h_bn_out, {2, 2}, {2, 2}, {0, 0}, {1, 1}, true);
     torch::Tensor h_pool_out = std::get<0>(h_pool_outs);
     torch::Tensor pool_out = torch::max_pool2d(bn_out, 2, 2);
-    if (m_perform_markstep)
-      habana_lazy::HbLazyTensor::StepMarker({});
+    PerformMarkStep();
     // relu_out = relu(pool_out)
     torch::Tensor h_relu_out = torch::relu(h_pool_out);
     torch::Tensor relu_out = torch::relu(pool_out);
@@ -600,6 +634,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     torch::Tensor bias3 =
         torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_bias3 = bias3.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     auto h_out_add = torch::add(h_relu_out, h_bias3);
     auto out_add = torch::add(relu_out, bias3);
     // out = upsample(out_add,2)
@@ -610,11 +645,13 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     auto out_upsample = torch::upsample_nearest2d(out_add, {}, scale_factors);
     // out = view(out_upsample)
     auto h_out_view = h_out_upsample.view({-1});
+    IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
     auto out_view = out_upsample.view({-1});
     // out = Add(out_view,2)
     auto h_out = torch::add(h_out_view, inScalar);
     auto out = torch::add(out_view, inScalar);
 
+    UpdateOpCounters();
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
 
@@ -627,9 +664,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
 
       EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-      EXPECT_EQ(
-          habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-          habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+      ValidateCounters();
 
       // Fix errors and restore
       // EXPECT_EQ(
@@ -637,6 +672,8 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
       // EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
     }
 
+    ResetOpCounters();
+    ResetSBSHandlers();
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
 }
@@ -649,17 +686,20 @@ TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
   auto grad1 = torch::randn({4});
 
   auto hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto hB = torch::relu(hA);
   auto hv1 = hA.view(-1);
+  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
   auto hgrad1 = grad1.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   v1.mul_(grad1);
 
   hv1.mul_(hgrad1);
 
   habana_lazy::HbLazyTensor::StepMarker({});
-
-  EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  UpdateOpCounters();
+  EXPECT_EQ(allclose(A, hA.to(torch::kCPU), 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
     auto hl_result = habana_lazy::GetHbLazyTensor(hv1);
@@ -669,9 +709,7 @@ TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
 
     EXPECT_TRUE(allclose(v1, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
   }
 
 
@@ -690,10 +728,13 @@ TEST_P(SBSWithParamsTest, AddViewSBSTest) {
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor C = A.view(-1);
     torch::Tensor out_cpu = C.add(alpha);
     torch::Tensor hC = hA.view(-1);
+    IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
     torch::Tensor out_hpu = hC.add(alpha);
+    UpdateOpCounters();
     auto out = out_hpu.to(torch::kCPU);
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
 
@@ -705,14 +746,14 @@ TEST_P(SBSWithParamsTest, AddViewSBSTest) {
 
       EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-      EXPECT_EQ(
-          habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-          habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+      ValidateCounters();
 
       EXPECT_EQ(
           habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
       EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
     }
+    ResetOpCounters();
+    ResetSBSHandlers();
   }
 }
 
@@ -730,10 +771,13 @@ TEST_P(SBSWithParamsTest, DISABLED_AddInplaceViewSBSTest) {
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
+    IncrementNumberOfCopiesToHPU();
     torch::Tensor C = A.view(-1);
     torch::Tensor out_cpu = C.add_(alpha);
     torch::Tensor hC = hA.view(-1);
+    IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
     torch::Tensor out_hpu = hC.add_(alpha);
+    UpdateOpCounters();
     auto out = out_hpu.to(torch::kCPU);
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
 
@@ -745,14 +789,14 @@ TEST_P(SBSWithParamsTest, DISABLED_AddInplaceViewSBSTest) {
 
       EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-      EXPECT_EQ(
-          habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-          habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+      ValidateCounters();
 
       EXPECT_EQ(
           habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
       EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
     }
+    ResetOpCounters();
+    ResetSBSHandlers();
   }
 }
 
@@ -760,20 +804,22 @@ TEST_P(SBSWithParamsTest, ViewsTestSBS) {
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3}, torch::kFloat);
   std::cout << "A.dtype(): " << A.dtype() << std::endl;
   torch::Tensor hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   torch::Tensor B = A.add(1);
   torch::Tensor hB = hA.add(1);
   at::Tensor out = B.view({3, 3, 3, 3, 3});
   std::cout << "out.dtype(): " << out.dtype() << std::endl;
   at::Tensor hout = hB.view({3, 3, 3, 3, 3});
+  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
 
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
 
   out = out.div(4);
   hout = hout.div(4);
 
-  EXPECT_TRUE(allclose(out, hout.to(c10::kCPU)))
-      << "out: " << out << " hout: " << hout.to(c10::kCPU);
+  UpdateOpCounters();
+  EXPECT_TRUE(allclose(out, hout.to(torch::kCPU)))
+      << "out: " << out << " hout: " << hout.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
     auto hl_result = habana_lazy::GetHbLazyTensor(hout);
@@ -788,49 +834,47 @@ TEST_P(SBSWithParamsTest, ViewsTestSBS) {
     auto B_cpu_ref = pTensorB.value();
     EXPECT_TRUE(allclose(B, B_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
   }
 
-  EXPECT_TRUE(allclose(B, hB.to(c10::kCPU)))
-      << "B: " << B << " hB: " << hB.to(c10::kCPU);
+  EXPECT_TRUE(allclose(B, hB.to(torch::kCPU)))
+      << "B: " << B << " hB: " << hB.to(torch::kCPU);
 }
 
 TEST_P(SBSWithParamsTest, AddTensorsViewsSBS) {
   auto in = torch::randint(-100, 100, {3, 3, 3, 3, 3}, torch::kFloat);
-  auto hpu_in = in.to(c10::kHPU);
+  auto hpu_in = in.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   auto other = torch::randint(-100, 100, {3, 3, 3, 3, 3}, torch::kFloat);
-  auto hpu_other = other.to(c10::kHPU);
+  auto hpu_other = other.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   auto res = torch::add(in, other);
   auto hpu_res = torch::add(hpu_in, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
 
   auto res2 = torch::add(res, other);
   auto hpu_res2 = torch::add(hpu_res, hpu_other);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
 
   auto res_view = res.view({3, 3, 3, 3, 3});
   auto hpu_res_view = hpu_res.view({3, 3, 3, 3, 3});
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+  PerformMarkStep();
 
   res_view = res_view.sub(in);
-  hpu_res_view = hpu_res_view.sub(in);
+  hpu_res_view = hpu_res_view.sub(hpu_in);
 
   auto res3 = res.add(res2);
   auto hpu_res3 = hpu_res.add(hpu_res2);
-  if (m_perform_markstep)
-    habana_lazy::HbLazyTensor::StepMarker({});
+  PerformMarkStep();
 
-  auto hpu_res3_cpu = hpu_res3.to(c10::kCPU);
+  UpdateOpCounters();
+  auto hpu_res3_cpu = hpu_res3.to(torch::kCPU);
   EXPECT_TRUE(allclose(res3, hpu_res3_cpu));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
@@ -841,9 +885,7 @@ TEST_P(SBSWithParamsTest, AddTensorsViewsSBS) {
     auto hpu_res3_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(hpu_res3_cpu_ref, hpu_res3_cpu));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -857,15 +899,18 @@ TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3}, torch::kFloat);
   std::cout << "A.dtype(): " << A.dtype() << std::endl;
   torch::Tensor hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   at::Tensor out = A.view({3, 3, 3, 3, 3});
   std::cout << "out.dtype(): " << out.dtype() << std::endl;
   at::Tensor hout = hA.view({3, 3, 3, 3, 3});
+  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
 
   out.div_(4);
   hout.div_(4);
 
-  EXPECT_TRUE(allclose(out, hout.to(c10::kCPU)))
-      << "out: " << out << " hout: " << hout.to(c10::kCPU);
+  UpdateOpCounters();
+  EXPECT_TRUE(allclose(out, hout.to(torch::kCPU)))
+      << "out: " << out << " hout: " << hout.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
     auto hl_result = habana_lazy::GetHbLazyTensor(hout);
@@ -874,9 +919,7 @@ TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
     auto result_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
   }
 
 
@@ -891,10 +934,14 @@ TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
   auto wt = torch::randn({6, 1});
 
   torch::Tensor hinput = input.to(torch::kHPU).detach();
+  IncrementNumberOfCopiesToHPU();
   hinput.set_requires_grad(true);
   torch::Tensor htarget = target.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   torch::Tensor hwt = wt.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
 
   // auto hsigmout = torch::sigmoid(hinput);
   auto houtput =
@@ -909,6 +956,7 @@ TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
   std::vector<habana_lazy::ir::NodePtr> a{ir_value.mp_node};
   auto out_string = habana_lazy::IrGraphDumpUtil::ToText(a);
 
+  UpdateOpCounters();
   auto houtfwd = houtput.to(torch::kCPU);
   auto houtbwd = hboutput.to(torch::kCPU);
 
@@ -973,11 +1021,13 @@ TEST_P(SBSWithParamsTest, MaxPoolBWDSBSTest) {
 TEST_P(SBSWithParamsTest, DISABLED_PermuteSBSTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   torch::Tensor hOut = hA.permute({1, 0});
   torch::Tensor Out = A.permute({1, 0});
 
   PT_TEST_DEBUG("HPU: ", hOut);
   PT_TEST_DEBUG("CPU: ", Out);
+  UpdateOpCounters();
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
@@ -988,18 +1038,18 @@ TEST_P(SBSWithParamsTest, DISABLED_PermuteSBSTest) {
 
     EXPECT_TRUE(allclose(Out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
   }
 }
 
 TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   torch::Tensor A = torch::randn({5, 6, 24, 24});
   torch::Tensor hA = A.to(torch::kHPU);
+  IncrementNumberOfCopiesToHPU();
   auto hOut = hA.permute({0, 2, 3, 1});
   auto out = A.permute({0, 2, 3, 1});
-  auto hOut_cpu = hOut.cpu();
+  UpdateOpCounters();
+  auto hOut_cpu = hOut.to(torch::kCPU);
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
@@ -1010,9 +1060,7 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
 
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    EXPECT_EQ(
-        habana_lazy::SBSDebug::getInstance().GetNumberOfReportLines(),
-        habana_lazy::SBSInterface::getNumberOfHandledOpTensors());
+    ValidateCounters();
 
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
@@ -1045,7 +1093,7 @@ TEST_P(SBSWithParamsTest, DISABLED_OnesLikeSBS) {
   hA = hA.add_(hOnes);
   auto result = torch::add(hA, hC);
   UpdateOpCounters();
-  torch::Tensor out = result.to(c10::kCPU);
+  torch::Tensor out = result.to(torch::kCPU);
 
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
