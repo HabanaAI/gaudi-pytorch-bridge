@@ -109,6 +109,8 @@ class AeonSSDConfigurator:
 
     def _make_transforms_config(self, additional=[]):
         for t in (self.transforms + additional):
+            if t is None:
+                continue
             if isinstance(t, transforms.Resize):
                 self._handle_resize_crop(t)
             elif isinstance(t, transforms.ToTensor):
@@ -239,7 +241,7 @@ class AeonSSDConfigurator:
         ssd_config = {
             "type": "localization_ssd",
             "pt_mode":True,
-            "max_gt_boxes": 64,
+            "max_gt_boxes": 8732,
             "class_names": [f"{v}" for v in self.dataset.label_info.values()],
             "height": self.transforms_config["height"],
             "width": self.transforms_config["width"],
@@ -280,7 +282,7 @@ class AeonSSDConfigurator:
             "augmentation": [augmentation_config],
             "batch_size": self.batch_size,
             "file_shuffle_seed": 5,
-            "iteration_mode": "INFINITE",
+            "iteration_mode": "ONCE",
             "instance_id": instance_id,
             "num_instances": num_instances
         }

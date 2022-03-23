@@ -31,8 +31,8 @@ class CocoDataLoader(torch.utils.data.DataLoader):
         num_workers = kwargs.get('num_workers')
         shuffle = kwargs.get('shuffle')
         manifest = kwargs.get('manifest', "manifest.cfg")
-        drop_last = kwargs.get('drop_last', False)
-        self.encoder = dataset.transform.encoder #temporary WA until aeon has encoder impl
+        drop_last = True # Currently AEON support only drop_last for SSD
+        self.encoder = None
 
         self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest)
         aeon_config = self.configurator.get_config()
