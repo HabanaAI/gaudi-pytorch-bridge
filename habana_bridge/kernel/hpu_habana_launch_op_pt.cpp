@@ -1489,9 +1489,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     syn_graph_ptr->clear_node_indices();
     // set op name in synapse graph
     std::unique_ptr<synapse_helpers::graph::OpNameContext> op_name_context;
-    if (node->hasAttribute(c10::attr::debug_name)) {
+    const auto scope = node->scope();
+    if (!scope->isBlank()) {
       op_name_context = std::make_unique<synapse_helpers::graph::OpNameContext>(
-          syn_graph, node->s(c10::attr::debug_name));
+          syn_graph, scope->name().toUnqualString());
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);

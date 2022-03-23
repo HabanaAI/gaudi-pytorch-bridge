@@ -368,14 +368,19 @@ std::shared_ptr<torch::jit::Operator> SBSRunner::createCPUOperator(
 
   auto cpu_op = buildCPUOpSymbol(node->op());
 
+  std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
+  if (node->GetScope()) {
+    scope_context = std::make_shared<torch::jit::WithCurrentScope>(
+        *graph,
+        c10::make_intrusive<torch::jit::Scope>(
+            torch::jit::ScopePtr(),
+            c10::Symbol::fromQualString("debug::" + *node->GetScope())));
+  }
   at::ArrayRef<torch::jit::Value*> args(node_inputs);
   auto jit_node = graph->create(cpu_op, args, node->GetNumOutputs());
   if (!jit_node) {
     LogError(ir_name, "CPU Op was not found (jit node is null)");
     return nullptr;
-  }
-  if (!node->GetName().empty()) {
-    jit_node->s_(c10::attr::debug_name, node->GetName());
   }
   graph->insertNode(jit_node);
   PT_LAZY_DEBUG("SBS: Candidate CPU JIT graph: ", graph->toString());

@@ -183,8 +183,6 @@ void InsertPermuteAtGraphInputs(
         auto value_dims = graph->insertConstant(IValue(dims));
         auto restride_node =
             graph->create(op_restride, {value_input, value_dims}, 1);
-        restride_node->s_(
-            c10::attr::debug_name, "permute_graph_pass/restide_node");
         restride_node->output(0)->setDebugName(
             value_input->debugName() + "_restrided");
         graph->insertNode(restride_node);

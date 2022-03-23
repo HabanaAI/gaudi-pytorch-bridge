@@ -43,7 +43,7 @@ using IndexToIvalMap = std::unordered_map<size_t, torch::jit::IValue>;
 size_t StdHashCombine(uint64_t a, uint64_t b);
 
 void setCurrentModuleName(const std::string& name);
-const std::string& getCurrentModuleName();
+std::shared_ptr<std::string> getCurrentModuleName();
 
 /**
  * Represents the Use of the Value struct as Output
@@ -94,10 +94,6 @@ class Output {
     return m_index;
   }
 
-  void SetName(const std::string& name) {
-    m_name = name;
-  }
-
   bool operator==(const Output& v) const {
     return m_node == v.m_node && m_index == v.m_index;
   }
@@ -110,9 +106,7 @@ class Output {
     return m_node != nullptr;
   }
 
-  const std::string& ToString() const {
-    return m_name;
-  }
+  std::string ToString() const;
 
   const c10::optional<c10::Device> get_device() const {
     return device;
@@ -133,12 +127,12 @@ class Output {
  protected:
   Node* m_node = nullptr;
   size_t m_index;
-  std::string m_name;
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
   c10::optional<std::vector<int64_t>> sizes;
   c10::optional<at::ScalarType> scalar_type;
+  uint64_t unique_id;
 };
 using OutputList = std::vector<Output>;
 
@@ -297,11 +291,15 @@ class Node {
   }
 
   std::string GetName() const {
-    return m_name;
+    std::stringstream ss;
+    ss << "n" << m_id;
+    return (!m_scope || m_scope->empty())
+        ? m_op.toQualString()
+        : *m_scope + "/" + m_op.toQualString();
   }
 
-  void SetName(const std::string& name) {
-    m_name = name;
+  std::shared_ptr<std::string> GetScope() const {
+    return m_scope;
   }
 
   virtual std::string ToString() const;
@@ -377,6 +375,10 @@ class Node {
     post_order_pos = pos;
   }
 
+  uint64_t get_id() const {
+    return m_id;
+  }
+
  protected:
   c10::Symbol m_op;
   bool m_is_input = false;
@@ -390,7 +392,8 @@ class Node {
   size_t m_node_hash = 0;
   size_t post_order_pos = ULLONG_MAX;
   std::vector<at::Tensor> m_input_pt_tensors;
-  std::string m_name;
+  std::shared_ptr<std::string> m_scope;
+  uint64_t m_id;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
@@ -425,10 +428,6 @@ struct Value {
       const std::vector<int64_t>& dims,
       const c10::optional<at::ScalarType> scalar_type,
       size_t index = 0);
-
-  const std::string& GetName() const {
-    return m_name;
-  }
 
   size_t GetIndex() const {
     return m_index;
@@ -509,7 +508,6 @@ struct Value {
   c10::optional<size_t> dims;
   c10::optional<std::vector<int64_t>> sizes;
   c10::optional<at::ScalarType> scalar_type;
-  std::string m_name;
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;
 };

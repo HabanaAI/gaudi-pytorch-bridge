@@ -11,9 +11,6 @@
 #include "ir.h"
 #include <absl/strings/str_format.h>
 #include "habana_helpers/logging.h"
-// TODO: [SW-82618] fix naming performance. Keep only the naming in the
-// ir::Node CTOR, and remove PT_SBS check
-#include "habana_lazy/debug_utils.h"
 #include "lazy_executor.h"
 
 namespace habana_lazy {
@@ -32,13 +29,14 @@ size_t StdHashCombine(uint64_t a, uint64_t b) {
 // This thread local variable will serve as state to save the current namespace.
 // Graph built in the current thread will set it using htcore.set_module_name.
 // It will be used to name next nodes created in this graph.
-static thread_local std::string currentModule;
+static thread_local std::shared_ptr<std::string> currentModule =
+    std::make_shared<std::string>();
 
 void setCurrentModuleName(const std::string& name) {
-  currentModule = name;
+  currentModule = std::make_shared<std::string>(name);
 }
 
-const std::string& getCurrentModuleName() {
+std::shared_ptr<std::string> getCurrentModuleName() {
   return currentModule;
 }
 
@@ -78,24 +76,27 @@ size_t Use::operator()(const Use& in) const {
 
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
-  // TODO: [SW-82618] fix naming performance. Keep only the naming in the
-  // ir::Node CTOR, and remove PT_SBS check
-  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
-    static std::atomic<uint64_t> id(0);
-    SetName(absl::StrFormat(
-        "n%d_%s/%s", id++, getCurrentModuleName(), m_op.toQualString()));
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    static std::atomic<uint64_t> next_id = 0;
+    m_id = next_id++;
+    m_scope = getCurrentModuleName();
   }
 }
 
 std::string Node::ToString() const {
   std::stringstream ss;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    ss << "n" << m_id << "_";
+  }
   ss << m_op.toQualString() << "{";
   for (auto& v : m_inputs) {
     ss << v.ToString() << " ";
   }
   ss << "}\n";
   ss << m_meta_data.ToString();
+  if (m_scope && !m_scope->empty()) {
+    ss << ", scope=" << *m_scope;
+  }
   return ss.str();
 }
 
@@ -178,36 +179,24 @@ void Value::SetNode(
   this->scalar_type = scalar_type;
   mp_node = std::move(node);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
-    this->m_name = absl::StrFormat(
-        "t%d_%s_%d", unique_id, mp_node->GetName().c_str(), m_index);
-  }
-
   mp_node->m_outputs.emplace_back(Output(*this));
 }
 
 std::string Value::ToString() const {
-  if (m_name.empty()) {
-    std::stringstream ss;
-    ss << "id:" << unique_id;
-    return ss.str();
+  std::stringstream ss;
+  ss << "id:" << unique_id;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    ss << "_" << mp_node->GetName();
   }
-  return m_name;
+  return ss.str();
 }
 
 std::string Value::ToStringIrGraph() const {
   std::stringstream ss;
-  if (m_name.empty()) {
-    ss << "id:" << unique_id;
-  } else {
-    ss << m_name;
-  }
+  ss << ToString();
   if (DataPtrValidAndNotExpired()) {
     std::shared_ptr<Data> d = m_data_ptr.lock();
-    // readding id for graph tool
-    if (!m_name.empty()) {
-      ss << "id:" << unique_id;
-    }
+    ss << " id:" << unique_id;
     ss << " dims: " << d->sizes;
     ss << " rank: " << d->sizes.size();
   }
@@ -240,13 +229,6 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
-  // TODO: [SW-82618] fix naming performance. Keep only the naming in the
-  // ir::Node CTOR, and remove PT_SBS check
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES) && node->GetName().empty()) {
-    static std::atomic<uint64_t> id(0);
-    node->SetName(absl::StrFormat(
-        "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));
-  }
   for (auto& i : inputs) {
     node->AddInput(i);
   }
@@ -293,11 +275,24 @@ bool Value::DataPtrValidAndNotExpired() const {
 Value::~Value() {}
 
 Output::Output(const Value& v)
-    : m_node(v.mp_node.get()), m_index(v.GetIndex()), m_name(v.ToString()) {
+    : m_node(v.mp_node.get()), m_index(v.GetIndex()) {
   device = v.get_device();
   dims = v.get_dims();
   sizes = v.get_sizes();
   scalar_type = v.get_scalar_type();
+  unique_id = v.get_unique_id();
 }
+
+std::string Output::ToString() const {
+  std::stringstream ss;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+    ss << unique_id;
+    ss << "_" << m_node->GetName();
+  } else {
+    ss << "id:" << unique_id;
+  }
+  return ss.str();
+}
+
 } // namespace ir
 } // namespace habana_lazy

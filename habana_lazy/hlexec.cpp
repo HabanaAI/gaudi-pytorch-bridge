@@ -383,11 +383,17 @@ void HlExec::Create(
       });
       HABANA_ASSERT(j == args_vector.size());
 
+      std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
+      if (node->GetScope()) {
+        scope_context = std::make_shared<torch::jit::WithCurrentScope>(
+            *mp_g_,
+            c10::make_intrusive<torch::jit::Scope>(
+                torch::jit::ScopePtr(),
+                c10::Symbol::fromQualString("debug::" + *node->GetScope())));
+      }
+
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
-      if (!node->GetName().empty()) {
-        jit_node->s_(c10::attr::debug_name, node->GetName());
-      }
       mp_g_->insertNode(jit_node);
 
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||
