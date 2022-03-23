@@ -29,12 +29,8 @@ def _check_modules_directory(directory, library_list=list()):
 
 def _get_modules_directory(library_list=list()):
     """
-    Returns a directory containing Habana modules.
-    Directory containing modules is looked up as instructed by the following
-    environmental variables, in order, until a location is found with all
-    the needed libraries:
-        $LD_LIBRARY_PATH
-        habana_frameworks
+    Returns a directory containing Habana modules, which is:
+        - habana_frameworks
     """
 
     def get_packaged_libs():
@@ -43,8 +39,6 @@ def _get_modules_directory(library_list=list()):
         )
 
     locations = []
-    if "LD_LIBRARY_PATH" in os.environ:
-        locations += os.environ.get("LD_LIBRARY_PATH").split(":")
     locations.append(get_packaged_libs())
 
     for directory in locations:

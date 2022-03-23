@@ -69,7 +69,6 @@ class TrainMetaData():
 
     def log_live_mem_alloc(self, msg=""):
         if self.log_live_mem_alloc_enabled:
-            import habana_frameworks.torch.core as htcore
             htcore.memstat_livealloc(msg)
 
     @staticmethod
@@ -156,7 +155,6 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
 
 
 def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
-    import habana_frameworks.torch.core as htcore
     model.train()
     if(trainMetaData.is_logging() and rank==0):
         with open('mnistpy.log', 'w') as file:  # reset file
@@ -274,7 +272,6 @@ def parse_args():
 
 def permute_params_on_device(args, model):
     if args.run_lazy_mode:
-        import habana_frameworks.torch.core as htcore
         if htcore.is_enabled_weight_permute_pass() is True:
             return
 
@@ -300,8 +297,7 @@ def main(args):
 
     use_habana = not args.no_habana
     if use_habana:
-        from habana_frameworks.torch.utils.library_loader import load_habana_module
-        load_habana_module()
+        import habana_frameworks.torch.core as htcore
 
     torch.manual_seed(args.seed)
 
@@ -320,7 +316,6 @@ def main(args):
             torch._C._jit_set_profiling_executor(False)
             torch._C._jit_set_profiling_mode(False)
             if(device==torch.device('hpu')):
-                import habana_frameworks.torch.core as htcore
                 htcore.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
             model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
