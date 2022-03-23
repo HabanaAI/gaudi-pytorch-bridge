@@ -4292,14 +4292,7 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
 
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  // TODO: Need to make 0-dim output.
-  // With ... shape_out = {0}; following error reported
-  // Assertion (dst.nbytes() >= src.nbytes()) is false!
-  // ... /pytorch-integration/habana_kernels/basic_kernels.cpp:147 copy_hpu_
-  // terminate called without an active exception
-  // Aborted (core dumped)
-  std::vector<int64_t> shape_out = {1};
-  LazyOp<at::Tensor> k{"aten::dot", {self, other}, {}, {shape_out}};
+  LazyOp<at::Tensor> k{"aten::dot", {self, other}, {}, {{}}};
   return k.call();
 }
 

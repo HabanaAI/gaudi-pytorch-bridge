@@ -24,6 +24,20 @@
     torch::dot_outf(GetHpuInput(0), GetHpuInput(1), result);                  \
     Compare(expected, result);                                                \
   }
+
+#define HPU_DOT_TEST(name, type, size)                          \
+  TEST_F(HpuOpTest, dot_##name) {                               \
+    torch::ScalarType dtype = GET_TENSOR_TYPE(type);            \
+    GenerateInputs(2, {{size}, {size}}, dtype);                 \
+    auto expected = torch::dot(GetCpuInput(0), GetCpuInput(1)); \
+    auto result = torch::dot(GetHpuInput(0), GetHpuInput(1));   \
+    Compare(expected, result);                                  \
+  }
+
 class HpuOpTest : public HpuOpTestUtil {};
 HPU_DOT_OUT_TEST(float);
 HPU_DOT_OUT_TEST(bfloat16);
+HPU_DOT_TEST(float_1, float, 5);
+HPU_DOT_TEST(bfloat16_1, bfloat16, 5);
+HPU_DOT_TEST(float_2, float, 10);
+HPU_DOT_TEST(bfloat16_2, bfloat16, 12);
