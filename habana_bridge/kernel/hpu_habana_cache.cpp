@@ -1443,6 +1443,23 @@ size_t DynamicBucketInfoMap::HistSize() const {
   return size;
 }
 
+size_t RecipeCacheLRU::Size() const {
+  size_t size = 0;
+  for (auto const& [recipeArgumentSpec, recipeValueSpec] : list_) {
+    size += recipeArgumentSpec->Size();
+    size += recipeValueSpec->Size();
+  }
+  return size;
+}
+
+size_t RecipeCacheLRU::SynapseRecipeSize() const {
+  size_t size = 0;
+  for (auto const& [recipeArgumentSpec, recipeValueSpec] : list_) {
+    size += recipeValueSpec->recipe->get_recipe_host_mem_size();
+  }
+  return size;
+}
+
 void DynamicBucketInfoMap::DumpBucketMemoryStat() {
   PT_HOSTSTAT_DEBUG(
       "Size of Dynamic Bucket: ",
@@ -1455,6 +1472,33 @@ void DynamicBucketInfoMap::DumpHistoryMemoryStat() {
       "Size of Dynamic Bucket History: ",
       synapse_helpers::get_mem_str(
           DynamicBucketInfoMap::get_instance().HistSize()));
+}
+
+void RecipeCacheLRU::DumpRecipeMemoryStat() {
+  PT_HOSTSTAT_DEBUG(
+      "Size of Recipe LRU Cache: ",
+      synapse_helpers::get_mem_str(RecipeCacheLRU::get_cache().Size()));
+}
+
+void RecipeCacheLRU::DumpSynapseRecipeMemoryStat() {
+  PT_HOSTSTAT_DEBUG(
+      "Size of Synapse Recipe: ",
+      synapse_helpers::get_mem_str(
+          RecipeCacheLRU::get_cache().SynapseRecipeSize()));
+}
+
+void RecipeCacheLRU::DumpDynamicShapeMemoryStat() {
+  PT_HOSTSTAT_DEBUG(
+      "DS MemoryStats:- Bucket::",
+      synapse_helpers::get_mem_str(DynamicBucketInfoMap::get_instance().Size()),
+      ", History::",
+      synapse_helpers::get_mem_str(
+          DynamicBucketInfoMap::get_instance().HistSize()),
+      ", Recipe::",
+      synapse_helpers::get_mem_str(RecipeCacheLRU::get_cache().Size()),
+      ", SynapseRecipe::",
+      synapse_helpers::get_mem_str(
+          RecipeCacheLRU::get_cache().SynapseRecipeSize()));
 }
 
 void DynamicBucketInfoMap::add(

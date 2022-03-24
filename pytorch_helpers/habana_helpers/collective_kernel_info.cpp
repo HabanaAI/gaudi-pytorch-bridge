@@ -8,26 +8,18 @@
  ******************************************************************************
  */
 
-#pragma once
-
-#include <memory>
-#include <vector>
-
-class PtTensorInfo;
-using PtTensorInfoShared = std::shared_ptr<PtTensorInfo>;
-
-namespace habana {
-class CollectiveOperator;
-}
+#include "collective_kernel_info.h"
+#include "tensor_info.h"
 
 namespace habana_helpers {
 
-struct collective_kernel_info {
-  std::vector<PtTensorInfoShared> input_tensor_infos;
-  std::vector<PtTensorInfoShared> output_tensor_infos;
-  std::shared_ptr<habana::CollectiveOperator> kernel;
-
-  size_t Size() const;
-};
+size_t collective_kernel_info::Size() const {
+  size_t size = sizeof(*this);
+  size += input_tensor_infos.size() *
+      sizeof(decltype(input_tensor_infos)::value_type);
+  size += output_tensor_infos.size() *
+      sizeof(decltype(output_tensor_infos)::value_type);
+  return size;
+}
 
 } // namespace habana_helpers

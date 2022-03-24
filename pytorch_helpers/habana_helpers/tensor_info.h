@@ -265,6 +265,15 @@ class PtTensorInfo {
     return reinterpret_cast<uint64_t>(host_ptr_);
   }
 
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += ir_name_.size() * sizeof(decltype(ir_name_)::value_type);
+    size += syn_name_.size() * sizeof(decltype(syn_name_)::value_type);
+    size += shape_.size() * sizeof(decltype(shape_)::value_type);
+    size += strides_.size() * sizeof(decltype(strides_)::value_type);
+    return size;
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};

@@ -127,6 +127,12 @@ struct RecipeArgumentSpec {
     return opstrs;
   }
 
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += opstrs.size() * sizeof(decltype(opstrs)::value_type);
+    return size;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
@@ -313,6 +319,19 @@ struct RecipeValueSpec {
 
   void Serialize(std::ostream& os) const;
 
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += num_tensors * sizeof(tensor_ids);
+    size += num_tensors * sizeof(tensor_names);
+    for (const auto& kernel_info : collective_kernels_info) {
+      size += kernel_info->Size();
+    }
+    for (const auto& tensor_info : *dtensorinfos) {
+      size += tensor_info->Size();
+    }
+    return size;
+  }
+
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
@@ -437,6 +456,11 @@ class RecipeCacheLRU {
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
+  size_t Size() const;
+  size_t SynapseRecipeSize() const;
+  static void DumpRecipeMemoryStat();
+  static void DumpSynapseRecipeMemoryStat();
+  static void DumpDynamicShapeMemoryStat();
 
   // friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
 

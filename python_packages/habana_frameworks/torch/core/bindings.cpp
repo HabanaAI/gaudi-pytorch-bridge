@@ -87,6 +87,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dump_history_memory_stat", []() {
     habana::DynamicBucketInfoMap::DumpHistoryMemoryStat();
   });
+  m.def("dump_recipe_memory_stat", []() {
+    habana::RecipeCacheLRU::DumpRecipeMemoryStat();
+  });
+  m.def("dump_synapse_recipe_memory_stat", []() {
+    habana::RecipeCacheLRU::DumpSynapseRecipeMemoryStat();
+  });
+  m.def("dump_dynamic_shape_memory_stat", []() {
+    habana::RecipeCacheLRU::DumpDynamicShapeMemoryStat();
+  });
 
   // python APIs related to cpu fallback
   m.def("get_fallback_op_count", []() {
