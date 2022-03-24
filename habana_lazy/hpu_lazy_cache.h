@@ -288,22 +288,22 @@ class LazyGraphCache {
       m_cache_map;
 };
 
-class FastLazyGraphCache {
+class OptimizedLazyGraphCache {
  public:
-  static FastLazyGraphCache& GetFastLazyCache() {
-    static FastLazyGraphCache* fast_mp_instance;
-    if (!fast_mp_instance) {
-      fast_mp_instance = new FastLazyGraphCache();
+  static OptimizedLazyGraphCache& GetOptimizedLazyCache() {
+    static OptimizedLazyGraphCache* optimized_mp_instance;
+    if (!optimized_mp_instance) {
+      optimized_mp_instance = new OptimizedLazyGraphCache();
     }
-    return *fast_mp_instance;
+    return *optimized_mp_instance;
   }
 
-  FastLazyGraphCache(const FastLazyGraphCache&) = delete;
-  FastLazyGraphCache(FastLazyGraphCache&&) = delete;
-  FastLazyGraphCache& operator=(const FastLazyGraphCache&) = delete;
-  FastLazyGraphCache& operator=(FastLazyGraphCache&&) = delete;
+  OptimizedLazyGraphCache(const OptimizedLazyGraphCache&) = delete;
+  OptimizedLazyGraphCache(OptimizedLazyGraphCache&&) = delete;
+  OptimizedLazyGraphCache& operator=(const OptimizedLazyGraphCache&) = delete;
+  OptimizedLazyGraphCache& operator=(OptimizedLazyGraphCache&&) = delete;
 
-  ~FastLazyGraphCache();
+  ~OptimizedLazyGraphCache();
 
   std::shared_ptr<OptimizedJITGraphAndMetaData> GetOptimizedJITGraphAndMetaData(
       size_t key);
@@ -314,7 +314,7 @@ class FastLazyGraphCache {
   void Clear();
 
  private:
-  explicit FastLazyGraphCache();
+  explicit OptimizedLazyGraphCache();
 
   std::mutex m_mutex;
 

@@ -410,11 +410,11 @@ LazyGraphCache::~LazyGraphCache() {
   Clear();
 }
 
-// FastLazyGraphCache Functions
+// OptimizedLazyGraphCache Functions
 //==========================
-FastLazyGraphCache::FastLazyGraphCache() : m_mutex{} {}
+OptimizedLazyGraphCache::OptimizedLazyGraphCache() : m_mutex{} {}
 
-std::shared_ptr<OptimizedJITGraphAndMetaData> FastLazyGraphCache::
+std::shared_ptr<OptimizedJITGraphAndMetaData> OptimizedLazyGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
@@ -426,7 +426,7 @@ std::shared_ptr<OptimizedJITGraphAndMetaData> FastLazyGraphCache::
   return nullptr;
 }
 
-void FastLazyGraphCache::Add(
+void OptimizedLazyGraphCache::Add(
     size_t key,
     std::shared_ptr<OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
@@ -435,7 +435,7 @@ void FastLazyGraphCache::Add(
   m_cache_map.emplace(key, val);
 }
 
-void FastLazyGraphCache::RemoveGraph(size_t key) {
+void OptimizedLazyGraphCache::RemoveGraph(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
@@ -443,7 +443,7 @@ void FastLazyGraphCache::RemoveGraph(size_t key) {
   }
 }
 
-bool FastLazyGraphCache::IsCached(size_t key) {
+bool OptimizedLazyGraphCache::IsCached(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (!m_cache_map.empty() && iter != m_cache_map.end()) {
@@ -452,15 +452,15 @@ bool FastLazyGraphCache::IsCached(size_t key) {
   return false;
 }
 
-bool FastLazyGraphCache::Empty() {
+bool OptimizedLazyGraphCache::Empty() {
   return (m_cache_map.size() == 0);
 }
 
-void FastLazyGraphCache::Clear() {
+void OptimizedLazyGraphCache::Clear() {
   m_cache_map.clear();
 }
 
-FastLazyGraphCache::~FastLazyGraphCache() {
+OptimizedLazyGraphCache::~OptimizedLazyGraphCache() {
   Clear();
 }
 

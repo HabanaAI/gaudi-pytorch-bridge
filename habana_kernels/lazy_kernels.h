@@ -78,7 +78,8 @@ at::Tensor get_tensor_for_scalar(
 
 void flush_op(
     at::TensorList tensors,
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr);
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
+    std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
 
 template <class F, class... Ts, std::size_t... Is>
 void for_each_in_tuple(
@@ -268,7 +269,7 @@ class LazyOp {
     });
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     runSBS(tensors);
-    HbLazyTensor::SyncTensorsGraphFast(
+    HbLazyTensor::SyncTensorsGraphOptimized(
         &hl_tensors, input_values, info_to_lazy_backend);
     return results;
   }
@@ -281,8 +282,9 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -374,7 +376,7 @@ class LazyOp {
         });
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     runSBS(tensors);
-    HbLazyTensor::SyncTensorsGraphFast(
+    HbLazyTensor::SyncTensorsGraphOptimized(
         &hl_tensors, input_values, info_to_lazy_backend);
     return results;
   }
@@ -388,8 +390,9 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -428,33 +431,32 @@ class LazyOp {
   HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    const auto& node = create_node();
-    const auto& result = get_result();
-    auto hl_result = GetHbLazyTensor(result);
-    ir::Value& out = hl_result.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_result.GetDevice(),
-        hl_result.GetSizes(),
-        hl_result.dtype_optional());
-    updateDstDependencies(hl_result, result, false);
-    runSBS(result);
-    flush_op(result, info_to_lazy_backend);
-    return result;
-  }
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      isOptimizedLazyEager =
+          info_to_lazy_backend->get_is_optimized_lazy_eager();
+    }
 
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  HandleOptimizedLazyEager(
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
-    PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result);
-    std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
-    std::vector<HbLazyTensor> hl_tensors = {hl_result};
+    if (isOptimizedLazyEager == false) {
+      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      const auto& node = create_node();
+      ir::Value& out = hl_result.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional());
+      updateDstDependencies(hl_result, result, false);
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+      info_to_lazy_backend->set_input_values(input_vals);
+    }
+
     runSBS(result);
-    HbLazyTensor::SyncTensorsGraphFast(
-        &hl_tensors, input_values, info_to_lazy_backend);
+    flush_op(result, info_to_lazy_backend, {hl_result});
     return result;
   }
 
@@ -473,9 +475,7 @@ class LazyOp {
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
 
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      if (IsOptimizedLazyEagerCached) {
-        return HandleOptimizedLazyEager(infoToBackEnd);
-      }
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
     return HandleLazy(infoToBackEnd);
@@ -667,7 +667,7 @@ class LazyOp {
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
     runSBS(self);
-    HbLazyTensor::SyncTensorsGraphFast(
+    HbLazyTensor::SyncTensorsGraphOptimized(
         &hl_tensors, input_values, info_to_lazy_backend);
     return self;
   }
@@ -685,8 +685,9 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -756,7 +757,7 @@ class LazyOp {
     std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
     std::vector<HbLazyTensor> hl_tensors = {hl_self};
     runSBS(self);
-    HbLazyTensor::SyncTensorsGraphFast(
+    HbLazyTensor::SyncTensorsGraphOptimized(
         &hl_tensors, input_values, info_to_lazy_backend);
     return self;
   }
@@ -769,8 +770,9 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -871,33 +873,61 @@ class LazyOp {
     return m_node;
   }
 
-  template <typename N = NodeConstruct>
-  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
-    ir::ValueList values;
-    std::vector<at::Tensor> input_pt_vec;
-    ir::MetaData metadata;
-
+  void create_inputs(
+      ir::ValueList& values,
+      std::vector<at::Tensor>& input_pt_vec,
+      ir::MetaData& metadata,
+      bool is_optimized_lazy_eager) {
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
       if (m_metadata_indices.count(i)) {
-        metadata.set(input, i);
+        // Already taken care in optimized lazy eager JIT graph key calculation
+        // so not required for the optimized lazy eager.
+        if (!is_optimized_lazy_eager) {
+          metadata.set(input, i);
+        }
         continue;
       }
 
       if (input.isScalar()) {
-        auto val = GetIrValueForScalar(input.toScalar());
-        values.emplace_back(val);
+        // Already taken care in optimized lazy eager JIT graph key calculation
+        // so not required for the optimized lazy eager
+        if (!is_optimized_lazy_eager) {
+          auto val = GetIrValueForScalar(input.toScalar());
+          values.emplace_back(val);
+        } else {
+          continue;
+        }
       } else if (isMetadataCandidate(input)) {
-        metadata.set(input, i);
+        // Not supported for optimized lazy eager - To Do
+        if (!is_optimized_lazy_eager) {
+          metadata.set(input, i);
+        } else {
+          continue;
+        }
       } else if (input.isTensor()) {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
           HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
           auto val = GetHbLazyTensor(t).GetIrValue();
-          values.emplace_back(val);
-          input_pt_vec.emplace_back(t);
+          if (!is_optimized_lazy_eager) {
+            values.emplace_back(val);
+            input_pt_vec.emplace_back(t);
+          } else {
+            // Taking care of duplicate values here itself for optimized lazy
+            // eager. In normal flow it is taken care later in the flow. To Do -
+            // To make it same for normal flow as well.
+            auto it = find(values.begin(), values.end(), val);
+            if (it == values.end()) {
+              values.emplace_back(val);
+            }
+          }
         } else {
-          metadata.set(torch::jit::IValue(), i);
+          if (!is_optimized_lazy_eager) {
+            // Already taken care in optimized lazy eager JIT graph key
+            // calculation
+            metadata.set(torch::jit::IValue(), i);
+          }
         }
       } else if (input.isList()) {
         const auto& list = input.toListRef();
@@ -916,19 +946,37 @@ class LazyOp {
               i,
               ".");
           if (li.isNone()) {
-            opt_tensors.emplace_back(GetIrValueForNone());
-            is_optional |= true;
+            if (!is_optimized_lazy_eager) {
+              // Not supported/required for optimized lazy eager - To Do
+              opt_tensors.emplace_back(GetIrValueForNone());
+              is_optional |= true;
+            }
           } else {
             const auto& t = li.toTensor();
-            opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
-            list_input_pt_vec.emplace_back(t);
+            if (!is_optimized_lazy_eager) {
+              opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
+              list_input_pt_vec.emplace_back(t);
+            } else {
+              // Taking care of duplicate values here itself for optimized lazy
+              // eager. In normal flow it is taken care later in the flow. To Do
+              // - To make it same for normal flow as well.
+              auto val = GetHbLazyTensor(t).GetIrValue();
+              auto it = find(values.begin(), values.end(), val);
+              if (it == values.end()) {
+                values.emplace_back(val);
+              }
+            }
           }
         }
 
-        const auto& list_input =
-            GetIrValueForListConstruct(opt_tensors, is_optional);
-        list_input.mp_node->AddInputPtTensors(list_input_pt_vec);
-        values.emplace_back(list_input);
+        // Not required in optimized lazy eager flow as values are already
+        // prepared on per tensor basis.
+        if (!is_optimized_lazy_eager) {
+          const auto& list_input =
+              GetIrValueForListConstruct(opt_tensors, is_optional);
+          list_input.mp_node->AddInputPtTensors(list_input_pt_vec);
+          values.emplace_back(list_input);
+        }
       } else {
         PT_BRIDGE_FATAL(
             "Got unhandled type: ",
@@ -940,7 +988,15 @@ class LazyOp {
         HABANA_ASSERT(0);
       }
     }
+  }
 
+  template <typename N = NodeConstruct>
+  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
+    ir::ValueList values;
+    std::vector<at::Tensor> input_pt_vec;
+    ir::MetaData metadata;
+
+    create_inputs(values, input_pt_vec, metadata, false);
     auto node = ir::Node::Create(m_symbol, values);
 
     if (metadata.size()) {
@@ -1080,8 +1136,8 @@ class LazyOp {
       lazy_eager_key = calculate_optimized_lazy_eager_key();
       PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
       if (lazy_eager_key != 0) {
-        IsCached = habana_lazy::FastLazyGraphCache::GetFastLazyCache().IsCached(
-            lazy_eager_key);
+        IsCached = habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache()
+                       .IsCached(lazy_eager_key);
       }
     }
 
@@ -1089,73 +1145,12 @@ class LazyOp {
   }
 
   std::vector<ir::Value> prepare_lazy_eager_input_values() {
-    std::vector<ir::Value> input_values;
-    std::vector<ir::Value>::iterator it;
-    for (size_t i = 0; i < m_inputs.size(); ++i) {
-      const at::IValue& input = m_inputs[i];
-      if (m_metadata_indices.count(i) || input.isScalar()) {
-        continue;
-      } else if (input.isTensor()) {
-        const at::Tensor& t = input.toTensor();
-        if (t.defined()) {
-          if (t.device().type() != c10::DeviceType::HPU) {
-            at::Tensor tinput;
-            // If the CPU tensor is a wrapped number, then use
-            // get_tensor_for_scalar method to retrieve cached HPU tensors for
-            // the scalar value
-            if ((t.device().type() == c10::DeviceType::CPU)
-                // is_wrapped_number: True if a tensor was auto-wrapped from a
-                // C++ or Python number.
-                && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
-              // Set the dtype for the HPU tensor.
-              //   Double : Float
-              //   Long : Int
-              //   Everything else is passed with the dtype of CPU tensor
-              at::TensorOptions topt = {};
-              auto dtype = t.scalar_type();
-              switch (dtype) {
-                case at::ScalarType::Double:
-                  topt = at::TensorOptions().dtype(at::ScalarType::Float);
-                  break;
-                case at::ScalarType::Long:
-                  topt = at::TensorOptions().dtype(at::ScalarType::Int);
-                  break;
-                default:
-                  topt = at::TensorOptions().dtype(dtype);
-                  break;
-              }
-              tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
-            } else {
-              // Use non_blocking .to()
-              tinput = t.to(c10::kHPU, true);
-            }
-            auto val = GetHbLazyTensor(tinput).GetIrValue();
-            it = find(input_values.begin(), input_values.end(), val);
-            if (it == input_values.end()) {
-              input_values.emplace_back(val);
-              m_input_pt_tensors.emplace_back(tinput);
-            }
+    ir::ValueList values;
+    std::vector<at::Tensor> input_pt_vec;
+    ir::MetaData metadata;
 
-          } else {
-            auto val = GetHbLazyTensor(t).GetIrValue();
-            it = find(input_values.begin(), input_values.end(), val);
-            if (it == input_values.end()) {
-              input_values.emplace_back(val);
-            }
-          }
-        }
-      } else if (input.isTensorList()) {
-        const auto& tensors = input.toTensorList();
-        for (const auto& t : tensors) {
-          auto val = GetHbLazyTensor(t).GetIrValue();
-          it = find(input_values.begin(), input_values.end(), val);
-          if (it == input_values.end()) {
-            input_values.emplace_back(val);
-          }
-        }
-      }
-    }
-    return input_values;
+    create_inputs(values, input_pt_vec, metadata, true);
+    return values;
   }
 
  private:

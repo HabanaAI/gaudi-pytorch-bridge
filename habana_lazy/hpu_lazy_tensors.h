@@ -112,9 +112,27 @@ struct HbLazyFrontEndInfoToBackend {
     return op_name;
   }
 
+  bool get_is_optimized_lazy_eager() {
+    return is_optimized_lazy_eager;
+  }
+
+  void set_is_optimized_lazy_eager(bool flag) {
+    is_optimized_lazy_eager = flag;
+  }
+
+  std::vector<ir::Value>& get_input_values() {
+    return input_values;
+  }
+
+  void set_input_values(std::vector<ir::Value>& input_vals) {
+    input_values = input_vals;
+  }
+
  private:
   size_t optimized_lazy_eager_key = 0;
   std::string op_name = getHabanaLazyGraphName();
+  bool is_optimized_lazy_eager = false;
+  std::vector<ir::Value> input_values{};
 };
 
 class HbLazyTensor {
@@ -196,6 +214,9 @@ class HbLazyTensor {
   ir::Value CreateTensorNode() const;
   static std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
+  static std::vector<int> CollectSyncTensorsOptimized(
+      const std::vector<HbLazyTensor>& tensors,
+      std::vector<HbLazyTensor>& out_hb_lazy_tensor);
   static ir::PostOrderData RunPostOrder(
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
@@ -207,8 +228,9 @@ class HbLazyTensor {
 
   static void SyncTensorsGraph(
       std::vector<HbLazyTensor>* tensors,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
-  static void SyncTensorsGraphFast(
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
+      std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
+  static void SyncTensorsGraphOptimized(
       std::vector<HbLazyTensor>* tensors,
       std::vector<ir::Value>& input_values,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
@@ -216,12 +238,14 @@ class HbLazyTensor {
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
       bool use_cached_graph,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
+      std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
 
   static void StepMarker(
       const std::string& device_str = {},
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info =
-          nullptr);
+          nullptr,
+      std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
   static void StepMarkerBind(const std::string& device_str = {});
   static void InitiateBucketRefinement();
   static void SetDynamicMode();
@@ -293,13 +317,30 @@ class HbLazyTensor {
   }
 
   void ClearAndAssignNewIrValue();
+  static void PostLaunch(
+      std::vector<HbLazyTensor>* tensors,
+      torch::jit::Stack& stack,
+      std::vector<int>& indices,
+      std::vector<uint64_t>& executing_indices,
+      habana_lazy::ir::ValueList& inputs,
+      habana_lazy::ir::ValueList& outputs,
+      bool is_exception,
+      bool is_OptimizedLazyEager = false);
+  static torch::jit::Stack PrepareInputStack(
+      std::vector<HbLazyTensor>* tensors,
+      std::vector<int>& indices,
+      habana_lazy::ir::ValueList& inputs,
+      std::vector<uint64_t>& executing_indices,
+      bool is_OptimizedLazyEager,
+      habana_lazy::ir::NodePtrList* ptr_post_order = nullptr);
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
-  static void SyncTensorsGraphInternalFast(
+  static void SyncTensorsGraphInternalOptimized(
       std::vector<HbLazyTensor>* tensors,
       std::vector<ir::Value>& input_values,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
+      std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
   static bool switch_dynamic_mode;
 };
 

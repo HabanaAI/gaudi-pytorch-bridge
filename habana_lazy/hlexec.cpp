@@ -293,13 +293,13 @@ void HlExec::GetOrCreate(
 
   if (optimized_lazy_eager_key != 0) {
     bool IsOptimizedLazyEagerCached =
-        habana_lazy::FastLazyGraphCache::GetFastLazyCache().IsCached(
+        habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
             optimized_lazy_eager_key);
     if (IsOptimizedLazyEagerCached == false) {
-      FastLazyGraphCache::GetFastLazyCache().Add(
+      OptimizedLazyGraphCache::GetOptimizedLazyCache().Add(
           optimized_lazy_eager_key, mp_g_and_meta_data_);
       PT_LAZY_DEBUG(
-          "Fast Path JIT Cache miss :: key ", optimized_lazy_eager_key);
+          "Optimized Path JIT Cache miss :: key ", optimized_lazy_eager_key);
     }
   }
 }
