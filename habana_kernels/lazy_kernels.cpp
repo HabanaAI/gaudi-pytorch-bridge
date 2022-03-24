@@ -2997,11 +2997,16 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
 
 Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   PT_LAZY_TRACE;
-  Tensor unsqueeze_mask = mask;
+  Tensor reshape_mask = mask;
   if (mask.dim() == 0) {
-    unsqueeze_mask = mask.unsqueeze(0);
+    reshape_mask = mask.unsqueeze(0);
   }
-  auto result = nonzero_hpu_lazy(unsqueeze_mask);
+  // Broadcast mask tensor if necessary
+  if (self.sizes().vec() != mask.sizes().vec()) {
+    auto broadcast_shape = at::infer_size(self.sizes(), mask.sizes());
+    reshape_mask = mask.broadcast_to(broadcast_shape);
+  }
+  auto result = nonzero_hpu_lazy(reshape_mask);
 
   std::vector<Tensor> idx = result.unbind(1);
   // after unbind indices might be on cpu.
@@ -3025,11 +3030,16 @@ Tensor& masked_select_out_hpu_lazy(
     const Tensor& mask,
     Tensor& out) {
   PT_LAZY_TRACE;
-  Tensor unsqueeze_mask = mask;
+  Tensor reshape_mask = mask;
   if (mask.dim() == 0) {
-    unsqueeze_mask = mask.unsqueeze(0);
+    reshape_mask = mask.unsqueeze(0);
   }
-  auto result = nonzero_hpu_lazy(unsqueeze_mask);
+  // Broadcast mask tensor if necessary
+  if (self.sizes().vec() != mask.sizes().vec()) {
+    auto broadcast_shape = at::infer_size(self.sizes(), mask.sizes());
+    reshape_mask = mask.broadcast_to(broadcast_shape);
+  }
+  auto result = nonzero_hpu_lazy(reshape_mask);
 
   std::vector<Tensor> idx = result.unbind(1);
   // after unbind indices might be on cpu.
