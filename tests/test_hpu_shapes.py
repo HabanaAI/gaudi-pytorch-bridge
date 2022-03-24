@@ -990,6 +990,21 @@ def test_hpu_masked_scatter_inplace(N, C, dtype):
     np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 
+@pytest.mark.parametrize("dtype", index_put_dtype_list)
+def test_hpu_index_fill_(dtype):
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    index = torch.tensor([0, 1])
+    index_hpu = index.to(hpu)
+    input_tensor = torch.randn(3, 4, 3).to(dtype)
+    print("input_tensor shape '{}'".format(input_tensor.shape))
+    input_tensor_hpu = input_tensor.to(hpu)
+    dim = torch.randint(input_tensor.dim(), (1,))[0]
+    input_tensor.index_fill_(dim, index, -1)
+    input_tensor_hpu.index_fill_(dim, index_hpu, -1)
+    np.testing.assert_allclose(input_tensor_hpu.to(cpu).detach().numpy(), input_tensor.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])
     test_hpu_view(*test_case_list[0])

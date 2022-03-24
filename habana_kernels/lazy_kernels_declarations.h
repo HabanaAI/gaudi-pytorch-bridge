@@ -270,6 +270,11 @@ at::Tensor& index_put_hpu_lazy_(
     at::TensorList indices,
     const at::Tensor& value,
     bool accumulate);
+at::Tensor& index_fill_hpu_lazy_(
+    at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Scalar& value);
 at::Tensor& masked_scatter_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,

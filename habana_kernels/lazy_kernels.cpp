@@ -3558,6 +3558,42 @@ Tensor& index_put_hpu_lazy_(
   return self;
 }
 
+Tensor& index_fill_hpu_lazy_(
+    Tensor& self,
+    int64_t dim,
+    const Tensor& index,
+    const Scalar& value) {
+  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  if (dim_ == 0) {
+    auto value_dim = self.sizes().vec();
+    value_dim[0] = index.numel();
+    auto value_tensor = empty_hpu_lazy(
+        value_dim, self.options(), self.suggest_memory_format(), true);
+    fill_hpu_lazy_(value_tensor, value);
+    return index_put_hpu_lazy_(self, {index}, value_tensor, false);
+  } else {
+    std::vector<int64_t> permute_dims(self.dim());
+    std::iota(permute_dims.begin(), permute_dims.end(), 0);
+    auto temp = permute_dims[self.dim() - dim_ - 1];
+    permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
+    permute_dims[self.dim() - 1] = temp;
+    auto permuted_self = permute_hpu_lazy(self, permute_dims);
+
+    auto value_dim = permuted_self.sizes().vec();
+    value_dim[0] = index.numel();
+    auto value_tensor = empty_hpu_lazy(
+        value_dim, self.options(), self.suggest_memory_format(), true);
+    fill_hpu_lazy_(value_tensor, value);
+
+    permuted_self =
+        index_put_hpu_lazy_(permuted_self, {index}, value_tensor, false);
+    permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
+    LazyOp<at::Tensor&> k{
+        "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
+    return k.call(self);
+  }
+}
+
 Tensor& masked_scatter_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
@@ -4937,13 +4973,13 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       grad_input_mask);
   return k.call();
 }
-
 Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
   std::vector<int64_t> size = {};
   at::Tensor empty_tensor =
       empty_hpu_lazy(size, self.options(), self.suggest_memory_format(), true);
   return fill_hpu_lazy_(empty_tensor, val);
 }
+
 Tensor norm_scalar_hpu_lazy(const Tensor& self, const Scalar& p) {
   PT_LAZY_TRACE;
   if (self.numel() == 0) {
