@@ -59,7 +59,7 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
 
   // Upper bound extended to include upper bound with
   // range TPC kernel which support [start, limit)
-  float upperBoundExtension = 0.000001;
+  float endValueModification = 0.000001;
 
   TORCH_CHECK(inputs[0].isScalar(), "Input 1 type expected to be a scalar");
   TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be a scalar");
@@ -77,10 +77,11 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
   if (1.0 != arange_step) {
     delta /= (arange_step - 1.0);
   }
-  if ((end - start) < 0.f) {
-    upperBoundExtension *= -1.0;
+  if (arange_step != 1) {
+    endValueModification = delta / 2.0;
   }
-  end += upperBoundExtension;
+
+  end += endValueModification;
 
   auto device_id = this->p_context_->device_id_;
 
