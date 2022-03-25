@@ -913,7 +913,7 @@ at::Tensor get_tensor_for_scalar(
       auto hb_tensor = GetOrCreateHbLazyTensor(alpha_tensor);
       setTensorAsInputNode(hb_tensor);
       context->MarkTensorStatus(
-          hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
+          hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
       auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
       auto hb_internal_tensor = hb_tensor_data.value();
       hb_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
