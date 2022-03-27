@@ -424,7 +424,8 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
@@ -493,7 +494,8 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
             torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
@@ -588,7 +590,8 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     IncrementNumberOfCopiesToHPU();
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+        !habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
       h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     }

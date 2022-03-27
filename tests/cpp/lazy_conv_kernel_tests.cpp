@@ -27,7 +27,8 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
           .reshape({3, 3, 3, 1}); // hwck
 
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
@@ -70,7 +71,8 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   auto h_grad_output = grad_output.to(torch::kHPU);
   auto hinput = input.to(torch::kHPU);
   auto hweight = weight.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight.permute({2, 3, 1, 0}).contiguous();
     hweight = wt_hwck.to(torch::kHPU);
@@ -143,7 +145,8 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
 
   auto h_in = in.to(torch::kHPU);
   auto h_wt = wt.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     h_wt = wt_hwck.to(torch::kHPU);
@@ -165,7 +168,8 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
 
   auto h_in = in.to(torch::kHPU);
   auto h_wt = wt.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
     h_wt = wt_hwck.to(torch::kHPU);
@@ -181,7 +185,8 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   auto hin = in.to(torch::kHPU);
   auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
   auto hwt = wt.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = wt.detach().permute({2, 3, 1, 0}).contiguous();
     hwt = wt_hwck.to(torch::kHPU);
@@ -214,7 +219,8 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     EXPECT_EQ(
         allclose(grad_wt, hgrad_wt_cpu.permute({3, 2, 0, 1}), 0.01, 0.01),

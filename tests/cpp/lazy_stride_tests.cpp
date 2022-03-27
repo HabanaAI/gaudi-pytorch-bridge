@@ -54,7 +54,8 @@ TEST_F(LazyStridesTest, NCHWInputTensorsStrides) {
       torch::randn({BATCH, C, H, W}, torch::requires_grad(false));
   torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
   torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
   }

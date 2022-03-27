@@ -54,7 +54,8 @@ TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
   torch::Tensor weight_tensor =
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);
@@ -145,7 +146,8 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
   torch::Tensor weight_tensor =
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
     tHabanaW = wt_hwck.to(torch::kHPU);

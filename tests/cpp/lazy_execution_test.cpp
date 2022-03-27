@@ -27,7 +27,8 @@ TEST_F(LazyExecutionTest, testmultipleLaunch) {
 
     auto h_in = in.to(torch::kHPU);
     auto h_wt = wt.to(torch::kHPU);
-    if (!habana_lazy::exec::OptPassCfg::GetInstance()
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+        !habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
       auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
       h_wt = wt_hwck.to(torch::kHPU);

@@ -72,19 +72,22 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   auto lr = torch::tensor({0.01});
 
   auto hgrad = grad.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
     hgrad = grad_hwck.to(torch::kHPU);
   }
   auto hwts = wts.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
     hwts = wts_hwck.to(torch::kHPU);
   }
   auto hmoments = moments.to(torch::kHPU);
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass()) {
     auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
     hmoments = moments_hwck.to(torch::kHPU);
