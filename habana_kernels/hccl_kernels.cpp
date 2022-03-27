@@ -116,6 +116,7 @@ void collective(
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)outputs.at(i)->get_buffer_start();
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
+    deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
     deviceCtxt->lock_address(inputs.at(i)->get_buffer(), &input_address);
     deviceCtxt->lock_address(outputs.at(i)->get_buffer(), &output_address);
 
@@ -140,7 +141,7 @@ void collective(
           output,
           ", input_address = ",
           input_address,
-          ", ouptput_address = ",
+          ", output_address = ",
           output_address,
           ", comm_id = ",
           comm->GetId(),
