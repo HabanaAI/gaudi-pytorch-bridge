@@ -50,12 +50,15 @@ class AeonSSDConfigurator:
             self.manifest = f"val_{self.manifest}"
         manifest_file = os.path.join(self.out_folder, self.manifest)
         if not os.path.exists(manifest_file):
-            os.makedirs(self.out_folder, exist_ok=True)
-            self._generate_aeon_manifest()
-        else:
-            with open(manifest_file)as f:
-                l = len(f.readlines()) - 1
-            print(f"aeon config with {l} entries already exists in <{self.out_folder}>")
+            if _get_rank() == 0:
+                os.makedirs(self.out_folder, exist_ok=True)
+                self._generate_aeon_manifest()
+        if _is_distributed():
+            dist.barrier()
+
+        with open(manifest_file)as f:
+            l = len(f.readlines()) - 1
+        print(f"Taking aeon config with {l} entries from <{self.out_folder}>")
 
     @staticmethod
     def make_object(x, y, x_len, y_len, name):
