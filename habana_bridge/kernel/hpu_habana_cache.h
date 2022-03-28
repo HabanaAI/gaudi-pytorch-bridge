@@ -24,10 +24,10 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_helpers/collective_kernel_info.h"
 #include "habana_helpers/dynamic_bucket_info.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/recipe_cache.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_serialization/recipe_cache.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/time_slot.h"
@@ -490,6 +490,10 @@ class DynamicBucketInfoMap {
       std::shared_ptr<RecipeArgumentSpec>& key);
 
   void refine_graph(size_t graph_key);
+  size_t Size() const;
+  size_t HistSize() const;
+  static void DumpBucketMemoryStat();
+  static void DumpHistoryMemoryStat();
 
  private:
   DynamicBucketInfoMap() = default;

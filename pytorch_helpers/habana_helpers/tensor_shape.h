@@ -85,6 +85,12 @@ class TensorShape {
     return sstr.str();
   }
 
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += m_sizes.size() * sizeof(decltype(m_sizes)::value_type);
+    return size;
+  }
+
  private:
   size_t m_dim{0};
   int64_t n_elements{0};

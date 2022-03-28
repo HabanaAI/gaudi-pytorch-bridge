@@ -10,6 +10,7 @@
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
+#include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -79,6 +80,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("disable_bucket_refinement", []() {
     habana_helpers::DynamicBucketInfo::DisableBucketRefinement();
+  });
+  m.def("dump_bucket_memory_stat", []() {
+    habana::DynamicBucketInfoMap::DumpBucketMemoryStat();
+  });
+  m.def("dump_history_memory_stat", []() {
+    habana::DynamicBucketInfoMap::DumpHistoryMemoryStat();
   });
 
   // python APIs related to cpu fallback

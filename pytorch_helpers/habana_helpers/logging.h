@@ -221,6 +221,7 @@ class PtLogger {
     IRGRAPH = 0x2000,
     VIEWTABLE = 0x4000,
     REFINEMENT = 0x8000,
+    HOSTSTAT = 0x10000,
   };
 };
 
@@ -251,6 +252,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("DYNAMIC_SHAPE");
     case PtLogger::ModuleMask::DEVMEM:
       return std::string("DEVMEM");
+    case PtLogger::ModuleMask::HOSTSTAT:
+      return std::string("HOSTSTAT");
     case PtLogger::ModuleMask::HABHELPER:
       return std::string("HABHELPER");
     default:
@@ -526,6 +529,8 @@ class PTOpTrace {
   PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
 #define PT_VIEWTABLE_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::VIEWTABLE, __VA_ARGS__)
+#define PT_HOSTSTAT_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::HOSTSTAT, __VA_ARGS__)
 #define PT_HABANAHOOKS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 #define PT_FALLBACK_DEBUG(...) \

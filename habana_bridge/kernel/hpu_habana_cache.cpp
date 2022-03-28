@@ -1427,6 +1427,36 @@ std::shared_ptr<habana_helpers::DynamicBucketInfo> DynamicBucketInfoMap::get(
   return {nullptr};
 }
 
+size_t DynamicBucketInfoMap::Size() const {
+  size_t size = 0;
+  for (auto const& [recipe, bucketInfo] : map_) {
+    size += bucketInfo->Size();
+  }
+  return size;
+}
+
+size_t DynamicBucketInfoMap::HistSize() const {
+  size_t size = 0;
+  for (auto const& [recipe, bucketInfo] : map_) {
+    size += bucketInfo->HistSize();
+  }
+  return size;
+}
+
+void DynamicBucketInfoMap::DumpBucketMemoryStat() {
+  PT_HOSTSTAT_DEBUG(
+      "Size of Dynamic Bucket: ",
+      synapse_helpers::get_mem_str(
+          DynamicBucketInfoMap::get_instance().Size()));
+}
+
+void DynamicBucketInfoMap::DumpHistoryMemoryStat() {
+  PT_HOSTSTAT_DEBUG(
+      "Size of Dynamic Bucket History: ",
+      synapse_helpers::get_mem_str(
+          DynamicBucketInfoMap::get_instance().HistSize()));
+}
+
 void DynamicBucketInfoMap::add(
     std::shared_ptr<RecipeArgumentSpec>& key,
     std::shared_ptr<habana_helpers::DynamicBucketInfo>& val) {

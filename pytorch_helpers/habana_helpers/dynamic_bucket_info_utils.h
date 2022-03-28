@@ -261,6 +261,17 @@ struct HistoryItem {
   size_t bucket_index_{ULONG_MAX};
   uint64_t run_time_{0};
 
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    for (auto& s : tshapes_) {
+      size += sizeof(decltype(tshapes_)::key_type);
+      size += s.second.size() *
+          (sizeof(decltype(s.second)::key_type) +
+           sizeof(decltype(s.second)::mapped_type));
+    }
+    return size;
+  }
+
   HistoryItem(DimsHistoryElement&& e, size_t i, uint64_t t)
       : tshapes_(std::move(e)), bucket_index_(i), run_time_(t) {}
 
@@ -289,6 +300,20 @@ inline std::string DebugString(
 struct HistoryItemLog {
   DimsHistoryElement ref_tshapes_;
   std::vector<HistoryItem> hist_items_;
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    for (auto& s : ref_tshapes_) {
+      size += sizeof(decltype(ref_tshapes_)::key_type);
+      size += s.second.size() *
+          (sizeof(decltype(s.second)::key_type) +
+           sizeof(decltype(s.second)::mapped_type));
+    }
+    for (auto& h : hist_items_) {
+      size += h.Size();
+    }
+    return size;
+  }
 
   DimsHistoryElement clone_ref_with(int64_t val = 0) const {
     DimsHistoryElement d{ref_tshapes_};

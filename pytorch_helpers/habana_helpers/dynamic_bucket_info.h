@@ -347,6 +347,27 @@ class Bucket {
     created_by_refinement_ = f;
   }
 
+  size_t HistSize() const {
+    size_t size = sizeof(*this);
+    size += input_hist_idxes_.size() *
+        sizeof(decltype(input_hist_idxes_)::value_type);
+    size += inherited_input_hist_idxes_.size() *
+        sizeof(decltype(inherited_input_hist_idxes_)::value_type);
+    return size;
+  }
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += ranges_.size() * sizeof(decltype(ranges_)::value_type);
+    for (auto const& ele : dynamic_dims_) {
+      size += sizeof(decltype(dynamic_dims_)::key_type);
+      size += ele.second.size() *
+          (sizeof(decltype(ele.second)::key_type) +
+           sizeof(decltype(ele.second)::mapped_type));
+    }
+    return size;
+  }
+
   static constexpr uint64_t uninitialized_token = 1000000006;
 
  private:
@@ -553,6 +574,31 @@ class DynamicBucketInfo {
   void create_statistics(
       std::unique_ptr<habana_helpers::CompilationStatistics> sptr);
 
+  size_t HistSize() const {
+    size_t size = sizeof(*this);
+    for (auto& b : buckets_) {
+      size += b.HistSize();
+    }
+    size += input_history_.Size();
+    return size;
+  }
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    for (auto& b : buckets_) {
+      size += b.Size();
+    }
+    for (auto& s : shapes_) {
+      size += sizeof(decltype(shapes_)::key_type);
+      size += s.second.Size();
+    }
+    size += dynamic_dims_helper_.Size();
+    size += input_token_map_.size() *
+        (sizeof(decltype(input_token_map_)::key_type) +
+         sizeof(decltype(input_token_map_)::mapped_type));
+    return size;
+  }
+
   void split_history(
       const std::vector<size_t>& input_hist_idxes,
       const ResultShapes& new_result,
@@ -692,6 +738,22 @@ class DynamicBucketInfo {
     DynamicDims dd_;
     DimSizes rem_size_;
     DynamicDimsFlat flat_dd_;
+
+    size_t Size() const {
+      size_t size = sizeof(*this);
+      for (auto& d : dd_) {
+        size += sizeof(decltype(dd_)::key_type);
+        size += d.second.size() *
+            (sizeof(decltype(d.second)::key_type) +
+             sizeof(decltype(d.second)::mapped_type));
+      }
+      size += rem_size_.size() *
+          (sizeof(decltype(rem_size_)::key_type) +
+           sizeof(decltype(rem_size_)::mapped_type));
+      size += flat_dd_.size() * sizeof(DynamicDimsFlat);
+      return size;
+    }
+
     void FindOrAdd(int64_t num, int64_t pos, int64_t val);
     friend inline std::ostream& operator<<(
         std::ostream& O,
