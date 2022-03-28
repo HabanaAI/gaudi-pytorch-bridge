@@ -623,9 +623,7 @@ at::Tensor& cat_hpu_out(
     const at::TensorList tensors,
     int64_t dim_ = 0);
 at::Tensor transpose_hpu(const at::Tensor& self, int64_t dim0_, int64_t dim1_);
-at::Tensor& transpose_hpu_(at::Tensor& self, int64_t dim0_, int64_t dim1_);
 at::Tensor t_hpu(const at::Tensor& self);
-at::Tensor& t_hpu_(at::Tensor& self);
 at::Tensor permute_hpu(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor expand_hpu(
     const at::Tensor& self,

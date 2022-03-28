@@ -2852,17 +2852,7 @@ Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
     return transpose_hpu(self, dim0_, dim1_);
   }
 };
-Tensor& hpu_wrap::transpose_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  if (!hpu_check_inputs_impl("transpose_", {self}))
-    return AtenHpuTypeDefault::transpose_(self, dim0_, dim1_);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return transpose_hpu_lazy_(self, dim0_, dim1_);
-
-  } else {
-    return transpose_hpu_(self, dim0_, dim1_);
-  }
-};
 Tensor hpu_wrap::t(const Tensor& self) {
   if (!hpu_check_inputs_impl("t", {self}))
     return AtenHpuTypeDefault::t(self);
@@ -2874,17 +2864,7 @@ Tensor hpu_wrap::t(const Tensor& self) {
     return t_hpu(self);
   }
 };
-Tensor& hpu_wrap::t_(Tensor& self) {
-  if (!hpu_check_inputs_impl("t_", {self}))
-    return AtenHpuTypeDefault::t_(self);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return t_hpu_lazy_(self);
-
-  } else {
-    return t_hpu_(self);
-  }
-};
 Tensor hpu_wrap::permute(const Tensor& self, IntArrayRef dims_) {
   if (!hpu_check_inputs_impl("permute", {self}))
     return AtenHpuTypeDefault::permute(self, dims_);

@@ -5958,11 +5958,6 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   return kernel.call();
 }
 
-Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  PT_LAZY_TRACE;
-  return AtenHpuTypeDefault::transpose_(self, dim0_, dim1_);
-}
-
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
@@ -5998,12 +5993,6 @@ Tensor t_hpu_lazy(const Tensor& self) {
     Kernel kernel{vector_of_inputs};
     return kernel.call();
   }
-}
-
-Tensor& t_hpu_lazy_(Tensor& self) {
-  // return t_hpu_(self);
-  PT_LAZY_TRACE;
-  return AtenHpuTypeDefault::t_(self);
 }
 
 void adjustPTSizesLazy(Tensor& t) {

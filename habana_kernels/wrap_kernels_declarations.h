@@ -636,9 +636,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim0_,
       int64_t dim1_);
-  static at::Tensor& transpose_(at::Tensor& self, int64_t dim0_, int64_t dim1_);
   static at::Tensor t(const at::Tensor& self);
-  static at::Tensor& t_(at::Tensor& self);
   static at::Tensor permute(const at::Tensor& self, at::IntArrayRef dims_);
   static at::Tensor expand(
       const at::Tensor& self,

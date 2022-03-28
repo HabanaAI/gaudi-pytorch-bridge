@@ -631,9 +631,7 @@ at::Tensor transpose_hpu_lazy(
     const at::Tensor& self,
     int64_t dim0_,
     int64_t dim1_);
-at::Tensor& transpose_hpu_lazy_(at::Tensor& self, int64_t dim0_, int64_t dim1_);
 at::Tensor t_hpu_lazy(const at::Tensor& self);
-at::Tensor& t_hpu_lazy_(at::Tensor& self);
 at::Tensor permute_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor permute_cl_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor expand_hpu_lazy(

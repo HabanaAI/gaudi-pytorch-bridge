@@ -495,51 +495,6 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   return out.at(0);
 }
 
-/*******************************************************************************
- * @brief Kernel implementation for N-D inplace torch.transpose_(self,dim0,dim1)
- * @param self - input as well as output
- * @param dim0 - first dimension to swap
- * @param dim0 - second dimension to swap
- *******************************************************************************/
-Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  PT_KERNEL_BEGIN;
-  /*NOTE: The normal inplace op implementation approach to through a duplicate
-   * synapse tensor for input won't work as synapse backend does block
-   * transposes - so if your matrix is AB CD then C will overwrite B before B is
-   * written or vice-versa. So, we do the following (inefficient way, but helps
-   * to support the functionality). tempTensor = transpose_outofplace(inTensor)
-   * Reshape inTensor to transposed sizes for required dims.
-   * Use synapse memcpy guid to do a transfer data from tempTensor to inTensor
-   * Return inTensor back to PyTorch frontend
-   */
-  auto tempT = transpose_hpu(self, dim0_, dim1_);
-
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<at::Tensor> pt_outputs;
-  pt_inputs.push_back(tempT);
-
-  // handle negative dimensions (backward indexing) in pytorch
-  int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
-  int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
-
-  auto self_sizes = self.sizes().vec();
-  auto self_strides = self.strides().vec();
-  std::swap(self_sizes[dim0], self_sizes[dim1]);
-  // Recalculate the strides to account for transpose size changes
-  // In effect, keep the tensor contiguous.
-  habana_helpers::recalc_strides(self_strides, self_sizes);
-  auto tht_result = self.unsafeGetTensorImpl();
-  THHTensor_resizeNd(
-      tht_result, self.dim(), self_sizes.data(), self_strides.data());
-  pt_outputs.push_back(self);
-
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
-
-  PT_KERNEL_END;
-  return self;
-}
-
 /*************************************************************************
  * @brief Kernel implementation for 2D torch.t(self,dim0,dim1)
  * @param self - input
@@ -556,24 +511,6 @@ Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
   auto ret = transpose_hpu(self, 0, 1);
   PT_KERNEL_END;
   return ret;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for 2D inplace torch.t_(self,dim0,dim1)
- * @param self - input as well as output
- * @param dim0 - first dimension to swap
- * @param dim0 - second dimension to swap
- ************************************************************************/
-Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
-  PT_KERNEL_BEGIN;
-  if (1 == self.dim()) {
-    PT_KERNEL_END;
-    return self;
-  }
-  self = transpose_hpu_(self, 0, 1);
-  PT_KERNEL_END;
-
-  return self;
 }
 
 inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
