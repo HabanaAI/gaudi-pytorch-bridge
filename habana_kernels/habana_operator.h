@@ -17,6 +17,7 @@
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/habana_tensor.h"
+#include "synapse_helpers/layout_utils.h"
 
 #include <ATen/Tensor.h>
 #include <c10/util/ArrayRef.h>
@@ -89,6 +90,7 @@ using RegisterCustomFunc =
     std::function<HabanaOperatorPtr(const int, std::string)>;
 
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
+
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
 enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };
@@ -115,6 +117,10 @@ class PytorchKernelContext {
 typedef struct KernelMetaData {
   std::vector<LayoutFormat> input_layout;
   std::vector<LayoutFormat> output_layout;
+  std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
+      synapse_input_layout;
+  std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
+      synapse_output_layout;
   std::vector<size_t> tpc_input_order;
   bool changes_dims;
   KernelMetaData() {

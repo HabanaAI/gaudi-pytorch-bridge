@@ -23,9 +23,11 @@
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
+#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;
+using namespace synapse_helpers::layouts;
 
 synConvolution3DParams synapse_conv3d_params_builder(
     const IntArrayRef& weight, // DHWCK

@@ -1,8 +1,52 @@
+#pragma once
 #include <string>
+#include <unordered_map>
+#include <vector>
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
-
-namespace habana_lazy {
+namespace synapse_helpers {
 namespace layouts {
+
+enum class SynapseLayoutFormat {
+  WHCN = 0,
+  WHDCN = 1,
+  SRCK = 2,
+  SRQCK = 3,
+  DONT_CARE = 4,
+  INVALID = 5
+};
+
+static constexpr char dont_care[] = "";
+static constexpr char pt_default_data_layout[] = "WHCN";
+static constexpr char pt_default_3d_data_layout[] = "WHDCN";
+static constexpr char pt_default_weight_layout[] = "SRCK";
+static constexpr char pt_default_3d_weight_layout[] = "SRQCK";
+
+static const std::unordered_map<const SynapseLayoutFormat, const char*>
+    toLayoutStr = {
+        {SynapseLayoutFormat::WHCN, pt_default_data_layout},
+        {SynapseLayoutFormat::WHDCN, pt_default_3d_data_layout},
+        {SynapseLayoutFormat::SRCK, pt_default_weight_layout},
+        {SynapseLayoutFormat::SRQCK, pt_default_3d_weight_layout},
+        {SynapseLayoutFormat::DONT_CARE, dont_care}};
+
+inline std::vector<const char*> getSynapseLayoutFormat(
+    const std::vector<SynapseLayoutFormat>& layout_format) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    return {};
+  }
+
+  std::vector<const char*> layouts;
+  layouts.reserve(layout_format.size());
+  for (size_t i = 0; i < layout_format.size(); i++) {
+    auto layout = toLayoutStr.find(layout_format[i]);
+    HABANA_ASSERT(
+        layout != toLayoutStr.end(),
+        "Unknown layout in getSynapseLayoutFormat");
+    layouts[i] = layout->second;
+  }
+  return layouts;
+}
 
 enum LayoutIndex {
   // Data layout index for Conv2D input
@@ -88,36 +132,5 @@ enum LegacyLayoutIndex {
 LIST_OF_LAYOUT_IDX
 #undef SET_LAYOUT_IDX_VAR
 
-class LayoutUtils {
- public:
-  static const char** getInputLayouts(const std::string& guid);
-  static const char** getOutputLayouts(const std::string& guid);
-
- private:
-  static constexpr char dont_care[] = "";
-  static constexpr char pt_default_data_layout[] = "WHCN";
-  static constexpr char pt_default_3d_data_layout[] = "WHDCN";
-  static constexpr char pt_default_weight_layout[] = "SRCK";
-  static constexpr char pt_default_3d_weight_layout[] = "SRQCK";
-
-  // Conv
-  static const char* pt_conv_input_layout[];
-  static const char* pt_conv_output_layout[];
-  static const char* pt_conv3d_input_layout[];
-  static const char* pt_conv3d_output_layout[];
-
-  // dedw
-  static const char* pt_dedw_input_layout[];
-  static const char* pt_dedw_output_layout[];
-  static const char* pt_dedw3d_input_layout[];
-  static const char* pt_dedw3d_output_layout[];
-
-  // dedx
-  static const char* pt_dedx_input_layout[];
-  static const char* pt_dedx_output_layout[];
-  static const char* pt_dedx3d_input_layout[];
-  static const char* pt_dedx3d_output_layout[];
-};
-
 } // namespace layouts
-} // namespace habana_lazy
+} // namespace synapse_helpers

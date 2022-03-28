@@ -64,6 +64,12 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
   ConvInputDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -82,6 +88,12 @@ class Conv3dInputDifferentiationOperator : public HabanaOperator {
   Conv3dInputDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -100,6 +112,12 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
   ConvWeightDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::SRCK});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -118,6 +136,12 @@ class Conv3dWeightDifferentiationOperator : public HabanaOperator {
   Conv3dWeightDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::SRQCK});
   }
 
   virtual void AllocateAndAddSynapseNode(

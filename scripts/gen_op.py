@@ -197,6 +197,9 @@ class Op(object):
     def get_layouts(self):
         return self.op.get("layouts", [])
 
+    def get_synapse_layouts(self):
+        return self.op.get("synapse_layouts", [])
+
     def get_op_backend_class(self):
         return self.op.get("op_backend", "OpBackend")
 
@@ -673,6 +676,16 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors):
         out_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[1]])
         ctor_extra_calls.append(
             "SetLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts)
+        )
+    synapse_layouts = ctxop.get_synapse_layouts()
+    if len(synapse_layouts):
+        assert len(synapse_layouts) == 2, "Define both input and output layouts."
+        assert len(synapse_layouts[0]), "Input layouts size should be atleast 1."
+        assert len(synapse_layouts[1]), "Output layouts size should be atleast 1."
+        in_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[0]])
+        out_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[1]])
+        ctor_extra_calls.append(
+            "SetSynapseLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts)
         )
 
     if is_out_fn(fname) and num_out_tensors > 1:

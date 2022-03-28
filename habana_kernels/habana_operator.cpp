@@ -12,10 +12,10 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_lazy/layout_utils.h"
 #include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_helpers/layout_utils.h"
 #include "synapse_helpers/tensor_builder_base.h"
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
@@ -381,10 +381,16 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     syn_outputs.emplace_back(tensor.get());
   }
 
-  auto input_layouts =
-      habana_lazy::layouts::LayoutUtils::getInputLayouts(guid_);
-  auto output_layouts =
-      habana_lazy::layouts::LayoutUtils::getOutputLayouts(guid_);
+  auto input_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_input_layout);
+  auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_output_layout);
+
+  HABANA_ASSERT(
+      input_layouts.empty() || input_layouts.size() == syn_inputs.size());
+  HABANA_ASSERT(
+      output_layouts.empty() || output_layouts.size() == syn_outputs.size());
+
   graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
@@ -392,8 +398,8 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       params_size,
       std::move(guid_),
       nullptr,
-      input_layouts,
-      output_layouts);
+      input_layouts.data(),
+      output_layouts.data());
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {

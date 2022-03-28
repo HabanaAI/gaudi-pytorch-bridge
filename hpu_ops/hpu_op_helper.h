@@ -153,6 +153,13 @@ class OpBackend : public HabanaOperator {
     kernel_meta_data_.output_layout = std::move(out_layouts);
   }
 
+  void SetSynapseLayouts(
+      std::vector<synapse_helpers::layouts::SynapseLayoutFormat> in_layouts,
+      std::vector<synapse_helpers::layouts::SynapseLayoutFormat> out_layouts) {
+    kernel_meta_data_.synapse_input_layout = std::move(in_layouts);
+    kernel_meta_data_.synapse_output_layout = std::move(out_layouts);
+  }
+
   void SetNumOutTensors(int n) {
     m_num_out_tensors = n;
   }

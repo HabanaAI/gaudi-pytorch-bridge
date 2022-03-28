@@ -132,7 +132,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/hpu_lazy_tensors.cpp
   habana_lazy/ir.cpp
   habana_lazy/ir_utils.cpp
-  habana_lazy/layout_utils.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
   habana_lazy/habana_custom_op.cpp

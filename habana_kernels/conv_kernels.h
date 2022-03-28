@@ -65,6 +65,15 @@ class SpatialConvOperator : public habana::HabanaOperator {
       : HabanaOperator("spatial_convolution") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -84,6 +93,15 @@ class SpatialConv3DOperator : public habana::HabanaOperator {
       : HabanaOperator("spatial_convolution3d") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 
   virtual void AllocateAndAddSynapseNode(
