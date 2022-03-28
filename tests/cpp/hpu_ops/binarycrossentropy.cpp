@@ -18,6 +18,94 @@ reduction modes(Mean,Sum and None)
 3.Issue raised for Value Mismatch:https://jira.habana-labs.com/browse/SW-70409
 */
 
+TEST_F(HpuOpTest, bce_usual_3D_sum) {
+  const std::vector<int64_t> size = {8, 3, 2};
+  GenerateInputs(3, {size, size, {8, 3, 1}});
+  torch::ScalarType dtype = torch::kFloat;
+
+  auto expected = torch::binary_cross_entropy(
+      torch::sigmoid(GetCpuInput(0)),
+      /*target*/ GetCpuInput(1),
+      /*weight*/ GetCpuInput(2),
+      at::Reduction::Sum);
+  auto result = torch::binary_cross_entropy(
+      torch::sigmoid(GetHpuInput(0)),
+      /*target*/ GetHpuInput(1),
+      /*weight*/ GetCpuInput(2),
+      at::Reduction::Sum);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, bce_usual_4D_none_bf16) {
+  const std::vector<int64_t> size = {4, 8, 3, 2};
+  GenerateInputs(3, {size, size, {4, 8, 3, 1}});
+  torch::ScalarType dtype = torch::kBFloat16;
+
+  auto expected = torch::binary_cross_entropy(
+      torch::sigmoid(GetCpuInput(0)),
+      /*target*/ GetCpuInput(1),
+      /*weight*/ {},
+      at::Reduction::None);
+  auto result = torch::binary_cross_entropy(
+      torch::sigmoid(GetHpuInput(0)),
+      /*target*/ GetHpuInput(1),
+      /*weight*/ {},
+      at::Reduction::None);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, bce_bwd_2D_mean_bf16) {
+  torch::ScalarType dtype = torch::kBFloat16;
+  auto grad_out = torch::randn({1}, dtype);
+
+  const std::vector<int64_t> size = {2, 4};
+  GenerateInputs(2, {size, size}, dtype);
+
+  grad_out = grad_out.to(dtype);
+  auto hgrad_out = grad_out.to(torch::kHPU, dtype);
+
+  auto expected = torch::binary_cross_entropy_backward(
+      grad_out.to(torch::kFloat),
+      torch::sigmoid(GetCpuInput(0)).to(torch::kFloat),
+      /*target*/ GetCpuInput(1).to(torch::kFloat),
+      /*weight*/ {},
+      at::Reduction::Mean);
+  auto result = torch::binary_cross_entropy_backward(
+      hgrad_out,
+      torch::sigmoid(GetHpuInput(0)),
+      /*target*/ GetHpuInput(1),
+      /*weight*/ {},
+      at::Reduction::Mean);
+  Compare(expected.to(dtype), result, 1.5e-01, 1e-01);
+}
+
+TEST_F(HpuOpTest, bce_bwd_3D_mean) {
+  auto grad_out = torch::randn({1});
+
+  const std::vector<int64_t> size = {3, 4, 5};
+  GenerateInputs(2, {size, size});
+
+  torch::ScalarType dtype = torch::kFloat;
+  grad_out = grad_out.to(dtype);
+  auto hgrad_out = grad_out.to(torch::kHPU, dtype);
+
+  auto expected = torch::binary_cross_entropy_backward(
+      grad_out,
+      torch::sigmoid(GetCpuInput(0)),
+      /*target*/ GetCpuInput(1),
+      /*weight*/ {},
+      at::Reduction::Mean);
+  auto result = torch::binary_cross_entropy_backward(
+      hgrad_out,
+      torch::sigmoid(GetHpuInput(0)),
+      /*target*/ GetHpuInput(1),
+      /*weight*/ {},
+      at::Reduction::Mean);
+
+  Compare(expected, result);
+}
 TEST_F(HpuOpTest, bce_out_3D_sum) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});

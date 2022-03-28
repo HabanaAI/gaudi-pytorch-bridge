@@ -1681,8 +1681,6 @@ Tensor binary_cross_entropy_with_logits_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::binary_cross_entropy", KERNEL_FN(BceFwdOperator))
-        .add("aten::binary_cross_entropy_backward", KERNEL_FN(BceBwdOperator))
         .add(
             "aten::binary_cross_entropy_with_logits",
             KERNEL_FN(BceLogitsFwdOperator))

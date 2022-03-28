@@ -307,6 +307,18 @@ bernoulli.out:
   op_backend: Bernoulli
   schema_args: "(Tensor self, *, int seed, Tensor(a!) out) -> Tensor(a!)"
 
+binary_cross_entropy:
+  custom_output_shape: BinaryCrossEntropyFwdOutputShape
+  dtypes: [Float, BFloat16]
+  op_backend: BinaryCrossEntropyFwd
+  out_ids: [0]
+
+binary_cross_entropy_backward:
+  custom_output_shape: BinaryCrossEntropyBwdOutputShape
+  dtypes: [Float, BFloat16]
+  op_backend: BinaryCrossEntropyBwd
+  out_ids: [0]
+
 binary_cross_entropy.out:
   custom_output_shape: BinaryCrossEntropyFwdOutputShape
   dtypes: [Float, BFloat16]
