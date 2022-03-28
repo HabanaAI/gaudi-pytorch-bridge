@@ -29,20 +29,52 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
       unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
           toDevicePermuteOrder = {
               // Host -> Device
-              {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
-              {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
-              {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
-              {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX -> XXXX (No Change)
+              {LayoutFormat::NHWC,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::H,
+                LayoutFormatDims::W,
+                LayoutFormatDims::C}}, // NCHW -> NHWC
+              {LayoutFormat::NCHW,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::C,
+                LayoutFormatDims::H,
+                LayoutFormatDims::W}}, // NCHW -> NCHW (No Change)
+              {LayoutFormat::HWCK,
+               {LayoutFormatDims::H,
+                LayoutFormatDims::W,
+                LayoutFormatDims::C,
+                LayoutFormatDims::N}}, // KCHW -> HWCK
+              {LayoutFormat::ANY,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::C,
+                LayoutFormatDims::H,
+                LayoutFormatDims::W}} // XXXX -> XXXX (No Change)
           };
 
   static const std::
       unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
           toHostPermuteOrder = {
               // Device -> Host
-              {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
-              {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
-              {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
-              {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX   -> XXXX (No Change)
+              {LayoutFormat::NCHW,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::C,
+                LayoutFormatDims::H,
+                LayoutFormatDims::W}}, // NCHW   -> NCHW (No Change)
+              {LayoutFormat::NHWC,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::W,
+                LayoutFormatDims::C,
+                LayoutFormatDims::H}}, // NHWC   -> NCHW
+              {LayoutFormat::HWCK,
+               {LayoutFormatDims::W,
+                LayoutFormatDims::H,
+                LayoutFormatDims::N,
+                LayoutFormatDims::C}}, // HWCK   -> KCHW
+              {LayoutFormat::ANY,
+               {LayoutFormatDims::N,
+                LayoutFormatDims::C,
+                LayoutFormatDims::H,
+                LayoutFormatDims::W}} // XXXX   -> XXXX (No Change)
           };
 
   const auto& permuteOrder =

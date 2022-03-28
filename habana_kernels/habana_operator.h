@@ -92,6 +92,23 @@ using RegisterCustomFunc =
 
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 
+class LayoutFormatDims {
+ public:
+  constexpr static char N = 0;
+  constexpr static char C = 1;
+  constexpr static char H = 2;
+  constexpr static char W = 3;
+};
+
+class LayoutFormatWithDepthDims {
+ public:
+  constexpr static char N = 0;
+  constexpr static char C = 1;
+  constexpr static char D = 2;
+  constexpr static char H = 3;
+  constexpr static char W = 4;
+};
+
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
 enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };

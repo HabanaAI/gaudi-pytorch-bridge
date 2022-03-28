@@ -330,7 +330,11 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
   Tensor self_nhwc = self;
   if (self.ndimension() == 4) {
     // convert tensors to synapse memory format
-    int64_t pos_in[] = {0, 2, 3, 1};
+    int64_t pos_in[] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C};
     std::vector<const at::Tensor*> pt_in{&self};
     std::vector<at::Tensor*> pt_out{&self_nhwc};
     IntArrayRef new_dim_pos_in = pos_in;
@@ -590,7 +594,11 @@ Tensor nll_loss2d_backward_hpu(
   Tensor self_nhwc = self;
   if (self.ndimension() == 4) {
     // convert tensors to synapse memory format
-    int64_t pos_in[] = {0, 2, 3, 1};
+    int64_t pos_in[] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C};
     std::vector<const at::Tensor*> pt_in{&self};
     std::vector<at::Tensor*> pt_out{&self_nhwc};
     IntArrayRef new_dim_pos_in = pos_in;
@@ -649,7 +657,11 @@ Tensor nll_loss2d_backward_hpu(
     // convert tensors to synapse memory format
     Tensor result = out.at(0);
     Tensor result_nchw = out.at(0);
-    int64_t pos_in[] = {0, 3, 1, 2};
+    int64_t pos_in[] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H};
     std::vector<const at::Tensor*> pt_in{&result};
     std::vector<at::Tensor*> pt_out{&result_nchw};
     IntArrayRef new_dim_pos_in = pos_in;

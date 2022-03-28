@@ -128,10 +128,19 @@ at::IntArrayRef getDimsForWeightLayout(
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::HWCK) {
       if (tensor_dims == 5) {
-        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatWithDepthDims::D,
+            habana::LayoutFormatWithDepthDims::H,
+            habana::LayoutFormatWithDepthDims::W,
+            habana::LayoutFormatWithDepthDims::C,
+            habana::LayoutFormatWithDepthDims::N};
         dims = dimarr;
       } else if (tensor_dims == 4) {
-        static const int64_t dimarr[] = {2, 3, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatDims::H,
+            habana::LayoutFormatDims::W,
+            habana::LayoutFormatDims::C,
+            habana::LayoutFormatDims::N};
         dims = dimarr;
       } else {
         TORCH_CHECK(
@@ -146,10 +155,19 @@ at::IntArrayRef getDimsForWeightLayout(
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
       if (tensor_dims == 5) {
-        static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatWithDepthDims::W,
+            habana::LayoutFormatWithDepthDims::H,
+            habana::LayoutFormatWithDepthDims::N,
+            habana::LayoutFormatWithDepthDims::C,
+            habana::LayoutFormatWithDepthDims::D};
         dims = dimarr;
       } else if (tensor_dims == 4) {
-        static const int64_t dimarr[] = {3, 2, 0, 1};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatDims::W,
+            habana::LayoutFormatDims::H,
+            habana::LayoutFormatDims::N,
+            habana::LayoutFormatDims::C};
         dims = dimarr;
       } else {
         TORCH_CHECK(
@@ -320,11 +338,20 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       auto op_permute = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims1 = nullptr;
       if (*value_in->type()->cast<TensorType>()->dim() == 4) {
-        static const int64_t dimarr[] = {2, 3, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatDims::H,
+            habana::LayoutFormatDims::W,
+            habana::LayoutFormatDims::C,
+            habana::LayoutFormatDims::N};
         at::IntArrayRef dims1 = dimarr;
         value_dims1 = graph->insertConstant(IValue(dims1));
       } else if (*value_in->type()->cast<TensorType>()->dim() == 5) {
-        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatWithDepthDims::D,
+            habana::LayoutFormatWithDepthDims::H,
+            habana::LayoutFormatWithDepthDims::W,
+            habana::LayoutFormatWithDepthDims::C,
+            habana::LayoutFormatWithDepthDims::N};
         at::IntArrayRef dims1 = dimarr;
         value_dims1 = graph->insertConstant(IValue(dims1));
       } else {
@@ -343,11 +370,20 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       auto op_permute = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims1 = nullptr;
       if (*value_in->type()->cast<TensorType>()->dim() == 4) {
-        static const int64_t dimarr[] = {2, 3, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatDims::H,
+            habana::LayoutFormatDims::W,
+            habana::LayoutFormatDims::C,
+            habana::LayoutFormatDims::N};
         at::IntArrayRef dims1 = dimarr;
         value_dims1 = graph->insertConstant(IValue(dims1));
       } else if (*value_in->type()->cast<TensorType>()->dim() == 5) {
-        static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatWithDepthDims::D,
+            habana::LayoutFormatWithDepthDims::H,
+            habana::LayoutFormatWithDepthDims::W,
+            habana::LayoutFormatWithDepthDims::C,
+            habana::LayoutFormatWithDepthDims::N};
         at::IntArrayRef dims1 = dimarr;
         value_dims1 = graph->insertConstant(IValue(dims1));
       } else {
@@ -361,11 +397,20 @@ void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {
       auto op_permute2 = c10::Symbol::fromQualString("hpu::permute");
       torch::jit::Value* value_dims2 = nullptr;
       if (*value_out->type()->cast<TensorType>()->dim() == 4) {
-        static const int64_t dimarr[] = {3, 2, 0, 1};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatDims::W,
+            habana::LayoutFormatDims::H,
+            habana::LayoutFormatDims::N,
+            habana::LayoutFormatDims::C};
         at::IntArrayRef dims2 = dimarr;
         value_dims2 = graph->insertConstant(IValue(dims2));
       } else if (*value_out->type()->cast<TensorType>()->dim() == 5) {
-        static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+        static const int64_t dimarr[] = {
+            habana::LayoutFormatWithDepthDims::W,
+            habana::LayoutFormatWithDepthDims::H,
+            habana::LayoutFormatWithDepthDims::N,
+            habana::LayoutFormatWithDepthDims::C,
+            habana::LayoutFormatWithDepthDims::D};
         at::IntArrayRef dims2 = dimarr;
         value_dims2 = graph->insertConstant(IValue(dims2));
       } else {

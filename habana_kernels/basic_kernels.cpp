@@ -29,6 +29,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
+using namespace habana;
 
 static void print_stride_warning(const Tensor& src, const Tensor& dst) {
   if (src.strides() != dst.strides())
@@ -86,8 +87,17 @@ void adjustPTSizes(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  std::vector<int> out_pos = {0, 3, 1, 2};
-  std::vector<int> out_pos_5d = {0, 4, 1, 2, 3};
+  std::vector<int> out_pos = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::H};
+  std::vector<int> out_pos_5d = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H};
   std::vector<long int> swapped_sizes = {
       sizes[out_pos[0]],
       sizes[out_pos[1]],
@@ -117,7 +127,11 @@ void adjustPTSizes(Tensor& t) {
 }
 
 void do_copy_transpose(Tensor& dst, const Tensor& src) {
-  int64_t dim_chl_pos[] = {0, 2, 3, 1};
+  int64_t dim_chl_pos[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
   at::IntArrayRef chl_pos = dim_chl_pos;
   dst = src.permute(chl_pos);
   adjustPTSizes(dst);
@@ -599,14 +613,23 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
       (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d)) {
     if (size.size() == 4) {
       // NCHW -> NHWC
-      const int64_t dim_pos_in[4] = {0, 2, 3, 1};
+      const int64_t dim_pos_in[4] = {
+          LayoutFormatDims::N,
+          LayoutFormatDims::H,
+          LayoutFormatDims::W,
+          LayoutFormatDims::C};
       for (size_t idx = 0; idx < size.size(); idx++) {
         out_size_vec.emplace_back(size[dim_pos_in[idx]]);
         out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);
       }
     } else if (size.size() == 5) {
       // NCDHW -> NDHWC
-      const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
+      const int64_t dim_pos_in[5] = {
+          LayoutFormatWithDepthDims::N,
+          LayoutFormatWithDepthDims::D,
+          LayoutFormatWithDepthDims::H,
+          LayoutFormatWithDepthDims::W,
+          LayoutFormatWithDepthDims::C};
       for (size_t idx = 0; idx < size.size(); idx++) {
         out_size_vec.emplace_back(size[dim_pos_in[idx]]);
         out_stride_vec.emplace_back(stride[dim_pos_in[idx]]);

@@ -608,7 +608,11 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
     auto& output = p_context_->pt_outputs_[0];
     auto sizes = output.sizes().vec();
     auto strides = output.strides().vec();
-    std::vector<int> out_pos = {0, 3, 1, 2};
+    std::vector<int> out_pos = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H};
     std::vector<long int> swapped_sizes = {
         sizes[out_pos[0]],
         sizes[out_pos[1]],

@@ -1026,11 +1026,20 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     if (copy_transpose_valid(self, src)) {
       permuted = true;
       if (is_5d_tensor) {
-        int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
+        int64_t dim_chl_pos[] = {
+            LayoutFormatWithDepthDims::N,
+            LayoutFormatWithDepthDims::D,
+            LayoutFormatWithDepthDims::H,
+            LayoutFormatWithDepthDims::W,
+            LayoutFormatWithDepthDims::C};
         at::IntArrayRef chl_pos = dim_chl_pos;
         self = permute_cl_hpu_lazy(src, chl_pos);
       } else {
-        int64_t dim_chl_pos[] = {0, 2, 3, 1};
+        int64_t dim_chl_pos[] = {
+            LayoutFormatDims::N,
+            LayoutFormatDims::H,
+            LayoutFormatDims::W,
+            LayoutFormatDims::C};
         at::IntArrayRef chl_pos = dim_chl_pos;
         self = permute_cl_hpu_lazy(src, chl_pos);
       }
@@ -1143,8 +1152,17 @@ Tensor as_strided_layout_hpu_lazy(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride) {
-  int64_t dim_out_pos[] = {2, 3, 1, 0};
-  int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
+  int64_t dim_out_pos[] = {
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::N};
+  int64_t dim_out_pos_3d[] = {
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::N};
   IntArrayRef dims_ = dim_out_pos;
   if (self.dim() == 5)
     dims_ = dim_out_pos_3d;
@@ -1162,8 +1180,17 @@ Tensor as_strided_layout_hpu_lazy(
 }
 
 c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
-  static std::vector<int> out_pos = {2, 3, 1, 0};
-  static std::vector<int> out_pos_5d = {2, 3, 4, 1, 0};
+  static std::vector<int> out_pos = {
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::N};
+  static std::vector<int> out_pos_5d = {
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::N};
 
   auto sizes = src.sizes().vec();
   auto is_5d_tensor = src.dim() == 5;
@@ -1192,8 +1219,13 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes_5d, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes_5d, new_strides);
-      auto permute_tensor =
-          permute_hpu_lazy_internal(strided_tensor, {4, 3, 0, 1, 2});
+      auto permute_tensor = permute_hpu_lazy_internal(
+          strided_tensor,
+          {LayoutFormatWithDepthDims::W,
+           LayoutFormatWithDepthDims::H,
+           LayoutFormatWithDepthDims::N,
+           LayoutFormatWithDepthDims::C,
+           LayoutFormatWithDepthDims::D});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
       tensor_data = hb_tensor.GetHbLazyTensorData();
     } else {
@@ -1202,8 +1234,12 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes, new_strides);
-      auto permute_tensor =
-          permute_hpu_lazy_internal(strided_tensor, {3, 2, 0, 1});
+      auto permute_tensor = permute_hpu_lazy_internal(
+          strided_tensor,
+          {LayoutFormatDims::W,
+           LayoutFormatDims::H,
+           LayoutFormatDims::N,
+           LayoutFormatDims::C});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
       tensor_data = hb_tensor.GetHbLazyTensorData();
     }
@@ -2205,8 +2241,17 @@ Tensor permute_wt_hpu(const Tensor& self) {
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       auto layout_format = hb_tensor.GetTensorLayout();
 
-      int64_t dim_out_pos[] = {2, 3, 1, 0};
-      int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
+      int64_t dim_out_pos[] = {
+          LayoutFormatDims::H,
+          LayoutFormatDims::W,
+          LayoutFormatDims::C,
+          LayoutFormatDims::N};
+      int64_t dim_out_pos_3d[] = {
+          LayoutFormatWithDepthDims::D,
+          LayoutFormatWithDepthDims::H,
+          LayoutFormatWithDepthDims::W,
+          LayoutFormatWithDepthDims::C,
+          LayoutFormatWithDepthDims::N};
       IntArrayRef dims_ = dim_out_pos;
       if (self.dim() == 5)
         dims_ = dim_out_pos_3d;
@@ -2285,8 +2330,17 @@ Tensor convolution_hpu_lazy(
     c10::MemoryFormat memory_format = is_5d_layout
         ? c10::MemoryFormat::ChannelsLast3d
         : c10::MemoryFormat::ChannelsLast;
-    std::array<int64_t, 4> swapped_dims_4d = {2, 3, 1, 0};
-    std::array<int64_t, 5> swapped_dims_5d = {2, 3, 4, 1, 0};
+    std::array<int64_t, 4> swapped_dims_4d = {
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::N};
+    std::array<int64_t, 5> swapped_dims_5d = {
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::N};
     IntArrayRef dims_ = swapped_dims_4d;
     if (is_5d_layout)
       dims_ = swapped_dims_5d;
@@ -3728,26 +3782,43 @@ Tensor slice_backward_hpu_lazy(
 
   if (is_cl && (size.size() == 4)) {
     // NCHW -> NHWC
-    const int64_t dim_pos_in[4] = {0, 2, 3, 1};
+    const int64_t dim_pos_in[4] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C};
     for (size_t idx = 0; idx < size.size(); idx++) {
       out_size_vec.emplace_back(size[dim_pos_in[idx]]);
     }
 
-    const int64_t dim_translate_pos[4] = {0, 3, 1, 2};
+    const int64_t dim_translate_pos[4] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H};
     dim = dim_translate_pos[dim];
     mf = c10::MemoryFormat::ChannelsLast;
 
   } else if (is_cl && (size.size() == 5)) {
     // NCDHW -> NDHWC
-    const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
+    const int64_t dim_pos_in[5] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C};
     for (size_t idx = 0; idx < size.size(); idx++) {
       out_size_vec.emplace_back(size[dim_pos_in[idx]]);
     }
 
-    const int64_t dim_translate_pos[5] = {0, 4, 1, 2, 3};
+    const int64_t dim_translate_pos[5] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H};
     dim = dim_translate_pos[dim];
     mf = c10::MemoryFormat::ChannelsLast3d;
-
   } else {
     for (size_t idx = 0; idx < size.size(); idx++) {
       out_size_vec.emplace_back(size[idx]);
@@ -6143,13 +6214,22 @@ void adjustPTSizesLazy(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  std::vector<int> out_pos = {0, 3, 1, 2};
+  std::vector<int> out_pos = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::H};
   std::vector<long int> swapped_sizes = {
       sizes[out_pos[0]],
       sizes[out_pos[1]],
       sizes[out_pos[2]],
       sizes[out_pos[3]]};
-  std::vector<int> out_pos_5d = {0, 4, 1, 2, 3};
+  std::vector<int> out_pos_5d = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H};
   std::vector<long int> swapped_sizes_5d = {
       sizes[out_pos_5d[0]],
       sizes[out_pos_5d[1]],

@@ -17,13 +17,28 @@ int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
   // NCDHW and 4 for NDHWC
   int layout_dim = dim;
   if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {0, 1, 2, 3, 4};
+    int64_t dimarr[] = {
+        habana::LayoutFormatWithDepthDims::N,
+        habana::LayoutFormatWithDepthDims::C,
+        habana::LayoutFormatWithDepthDims::D,
+        habana::LayoutFormatWithDepthDims::H,
+        habana::LayoutFormatWithDepthDims::W};
     layout_dim = dimarr[dim];
   } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {0, 4, 1, 2, 3};
+    int64_t dimarr[] = {
+        habana::LayoutFormatWithDepthDims::N,
+        habana::LayoutFormatWithDepthDims::W,
+        habana::LayoutFormatWithDepthDims::C,
+        habana::LayoutFormatWithDepthDims::D,
+        habana::LayoutFormatWithDepthDims::H};
     layout_dim = dimarr[dim];
   } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {4, 3, 0, 1, 2};
+    int64_t dimarr[] = {
+        habana::LayoutFormatWithDepthDims::W,
+        habana::LayoutFormatWithDepthDims::H,
+        habana::LayoutFormatWithDepthDims::N,
+        habana::LayoutFormatWithDepthDims::C,
+        habana::LayoutFormatWithDepthDims::D};
     layout_dim = dimarr[dim];
   } else {
     HABANA_ASSERT(0);
@@ -34,13 +49,25 @@ int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
 int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
   int layout_dim = dim;
   if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {0, 1, 2, 3};
+    int64_t dimarr[] = {
+        habana::LayoutFormatDims::N,
+        habana::LayoutFormatDims::C,
+        habana::LayoutFormatDims::H,
+        habana::LayoutFormatDims::W};
     layout_dim = dimarr[dim];
   } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {0, 3, 1, 2};
+    int64_t dimarr[] = {
+        habana::LayoutFormatDims::N,
+        habana::LayoutFormatDims::W,
+        habana::LayoutFormatDims::C,
+        habana::LayoutFormatDims::H};
     layout_dim = dimarr[dim];
   } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {3, 2, 0, 1};
+    int64_t dimarr[] = {
+        habana::LayoutFormatDims::W,
+        habana::LayoutFormatDims::H,
+        habana::LayoutFormatDims::N,
+        habana::LayoutFormatDims::C};
     layout_dim = dimarr[dim];
   } else {
     HABANA_ASSERT(0);
@@ -58,10 +85,20 @@ at::IntArrayRef getDimsForLayout5d(
   // NCDHW and 4 for NDHWC
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {0, 2, 3, 4, 1};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::N,
+          habana::LayoutFormatWithDepthDims::D,
+          habana::LayoutFormatWithDepthDims::H,
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::C};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::D,
+          habana::LayoutFormatWithDepthDims::H,
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::C,
+          habana::LayoutFormatWithDepthDims::N};
       dims = dimarr;
     } else {
       TORCH_CHECK(
@@ -70,10 +107,20 @@ at::IntArrayRef getDimsForLayout5d(
     }
   } else if (current_order == habana::LayoutFormat::NHWC) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {0, 4, 1, 2, 3};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::N,
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::C,
+          habana::LayoutFormatWithDepthDims::D,
+          habana::LayoutFormatWithDepthDims::H};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {1, 2, 3, 4, 0};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::C,
+          habana::LayoutFormatWithDepthDims::D,
+          habana::LayoutFormatWithDepthDims::H,
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::N};
       dims = dimarr;
     } else {
       TORCH_CHECK(
@@ -82,10 +129,20 @@ at::IntArrayRef getDimsForLayout5d(
     }
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::H,
+          habana::LayoutFormatWithDepthDims::N,
+          habana::LayoutFormatWithDepthDims::C,
+          habana::LayoutFormatWithDepthDims::D};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {4, 0, 1, 2, 3};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatWithDepthDims::W,
+          habana::LayoutFormatWithDepthDims::N,
+          habana::LayoutFormatWithDepthDims::C,
+          habana::LayoutFormatWithDepthDims::D,
+          habana::LayoutFormatWithDepthDims::H};
       dims = dimarr;
     } else {
       TORCH_CHECK(
@@ -108,10 +165,18 @@ at::IntArrayRef getDimsForLayout(
 
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {0, 2, 3, 1};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::N,
+          habana::LayoutFormatDims::H,
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::C};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {2, 3, 1, 0};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::H,
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::C,
+          habana::LayoutFormatDims::N};
       dims = dimarr;
     } else {
       TORCH_CHECK(
@@ -120,10 +185,18 @@ at::IntArrayRef getDimsForLayout(
     }
   } else if (current_order == habana::LayoutFormat::NHWC) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {0, 3, 1, 2};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::N,
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::C,
+          habana::LayoutFormatDims::H};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {1, 2, 3, 0};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::C,
+          habana::LayoutFormatDims::H,
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::N};
       dims = dimarr;
     } else {
       TORCH_CHECK(
@@ -132,10 +205,18 @@ at::IntArrayRef getDimsForLayout(
     }
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {3, 2, 0, 1};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::H,
+          habana::LayoutFormatDims::N,
+          habana::LayoutFormatDims::C};
       dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {3, 0, 1, 2};
+      static const int64_t dimarr[] = {
+          habana::LayoutFormatDims::W,
+          habana::LayoutFormatDims::N,
+          habana::LayoutFormatDims::C,
+          habana::LayoutFormatDims::H};
       dims = dimarr;
     } else {
       TORCH_CHECK(

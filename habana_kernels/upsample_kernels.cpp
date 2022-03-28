@@ -399,8 +399,17 @@ Tensor upsample_op_hpu(
   at::Tensor input = stack[0].toTensor();
   Tensor input_nhwc = input;
   auto is_upsample_3d = is_tensor_5d(input.sizes().vec());
-  int64_t pos_in[] = {0, 2, 3, 1};
-  int64_t pos_in_3d[] = {0, 2, 3, 4, 1};
+  int64_t pos_in[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
+  int64_t pos_in_3d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C};
   std::vector<const at::Tensor*> pt_in{&input};
   std::vector<at::Tensor*> pt_out{&input_nhwc};
   IntArrayRef new_dim_pos_in = pos_in;
@@ -436,8 +445,17 @@ Tensor upsample_op_hpu(
   auto output_nhwc = upsample_nearest();
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  int64_t pos_out[] = {0, 3, 1, 2};
-  int64_t pos_out_3d[] = {0, 4, 1, 2, 3};
+  int64_t pos_out[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::H};
+  int64_t pos_out_3d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H};
   IntArrayRef new_dim_pos_out = pos_out;
   if (is_upsample_3d)
     new_dim_pos_out = pos_out_3d;
@@ -456,8 +474,17 @@ Tensor upsample_backward_op_hpu(
 
   Tensor grad_output_nhwc = grad_output;
   auto is_upsample_3d = is_tensor_5d(grad_output.sizes().vec());
-  int64_t pos_in[] = {0, 2, 3, 1};
-  int64_t pos_in_3d[] = {0, 2, 3, 4, 1};
+  int64_t pos_in[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
+  int64_t pos_in_3d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C};
   std::vector<const at::Tensor*> pt_in{&grad_output};
   std::vector<at::Tensor*> pt_out{&grad_output_nhwc};
   IntArrayRef new_dim_pos_in = pos_in;
@@ -509,8 +536,17 @@ Tensor upsample_backward_op_hpu(
   auto output_nhwc = upsample_nearest_backward();
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  int64_t pos_out[] = {0, 3, 1, 2};
-  int64_t pos_out_3d[] = {0, 4, 1, 2, 3};
+  int64_t pos_out[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::H};
+  int64_t pos_out_3d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H};
   IntArrayRef new_dim_pos_out = pos_out;
   if (is_upsample_3d) // 5D input
     new_dim_pos_out = pos_out_3d;

@@ -295,10 +295,30 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
   // entry points
   auto is_conv_3d_recheck = is_conv_3d || is_5d_tensor(shape_in, shape_wt);
   if (is_conv_3d_recheck) {
-    const int64_t dim_pos_in[5] = {0, 2, 3, 4, 1};
-    const int64_t dim_pos_wt[5] = {0, 1, 2, 3, 4};
-    const int64_t dim_pos_in_chlast[5] = {0, 1, 2, 3, 4};
-    const int64_t wt_hwck_dims[5] = {2, 3, 4, 1, 0};
+    const int64_t dim_pos_in[5] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C};
+    const int64_t dim_pos_wt[5] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W};
+    const int64_t dim_pos_in_chlast[5] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W};
+    const int64_t wt_hwck_dims[5] = {
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::N};
 
     const int64_t* p_dim_pos_in;
     const int64_t* p_dim_pos_wt;
@@ -367,10 +387,26 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     }
     return out_shape;
   } else {
-    const int64_t dim_pos_in[4] = {0, 2, 3, 1};
-    const int64_t dim_pos_wt[4] = {0, 1, 2, 3};
-    const int64_t dim_pos_in_chlast[4] = {0, 1, 2, 3};
-    const int64_t wt_hwck_dims[4] = {2, 3, 1, 0};
+    const int64_t dim_pos_in[4] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C};
+    const int64_t dim_pos_wt[4] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W};
+    const int64_t dim_pos_in_chlast[4] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H,
+        LayoutFormatDims::W};
+    const int64_t wt_hwck_dims[4] = {
+        LayoutFormatDims::H,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::N};
     const int64_t* p_dim_pos_in;
     const int64_t* p_dim_pos_wt;
 
@@ -808,10 +844,28 @@ Tensor convolution_hpu(
   Tensor input_nhwc = input;
   Tensor weight_hwck = weight;
   auto is_conv_3d = is_5d_tensor(inputs);
-  int64_t pos_in[4] = {0, 2, 3, 1};
-  int64_t pos_w[4] = {2, 3, 1, 0};
-  int64_t pos_in_3d[5] = {0, 2, 3, 4, 1};
-  int64_t pos_w_3d[5] = {2, 3, 4, 1, 0};
+  int64_t pos_in[4] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
+  int64_t pos_w[4] = {
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::N};
+  int64_t pos_in_3d[5] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C};
+  int64_t pos_w_3d[5] = {
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::N};
 
   std::vector<const at::Tensor*> pt_in{&input};
   std::vector<at::Tensor*> pt_out{&input_nhwc};
@@ -873,8 +927,17 @@ Tensor convolution_hpu(
   auto output_nhwc = convolution();
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  int64_t pos_out[4] = {0, 3, 1, 2};
-  int64_t pos_out_3d[5] = {0, 4, 1, 2, 3};
+  int64_t pos_out[4] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::H};
+  int64_t pos_out_3d[5] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H};
 
   IntArrayRef new_dim_pos_out = pos_out;
   if (is_conv_3d) {

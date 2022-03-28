@@ -909,12 +909,39 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   Tensor weight_hwck = weight;
   std::vector<const at::Tensor*> pt_in{&input, &grad_output};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
-  int64_t dim_pos_in[] = {0, 2, 3, 1};
-  int64_t dim_grad_out[] = {0, 2, 3, 1};
-  int64_t dim_pos_w[] = {2, 3, 1, 0};
-  int64_t dim_pos_in_5d[] = {0, 2, 3, 4, 1};
-  int64_t dim_grad_out_5d[] = {0, 2, 3, 4, 1};
-  int64_t dim_pos_w_5d[] = {2, 3, 4, 1, 0};
+  int64_t dim_pos_in[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
+  int64_t dim_grad_out[] = {
+      LayoutFormatDims::N,
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C};
+  int64_t dim_pos_w[] = {
+      LayoutFormatDims::H,
+      LayoutFormatDims::W,
+      LayoutFormatDims::C,
+      LayoutFormatDims::N};
+  int64_t dim_pos_in_5d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C};
+  int64_t dim_grad_out_5d[] = {
+      LayoutFormatWithDepthDims::N,
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C};
+  int64_t dim_pos_w_5d[] = {
+      LayoutFormatWithDepthDims::D,
+      LayoutFormatWithDepthDims::H,
+      LayoutFormatWithDepthDims::W,
+      LayoutFormatWithDepthDims::C,
+      LayoutFormatWithDepthDims::N};
   IntArrayRef new_dim_pos_in;
   IntArrayRef new_dim_pos_grad_out;
   IntArrayRef new_dim_pos_w;
@@ -990,8 +1017,17 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     Tensor grad_in;
     pt_in = {&grad_input_nhwc};
     pt_out = {&grad_in};
-    int64_t dim_pos_out[] = {0, 3, 1, 2};
-    int64_t dim_pos_out_5d[] = {0, 4, 1, 2, 3};
+    int64_t dim_pos_out[] = {
+        LayoutFormatDims::N,
+        LayoutFormatDims::W,
+        LayoutFormatDims::C,
+        LayoutFormatDims::H};
+    int64_t dim_pos_out_5d[] = {
+        LayoutFormatWithDepthDims::N,
+        LayoutFormatWithDepthDims::W,
+        LayoutFormatWithDepthDims::C,
+        LayoutFormatWithDepthDims::D,
+        LayoutFormatWithDepthDims::H};
     IntArrayRef new_dim_pos_out;
     if (is_conv_3d) {
       new_dim_pos_out = dim_pos_out_5d;

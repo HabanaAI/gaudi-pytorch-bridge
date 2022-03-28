@@ -260,13 +260,22 @@ void HandleReturnNode(
                 std::make_pair(value_out, dims));
           } else if (is_5d_layout) {
             at::IntArrayRef dims;
-            static const int64_t dimarr[] = {0, 4, 1, 2, 3};
+            static const int64_t dimarr[] = {
+                habana::LayoutFormatWithDepthDims::N,
+                habana::LayoutFormatWithDepthDims::W,
+                habana::LayoutFormatWithDepthDims::C,
+                habana::LayoutFormatWithDepthDims::D,
+                habana::LayoutFormatWithDepthDims::H};
             dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
                 std::make_pair(value_out, dims));
           } else {
             at::IntArrayRef dims;
-            static const int64_t dimarr[] = {0, 3, 1, 2};
+            static const int64_t dimarr[] = {
+                habana::LayoutFormatDims::N,
+                habana::LayoutFormatDims::W,
+                habana::LayoutFormatDims::C,
+                habana::LayoutFormatDims::H};
             dims = dimarr;
             if (*value_out->type()->cast<TensorType>()->dim() == 4) {
               anchor_restride_nodes_[node_return].push_back(
