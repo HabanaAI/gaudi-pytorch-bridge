@@ -28,6 +28,7 @@ class SBSDebug {
  public:
   static SBSDebug& getInstance() {
     static SBSDebug instance;
+    instance.init();
     return instance;
   }
 
@@ -57,11 +58,12 @@ class SBSDebug {
 
   void reset();
 
-  static bool NeedToCompare(const HbLazyTensor& hb_tensor, bool update = false);
-
  private:
   SBSDebug();
 
+  static bool NeedToCompare(const HbLazyTensor& hb_tensor, bool update = false);
+
+  void init();
   void report(const std::string& log_message, size_t& log_counter);
 
   void compare_tensors_cos(
@@ -77,6 +79,7 @@ class SBSDebug {
   size_t m_number_of_errors;
   size_t m_number_of_accumulated_ops;
   size_t m_number_of_accumulated_op_output_tensors;
+  bool m_is_initialized;
 
  public:
   SBSDebug(SBSDebug const&) = delete;

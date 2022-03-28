@@ -363,6 +363,20 @@ size_t SBSDebug::GetNumberOfCompareLines() {
   return m_number_of_successful_compares;
 }
 
+void SBSDebug::init() {
+  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED &&
+      !m_is_initialized) {
+    PT_LAZY_DEBUG(
+        "SBS: Tensor compare report will be saved to: ", m_report_file_name);
+    m_error_file.open(m_error_file_name, std::ios::out);
+    if (m_error_file.is_open()) {
+      PT_LAZY_DEBUG("SBS: Error report will be saved to: ", m_error_file_name);
+      m_error_file << "tensor name,comment" << std::endl;
+      m_is_initialized = true;
+    }
+  }
+}
+
 void SBSDebug::reset() {
   PT_LAZY_DEBUG("SBS: Resetting SBSDebug");
   m_number_of_successful_compares = 0;
@@ -376,14 +390,7 @@ SBSDebug::SBSDebug()
       m_number_of_successful_compares(0),
       m_number_of_errors(0),
       m_number_of_accumulated_ops(0),
-      m_number_of_accumulated_op_output_tensors(0) {
-  PT_LAZY_DEBUG(
-      "SBS: Tensor compare report will be saved to: ", m_report_file_name);
-  m_error_file.open(m_error_file_name, std::ios::out);
-  if (m_error_file.is_open()) {
-    PT_LAZY_DEBUG("SBS: Error report will be saved to: ", m_error_file_name);
-    m_error_file << "tensor name,comment" << std::endl;
-  }
-}
+      m_number_of_accumulated_op_output_tensors(0),
+      m_is_initialized(false) {}
 
 } // namespace habana_lazy
