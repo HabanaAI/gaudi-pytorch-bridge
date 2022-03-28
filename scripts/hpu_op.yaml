@@ -1912,18 +1912,21 @@ max_pool3d_with_indices_backward:
 
 median:
   custom_output_shape: MedianOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [Float]
   op_backend: Median
-  op_frontend: LazyMedian
   out_ids: [0]
 
 median.dim:
   force_default: false
   custom_output_shape: MediandimOutputShape
-  dtypes: [BFloat16, Float]
-  op_backend: Median
-  op_frontend: LazyMediandim
+  dtypes: [Float]
+  op_backend: Mediandim
   out_ids: [0,0]
+
+median.dim_values:
+  custom_output_shape: MediandimOutputShape
+  dtypes: [Float]
+  op_backend: Mediandim
 
 min.dim:
   custom_output_shape: MinMaxOutputShape
