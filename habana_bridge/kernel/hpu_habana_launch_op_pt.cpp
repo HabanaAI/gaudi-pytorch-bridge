@@ -213,30 +213,6 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", GetSynapseGraphName());
 }
 
-LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims) {
-  std::unordered_map<const LayoutFormat, const std::vector<int64_t>>
-      toDevicePermuteOrder = {
-          {LayoutFormat::NHWC, {0, 2, 3, 1}},
-          {LayoutFormat::NCHW, {0, 1, 2, 3}},
-          {LayoutFormat::HWCK, {2, 3, 1, 0}}};
-  //[ToDo] use find method instead, need to define vectorhasher
-  for (const auto& l : toDevicePermuteOrder) {
-    if (l.second == dims)
-      return l.first;
-  }
-  return LayoutFormat::ANY;
-}
-
-LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
-  auto mem_format = tensor.suggest_memory_format();
-  if (mem_format == at::MemoryFormat::ChannelsLast ||
-      mem_format == at::MemoryFormat::ChannelsLast3d) {
-    return LayoutFormat::NHWC;
-  } else {
-    return LayoutFormat::NCHW;
-  }
-}
-
 bool HabanaLaunchOpPT::IsOutputToRestride(const torch::jit::Value* value) {
   auto uses = value->uses();
   for (auto u : uses) {
@@ -854,52 +830,6 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
   for (auto& habana_op : habana_kernels) {
     ProcessSynapseShapeTensors(habana_op, node);
   }
-}
-
-at::IntArrayRef getDimsForLayout(
-    LayoutFormat channel_order,
-    LayoutFormat current_order) {
-  at::IntArrayRef dims;
-
-  if (current_order == LayoutFormat::NCHW) {
-    if (channel_order == LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {0, 2, 3, 1};
-      dims = dimarr;
-    } else if (channel_order == LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {2, 3, 1, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0, " Habana Fusion op permute called for unsupported channel order");
-    }
-  } else if (current_order == LayoutFormat::NHWC) {
-    if (channel_order == LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {0, 3, 1, 2};
-      dims = dimarr;
-    } else if (channel_order == LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {1, 2, 3, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0, " Habana Fusion op permute called for unsupported channel order");
-    }
-  } else if (current_order == LayoutFormat::HWCK) {
-    if (channel_order == LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {3, 2, 0, 1};
-      dims = dimarr;
-    } else if (channel_order == LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {3, 0, 1, 2};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0, " Habana Fusion op permute called for unsupported channel order");
-    }
-  } else {
-    TORCH_CHECK(
-        0, " Habana Fusion op permute called for unsupported channel order");
-  }
-
-  return dims;
 }
 
 int64_t HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
