@@ -133,8 +133,8 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
   // exceeds the limit set by TPC, throw an assert in bridge instead of assert
   // in glue-code, (2) with Dynamic Shapes enabled, this ensures that we
   // fallback from max_policy = Caclulated to max_policy = Historic if required
-  constexpr int segPerAxis = 16;
-  constexpr int maxVlmCount = 320;
+  constexpr float segPerAxis = 16;
+  constexpr float maxVlmCount = 320;
   TORCH_CHECK(
       (std::ceil(input_shape.sizes()[1] / segPerAxis) *
        std::ceil(input_shape.sizes()[2] / segPerAxis)) <= maxVlmCount,
