@@ -12,6 +12,105 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, nll_loss_fwd) {
+  GenerateIntInputs(1, {{3}}, 0, 9);
+  auto target = GetCpuInput(0).to(torch::kLong);
+  auto htarget = GetHpuInput(0).to(torch::kLong);
+
+  GenerateInputs(2, {{3, 10}, {10}});
+  int reduction = torch::Reduction::Sum;
+
+  auto expected = torch::nll_loss_forward(
+      GetCpuInput(0),
+      target,
+      GetCpuInput(1) /*weight*/,
+      reduction,
+      2 /* ignore_index */);
+  auto result = torch::nll_loss_forward(
+      GetHpuInput(0),
+      htarget,
+      GetHpuInput(1) /*weight*/,
+      reduction,
+      2 /* ignore_index */);
+  Compare(std::get<0>(expected), std::get<0>(result));
+}
+TEST_F(HpuOpTest, nll_loss_bwd) {
+  GenerateIntInputs(1, {{3}}, 0, 9);
+  auto target = GetCpuInput(0).to(torch::kLong);
+  auto htarget = GetHpuInput(0).to(torch::kLong);
+
+  GenerateInputs(4, {{3}, {3, 10}, {10}, {1}}, {torch::kBFloat16});
+  int reduction = torch::Reduction::None;
+
+  auto expected = torch::nll_loss_backward(
+      GetCpuInput(0),
+      GetCpuInput(1),
+      target,
+      GetCpuInput(2), /*weight*/
+      reduction,
+      2, /* ignore_index */
+      GetCpuInput(3));
+  auto result = torch::nll_loss_backward(
+      GetHpuInput(0),
+      GetHpuInput(1),
+      htarget,
+      GetHpuInput(2), /*weight*/
+      reduction,
+      2, /* ignore_index */
+      GetHpuInput(3));
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, nll_loss2d_fwd) {
+  GenerateIntInputs(1, {{16, 8, 2}}, 0, 23);
+  auto target = GetCpuInput(0).to(torch::kLong);
+  auto htarget = GetHpuInput(0).to(torch::kLong);
+
+  GenerateInputs(2, {{16, 24, 8, 2}, {24}}, {torch::kBFloat16});
+  int reduction = torch::Reduction::None;
+
+  auto expected = torch::nll_loss2d_forward(
+      GetCpuInput(0),
+      target,
+      GetCpuInput(1) /*weight*/,
+      reduction,
+      2 /* ignore_index */);
+  auto result = torch::nll_loss2d_forward(
+      GetHpuInput(0),
+      htarget,
+      GetHpuInput(1) /*weight*/,
+      reduction,
+      2 /* ignore_index */);
+  Compare(std::get<0>(expected), std::get<0>(result));
+}
+
+TEST_F(HpuOpTest, nll_loss2d_bwd) {
+  GenerateIntInputs(1, {{5, 64, 64}}, 0, 2);
+  auto target = GetCpuInput(0).to(torch::kLong);
+  auto htarget = GetHpuInput(0).to(torch::kLong);
+
+  GenerateInputs(4, {{1}, {5, 3, 64, 64}, {3}, {1}});
+  int reduction = torch::Reduction::Sum;
+
+  auto expected = torch::nll_loss2d_backward(
+      GetCpuInput(0),
+      GetCpuInput(1),
+      target,
+      GetCpuInput(2), /*weight*/
+      reduction,
+      3, /* ignore_index */
+      GetCpuInput(3));
+  auto result = torch::nll_loss2d_backward(
+      GetHpuInput(0),
+      GetHpuInput(1),
+      htarget,
+      GetHpuInput(2), /*weight*/
+      reduction,
+      3, /* ignore_index */
+      GetHpuInput(3));
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, nll_loss_fwd_out) {
   GenerateIntInputs(1, {{4}}, 0, 3);
   auto target = GetCpuInput(0).to(torch::kLong);
@@ -149,3 +248,31 @@ TEST_F(HpuOpTest, nll_loss2d_bwd_out) {
       hout);
   Compare(out, hout, 0, 0);
 }
+
+/*
+// Note: Issue raise: https://jira.habana-labs.com/browse/SW-81413
+// NllLoss HPU output doesn't match with CPU output
+// when weight tensor is not None and reduction mode is Mean
+
+TEST_F(HpuOpTest, nll_loss_with_mean) {
+  GenerateIntInputs(1, {{3}}, 0, 9);
+  auto target = GetCpuInput(0).to(torch::kLong);
+  auto htarget = GetHpuInput(0).to(torch::kLong);
+
+  GenerateInputs(2, {{3, 10}, {10}});
+  int reduction = torch::Reduction::Mean;
+
+  auto expected = torch::nll_loss_forward(
+      GetCpuInput(0),
+      target,
+      GetCpuInput(1), // weight
+      reduction,
+      2);
+  auto result = torch::nll_loss_forward(
+      GetHpuInput(0),
+      htarget,
+      GetHpuInput(1), // weight
+      reduction,
+      2);
+  Compare(std::get<0>(expected), std::get<0>(result));
+}*/

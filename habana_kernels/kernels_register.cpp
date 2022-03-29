@@ -1448,14 +1448,9 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss_forward(
       PARAMS1(self, target, weight),
       PARAMS2(self, target, weight_opt, reduction, ignore_index))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nll_loss_forward_hpu_lazy(
-        self, target, weight, reduction, ignore_index);
-
-  } else {
-    return nll_loss_forward_hpu(self, target, weight, reduction, ignore_index);
-  }
+  return nll_loss_forward_hpu(self, target, weight, reduction, ignore_index);
 };
+
 Tensor hpu_wrap::nll_loss_backward(
     const Tensor& grad_output,
     const Tensor& self,
@@ -1494,26 +1489,9 @@ Tensor hpu_wrap::nll_loss_backward(
           reduction,
           ignore_index,
           total_weight))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nll_loss_backward_hpu_lazy(
-        grad_output,
-        self,
-        target,
-        weight,
-        reduction,
-        ignore_index,
-        total_weight);
 
-  } else {
-    return nll_loss_backward_hpu(
-        grad_output,
-        self,
-        target,
-        weight,
-        reduction,
-        ignore_index,
-        total_weight);
-  }
+  return nll_loss_backward_hpu(
+      grad_output, self, target, weight, reduction, ignore_index, total_weight);
 };
 
 Tensor hpu_wrap::nll_loss2d_backward(
@@ -1555,26 +1533,8 @@ Tensor hpu_wrap::nll_loss2d_backward(
           ignore_index,
           total_weight))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nll_loss2d_backward_hpu_lazy(
-        grad_output,
-        self,
-        target,
-        weight,
-        reduction,
-        ignore_index,
-        total_weight);
-
-  } else {
-    return nll_loss2d_backward_hpu(
-        grad_output,
-        self,
-        target,
-        weight,
-        reduction,
-        ignore_index,
-        total_weight);
-  }
+  return nll_loss2d_backward_hpu(
+      grad_output, self, target, weight, reduction, ignore_index, total_weight);
 };
 
 std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
@@ -1605,14 +1565,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
       PARAMS1(self, target, weight),
       PARAMS2(self, target, weight, reduction, ignore_index))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nll_loss2d_forward_hpu_lazy(
-        self, target, weight, reduction, ignore_index);
-
-  } else {
-    return nll_loss2d_forward_hpu(
-        self, target, weight, reduction, ignore_index);
-  }
+  return nll_loss2d_forward_hpu(self, target, weight, reduction, ignore_index);
 };
 
 Tensor hpu_wrap::mse_loss(

@@ -342,34 +342,6 @@ at::Tensor batch_gemm_hpu_lazy(const at::Tensor& self, const at::Tensor& mat2);
 at::Tensor dot_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor mv_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
-std::tuple<at::Tensor, at::Tensor> nll_loss_forward_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction,
-    int64_t ignore_index);
-std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction,
-    int64_t ignore_index);
-at::Tensor nll_loss2d_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction,
-    int64_t ignore_index,
-    const at::Tensor& total_weight);
-at::Tensor nll_loss_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction,
-    int64_t ignore_index,
-    const at::Tensor& total_weight);
 at::Tensor mse_loss_forward_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& target,

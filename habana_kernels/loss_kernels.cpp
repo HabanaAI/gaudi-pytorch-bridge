@@ -1591,8 +1591,4 @@ static auto& KernelRegistry =
         .add("aten::mse_loss", KERNEL_FN(MSELossFwdOperator))
         .add("aten::mse_loss_backward", KERNEL_FN(MSELossBwdOperator))
         .add("aten::kl_div", KERNEL_FN(KlDivOperator))
-        .add("aten::kl_div_backward", KERNEL_FN(KlDivBwdOperator))
-        .add("aten::nll_loss_forward", KERNEL_FN(NLLLossFwdOperator))
-        .add("aten::nll_loss_backward", KERNEL_FN(NLLLossBwdOperator))
-        .add("aten::nll_loss2d_forward", KERNEL_FN(NLLLoss2dFwdOperator))
-        .add("aten::nll_loss2d_backward", KERNEL_FN(NLLLoss2dBwdOperator));
+        .add("aten::kl_div_backward", KERNEL_FN(KlDivBwdOperator));

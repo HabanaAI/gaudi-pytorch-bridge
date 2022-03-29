@@ -9,6 +9,7 @@
  */
 
 #include "generated/hpu_op.h"
+#include "hpu_op_helper.h"
 
 namespace habana {
 sizes_vec NllLossFwdOutputShape(const at::Stack& stack, bool) {
@@ -112,6 +113,25 @@ static std::vector<synapse_helpers::tensor> NllLoss(
        size});
 }
 
+static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> input,
+    c10::ScalarType dtype,
+    const at::IntArrayRef outshape,
+    std::shared_ptr<void> params,
+    size_t size,
+    c10::optional<int> final_index = c10::nullopt) {
+  if (input.size() != 3) { // use shape tensor input when weight is none
+
+    if (graph.is_dynamic_graph()) {
+      input.emplace_back(
+          op->CreateShapeTensorInput(graph, dtype, size, SHAPE_TENSOR).get());
+    }
+  }
+  return NllLoss(op, graph, input, outshape, params, size, final_index);
+}
+
 static void DummyOutput(
     synapse_helpers::graph& graph,
     PytorchKernelContextPtr& p_context_,
@@ -121,28 +141,61 @@ static void DummyOutput(
       p_context_->pt_outputs_.at(1), graph, persistent, external));
 }
 
+static std::vector<synapse_helpers::tensor> ReduceWeight(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> input) {
+  ns_Reduction::Params reduce_params{};
+  reduce_params.reductionDimension = 0;
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {"reduce_sum_fwd_" +
+           habana_helpers::name_suffix_from_type(op->ScalarType()),
+       std::move(input),
+       {{1, op->ScalarType()}},
+       &reduce_params,
+       sizeof(reduce_params)});
+}
+
 void NllLossFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   // remove total_weight from output as it is unsupported
   // JIRA https://jira.habana-labs.com/browse/SW-73520
-  TORCH_CHECK(stack.at(2).isNone(), "NLL loss does not support weight.");
   p_context_->syn_outputs_.pop_back();
-
-  OpBackend::AddNode(graph, stack);
   // dummy output in place of total_weight
   DummyOutput(
       graph,
       p_context_,
       IsOutputPersistent(1),
       m_output_metadata.at(1).external);
+
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  const auto outshape = ComputeOutputShapes(stack, true)[0];
+
+  if (stack.at(2).isNone()) { // weight is none
+    auto nll_loss =
+        NllLoss(this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
+    syn_out(0) = std::move(nll_loss[0]);
+  } else { // weight is not none
+    auto weight_sum = ReduceWeight(this, graph, {syn_in(2)});
+    auto nll_loss = NllLoss(
+        this,
+        graph,
+        {syn_in(0), syn_in(1), syn_in(2), weight_sum[0].get()},
+        outshape,
+        params,
+        size,
+        0);
+    syn_out(0) = std::move(nll_loss[0]);
+  }
 }
 
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.at(2).isNone(), "NLL loss does not support weight.");
-
   // remove total_weight from output as it is unsupported
   p_context_->syn_outputs_.pop_back();
   // dummy output in place of total_weight
@@ -159,69 +212,141 @@ void NllLoss2DFwd::AddNode(
 
   std::vector<synapse_helpers::tensor> nll_loss;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    nll_loss =
-        NllLoss(this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
+    if (stack.at(2).isNone()) { // weight is none
+      nll_loss = NllLoss(
+          this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
+    } else { // weight is not none
+      auto weight_sum = ReduceWeight(this, graph, {syn_in(2)});
+
+      nll_loss = NllLoss(
+          this,
+          graph,
+          {syn_in(0), syn_in(1), syn_in(2), weight_sum[0].get()},
+          outshape,
+          params,
+          size,
+          0);
+    }
   } else {
     std::vector<int64_t> tranpose_shape = {
         input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
     auto transpose =
         Transpose_MemFormat(this, graph, Fwd2D, {syn_in(0)}, tranpose_shape);
 
-    nll_loss = NllLoss(
-        this,
-        graph,
-        {transpose[0].get(), syn_in(1)},
-        outshape,
-        params,
-        size,
-        0);
-  }
+    if (stack.at(2).isNone()) { // weight is none
+      nll_loss = NllLoss(
+          this,
+          graph,
+          {transpose[0].get(), syn_in(1)},
+          outshape,
+          params,
+          size,
+          0);
+    } else { // weight is not none
+      auto weight_sum = ReduceWeight(this, graph, {syn_in(2)});
 
+      nll_loss = NllLoss(
+          this,
+          graph,
+          {transpose[0].get(), syn_in(1), syn_in(2), weight_sum[0].get()},
+          outshape,
+          params,
+          size,
+          0);
+    }
+  }
   syn_out(0) = std::move(nll_loss[0]);
 }
 
 void NllLossBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.at(3).isNone(), "NLL loss does not support weight.");
-
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack, true)[0];
-
+  auto dtype = stack.at(0).toTensor().scalar_type();
   // A JIRA is created for self input tensor not used
   // https://jira.habana-labs.com/browse/SW-73878
-  auto nll_loss =
-      NllLoss(this, graph, {syn_in(0), syn_in(2)}, outshape, params, size, 0);
-  syn_out(0) = std::move(nll_loss[0]);
+  if (stack.at(3).isNone()) { // weight is none
+    auto nll_loss = NllLossBwdFunc(
+        this, graph, {syn_in(0), syn_in(2)}, dtype, outshape, params, size, 0);
+    syn_out(0) = std::move(nll_loss[0]);
+  } else { // weight is not none
+    auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
+
+    auto nll_loss = NllLossBwdFunc(
+        this,
+        graph,
+        {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
+        dtype,
+        outshape,
+        params,
+        size,
+        0);
+    syn_out(0) = std::move(nll_loss[0]);
+  }
 }
 
 void NllLoss2DBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.at(3).isNone(), "NLL loss does not support weight.");
-
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack, true)[0];
+  auto dtype = stack.at(0).toTensor().scalar_type();
 
   // A JIRA is created for self input tensor not used
   // https://jira.habana-labs.com/browse/SW-73878
 
   std::vector<synapse_helpers::tensor> output;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    output =
-        NllLoss(this, graph, {syn_in(0), syn_in(2)}, outshape, params, size, 0);
+    if (stack.at(3).isNone()) { // weight is none
+      output = NllLossBwdFunc(
+          this,
+          graph,
+          {syn_in(0), syn_in(2)},
+          dtype,
+          outshape,
+          params,
+          size,
+          0);
+    } else { // weight is not none
+      auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
+
+      output = NllLossBwdFunc(
+          this,
+          graph,
+          {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
+          dtype,
+          outshape,
+          params,
+          size,
+          0);
+    }
   } else {
     auto input_shape = stack_tensor(stack, 1).sizes();
     std::vector<int64_t> loss_shape = {
         input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
-    auto nll_loss =
-        NllLoss(this, graph, {syn_in(0), syn_in(2)}, loss_shape, params, size);
-    output = Transpose_MemFormat(
-        this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
-  }
+    if (stack.at(3).isNone()) { // weight is none
+      auto nll_loss = NllLossBwdFunc(
+          this, graph, {syn_in(0), syn_in(2)}, dtype, loss_shape, params, size);
+      output = Transpose_MemFormat(
+          this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
+    } else { // weight is not none
+      auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
 
+      auto nll_loss = NllLossBwdFunc(
+          this,
+          graph,
+          {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
+          dtype,
+          loss_shape,
+          params,
+          size);
+      output = Transpose_MemFormat(
+          this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
+    }
+  }
   syn_out(0) = std::move(output[0]);
 }
 } // namespace habana
