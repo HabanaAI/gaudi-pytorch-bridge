@@ -925,6 +925,20 @@ def test_hpu_index_put_point( acc):
     out_hpu = torch.index_put(input=tensor_hpu, indices=indices_hpu, values=value_hpu, accumulate=acc)
     #np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+def test_hpu_index_put_mmdet():
+    cpu = torch.device('cpu')
+    hpu = torch.device('hpu')
+    x = torch.zeros([3549], dtype=torch.bool)
+    x_hpu = x.to(hpu)
+    indices = [x]
+    indices_hpu = [x_hpu]
+    tensor = torch.ones([3549], dtype = torch.long)
+    tensor_hpu = tensor.to(hpu)
+    tensor[x] = tensor[x] + 1
+    tensor_hpu[x_hpu] = tensor_hpu[x_hpu] + 1
+    np.testing.assert_allclose(tensor_hpu.to(cpu).detach().numpy(), tensor.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+
 @pytest.mark.parametrize("N, C", [(16, 100),])
 @pytest.mark.parametrize("dtype", index_put_dtype_list)
 def test_hpu_masked_scatter(N, C, dtype):

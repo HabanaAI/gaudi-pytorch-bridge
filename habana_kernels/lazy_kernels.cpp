@@ -3119,7 +3119,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
   // operations are throwing GC errors therefore we have this workaround to
   // return a copy of input tensor.
   // TBD: Investigate further and raise a JIRA on GC.
-  if (indices_out_list[0].numel() == 0) {
+  if (indices_out_list[0].numel() == 0 || value_in.numel() == 0) {
     auto result = self.clone();
     auto hl_result = GetHbLazyTensor(result);
     updateDstDependencies(hl_result, result);
@@ -3385,7 +3385,7 @@ Tensor index_put_hpu_lazy(
   // return a copy of input tensor.
   // GC Jira - SW-73941
   for (size_t i = 0; i < indices_vec.size(); i++) {
-    if (indices_vec[i].numel() == 0) {
+    if (indices_vec[i].numel() == 0 || value_in.numel() == 0) {
       auto result = self.clone();
       auto hl_result = GetHbLazyTensor(result);
       updateDstDependencies(hl_result, result);
