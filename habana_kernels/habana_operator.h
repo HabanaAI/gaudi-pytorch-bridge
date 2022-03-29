@@ -101,6 +101,7 @@ enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };
 class PytorchKernelContext {
  public:
   int device_id_;
+  std::string node_type_;
   std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
@@ -176,9 +177,10 @@ class HabanaOperator {
 
   //
   // Creates graph builder context, based on the device
-  void CreateSynContext(int device_id) {
+  void CreateSynContext(int device_id, std::string node_type = "") {
     p_context_ = std::make_shared<PytorchKernelContext>();
     p_context_->device_id_ = device_id;
+    p_context_->node_type_ = node_type;
     p_context_->recipe_key_ = 0;
   }
 
@@ -195,12 +197,32 @@ class HabanaOperator {
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);
 
+  virtual void CreateGraphAndCompile(
+      size_t key,
+      const std::vector<at::Tensor>& inputs,
+      torch::jit::Stack& stack,
+      OutputMetaDataVector& output_meta_data,
+      bool is_persistent);
+
   virtual void Execute(size_t key);
+  virtual void Execute(size_t key, const std::vector<at::Tensor>& inputs);
+  virtual void Execute(
+      size_t key,
+      const std::vector<at::Tensor>& inputs,
+      const at::Tensor& output);
+  virtual void Execute(
+      size_t key,
+      const std::vector<at::Tensor>& inputs,
+      const std::vector<at::Tensor>& outputs);
+  virtual void Execute(
+      size_t key,
+      const std::vector<at::Tensor>& inputs,
+      torch::jit::Stack& output);
   virtual void SetPTInputs(const std::vector<at::Tensor>& inputs);
   virtual void SetPTOutput(const at::Tensor& output);
   virtual void SetPTOutput(torch::jit::Stack& inputs);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
-  virtual void SetPTOutputs(std::vector<at::Tensor>& outputs);
+  virtual void SetPTOutputs(const std::vector<at::Tensor>& outputs);
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,

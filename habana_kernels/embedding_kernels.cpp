@@ -434,7 +434,6 @@ Tensor embedding_hpu(
   std::vector<at::Tensor> pt_inputs{weight, indices_int};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
     auto size = indices.sizes().vec();
     // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
     for (auto d : weight.sizes().slice(1)) {
@@ -442,19 +441,12 @@ Tensor embedding_hpu(
     }
     auto result =
         at::empty(size, weight.options(), weight.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, result);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -723,24 +715,16 @@ Tensor embedding_dense_backward_hpu(
   std::vector<at::Tensor> pt_inputs{grad, indices_int};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
     auto grad_weight = at::empty(
         {num_weights, grad.size(-1)},
         grad.options(),
         grad.suggest_memory_format());
-    Op.SetPTOutput(grad_weight);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, grad_weight);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -1123,23 +1107,14 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-
     std::vector<at::Tensor> pt_inputs_slice =
         std::vector<at::Tensor>(pt_inputs.begin() + 1, pt_inputs.end());
-    Op.SetPTInputs(pt_inputs_slice);
-    Op.SetPTOutput(out);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs_slice, out);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   PT_KERNEL_END;
@@ -1231,23 +1206,14 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-
     std::vector<at::Tensor> pt_inputs_slice =
         std::vector<at::Tensor>(pt_inputs.begin() + 1, pt_inputs.end());
-    Op.SetPTInputs(pt_inputs_slice);
-    Op.SetPTOutput(out);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs_slice, out);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   PT_KERNEL_END;

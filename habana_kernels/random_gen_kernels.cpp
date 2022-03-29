@@ -725,12 +725,8 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
     Op.SetPTOutputs(stack, output_metadata);
     Op.Execute(key);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
@@ -754,25 +750,13 @@ Tensor process_random_shuffle_op(
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, stack);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // both inputs are not required, just to match graph mode stack
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -828,17 +812,12 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
     pt_inputs.erase(pt_inputs.begin());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(pt_outputs);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, pt_outputs);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();

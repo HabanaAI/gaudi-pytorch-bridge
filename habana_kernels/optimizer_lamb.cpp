@@ -12,7 +12,6 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/binary_inplace_kernels.h"
@@ -343,7 +342,6 @@ optimizer_lamb_phase1_hpu(
 
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
     std::vector<at::Tensor> pt_outputs;
     for (auto j = 0; j < num_params; j++) {
       pt_outputs.push_back(habana_helpers::createPTTensor(
@@ -369,20 +367,14 @@ optimizer_lamb_phase1_hpu(
       pt_outputs.push_back(exp_avg_sq[j]);
       pt_outputs.push_back(exp_avg_sq[j]);
     }
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(pt_outputs);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, pt_outputs);
   } else {
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(3 * num_params);
     for (auto& md : output_metadata) {
       md.persistent = true;
     }
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -626,21 +618,14 @@ void optimizer_lamb_phase2_hpu(
 
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(pt_outputs);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, pt_outputs);
   } else {
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(num_params);
     for (auto& md : output_metadata) {
       md.persistent = true;
     }
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   PT_OTHER_OPS_END;
@@ -821,21 +806,14 @@ Tensor optimizer_lamb_fused_norm_hpu(
   pt_inputs.push_back(clip_norm);
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
     auto output = habana_helpers::createPTTensor(
         grad[0], {1}, grad[0].options(), grad[0].suggest_memory_format(), true);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(output);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, output);
   } else {
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();

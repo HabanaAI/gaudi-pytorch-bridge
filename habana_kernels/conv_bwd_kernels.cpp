@@ -15,7 +15,7 @@
 
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
-#include "habana_helpers/graph.h"
+#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/conv_bwd_kernels.h"
@@ -966,22 +966,14 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, weight_hwck};
 
     if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      convBwdOp.SetPTInputs(pt_inputs);
-      convBwdOp.SetPTOutputs(stack);
-      convBwdOp.Execute(key);
+      convBwdOp.Execute(key, pt_inputs, stack);
     } else {
-      PT_KERNEL_DEBUG("key:", key);
-      //
-      // Create Graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
-      convBwdOp.AllocateSynapseInputs(graph, pt_inputs, true);
       OutputMetaDataVector output_metadata(3);
       output_metadata.at(0).persistent = true;
       output_metadata.at(1).persistent = true;
       output_metadata.at(2).persistent = true;
-      convBwdOp.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-      convBwdOp.Compile(graph);
+      convBwdOp.CreateGraphAndCompile(
+          key, pt_inputs, stack, output_metadata, true);
     }
 
     std::vector<at::Tensor> output = convBwdOp.GetOutputs();

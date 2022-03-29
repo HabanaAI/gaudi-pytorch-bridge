@@ -14,7 +14,6 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -586,25 +585,12 @@ Tensor process_generic_tensor_binary_op(
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, stack);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-    // both inputs are not required, just to match graph mode stack
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -1149,26 +1135,13 @@ Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
 
   std::vector<at::Tensor> pt_inputs{self, other};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, stack);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // create graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -1312,25 +1285,13 @@ Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
 
   std::vector<at::Tensor> pt_inputs{self, other};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(self);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, self);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // create graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -1366,26 +1327,13 @@ Tensor remainder_scalar_hpu(const Tensor& self, const at::Scalar& other) {
 
   std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, stack);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // create graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -1420,25 +1368,13 @@ Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
 
   std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(self);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, self);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // create graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -1586,25 +1522,13 @@ Tensor& remainder_tensor_hpu_out(
 
   std::vector<at::Tensor> pt_inputs{self, other, result};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, result);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -1659,25 +1583,13 @@ Tensor& remainder_scalar_hpu_out(
 
   std::vector<at::Tensor> pt_inputs{self, result};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, result);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();

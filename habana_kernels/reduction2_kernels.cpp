@@ -15,7 +15,6 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -159,25 +158,14 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
           self.options().dtype(c10::ScalarType::Int),
           self.suggest_memory_format());
     }
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output1, output2};
-    Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     OutputMetaDataVector output_metadata(2);
     output_metadata.at(0).persistent = true;
     output_metadata.at(1).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -255,24 +243,13 @@ Tensor max_hpu(const at::Tensor& self) {
     auto out_shape = MaxOperator::compute_output_shape();
     auto output =
         at::empty(out_shape, self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output};
-    Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -349,28 +326,16 @@ Tensor min_hpu(const at::Tensor& self) {
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
     auto out_shape = MinOperator::compute_output_shape();
     auto output =
         at::empty(out_shape, self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output};
-    Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");

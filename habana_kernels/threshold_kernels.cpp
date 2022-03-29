@@ -11,7 +11,6 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -71,21 +70,14 @@ Tensor threshold_backward_hpu(
 
   size_t key = Op.GetRecipeKey(nodeType, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
     auto output =
         at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output};
-    Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    auto graph = habana_helpers::create_graph(device_id, nodeType);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();

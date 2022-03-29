@@ -13,7 +13,6 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_inplace_kernels.h"
@@ -272,25 +271,12 @@ void process_generic_tensor_inplace_binary_op(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     auto patch_output = pt_inputs[0];
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(patch_output);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, patch_output);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // both inputs are not required, just to match graph mode stack
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-    // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 }
 
@@ -644,21 +630,14 @@ Tensor& addcmul_hpu_(
   std::vector<at::Tensor> pt_inputs{self, tensor1, tensor2};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{self};
     Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    // compile and execute the graph
-    Op.Compile(graph);
+    // Create, compile and execute the graph
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   PT_KERNEL_END;
@@ -770,23 +749,14 @@ Tensor& addcdiv_hpu_(
 
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, tensor1, tensor2};
-
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{self};
-    Op.SetPTOutputs(v);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, v);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     habana::OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   PT_KERNEL_END;

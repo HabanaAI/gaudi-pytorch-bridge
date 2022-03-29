@@ -1409,24 +1409,16 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
     LayerNormOperator Op(device_id, scalar_type);
 
     size_t key = Op.GetRecipeKey(node_type, input_stack);
-
+    const std::vector<at::Tensor> pt_inputs{input, weight, bias};
     if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      // Assign Inputs to the Operator
-      const std::vector<at::Tensor> pt_inputs{input, weight, bias};
-      Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutputs(input_stack);
-      Op.Execute(key);
+      Op.Execute(key, pt_inputs, input_stack);
       out = Op.GetOutputs();
     } else {
       // Create Graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
-      const std::vector<at::Tensor> pt_inputs{input, weight, bias};
-      Op.AllocateSynapseInputs(graph, pt_inputs, true);
       OutputMetaDataVector output_metadata(1);
       output_metadata.at(0).persistent = true;
-      Op.AllocateAndAddSynapseNode(graph, input_stack, output_metadata);
-      Op.Compile(graph);
+      Op.CreateGraphAndCompile(
+          key, pt_inputs, input_stack, output_metadata, true);
       out = Op.GetOutputs();
     }
     return out;
@@ -1733,24 +1725,16 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
     LayerNormBackwardOperator Op(device_id, scalar_type);
 
     size_t key = Op.GetRecipeKey(node_type, input_stack);
-
+    const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
     if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      // Assign Inputs to the Operator
-      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
-      Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutputs(input_stack);
-      Op.Execute(key);
+      Op.Execute(key, pt_inputs, input_stack);
       out = Op.GetOutputs();
     } else {
       // Create Graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
-      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
-      Op.AllocateSynapseInputs(graph, pt_inputs, true);
       OutputMetaDataVector output_metadata(1);
       output_metadata.at(0).persistent = true;
-      Op.AllocateAndAddSynapseNode(graph, input_stack, output_metadata);
-      Op.Compile(graph);
+      Op.CreateGraphAndCompile(
+          key, pt_inputs, input_stack, output_metadata, true);
       out = Op.GetOutputs();
     }
     return out;
@@ -2168,20 +2152,12 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   std::vector<at::Tensor> pt_inputs{self};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack);
-    Op.Execute(key);
+    Op.Execute(key, pt_inputs, stack);
   } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     OutputMetaDataVector output_metadata(1);
     output_metadata.at(0).persistent = true;
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
     // compile and execute the graph
-    Op.Compile(graph);
+    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();

@@ -9,6 +9,7 @@
  */
 #include "habana_operator.h"
 #include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -52,6 +53,22 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
   return permuteOrder.find(target_layout)->second;
 }
 
+void habana::HabanaOperator::CreateGraphAndCompile(
+    size_t key,
+    const std::vector<at::Tensor>& inputs,
+    torch::jit::Stack& stack,
+    OutputMetaDataVector& output_meta_data,
+    bool is_persistent) {
+  PT_KERNEL_DEBUG("key:", key);
+  //
+  // Create Graph
+  auto graph = habana_helpers::create_graph(
+      p_context_->device_id_, p_context_->node_type_);
+  AllocateSynapseInputs(graph, inputs, is_persistent);
+  AllocateAndAddSynapseNode(graph, stack, output_meta_data);
+  Compile(graph);
+}
+
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     if (!habana_lazy::isDeviceInLoweringMode()) {
@@ -78,6 +95,7 @@ void habana::HabanaOperator::Execute(size_t key) {
   static_cast<void>(key);
   //
   // Execute the graph
+  PT_KERNEL_DEBUG("Cache hit key:", key);
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
@@ -86,6 +104,40 @@ void habana::HabanaOperator::Execute(size_t key) {
       p_context_->pt_inputs_,
       p_context_->device_id_,
       p_context_->recipe_key_);
+}
+
+void habana::HabanaOperator::Execute(
+    size_t key,
+    const std::vector<at::Tensor>& inputs) {
+  SetPTInputs(inputs);
+  Execute(key);
+}
+
+void habana::HabanaOperator::Execute(
+    size_t key,
+    const std::vector<at::Tensor>& inputs,
+    const at::Tensor& output) {
+  SetPTInputs(inputs);
+  SetPTOutput(output);
+  Execute(key);
+}
+
+void habana::HabanaOperator::Execute(
+    size_t key,
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<at::Tensor>& outputs) {
+  SetPTInputs(inputs);
+  SetPTOutputs(outputs);
+  Execute(key);
+}
+
+void habana::HabanaOperator::Execute(
+    size_t key,
+    const std::vector<at::Tensor>& inputs,
+    torch::jit::Stack& output) {
+  SetPTInputs(inputs);
+  SetPTOutput(output);
+  Execute(key);
 }
 
 void habana::HabanaOperator::SetPTInputs(
@@ -109,7 +161,8 @@ void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   TORCH_CHECK(0, "Should never reach this empty base SetPTOutputs Stack");
 }
 
-void habana::HabanaOperator::SetPTOutputs(std::vector<at::Tensor>& outputs) {
+void habana::HabanaOperator::SetPTOutputs(
+    const std::vector<at::Tensor>& outputs) {
   TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
 
   for (auto& output : outputs) {
