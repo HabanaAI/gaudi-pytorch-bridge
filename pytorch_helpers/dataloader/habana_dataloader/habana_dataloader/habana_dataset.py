@@ -223,12 +223,15 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
 
         if 'drop_last' in kwargs:
             self.drop_last = kwargs.get('drop_last')
-            if self.drop_last != True:
+            if self.drop_last == False:
                 print(
-                    "Warning: drop_last = False is not supported by MediaDataLoader, using drop_last: True")
+                    "Warning: MediaDataLoader got drop_last: False, round up of last batch will be done")
+            else:
+                print("MediaDataLoader got drop_last: ", self.drop_last)
         else:
-            print("Warning: MediaDataLoader using drop_last: True")
-        self.drop_last = True
+            print(
+                "Warning: MediaDataLoader using drop_last: False, round up of last batch will be done")
+            self.drop_last = False
 
         self._enforce_value_for_arg(kwargs, 'timeout', 0)
         self._enforce_value_for_arg(kwargs, 'worker_init_fn', None)
