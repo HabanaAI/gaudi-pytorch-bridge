@@ -87,6 +87,21 @@ void ComputeGraphHashCode(
         at::hash_combine(output_connection_hash, node_idx_map[node]);
     connection_hash = at::hash_combine(connection_hash, output_connection_hash);
   }
+
+  // Adding node connection hash
+  size_t node_connection_hash{0};
+  for (auto node : irgraph->nodes()) {
+    if (node->kind() != torch::jit::prim::Constant) {
+      for (auto value_in : node->inputs()) {
+        auto in_node = value_in->node();
+        if (in_node) {
+          node_connection_hash =
+              at::hash_combine(node_connection_hash, node_idx_map[in_node]);
+        }
+      }
+    }
+  }
+  connection_hash = at::hash_combine(connection_hash, node_connection_hash);
   graphHashCode = at::hash_combine(graphHashCode, connection_hash);
 
   // Handle the dims also
