@@ -100,7 +100,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                         print("Warning: Please set pool strategy 3 to work with Habana media dataloader\nFallback to aeon dataloader")
                         self.aeon_fallback_activated = True
 
-                    from torchmedialoader.media_dataloader_mediapipe import HPUMediaPipe
+                    from medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
 
                 except (ImportError) as e:
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
@@ -138,11 +138,11 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
                 pipeline = HPUMediaPipe(a_torch_transforms=torch_transforms, a_root=root, a_batch_size=self.batch_size,
-                                        a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor)
+                                        a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
+                                        a_num_instances=1, a_instance_id=0, a_device="hpu")
 
-                from mediapipe.plugins.pytorch.iterators import HPUGenericIterator
-                self.iterator = HPUGenericIterator(
-                    mediapipe=pipeline, device_id=0)
+                from mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
+                self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
 
                 print("Running with Habana media DataLoader")
             else:
@@ -207,12 +207,17 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             is_shuffle_default = True
 
         sampler = kwargs.get('sampler', None)
+        if is_shuffle_default == True:
+            if isinstance(sampler, torch.utils.data.RandomSampler):
+                self.shuffle = True
+                print("Warning: Updated shuffle to True as sampler is RandomSampler")
+            elif isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle == True):
+                self.shuffle = True
+                print(
+                    "Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
         if sampler != None:
             print(
                 "Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
-        if (is_shuffle_default == True) and isinstance(sampler, torch.utils.data.RandomSampler):
-            self.shuffle = True
-            print("Warning: Updated shuffle to True as sampler is RandomSampler")
 
         self._enforce_value_for_arg(kwargs, 'batch_sampler', None)
 
@@ -256,8 +261,8 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                 print("MediaDataLoader got prefetch_factor ",
                       self.prefetch_factor)
         else:
-            self.prefetch_factor = 2
-            print("MediaDataLoader using prefetch_factor 2")
+            self.prefetch_factor = 3
+            print("Warning: MediaDataLoader using prefetch_factor 3")
 
         self._enforce_value_for_arg(kwargs, 'persistent_workers', False)
 
