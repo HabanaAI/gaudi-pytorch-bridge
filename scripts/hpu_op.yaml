@@ -2949,6 +2949,7 @@ threshold_backward:
   guid: relu_bwd
   out_ids: [1]
   legacy_eager: true
+  op_backend: ThresholdBackward
 
 threshold_backward.grad_input:
   dtypes: [BFloat16, Float]

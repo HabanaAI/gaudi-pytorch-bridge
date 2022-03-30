@@ -68,4 +68,22 @@ void Threshold::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(0) = std::move(output[0]);
   }
 }
+
+void ThresholdBackward::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 3,
+      "Incorrect size of inputs expected for threshold operator");
+
+  TORCH_CHECK(stack[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(stack[1].isTensor(), "Input arg2 type expected to be tensor");
+
+  auto grad_output = stack[0].toTensor();
+  auto self = stack[1].toTensor();
+  TORCH_CHECK(grad_output.sizes() == self.sizes(), "Input sizes must be equal");
+
+  return OpBackend::AddNode(graph, stack);
+}
+
 } // namespace habana

@@ -596,66 +596,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
-  int N = 1;
-  const int C = 16;
-  int H = 16;
-  std::vector<int> in_sizes{16, 32, 64};
-
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
-    auto cpu_pool = torch::avg_pool2d(input_tensor, 3, 1);
-    auto cpu_out = torch::relu(cpu_pool);
-
-    // fwd propagation
-    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
-    auto outHabana1 =
-        torch::avg_pool2d(tHabanaX, {3, 3}, {1, 1}, {0, 0}, false, true);
-    torch::Tensor outHabana = torch::relu(outHabana1);
-
-    // bwd propagation with dummy grad tensor
-    auto grad_tensor =
-        torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
-    torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
-    outHabana.backward({tHabanaG}, false, true);
-
-    auto out_cpu_lazy = outHabana.to(torch::kCPU);
-    ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
-  }
-}
-
-TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
-  int N = 1;
-  const int C = 16;
-  int H = 16;
-  std::vector<int> in_sizes{16, 32, 64};
-
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
-    auto cpu_pool = torch::max_pool2d(input_tensor, 3, 1);
-    auto cpu_out = torch::relu(cpu_pool);
-
-    // fwd propgation
-    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
-    auto outHabana1 = torch::max_pool2d_with_indices(
-        tHabanaX, {3, 3}, {1, 1}, {0, 0}, {1, 1}, true);
-    torch::Tensor outHabana = torch::relu(std::get<0>(outHabana1));
-
-    // bwd propgation with dummy grad tensor
-    auto grad_tensor =
-        torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
-    torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
-    outHabana.backward({tHabanaG}, false, true);
-
-    auto out_cpu_lazy = outHabana.to(torch::kCPU);
-    ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
-  }
-}
-
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {
   int kH = 3;
   int kW = 3;
@@ -902,7 +842,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestHt) {
+TEST_F(LazyDynamicShapesTest, ArangeTestHt) {
   // std::vector<int> start_sizes{1, 1, 1, 1};
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
@@ -931,7 +871,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestHt) {
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
 
-TEST_F(LazyDynamicShapesTest, ArangeTestFloat) {
+TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloat) {
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
   std::vector<int> step_sizes{1, 2, 3, 2};
@@ -957,7 +897,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTestFloat) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloatHt) {
+TEST_F(LazyDynamicShapesTest, ArangeTestFloatHt) {
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
