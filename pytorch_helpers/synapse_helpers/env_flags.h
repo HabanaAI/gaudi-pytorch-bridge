@@ -57,8 +57,15 @@
 // ****************************************************************************
 // New style of env var declaration
 
-#define GET_ENV_FLAG_NEW(e) \
-  (env_flags::new_style::get_env_flag_new<env_flags::new_style::e>(#e))
+#define GET_ENV_FLAG_NEW_READ_CACHE(e) \
+  (env_flags::new_style::get_env_flag_new<env_flags::new_style::e>(#e, false))
+#define GET_ENV_FLAG_NEW_SKIP_CACHE(e, c) \
+  (env_flags::new_style::get_env_flag_new<env_flags::new_style::e>(#e, c))
+#define GET_3RD_ARG(arg1, arg2, arg3, ...) arg3
+#define GET_ENV_FLAG_NEW_ARG(...) \
+  GET_3RD_ARG(                    \
+      __VA_ARGS__, GET_ENV_FLAG_NEW_SKIP_CACHE, GET_ENV_FLAG_NEW_READ_CACHE)
+#define GET_ENV_FLAG_NEW(...) GET_ENV_FLAG_NEW_ARG(__VA_ARGS__)(__VA_ARGS__)
 #define SET_ENV_FLAG_NEW(e, v, o) \
   (env_flags::new_style::set_env_flag_new<env_flags::new_style::e>(#e, v, o))
 #define UNSET_ENV_FLAG_NEW(e) \
@@ -303,6 +310,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_FCD_STRIDE_OPT, bool, false);
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     const char*& act_val,
@@ -311,6 +319,7 @@ const char* getenv_by_type_new(
 // Method for bool env variables to handle "true"/"false" and 1/0
 bool getenv_by_type_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     bool& act_val,
@@ -322,6 +331,7 @@ bool getenv_by_type_new(
 template <class T>
 T getenv_by_type_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     T& act_val,
@@ -348,17 +358,23 @@ void setenv_by_type_new(
 template <class E>
 typename std::
     enable_if<!has_min_max_methods<E>::value, decltype(E::default_value)>::type
-    getenv_E_new(const char* name) {
+    getenv_E_new(const char* name, const bool& skip_cache) {
   return getenv_by_type_new(
-      name, E::is_cached, E::is_defined, E::actual_value, E::default_value);
+      name,
+      skip_cache,
+      E::is_cached,
+      E::is_defined,
+      E::actual_value,
+      E::default_value);
 }
 
 template <class E>
 typename std::
     enable_if<has_min_max_methods<E>::value, decltype(E::default_value)>::type
-    getenv_E_new(const char* name) {
+    getenv_E_new(const char* name, const bool& skip_cache) {
   return getenv_by_type_new(
       name,
+      skip_cache,
       E::is_cached,
       E::is_defined,
       E::actual_value,
@@ -377,8 +393,10 @@ void setenv_E_new(
 }
 
 template <class E>
-decltype(E::default_value) get_env_flag_new(const char* name) {
-  return getenv_E_new<E>(name);
+decltype(E::default_value) get_env_flag_new(
+    const char* name,
+    const bool& skip_cache) {
+  return getenv_E_new<E>(name, skip_cache);
 }
 
 // setenv mode, If overwrite is 'non zero' value. It overwrites existing env

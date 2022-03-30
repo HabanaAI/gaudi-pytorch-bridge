@@ -141,6 +141,52 @@ TEST(EnvFlags, GetEnv) {
   }
   // unset env flag
   unsetenv("PT_HPU_ENABLE_SYNC_OUTPUT_HOST");
+
+  // Test cache skip env variables
+  PT_TEST_DEBUG(
+      "PT_ENABLE_HCL_STREAM ",
+      (IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_HCL_STREAM) ? "defined"
+                                                     : "not defined"));
+
+  // Get default value to restore it back if env var is defined.
+  is_env_val_org_defined = IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_HCL_STREAM);
+  env_val_org = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
+
+  // Unset the cached env flag
+  UNSET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
+  is_env_bool_val_defined = IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_HCL_STREAM);
+  EXPECT_EQ(is_env_bool_val_defined, false);
+
+  // Set non "string" value to bool env var
+  setenv("PT_ENABLE_HCL_STREAM", "1", 1);
+
+  // Get the cached env value
+  env_bool_val = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
+  PT_TEST_DEBUG("PT_ENABLE_HCL_STREAM=", env_bool_val);
+  EXPECT_EQ(env_bool_val, true);
+
+  // Set non "string" value to bool env var
+  setenv("PT_ENABLE_HCL_STREAM", "0", 1);
+
+  // Get cached env value with skip_cache disable
+  env_bool_val = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM, false);
+  PT_TEST_DEBUG("PT_ENABLE_HCL_STREAM=", env_bool_val);
+  EXPECT_EQ(env_bool_val, true);
+
+  // Get system env value with skip_cache enable
+  env_bool_val = GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM, true);
+  PT_TEST_DEBUG("PT_ENABLE_HCL_STREAM=", env_bool_val);
+  EXPECT_EQ(env_bool_val, false);
+
+  // Unset the cached env flag
+  UNSET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
+
+  if (is_env_bool_val_defined) {
+    SET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM, env_val_org, 1);
+    PT_TEST_DEBUG("Restore original PT_ENABLE_HCL_STREAM=", env_val_org);
+  }
+  // unset env flag
+  unsetenv("PT_ENABLE_HCL_STREAM");
 }
 
 TEST(EnvFlags, FatalMessage) {

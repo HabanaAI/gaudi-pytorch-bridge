@@ -247,6 +247,7 @@ namespace new_style {
 
 const char* getenv_by_type_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     const char*& act_val,
@@ -256,7 +257,7 @@ const char* getenv_by_type_new(
   // ----------------------------------------
   // 1 | XXX undefined   |   default value
   // 2 | XXX=asdf        |   "asdf"
-  if (!is_cached) {
+  if (!is_cached || skip_cache) {
     const char* envstrp = getenv(name);
     if (envstrp && *envstrp) {
       act_val = envstrp;
@@ -271,6 +272,7 @@ const char* getenv_by_type_new(
 
 bool getenv_by_type_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     bool& act_val,
@@ -279,7 +281,7 @@ bool getenv_by_type_new(
     bool max_val) {
   (void)min_val;
   (void)max_val;
-  if (!is_cached) {
+  if (!is_cached || skip_cache) {
     bool result = def_val;
     const char* envstrp = getenv(name);
     if (envstrp && *envstrp) {
@@ -313,6 +315,7 @@ bool getenv_by_type_new(
 template <class T, class F>
 static T getenv_numeric_new(
     const char* name,
+    const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
     T& act_val,
@@ -332,7 +335,7 @@ static T getenv_numeric_new(
   // 7 | XXX=asdf        |   Invalid         | syntax error "asdf"
   // 8 | XXX=123...789   |   Invalid         | overflow error
   T envval{};
-  if (!is_cached) {
+  if (!is_cached || skip_cache) {
     const char* envstrp = getenv(name);
     if (envstrp && *envstrp) {
       // getenv returned a valid string
@@ -432,6 +435,7 @@ static T getenv_numeric_new(
   template <>                                   \
   T getenv_by_type_new(                         \
       const char* name,                         \
+      const bool& skip_cache,                   \
       bool& is_cached,                          \
       bool& is_defined,                         \
       T& act_val,                               \
@@ -440,6 +444,7 @@ static T getenv_numeric_new(
       T max_val) {                              \
     return getenv_numeric_new(                  \
         name,                                   \
+        skip_cache,                             \
         is_cached,                              \
         is_defined,                             \
         act_val,                                \
