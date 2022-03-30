@@ -51,8 +51,8 @@ def test_batched_nms_lazy(num_boxes, iou_threshold):
     keep_hpu = nms.batched_nms(
         hpu_box, hpu_scores, hpu_idx, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
-    keep_hpu = torchvision.ops.batched_nms(hpu_box, hpu_scores, hpu_idx, iou_threshold)
-    compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
 
 if __name__ == "__main__":
-    test_batched_nms_lazy(100, 0.2)
+    test_batched_nms_lazy(50, 0.2)
+    test_batched_nms_lazy(55, 0.2)
+    test_batched_nms_lazy(60, 0.2)

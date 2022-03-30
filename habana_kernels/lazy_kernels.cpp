@@ -7515,10 +7515,35 @@ Tensor batched_nms_hpu_lazy(
     }
   };
 
-  std::vector<int64_t> box_id_out_shape{scores.sizes()[0]};
+  // max_classes set for COCO dataset for now, can be increased in future based
+  // on requirement. larger max_classes => smaller max size for num_boxes
+  // allowed because of memory trade-off.
+  constexpr int max_classes = 81;
+
+  std::vector<int64_t> box_id_out_shape{scores.sizes()[0] * max_classes};
   std::vector<int64_t> shape_tensor_shape{5};
+  auto shape_tensor_1 = empty_hpu_lazy(
+      scores.sizes(),
+      indexes.options().dtype(c10::ScalarType::Int),
+      c10::MemoryFormat::Contiguous,
+      false,
+      SHAPE_TENSOR);
+
+  auto shape_tensor_2 = empty_hpu_lazy(
+      {scores.sizes()[0] * max_classes},
+      indexes.options().dtype(c10::ScalarType::Int),
+      c10::MemoryFormat::Contiguous,
+      false,
+      SHAPE_TENSOR);
+
   BatchedNMSLazy k(
-      {boxes_cast, scores_cast, indexes, Scalar(iou_threshold)},
+      {boxes_cast,
+       scores_cast,
+       indexes,
+       Scalar(iou_threshold),
+       shape_tensor_1,
+       shape_tensor_2,
+       Scalar(max_classes)},
       {box_id_out_shape, shape_tensor_shape});
   auto result_nms = k.call();
   auto box_id_out = std::get<0>(result_nms);

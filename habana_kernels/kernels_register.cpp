@@ -4487,7 +4487,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "batched_nms(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold) -> (Tensor, Tensor)");
+      "batched_nms(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold, Tensor shape_tensor1, Tensor shape_tensor2, int max_classes) -> (Tensor, Tensor)");
   m.def(
       "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> (Tensor)");
   m.def(

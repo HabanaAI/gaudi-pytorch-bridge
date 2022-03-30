@@ -329,7 +329,7 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 4,
+      inputs.size() == 7,
       "Incorrect size of inputs expected for HabanaBatchedNms operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -348,10 +348,11 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   auto scores = inputs[1].toTensor();
   auto indexes = inputs[2].toTensor();
   auto iou = inputs[3].toScalar();
+  auto max_classes = inputs[6].toScalar().toInt();
 
   auto box_id_out = habana_helpers::createPTTensor(
       indexes,
-      {static_cast<int>(indexes.sizes()[0])},
+      {static_cast<int>(indexes.sizes()[0]) * max_classes},
       indexes.options(),
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(
@@ -364,14 +365,9 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
       indexes, {5}, indexes.options(), output_metadata.at(1).persistent);
   AllocateSynapseOutput(graph, shape_tensor, output_metadata.at(1), false);
 
-  // max_classes set for COCO dataset for now, can be increased in future based
-  // on requirement. larger max_classes => smaller max size for num_boxes
-  // allowed because of memory trade-off.
-  constexpr int max_classes = 81;
   ns_BatchedNmsKernel::Params params{};
   params.nms_threshold = iou.toFloat();
-  params.max_num_classes =
-      std::min(max_classes, static_cast<int>(scores.sizes()[0]));
+  params.max_num_classes = max_classes;
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

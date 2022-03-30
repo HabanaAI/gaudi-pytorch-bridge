@@ -1353,6 +1353,90 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
   //}
 }
 
+TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
+  torch::manual_seed(0);
+  float score_th = 0.2;
+
+  auto num_boxes_cur = 10;
+  auto num_boxes_var = 2;
+  torch::Tensor scores_cur = torch::rand({num_boxes_cur});
+  torch::Tensor boxes_cur = torch::rand({num_boxes_cur, 4}) * 256;
+  torch::Tensor classes_cur =
+      torch::randint(0, 1, {num_boxes_cur}, torch::kInt32);
+  auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kLong);
+
+  while (num_boxes_cur < 15) {
+    PRINT_TENSOR_WITH_DATA(boxes_cur);
+    PRINT_TENSOR_WITH_DATA(scores_cur);
+    PRINT_TENSOR_WITH_DATA(classes_cur);
+
+    auto num_expected_boxes{0};
+    for (size_t i = 0; i < num_boxes_cur; i++) {
+      float score = scores_cur[i].item<float>();
+      if (score >= score_th) {
+        num_expected_boxes++;
+      }
+    }
+
+    if (num_expected_boxes) {
+      torch::Tensor hscores = scores_cur.to(torch::kHPU);
+
+      // Ensure x1 > x0 and y1 > y0
+      auto tlist = boxes_cur.split(2, 1);
+      tlist[1] = tlist[1] + tlist[0];
+      auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
+      // PRINT_TENSOR_WITH_DATA(valid_boxes);
+
+      // Compute the iou scores
+      // std::vector<std::vector<float>> iou_vec_2d;
+      // iou_vec_2d.reserve(num_boxes_cur-1);
+      // compute_iou(valid_boxes, iou_vec_2d);
+
+      torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
+
+      torch::Tensor hclasses = classes_cur.to(torch::kHPU);
+
+      auto nms_boxid =
+          batched_nms_hpu_lazy(hboxes, hscores, hclasses, score_th);
+      auto nms_boxid_c = nms_boxid.to(torch::kCPU);
+      TORCH_CHECK(
+          nms_boxid_c.dim() == 1,
+          "Expecting a 1D tensor, got ",
+          boxes_cur.dim(),
+          "D tensor");
+      // PRINT_TENSOR_WITH_DATA(scores_cur);
+      // PRINT_TENSOR_WITH_DATA(nms_boxid_c);
+      PT_TEST_DEBUG(
+          "With score threshold=",
+          score_th,
+          ", num_expected_boxes=",
+          num_expected_boxes,
+          ", got ",
+          nms_boxid_c.sizes()[0]);
+      bool equal = ref.allclose(nms_boxid_c, 0, 0);
+      EXPECT_EQ(equal, true);
+    }
+
+    // Generate boxes of random sizes
+    torch::Tensor boxes_new = torch::rand({num_boxes_var, 4}) * 256;
+    torch::Tensor scores_new = torch::rand({num_boxes_var});
+    torch::Tensor classes_new =
+        torch::randint(0, 1, {num_boxes_var}, torch::kInt32);
+    boxes_cur = torch::cat({boxes_cur, boxes_new}, 0);
+    scores_cur = torch::cat({scores_cur, scores_new}, 0);
+    classes_cur = torch::cat({classes_cur, classes_new}, 0);
+    if (num_boxes_cur == 10) {
+      ref = torch::tensor({11, 10, 5, 0, 6, 8, 4, 3, 2}).to(torch::kLong);
+    } else {
+      ref = torch::tensor({11, 13, 10, 5, 0, 6, 3, 2, 12}).to(torch::kLong);
+    }
+    num_boxes_cur += num_boxes_var;
+  }
+  // while (score_th < 1.0) {
+  // score_th += score_inc;
+  //}
+}
+
 TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
   int N = 1;
   int C = 4;
