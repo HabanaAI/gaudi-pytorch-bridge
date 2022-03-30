@@ -757,16 +757,27 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   // Launch the execution
-  hlexec.Launch(stack);
-  HABANA_ASSERT(stack.size() == indices.size());
-
-  size_t i = 0;
-  for (const torch::IValue& v : stack) {
-    auto st = v.toTensor();
-    auto out_tensor = (*tensors)[indices[i++]];
-    executing_indices.push_back(out_tensor.getTensorUniqueId());
-    out_tensor.SetTensorData(st);
+  std::exception_ptr launch_except;
+  bool exception = false;
+  try {
+    hlexec.Launch(stack);
+  } catch (...) {
+    launch_except = std::current_exception();
+    exception = true;
   }
+
+  HABANA_ASSERT(exception || (stack.size() == indices.size()));
+
+  if (!exception) {
+    size_t i = 0;
+    for (const torch::IValue& v : stack) {
+      auto out_tensor = (*tensors)[indices[i++]];
+      auto st = v.toTensor();
+      executing_indices.push_back(out_tensor.getTensorUniqueId());
+      out_tensor.SetTensorData(st);
+    }
+  }
+
   context->MarkTensorsExecuted(device, executing_indices);
 
   SBSDebug::getInstance().CompareTensors(*tensors);
@@ -785,7 +796,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   // Save po_data input and output to context for perf mode
-  if (context->m_is_cached == false) {
+  if (context->m_is_cached == false && !exception) {
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
     context->m_is_cached = true;
@@ -795,6 +806,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   context->clear();
   // Restore the optimizations which are cleared forcefully in getlivetensors
   exec::OptPassCfg::GetInstance()->RestoreOptPass();
+
+  // Rethrow exception in case exception occuured during launch
+  if (exception) {
+    std::rethrow_exception(launch_except);
+  }
 }
 
 void HbLazyTensor::SyncTensorsGraphInternalFast(
@@ -873,24 +889,30 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
   fast_path_jit_ir_and_mdata->SetOpName(lazyFrontEndInfo->get_lazy_op_name());
   fast_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
   habana::HabanaLaunchOpPT habanaLoweringOp{fast_path_jit_ir_and_mdata};
+  std::exception_ptr launch_except;
+  bool exception = false;
+
   try {
     habanaLoweringOp.run(stack);
-  } catch (std::exception& e) {
-    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
-    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
-    throw;
+  } catch (...) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception.");
+    launch_except = std::current_exception();
+    exception = true;
   }
 
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
-  HABANA_ASSERT(stack.size() == indices.size());
+  HABANA_ASSERT(exception || (stack.size() == indices.size()));
 
-  size_t i = 0;
-  for (const torch::IValue& v : stack) {
-    auto st = v.toTensor();
-    auto out_tensor = (*tensors)[indices[i++]];
-    executing_indices.push_back(out_tensor.getTensorUniqueId());
-    out_tensor.SetTensorData(st);
+  if (!exception) {
+    size_t i = 0;
+    for (const torch::IValue& v : stack) {
+      auto st = v.toTensor();
+      auto out_tensor = (*tensors)[indices[i++]];
+      executing_indices.push_back(out_tensor.getTensorUniqueId());
+      out_tensor.SetTensorData(st);
+    }
   }
+
   context->MarkTensorsExecuted(device, executing_indices);
 
   // Graph executed, clear IR values corresponding to sync tensors
@@ -915,6 +937,11 @@ void HbLazyTensor::SyncTensorsGraphInternalFast(
 
   // clear retained tensor list
   context->m_retained_tensor_list.clear();
+
+  // Rethrow exception in case exception occuured during launch
+  if (exception) {
+    std::rethrow_exception(launch_except);
+  }
 }
 
 void HbLazyTensor::ExecuteCachedGraph() {

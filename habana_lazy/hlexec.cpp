@@ -70,8 +70,8 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
   try {
     habanaLoweringOp.run(stack);
-  } catch (std::exception& e) {
-    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception ", e.what());
+  } catch (...) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception.");
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
