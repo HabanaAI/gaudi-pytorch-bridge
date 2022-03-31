@@ -348,7 +348,7 @@ c10::optional<c10::Device> GetHpuDevice(
 
 void* GetLazyTensorDataPtr(const at::Tensor& t) {
   auto lazy_t = GetHbLazyTensor(t);
-  auto interal_tensor = lazy_t.GetHbLazyTensorData();
+  auto interal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
   TORCH_CHECK(
       interal_tensor,
       "Intenal error: GetLazyTensorDataPtr doesn't have "

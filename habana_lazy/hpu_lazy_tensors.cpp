@@ -564,6 +564,24 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
   return data()->tensor_data;
 }
 
+// Method for getting tensor data for Media Data loader
+c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
+  auto currentIrValue = CurrentIrValue();
+  if (currentIrValue && !CurrentTensorData()) {
+    // Return tensor_data if it is graph input
+    if (currentIrValue.mp_node->is_input() == true) {
+      return data()->tensor_data;
+    } else if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
+      HbLazyTensor::StepMarker({});
+    } else {
+      std::lock_guard<std::recursive_mutex> lock(
+          HbContextArena::Get()->GetMutex());
+      applyPendingGraph();
+    }
+  }
+  return data()->tensor_data;
+}
+
 void HbLazyTensor::applyPendingGraph() {
   PT_LAZY_TRACE;
   // Ensure that the graph execution has taken place so taht the tensors
