@@ -31,6 +31,19 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::NHWC,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -116,6 +129,19 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
   void AllocateAndAddSynapseNode(
@@ -163,6 +189,14 @@ class BatchNormInfOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
   void AllocateAndAddSynapseNode(
@@ -189,6 +223,18 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::NHWC,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     // {input, grad, wt, bias, save_mean, save_ivarstd}
     kernel_meta_data_.tpc_input_order = {1, 0, 2, 7, 5, 6};
     resize_done = false;
@@ -422,6 +468,15 @@ class InstanceNormOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
     kernel_meta_data_.tpc_input_order = {0, 2, 1};
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
   void AllocateAndAddSynapseNode(

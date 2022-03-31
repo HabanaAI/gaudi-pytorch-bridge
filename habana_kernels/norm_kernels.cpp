@@ -33,6 +33,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "hpu_ops/generated/hpu_op.h"
+#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;
@@ -2474,6 +2475,12 @@ Tensor fused_norm_hpu(
 std::vector<int64_t> InstanceNormOperator::compute_output_shape(
     at::Tensor input,
     c10::MemoryFormat mf) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto is_norm_3d = is_5d_tensor(input.sizes().vec());
+    auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
+                                   : synapse_helpers::layouts::INPUT_C_IDX;
+    return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
+  }
   // fetch channel dimension based on memory format
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
   constexpr int nchw_idx = 1;
