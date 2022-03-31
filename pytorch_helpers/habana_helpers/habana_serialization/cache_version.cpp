@@ -67,24 +67,34 @@ size_t hash64_file_content(const std::string& path_to_file) {
     PT_HABHELPER_WARN("Failed to open file: ", path_to_file);
     return 0;
   }
-  struct stat sb;
-  if (fstat(fh, &sb) == -1) {
-    PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
-    return 0;
-  }
 
-  char* fileAddr = (char*)mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fh, 0);
-  if (fileAddr == MAP_FAILED) {
-    PT_HABHELPER_WARN("Failed in mapping file: ", path_to_file);
-    return 0;
-  }
   size_t hashRes{0};
-  auto range = absl::MakeSpan(fileAddr, fileAddr + sb.st_size);
-  for (char c : range) {
-    hashRes = c10::hash_combine(hashRes, c10::_hash_detail::simple_get_hash(c));
+  if (fh) {
+    struct stat sb;
+    if (fstat(fh, &sb) == -1) {
+      PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
+    } else {
+      char* fileAddr =
+          (char*)mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fh, 0);
+      if (fileAddr == MAP_FAILED) {
+        PT_HABHELPER_WARN("Failed in mapping file: ", path_to_file);
+      } else {
+        size_t hashRes{0};
+        auto range = absl::MakeSpan(fileAddr, fileAddr + sb.st_size);
+        for (char c : range) {
+          hashRes =
+              c10::hash_combine(hashRes, c10::_hash_detail::simple_get_hash(c));
+        }
+        PT_HABHELPER_DEBUG(
+            "Calculated hash for file ",
+            path_to_file,
+            ", hash: ",
+            std::hex,
+            hashRes);
+      }
+      close(fh);
+    }
   }
-  PT_HABHELPER_DEBUG(
-      "Calculated hash for file ", path_to_file, ", hash: ", std::hex, hashRes);
   return hashRes;
 }
 
