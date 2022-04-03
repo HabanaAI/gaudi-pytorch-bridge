@@ -23,14 +23,35 @@
 
 using namespace habana_lazy;
 
-class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {};
+class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    SetLazyMode();
 
-TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    SetSeed();
+
+    DisableCpuFallback();
+
+    SetDynamicMode();
+
+    DisableDynamicPassFallback();
+
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    habana::RecipeCacheLRU::get_cache().clear();
   }
 
+  void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    UnsetDynamicMode();
+
+    RestoreDynamicPassFallback();
+
+    RestoreMode();
+  }
+};
+
+TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -43,18 +64,9 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -67,17 +79,9 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
 
   int N = 2, C = 3, D = 4, H = 5, W = 6, dim6 = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
@@ -91,18 +95,9 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
-TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
+TEST_F(LazyDynamicShapesTest2, DISABLED_SelectOnChlast3dInput) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -115,18 +110,9 @@ TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceView) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -141,18 +127,9 @@ TEST_F(LazyDynamicShapesTest2, InplaceView) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -167,18 +144,9 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -194,18 +162,9 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-  }
-
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -221,17 +180,12 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);
   }
-
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-  }
 }
 
 TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-    setenv("PT_HPU_ENABLE_MIN_MAX_AS_CURRENT", "1", 1);
+  bool min_max_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
+  if (!min_max_enabled) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT, "1", 1);
   }
   int A = 4;
   const int C = 3;
@@ -274,17 +228,12 @@ TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
     EXPECT_EQ(allclose(c7, h7_c, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
   }
-  if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-    unsetenv("PT_HPU_ENABLE_MIN_MAX_AS_CURRENT");
+  if (!min_max_enabled) {
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
   }
 }
 
 TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (!refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
-  }
   {
     SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "1", 1);
     habana_helpers::DynamicBucketInfo bucket_info;
@@ -313,7 +262,4 @@ TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
         habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC);
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
-  if (!refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  }
 }
