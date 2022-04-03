@@ -9,6 +9,13 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
+
+// index of hieght/width/depth in pad/stride/dial tensor
+#define CONV2D_KERNEL_HIEGHT_ATTRIBUTE_IDX 0
+#define CONV2D_KERNEL_WIDTH_ATTRIBUTE_IDX 1
+#define CONV3D_KERNEL_DEPTH_ATTRIBUTE_IDX 0
+#define CONV3D_KERNEL_HIEGHT_ATTRIBUTE_IDX 1
+#define CONV3D_KERNEL_WIDTH_ATTRIBUTE_IDX 2
 namespace habana {
 /**
  * @brief Class implementing Pytorch "convolution_overrideable"
@@ -52,6 +59,45 @@ class ConvOperator : public habana::HabanaOperator {
       c10::MemoryFormat memory_format,
       const bool is_conv_3d = false,
       const bool is_weight_hwck = true);
+
+  static std::vector<int64_t> compute_output_shape(
+      std::vector<int64_t> shape_in,
+      std::vector<int64_t> shape_wt,
+      std::vector<int64_t> pad,
+      std::vector<int64_t> stride,
+      std::vector<int64_t> dilation,
+      const bool ceil_mode,
+      const bool transposed);
+
+ private:
+  static std::vector<int64_t> compute_output_shape_2d(
+      std::vector<int64_t> shape_in,
+      std::vector<int64_t> shape_wt,
+      std::vector<int64_t> pad,
+      std::vector<int64_t> stride,
+      std::vector<int64_t> dilation,
+      const bool ceil_mode,
+      const bool transposed);
+
+  static std::vector<int64_t> compute_output_shape_3d(
+      std::vector<int64_t> shape_in,
+      std::vector<int64_t> shape_wt,
+      std::vector<int64_t> pad,
+      std::vector<int64_t> stride,
+      std::vector<int64_t> dilation,
+      const bool ceil_mode,
+      const bool transposed);
+
+  static int64_t compute_output_single_dim(
+      std::vector<int64_t> shape_in,
+      std::vector<int64_t> shape_wt,
+      std::vector<int64_t> padding,
+      std::vector<int64_t> strides,
+      std::vector<int64_t> dilation,
+      unsigned input_idx,
+      unsigned kernel_idx,
+      unsigned attributes_idx,
+      bool transposed);
 };
 
 /**
