@@ -1,4 +1,5 @@
 addmm
+batch_norm
 bmm
 conv1d
 conv2d
@@ -7,5 +8,16 @@ conv_transpose1d
 conv_transpose2d
 conv_transpose3d
 dot
+dropout
+group_norm
+instance_norm
+layer_norm
+leaky_relu
+linear
+matmul
+mean
 mm
+mul
 mv
+relu
+t

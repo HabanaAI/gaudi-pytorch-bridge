@@ -1,6 +1,14 @@
-batch_norm
+binary_cross_entropy
+binary_cross_entropy_with_logits
 cross_entropy
+div
+divide
+embedding_bag
+log
+log2
 log_softmax
 nll_loss
+smooth_l1_loss
 softmax
 topk
+truediv
