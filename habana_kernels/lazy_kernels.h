@@ -229,48 +229,45 @@ class LazyOp {
   HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    auto node = create_node();
-    auto results = get_result();
-    int i = 0;
-    std::vector<at::Tensor> tensors;
-    tensors.reserve(std::tuple_size<T>::value);
-    for_each_in_tuple(results, [&node, &i, &tensors](const auto& result) {
-      auto hl_result = GetHbLazyTensor(result);
-      tensors.push_back(result);
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional(),
-          i++);
-      updateDstDependencies(hl_result, result, false);
-    });
-    runSBS(tensors);
-    flush_op(tensors, info_to_lazy_backend);
-    return results;
-  }
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      isOptimizedLazyEager =
+          info_to_lazy_backend->get_is_optimized_lazy_eager();
+    }
 
-  template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
-  HandleOptimizedLazyEager(
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
-    PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
     auto results = get_result();
     int i = 0;
-    std::vector<HbLazyTensor> hl_tensors;
     std::vector<at::Tensor> tensors;
+    std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
-    for_each_in_tuple(results, [&i, &hl_tensors, &tensors](const auto& result) {
+    for_each_in_tuple(results, [&hl_results, &tensors](const auto& result) {
       auto hl_result = GetHbLazyTensor(result);
-      hl_tensors.push_back(hl_result);
       tensors.push_back(result);
-      i++;
+      hl_results.push_back(hl_result);
     });
-    std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
+
+    if (isOptimizedLazyEager == false) {
+      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      auto node = create_node();
+      for (auto hl_result : hl_results) {
+        ir::Value& out = hl_result.CurrentIrValue();
+        out.SetNode(
+            node,
+            hl_result.GetDevice(),
+            hl_result.GetSizes(),
+            hl_result.dtype_optional(),
+            i);
+        updateDstDependencies(hl_result, tensors[i], false);
+        i++;
+      }
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+      info_to_lazy_backend->set_input_values(input_vals);
+    }
+
     runSBS(tensors);
-    HbLazyTensor::SyncTensorsGraphOptimized(
-        &hl_tensors, input_values, info_to_lazy_backend);
+    flush_op(tensors, info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -282,16 +279,13 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && false) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      if (IsOptimizedLazyEagerCached) {
-        return HandleOptimizedLazyEager(infoToBackEnd);
-      }
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
     return HandleLazy(infoToBackEnd);
