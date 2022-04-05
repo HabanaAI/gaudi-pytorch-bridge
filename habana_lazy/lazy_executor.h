@@ -71,6 +71,13 @@ struct StrideParams {
   int64_t parent_id;
   StrideOPType optype;
   OpParams params;
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += sizes.size() * sizeof(decltype(sizes)::value_type);
+    size += strides.size() * sizeof(decltype(strides)::value_type);
+    return size;
+  }
 };
 
 struct HashFn {
@@ -209,6 +216,25 @@ class HbExecutionContext {
       scalar_to_tensor_map.clear();
     }
     hb_tensors_out_view.clear();
+  }
+
+  size_t viewTableSize() const {
+    size_t size = sizeof(view_table);
+    size += sizeof(decltype(view_table)::key_type) * view_table.size();
+
+    for (auto const& entry : view_table) {
+      size += entry.second.Size();
+    }
+    return size;
+  }
+
+  size_t tensorMapSize() const {
+    size_t size = sizeof(orig_tensor_map);
+    size += orig_tensor_map.size() *
+        (sizeof(decltype(orig_tensor_map)::key_type) +
+         sizeof(decltype(orig_tensor_map)::mapped_type));
+
+    return size;
   }
 
   // We want to retain some tensors for special cases where PT releases them

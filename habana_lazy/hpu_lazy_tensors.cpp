@@ -67,12 +67,24 @@ void HbContextArena::UnregisterTensor(Data* data) {
     PT_VIEWTABLE_DEBUG(
         "unregister tensor: clearing orig_tensor_map entry ", data->unique_id);
     context->orig_tensor_map.erase(it);
+    PT_VIEWTABLE_DEBUG(
+        "[unregister tensor] Mem_stat.  ",
+        " orig_tensor_map map size: ",
+        context->orig_tensor_map.size(),
+        ", total bytes: ",
+        context->tensorMapSize());
   }
   auto view_it = context->view_table.find(data->unique_id);
   if (view_it != context->view_table.end()) {
     PT_VIEWTABLE_DEBUG(
         "unregister tensor: clearing view_table entry ", data->unique_id);
     context->view_table.erase(view_it);
+    PT_VIEWTABLE_DEBUG(
+        "[unregister tensor] Mem_stat.  ",
+        " view_table map size: ",
+        context->view_table.size(),
+        ", total bytes: ",
+        context->viewTableSize());
   }
   context->UnregisterTensor(data);
 }
@@ -1041,6 +1053,13 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   if (ori_tensor_map_it != context->orig_tensor_map.end()) {
     auto updated_base = ori_tensor_map_it->second;
     context->orig_tensor_map[dst_id] = updated_base;
+
+    PT_VIEWTABLE_DEBUG(
+        "[hbcopyTensor] Mem_stat.  ",
+        " orig_tensor_map map size: ",
+        context->orig_tensor_map.size(),
+        ", total bytes: ",
+        context->tensorMapSize());
   }
 }
 

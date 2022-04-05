@@ -122,6 +122,23 @@ bool to_lower_as_strided() {
   return GET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
 }
 
+void dumpViewTableMemoryStat() {
+  PT_LAZY_TRACE;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+  PT_VIEWTABLE_DEBUG(
+      "[ViewTable MemStats] #view_table map size: ",
+      context->view_table.size(),
+      ", total bytes: ",
+      context->viewTableSize());
+
+  PT_VIEWTABLE_DEBUG(
+      "[ViewTable MemStats] #orig_tensor_map map size: ",
+      context->orig_tensor_map.size(),
+      ", total bytes: ",
+      context->tensorMapSize());
+}
+
 void flushWithMarkStep() {
   // Generate a random number and invoke the mark_step
   static std::once_flag flag;
@@ -856,6 +873,8 @@ void updateViewTable(at::Tensor& result, StrideParams& params) {
   result.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
 
   context->view_table[id] = params;
+  PT_VIEWTABLE_DEBUG("[updateViewTable] param size added:", params.Size());
+  dumpViewTableMemoryStat();
 }
 
 StrideParams& getViewTableParams(HbLazyTensor& hl_view_t) {

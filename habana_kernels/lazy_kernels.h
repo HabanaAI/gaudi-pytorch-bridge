@@ -53,6 +53,9 @@ StrideParams& getViewTableParams(HbLazyTensor& hl_view_t);
 at::Tensor get_base_tensor(const at::Tensor& self);
 const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
 
+/* Debug API to dump memory stats of View Table. */
+void dumpViewTableMemoryStat();
+
 void flushWithMarkStep();
 bool is_inplace(at::Symbol symbol);
 
