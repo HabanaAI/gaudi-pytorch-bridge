@@ -13,6 +13,21 @@
 
 namespace habana {
 
+c10::optional<synapse_helpers::tensor> HandleReductionDtype(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Tensor& self,
+    synTensor syn_in,
+    c10::optional<at::ScalarType> dtype) {
+  auto dtype_val = dtype.value_or(self.scalar_type());
+  if (dtype_val == self.scalar_type()) {
+    return c10::nullopt;
+  }
+
+  return OpBackend::BuildCast(
+      op, graph, syn_in, self.sizes(), self.scalar_type(), dtype_val);
+}
+
 std::shared_ptr<void> ReductionOpParams(
     const int ndim,
     size_t& size,

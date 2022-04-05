@@ -12,6 +12,13 @@
 
 namespace habana {
 
+c10::optional<synapse_helpers::tensor> HandleReductionDtype(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Tensor& self,
+    synTensor syn_in,
+    c10::optional<at::ScalarType> dtype);
+
 std::shared_ptr<void> ReductionOpParams(
     const int ndim,
     size_t& size,
