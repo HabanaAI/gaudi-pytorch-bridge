@@ -28,6 +28,11 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
                                            LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -63,6 +68,12 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
                                            LayoutFormat::NHWC,
                                            LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN}); // shape tensor
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.tpc_input_order = {0, 2};
   }
   virtual void AllocateAndAddSynapseNode(
@@ -102,6 +113,11 @@ class AvgPool2dOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -121,6 +137,12 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN}); // shape tensor
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.tpc_input_order = {0};
   }
   virtual void AllocateAndAddSynapseNode(
@@ -197,5 +219,17 @@ class PoolHelper {
       const at::Tensor& input,
       const at::IntArrayRef output_size,
       bool is_input_nhwc);
+
+  static std::vector<int64_t> compute_output_shape_synapse(
+      const at::Tensor& input,
+      const at::IntArrayRef kernel_size,
+      const at::IntArrayRef stride,
+      const at::IntArrayRef padding,
+      const at::IntArrayRef dilation,
+      bool ceil_mode);
+
+  static std::vector<int64_t> compute_output_shape_synapse(
+      const at::Tensor& input,
+      const at::IntArrayRef output_size);
 };
 } // namespace habana

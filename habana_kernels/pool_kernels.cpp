@@ -25,6 +25,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/tensor_impl.h"
+#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;
@@ -88,6 +89,10 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
     const at::IntArrayRef dilation,
     bool ceil_mode,
     bool is_input_nhwc = false) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    return PoolHelper::compute_output_shape_synapse(
+        input, kernel_size, stride, padding, dilation, ceil_mode);
+  }
   const int filter_H = safe_downcast<int, int64_t>(kernel_size[0]);
   const int filter_W = kernel_size.size() == 1
       ? filter_H
@@ -146,6 +151,9 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
     const at::Tensor& input,
     const at::IntArrayRef output_size,
     bool is_input_nhwc = false) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    return PoolHelper::compute_output_shape_synapse(input, output_size);
+  }
   const int output_H = safe_downcast<int, int64_t>(output_size[0]);
   const int output_W = output_size.size() == 1
       ? output_H
@@ -161,6 +169,69 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
   const int64_t C = input.size(input_dim1);
 
   std::vector<int64_t> outshape{N, output_H, output_W, C};
+  return outshape;
+}
+
+std::vector<int64_t> PoolHelper::compute_output_shape_synapse(
+    const at::Tensor& input,
+    const at::IntArrayRef kernel_size,
+    const at::IntArrayRef stride,
+    const at::IntArrayRef padding,
+    const at::IntArrayRef dilation,
+    bool ceil_mode) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+
+  const int filter_H = safe_downcast<int, int64_t>(kernel_size[0]);
+  const int filter_W = kernel_size.size() == 1
+      ? filter_H
+      : safe_downcast<int, int64_t>(kernel_size[1]);
+
+  const int stride_H =
+      stride.empty() ? filter_H : safe_downcast<int, int64_t>(stride[0]);
+  const int stride_W = stride.empty()
+      ? filter_W
+      : stride.size() == 1 ? stride_H : safe_downcast<int, int64_t>(stride[1]);
+
+  const int pad_H = safe_downcast<int, int64_t>(padding[0]);
+  const int pad_W =
+      padding.size() == 1 ? pad_H : safe_downcast<int, int64_t>(padding[1]);
+
+  const int dilation_H = safe_downcast<int, int64_t>(dilation[0]);
+  const int dilation_W = dilation.size() == 1
+      ? dilation_H
+      : safe_downcast<int, int64_t>(dilation[1]);
+
+  const int64_t N = input.size(synapse_helpers::layouts::INPUT_N_IDX);
+  const int64_t C = input.size(synapse_helpers::layouts::INPUT_C_IDX);
+  const int64_t input_H = input.size(synapse_helpers::layouts::INPUT_H_IDX);
+  const int64_t input_W = input.size(synapse_helpers::layouts::INPUT_W_IDX);
+  const int64_t output_H = pooling_output_shape<int64_t>(
+      input_H, filter_H, pad_H, stride_H, dilation_H, ceil_mode);
+  const int64_t output_W = pooling_output_shape<int64_t>(
+      input_W, filter_W, pad_W, stride_W, dilation_W, ceil_mode);
+
+  std::vector<int64_t> outshape{N, C, output_H, output_W};
+  return outshape;
+}
+
+std::vector<int64_t> PoolHelper::compute_output_shape_synapse(
+    const at::Tensor& input,
+    const at::IntArrayRef output_size) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+
+  const int output_H = safe_downcast<int, int64_t>(output_size[0]);
+  const int output_W = output_size.size() == 1
+      ? output_H
+      : safe_downcast<int, int64_t>(output_size[1]);
+
+  const int64_t N = input.size(synapse_helpers::layouts::INPUT_N_IDX);
+  const int64_t C = input.size(synapse_helpers::layouts::INPUT_C_IDX);
+
+  std::vector<int64_t> outshape{N, C, output_H, output_W};
   return outshape;
 }
 

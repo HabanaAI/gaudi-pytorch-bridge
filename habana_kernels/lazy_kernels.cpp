@@ -5056,12 +5056,15 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       auto opsize_nhwc = PoolHelper::compute_output_shape(
           input, kernel_size, stride, padding, dilation, ceil_mode, false);
 
-      // return always nhwc. convert to nchw
-      std::vector<long int> shape_out = {
-          opsize_nhwc.at(0),
-          opsize_nhwc.at(3),
-          opsize_nhwc.at(1),
-          opsize_nhwc.at(2)};
+      std::vector<long int> shape_out = opsize_nhwc;
+      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+        // return always nhwc. convert to nchw
+        shape_out = {
+            opsize_nhwc.at(0),
+            opsize_nhwc.at(3),
+            opsize_nhwc.at(1),
+            opsize_nhwc.at(2)};
+      }
       // allocate Output_0 storage
       auto result_0 = empty_hpu_lazy(
           shape_out, input.options(), input.suggest_memory_format(), false);
@@ -5138,13 +5141,15 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
   // since grad_input should match memory format only checking for input
   auto opsize_nhwc = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, false);
-
-  // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = opsize_nhwc;
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    // retunr always nhwc. convert to nchw
+    out_shape = {
+        opsize_nhwc.at(0),
+        opsize_nhwc.at(3),
+        opsize_nhwc.at(1),
+        opsize_nhwc.at(2)};
+  }
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
@@ -5190,12 +5195,15 @@ Tensor avg_pool2d_hpu_lazy(
   auto opsize_nhwc = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, false);
 
-  // return always nhwc. convert to nchw
-  std::vector<long int> shape_out = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = opsize_nhwc;
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    // return always nhwc. convert to nchw
+    shape_out = {
+        opsize_nhwc.at(0),
+        opsize_nhwc.at(3),
+        opsize_nhwc.at(1),
+        opsize_nhwc.at(2)};
+  }
 
   LazyOp<at::Tensor, ir::AvgPool> k{
       avgpool_node,
@@ -5261,12 +5269,15 @@ Tensor avg_pool2d_backward_hpu_lazy(
   auto opsize_nhwc = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, false);
 
-  // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = opsize_nhwc;
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    // retunr always nhwc. convert to nchw
+    out_shape = {
+        opsize_nhwc.at(0),
+        opsize_nhwc.at(3),
+        opsize_nhwc.at(1),
+        opsize_nhwc.at(2)};
+  }
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   LazyOp<at::Tensor, ir::AvgPoolBackWard> k{
