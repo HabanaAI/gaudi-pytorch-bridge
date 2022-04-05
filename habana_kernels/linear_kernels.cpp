@@ -428,7 +428,17 @@ std::vector<int64_t> habana::BmmOperator::compute_output_shape(
       "BMM inner dimensions doesn't match")
 
   std::vector<int64_t> shape_out;
-  if ((self_dims == 4) && ((mat2_dims == 4) || (mat2_dims == 3))) {
+  if ((self_dims == 5) &&
+      ((mat2_dims == 5) || (mat2_dims == 4) || (mat2_dims == 3) ||
+       (mat2_dims == 2))) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(self_sizes[2]);
+    shape_out.push_back(*(self_end_iter - 2));
+    shape_out.push_back(*(mat2_end_iter - 1));
+  } else if (
+      (self_dims == 4) &&
+      ((mat2_dims == 4) || (mat2_dims == 3) || (mat2_dims == 2))) {
     shape_out.push_back(self_sizes[0]);
     shape_out.push_back(self_sizes[1]);
     shape_out.push_back(*(self_end_iter - 2));
@@ -778,9 +788,20 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
   } else if (self_dims == 2 && other_dims == 2) {
     shape_out.push_back(self_sizes[0]);
     shape_out.push_back(other_sizes[1]);
-  } else if ((self_dims == 4) && ((other_dims == 4) || (other_dims == 3))) {
+  } else if (
+      (self_dims == 4) &&
+      ((other_dims == 4) || (other_dims == 3) || (other_dims == 2))) {
     shape_out.push_back(self_sizes[0]);
     shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(*(self_end_iter - 2));
+    shape_out.push_back(*(other_end_iter - 1));
+  } else if (
+      (self_dims == 5) &&
+      ((other_dims == 5) || (other_dims == 4) || (other_dims == 3) ||
+       (other_dims == 2))) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(self_sizes[2]);
     shape_out.push_back(*(self_end_iter - 2));
     shape_out.push_back(*(other_end_iter - 1));
   } else if (self_dims == 3 && other_dims == 4) {
@@ -802,6 +823,15 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
   } else if (self_dims == 3 && other_dims == 1) {
     shape_out.push_back(self_sizes[0]);
     shape_out.push_back(self_sizes[1]);
+  } else if (self_dims == 4 && other_dims == 1) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(self_sizes[2]);
+  } else if (self_dims == 5 && other_dims == 1) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(self_sizes[2]);
+    shape_out.push_back(self_sizes[3]);
   }
 
   return shape_out;
