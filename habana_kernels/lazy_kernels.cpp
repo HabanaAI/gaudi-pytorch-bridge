@@ -420,7 +420,10 @@ Tensor add_strided_insert_node(
 
 Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
   auto sizes = self.sizes().vec();
-  dst.resize_(self.sizes());
+  if (self.sizes() != dst.sizes()) {
+    dst.resize_(self.sizes());
+  }
+
   return dst.copy_(self);
 }
 Tensor add_view_lazy(
