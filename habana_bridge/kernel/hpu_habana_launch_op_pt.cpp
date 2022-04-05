@@ -910,32 +910,6 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
   tensorList->emplace_back(tensor_or_ref(syn_tensor));
   pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 }
-void adjustInputWeight(at::Tensor* tensor, bool is_input) {
-  if (tensor->dim() != 4)
-    return;
-
-  auto sizes = tensor->sizes().vec();
-  auto strides = tensor->strides().vec();
-  int64_t dims_in[] = {2, 3, 1, 0};
-  int64_t dims_out[] = {3, 2, 0, 1};
-  at::IntArrayRef in = dims_in;
-  at::IntArrayRef out = dims_out;
-  // TODO : Remove these hardcoded dims, maybe take it from config file?
-  at::IntArrayRef new_pos_arr = is_input ? in : out;
-  auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {
-      sizes[new_pos[0]],
-      sizes[new_pos[1]],
-      sizes[new_pos[2]],
-      sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
-  tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
-}
 
 IValPtrShared castConstantTensor(IValPtrShared ival) {
   auto tensor = ival->toTensor();
