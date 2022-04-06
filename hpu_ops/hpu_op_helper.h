@@ -367,6 +367,22 @@ class OpBackend : public HabanaOperator {
             args);                                                         \
   }
 
+#define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG(input, dtype, opname, args...)       \
+  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(                     \
+          dtype.has_value() ? dtype.value() : input.scalar_type()))) {         \
+    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
+        args);                                                                 \
+  }
+
+#define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG2(                                \
+    input, dtype, opname, overload, args...)                               \
+  if (ABSL_PREDICT_FALSE(!opname##_##overload##_supported_dtypes.count(    \
+          dtype.has_value() ? dtype.value() : input.scalar_type()))) {     \
+    return at::native::                                                    \
+        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
+            args);                                                         \
+  }
+
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, opname, args...)      \
   if (ABSL_PREDICT_FALSE(                                                      \
           tensor.defined() &&                                                  \
