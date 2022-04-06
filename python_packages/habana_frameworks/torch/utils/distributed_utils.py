@@ -34,7 +34,7 @@ def initialize_distributed_hpu():
         except Exception as e:
             pass
 
-    if local_rank != -1:
+    if world_size > 1 and local_rank != -1:
         try:
             import habana_frameworks.torch.core.hccl
         except:
