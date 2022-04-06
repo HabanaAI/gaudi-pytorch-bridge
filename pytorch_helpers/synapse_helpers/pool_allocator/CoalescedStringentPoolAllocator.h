@@ -88,6 +88,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   std::vector<std::pair<void*, size_t>> get_memory_info() const;
   std::pair<void*, size_t> get_tail_chunk_info() const;
   std::tuple<void*, size_t, size_t> get_small_alloc_info() const;
+  bool is_memory_available(size_t size) const;
 
  private:
   struct chunkcompare {

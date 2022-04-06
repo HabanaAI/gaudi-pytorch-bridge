@@ -125,7 +125,6 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   synStatus status{synStatus::synSuccess};
-  size = block_align(size);
   pool_id = deviceID;
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
@@ -313,6 +312,17 @@ void CoalescedStringentPooling::pool_destroy() const {
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
   high_memory_allocated_ = false;
+}
+
+bool CoalescedStringentPooling::is_memory_available(size_t size) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  size_t limit = (max_pool_size * mem_threshold);
+
+  if ((size + bytes_in_use) > limit) {
+    PT_DEVMEM_DEBUG("total requested memory size::", size, " not available");
+    return false;
+  }
+  return true;
 }
 
 bool CoalescedStringentPooling::is_mem_threshold_hit() const {
@@ -598,7 +608,6 @@ static bool check_mem_threshold_hit(
 void* CoalescedStringentPooling::extend_high_memory_allocation(
     uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size = block_align(size);
   size_t current_ws_size = 0;
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
@@ -696,8 +705,6 @@ void* CoalescedStringentPooling::pool_alloc_chunk(
 }
 
 void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
-  size = block_align(size);
-
   void* ptr = nullptr;
   if (small_allocs_)
     ptr = small_allocs_->Allocate(size);

@@ -56,6 +56,8 @@ class device_memory {
     return pool_strategy_;
   }
   void reset_pool();
+  size_t get_total_memory_required(absl::Span<const device_ptr>);
+  size_t block_align(size_t n);
 
  private:
   device& device_;
@@ -71,7 +73,7 @@ class device_memory {
   device_ptr get_pointer(mem_handle);
   synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);
   synStatus deallocate(void* ptr);
-  void check_and_limit_recipe_execution(void);
+  void check_and_limit_recipe_execution(size_t size);
   bool defragment_memory(
       size_t alignment,
       size_t allocation_size,

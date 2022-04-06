@@ -30,7 +30,6 @@ StaticPooling::StaticPooling() {
 
 bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size = pool_allocator::block_align(size);
   pool_id = deviceID;
   uint64_t free_mem, total_mem;
   synStatus status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
@@ -183,7 +182,6 @@ void* StaticPooling::reuse_chunks(uint64_t size) const {
 
 void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size = pool_allocator::block_align(size);
   simple_pool_t* p = prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
@@ -440,8 +438,7 @@ void* DynamicPooling::allocBlock(uint64_t size) const {
 
 bool DynamicPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
-  PT_DEVMEM_DEBUG("POOL:: Dynamic Pool Initiated");
-  size = pool_allocator::block_align(size);
+  PT_DEVMEM_DEBUG("POOL:: Dynamic Pool Initiated size::", size);
   pool_id = deviceID;
   stats.pool_id = pool_id;
   top = pool_start;
@@ -462,7 +459,6 @@ void DynamicPooling::pool_destroy() const {
 
 void* DynamicPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
-  size = pool_allocator::block_align(size);
   auto ptr = allocBlock(size);
   if (ptr && is_workspace)
     stats.scratch_mem_in_use = size;

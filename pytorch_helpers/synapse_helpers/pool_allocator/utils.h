@@ -26,7 +26,6 @@ void set_device_deallocation(bool flag);
 bool get_device_deallocation();
 // --
 
-size_t block_align(size_t n);
 void print_device_memory_stats(synDeviceId deviceID);
 
 } // namespace pool_allocator

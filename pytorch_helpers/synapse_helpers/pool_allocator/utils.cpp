@@ -37,10 +37,6 @@ bool get_device_deallocation() {
   return null_dev_map_found;
 }
 
-size_t block_align(size_t n) {
-  return (n + DEFAULT_ALIGNMENT - 1) & ~(DEFAULT_ALIGNMENT - 1);
-}
-
 void print_device_memory_stats(synDeviceId deviceID) {
   uint64_t free_mem, total_mem;
   auto status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);

@@ -11,6 +11,7 @@
 #include <synapse_common_types.h>
 #include <iterator>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 
 #include <synapse_api.h>
@@ -102,7 +103,8 @@ device_memory::device_memory(device& device) : device_{device} {
       PT_DEVMEM_FATAL("unsupported pool strategy");
       break;
   }
-  if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
+  if (suballoc_ &&
+      !suballoc_->pool_create(device_.id(), block_align(pool_size_))) {
     PT_DEVMEM_FATAL("pool creation failed");
   }
 
@@ -150,12 +152,17 @@ void device_memory::reset_pool() {
   }
 }
 
+size_t device_memory::block_align(size_t n) {
+  return (n + DEFAULT_ALIGNMENT - 1) & ~(DEFAULT_ALIGNMENT - 1);
+}
+
 // warapper for malloc/free for pool startegy not equal to 5
 synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
   if (pool_strategy_ != pool_allocator::strategy_none) {
-    ptr = (uint64_t)suballoc_->pool_alloc_chunk(size, is_workspace);
+    ptr =
+        (uint64_t)suballoc_->pool_alloc_chunk(block_align(size), is_workspace);
 
     if ((void*)ptr == nullptr) {
       PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
@@ -258,7 +265,7 @@ void* device_memory::workspace_alloc(
     size_t& ws_size,
     size_t req_size) {
   if (pool_strategy_ != pool_allocator::startegy_coalesce_stringent) {
-    size_t chunk_size = 128 * 1024 * 1024;
+    size_t chunk_size = DEFAULT_ALIGNMENT * 1024 * 1024;
     size_t num_chunks = (req_size / chunk_size) + 1;
     size_t actual_size = num_chunks * chunk_size;
     if (ws_size >= actual_size) {
@@ -294,13 +301,14 @@ void* device_memory::workspace_alloc(
         return v_ptr;
       };
 
-      v_ptr = extend_high_memory_alloc(req_size);
+      v_ptr = extend_high_memory_alloc(block_align(req_size));
 
       bool defragmentation_done = false;
       if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
         PT_DEVMEM_WARN(
             "Workspace extension failed. Attempt to defragment memory.");
-        defragmentation_done = defragment_memory(128, req_size, true);
+        defragmentation_done =
+            defragment_memory(DEFAULT_ALIGNMENT, req_size, true);
       }
 
       if (defragmentation_done) {
@@ -336,14 +344,25 @@ void device_memory::fix_address(void* ptr) {
   get_pointer(h);
 }
 
-void device_memory::check_and_limit_recipe_execution() {
+/* recipe count is incremented before the allocation
+ * of device memory for the the tensor, so the
+ * default count is 1 which includes the current recipe
+ * we are doing allocation.
+ */
+#define DEFAULT_RECIPE_COUNT 1
+
+void device_memory::check_and_limit_recipe_execution(size_t size) {
   auto& recipe_counter = device_.get_active_recipe_counter();
   PT_DEVMEM_DEBUG("Recipes in queue", recipe_counter.get_count());
   uint32_t counter_state{0};
-  if (recipe_counter.get_count() > device_.GetMaxRecipeLimitInQueue()) {
+  if (recipe_counter.get_count() < DEFAULT_RECIPE_COUNT)
+    return;
+
+  if (recipe_counter.get_count() > device_.GetMaxRecipeLimitInQueue() ||
+      !suballoc_->is_memory_available(size)) {
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
-    } while (counter_state < 1);
+    } while (counter_state > DEFAULT_RECIPE_COUNT);
   }
 }
 
@@ -638,14 +657,41 @@ bool device_memory::defragment_memory(
   return true;
 }
 
+size_t device_memory::get_total_memory_required(
+    absl::Span<const device_ptr> addresses) {
+  std::unordered_map<device_ptr, size_t> umap_addr;
+  std::unique_lock<std::mutex> lock(mutex_);
+  for (const auto address : addresses) {
+    auto h = mem_handle::reinterpret_from_pointer(address);
+    if (!h.is_valid())
+      continue;
+    auto ptr_size = handle2pointer_.GetPtrSize(h.id());
+    if (ptr_size.ptr_ == nullptr) {
+      auto found = umap_addr.find(address);
+      if (found == umap_addr.end()) {
+        umap_addr[address] = ptr_size.size_;
+      }
+    }
+  }
+  size_t total_memory = 0;
+  for (const auto addr : umap_addr) {
+    total_memory += block_align(addr.second);
+  }
+
+  return total_memory;
+}
+
 device_ptr_lock device_memory::lock_addresses(
     absl::Span<const device_ptr> addresses) {
+  auto total_mem = get_total_memory_required(addresses);
   // no of recipes in queue if it exceeds a limit
   // there is unpredictable behaviour because of
   // resource contraint. so limit the recipes in
   // queue.
-  if (device_.GetMaxRecipeLimitInQueue() > 0)
-    check_and_limit_recipe_execution();
+  if (device_.GetMaxRecipeLimitInQueue() > 0 ||
+      (total_mem > DEFAULT_ALIGNMENT &&
+       !suballoc_->is_memory_available(total_mem)))
+    check_and_limit_recipe_execution(total_mem);
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
@@ -717,7 +763,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     bool defragmentation_done = false;
     if (device_.IsMemorydefragmentationEnabled()) {
       PT_DEVMEM_WARN("Memory allocation failed. Attempt to defragment memory.");
-      defragmentation_done = defragment_memory(128, size, false);
+      defragmentation_done = defragment_memory(DEFAULT_ALIGNMENT, size, false);
     }
     if (defragmentation_done) {
       std::tie(ptr, size) = get_and_alloc_mem();

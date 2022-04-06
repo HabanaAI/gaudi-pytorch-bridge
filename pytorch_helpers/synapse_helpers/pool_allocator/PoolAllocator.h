@@ -58,6 +58,9 @@ class PoolingStrategy {
   virtual std::tuple<void*, size_t, size_t> get_small_alloc_info() const {
     return {};
   }
+  virtual bool is_memory_available(UNUSED size_t size) const {
+    return true;
+  }
 };
 
 class SubAllocator {
@@ -122,6 +125,10 @@ class SubAllocator {
 
   std::tuple<void*, size_t, size_t> get_small_alloc_info() const {
     return this->strategy_->get_small_alloc_info();
+  }
+
+  bool is_memory_available(size_t size) const {
+    return this->strategy_->is_memory_available(size);
   }
 };
 

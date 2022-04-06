@@ -36,7 +36,6 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
     const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   synStatus status{synStatus::synSuccess};
-  size = block_align(size);
   pool_id = deviceID;
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
@@ -486,7 +485,6 @@ Chunk* StaticCoalescedPooling::try_block_splitting(uint64_t size) const {
 void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
     const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size = block_align(size);
 
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
