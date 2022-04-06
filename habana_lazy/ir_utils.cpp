@@ -42,8 +42,8 @@ void Utils::ComputePostOrderNode(
 
       for (auto& operand : operands) {
         auto oit = po_data.emission_map.find(operand.mp_node);
-        po_data.value_input_nodes_map[operand].emplace_back(p_node.get());
         if (operand.mp_node->is_input()) {
+          po_data.value_input_nodes_map[operand].emplace_back(p_node.get());
           if (node_set.count(operand.mp_node) == 0) {
             node_set.insert(operand.mp_node);
             po_data.inputs.emplace_back(operand);

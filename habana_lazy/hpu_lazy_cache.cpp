@@ -140,8 +140,8 @@ LazyArgumentSpec::LazyArgumentSpec(
     bool with_grad,
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     size_t post_order_nodes_hash,
-    const ir::ValueList inputs,
-    const ir::ValueNodeListMap value_input_nodes_map,
+    const ir::ValueList& inputs,
+    const ir::ValueNodeListMap& value_input_nodes_map,
     const ir::ValueList& outputs,
     const std::vector<size_t>& parent_vec) {
   PT_LAZY_TRACE;
