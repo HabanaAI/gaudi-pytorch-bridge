@@ -21,7 +21,9 @@ sizes_vec GridSampler2dOutputShape(const at::Stack& stack, bool isLowering) {
   auto grid = stack.at(GRID_POS).toTensor();
   // In the spatial (4-D) case, for input with shape (N,C,H^in,W^in) and grid
   // with shape (N,H^out,W^out,2), the output will have shape (N,C,H^out,W^out)
-  if (!isLowering) { // compute shape call from front-end
+  if (!isLowering ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ==
+          true) { // compute shape call from front-end
     // sizes are always in NCHW (irrespective of storage layout of physical
     // data)
     constexpr int N_SELF = 0;

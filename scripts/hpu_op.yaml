@@ -1179,6 +1179,9 @@ grid_sampler_2d:
   layouts:
   - [NHWC, NCHW]
   - [NHWC]
+  synapse_layouts:
+  - [WHCN, DONT_CARE]
+  - [WHCN]
   out_ids: [0]
 
 ge_.Scalar:
