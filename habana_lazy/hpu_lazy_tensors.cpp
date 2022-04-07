@@ -1081,6 +1081,10 @@ void HbLazyTensor::StepMarker(
 
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
+  if (!device.is_hpu()) {
+    // Nothing to do
+    return;
+  }
   HbLazyTensor::SyncLiveTensorsGraph(
       &device, /* is_cached*/ false, lazy_front_end_info);
   HbLazyTensor::MarkStep(device);
