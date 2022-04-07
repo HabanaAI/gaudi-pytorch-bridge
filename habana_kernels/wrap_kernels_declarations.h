@@ -475,12 +475,25 @@ struct hpu_wrap {
       const c10::optional<at::Scalar>& p,
       at::IntArrayRef dim,
       bool keepdim);
+  static at::Tensor& norm_out(
+      const at::Tensor& self,
+      const c10::optional<at::Scalar>& p,
+      at::IntArrayRef dim,
+      bool keepdim,
+      at::Tensor& out);
   static at::Tensor norm(
       const at::Tensor& self,
       const c10::optional<at::Scalar>& p,
       at::IntArrayRef dim,
       bool keepdim,
       at::ScalarType dtype);
+  static at::Tensor& norm_out(
+      const at::Tensor& self,
+      const c10::optional<at::Scalar>& p,
+      at::IntArrayRef dim,
+      bool keepdim,
+      at::ScalarType dtype,
+      at::Tensor& out);
   static at::Tensor instance_norm(
       const at::Tensor& input,
       const c10::optional<at::Tensor>& weight,

@@ -5065,6 +5065,33 @@ Tensor norm_scalar_dim_hpu_lazy(
   return out;
 }
 
+Tensor& norm_scalar_dim_out_hpu_lazy(
+    const Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+  /*
+  NOTE: We call out-of-place norm function and then copy result to out.
+  This is because the current backenbd for norm has many other individual ops
+  called many of whose Out variants are not implemenmted yet or not needed for
+  current scenarios.
+  */
+  auto res = norm_scalar_dim_hpu_lazy(self, p, dim, keepdim);
+  auto out_shape = res.sizes().vec();
+  // Resize output tensor(s) to correct shape if required
+  if (out.sizes().vec() != out_shape) {
+    auto hl_result = GetOrCreateHbLazyTensor(out, c10::kHPU);
+    auto out_reshaped = hl_result.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+  out.copy_(res);
+  return out;
+}
+
 std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,

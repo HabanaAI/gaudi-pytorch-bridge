@@ -441,6 +441,12 @@ at::Tensor norm_scalar_dim_hpu_lazy(
     const c10::optional<at::Scalar>& p,
     at::IntArrayRef dim,
     bool keepdim);
+at::Tensor& norm_scalar_dim_out_hpu_lazy(
+    const at::Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim,
+    at::Tensor& out);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight_opt,

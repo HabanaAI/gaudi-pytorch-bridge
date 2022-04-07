@@ -2005,6 +2005,22 @@ Tensor hpu_wrap::norm(
   }
 }
 
+Tensor& hpu_wrap::norm_out(
+    const at::Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim,
+    at::Tensor& out) {
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      norm, PARAMS1(self, out), PARAMS2(self, p, dim, keepdim, out), out)
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return norm_scalar_dim_out_hpu_lazy(self, p, dim, keepdim, out);
+  } else {
+    TORCH_CHECK(0, "Legacy Eager mode not supported for norm scalar with dims");
+  }
+}
+
 Tensor hpu_wrap::norm(const Tensor& self, const c10::Scalar& p) {
   FALLBACK_IF_UNSUPPORTED_OP_O(norm, PARAMS1(self), PARAMS2(self, p), Scalar)
 
@@ -2039,6 +2055,38 @@ Tensor hpu_wrap::norm(
   } else {
     FALLBACK_IF_UNSUPPORTED_OP2_O(
         norm, PARAMS2(self, p, dim, keepdim, dtype), ScalarOpt_dim_dtype)
+  }
+}
+
+Tensor& hpu_wrap::norm_out(
+    const at::Tensor& self,
+    const c10::optional<at::Scalar>& p,
+    at::IntArrayRef dim,
+    bool keepdim,
+    at::ScalarType dtype,
+    at::Tensor& out) {
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      norm,
+      PARAMS1(self, out),
+      PARAMS2(self, p, dim, keepdim, dtype, out),
+      dtype_out)
+  // norm is supported on HPU only if either self's type and dtype param is FP
+  // types we do self's cast here to Float to avoid special case casts in
+  // lowering part of norm op.
+  if (c10::isFloatingType(dtype) && c10::isFloatingType(self.scalar_type())) {
+    Tensor self_cast = self;
+    if (self.scalar_type() != dtype) {
+      self_cast = self.to(dtype);
+    }
+    return hpu_wrap::norm_out(self_cast, p, dim, keepdim, out);
+  } else {
+    FALLBACK_IF_UNSUPPORTED_OP_O(
+        norm,
+        PARAMS1(self, out),
+        PARAMS2(self, p, dim, keepdim, dtype, out),
+        dtype_out)
+    // This is a dummy call to satisfy the return Tensor expected by compiler
+    return hpu_wrap::norm_out(self, p, dim, keepdim, out);
   }
 }
 
