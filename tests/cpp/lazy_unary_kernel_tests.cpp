@@ -683,7 +683,7 @@ TEST_F(LazyUnaryKernelTest, DISABLED_TopkTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
-TEST_F(LazyUnaryKernelTest, TopkOutTest) {
+TEST_F(LazyUnaryKernelTest, DISABLED_TopkOutTest) {
   auto self = torch::randn({3, 5, 4, 7});
   auto hself = self.to(torch::kHPU);
 
