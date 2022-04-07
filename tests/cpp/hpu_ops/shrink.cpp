@@ -21,6 +21,20 @@ TEST_F(HpuOpTest, hardshrink) {
   Compare(expected, result);
 }
 
+TEST_F(HpuOpTest, hardshrink_out) {
+  GenerateInputs(2);
+  float lambda = GenerateScalar<float>();
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  result = torch::hardshrink_outf(GetHpuInput(0), lambda, result);
+  expected = torch::hardshrink_outf(GetCpuInput(0), lambda, expected);
+
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, hardshrink_backward) {
   GenerateInputs(2);
   float lambda = GenerateScalar<float>();
@@ -28,6 +42,22 @@ TEST_F(HpuOpTest, hardshrink_backward) {
       torch::hardshrink_backward(GetCpuInput(0), GetCpuInput(1), lambda);
   auto result =
       torch::hardshrink_backward(GetHpuInput(0), GetHpuInput(1), lambda);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, hardshrink_backward_out) {
+  GenerateInputs(2);
+  float lambda = GenerateScalar<float>();
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  expected = torch::hardshrink_backward_outf(
+      GetCpuInput(1), GetCpuInput(0), lambda, expected);
+  result = torch::hardshrink_backward_outf(
+      GetHpuInput(1), GetHpuInput(0), lambda, result);
+
   Compare(expected, result);
 }
 

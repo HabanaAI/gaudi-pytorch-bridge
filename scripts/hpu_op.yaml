@@ -1267,12 +1267,22 @@ hardshrink:
   guid: shrink_fwd
   out_ids: [0]
 
+hardshrink.out:
+  custom_fill_params: FillhardshrinkfwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_fwd
+
 hardshrink_backward:
   force_default: false
   custom_fill_params: FillhardshrinkbwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
   out_ids: [0]
+
+hardshrink_backward.grad_input:
+  custom_fill_params: FillhardshrinkbwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_bwd
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
