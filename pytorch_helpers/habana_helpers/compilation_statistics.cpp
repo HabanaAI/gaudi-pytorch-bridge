@@ -16,6 +16,7 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_helpers;
@@ -63,11 +64,14 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
   using CompilationStatistics::CompilationStatistics;
   ~CompilationStatisticsNoOp() override = default;
   void LogShape(
-      int,
+      std::string,
       const habana_helpers::TensorShape&,
       const std::string&,
       uint64_t) override{};
-  void LogShapes(habana_helpers::InpTensorShapes&, uint64_t) override{};
+  void LogShapes(
+      std::shared_ptr<torch::jit::Graph>,
+      const at::ArrayRef<torch::jit::IValue>&,
+      uint64_t) override{};
   void LogCompilation(
       const std::string&,
       DynamicDimsPolicy,
@@ -130,19 +134,29 @@ CompilationStatistics::CompilationStatistics(
 }
 
 void CompilationStatistics::LogShape(
-    int index,
+    std::string index,
     const habana_helpers::TensorShape& shape,
     const std::string& kind,
     uint64_t step) {
-  json_file_[GetStep(step)]["shapes"][std::to_string(index)] =
+  json_file_[GetStep(step)]["shapes"][index] =
       shape.DebugString() + (kind.empty() ? "" : " " + kind);
 }
 
 void CompilationStatistics::LogShapes(
-    habana_helpers::InpTensorShapes& shape_map,
+    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
     uint64_t step) {
-  for (size_t i = 0; i < shape_map.size(); i++) {
-    LogShape(i, shape_map[i], "", step);
+  for (size_t j = 0; j < input_refs.size(); j++) {
+    auto value_input = jit_ir_graph->inputs().at(j);
+    std::string tensor_name = value_input->debugName();
+    at::Tensor pt_tensor = input_refs[j].toTensor();
+    bool kind =
+        habana_lazy::GetHbInternalTensorImpl(pt_tensor)->isShapeTensor();
+    LogShape(
+        tensor_name,
+        habana_helpers::TensorShape(pt_tensor.sizes(), pt_tensor.scalar_type()),
+        kind ? "shape tensor" : "",
+        step);
   }
 }
 void CompilationStatistics::LogCompilation(

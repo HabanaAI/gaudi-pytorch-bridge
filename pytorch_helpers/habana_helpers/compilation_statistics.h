@@ -14,6 +14,7 @@
 #include <absl/container/flat_hash_set.h>
 #include <absl/strings/str_cat.h>
 #include <nlohmann/json.hpp>
+#include <torch/csrc/jit/ir/ir.h>
 #include <atomic>
 #include <memory>
 #include "dynamic_bucket_info.h"
@@ -54,13 +55,14 @@ class CompilationStatistics {
    * assigned to current iteration
    */
   virtual void LogShape(
-      int index,
+      std::string index,
       const habana_helpers::TensorShape& shape,
       const std::string& kind,
       uint64_t step = 0);
 
   virtual void LogShapes(
-      habana_helpers::InpTensorShapes& shape_map,
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
       uint64_t step = 0);
   /**
    * @brief Adds compilation details to iteration compilation list

@@ -1805,8 +1805,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
       current_dbipsh_->get_statistics()->LogSelectedRecipe(
           cur_rargpsh->hashCode(), 0);
-      current_dbipsh_->get_statistics()->LogShapes(
-          graph_input_info.act_input_tshapes);
+      current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
       current_dbipsh_->get_statistics()->LogLaunch(
           current_dbipsh_->GetTime(current_bucket_id_), 0);
       current_dbipsh_->get_statistics()->DumpAndNextStep();
@@ -2495,8 +2494,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
               graph_input_info.current_bucket_id),
           "dynamic compilation failed",
           last_compilation_pass);
-      current_dbipsh_->get_statistics()->LogShapes(
-          graph_input_info.act_input_tshapes);
+      current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
       current_dbipsh_->get_statistics()->LogSelectedRecipe(
           current_dbipsh_->GetRecipeKeyForBucket(
               graph_input_info.current_bucket_id),
@@ -2524,8 +2522,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
             graph_input_info.current_bucket_id),
         result,
         last_compilation_pass);
-    current_dbipsh_->get_statistics()->LogShapes(
-        graph_input_info.act_input_tshapes);
+    current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
     if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
       current_dbipsh_->get_statistics()->LogUsedBucket(
           graph_input_info.current_bucket_id, ranges, 0);
