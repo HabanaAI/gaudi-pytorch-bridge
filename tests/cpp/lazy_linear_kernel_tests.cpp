@@ -32,22 +32,6 @@ TEST_F(LazyLinearKernelTest, MmMulTest) {
   EXPECT_EQ(allclose(hz_exp, z_cout, 0.001, 0.001), true);
 }
 
-TEST_F(LazyLinearKernelTest, AddMmTest) {
-  torch::Tensor A = torch::randn({2});
-  torch::Tensor B = torch::randn({2, 2});
-  torch::Tensor C = torch::randn({2, 2});
-
-  torch::Tensor hA = A.to(kHPU);
-  torch::Tensor hB = B.to(kHPU);
-  torch::Tensor hC = C.to(kHPU);
-  torch::Tensor O = torch::addmm(hA, hB, hC, 1, 1);
-
-  auto computed = O.to(torch::kCPU);
-  auto expected = torch::addmm(A, B, C, 1, 1);
-
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
-}
-
 TEST_F(LazyLinearKernelTest, BmmTest) {
   torch::Tensor A = torch::randn({4, 2, 3}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({4, 3, 5}, torch::requires_grad(false));

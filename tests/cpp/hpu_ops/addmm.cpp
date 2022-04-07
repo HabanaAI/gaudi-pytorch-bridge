@@ -105,3 +105,78 @@ TEST_F(HpuOpTest, addmm_out_broadcast_2) {
       result);
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, addmmTest) {
+  constexpr int n = 2;
+  constexpr int m = 2;
+  constexpr int p = 2;
+  const c10::Scalar alpha = 1, beta = 1;
+  GenerateInputs(3, {{n, p}, {n, m}, {m, p}});
+
+  torch::Tensor expected =
+      torch::addmm(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), beta, alpha);
+
+  auto result =
+      torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, addmmTestAlphaBeta) {
+  constexpr int n = 2;
+  constexpr int m = 3;
+  constexpr int p = 4;
+  const c10::Scalar alpha = 1.2, beta = 1.8;
+  GenerateInputs(3, {{n, p}, {n, m}, {m, p}});
+
+  torch::Tensor expected =
+      torch::addmm(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), beta, alpha);
+
+  auto result =
+      torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, addmmTestAlpha) {
+  constexpr int n = 3;
+  constexpr int m = 4;
+  constexpr int p = 5;
+  const c10::Scalar alpha = 3.8, beta = 0.0;
+  GenerateInputs(3, {{n, p}, {n, m}, {m, p}});
+
+  torch::Tensor expected =
+      torch::addmm(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), beta, alpha);
+
+  auto result =
+      torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, addmmTestBeta) {
+  constexpr int n = 3;
+  constexpr int m = 4;
+  constexpr int p = 5;
+  const c10::Scalar alpha = 1.0, beta = 3.2;
+  GenerateInputs(3, {{n, p}, {n, m}, {m, p}});
+
+  torch::Tensor expected =
+      torch::addmm(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), beta, alpha);
+
+  auto result =
+      torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, addmmTestAlphaBetaBroadcast) {
+  constexpr int n = 3;
+  constexpr int m = 5;
+  constexpr int p = 7;
+  const c10::Scalar alpha = 1.9, beta = 3.2;
+  GenerateInputs(3, {{1, p}, {n, m}, {m, p}});
+
+  torch::Tensor expected =
+      torch::addmm(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), beta, alpha);
+
+  auto result =
+      torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
+  Compare(expected, result);
+}
