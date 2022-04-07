@@ -186,20 +186,28 @@ void flush_op(
 
 template <typename SRC_DTYPE, typename DST_DTYPE>
 inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
-  if (IsDefined(src) && src.numel() > 0) {
-    auto src_max_val = src.detach().max().item().to<SRC_DTYPE>();
-    auto src_min_val = src.detach().min().item().to<SRC_DTYPE>();
-    auto max_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::max();
-    auto min_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::lowest();
-    TORCH_CHECK(
-        src_max_val <= max_int_val && src_min_val >= min_int_val,
-        "Error when trying to cast ",
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK)) {
+    if (IsDefined(src) && src.numel() > 0) {
+      auto src_max_val = src.detach().max().item().to<SRC_DTYPE>();
+      auto src_min_val = src.detach().min().item().to<SRC_DTYPE>();
+      auto max_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::max();
+      auto min_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::lowest();
+      TORCH_CHECK(
+          src_max_val <= max_int_val && src_min_val >= min_int_val,
+          "Error when trying to cast ",
+          src.scalar_type(),
+          " to ",
+          dstScalarType,
+          ", Input values range exceeds ",
+          dstScalarType,
+          " range");
+    }
+  } else {
+    PT_LAZY_DEBUG(
+        "Skipping validateDownCast from ",
         src.scalar_type(),
         " to ",
-        dstScalarType,
-        ", Input values range exceeds ",
-        dstScalarType,
-        " range");
+        dstScalarType);
   }
 }
 

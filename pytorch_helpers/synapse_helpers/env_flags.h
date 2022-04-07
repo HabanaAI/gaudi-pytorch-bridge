@@ -307,6 +307,10 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_DEFRAGMENTATION_INFO, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_FCD_STRIDE_OPT, bool, false);
 
+// Option to enable numeric limits check for CPU tensors when downcasting
+// Ex long/double data type to int/float data type
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK, bool, true);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,
