@@ -24,10 +24,10 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
-  inline static at::Tensor& linspace_out(
+  static at::Tensor& linspace_out(
       const at::Scalar& start,
       const at::Scalar& end,
-      c10::optional<int64_t> steps,
+      int64_t steps,
       at::Tensor& out);
   static at::Tensor silu(const at::Tensor& self);
   static at::Tensor silu_backward(

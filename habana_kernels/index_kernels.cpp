@@ -100,18 +100,11 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
 Tensor& linspace_out_hpu(
     const Scalar& start,
     const Scalar& end,
-    c10::optional<int64_t> step,
+    int64_t steps,
     Tensor& output) {
   PT_KERNEL_BEGIN;
-  // If step value is not provided, set it 100, following
-  // the CPU implementtaion....
-  // pytorch-fork/aten/src/ATen/native/RangeFactories.cpp
-  // Tensor& linspace_cpu_out(...
-  // ...
-  // const auto steps = optional_steps.value_or(100);
-  int64_t step_corrected = step.value_or(100);
 
-  auto shape = DimVector({step_corrected});
+  auto shape = DimVector({steps});
   auto tht_result = output.unsafeGetTensorImpl();
   THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
   output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
@@ -129,7 +122,7 @@ Tensor& linspace_out_hpu(
 
   at::ScalarType scalar_type = output.scalar_type();
 
-  std::string node_type = "linspce_out_" + NO_TPC +
+  std::string node_type = "linspace_out_" + NO_TPC +
       habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = output.device().index();
@@ -139,8 +132,7 @@ Tensor& linspace_out_hpu(
 
   // Build Params for the graph
   std::vector<at::Tensor> pt_inputs;
-  std::vector<c10::IValue> stack = {
-      IValue(start), IValue(end), IValue(step_corrected)};
+  std::vector<c10::IValue> stack = {IValue(start), IValue(end), IValue(steps)};
 
   stack.push_back(IValue(output));
   pt_inputs.emplace_back(output);

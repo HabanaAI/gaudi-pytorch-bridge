@@ -860,7 +860,7 @@ at::Tensor silu_backward_hpu_lazy(
 at::Tensor& linspace_out_hpu_lazy(
     const at::Scalar& start,
     const at::Scalar& end,
-    c10::optional<int64_t> steps,
+    int64_t steps,
     at::Tensor& out);
 at::Tensor cumsum_hpu_lazy(
     const at::Tensor& self,

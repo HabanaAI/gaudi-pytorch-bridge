@@ -416,7 +416,7 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
 }
 */
 
-TEST_F(LazyIndexKernelTest, DISABLED_LinspaceOutPosToNeFraction) {
+TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   const int64_t constStepsValue = 45;
   torch::Scalar start = 0.70f;
   torch::Scalar end = -0.03f;
@@ -432,7 +432,7 @@ TEST_F(LazyIndexKernelTest, DISABLED_LinspaceOutPosToNeFraction) {
   EXPECT_EQ(allclose(hOut_cpu, out, 0.0001), true);
 }
 
-TEST_F(LazyIndexKernelTest, DISABLED_LinspaceOutSameStartEnd) {
+TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
   int64_t step = 100; // wrong value

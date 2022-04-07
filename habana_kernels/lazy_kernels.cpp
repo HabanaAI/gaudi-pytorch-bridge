@@ -7658,34 +7658,24 @@ Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
 Tensor& linspace_out_hpu_lazy(
     const Scalar& start,
     const Scalar& end,
-    c10::optional<int64_t> steps,
+    int64_t steps,
     Tensor& out) {
   PT_LAZY_TRACE;
 
-  // If step value is not provided, set it 100, following
-  // the CPU implementtaion....
-  // pytorch-fork/aten/src/ATen/native/RangeFactories.cpp
-  // Tensor& linspace_cpu_out(...
-  // ...
-  // const auto steps = optional_steps.value_or(100);
-  int64_t step_corrected = steps.value_or(100);
   Scalar temp_end = end;
 
   // Handle start==end case, change the end value and
   // hence convert to start != end, by changing end variable.
   if (start.toFloat() == temp_end.toFloat()) {
-    step_corrected = 1;
+    steps = 1;
     auto tmp = end.toFloat();
     tmp++;
     temp_end = Scalar(tmp);
   }
 
-  std::vector<int64_t> out_shape = {step_corrected};
+  std::vector<int64_t> out_shape = {steps};
   LazyOp<at::Tensor&> k(
-      "aten::linspace",
-      {start, temp_end, step_corrected, out},
-      {},
-      {out_shape});
+      "aten::linspace", {start, temp_end, steps, out}, {}, {out_shape});
   return k.call(out);
 }
 

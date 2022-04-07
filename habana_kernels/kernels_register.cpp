@@ -4196,17 +4196,10 @@ Tensor hpu_wrap::slice(
 Tensor& hpu_wrap::linspace_out(
     const Scalar& start,
     const Scalar& end,
-    c10::optional<int64_t> steps,
+    int64_t steps,
     Tensor& out) {
-  if (!steps.has_value()) {
-    TORCH_WARN_ONCE(
-        "Not providing a value for linspace's steps is deprecated and will "
-        "throw a runtime error in a future release. This warning will appear "
-        "only once per process.");
-  }
-
   FALLBACK_IF_UNSUPPORTED_OP_O(
-      linspace, PARAMS1(out), PARAMS2(start, end, steps.value(), out), out)
+      linspace, PARAMS1(out), PARAMS2(start, end, steps, out), out)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return linspace_out_hpu_lazy(start, end, steps, out);

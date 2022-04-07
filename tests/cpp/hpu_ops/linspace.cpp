@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, DISABLED_linspace) {
+TEST_F(HpuOpTest, linspace) {
   // Not supporting for the values beyond 40
   float start = GenerateScalar<float>(-1, 40);
   // Not supporting for the values use beyond 40
