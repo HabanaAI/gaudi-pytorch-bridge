@@ -34,7 +34,7 @@ class View : public ir::Node {
                 ? c10::Symbol::fromQualString("hpu::view")
                 : c10::Symbol::fromQualString("aten::view")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

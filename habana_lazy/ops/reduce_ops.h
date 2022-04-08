@@ -26,7 +26,7 @@ class Prod : public Node {
   Prod(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::prod")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -55,7 +55,7 @@ class ProdDimInt : public Node {
       c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("hpu::prod_dim_Int")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 
@@ -86,7 +86,7 @@ class AllDim : public Node {
   AllDim(const at::Tensor& self, int64_t dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("hpu::all_dim")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
 

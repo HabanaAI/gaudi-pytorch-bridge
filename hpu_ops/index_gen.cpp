@@ -85,7 +85,8 @@ LazyIndex<at::Tensor>::LazyIndex(
 
   // handle views for tensorlist indices
   at::TensorList indices_in_list(indices_vec);
-  indices_vec = habana_lazy::HandleViewsTensorList(indices_in_list);
+  indices_vec =
+      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
 
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
@@ -101,7 +102,8 @@ LazyIndex<at::Tensor>::LazyIndex(
       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
                                                               : indices_vec;
 
-  auto indices_out_vec = habana_lazy::HandleViewsTensorList(indices);
+  auto indices_out_vec =
+      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices);
   at::TensorList indices_out_list(indices_out_vec);
 
   get_inputs().back() = indices_out_list;

@@ -58,7 +58,7 @@ class Cast : public Node {
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
     static_cast<void>(non_blocking);
     auto hl_src = GetHbLazyTensor(src);
-    hl_src = HandleViewsOrUpdate(src, hl_src);
+    hl_src = HbLazyTensorViews::HandleViewsOrUpdate(src, hl_src);
 
     auto ir_value_src = hl_src.GetIrValue();
     AddInput(ir_value_src);

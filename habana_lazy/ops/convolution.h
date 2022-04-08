@@ -45,8 +45,8 @@ class Convolution : public ir::Node {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
 
-    hl_input = HandleViewsOrUpdate(input, hl_input);
-    hl_weight = HandleViewsOrUpdate(weight, hl_weight);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
+    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
 
     AddInput(hl_input.GetIrValue());
     AddInput(hl_weight.GetIrValue());
@@ -55,7 +55,7 @@ class Convolution : public ir::Node {
 
     if (bias.defined()) {
       auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
-      hl_bias = HandleViewsOrUpdate(bias, hl_bias);
+      hl_bias = HbLazyTensorViews::HandleViewsOrUpdate(bias, hl_bias);
       AddInput(hl_bias.GetIrValue());
       input_pt_vec.emplace_back(bias);
     } else {
@@ -92,9 +92,10 @@ class Convolution : public ir::Node {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
 
-    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
-    hl_input = HandleViewsOrUpdate(input, hl_input);
-    hl_weight = HandleViewsOrUpdate(weight, hl_weight);
+    hl_grad_output =
+        HbLazyTensorViews::HandleViewsOrUpdate(grad_output, hl_grad_output);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
+    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
 
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_input.GetIrValue());

@@ -37,16 +37,16 @@ class LayerNormForward : public ir::Node {
     auto weight = weight_opt.value();
     auto bias = bias_opt.value();
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-    hl_input = HandleViewsOrUpdate(input, hl_input);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
-    hl_weight = HandleViewsOrUpdate(weight, hl_weight);
+    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
     AddInput(hl_weight.GetIrValue());
     input_pt_vec.emplace_back(weight);
 
     auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
-    hl_bias = HandleViewsOrUpdate(bias, hl_bias);
+    hl_bias = HbLazyTensorViews::HandleViewsOrUpdate(bias, hl_bias);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
 
@@ -90,29 +90,29 @@ class LayerNormBackward : public ir::Node {
       std::array<bool, 3> grad_input_mask)
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {
     auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHPU);
-    hl_dY = HandleViewsOrUpdate(dY, hl_dY);
+    hl_dY = HbLazyTensorViews::HandleViewsOrUpdate(dY, hl_dY);
     AddInput(hl_dY.GetIrValue());
     auto hl_X = GetOrCreateHbLazyTensor(X, c10::kHPU);
-    hl_X = HandleViewsOrUpdate(X, hl_X);
+    hl_X = HbLazyTensorViews::HandleViewsOrUpdate(X, hl_X);
     AddInput(hl_X.GetIrValue());
     auto hl_mean = GetOrCreateHbLazyTensor(mean, c10::kHPU);
-    hl_mean = HandleViewsOrUpdate(mean, hl_mean);
+    hl_mean = HbLazyTensorViews::HandleViewsOrUpdate(mean, hl_mean);
     AddInput(hl_mean.GetIrValue());
     auto hl_rstd = GetOrCreateHbLazyTensor(rstd, c10::kHPU);
-    hl_rstd = HandleViewsOrUpdate(rstd, hl_rstd);
+    hl_rstd = HbLazyTensorViews::HandleViewsOrUpdate(rstd, hl_rstd);
     AddInput(hl_rstd.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{dY, X, mean, rstd};
     auto gamma = weight_opt.value();
 
     auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHPU);
-    hl_gamma = HandleViewsOrUpdate(gamma, hl_gamma);
+    hl_gamma = HbLazyTensorViews::HandleViewsOrUpdate(gamma, hl_gamma);
     AddInput(hl_gamma.GetIrValue());
     input_pt_vec.emplace_back(gamma);
     auto bias = bias_opt.value();
 
     auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
-    hl_bias = HandleViewsOrUpdate(bias, hl_bias);
+    hl_bias = HbLazyTensorViews::HandleViewsOrUpdate(bias, hl_bias);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
     AddInputPtTensors(input_pt_vec);
@@ -152,7 +152,7 @@ class FusedNorm : public ir::Node {
     AddInputVec(grad);
 
     auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHPU);
-    hl_max_norm = HandleViewsOrUpdate(max_norm, hl_max_norm);
+    hl_max_norm = HbLazyTensorViews::HandleViewsOrUpdate(max_norm, hl_max_norm);
     AddInput(hl_max_norm.GetIrValue());
 
     m_meta_data.set(
@@ -172,7 +172,7 @@ class FusedNorm : public ir::Node {
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
       auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HandleViewsOrUpdate(t, hl_tensor);
+      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }

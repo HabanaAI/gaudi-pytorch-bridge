@@ -29,7 +29,7 @@ class AsStridedLayout : public ir::Node {
       : Node(c10::Symbol::fromQualString(op)) {
     HbLazyTensor hl_self = GetHbLazyTensor(self);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -55,7 +55,7 @@ class Transpose : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::transpose")) {
     HbLazyTensor hl_self = GetHbLazyTensor(self);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -87,7 +87,7 @@ class Permute : public ir::Node {
       : Node(c10::Symbol::fromQualString(op)) {
     HbLazyTensor hl_self = GetHbLazyTensor(self);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -112,7 +112,7 @@ class PermuteCL : public ir::Node {
   PermuteCL(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("hpu::permute_cl")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 

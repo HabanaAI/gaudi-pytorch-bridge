@@ -25,8 +25,8 @@ struct MseLoss : public habana_lazy::ir::Node {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    hl_target = HandleViewsOrUpdate(target, hl_target);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+    hl_target = HbLazyTensorViews::HandleViewsOrUpdate(target, hl_target);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_target.GetIrValue());
@@ -49,9 +49,10 @@ struct MseLoss : public habana_lazy::ir::Node {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
 
-    hl_grad_output = HandleViewsOrUpdate(grad_output, hl_grad_output);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    hl_target = HandleViewsOrUpdate(target, hl_target);
+    hl_grad_output =
+        HbLazyTensorViews::HandleViewsOrUpdate(grad_output, hl_grad_output);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+    hl_target = HbLazyTensorViews::HandleViewsOrUpdate(target, hl_target);
 
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_self.GetIrValue());

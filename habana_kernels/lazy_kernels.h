@@ -19,6 +19,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/sbs_runner.h"
+#include "habana_lazy/view_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
@@ -33,25 +34,17 @@ void updateDstDependencies(
     const at::Tensor& dst,
     bool in_place = false);
 
-bool HandleViews(const at::Tensor& t, const habana_lazy::HbLazyTensor& hl_t);
-habana_lazy::HbLazyTensor HandleViewsOrUpdate(
-    const at::Tensor& t,
-    habana_lazy::HbLazyTensor& hl_t);
-at::Tensor HandleViewsD2H(const at::Tensor& t);
-std::vector<at::Tensor> UpdateViewDistributed(std::vector<at::Tensor>&);
-bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst);
-std::vector<at::Tensor> HandleViewsTensorList(const at::TensorList&);
-at::Tensor add_strided_view_node(
+at::Tensor empty_as_strided_lazy(
     const at::Tensor& self,
-    at::IntArrayRef size_in,
-    at::IntArrayRef stride_in,
-    int64_t storage_offset,
-    bool is_update_view,
-    c10::optional<at::Tensor> out);
-void updateViewTable(at::Tensor& result, StrideParams& params);
-StrideParams& getViewTableParams(HbLazyTensor& hl_view_t);
-at::Tensor get_base_tensor(const at::Tensor& self);
-const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset);
+
+ir::NodePtr create_as_strided_node(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset);
 
 /* Debug API to dump memory stats of View Table. */
 void dumpViewTableMemoryStat();
@@ -491,7 +484,7 @@ class LazyOp {
           if (it != context->orig_tensor_map.end()) {
             m_inputs[idx] = it->second;
           } else {
-            HandleViews(t, hl_t);
+            HbLazyTensorViews::HandleViews(t, hl_t);
           }
         }
       }
@@ -519,7 +512,7 @@ class LazyOp {
             // this is because, view of out variant is handled as a write to an
             // empty tensor followed by strided insert
             if (is_inplace(m_symbol) || (!t.is_same(self))) {
-              HandleViews(t, hl_t);
+              HbLazyTensorViews::HandleViews(t, hl_t);
             }
           }
         }
@@ -580,7 +573,7 @@ class LazyOp {
     // special handling for self tensor
     if (is_self_view == false) {
       // use most recent version of the tensor if applicable
-      auto self_updated = get_recent_base_tensor(self);
+      auto self_updated = HbLazyTensorViews::get_recent_base_tensor(self);
       hl_self = GetHbLazyTensor(self_updated);
 
       // identify the inplace index and replace it with updated version

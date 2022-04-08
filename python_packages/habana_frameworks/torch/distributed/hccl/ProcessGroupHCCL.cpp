@@ -474,7 +474,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
     int peerRank,
     PreProcess pre,
     PostProcess post) {
-  auto tensors = habana_lazy::UpdateViewDistributed(tensors_);
+  auto tensors =
+      habana_lazy::HbLazyTensorViews::UpdateViewDistributed(tensors_);
 
   hcclResult_t hccl_result{hcclSuccess};
 
@@ -546,8 +547,10 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
   habana_lazy::HbLazyTensor::StepMarker();
 
   // Handle views
-  auto in_view_vec = habana_lazy::UpdateViewDistributed(inputs);
-  auto out_view_vec = habana_lazy::UpdateViewDistributed(outputs);
+  auto in_view_vec =
+      habana_lazy::HbLazyTensorViews::UpdateViewDistributed(inputs);
+  auto out_view_vec =
+      habana_lazy::HbLazyTensorViews::UpdateViewDistributed(outputs);
 
   const auto devices = getDeviceList(in_view_vec);
   auto comms = getCommList(devices);

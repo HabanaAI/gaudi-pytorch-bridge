@@ -87,7 +87,7 @@ class OnesLike : public Node {
       : Node(c10::Symbol::fromQualString("aten::ones_like")) {
     auto hl_self = GetHbLazyTensor(self);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 

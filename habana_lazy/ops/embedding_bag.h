@@ -31,10 +31,11 @@ class EmbeddingBagSum : public ir::Node {
     auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHPU);
     auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHPU);
 
-    hl_input = HandleViewsOrUpdate(input, hl_input);
-    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
-    hl_offsets = HandleViewsOrUpdate(offsets, hl_offsets);
-    hl_valid_count = HandleViewsOrUpdate(valid_count, hl_valid_count);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
+    hl_indices = HbLazyTensorViews::HandleViewsOrUpdate(indices, hl_indices);
+    hl_offsets = HbLazyTensorViews::HandleViewsOrUpdate(offsets, hl_offsets);
+    hl_valid_count =
+        HbLazyTensorViews::HandleViewsOrUpdate(valid_count, hl_valid_count);
 
     AddInput(hl_input.GetIrValue());
     AddInput(hl_indices.GetIrValue());
@@ -77,11 +78,12 @@ class EmbeddingBagSumBwd : public ir::Node {
     auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHPU);
     auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHPU);
 
-    hl_out = HandleViewsOrUpdate(out, hl_out);
-    hl_input = HandleViewsOrUpdate(input, hl_input);
-    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
-    hl_offsets = HandleViewsOrUpdate(offsets, hl_offsets);
-    hl_valid_count = HandleViewsOrUpdate(valid_count, hl_valid_count);
+    hl_out = HbLazyTensorViews::HandleViewsOrUpdate(out, hl_out);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
+    hl_indices = HbLazyTensorViews::HandleViewsOrUpdate(indices, hl_indices);
+    hl_offsets = HbLazyTensorViews::HandleViewsOrUpdate(offsets, hl_offsets);
+    hl_valid_count =
+        HbLazyTensorViews::HandleViewsOrUpdate(valid_count, hl_valid_count);
 
     AddInput(hl_out.GetIrValue());
     AddInput(hl_input.GetIrValue());

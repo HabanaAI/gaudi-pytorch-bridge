@@ -34,7 +34,7 @@ struct Slice : public ir::Node {
                 : c10::Symbol::fromQualString("aten::slice")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -95,7 +95,7 @@ struct Slice : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::select")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 
@@ -154,9 +154,9 @@ struct ScatterAdd : public ir::Node {
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
     auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHPU);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
-    hl_index = HandleViewsOrUpdate(index, hl_index);
-    hl_src = HandleViewsOrUpdate(src, hl_src);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+    hl_index = HbLazyTensorViews::HandleViewsOrUpdate(index, hl_index);
+    hl_src = HbLazyTensorViews::HandleViewsOrUpdate(src, hl_src);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_index.GetIrValue());
@@ -183,7 +183,7 @@ struct SqueezeBase : public ir::Node {
       : Node(c10::Symbol::fromQualString(node_str)) {
     auto hl_self = habana_lazy::GetHbLazyTensor(self);
 
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());
 

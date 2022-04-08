@@ -34,11 +34,11 @@ class Embedding_forward : public ir::Node {
       bool sparse)
       : Node(c10::Symbol::fromQualString("aten::embedding")) {
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
-    hl_weight = HandleViewsOrUpdate(weight, hl_weight);
+    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
     AddInput(hl_weight.GetIrValue());
 
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
-    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
+    hl_indices = HbLazyTensorViews::HandleViewsOrUpdate(indices, hl_indices);
     AddInput(hl_indices.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{weight, indices};
@@ -81,11 +81,11 @@ class Embedding_backward : public ir::Node {
       bool scale_grad_by_freq)
       : Node(c10::Symbol::fromQualString("aten::embedding_dense_backward")) {
     auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
-    hl_grad = HandleViewsOrUpdate(grad, hl_grad);
+    hl_grad = HbLazyTensorViews::HandleViewsOrUpdate(grad, hl_grad);
     AddInput(hl_grad.GetIrValue());
 
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
-    hl_indices = HandleViewsOrUpdate(indices, hl_indices);
+    hl_indices = HbLazyTensorViews::HandleViewsOrUpdate(indices, hl_indices);
     AddInput(hl_indices.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad, indices};

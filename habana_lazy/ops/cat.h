@@ -56,7 +56,7 @@ class SplitWithSize : public ir::Node {
       int64_t dim)
       : Node(c10::Symbol::fromQualString("aten::split_with_sizes")) {
     auto hl_self = GetHbLazyTensor(self);
-    hl_self = HandleViewsOrUpdate(self, hl_self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{self};
     AddInputPtTensors(input_pt_vec);
