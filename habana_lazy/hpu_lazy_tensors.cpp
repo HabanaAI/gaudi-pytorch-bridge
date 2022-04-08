@@ -576,7 +576,21 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
   return data()->tensor_data;
 }
 
-// Method for getting tensor data for Media Data loader
+/*
+ * Method for getting tensor data for Media data loader
+ *
+ * This API is not thread safe as it might call Step marker in other threads of
+ * Media application or data loader. This can conflict with backward passes i.e.
+ * autograd thread doing LazyOp Accumulation as Step marker breaks the graph and
+ * executes accumulated Ops and accumulating Ops IR values might change after
+ * current graph execution.
+ *
+ * Media data loader generally calls htcore.data_ptr(tensor) [mapped to
+ * GetHbLazyTensorDataForMedia()] after creating empty HPU tensors and fills
+ * with data. These tensors come as graph input later and do not need full
+ * StepMarker instead, tensor data ptr is returned. But StepMarker can be called
+ * for output tensors.
+ */
 c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   auto currentIrValue = CurrentIrValue();
   if (currentIrValue && !CurrentTensorData()) {
