@@ -868,7 +868,40 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
-  throw std::runtime_error("ProcessGroupHCCL does not support gather");
+  static auto invalidArgument = [](const std::string& msg) {
+    TORCH_CHECK(false, "ProcessGroupHCCL::gather: " + msg);
+  };
+
+  std::vector<at::Tensor> outputs;
+  c10::intrusive_ptr<ProcessGroupHCCL::Work> work;
+  if (getRank() == opts.rootRank) {
+    TORCH_CHECK(outputTensors.size() == 1, "Requires a single element list");
+    TORCH_CHECK(
+        outputTensors[0].size() == getSize(),
+        "Output list should be same size as process group");
+    assertTypeAndSizesMatch(
+        invalidArgument,
+        outputTensors[0],
+        inputTensors[0].options(),
+        inputTensors[0].sizes());
+    outputs = outputTensors[0];
+    groupStart();
+    int numRanks = getSize();
+    for (int r = 0; r < numRanks; r++) {
+      if (r == getRank()) {
+        outputs[r].copy_(inputTensors[0]);
+      } else {
+        std::vector<at::Tensor> recvTensor;
+        recvTensor.push_back(outputs[r]);
+        work = recv(recvTensor, r, 0 /*tag*/);
+      }
+    }
+    groupEnd();
+  } else {
+    TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
+    work = send(inputTensors, opts.rootRank, 0 /*tag*/);
+  }
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::scatter(
