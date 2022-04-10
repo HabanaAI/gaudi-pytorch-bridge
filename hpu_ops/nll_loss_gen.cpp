@@ -157,14 +157,26 @@ void NllLoss2DFwd::AddNode(
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack, true)[0];
 
-  std::vector<int64_t> tranpose_shape = {
-      input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+  std::vector<synapse_helpers::tensor> nll_loss;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    nll_loss =
+        NllLoss(this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
+  } else {
+    std::vector<int64_t> tranpose_shape = {
+        input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+    auto transpose =
+        Transpose_MemFormat(this, graph, Fwd2D, {syn_in(0)}, tranpose_shape);
 
-  auto transpose =
-      Transpose_MemFormat(this, graph, Fwd2D, {syn_in(0)}, tranpose_shape);
+    nll_loss = NllLoss(
+        this,
+        graph,
+        {transpose[0].get(), syn_in(1)},
+        outshape,
+        params,
+        size,
+        0);
+  }
 
-  auto nll_loss = NllLoss(
-      this, graph, {transpose[0].get(), syn_in(1)}, outshape, params, size, 0);
   syn_out(0) = std::move(nll_loss[0]);
 }
 
@@ -189,21 +201,27 @@ void NllLoss2DBwd::AddNode(
     const at::Stack& stack) {
   TORCH_CHECK(stack.at(3).isNone(), "NLL loss does not support weight.");
 
-  auto input_shape = stack_tensor(stack, 1).sizes();
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack, true)[0];
 
-  std::vector<int64_t> loss_shape = {
-      input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
-
   // A JIRA is created for self input tensor not used
   // https://jira.habana-labs.com/browse/SW-73878
-  auto nll_loss =
-      NllLoss(this, graph, {syn_in(0), syn_in(2)}, loss_shape, params, size);
 
-  auto transpose =
-      Transpose_MemFormat(this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
-  syn_out(0) = std::move(transpose[0]);
+  std::vector<synapse_helpers::tensor> output;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    output =
+        NllLoss(this, graph, {syn_in(0), syn_in(2)}, outshape, params, size, 0);
+  } else {
+    auto input_shape = stack_tensor(stack, 1).sizes();
+    std::vector<int64_t> loss_shape = {
+        input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+    auto nll_loss =
+        NllLoss(this, graph, {syn_in(0), syn_in(2)}, loss_shape, params, size);
+    output = Transpose_MemFormat(
+        this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
+  }
+
+  syn_out(0) = std::move(output[0]);
 }
 } // namespace habana

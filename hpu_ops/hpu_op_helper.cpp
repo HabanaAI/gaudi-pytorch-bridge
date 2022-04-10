@@ -458,12 +458,20 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     node_outputs.emplace_back(outputs.back().get());
   }
 
+  auto input_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      op->kernel_meta_data_.synapse_input_layout);
+  auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      op->kernel_meta_data_.synapse_output_layout);
+
   auto result = graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),
       node_attr.params,
       node_attr.param_size,
-      node_attr.guid);
+      node_attr.guid,
+      nullptr,
+      input_layouts.data(),
+      output_layouts.data());
   HABANA_ASSERT(
       ok(result),
       "Adding ",

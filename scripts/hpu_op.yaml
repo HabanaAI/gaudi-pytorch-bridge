@@ -2108,6 +2108,9 @@ nll_loss2d_backward.grad_input:
     total_weight: [BFloat16, Float]
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
+  synapse_layouts:
+  - [DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
 
 nll_loss2d_forward.output:
   custom_fill_params: FillNllLossFwdParams
@@ -2119,6 +2122,9 @@ nll_loss2d_forward.output:
     output: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [DONT_CARE]
 
 normal_:
   custom_fill_params: FillNormalParams
