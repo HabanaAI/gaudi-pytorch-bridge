@@ -11,6 +11,9 @@
 #include "ir.h"
 #include <absl/strings/str_format.h>
 #include "habana_helpers/logging.h"
+// TODO: [SW-82618] fix naming performance. Keep only the naming in the
+// ir::Node CTOR, and remove PT_SBS check
+#include "habana_lazy/debug_utils.h"
 #include "lazy_executor.h"
 
 namespace habana_lazy {
@@ -75,7 +78,10 @@ size_t Use::operator()(const Use& in) const {
 
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+  // TODO: [SW-82618] fix naming performance. Keep only the naming in the
+  // ir::Node CTOR, and remove PT_SBS check
+  if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
     static std::atomic<uint64_t> id(0);
     SetName(absl::StrFormat(
         "n%d_%s/%s", id++, getCurrentModuleName(), m_op.toQualString()));
@@ -234,6 +240,13 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
+  // TODO: [SW-82618] fix naming performance. Keep only the naming in the
+  // ir::Node CTOR, and remove PT_SBS check
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES) && node->GetName().empty()) {
+    static std::atomic<uint64_t> id(0);
+    node->SetName(absl::StrFormat(
+        "n%d_%s/%s", id++, getCurrentModuleName(), node->op().toQualString()));
+  }
   for (auto& i : inputs) {
     node->AddInput(i);
   }
