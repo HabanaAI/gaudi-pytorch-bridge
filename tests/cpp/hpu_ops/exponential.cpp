@@ -23,7 +23,7 @@ TEST_F(HpuOpTest, exponential_f32_1) {
   GenerateInputs(1, {{1024}});
   auto result2 = GetHpuInput(0).exponential_(lambd, gen2);
 
-  Compare(result1, result2);
+  EXPECT_TRUE(torch::equal(result1, result2));
 }
 
 TEST_F(HpuOpTest, exponential_f32_diff_seed) {
@@ -49,7 +49,7 @@ TEST_F(HpuOpTest, exponential_f32_2) {
   GenerateInputs(1, {{256, 256}});
   auto result2 = GetHpuInput(0).exponential_(lambd);
 
-  Compare(result1, result2);
+  EXPECT_TRUE(torch::equal(result1, result2));
 }
 
 TEST_F(HpuOpTest, exponential_bf16_3) {
@@ -63,7 +63,7 @@ TEST_F(HpuOpTest, exponential_bf16_3) {
   GenerateInputs(1, {{24, 32, 32}}, {torch::kBFloat16});
   auto result2 = GetHpuInput(0).exponential_(lambd, gen2);
 
-  Compare(result1, result2);
+  EXPECT_TRUE(torch::equal(result1, result2));
 }
 
 TEST_F(HpuOpTest, exponential_f32_4) {
@@ -77,7 +77,7 @@ TEST_F(HpuOpTest, exponential_f32_4) {
   GenerateInputs(1, {{8, 3, 24, 24}});
   auto result2 = GetHpuInput(0).exponential_(lambd, gen2);
 
-  Compare(result1, result2);
+  EXPECT_TRUE(torch::equal(result1, result2));
 }
 
 TEST_F(HpuOpTest, exponential_bf16_5) {
@@ -89,5 +89,5 @@ TEST_F(HpuOpTest, exponential_bf16_5) {
   GenerateInputs(1, {{8, 3, 24, 32, 32}}, {torch::kBFloat16});
   auto result2 = GetHpuInput(0).exponential_(lambd);
 
-  Compare(result1, result2);
+  EXPECT_TRUE(torch::equal(result1, result2));
 }

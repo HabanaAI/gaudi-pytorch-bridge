@@ -593,10 +593,6 @@ at::Tensor argmax_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> dim,
     bool keepdim);
-at::Tensor& bitwise_xor_out_hpu_lazy(
-    at::Tensor& out,
-    const at::Tensor& self,
-    const at::Tensor& other);
 at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
 at::Tensor softmax_hpu_lazy(
     const at::Tensor& self,

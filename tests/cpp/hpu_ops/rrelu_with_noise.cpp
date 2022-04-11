@@ -60,8 +60,7 @@ TEST_F(HpuOpTest, rrelu_with_noise_train) {
       upper,
       training,
       at::detail::getDefaultCPUGenerator());
-  double tol = 0;
-  Compare(expected, result, tol, tol);
+  EXPECT_TRUE(expected.equal(result));
 }
 
 TEST_F(HpuOpTest, rrelu_with_noise_default) {

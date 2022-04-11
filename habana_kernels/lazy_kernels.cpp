@@ -18,7 +18,6 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"
-#include "habana_kernels/bitwise_kernels.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
@@ -67,10 +66,10 @@
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view.h"
+#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
-#include "hpu_ops/cpu_fallback.h"
 
 using namespace habana;
 using namespace at;
@@ -7164,27 +7163,6 @@ at::Tensor ones_like_hpu_lazy(
       0);
   return op.call();
 }
-
-Tensor& bitwise_xor_out_hpu_lazy(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_LAZY_TRACE;
-
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
-  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
-  // Resize output tensor(s) to correct shape if required
-  if (out.sizes().vec() != out_shape) {
-    auto out_reshaped = hl_out.getAttachedTensorImpl();
-    THHTensor_resizeNd(
-        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
-    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
-  }
-
-  LazyOp<at::Tensor&> k{
-      "hpu::bitwise_xor_Tensor_out", {out, self, other}, {}, {out_shape}};
-  return k.call(out);
-};
 
 Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
   PT_LAZY_TRACE;

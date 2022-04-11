@@ -811,10 +811,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
-  /*static at::Tensor& bitwise_and_out(
-      at::Tensor& out,
-      const at::Tensor& self,
-      at::Scalar other);*/
   static at::Tensor& bitwise_or_out(
       const at::Tensor& self,
       const at::Tensor& other,

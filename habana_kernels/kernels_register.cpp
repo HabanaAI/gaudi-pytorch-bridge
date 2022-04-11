@@ -3672,11 +3672,7 @@ Tensor& hpu_wrap::bitwise_xor_out(
       PARAMS2(self, other, out),
       Tensor_out)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return bitwise_xor_out_hpu_lazy(out, self, other);
-  } else {
-    return bitwise_xor_out_hpu(out, self, other);
-  }
+  return bitwise_xor_out_hpu(out, self, other);
 }
 
 Tensor& hpu_wrap::bitwise_not_out(const Tensor& self, Tensor& out) {
