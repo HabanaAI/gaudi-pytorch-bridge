@@ -23,6 +23,14 @@ class RoiAlignFwdOperator : public HabanaOperator {
          habana::LayoutFormat::NCHW,
          habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
   void AllocateAndAddSynapseNode(

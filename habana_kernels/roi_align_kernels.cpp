@@ -43,9 +43,15 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
   roi_params.sampling_ratio = sampling_ratio;
   roi_params.spatial_scale = spatial_scale;
   roi_params.aligned = aligned;
+  std::vector<int64_t> out_shape;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == false) {
+    out_shape.assign(
+        {num_rois.sizes()[0], output_h, output_w, input.sizes()[3]});
+  } else {
+    out_shape.assign(
+        {num_rois.sizes()[0], input.sizes()[1], output_h, output_w});
+  }
 
-  std::vector<int64_t> out_shape{
-      num_rois.sizes()[0], output_h, output_w, input.sizes()[3]};
   auto output = habana_helpers::createPTTensor(
       input, out_shape, input.options(), output_metadata.at(0).persistent);
 
