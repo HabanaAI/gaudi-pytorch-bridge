@@ -1,0 +1,428 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+#include "habana_serialization/inter_host_cache.h"
+#include <arpa/inet.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <queue>
+#include <sstream>
+#include <string>
+#include <thread>
+#include "habana_helpers/logging.h"
+#include "synapse_helpers/env_flags.h"
+
+#define NUM_ATTEMPTS 100
+#define PER_ATTEMPT_SLEEP_MS 50
+#define SOCKET_TX_PORT_OFFSET 100
+#define INTERHOST_LOG "[INTERHOST] "
+
+#define CHECK(val, line)    \
+  {                         \
+    if (val <= 0) {         \
+      PT_HABHELPER_FATAL(   \
+          INTERHOST_LOG,    \
+          "Error Val: ",    \
+          val,              \
+          ", Line: ",       \
+          line,             \
+          ", Error: ",      \
+          errno,            \
+          ", ",             \
+          strerror(errno)); \
+    }                       \
+  }
+
+namespace serialization {
+
+int file_lock(std::string const& file, int& size) {
+  auto fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+  if (fd < 0) {
+    PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for lock: ", file);
+    return -1;
+  }
+
+  size = lseek(fd, (size_t)0, SEEK_END);
+  auto retVal = flock(fd, LOCK_EX | LOCK_NB);
+  if (retVal == -1) {
+    close(fd);
+    return -1;
+  }
+
+  size = lseek(fd, (size_t)0, SEEK_END);
+  return fd;
+}
+
+constexpr const char* RECIPE_SUFFIX = ".recipe";
+constexpr const char* METADATA_SUFFIX = ".metadata";
+
+std::string recipe_file_path(
+    const std::string& path,
+    const std::string& cache_id) {
+  return path + "/" + cache_id + RECIPE_SUFFIX;
+}
+
+std::string metadata_file_path(
+    const std::string& path,
+    const std::string& cache_id) {
+  return path + "/" + cache_id + METADATA_SUFFIX;
+}
+
+InterHostCache::InterHostCache(std::string& cache_path)
+    : is_cache_valid_{true}, cache_path_{cache_path} {
+  const char* s_rank =
+      getenv("RANK") ? getenv("RANK") : getenv("OMPI_COMM_WORLD_RANK");
+  const char* s_wsize = getenv("WORLD_SIZE") ? getenv("WORLD_SIZE")
+                                             : getenv("OMPI_COMM_WORLD_SIZE");
+  const char* s_master_port = getenv("MASTER_PORT");
+  const char* s_master_addr = getenv("MASTER_ADDR");
+
+  {
+    // Basic Sanity check
+    std::stringstream ss;
+    if (s_rank)
+      ss << "Rank: " << s_rank << "\t";
+    if (s_wsize)
+      ss << "WorldSize: " << s_wsize << "\t";
+    if (s_master_addr)
+      ss << "MasterAddr: " << s_master_addr << "\t";
+    if (s_master_port)
+      ss << "MasterPort: " << s_master_port << "\t";
+
+    PT_HABHELPER_DEBUG(INTERHOST_LOG, ss.str());
+    if (!s_rank || !s_wsize || !s_master_port || !s_master_addr) {
+      PT_HABHELPER_WARN(INTERHOST_LOG, "InterHostCache() Failed: ", ss.str());
+      invalidate_cache();
+      return;
+    }
+  }
+
+  rank = std::atoi(s_rank);
+  w_size = std::atoi(s_wsize);
+  master_port = std::atoi(s_master_port) + SOCKET_TX_PORT_OFFSET;
+  master_addr = s_master_addr;
+
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    PT_HABHELPER_WARN(INTERHOST_LOG, "Socket() failed");
+    invalidate_cache();
+    return;
+  }
+}
+
+void InterHostCache::init() {
+  if (!is_cache_valid_)
+    return;
+
+  struct sockaddr_in server_addr;
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = master_port;
+  server_addr.sin_addr.s_addr = inet_addr(master_addr.c_str());
+
+  int e;
+  if (rank == 0) {
+    e = bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+  } else {
+    int attempt = 0;
+    e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    while (e < 0 && attempt < NUM_ATTEMPTS) {
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(PER_ATTEMPT_SLEEP_MS));
+      e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+      attempt++;
+    }
+  }
+
+  if (e < 0) {
+    PT_HABHELPER_WARN(INTERHOST_LOG, "Bind/Connect failed");
+    invalidate_cache();
+    close(sockfd);
+    return;
+  }
+
+  if (rank == 0) {
+    e = listen(sockfd, w_size);
+    if (e != 0) {
+      PT_HABHELPER_WARN(INTERHOST_LOG, "Listen() failed");
+      invalidate_cache();
+      close(sockfd);
+      return;
+    }
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_count = 0;
+    // Rank-0 will create a separate thread per client for listening
+    std::vector<std::thread> tp;
+    while (client_count < (w_size - 1)) {
+      int clientfd =
+          accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+      tp.emplace_back(&InterHostCache::thread_function, this, clientfd);
+      client_count++;
+      PT_HABHELPER_DEBUG(INTERHOST_LOG, "Connected clients: ", client_count);
+    }
+
+    for (auto& th : tp) {
+      th.detach();
+    }
+  }
+
+  PT_HABHELPER_DEBUG(INTERHOST_LOG, "InterHostCache() Completed: Rank=", rank);
+}
+
+void InterHostCache::thread_function(int clientfd) {
+  char tdata[MAX_SIZE];
+
+  while (true) {
+    int bytes_read, bytes_sent, rsize = 0, tb = 0;
+
+    // Get command from Client
+    bytes_read = recv(clientfd, tdata, cmdSet.size() + 1, 0);
+    if (bytes_read == 0)
+      break;
+    CHECK(bytes_read, __LINE__);
+
+    std::string cmd(tdata);
+    if (!cmdEnd.compare(cmd)) {
+      // Terminate this thread if "END" command is received
+      PT_HABHELPER_DEBUG(INTERHOST_LOG, "Thread completed");
+      send(clientfd, cmdAck.c_str(), cmdSet.size() + 1, 0);
+      break;
+    }
+
+    size_t num;
+    // Get the number of bytes in filename that will be sent next
+    bytes_read = recv(clientfd, &num, sizeof(num), 0);
+    CHECK(bytes_read, __LINE__);
+
+    // Get the filename
+    bytes_read = recv(clientfd, tdata, num, 0);
+    CHECK(bytes_read, __LINE__);
+
+    std::string filename(tdata);
+    std::string recpfile = recipe_file_path(cache_path_, filename);
+    std::string metafile = metadata_file_path(cache_path_, filename);
+    int size = 0, fd = file_lock(metafile.c_str(), size);
+
+    if (!cmdSet.compare(cmd)) {
+      // Get lock status and decide if you can continue
+      if (fd < 0 || size > 0) {
+        PT_HABHELPER_DEBUG(
+            INTERHOST_LOG,
+            "(",
+            rank,
+            ") Receive Rejected: ",
+            metafile,
+            ", FD: ",
+            fd,
+            ", Size: ",
+            size);
+        if (fd >= 0)
+          close(fd);
+        send(clientfd, cmdRej.c_str(), cmdSet.size() + 1, 0);
+        continue;
+      }
+      send(clientfd, cmdAck.c_str(), cmdSet.size() + 1, 0);
+      _recv_file(metafile, clientfd, tdata);
+      _recv_file(recpfile, clientfd, tdata);
+
+    } else if (!cmdGet.compare(cmd)) {
+      // Get lock status and decide if you can continue
+      if (fd < 0 || size <= 0) {
+        PT_HABHELPER_DEBUG(
+            INTERHOST_LOG,
+            "(",
+            rank,
+            ") Send Rejected: ",
+            metafile,
+            ", FD: ",
+            fd,
+            ", Size: ",
+            size);
+        if (fd >= 0)
+          close(fd);
+        send(clientfd, cmdRej.c_str(), cmdSet.size() + 1, 0);
+        continue;
+      }
+      send(clientfd, cmdAck.c_str(), cmdSet.size() + 1, 0);
+      _send_file(metafile, clientfd, tdata);
+      _send_file(recpfile, clientfd, tdata);
+
+    } else {
+      PT_HABHELPER_FATAL(INTERHOST_LOG, "Unknown CMD: ", tdata);
+      break;
+    }
+
+    close(fd);
+  }
+
+  close(clientfd);
+  return;
+}
+
+InterHostCache::~InterHostCache() {
+  if (rank != 0 && is_cache_valid_) {
+    send(sockfd, cmdEnd.c_str(), cmdSet.size() + 1, 0);
+    int bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
+    CHECK(bytes_recv, __LINE__);
+    close(sockfd);
+  }
+}
+
+bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
+  int bytes_recv, bytes_sent, tb = 0;
+  FILE* fp = fopen(filename.c_str(), "rb");
+  if (fp == NULL) {
+    PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Send(): ", filename);
+    return false;
+  }
+  fseek(fp, 0L, SEEK_END);
+  size_t num = ftell(fp);
+  send(sock, &num, sizeof(num), 0);
+  fseek(fp, 0L, SEEK_SET);
+
+  while ((bytes_recv = fread(buff, 1, MAX_SIZE, fp)) > 0) {
+    bytes_sent = send(sock, buff, bytes_recv, 0);
+    tb += bytes_sent;
+  }
+
+  PT_HABHELPER_DEBUG(
+      INTERHOST_LOG, "(", rank, ") Sent: ", filename, ", Bytes: ", tb);
+
+  bytes_recv = recv(sock, buff, cmdSet.size() + 1, 0);
+  CHECK(bytes_recv, __LINE__);
+  fclose(fp);
+  return true;
+}
+
+bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
+  int bytes_recv, tb = 0;
+  FILE* fp = fopen(filename.c_str(), "wb");
+  if (fp == NULL) {
+    PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Recv(): ", filename);
+    return false;
+  }
+
+  size_t num;
+  bytes_recv = recv(sock, &num, sizeof(num), 0);
+  CHECK(bytes_recv, __LINE__);
+
+  while (num > 0) {
+    bytes_recv = recv(sock, buff, num > MAX_SIZE ? MAX_SIZE : num, 0);
+    CHECK(bytes_recv, __LINE__);
+    fwrite(buff, 1, bytes_recv, fp);
+    num -= bytes_recv;
+    tb += bytes_recv;
+  }
+
+  PT_HABHELPER_DEBUG(
+      INTERHOST_LOG, "(", rank, ") Received: ", filename, ", Bytes: ", tb);
+
+  send(sock, cmdAck.c_str(), cmdSet.size() + 1, 0);
+  fclose(fp);
+  return true;
+}
+
+bool InterHostCache::send_file(std::string filename) {
+  if (rank == 0 || !is_cache_valid_)
+    return true;
+
+  std::string recpfile = recipe_file_path(cache_path_, filename);
+  std::string metafile = metadata_file_path(cache_path_, filename);
+  int size = 0, fd = file_lock(metafile.c_str(), size);
+  if (fd < 0 || size <= 0) {
+    PT_HABHELPER_DEBUG(
+        INTERHOST_LOG,
+        "(",
+        rank,
+        ") Send Rejected: ",
+        metafile,
+        ", FD: ",
+        fd,
+        ", Size: ",
+        size);
+    if (fd >= 0)
+      close(fd);
+    return false;
+  }
+
+  size_t num;
+  int bytes_recv;
+
+  filename += "\0";
+  num = filename.size() + 1;
+  send(sockfd, cmdSet.c_str(), cmdSet.size() + 1, 0);
+  send(sockfd, &num, sizeof(num), 0);
+  send(sockfd, filename.c_str(), num, 0);
+  bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
+  CHECK(bytes_recv, __LINE__);
+  if (!cmdRej.compare(data)) {
+    close(fd);
+    return false;
+  }
+
+  _send_file(metafile, sockfd, data);
+  _send_file(recpfile, sockfd, data);
+
+  close(fd);
+  return true;
+}
+
+bool InterHostCache::recv_file(std::string filename) {
+  if (rank == 0 || !is_cache_valid_)
+    return true;
+
+  std::string recpfile = recipe_file_path(cache_path_, filename);
+  std::string metafile = metadata_file_path(cache_path_, filename);
+  int size = 0, fd = file_lock(metafile.c_str(), size);
+  if (fd < 0 || size > 0) {
+    PT_HABHELPER_DEBUG(
+        INTERHOST_LOG,
+        "(",
+        rank,
+        ") Receive Rejected: ",
+        metafile,
+        ", FD: ",
+        fd,
+        ", Size: ",
+        size);
+    if (fd >= 0)
+      close(fd);
+    return false;
+  }
+
+  size_t num;
+  int bytes_recv;
+
+  filename += "\0";
+  num = filename.size() + 1;
+  send(sockfd, cmdGet.c_str(), cmdSet.size() + 1, 0);
+  send(sockfd, &num, sizeof(num), 0);
+  send(sockfd, filename.c_str(), num, 0);
+  bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
+  CHECK(bytes_recv, __LINE__);
+  if (!cmdRej.compare(data)) {
+    close(fd);
+    return false;
+  }
+
+  _recv_file(metafile, sockfd, data);
+  _recv_file(recpfile, sockfd, data);
+
+  close(fd);
+  return true;
+}
+
+} // namespace serialization

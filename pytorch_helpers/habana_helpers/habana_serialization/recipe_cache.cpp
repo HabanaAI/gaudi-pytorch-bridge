@@ -109,7 +109,13 @@ RecipeCache::RecipeCache(std::string cache_path)
     : mut_{},
       cond_var_{},
       cache_path_{std::move(cache_path)},
-      is_cache_valid_{false} {
+      is_cache_valid_{false},
+      inter_host_cache_{nullptr} {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING)) {
+    inter_host_cache_ = std::make_unique<InterHostCache>(cache_path_);
+    inter_host_cache_->init();
+  }
+
   // no checking of retval, the dir is queried below regardless
   mkdir(cache_path_.c_str(), S_IRWXU | S_IRWXG);
   struct stat info {};
@@ -164,6 +170,10 @@ void RecipeCache::store(
 
   PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
   unlock_file(metadata_path, meta_fd_to_unlock);
+
+  if (inter_host_cache_) {
+    inter_host_cache_->send_file(cache_id);
+  }
 }
 
 absl::optional<synRecipeHandle> RecipeCache::lookup(
@@ -176,6 +186,10 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
+
+  if (inter_host_cache_) {
+    inter_host_cache_->recv_file(cache_id);
+  }
 
   auto try_lock_and_read = [&,
                             this](int fd) -> absl::optional<synRecipeHandle> {

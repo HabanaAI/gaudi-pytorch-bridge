@@ -14,10 +14,12 @@ add_library(habana_serialization STATIC
     deserializers.cpp
     serializers.cpp
     recipe_cache.cpp
+    inter_host_cache.cpp
     cache_version.cpp
     include/habana_serialization/deserializers.h
     include/habana_serialization/serializers.h
     include/habana_serialization/recipe_cache.h
+    include/habana_serialization/inter_host_cache.h
     include/habana_serialization/cache_version.h
 )
 

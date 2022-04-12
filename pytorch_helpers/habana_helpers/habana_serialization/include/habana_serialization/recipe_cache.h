@@ -19,6 +19,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include "inter_host_cache.h"
 
 namespace serialization {
 
@@ -50,6 +51,7 @@ class RecipeCache {
   std::condition_variable cond_var_;
   std::string cache_path_;
   bool is_cache_valid_;
+  std::unique_ptr<InterHostCache> inter_host_cache_;
 
   // map to track opened metadata files, so can be closed, once cache entry is
   // stored on disk
