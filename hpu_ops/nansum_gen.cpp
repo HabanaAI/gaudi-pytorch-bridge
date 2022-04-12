@@ -10,8 +10,7 @@
 
 #include "generated/hpu_op.h"
 #include "habana_kernels/reduction_kernels.h"
-#include "hpu_op_helper.h"
-#include "reduction_op_util.h"
+#include "reduction_template.h"
 
 #define guidReducesum "reduce_sum_fwd_"
 

@@ -10,6 +10,7 @@
 
 #include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
+#include "reduction_template.h"
 
 namespace habana {
 
@@ -26,16 +27,10 @@ void NormHabanaOperator::AddNode(
   auto outshape = self.sizes();
   auto n_dims = self.dim();
 
-  synTensor input_tensor = syn_in(0);
-  std::vector<synapse_helpers::tensor> cast;
-
-  if (dtype != ScalarType()) {
-    std::string cast_guid = "cast_" +
-        habana_helpers::name_suffix_from_type(ScalarType()) + "_to_" +
-        habana_helpers::name_suffix_from_type(dtype);
-    cast = BuildOp(graph, cast_guid, {input_tensor}, {{outshape, dtype}});
-    input_tensor = cast[0].get();
-  }
+  synapse_helpers::tensor& input = p_context_->syn_inputs_[0];
+  auto input_in_dtype =
+      HandleReductionDtype(this, graph, self, std::move(input), dtype);
+  auto input_tensor = input_in_dtype.get();
 
   if (p.toFloat() == 2.0) {
     if (n_dims <= 1 || self.sizes()[0] == 1) {

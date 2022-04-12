@@ -101,6 +101,11 @@ class OpBackend : public HabanaOperator {
   const c10::ScalarType& ScalarType() const {
     return m_scalar_type;
   }
+
+  void SetScalarType(c10::ScalarType dtype) {
+    m_scalar_type = dtype;
+  }
+
   // keeping AllocateAndAddSynapseNode public to help with calling autogen ops
   // from manually written ops
   void AllocateAndAddSynapseNode(
@@ -117,6 +122,15 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       at::IntArrayRef sizes,
       synTensorType shape_tensor_type);
+
+  sizes_vec ComputeOutputShapes(
+      const at::Stack& stack,
+      bool is_lowering = false) const {
+    if (m_compute_output_shapes) {
+      return m_compute_output_shapes(stack, is_lowering);
+    }
+    return {};
+  }
 
  protected:
   c10::ScalarType ComputePromotedScalarType(
@@ -185,15 +199,6 @@ class OpBackend : public HabanaOperator {
   void SetComputeOutputShapes(
       std::function<sizes_vec(const at::Stack&, bool)> fn) {
     m_compute_output_shapes = std::move(fn);
-  }
-
-  sizes_vec ComputeOutputShapes(
-      const at::Stack& stack,
-      bool is_lowering = false) const {
-    if (m_compute_output_shapes) {
-      return m_compute_output_shapes(stack, is_lowering);
-    }
-    return {};
   }
 
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}

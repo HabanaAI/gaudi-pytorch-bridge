@@ -10,7 +10,7 @@
 
 #include "generated/hpu_op.h"
 #include "habana_kernels/reduction_kernels.h"
-#include "reduction_op_util.h"
+#include "reduction_template.h"
 
 namespace habana {
 sizes_vec ProdOutputShape(const at::Stack& stack, bool) {
