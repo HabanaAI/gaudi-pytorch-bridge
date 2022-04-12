@@ -112,94 +112,6 @@ bool isStridedNode(const torch::jit::Value* value_in) {
   return flag;
 }
 
-void handleStridedWeights(
-    std::shared_ptr<Graph>& graph,
-    const torch::jit::Value* weight_value) {
-  auto value_in = const_cast<torch::jit::Value*>(weight_value);
-  if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-    if (is_4d_5d_value(value_in)) {
-      auto isAstridedNode = false;
-      torch::jit::Node* node = nullptr;
-      if (isAsStridedNode(value_in)) {
-        isAstridedNode = true;
-        node = value_in->node();
-      }
-      for (auto& use : value_in->uses()) {
-        auto node_as_strided = use.user;
-        HABANA_ASSERT(node_as_strided);
-        std::string node_str = node_as_strided->kind().toQualString();
-        if ((strcmp(
-                 node_as_strided->kind().toQualString(),
-                 "hpu::as_strided_lazy") == 0) ||
-            (strcmp(
-                 node_as_strided->kind().toQualString(),
-                 "hpu::strided_insert") == 0) ||
-            (strcmp(
-                 node_as_strided->kind().toQualString(), "hpu::strided_view") ==
-             0)) {
-          isAstridedNode = true;
-          node = node_as_strided;
-          break;
-        }
-      }
-      if (isAstridedNode) {
-        std::vector<int64_t> sizes;
-        if (strcmp(node->kind().toQualString(), "hpu::strided_insert") == 0) {
-          auto value_in1 = node->input(1);
-          auto tty = value_in1->type()->cast<TensorType>();
-          sizes = *(tty->sizes().concrete_sizes());
-        }
-        if (strcmp(node->kind().toQualString(), "hpu::strided_view") == 0)
-          sizes = toIValue(node->input(1))->toIntVector();
-        auto is_5d_layout = sizes.size() == 5 ? true : false;
-        int64_t dim_out_pos[] = {2, 3, 1, 0};
-        int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
-        at::IntArrayRef out_pos;
-        out_pos = dim_out_pos;
-        if (is_5d_layout)
-          out_pos = dim_out_pos_3d;
-        auto new_pos = out_pos.vec();
-        std::vector<long int> swapped_sizes = {
-            sizes[new_pos[0]],
-            sizes[new_pos[1]],
-            sizes[new_pos[2]],
-            sizes[new_pos[3]]};
-        if (is_5d_layout) {
-          swapped_sizes.push_back(sizes[new_pos[4]]);
-        }
-        std::vector<long int> strides = {
-            swapped_sizes[1] * swapped_sizes[2] * swapped_sizes[3],
-            swapped_sizes[3] * swapped_sizes[2],
-            swapped_sizes[3],
-            1};
-        if (is_5d_layout) {
-          strides.clear();
-          strides.push_back(
-              swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2] *
-              swapped_sizes[1]);
-          strides.push_back(
-              swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2]);
-          strides.push_back(swapped_sizes[4] * swapped_sizes[3]);
-          strides.push_back(swapped_sizes[4]);
-          strides.push_back(1);
-        }
-        if (strcmp(node->kind().toQualString(), "hpu::strided_view") == 0) {
-          WithInsertPoint insert_point(node);
-          auto value_dim = graph->insertConstant(IValue(swapped_sizes));
-          auto value_strides = graph->insertConstant(IValue(strides));
-          node->replaceInputWith(node->input(1), value_dim);
-          node->replaceInputWith(node->input(2), value_strides);
-        }
-        if (strcmp(node->kind().toQualString(), "hpu::strided_insert") == 0) {
-          WithInsertPoint insert_point(node);
-          auto value_strides = graph->insertConstant(IValue(strides));
-          node->replaceInputWith(node->input(2), value_strides);
-        }
-      }
-    }
-  }
-}
-
 bool is_4d_5d_tensor(const at::Tensor tensor) {
   return (tensor.dim() == 4 || tensor.dim() == 5) ? true : false;
 }
@@ -256,6 +168,146 @@ at::IntArrayRef getDimsForWeightLayout(
   }
 
   return dims;
+}
+
+bool isWeightExpanded(const torch::jit::Node* node) {
+  auto value_in = node->input(0);
+  auto value_out = node->output(0);
+  auto t_value_in = *value_in->type()->cast<TensorType>();
+  auto t_value_out = *value_out->type()->cast<TensorType>();
+  if ((*t_value_in.numel() == *t_value_out.numel()) &&
+      (*t_value_in.dim() != *t_value_out.dim()))
+    return true;
+  return false;
+}
+
+void handleExpandedWeights(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Node* node) {
+  auto value_in = node->input(0);
+  auto value_out = node->output(0);
+  auto t_value_in = *value_in->type()->cast<TensorType>();
+  auto t_value_out = *value_out->type()->cast<TensorType>();
+  if (is_4d_5d_value(value_in)) {
+    // add permute before node
+    auto op_permute = c10::Symbol::fromQualString("hpu::permute");
+    auto dims1 = getDimsForWeightLayout(
+        habana::LayoutFormat::NCHW,
+        habana::LayoutFormat::HWCK,
+        *t_value_in.dim());
+    auto value_dims1 = graph->insertConstant(IValue(dims1));
+    auto permute_node = graph->create(op_permute, {value_in, value_dims1}, 1);
+    permute_node->insertAfter(value_in->node());
+    value_dims1->node()->moveBefore(permute_node);
+    value_in->replaceAllUsesAfterNodeWith(
+        permute_node, permute_node->output(0));
+  }
+  if (is_4d_5d_value(value_out)) {
+    // add permute after the node
+    auto op_permute = c10::Symbol::fromQualString("hpu::permute");
+    auto dims1 = getDimsForWeightLayout(
+        habana::LayoutFormat::HWCK,
+        habana::LayoutFormat::NCHW,
+        *t_value_out.dim());
+    auto value_dims1 = graph->insertConstant(IValue(dims1));
+    auto permute_node = graph->create(op_permute, {value_out, value_dims1}, 1);
+    permute_node->insertAfter(node);
+    value_dims1->node()->moveBefore(permute_node);
+    value_out->replaceAllUsesAfterNodeWith(
+        permute_node, permute_node->output(0));
+  }
+}
+
+void handleStridedWeights(
+    std::shared_ptr<Graph>& graph,
+    const torch::jit::Value* weight_value) {
+  auto value_in = const_cast<torch::jit::Value*>(weight_value);
+  if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+    if (is_4d_5d_value(value_in)) {
+      auto isAstridedNode = false;
+      torch::jit::Node* node = nullptr;
+      if (isAsStridedNode(value_in)) {
+        isAstridedNode = true;
+        node = value_in->node();
+      }
+      for (auto& use : value_in->uses()) {
+        auto node_as_strided = use.user;
+        HABANA_ASSERT(node_as_strided);
+        std::string node_str = node_as_strided->kind().toQualString();
+        if ((strcmp(
+                 node_as_strided->kind().toQualString(),
+                 "hpu::as_strided_lazy") == 0) ||
+            (strcmp(
+                 node_as_strided->kind().toQualString(),
+                 "hpu::strided_insert") == 0) ||
+            (strcmp(
+                 node_as_strided->kind().toQualString(), "hpu::strided_view") ==
+             0)) {
+          isAstridedNode = true;
+          node = node_as_strided;
+          break;
+        }
+      }
+      if (isAstridedNode) {
+        if (isWeightExpanded(node)) {
+          handleExpandedWeights(graph, node);
+        } else {
+          std::vector<int64_t> sizes;
+          if (strcmp(node->kind().toQualString(), "hpu::strided_insert") == 0) {
+            auto value_in1 = node->input(1);
+            auto tty = value_in1->type()->cast<TensorType>();
+            sizes = *(tty->sizes().concrete_sizes());
+          }
+          if (strcmp(node->kind().toQualString(), "hpu::strided_view") == 0)
+            sizes = toIValue(node->input(1))->toIntVector();
+          auto is_5d_layout = sizes.size() == 5 ? true : false;
+          int64_t dim_out_pos[] = {2, 3, 1, 0};
+          int64_t dim_out_pos_3d[] = {2, 3, 4, 1, 0};
+          at::IntArrayRef out_pos;
+          out_pos = dim_out_pos;
+          if (is_5d_layout)
+            out_pos = dim_out_pos_3d;
+          auto new_pos = out_pos.vec();
+          std::vector<long int> swapped_sizes = {
+              sizes[new_pos[0]],
+              sizes[new_pos[1]],
+              sizes[new_pos[2]],
+              sizes[new_pos[3]]};
+          if (is_5d_layout) {
+            swapped_sizes.push_back(sizes[new_pos[4]]);
+          }
+          std::vector<long int> strides = {
+              swapped_sizes[1] * swapped_sizes[2] * swapped_sizes[3],
+              swapped_sizes[3] * swapped_sizes[2],
+              swapped_sizes[3],
+              1};
+          if (is_5d_layout) {
+            strides.clear();
+            strides.push_back(
+                swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2] *
+                swapped_sizes[1]);
+            strides.push_back(
+                swapped_sizes[4] * swapped_sizes[3] * swapped_sizes[2]);
+            strides.push_back(swapped_sizes[4] * swapped_sizes[3]);
+            strides.push_back(swapped_sizes[4]);
+            strides.push_back(1);
+          }
+          if (strcmp(node->kind().toQualString(), "hpu::strided_view") == 0) {
+            WithInsertPoint insert_point(node);
+            auto value_dim = graph->insertConstant(IValue(swapped_sizes));
+            auto value_strides = graph->insertConstant(IValue(strides));
+            node->replaceInputWith(node->input(1), value_dim);
+            node->replaceInputWith(node->input(2), value_strides);
+          }
+          if (strcmp(node->kind().toQualString(), "hpu::strided_insert") == 0) {
+            WithInsertPoint insert_point(node);
+            auto value_strides = graph->insertConstant(IValue(strides));
+            node->replaceInputWith(node->input(2), value_strides);
+          }
+        }
+      }
+    }
+  }
 }
 
 void WeightPermutesEagerMode(std::shared_ptr<Graph>& graph) {

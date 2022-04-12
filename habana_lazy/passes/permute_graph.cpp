@@ -320,7 +320,8 @@ void HandleNodeInputsTensor(
       // For weight tensors we update the map before execution starts
       // through weightmarking pass If its marked HWCK in the map,
       // we can override with it
-      if (tensor_layout == habana::LayoutFormat::HWCK) {
+      if (tensor_layout == habana::LayoutFormat::HWCK &&
+          strcmp(node->kind().toQualString(), "hpu::strided_view") != 0) {
         TORCH_CHECK(
             in_layout == habana::LayoutFormat::HWCK ||
                 in_layout == habana::LayoutFormat::ANY,

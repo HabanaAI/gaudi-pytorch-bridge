@@ -1010,3 +1010,22 @@ TEST_F(GraphOptimizeTest, CatTest) {
   torch::Tensor catOut = torch::cat({tHabanaX0, tHabanaX1}, 1);
   auto out = catOut.to(torch::kCPU);
 }
+
+TEST_F(GraphOptimizeTest, WeightExpandViewTest) {
+  auto weight0 = torch::randn(
+      {32, 32, 2}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto in = torch::randn(
+      {8, 32, 1, 63}, torch::dtype(torch::kFloat).requires_grad(false));
+  at::Tensor wt = weight0.view({32, 32, 1, 2});
+  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0, 0}, {1}, 1);
+  auto exp = torch::relu(exp1);
+  habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(true);
+  auto h_in = in.to(torch::kHPU);
+  auto h_weight0 = weight0.to(torch::kHPU);
+  auto h_wt = torch::as_strided(h_weight0, wt.sizes(), wt.strides(), 0);
+  auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+  auto result = torch::relu(result1);
+  Tensor out = result.to(kCPU);
+  habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(false);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
