@@ -7,6 +7,8 @@
  *
  ******************************************************************************
  */
+#include "habana_kernels/upsample_kernels.h"
+
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
@@ -15,12 +17,12 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
-#include "habana_kernels/upsample_kernels.h"
-
 #include "habana_lazy/lazy_executor.h"
+#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;
+using namespace synapse_helpers::layouts;
 
 static bool is_tensor_5d(std::vector<int64_t> tensor_vec) {
   const uint64_t DIMS_SIZE_5 = 5;
@@ -30,8 +32,64 @@ static bool is_tensor_5d(std::vector<int64_t> tensor_vec) {
 std::vector<int64_t> UpsampleOperator::compute_output_shape(
     std::vector<int64_t> shape_in,
     c10::optional<IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scales) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+  TORCH_CHECK(
+      scales.has_value() || output_size.has_value(),
+      "Either Upsample scales or output_size not defined");
+  std::vector<int64_t> out_shape;
+  bool is_input_5d = is_tensor_5d(shape_in);
+  if (scales.has_value()) {
+    auto scale_factor_in_double = scales.value().vec();
+    // Cast scale_factor from double -> float. This is required so that output
+    // shape computed matches OFM computation in TPC Glue code for resize
+    // kernel.
+    std::vector<float> scale_factor(
+        scale_factor_in_double.begin(), scale_factor_in_double.end());
+    if (is_input_5d) { // Upsample nearest 3d
+      out_shape = {
+          shape_in[INPUT_3D_N_IDX],
+          shape_in[INPUT_3D_C_IDX],
+          static_cast<int64_t>(shape_in[INPUT_3D_D_IDX] * scale_factor[0]),
+          static_cast<int64_t>(shape_in[INPUT_3D_H_IDX] * scale_factor[1]),
+          static_cast<int64_t>(shape_in[INPUT_3D_W_IDX] * scale_factor[2])};
+    } else { // Upsample nearest 2d
+      out_shape = {
+          shape_in[INPUT_N_IDX],
+          shape_in[INPUT_C_IDX],
+          static_cast<int64_t>(shape_in[INPUT_H_IDX] * scale_factor[0]),
+          static_cast<int64_t>(shape_in[INPUT_W_IDX] * scale_factor[1])};
+    }
+  } else if (output_size.has_value()) {
+    auto out_size = output_size.value().vec();
+    if (is_input_5d) { // Upsample nearest 3d
+      out_shape = {
+          shape_in[INPUT_3D_N_IDX],
+          shape_in[INPUT_3D_C_IDX],
+          out_size[0],
+          out_size[1],
+          out_size[2]};
+    } else { // Upsample nearest 2d
+      out_shape = {
+          shape_in[INPUT_N_IDX],
+          shape_in[INPUT_C_IDX],
+          out_size[0],
+          out_size[1]};
+    }
+  }
+  return out_shape;
+}
+
+std::vector<int64_t> UpsampleOperator::compute_output_shape(
+    std::vector<int64_t> shape_in,
+    c10::optional<IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scales,
     c10::MemoryFormat memory_format) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
+    return compute_output_shape(shape_in, output_size, scales);
+  }
   TORCH_CHECK(
       (memory_format == c10::MemoryFormat::ChannelsLast3d) ||
           (memory_format == c10::MemoryFormat::ChannelsLast) ||

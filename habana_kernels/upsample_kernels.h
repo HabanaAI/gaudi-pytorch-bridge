@@ -31,6 +31,10 @@ class UpsampleOperator : public HabanaOperator {
       c10::optional<at::IntArrayRef> output_size,
       c10::optional<at::ArrayRef<double>> scales,
       c10::MemoryFormat memory_format);
+  static std::vector<int64_t> compute_output_shape(
+      std::vector<int64_t> shape_in,
+      c10::optional<at::IntArrayRef> output_size,
+      c10::optional<at::ArrayRef<double>> scales);
 };
 
 // Upsample Backward Operator
@@ -61,6 +65,11 @@ class UpsampleNearest2dOperator : public UpsampleOperator {
       : UpsampleOperator(
             device_id,
             "resize_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 };
 
@@ -70,6 +79,11 @@ class UpsampleNearest2dBackwardOperator : public UpsampleBackwardOperator {
       : UpsampleBackwardOperator(
             device_id,
             "resize_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 };
 
@@ -81,6 +95,11 @@ class UpsampleNearest3dOperator : public UpsampleOperator {
       : UpsampleOperator(
             device_id,
             "resize_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 };
 
@@ -90,6 +109,11 @@ class UpsampleNearest3dBackwardOperator : public UpsampleBackwardOperator {
       : UpsampleBackwardOperator(
             device_id,
             "resize_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 };
 } // namespace habana

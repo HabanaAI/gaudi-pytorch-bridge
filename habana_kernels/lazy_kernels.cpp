@@ -6756,10 +6756,12 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
     grad_output_cast = k_.call();
   }
   std::vector<int64_t> permuted_sizes = input_size.vec();
-  permuted_sizes[0] = input_size[0];
-  permuted_sizes[1] = input_size[2];
-  permuted_sizes[2] = input_size[3];
-  permuted_sizes[3] = input_size[1];
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == false) {
+    permuted_sizes[0] = input_size[0];
+    permuted_sizes[1] = input_size[2];
+    permuted_sizes[2] = input_size[3];
+    permuted_sizes[3] = input_size[1];
+  }
 
   std::string op;
   Stack args;
@@ -6862,11 +6864,13 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
     grad_output_cast = k_.call();
   }
   std::vector<int64_t> permuted_sizes = input_size.vec();
-  permuted_sizes[0] = input_size[0];
-  permuted_sizes[1] = input_size[2];
-  permuted_sizes[2] = input_size[3];
-  permuted_sizes[3] = input_size[4];
-  permuted_sizes[4] = input_size[1];
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == false) {
+    permuted_sizes[0] = input_size[0];
+    permuted_sizes[1] = input_size[2];
+    permuted_sizes[2] = input_size[3];
+    permuted_sizes[3] = input_size[4];
+    permuted_sizes[4] = input_size[1];
+  }
   LazyOp<at::Tensor> k(
       "aten::upsample_nearest3d_backward",
       {grad_output_cast, output_size, permuted_sizes, scale_factors},

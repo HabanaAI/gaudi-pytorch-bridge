@@ -9,6 +9,9 @@
  */
 
 #include "generated/hpu_op.h"
+#include "synapse_helpers/layout_utils.h"
+
+using namespace synapse_helpers::layouts;
 
 #define CHECK_NULL_INPUT(out_size, scale)                     \
   TORCH_CHECK(                                                \
@@ -201,6 +204,33 @@ sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack, bool) {
   return {stack.at(2).toIntVector()};
 }
 // Forward Output Shape - Bilinear2D
+std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(3);
+  std::vector<int64_t> out_shape;
+  if (!out_size.isNone()) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (!scale.isNone()) {
+    double scale_w = scale.toDoubleVector().at(1);
+    double scale_h = scale.toDoubleVector().at(0);
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
+        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+  }
+  return out_shape;
+}
+// Forward Output Shape - Bilinear2D
 sizes_vec UpsampleBilinear2DFwdOutputShape(
     const at::Stack& stack,
     bool isLowering) {
@@ -210,37 +240,41 @@ sizes_vec UpsampleBilinear2DFwdOutputShape(
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  if (!isLowering) {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1)};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          static_cast<int64_t>(self.sizes()[2] * scale_h),
-          static_cast<int64_t>(self.sizes()[3] * scale_w)};
-    }
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
+    out_shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1),
-          self.sizes()[3]};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          static_cast<int64_t>(self.sizes()[1] * scale_h),
-          static_cast<int64_t>(self.sizes()[2] * scale_w),
-          self.sizes()[3]};
+    if (!isLowering) {
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1)};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            static_cast<int64_t>(self.sizes()[2] * scale_h),
+            static_cast<int64_t>(self.sizes()[3] * scale_w)};
+      }
+    } else {
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1),
+            self.sizes()[3]};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            static_cast<int64_t>(self.sizes()[1] * scale_h),
+            static_cast<int64_t>(self.sizes()[2] * scale_w),
+            self.sizes()[3]};
+      }
     }
   }
 
@@ -258,11 +292,39 @@ sizes_vec UpsampleBilinear2DBwdOutputShape(
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering) {
+  if (!isLowering ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else { // always in NHWC - backend
     return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
   }
+}
+std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(2);
+  std::vector<int64_t> out_shape;
+  if (!out_size.isNone()) {
+    // NCHW
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (!scale.isNone()) {
+    double scale_w = scale.toDoubleVector().at(1);
+    double scale_h = scale.toDoubleVector().at(0);
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
+        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+  }
+  return out_shape;
 }
 // Forward Output Shape - Nearest2D
 sizes_vec UpsampleNearest2DFwdOutputShape(
@@ -274,37 +336,43 @@ sizes_vec UpsampleNearest2DFwdOutputShape(
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale)
-  if (!isLowering) {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1)};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          static_cast<int64_t>(self.sizes()[2] * scale_h),
-          static_cast<int64_t>(self.sizes()[3] * scale_w)};
-    }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
+    out_shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1),
-          self.sizes()[3]};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          static_cast<int64_t>(self.sizes()[1] * scale_h),
-          static_cast<int64_t>(self.sizes()[2] * scale_w),
-          self.sizes()[3]};
+    if (!isLowering) {
+      // NCHW
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1)};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            static_cast<int64_t>(self.sizes()[2] * scale_h),
+            static_cast<int64_t>(self.sizes()[3] * scale_w)};
+      }
+    } else {
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1),
+            self.sizes()[3]};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            static_cast<int64_t>(self.sizes()[1] * scale_h),
+            static_cast<int64_t>(self.sizes()[2] * scale_w),
+            self.sizes()[3]};
+      }
     }
   }
 
@@ -322,11 +390,39 @@ sizes_vec UpsampleNearest2DBwdOutputShape(
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering) {
+  if (!isLowering ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else {
     return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
   }
+}
+
+std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
+      "compute_output_shape for Synapse layout handling mode");
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(3);
+  std::vector<int64_t> out_shape;
+  if (!out_size.isNone()) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (!scale.isNone()) {
+    double scale_w = scale.toDoubleVector().at(1);
+    double scale_h = scale.toDoubleVector().at(0);
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
+        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+  }
+  return out_shape;
 }
 // Forward Output Shape - Bicubic2D
 sizes_vec UpsampleBicubic2DFwdOutputShape(
@@ -338,37 +434,42 @@ sizes_vec UpsampleBicubic2DFwdOutputShape(
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  if (!isLowering) {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1)};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          self.sizes()[1],
-          static_cast<int64_t>(self.sizes()[2] * scale_h),
-          static_cast<int64_t>(self.sizes()[3] * scale_w)};
-    }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
+    out_shape = UpsampleBicubic2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!out_size.isNone()) {
-      out_shape = {
-          self.sizes()[0],
-          out_size.toIntVector().at(0),
-          out_size.toIntVector().at(1),
-          self.sizes()[3]};
-    } else if (!scale.isNone()) {
-      double scale_w = scale.toDoubleVector().at(1);
-      double scale_h = scale.toDoubleVector().at(0);
-      out_shape = {
-          self.sizes()[0],
-          static_cast<int64_t>(self.sizes()[1] * scale_h),
-          static_cast<int64_t>(self.sizes()[2] * scale_w),
-          self.sizes()[3]};
+    if (!isLowering) {
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1)};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            self.sizes()[1],
+            static_cast<int64_t>(self.sizes()[2] * scale_h),
+            static_cast<int64_t>(self.sizes()[3] * scale_w)};
+      }
+    } else {
+      if (!out_size.isNone()) {
+        out_shape = {
+            self.sizes()[0],
+            out_size.toIntVector().at(0),
+            out_size.toIntVector().at(1),
+            self.sizes()[3]};
+      } else if (!scale.isNone()) {
+        double scale_w = scale.toDoubleVector().at(1);
+        double scale_h = scale.toDoubleVector().at(0);
+        out_shape = {
+            self.sizes()[0],
+            static_cast<int64_t>(self.sizes()[1] * scale_h),
+            static_cast<int64_t>(self.sizes()[2] * scale_w),
+            self.sizes()[3]};
+      }
     }
   }
 
@@ -386,7 +487,8 @@ sizes_vec UpsampleBicubic2DBwdOutputShape(
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering) {
+  if (!isLowering ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else { // always in NHWC - backend
     return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
