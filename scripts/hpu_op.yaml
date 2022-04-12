@@ -2759,52 +2759,11 @@ softshrink_backward:
   guid: shrink_bwd
   out_ids: [0]
 
-special_xlog1py:
-  dtypes: [BFloat16, Float]
-  guid: log1p_fwd
-  force_default: false
-  op_backend: XlogYOperator
-  out_ids: [0]
-
-special_xlog1py.other_scalar:
-  custom_output_shape: XlogYOutputShape
-  guid: log1p_fwd
-  dtypes: [BFloat16, Float]
-  force_default: false
-  op_backend: XlogYOperator
-  out_ids: [0]
-  scalar_ids: [1]
-
-special_xlog1py.other_scalar_out:
-  custom_output_shape: XlogYOutputShape
-  guid: log1p_fwd
-  dtypes: [BFloat16, Float]
-  force_default: false
-  op_backend: XlogYOperator
-  scalar_ids: [1]
-
 special_xlog1py.out:
-  dtypes: [BFloat16, Float]
-  guid: log1p_fwd
-  op_backend: XlogYOperator
-
-special_xlog1py.self_scalar_out:
-  guid: log1p_fwd
   custom_output_shape: XlogYOutputShape
   dtypes: [BFloat16, Float]
-  force_default: false
-  op_backend: XlogYOperator
-  scalar_ids: [0]
-
-special_xlog1py.self_scalar:
   guid: log1p_fwd
-  custom_output_shape: XlogYOutputShape
-  dtypes: [BFloat16, Float]
-  force_default: false
-  op_frontend: LazyXlogY
   op_backend: XlogYOperator
-  out_ids: [1]
-  scalar_ids: [0]
 
 special_entr:
   dtypes: [Float]
@@ -3331,68 +3290,8 @@ vdot.out:
   dtypes: [BFloat16, Float]
   op_backend: VdotOperator
 
-xlogy.Scalar_Other:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  out_ids: [0]
-  scalar_ids: [1]
-
-xlogy.Tensor:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  out_ids: [0]
-
-xlogy.OutScalar_Self:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  scalar_ids: [0]
-
-xlogy.OutScalar_Other:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  scalar_ids: [1]
-
 xlogy.OutTensor:
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes: [BFloat16, Float]
   op_backend: XlogYOperator
-
-xlogy_.Scalar_Other:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  scalar_ids: [1]
-  inplace_ids: [0]
-
-xlogy_.Tensor:
-  force_default: false
-  custom_output_shape: XlogYOutputShape
-  guid: log_fwd
-  dtypes: [BFloat16, Float]
-  op_backend: XlogYOperator
-  inplace_ids: [0]
-
-xlogy.Scalar_Self:
-  force_default: false
-  op_backend: XlogYOperator
-  guid: log_fwd
-  custom_output_shape: XlogYOutputShape
-  dtypes: [BFloat16, Float]
-  op_frontend: LazyXlogY
-  out_ids: [1]
-  scalar_ids: [0]
