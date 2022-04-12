@@ -211,6 +211,8 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -239,6 +241,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
 
 // input(CL) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -319,6 +323,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
 
 // input(CL) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -349,6 +355,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL) {
 
 // input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
 
@@ -514,6 +522,8 @@ TEST_F(GraphOptimizeTest, PermutePassTestInplace_Debug) {
 
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -544,6 +554,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
 
 // input(CL) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -632,6 +644,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky_cache) {
 
 // input(CL) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL_cache) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -665,6 +679,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL_cache) {
 
 // input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace_cache) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28},
@@ -696,6 +712,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace_cache) {
 
 // input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
 TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace_cache) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    return;
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28},
