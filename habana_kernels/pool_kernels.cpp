@@ -1522,8 +1522,10 @@ void AdaptiveAvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   at::Tensor grad_input_nhwc = inputs[0].toTensor();
   at::Tensor input_nhwc = inputs[1].toTensor();
 
-  const int H = safe_downcast<int, int64_t>(input_nhwc.size(1));
-  const int W = safe_downcast<int, int64_t>(input_nhwc.size(2));
+  const int H = safe_downcast<int, int64_t>(
+      input_nhwc.size(synapse_helpers::layouts::INPUT_H_IDX));
+  const int W = safe_downcast<int, int64_t>(
+      input_nhwc.size(synapse_helpers::layouts::INPUT_W_IDX));
   int64_t output_HW[] = {H, W};
   IntArrayRef output_size = output_HW;
   auto out_shape =

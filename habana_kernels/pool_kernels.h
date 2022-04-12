@@ -176,6 +176,10 @@ class AdaptiveAvgPool2dOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -196,6 +200,10 @@ class AdaptiveAvgPool2dBackwardOperator : public HabanaOperator {
         {LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
     kernel_meta_data_.tpc_input_order = {0};
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
