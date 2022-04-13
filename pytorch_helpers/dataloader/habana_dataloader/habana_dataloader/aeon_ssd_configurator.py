@@ -138,6 +138,7 @@ class AeonSSDConfigurator:
     def _handle_resize_crop(self, t):
         self.transforms_config["height"] = t.size[0]
         self.transforms_config["width"] = t.size[1]
+        self.transforms_config["pillow_mode"] = True
 
     def _handle_color_jitter(self, t):
         self.transforms_config["brightness"] = t.brightness
@@ -279,6 +280,7 @@ class AeonSSDConfigurator:
         }
 
         augmentation_config["caffe_mode"] = self.transforms_config.get("caffe_mode", False)
+        augmentation_config["pillow_mode"] = self.transforms_config.get("pillow_mode", False)
         augmentation_config["crop_enable"] = self.transforms_config.get("crop_enabled", False)
         augmentation_config["center"] = self.transforms_config.get("center", False)
         augmentation_config["pt_mode"] = True
