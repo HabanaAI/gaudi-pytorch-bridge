@@ -268,6 +268,42 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
   return pool_params;
 }
 
+OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[0].toTensor();
+  const auto kernel_size = inputs[1].toIntList().vec();
+  const auto stride = inputs[2].toIntList().vec();
+  const auto padding = inputs[3].toIntList().vec();
+  const auto dilation = inputs[4].toIntList().vec();
+  bool ceil_mode = inputs[5].toBool();
+
+  auto shape_out = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  OutputShapeInfRetType out;
+  // output tensor
+  out.AddOutputTensor(TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(
+          shape_out, input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format()));
+
+  auto type = kByte;
+  if (input.scalar_type() == c10::ScalarType::BFloat16) {
+    type = kShort;
+  }
+  // indices tensor
+  out.AddOutputTensor(TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(
+          shape_out, input.suggest_memory_format()),
+      type,
+      input.suggest_memory_format()));
+
+  return out;
+}
+
 /**
  * @brief Fill Average pooling params structure
  */

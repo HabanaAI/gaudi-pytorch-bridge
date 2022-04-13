@@ -31,6 +31,9 @@ class BinaryOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& arg1,
       const at::Tensor& arg2);
@@ -55,6 +58,9 @@ class BinaryWrapperOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
   void SetPTOutputs(torch::jit::Stack& inputs);
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
  protected:
   c10::ScalarType scalarType_;
@@ -115,6 +121,9 @@ class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
   void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
  protected:
   c10::ScalarType scalarType_;

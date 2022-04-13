@@ -66,6 +66,8 @@ class PermuteOperator : public habana::HabanaOperator {
       const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor& in, const std::vector<int64_t>& dims);
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 //

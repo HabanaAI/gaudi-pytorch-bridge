@@ -529,6 +529,22 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::
   return std::make_tuple(new_sizes, new_strides);
 }
 
+OutputShapeInfRetType PermuteOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  const auto dims = inputs[1].toIntVector();
+  std::vector<int64_t> new_sizes, new_strides;
+  std::tie(new_sizes, new_strides) =
+      PermuteOperator::compute_output_shape(self, dims);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      new_sizes,
+      new_strides,
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
+}
 void PermuteOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,

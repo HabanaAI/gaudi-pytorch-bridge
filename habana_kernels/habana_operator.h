@@ -28,6 +28,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #define DATATYPE_OF_INDEX c10::ScalarType::Long
 
@@ -94,6 +95,62 @@ enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
 enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };
+
+struct TensorMetaData {
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
+  c10::ScalarType dtype;
+  c10::MemoryFormat mf;
+
+  TensorMetaData(
+      std::vector<int64_t> sz,
+      std::vector<int64_t> st,
+      c10::MemoryFormat f)
+      : sizes(sz), strides(st), mf(f) {}
+
+  TensorMetaData(
+      std::vector<int64_t> sz,
+      std::vector<int64_t> st,
+      c10::ScalarType type,
+      c10::MemoryFormat f)
+      : sizes(sz), strides(st), dtype(type), mf(f) {}
+};
+
+// Return value for ComputeOutputShape Function
+class OutputShapeInfRetType;
+using IdxTensorTup = std::tuple<int32_t, at::Tensor>;
+using OutputShapeInfRetTypePtr = std::shared_ptr<OutputShapeInfRetType>;
+class OutputShapeInfRetType {
+ public:
+  void AddOutputTensor(const TensorMetaData& data);
+  void AddShapeTensor(const TensorMetaData& data);
+  void AddDupTensor(const TensorMetaData& data);
+  const IdxTensorTup& GetOutputTensor(size_t index);
+  const IdxTensorTup& GetShapeTensor(size_t index);
+  void MoveToOutput(IdxTensorTup&& data);
+  const std::vector<OutputShapeInfRetTypePtr>& GetKernels() const {
+    return kernel_outputs;
+  }
+  const std::vector<IdxTensorTup>& GetOutputTensor() const {
+    return output_tensors;
+  }
+  const std::vector<IdxTensorTup>& GetShapeTensor() const {
+    return shape_tensors;
+  }
+
+  OutputShapeInfRetType call_ComputeOutputShape(
+      HabanaOperatorPtr kernel,
+      torch::jit::Stack& inputs);
+
+ private:
+  void AddTensor(const TensorMetaData& data, std::vector<IdxTensorTup>& v);
+  std::vector<IdxTensorTup> output_tensors;
+  std::vector<IdxTensorTup> shape_tensors;
+  std::vector<IdxTensorTup> dup_tensors;
+
+  std::vector<OutputShapeInfRetTypePtr> kernel_outputs;
+};
+
 //
 // The Pytorch kernel context holds the operator context
 // whcih includes the pytorch tensors, synapse tensor and
@@ -235,6 +292,8 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const std::vector<at::Tensor>& inputs,
       bool is_persistent = false);
+
+  virtual OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
 
   //
   // Method to add a single tensor to graph builder context, also populates the
@@ -382,6 +441,10 @@ class HabanaOperator {
   void clear_syn_input_tensor_orig() {
     p_context_->syn_input_orig_.clear();
   }
+
+  static std::vector<int64_t> CalculateStrides(
+      const at::IntArrayRef sizes,
+      c10::MemoryFormat format);
 
  protected:
   virtual void AddNodeToSynapseGraph(

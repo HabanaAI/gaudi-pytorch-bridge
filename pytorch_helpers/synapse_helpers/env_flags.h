@@ -277,6 +277,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR, bool, true);
 ENV_STRING_STRUCT_DEFINITION(PT_HPU_DYNAMIC_MIN_POLICY_ORDER, "3,1");
 ENV_STRING_STRUCT_DEFINITION(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "2,3,1");
+ENV_STRUCT_DEFINITION(PT_HPU_VALIDATE_COMPUTE_SHAPE, bool, false);
 
 // Options to enable/disable std::copy to async thread for non blocking copy
 // and minimum tensor size limit for non blocking copy, Default 1 MB.

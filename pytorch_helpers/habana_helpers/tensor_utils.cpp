@@ -355,6 +355,21 @@ at::Tensor habana_helpers::nonPersistentTensor(
 }
 
 at::Tensor habana_helpers::nonPersistentTensor(
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    at::optional<caffe2::TypeMeta> data_type) {
+  auto t =
+      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
+          data_type);
+  t.unsafeGetTensorImpl()->set_sizes_and_strides(size, strides);
+  t.unsafeGetTensorImpl()->empty_tensor_restride(
+      optional_memory_format.value_or(MemoryFormat::Contiguous));
+  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
+  return t;
+}
+
+at::Tensor habana_helpers::nonPersistentTensor(
     const at::Tensor& input,
     at::IntArrayRef size,
     at::IntArrayRef strides,
@@ -749,7 +764,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     auto error = absl::get<synapse_helpers::synapse_error>(variant);
     TORCH_HABANA_CHECK(error.status, error.error);
   }
-  return absl::get<synapse_helpers::tensor>(std::move(variant));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(
+      tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+  return syn_tensor;
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(
@@ -820,7 +839,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto variant = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
       graph.get_graph_handle());
-  return absl::get<synapse_helpers::tensor>(std::move(variant));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(
+      tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+  return syn_tensor;
 }
 
 synapse_helpers::tensor habana_helpers::create_shape_tensor(

@@ -40,6 +40,9 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 class MaxPool2dOperator : public MaxPool2dWithIndicesOperator {

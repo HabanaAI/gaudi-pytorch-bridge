@@ -109,18 +109,6 @@ class PassException : public std::exception {
   std::string m_message;
 };
 
-struct TensorMetaData {
-  std::vector<int64_t> sizes;
-  std::vector<int64_t> strides;
-  c10::MemoryFormat mf;
-
-  TensorMetaData(
-      std::vector<int64_t> sz,
-      std::vector<int64_t> st,
-      c10::MemoryFormat f)
-      : sizes(sz), strides(st), mf(f) {}
-};
-
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(
@@ -468,6 +456,9 @@ class HabanaLaunchOpPT {
   void RestoreInputTensorMetadata();
   void UpdateOutputs();
   void UpdateOutputs(RecipeValueSpec& rv);
+  void validateOutputShape(
+      const HabanaOperatorPtr& HabanaKernel,
+      const OutputShapeInfRetType& output_shape_handle);
 
   // --------------------
 

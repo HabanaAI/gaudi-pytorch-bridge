@@ -16,6 +16,22 @@ namespace habana {
 
 using IdShapeMap = std::unordered_map<uint64_t, habana_helpers::TensorShape>;
 
+class ShapeInfTensorId {
+ public:
+  int64_t next() {
+    auto value = unique_id;
+    unique_id++;
+    return value;
+  }
+
+  void reset() {
+    unique_id = 0;
+  }
+
+ private:
+  int64_t unique_id;
+};
+
 class ShapeInfo {
  public:
   enum class InferencePass {
@@ -100,11 +116,20 @@ class ShapeInference {
     return m_shape_info->m_pass;
   }
 
+  static void ResetSifThreadId() {
+    sif_tensor_id.reset();
+  }
+
+  static int64_t NextSifThreadId() {
+    return sif_tensor_id.next();
+  }
+
  private:
   /*
    * Stores all the shape information
    */
   static thread_local ShapeInfo* m_shape_info;
+  static thread_local ShapeInfTensorId sif_tensor_id;
 };
 
 inline std::ostream& operator<<(

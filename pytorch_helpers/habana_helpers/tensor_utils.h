@@ -52,6 +52,13 @@ struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
             data_type.has_value() ? data_type.value() : rep.dtype(),
             rep.device()) {}
 
+  explicit StorageLessWrapperTensorImpl(
+      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
+      : TensorImpl(
+            c10::DispatchKeySet(c10::DispatchKey::HPU),
+            data_type.value(),
+            at::kHPU) {}
+
   void release_resources() override {}
 
   bool has_storage() const override {
@@ -88,6 +95,12 @@ at::Tensor nonPersistentTensor(
     const at::Tensor& input,
     at::IntArrayRef size,
     const at::TensorOptions& options = {},
+    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+
+at::Tensor nonPersistentTensor(
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
     at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
     at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
 

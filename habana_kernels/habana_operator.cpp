@@ -11,6 +11,7 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
@@ -51,6 +52,45 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
       permuteOrder.find(target_layout) != permuteOrder.end(),
       "Unknown layout in getPermuteOrder");
   return permuteOrder.find(target_layout)->second;
+}
+
+std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
+    const at::IntArrayRef sizes,
+    c10::MemoryFormat format) {
+  switch (sizes.size()) {
+    case 5: {
+      if (c10::MemoryFormat::ChannelsLast3d == format) {
+        return {
+            sizes[1] * sizes[2] * sizes[3] * sizes[4],
+            1,
+            sizes[1] * sizes[3] * sizes[4],
+            sizes[1] * sizes[4],
+            sizes[1]};
+      }
+      return {
+          sizes[1] * sizes[2] * sizes[3] * sizes[4],
+          sizes[4] * sizes[3] * sizes[2],
+          sizes[4] * sizes[3],
+          sizes[4],
+          1};
+    }
+    case 4: {
+      if (c10::MemoryFormat::ChannelsLast == format) {
+        return {
+            sizes[1] * sizes[2] * sizes[3], 1, sizes[1] * sizes[3], sizes[1]};
+      }
+      return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
+    }
+    case 3:
+      return {sizes[1] * sizes[0], sizes[0], 1};
+    case 2:
+      return {sizes[0], 1};
+    case 1:
+      return {1};
+    default:
+      HABANA_ASSERT(0);
+  };
+  return {};
 }
 
 void habana::HabanaOperator::CreateGraphAndCompile(
@@ -398,6 +438,12 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
   return p_context_->syn_outputs_.back();
 }
 
+habana::OutputShapeInfRetType habana::HabanaOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  static_cast<void>(inputs);
+  return {};
+}
+
 void habana::HabanaOperator::AddNodeToSynapseGraph(
     synapse_helpers::graph& graph,
     void* params,
@@ -461,3 +507,54 @@ habana::RegisterKernel& habana::KernelRegistry() {
 }
 
 habana::HabanaOperator::~HabanaOperator() = default;
+
+void habana::OutputShapeInfRetType::AddTensor(
+    const TensorMetaData& data,
+    std::vector<IdxTensorTup>& v) {
+  auto sif_tensor_id_ = habana::ShapeInference::NextSifThreadId();
+  auto tensor = habana_helpers::nonPersistentTensor(
+      data.sizes, data.strides, data.mf, scalarTypeToTypeMeta(data.dtype));
+
+  v.emplace_back(std::make_tuple(sif_tensor_id_, tensor));
+}
+
+void habana::OutputShapeInfRetType::AddOutputTensor(
+    const TensorMetaData& data) {
+  AddTensor(data, output_tensors);
+}
+
+void habana::OutputShapeInfRetType::AddShapeTensor(const TensorMetaData& data) {
+  AddTensor(data, shape_tensors);
+}
+
+void habana::OutputShapeInfRetType::AddDupTensor(
+    const habana::TensorMetaData& data) {
+  AddTensor(data, dup_tensors);
+}
+
+habana::OutputShapeInfRetType habana::OutputShapeInfRetType::
+    call_ComputeOutputShape(
+        HabanaOperatorPtr kernel,
+        torch::jit::Stack& inputs) {
+  HABANA_ASSERT(kernel.get() != nullptr, "kernel cannot be null");
+  auto output = kernel->ComputeOutputShape(inputs);
+  kernel_outputs.emplace_back(
+      std::make_shared<habana::OutputShapeInfRetType>(output));
+  return output;
+}
+
+const habana::IdxTensorTup& habana::OutputShapeInfRetType::GetOutputTensor(
+    size_t index) {
+  HABANA_ASSERT(index <= output_tensors.size(), "index out of range");
+  return output_tensors.at(index);
+}
+
+const habana::IdxTensorTup& habana::OutputShapeInfRetType::GetShapeTensor(
+    size_t index) {
+  HABANA_ASSERT(index <= shape_tensors.size(), "index out of range");
+  return shape_tensors.at(index);
+}
+
+void habana::OutputShapeInfRetType::MoveToOutput(habana::IdxTensorTup&& data) {
+  output_tensors.emplace_back(data);
+}

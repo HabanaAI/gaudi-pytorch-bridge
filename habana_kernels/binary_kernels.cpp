@@ -49,6 +49,21 @@ std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
   return out_size;
 }
 
+habana::OutputShapeInfRetType habana::BinaryOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(shape_out, arg1.suggest_memory_format()),
+      arg1.scalar_type(),
+      arg1.suggest_memory_format()));
+  return out;
+}
+
 bool habana::BinaryOperator::MaybeMultiplyWithBool(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -340,6 +355,29 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
       std::move(binaryOp->GetSynOutputs()[0]));
 }
 
+habana::OutputShapeInfRetType habana::BinaryWrapperOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
+    out.AddOutputTensor(TensorMetaData(
+        shape_out,
+        HabanaOperator::CalculateStrides(
+            shape_out, arg1.suggest_memory_format()),
+        arg1.scalar_type(),
+        arg1.suggest_memory_format()));
+    return out;
+  }
+  out.AddOutputTensor(TensorMetaData(
+      arg1.sizes().vec(),
+      arg1.strides().vec(),
+      arg1.scalar_type(),
+      arg1.suggest_memory_format()));
+  return out;
+}
+
 void habana::BinaryWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor output;
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
@@ -446,6 +484,29 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         0,
         std::move(guid_));
   }
+}
+
+habana::OutputShapeInfRetType habana::BinaryWrapperOperatorWithAlpha::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  OutputShapeInfRetType out;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
+    out.AddOutputTensor(TensorMetaData(
+        shape_out,
+        HabanaOperator::CalculateStrides(
+            shape_out, arg1.suggest_memory_format()),
+        arg1.scalar_type(),
+        arg1.suggest_memory_format()));
+    return out;
+  }
+  out.AddOutputTensor(TensorMetaData(
+      arg1.sizes().vec(),
+      arg1.strides().vec(),
+      arg1.scalar_type(),
+      arg1.suggest_memory_format()));
+  return out;
 }
 
 /************************************************************************

@@ -1378,6 +1378,36 @@ std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
   return str;
 }
 
+void HabanaLaunchOpPT::validateOutputShape(
+    const HabanaOperatorPtr& HabanaKernel,
+    const OutputShapeInfRetType& output_shape_handle) {
+  auto lowering_kernels = HabanaKernel->GetKernels();
+  auto output_shape_kernels = output_shape_handle.GetKernels();
+  HABANA_ASSERT(
+      lowering_kernels.size() == output_shape_kernels.size(),
+      "number of sub kernels mismatch in shape ineference");
+
+  std::deque<synapse_helpers::tensor_or_ref>& syn_outputs =
+      HabanaKernel->GetSynOutputs();
+
+  auto output_vec = output_shape_handle.GetOutputTensor();
+  auto output_shape_vec = output_shape_handle.GetShapeTensor();
+  auto output_size = output_vec.size() + output_shape_vec.size();
+
+  HABANA_ASSERT(syn_outputs.size() == output_size, "number of output mismatch");
+  // compare output shape
+  size_t i = 0, j = 0;
+  std::vector<int64_t> t;
+  for (synapse_helpers::tensor& out_tensor_syn : syn_outputs) {
+    if (out_tensor_syn.is_shape_tensor()) {
+      t = std::get<at::Tensor>(output_shape_vec.at(i++)).sizes().vec();
+    } else {
+      t = std::get<at::Tensor>(output_vec.at(j++)).sizes().vec();
+    }
+    HABANA_ASSERT(out_tensor_syn.pt_shape() == t, "shape validation failed");
+  }
+}
+
 void HabanaLaunchOpPT::BuildSynapseGraph(
     synapse_helpers::graph& syn_graph,
     bool is_shape_inference) {
@@ -1487,6 +1517,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     } else {
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputs_metadata);
+      if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+        auto output_shape_handle =
+            HabanaKernel->ComputeOutputShape(input_stack);
+        validateOutputShape(HabanaKernel, output_shape_handle);
+      }
     }
 
     jit_to_synapse_node_idx_map.emplace(
