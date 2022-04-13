@@ -43,7 +43,8 @@ class AeonSSDConfigurator:
 
         self.transforms_config = {}
         self._make_transforms_config(additional)
-        self.out_folder = os.path.join(self.dataset.img_folder, "aeon_manifest")
+        default_out_folder = os.environ.get('HABANA_MANIFEST_PATH', os.path.join(os.environ['HOME'], "habana_manifest"))
+        self.out_folder = os.path.join(default_out_folder, "train" if self.train else "val")
         self._get_or_create_aeon_manifest()
 
     def _get_or_create_aeon_manifest(self):
@@ -102,7 +103,7 @@ class AeonSSDConfigurator:
             dict_config = {"size":dict_size,"object":objects}
             with open(os.path.join(self.out_folder, json_out), 'w') as f:
                 json.dump(dict_config,f)
-            manifest.append(f"{json_out}\t../{image}\t{id}\n")
+            manifest.append(f"{json_out}\t{self.dataset.img_folder}/{image}\t{id}\n")
 
             if (count % update == 0):
                 self.show_progress(count, dataset_size, "Generating Aeon manifest: ")
