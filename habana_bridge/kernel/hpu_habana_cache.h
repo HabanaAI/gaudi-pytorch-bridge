@@ -32,7 +32,7 @@
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/time_slot.h"
 
-#define PGM_LRU_MAX_EAGER_NRECIPES 9000
+#define PGM_LRU_MAX_EAGER_NRECIPES 100000
 #define PGM_LRU_MAX_LAZY_NRECIPES 30000
 #define PGM_LRU_MIN_NRECIPES 3
 
