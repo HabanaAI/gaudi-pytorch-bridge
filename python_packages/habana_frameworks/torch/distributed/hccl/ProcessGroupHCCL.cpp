@@ -92,21 +92,82 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
   return it->second;
 }
 
-bool is_valid_reduction_dtype(hcclDataType_t data_type) {
+void getCountDatatype(
+    c10::ScalarType scalar_type,
+    int64_t& numel,
+    hcclDataType_t& tensor_data_type) {
+  switch (scalar_type) {
+    case at::kChar:
+    case at::kByte:
+      numel = (numel * sizeof(char)) / sizeof(uint16_t);
+      tensor_data_type = getHCCLDataType(at::kBFloat16);
+      break;
+    case at::kInt:
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kLong:
+      // there is implicit conversion from long to float
+      numel = (numel * sizeof(float)) / sizeof(float);
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kDouble:
+      numel = (numel * sizeof(float)) / sizeof(float);
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kHalf:
+      tensor_data_type = getHCCLDataType(at::kBFloat16);
+      break;
+    default:
+      break;
+  }
+}
+
+bool resizeTensor(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList) {
+  bool change = false;
+  for (int i = 0; i < tensors.size(); i++) {
+    auto btensor_type = tensors[i].scalar_type();
+    changed[i] = false;
+    if ((at::kChar == btensor_type || at::kByte == btensor_type) &&
+        tensors[i].numel() % 2 != 0) {
+      changed[i] = true;
+      sizeList[i] = tensors[i].sizes().vec();
+      strideList[i] = tensors[i].strides().vec();
+      tensors[i].resize_(tensors[i].numel() + 1);
+      change = true;
+    }
+  }
+  return change;
+}
+
+void restoreTensorsize(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    c10::intrusive_ptr<ProcessGroup::Work>& work) {
+  for (int i = 0; i < tensors.size(); i++) {
+    auto btensor_type = tensors[i].scalar_type();
+    if ((at::kChar == btensor_type || at::kByte == btensor_type)) {
+      work->wait();
+    }
+    if (changed[i] == true) {
+      tensors[i].resize_(tensors[i].numel() - 1);
+      tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+          sizeList[i], strideList[i]);
+    }
+  }
+}
+bool is_valid_hccl_dtype(hcclDataType_t data_type) {
   if (data_type == hcclBfloat16 || data_type == hcclFloat) {
     return true;
   }
   return false;
 }
 
-bool is_valid_broadcast_dtype(hcclDataType_t data_type) {
-  if (hcclBfloat16 == data_type || hcclFloat == data_type ||
-      hcclInt32 == data_type || hcclUint8 == data_type ||
-      hcclHalf == data_type) {
-    return true;
-  }
-  return false;
-}
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
 // ensure compatibility with the corresponding tensor in `other'.
 std::vector<at::Tensor> flatten_for_scatter_gather(
@@ -560,6 +621,11 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  size_t tensor_size = tensors.size();
+  std::unique_ptr<bool[]> changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> strideList(tensor_size);
+  resizeTensor(tensors, changed, sizeList, strideList);
   auto work = collective(
       tensors,
       tensors,
@@ -572,8 +638,10 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           hcclStream_t stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
-        auto tensor_data_type = getHCCLDataType(input.scalar_type());
+        auto scalar_type = input.scalar_type();
+        auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] broadcast with input_address :: ",
             send_buffer,
@@ -583,6 +651,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
             numel,
             " data_type :: ",
             tensor_data_type);
+
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
@@ -592,6 +661,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
             hccl_comm,
             stream);
       });
+  restoreTensorsize(tensors, changed, sizeList, strideList, work);
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -603,7 +673,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
   std::vector<at::Tensor> allreduce_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());
-    if (is_valid_reduction_dtype(data_type)) {
+    if (is_valid_hccl_dtype(data_type)) {
       allreduce_tensors.push_back(tensors[i]);
     } else {
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
@@ -659,7 +729,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
 
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());
-    if (!is_valid_reduction_dtype(data_type)) {
+    if (!is_valid_hccl_dtype(data_type)) {
+      work->wait();
       tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
     }
   }
@@ -720,11 +791,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
-  // Currently only support for alltoall of same size split supported
-  std::vector<at::Tensor> inputTensors;
-  std::vector<at::Tensor> outputTensors;
-  inputTensors.push_back(inputTensor);
-  outputTensors.push_back(outputTensor);
 
   // This is a workaround to support alltoall using hcclSend and hcclRecv
   // because HCCL library does support alltoall yet.
@@ -732,6 +798,23 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   // ensure that same rank data is present in output, we are first performing
   // copy_data_within_device
   outputTensor.copy_(inputTensor);
+
+  at::Tensor alltoall_out_tensors;
+  at::Tensor alltoall_in_tensors;
+  auto data_type = getHCCLDataType(outputTensor.scalar_type());
+  if (is_valid_hccl_dtype(data_type)) {
+    alltoall_out_tensors = outputTensor;
+    alltoall_in_tensors = inputTensor;
+  } else {
+    alltoall_out_tensors = outputTensor.to(c10::ScalarType::Float);
+    alltoall_in_tensors = inputTensor.to(c10::ScalarType::Float);
+  }
+
+  // Currently only support for alltoall of same size split supported
+  std::vector<at::Tensor> inputTensors;
+  std::vector<at::Tensor> outputTensors;
+  inputTensors.push_back(alltoall_in_tensors);
+  outputTensors.push_back(alltoall_out_tensors);
 
   auto work = collective(
       inputTensors,
@@ -797,6 +880,12 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
 
         return hccl_result;
       });
+
+  if (!is_valid_hccl_dtype(data_type)) {
+    work->wait();
+    outputTensor.copy_(alltoall_out_tensors.to(outputTensor.scalar_type()));
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -806,6 +895,24 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  bool change = false;
+  size_t tensor_size = outputTensors[0].size();
+  std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
+      new std::unique_ptr<bool[]>[tensor_size]());
+  std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
+  for (int i = 0; i < outputTensors.size(); i++) {
+    changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
+    sizeList[i].resize(outputTensors[i].size());
+    strideList[i].resize(outputTensors[i].size());
+    resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  size_t in_tensor_size = inputTensors.size();
+  size_t element_cout = inputTensors[0].numel();
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+  change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
 
@@ -829,11 +936,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
             input.numel(),
             " data_type :: ",
             getHCCLDataType(input.scalar_type()));
+        auto scalar_type = input.scalar_type();
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        auto numel = input.numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         auto work = hcclAllGather(
             send_buffer,
             recv_buffer,
-            input.numel(),
-            getHCCLDataType(input.scalar_type()),
+            numel,
+            tensor_data_type,
             hccl_comm,
             stream);
         return work;
@@ -844,6 +955,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
       outputTensors[i][j].copy_(outputFlattened[i][j], true);
     }
   }
+  if (change) {
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+  for (int i = 0; i < outputTensors.size(); i++) {
+    restoreTensorsize(
+        outputTensors[i], changed[i], sizeList[i], strideList[i], work);
+  }
+  restoreTensorsize(inputTensors, in_changed, in_sizeList, in_strideList, work);
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -963,6 +1083,11 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
     int dstRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  size_t tensor_size = tensors.size();
+  std::unique_ptr<bool[]> changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> strideList(tensor_size);
+  resizeTensor(tensors, changed, sizeList, strideList);
   habana_lazy::HbLazyTensor::StepMarker();
   auto work = pointToPoint(
       tensors,
@@ -978,15 +1103,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
             input.numel(),
             " data_type :: ",
             getHCCLDataType(input.scalar_type()));
+        auto scalar_type = input.scalar_type();
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        auto numel = input.numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclSend(
-            send_buff,
-            input.numel(),
-            getHCCLDataType(input.scalar_type()),
-            peerRank,
-            hccl_comm,
-            stream);
+            send_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
       },
       dstRank);
+  restoreTensorsize(tensors, changed, sizeList, strideList, work);
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -996,6 +1121,11 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
     int srcRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  size_t tensor_size = tensors.size();
+  std::unique_ptr<bool[]> changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> strideList(tensor_size);
+  resizeTensor(tensors, changed, sizeList, strideList);
   habana_lazy::HbLazyTensor::StepMarker();
   auto work = pointToPoint(
       tensors,
@@ -1011,15 +1141,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
             tensor.numel(),
             " data_type :: ",
             getHCCLDataType(tensor.scalar_type()));
+        auto scalar_type = tensor.scalar_type();
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        auto numel = tensor.numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclRecv(
-            recv_buff,
-            tensor.numel(),
-            getHCCLDataType(tensor.scalar_type()),
-            peerRank,
-            hccl_comm,
-            stream);
+            recv_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
       },
       srcRank);
+  restoreTensorsize(tensors, changed, sizeList, strideList, work);
   PT_DISTRIBUTED_END;
   return work;
 }

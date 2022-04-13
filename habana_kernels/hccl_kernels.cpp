@@ -26,6 +26,7 @@ using namespace torch;
 namespace habana {
 
 namespace {
+
 // TODO: SW-68572 move to hccl utils, reuse from ProcessGroupHCCL.cpp
 
 std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
@@ -53,6 +54,36 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
       "Input tensor data type is not supported for HCCL process group: ",
       type);
   return it->second;
+}
+
+void getCountDatatype(
+    c10::ScalarType scalar_type,
+    int64_t& numel,
+    hcclDataType_t& tensor_data_type) {
+  switch (scalar_type) {
+    case at::kChar:
+    case at::kByte:
+      numel = (numel * sizeof(char)) / sizeof(uint16_t);
+      tensor_data_type = getHCCLDataType(at::kBFloat16);
+      break;
+    case at::kInt:
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kLong:
+      // there is implicit conversion from long to float
+      numel = (numel * sizeof(float)) / sizeof(float);
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kDouble:
+      numel = (numel * sizeof(float)) / sizeof(float);
+      tensor_data_type = getHCCLDataType(at::kFloat);
+      break;
+    case at::kHalf:
+      tensor_data_type = getHCCLDataType(at::kBFloat16);
+      break;
+    default:
+      break;
+  }
 }
 
 bool is_valid_reduction_dtype(hcclDataType_t data_type) {
@@ -309,11 +340,14 @@ void HcclBroadcastOperator::RunCollective(
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream) {
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        int64_t numel = input->get_numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
-            input->get_numel(),
-            getHCCLDataType(scalar_type),
+            numel,
+            tensor_data_type,
             root_rank,
             *comm->GetHcclHandle(),
             stream);
@@ -603,11 +637,14 @@ void HcclAllgatherOutOperator::RunCollective(
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream) {
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        int64_t numel = input->get_numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         hcclResult_t hccl_result = hcclAllGather(
             send_buffer,
             recv_buffer,
-            input->get_numel(),
-            getHCCLDataType(scalar_type),
+            numel,
+            tensor_data_type,
             *comm->GetHcclHandle(),
             stream);
         return hccl_result;
@@ -723,10 +760,13 @@ void HcclSendOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream,
           int peerRank) {
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        int64_t numel = input->get_numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclSend(
             send_buff,
-            input->get_numel(),
-            getHCCLDataType(scalar_type),
+            numel,
+            tensor_data_type,
             peerRank,
             *comm->GetHcclHandle(),
             stream);
@@ -782,10 +822,13 @@ void HcclRecvOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           hcclStream_t stream,
           int peerRank) {
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        int64_t numel = input->get_numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
         return hcclRecv(
             recv_buff,
-            input->get_numel(),
-            getHCCLDataType(scalar_type),
+            numel,
+            tensor_data_type,
             peerRank,
             *comm->GetHcclHandle(),
             stream);
