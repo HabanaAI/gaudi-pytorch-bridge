@@ -124,13 +124,12 @@ int64_t HbLazyTensorImpl::size(int64_t d) const {
   return c10::TensorImpl::size(d);
 }
 
-std::vector<int64_t> HbLazyTensorImpl::ComputeArrayStrides(
+void HbLazyTensorImpl::ComputeArrayStrides(
+    std::vector<int64_t>& strides,
     absl::Span<const int64_t> sizes) {
-  std::vector<int64_t> strides(sizes.size(), 1);
   for (auto i = sizes.size(); i > 1; --i) {
     strides[i - 2] = strides[i - 1] * sizes[i - 1];
   }
-  return strides;
 }
 
 void HbLazyTensorImpl::SetupSizeProperties() {
@@ -139,7 +138,8 @@ void HbLazyTensorImpl::SetupSizeProperties() {
     // implementation uses in its APIs.
     auto sizes_l = m_tensor.GetSizes();
     sizes_and_strides_.set_sizes(sizes_l);
-    std::vector<int64_t> new_stride = ComputeArrayStrides(sizes_l);
+    std::vector<int64_t> new_stride(sizes_l.size(), 1);
+    ComputeArrayStrides(new_stride, sizes_l);
     const auto new_dim = sizes_l.size();
     if (new_dim > 0) {
       for (size_t dim = new_dim - 1;; dim--) {
