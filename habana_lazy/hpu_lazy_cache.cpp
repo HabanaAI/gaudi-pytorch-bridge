@@ -26,6 +26,7 @@ void ComputeGraphHashCode(
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
+  std::unordered_map<size_t, std::string> idx_const_map;
   size_t idx{0};
   for (auto node : irgraph->nodes()) {
     if (node->kind() != torch::jit::prim::Constant) {
@@ -57,7 +58,12 @@ void ComputeGraphHashCode(
     } else {
       std::ostringstream oss;
       oss << *node;
-      op_strs.append(oss.str());
+      std::string cstr = oss.str();
+      size_t pos = cstr.find(':');
+      if (pos != std::string::npos && pos < cstr.size() - 1)
+        cstr = cstr.substr(pos + 1);
+      op_strs.append(cstr);
+      idx_const_map.emplace(idx, cstr);
     }
     node_idx_map.emplace(node, idx);
     idx++;
@@ -95,8 +101,14 @@ void ComputeGraphHashCode(
       for (auto value_in : node->inputs()) {
         auto in_node = value_in->node();
         if (in_node) {
-          node_connection_hash =
-              at::hash_combine(node_connection_hash, node_idx_map[in_node]);
+          if (in_node->kind() != torch::jit::prim::Constant) {
+            node_connection_hash =
+                at::hash_combine(node_connection_hash, node_idx_map[in_node]);
+          } else {
+            auto idx = node_idx_map[in_node];
+            node_connection_hash = at::hash_combine(
+                node_connection_hash, str_hash(idx_const_map.at(idx)));
+          }
         }
       }
     }
