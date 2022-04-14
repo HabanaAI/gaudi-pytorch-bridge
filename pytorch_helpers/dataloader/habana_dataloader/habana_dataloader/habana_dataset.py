@@ -15,7 +15,22 @@ import habana_frameworks.torch.core as htcore
 from .aeon_config import get_aeon_config
 from .aeon_ssd_configurator import AeonSSDConfigurator
 from .aeon_manifest import generate_aeon_manifest
+import torch.distributed as dist
 
+def _is_distributed():
+    return dist.is_available() and dist.is_initialized()
+
+def _get_world_size():
+    if _is_distributed():
+        return dist.get_world_size()
+    else:
+        return 1
+
+def _get_rank():
+    if _is_distributed():
+        return dist.get_rank()
+    else:
+        return 0
 
 def isGaudi(device):
     return (device == htcore.synDeviceGaudi) or (device == htcore.synDeviceGaudiM)
@@ -137,14 +152,16 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                         "MediaDataLoader supports only ImageFolder as dataset")
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
+                num_instances=_get_world_size()
+                instance_id=_get_rank()
                 pipeline = HPUMediaPipe(a_torch_transforms=torch_transforms, a_root=root, a_batch_size=self.batch_size,
                                         a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                        a_num_instances=1, a_instance_id=0, a_device="hpu")
+                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device="hpu")
 
                 from mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
 
-                print("Running with Habana media DataLoader")
+                print(f"Running with Habana media DataLoader with num_instances = {num_instances}, instance_id = {instance_id}.")
             else:
                 raise ValueError("Unsupported device")
 
