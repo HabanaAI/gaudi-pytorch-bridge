@@ -51,39 +51,39 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-HPU_CROSS_TEST(DISABLED_cross, SIZE({3}), 0, torch::kBFloat16)
-HPU_CROSS_TEST(DISABLED_cross_2d, SIZE({4, 3}), 1, torch::kInt)
-HPU_CROSS_TEST(DISABLED_cross_3d, SIZE({6, 4, 3}), -1, torch::kFloat)
-HPU_CROSS_TEST(DISABLED_cross_4d, SIZE({6, 3, 4, 3}), -3, torch::kInt)
-HPU_CROSS_TEST(DISABLED_cross_5d, SIZE({5, 6, 4, 3, 7}), 3, torch::kBFloat16)
+HPU_CROSS_TEST(cross, SIZE({3}), 0, torch::kBFloat16)
+HPU_CROSS_TEST(cross_2d, SIZE({4, 3}), 1, torch::kInt)
+HPU_CROSS_TEST(cross_3d, SIZE({6, 4, 3}), -1, torch::kFloat)
+HPU_CROSS_TEST(cross_4d, SIZE({6, 3, 4, 3}), -3, torch::kInt)
+HPU_CROSS_TEST(cross_5d, SIZE({5, 6, 4, 3, 7}), 3, torch::kBFloat16)
 
-HPU_CROSS_TEST_WITHOUT_DIM(DISABLED_cross_empty_dim, SIZE({3}), torch::kBFloat16)
-HPU_CROSS_TEST_WITHOUT_DIM(DISABLED_cross_empty_dim2d, SIZE({3, 8}), torch::kInt)
-HPU_CROSS_TEST_WITHOUT_DIM(DISABLED_cross_empty_dim3d, SIZE({5, 5, 3}), torch::kFloat)
+HPU_CROSS_TEST_WITHOUT_DIM(cross_empty_dim, SIZE({3}), torch::kBFloat16)
+HPU_CROSS_TEST_WITHOUT_DIM(cross_empty_dim2d, SIZE({3, 8}), torch::kInt)
+HPU_CROSS_TEST_WITHOUT_DIM(cross_empty_dim3d, SIZE({5, 5, 3}), torch::kFloat)
 HPU_CROSS_TEST_WITHOUT_DIM(
-    DISABLED_cross_empty_dim4d,
+    cross_empty_dim4d,
     SIZE({7, 3, 5, 3}),
     torch::kBFloat16)
 HPU_CROSS_TEST_WITHOUT_DIM(
-    DISABLED_cross_empty_dim5d,
+    cross_empty_dim5d,
     SIZE({7, 7, 3, 5, 6}),
     torch::kFloat)
 
-HPU_CROSS_OUT_TEST(DISABLED_cross_out_2d, SIZE({4, 3}), 1, torch::kFloat)
-HPU_CROSS_OUT_TEST(DISABLED_cross_out_3d, SIZE({2, 4, 3}), -1, torch::kBFloat16)
-HPU_CROSS_OUT_TEST(DISABLED_cross_out_4d, SIZE({5, 4, 3, 9}), 2, torch::kInt)
-HPU_CROSS_OUT_TEST(DISABLED_cross_out_5d, SIZE({2, 3, 7, 8, 5}), -4, torch::kBFloat16)
+HPU_CROSS_OUT_TEST(cross_out_2d, SIZE({4, 3}), 1, torch::kFloat)
+HPU_CROSS_OUT_TEST(cross_out_3d, SIZE({2, 4, 3}), -1, torch::kBFloat16)
+HPU_CROSS_OUT_TEST(cross_out_4d, SIZE({5, 4, 3, 9}), 2, torch::kInt)
+HPU_CROSS_OUT_TEST(cross_out_5d, SIZE({2, 3, 7, 8, 5}), -4, torch::kBFloat16)
 
-HPU_CROSS_OUT_TEST_WITHOUT_DIM(DISABLED_cross_out_empty_dim2d, SIZE({4, 3}), torch::kInt)
+HPU_CROSS_OUT_TEST_WITHOUT_DIM(cross_out_empty_dim2d, SIZE({4, 3}), torch::kInt)
 HPU_CROSS_OUT_TEST_WITHOUT_DIM(
-    DISABLED_cross_out_empty_dim3d,
+    cross_out_empty_dim3d,
     SIZE({2, 4, 3}),
     torch::kBFloat16)
 HPU_CROSS_OUT_TEST_WITHOUT_DIM(
-    DISABLED_cross_out_empty_dim4d,
+    cross_out_empty_dim4d,
     SIZE({5, 4, 3, 8}),
     torch::kBFloat16)
 HPU_CROSS_OUT_TEST_WITHOUT_DIM(
-    DISABLED_cross_out_empty_dim5d,
+    cross_out_empty_dim5d,
     SIZE({2, 4, 3, 7, 8}),
     torch::kInt)

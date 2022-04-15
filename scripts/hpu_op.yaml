@@ -1523,6 +1523,15 @@ lerp_.Tensor:
   op_backend: Lerp
   inplace_ids: [0]
 
+linalg_cross:
+  dtypes: [BFloat16, Float, Int]
+  op_backend: LinAlgCross
+  out_ids: [0]
+
+linalg_cross.out:
+  dtypes: [BFloat16, Float, Int]
+  op_backend: LinAlgCross
+
 log.out:
   dtypes: [BFloat16, Float]
   guid: log_fwd
