@@ -31,6 +31,7 @@ class AeonSSDConfigurator:
     num_workers:      int
     shuffle:          bool
     manifest:         string
+    distributed:      bool = True
 
     def __post_init__(self):
         transform = self.dataset.transform
@@ -53,7 +54,7 @@ class AeonSSDConfigurator:
             if _get_rank() == 0:
                 os.makedirs(self.out_folder, exist_ok=True)
                 self._generate_aeon_manifest()
-        if _is_distributed():
+        if self.distributed and _is_distributed():
             dist.barrier()
 
         with open(manifest_file)as f:
@@ -298,8 +299,8 @@ class AeonSSDConfigurator:
         ssd_config = self._get_ssd_config()
         blob_config = self._get_blob_config()
         augmentation_config = self._get_augmentation_config()
-        instance_id = _get_rank() if self.train else 0 # Currently only single node validation is supported
-        num_instances = _get_world_size()  if self.train else 1
+        instance_id = _get_rank() if self.distributed else 0
+        num_instances = _get_world_size() if self.distributed else 1
         aeon_config = {
             "manifest_filename": os.path.join(self.out_folder, self.manifest),
             "manifest_root": self.out_folder+'/',

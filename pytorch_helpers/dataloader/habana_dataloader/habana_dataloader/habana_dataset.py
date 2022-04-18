@@ -48,8 +48,9 @@ class CocoDataLoader(torch.utils.data.DataLoader):
         manifest = kwargs.get('manifest', "manifest.cfg")
         drop_last = True # Currently AEON support only drop_last for SSD
         self.encoder = None
+        distributed = kwargs.get('sampler', None) != None
 
-        self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest)
+        self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest, distributed=distributed)
         aeon_config = self.configurator.get_config()
 
         self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(aeon_config,
