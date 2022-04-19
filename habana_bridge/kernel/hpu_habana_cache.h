@@ -435,6 +435,10 @@ class RecipeCacheLRU {
     return (map_.size() == 0);
   }
 
+  size_t get_length() {
+    return list_.size();
+  }
+
   void clear() {
     map_.clear();
     list_.clear();
@@ -448,6 +452,10 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
+  std::pair<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::shared_ptr<RecipeValueSpec>>
+      dropped_recipe;
   void add(
       std::shared_ptr<RecipeArgumentSpec>& key,
       std::shared_ptr<RecipeValueSpec>& val);
@@ -456,6 +464,10 @@ class RecipeCacheLRU {
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
+
+  static void SetHostMemoryThreshold(
+      uint32_t host_memory_threshold = default_host_memory_threshold);
+
   size_t Size() const;
   size_t SynapseRecipeSize() const;
   static void DumpRecipeMemoryStat();
@@ -479,6 +491,7 @@ class RecipeCacheLRU {
   static RecipeCacheLRU* instance_;
   static size_t max_size_;
   std::unique_ptr<DiskCache> disk_cache_;
+  static const uint32_t default_host_memory_threshold = 90;
 
   std::list<std::pair<
       std::shared_ptr<RecipeArgumentSpec>,

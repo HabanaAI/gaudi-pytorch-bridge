@@ -436,6 +436,7 @@ class HabanaLaunchOpPT {
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
   void ExecuteSynapseGraph();
+  void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
   void OrderOutputTinfos(RecipeValueSpec& rv);

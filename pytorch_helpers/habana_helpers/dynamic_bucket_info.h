@@ -423,6 +423,8 @@ class DynamicBucketInfo {
   using DimMultipliers =
       std::map<int64_t, std::map<int64_t, std::pair<int64_t, int64_t>>>;
   using DimSizes = std::map<int64_t, int64_t>;
+  std::map<std::weak_ptr<habana::RecipeValueSpec>, size_t, std::owner_less<>>
+      recipe_bucket_map;
 
   bool AreDynamicDimsContained() const {
     return buckets_.size() > 1;
@@ -546,9 +548,19 @@ class DynamicBucketInfo {
   void SetJitIRGraphPtr(std::shared_ptr<torch::jit::Graph> jirpsh) {
     jitirpwk_ = jirpsh;
   }
+  size_t EvictBucket(std::shared_ptr<habana::RecipeValueSpec>& dropped_recipe) {
+    auto bid = recipe_bucket_map[dropped_recipe];
+    buckets_.erase(buckets_.begin() + bid);
+    for (size_t idx = bid; idx < buckets_.size(); idx++) {
+      buckets_[idx].SetIndex(idx);
+    }
+    recipe_bucket_map.erase(dropped_recipe);
+    return bid;
+  }
   void SetSynapseRecipePtr(
       size_t bidx,
       std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
+    recipe_bucket_map[rvpsh] = bidx;
     buckets_.at(bidx).SetSynapseRecipePtr(rvpsh);
   }
   std::shared_ptr<habana::RecipeValueSpec> GetSynapseRecipePtr(size_t bidx) {
@@ -596,6 +608,9 @@ class DynamicBucketInfo {
     size += input_token_map_.size() *
         (sizeof(decltype(input_token_map_)::key_type) +
          sizeof(decltype(input_token_map_)::mapped_type));
+    size += recipe_bucket_map.size() *
+        (sizeof(decltype(recipe_bucket_map)::key_type) +
+         sizeof(decltype(recipe_bucket_map)::mapped_type));
     return size;
   }
 

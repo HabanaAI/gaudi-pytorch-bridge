@@ -1254,12 +1254,18 @@ void RecipeCacheLRU::insert(
 
   size_t rcnt{0};
   bool dropped{true};
-  while (!map_.empty() && dropped && map_.size() >= max_size_) {
-    dropped = drop_lru_impl(rcnt);
-    if (!dropped) {
-      PT_BRIDGE_DEBUG(
-          "all recipes are in use, could not drop any, current recipe count ",
-          rcnt);
+  const bool is_ds_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!is_ds_enabled) {
+    while (
+        !map_.empty() && dropped &&
+        (map_.size() >= max_size_ || habana::IsHostMemoryThresholdReached())) {
+      dropped = drop_lru_impl(rcnt);
+      if (!dropped) {
+        PT_BRIDGE_DEBUG(
+            "all recipes are in use, could not drop any, current recipe count ",
+            rcnt);
+      }
     }
   }
 
@@ -1372,6 +1378,8 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
       RecipeValueSpec::total_recipe_ntbytes -= lit->second->ntensorbytes;
 
       // Drop the entry from map_ and list_
+      dropped_recipe.first = lit->first;
+      dropped_recipe.second = lit->second;
       map_.erase(lit->first);
       list_.erase(lit);
       dropped = true;
@@ -1417,6 +1425,13 @@ void RecipeCacheLRU::ResetDiskCache() {
     disk_cache_.reset();
   }
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+}
+
+void RecipeCacheLRU::SetHostMemoryThreshold(uint32_t host_memory_threshold) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT)) {
+    SET_ENV_FLAG_NEW(
+        PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT, host_memory_threshold, 1);
+  }
 }
 
 std::shared_ptr<habana_helpers::DynamicBucketInfo> DynamicBucketInfoMap::get(

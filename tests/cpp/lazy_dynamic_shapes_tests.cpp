@@ -1957,3 +1957,48 @@ TEST_F(LazyDynamicShapesTest, RepeatInlv3) {
   repeatInlvTest(torch::randn({4, 5}), {2, 1, 2, 1, 2}, 1);
   repeatInlvTest(torch::randn({4, 5}), {2, 2, 2, 2, 2}, 1);
 }
+
+TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
+  std::vector<int> in_sizes{6, 8, 10, 20, 50};
+  int rounds{2};
+
+  uint32_t initial_host_mem_threshold =
+      GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
+  habana::RecipeCacheLRU::SetHostMemoryThreshold(100);
+  while (rounds--) {
+    for (int i = 0; i < in_sizes.size(); i++) {
+      int B = in_sizes[i];
+      torch::Tensor input_cpu =
+          torch::randn({3, B, 4}, torch::requires_grad(false));
+      torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+      torch::Tensor out_hpu = torch::relu(input_hpu);
+      HbLazyTensor::StepMarker({});
+    }
+  }
+
+  auto actual_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
+  habana::RecipeCacheLRU::get_cache().clear();
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
+  habana::RecipeCacheLRU::SetHostMemoryThreshold(1);
+  rounds = 2;
+  while (rounds--) {
+    for (int i = 0; i < in_sizes.size(); i++) {
+      int B = in_sizes[i];
+      torch::Tensor input_cpu =
+          torch::randn({3, B, 4}, torch::requires_grad(false));
+      torch::Tensor out_cpu = torch::relu(input_cpu);
+
+      torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+      torch::Tensor out_hpu = torch::relu(input_hpu);
+      torch::Tensor out_hpu_c = out_hpu.to(torch::kCPU);
+      EXPECT_EQ(allclose(out_cpu, out_hpu_c, 0.01, 0.01), true);
+    }
+  }
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
+  habana::RecipeCacheLRU::SetHostMemoryThreshold(initial_host_mem_threshold);
+
+  auto current_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
+  HABANA_ASSERT(current_recipe_count < actual_recipe_count);
+}

@@ -1596,8 +1596,31 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   }
   PT_BRIDGE_END;
 }
+
+void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
+  size_t num_recipes = 1;
+  bool dropped{true};
+  // Keep evicting recipes until the memory usage goes below threshold
+  while (dropped && habana::IsHostMemoryThresholdReached()) {
+    dropped = dropCachedRecipe_LRU(num_recipes);
+    if (dropped) {
+      auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
+      auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
+      auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
+      auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
+      if ((dropped_dbi == current_dbipsh_) &&
+          dropped_bid < current_bucket_id_) {
+        current_bucket_id_ -= 1;
+        dsi_bucket_id = current_bucket_id_;
+      }
+    }
+  }
+}
+
 void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
+
+  RecipeCacheLRU::SetHostMemoryThreshold();
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
       std::make_shared<RecipeArgumentSpec>(input_refs, graph_key, op_strs);
@@ -1664,6 +1687,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
       input_refs, graph_key, op_strs, cur_ds_token_);
+  DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
   // Check for cached recipe
   if (enable_caching_) {
     current_dbipsh_->SetRecipeKeyForBucket(
@@ -2486,6 +2510,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     auto syn_graph =
         habana_helpers::create_graph(device.id(), GetSynapseGraphName());
     syn_graph.set_dynamic_graph(is_dynamic_graph);
+    EvictSynapseRecipe(graph_input_info.current_bucket_id);
     BuildSynapseGraph(syn_graph);
     CompileSynapseGraph();
     ConstructPatchingTable();

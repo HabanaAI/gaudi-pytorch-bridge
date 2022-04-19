@@ -1159,7 +1159,7 @@ std::string DynamicBucketInfo::digest_str() const {
     O << "Bucket id: " << idx << '\n';
     O << bucket.digest_str();
     O << "Ranges:";
-    O << bucket_range_str(bucket, (0 == idx));
+    O << bucket_range_str(bucket, bucket.IsStatic());
     O << '\n' << "--------------------" << '\n';
   }
   return O.str();

@@ -14,11 +14,12 @@
 
 #include <cstdlib>
 
+#include <sys/sysinfo.h>
 #include <iostream>
 #include <string>
 
 #include <ATen/Tensor.h>
-
+#include "synapse_helpers/env_flags.h"
 namespace habana {
 
 // Returns if the input is a ZST
@@ -58,6 +59,8 @@ inline int64_t mod_exp(bool w, int64_t x = 997) {
   int64_t y = (w ? 97 : 43);
   return (mod_exp(y, x));
 }
+
+bool IsHostMemoryThresholdReached();
 
 } // namespace habana
 
