@@ -966,9 +966,15 @@ void StaticCoalescedPooling::clear_stats() const {
   stats.num_allocs = 0;
   stats.num_frees = 0;
   stats.peak_bytes_in_use = stats.bytes_in_use;
+  stats.bytes_in_use = 0;
   stats.largest_alloc_size = 0;
   stats.fragmentation_percent = 0;
   stats.fragmentation_mask = "";
+}
+
+void StaticCoalescedPooling::reset_peak_mem_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.peak_bytes_in_use = 0;
 }
 
 } // namespace pool_allocator

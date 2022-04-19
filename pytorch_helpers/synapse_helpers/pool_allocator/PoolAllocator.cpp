@@ -279,6 +279,11 @@ void StaticPooling::clear_stats() const {
   stats.largest_alloc_size = 0;
 }
 
+void StaticPooling::reset_peak_mem_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.peak_bytes_in_use = 0;
+}
+
 DynamicPooling::DynamicPooling() {
   pool_id = 0;
   pool_start = nullptr;
@@ -502,6 +507,11 @@ void DynamicPooling::clear_stats() const {
   stats.num_frees = 0;
   stats.peak_bytes_in_use = stats.bytes_in_use;
   stats.largest_alloc_size = 0;
+}
+
+void DynamicPooling::reset_peak_mem_stats() const {
+  const std::lock_guard<std::mutex> lock(vp_mutex);
+  stats.peak_bytes_in_use = 0;
 }
 
 } // namespace pool_allocator

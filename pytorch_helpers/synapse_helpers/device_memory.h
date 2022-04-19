@@ -51,6 +51,7 @@ class device_memory {
   bool is_mem_threshold_hit();
   void get_memory_stats(MemoryStats* stats);
   void clear_memory_stats();
+  void reset_peak_memory_stats();
   device_ptr_lock lock_addresses(absl::Span<const device_ptr>);
   pool_allocator::PoolStrategyType get_pool_strategy() {
     return pool_strategy_;

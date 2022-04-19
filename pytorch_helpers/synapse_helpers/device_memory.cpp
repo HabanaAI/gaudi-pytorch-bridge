@@ -807,4 +807,10 @@ void device_memory::clear_memory_stats() {
   }
 }
 
+void device_memory::reset_peak_memory_stats() {
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    suballoc_->reset_peak_mem_stats();
+  }
+}
+
 } // namespace synapse_helpers

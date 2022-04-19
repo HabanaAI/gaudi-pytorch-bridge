@@ -30,6 +30,62 @@ const std::string get_device_name(int device_id) {
   return device.name();
 }
 
+const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  synapse_helpers::MemoryStats stats;
+  device.get_device_memory().get_memory_stats(&stats);
+  return stats;
+}
+
+void reset_peak_memory_stats(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  device.get_device_memory().reset_peak_memory_stats();
+}
+
+void clear_memory_stats(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  device.get_device_memory().clear_memory_stats();
+}
+
+const std::string get_mem_stat_summary(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto stats = get_mem_stat(device_id);
+  // return only memory info skip poll id, mask info etc..
+  std::string summary = absl::StrFormat(
+      "  Limit:             %20lld (%.2f GB)\n"
+      "  InUse:             %20lld (%.2f MB)\n"
+      "  MaxInUse:          %20lld (%.2f MB)\n"
+      "  NumAllocs:         %20lld\n"
+      "  NumFrees:          %20lld\n"
+      "  MaxAllocSize:      %20lld (%.2f MB)\n"
+      "  ActiveAllocs:      %20lld\n"
+      "%s\n",
+      stats.memory_limit,
+      stats.memory_limit / (1024 * 1024 * 1024.),
+      stats.bytes_in_use,
+      stats.bytes_in_use / (1024 * 1024.),
+      stats.peak_bytes_in_use,
+      stats.peak_bytes_in_use / (1024 * 1024.),
+      stats.num_allocs,
+      stats.num_frees,
+      stats.largest_alloc_size,
+      stats.largest_alloc_size / (1024 * 1024.),
+      (int64_t)stats.num_allocs - (int64_t)stats.num_frees,
+      "");
+  return summary;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("init", []() { hpu_init(); });
   m.def("current_device", []() {
@@ -41,6 +97,30 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("device_count", []() {
     return synapse_helpers::HPURegistrar::get_total_device_count();
+  });
+  m.def("reset_peak_memory_stats", [](int id) { reset_peak_memory_stats(id); });
+  m.def("clear_memory_stats", [](int id) { clear_memory_stats(id); });
+  m.def("get_mem_stats", [](int id) {
+    using namespace pybind11::literals;
+    auto stats = get_mem_stat(id);
+    py::dict d(
+        "Limit"_a = stats.memory_limit,
+        "InUse"_a = stats.bytes_in_use,
+        "MaxInUse"_a = stats.peak_bytes_in_use,
+        "NumAllocs"_a = stats.num_allocs,
+        "NumFrees"_a = stats.num_frees,
+        "ActiveAllocs"_a =
+            ((int64_t)stats.num_allocs - (int64_t)stats.num_frees),
+        "MaxAllocSize"_a = stats.largest_alloc_size,
+        "TotalSystemAllocs"_a = stats.total_allocs,
+        "TotalSystemFrees"_a = stats.total_frees,
+        "TotalActiveAllocs"_a =
+            ((int64_t)stats.total_allocs - (int64_t)stats.total_frees));
+    return d;
+  });
+  m.def("get_memory_summary", [](int id) {
+    auto mem_stat_str = get_mem_stat_summary(id);
+    return mem_stat_str;
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
   m.doc() = "This module registers hpu backend.";

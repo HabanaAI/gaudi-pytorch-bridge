@@ -46,6 +46,7 @@ class PoolingStrategy {
   virtual void* extend_high_memory_allocation(uint64_t size) const = 0;
   virtual void get_stats(MemoryStats* stats) const = 0;
   virtual void clear_stats() const = 0;
+  virtual void reset_peak_mem_stats() const = 0;
   virtual size_t allocated_size(UNUSED const void* p) const {
     return 0;
   }
@@ -109,6 +110,10 @@ class SubAllocator {
 
   void clear_stats() const {
     this->strategy_->clear_stats();
+  }
+
+  void reset_peak_mem_stats() const {
+    this->strategy_->reset_peak_mem_stats();
   }
 
   size_t allocated_size(const void* p) const {
@@ -175,6 +180,7 @@ class StaticPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size) const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
+  void reset_peak_mem_stats() const override;
 };
 
 /// Variable length pooling using equal fit block ///
@@ -213,6 +219,7 @@ class DynamicPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size) const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
+  void reset_peak_mem_stats() const override;
 };
 
 } // namespace pool_allocator

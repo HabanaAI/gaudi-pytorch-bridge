@@ -1321,5 +1321,10 @@ void CoalescedStringentPooling::clear_stats() const {
   stats.fragmentation_mask = "";
 }
 
+void CoalescedStringentPooling::reset_peak_mem_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.peak_bytes_in_use = 0;
+}
+
 } // namespace pool_allocator
 } // namespace synapse_helpers
