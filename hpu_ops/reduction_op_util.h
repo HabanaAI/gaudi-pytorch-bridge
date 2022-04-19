@@ -27,11 +27,10 @@ std::shared_ptr<void> ReductionOpParams(
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
+    const at::Tensor& self,
     std::vector<synTensor> inputs,
-    at::IntArrayRef dims,
+    const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
-    const at::IntArrayRef self_shape,
-    const at::IntArrayRef outshape,
     std::vector<NodeAttr::NodeOutputAttr> output_attr);
 } // namespace habana

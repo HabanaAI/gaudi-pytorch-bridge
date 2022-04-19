@@ -9,7 +9,6 @@
  */
 #include "generated/hpu_op.h"
 #include "habana_kernels/reduction_kernels.h"
-#include "reduction_op_util.h"
 
 namespace habana {
 sizes_vec AmaxAminOutputShape(const at::Stack& stack, bool) {
@@ -19,6 +18,17 @@ sizes_vec AmaxAminOutputShape(const at::Stack& stack, bool) {
   std::vector<int64_t> compute_shape =
       ReduceOperator::compute_output_shape(self, dim, keepdim);
   return {compute_shape};
+}
+
+std::shared_ptr<void> FillAmaxAminParams(
+    const at::Stack& stack,
+    size_t& size,
+    int64_t index) {
+  PARAMS_STUB(ns_Reduction::Params);
+  auto ndim = static_cast<int>(stack.at(0).toTensor().dim());
+  auto reduction_dim = ndim - 1 - index;
+  params->reductionDimension = reduction_dim;
+  return params;
 }
 
 sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
@@ -46,21 +56,141 @@ void AmaxAmin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
 
   const bool keepdim = stack.at(2).toBool();
+  auto ndim = self.dim();
+  auto mask = std::bitset<64>();
   auto self_shape = self.sizes().vec();
-  auto dim = stack.at(1).toIntVector();
+  auto dim = stack.at(1).toIntList();
 
-  auto AmaxAmin = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      {syn_in(0)},
-      dim,
-      keepdim,
-      guid_,
-      self_shape,
-      new_shape,
-      {{{}, ScalarType()}, {self_shape, ScalarType()}});
+  struct Parameters {
+    std::shared_ptr<void> param_list;
+    size_t size_list;
+    std::vector<int64_t> shape_list;
+  };
 
-  syn_out(0) = std::move(AmaxAmin.at(0));
+  // When dim=[], reduce all dimensions based on keepdim value
+  if (0 == dim.size()) {
+    for (int i = 0; i < ndim; ++i) {
+      dim.push_back(i);
+    }
+  }
+  for (const auto& i : dim) {
+    mask.set(c10::maybe_wrap_dim(i, ndim, true));
+  }
+
+  std::vector<int64_t> orig_shape{self.sizes().vec()};
+  std::vector<synTensor> AmaxAmin_list;
+  std::vector<synapse_helpers::tensor> AmaxAmin_itr;
+  std::vector<Parameters> parameters;
+  Parameters p;
+
+  for (int64_t dimIndex = orig_shape.size() - 1; dimIndex >= 0; dimIndex--) {
+    if (mask[dimIndex]) {
+      orig_shape[dimIndex] = 1;
+      size_t size = 0;
+      auto params = FillAmaxAminParams(stack, size, dimIndex);
+
+      p.param_list = params;
+      p.size_list = size;
+      p.shape_list = orig_shape;
+      parameters.push_back({p});
+    }
+  }
+  size_t len = parameters.size();
+
+  if (keepdim) {
+    // When keepdim value is set to true
+    if (len == 1) {
+      auto AmaxAmin = BuildOp(
+          graph,
+          guid_,
+          {syn_in(0)},
+          {{parameters[0].shape_list, ScalarType(), 0},
+           {self_shape[0], ScalarType()}},
+          parameters[0].param_list.get(),
+          parameters[0].size_list);
+
+      // output of AmaxAmin is the output of this op
+      syn_out(0) = std::move(AmaxAmin[0]);
+
+    } else if (len > 1) {
+      auto AmaxAmin = BuildOp(
+          graph,
+          guid_,
+          {syn_in(0)},
+          {{parameters[0].shape_list, ScalarType()},
+           {self_shape, ScalarType()}},
+          parameters[0].param_list.get(),
+          parameters[0].size_list);
+
+      AmaxAmin_list.emplace_back(AmaxAmin[0].get());
+
+      // Iterating over the for loop when multiple dim values are passed
+      for (size_t i = 1; i <= len - 1; i++) {
+        AmaxAmin_itr = BuildOp(
+            graph,
+            guid_,
+            {AmaxAmin_list[i - 1]},
+            {{parameters[i].shape_list, ScalarType()},
+             {self_shape, ScalarType()}},
+            parameters[i].param_list.get(),
+            parameters[i].size_list);
+
+        // Reshape occurs when multiple dim values are passed
+        if (i == len - 1) {
+          auto reshape = ReshapeHelper(
+              graph, AmaxAmin_itr[0].get(), new_shape, ScalarType(), 0);
+
+          // output of reshape is the output of this op
+          syn_out(0) = std::move(reshape);
+        }
+        AmaxAmin_list.emplace_back(AmaxAmin_itr[0].get());
+      }
+    }
+
+  } else {
+    // When keepdim value is set to false
+    auto AmaxAmin = BuildOp(
+        graph,
+        guid_,
+        {syn_in(0)},
+        {{parameters[0].shape_list, ScalarType()}, {self_shape, ScalarType()}},
+        parameters[0].param_list.get(),
+        parameters[0].size_list);
+
+    AmaxAmin_list.emplace_back(AmaxAmin[0].get());
+
+    if (len > 1) {
+      // Iterating over the for loop when multiple dim values are passed
+      for (size_t i = 1; i <= len - 1; i++) {
+        AmaxAmin_itr = BuildOp(
+            graph,
+            guid_,
+            {AmaxAmin_list[i - 1]},
+            {{parameters[i].shape_list, ScalarType()},
+             {self_shape, ScalarType()}},
+            parameters[i].param_list.get(),
+            parameters[i].size_list);
+
+        // Reshape occurs when multiple dim values are passed
+        if (i == len - 1) {
+          auto reshape = ReshapeHelper(
+              graph, AmaxAmin_itr[0].get(), new_shape, ScalarType(), 0);
+
+          // output of reshape is the output of this op
+          syn_out(0) = std::move(reshape);
+        }
+        AmaxAmin_list.emplace_back(AmaxAmin_itr[0].get());
+      }
+    }
+    // Reshape occurs when single dim value is passed
+    if (len == 1) {
+      auto reshape =
+          ReshapeHelper(graph, AmaxAmin[0].get(), new_shape, ScalarType(), 0);
+
+      // output of reshape is the output of this op
+      syn_out(0) = std::move(reshape);
+    }
+  }
 }
 
 static std::vector<synapse_helpers::tensor> AminmaxOutput(

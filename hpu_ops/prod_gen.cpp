@@ -10,6 +10,7 @@
 
 #include "generated/hpu_op.h"
 #include "habana_kernels/reduction_kernels.h"
+#include "reduction_op_util.h"
 
 namespace habana {
 sizes_vec ProdOutputShape(const at::Stack& stack, bool) {
@@ -25,37 +26,16 @@ void ProdOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const bool keepdim = stack.at(2).toBool();
   auto dim_ = stack.at(1).toInt();
   auto shape = ProdOutputShape(stack)[0];
-  std::vector<int64_t> outshape{self.sizes().vec()};
-  size_t size = 0;
-  const auto& params = FillArgMinMaxParams(stack, size);
 
-  // keepdim is false reduce dim using reshape.
-  // custom outshape give two diff shape but
-  // reduce prod_fwd guid  requried same shape for Keepdim True/false
-  if (!keepdim) {
-    auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-    outshape[dim] = 1;
-    auto reduce_prod = BuildOp(
-        graph,
-        "reduce_prod_fwd",
-        {syn_in(0)},
-        {{outshape, ScalarType()}},
-        params.get(),
-        size);
-    auto reshape =
-        ReshapeHelper(graph, reduce_prod[0].get(), shape, ScalarType(), 0);
-    syn_out(0) = std::move(reshape);
-
-    // keepdim is true directly mapping to the tpc kernel.
-  } else {
-    auto reduce_prod = BuildOp(
-        graph,
-        "reduce_prod_fwd",
-        {syn_in(0)},
-        {{shape, ScalarType(), 0}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(reduce_prod[0]);
-  }
+  auto reduce_prod = HandleReductionDimAndKeepdim(
+      this,
+      graph,
+      self,
+      {syn_in(0)},
+      dim_,
+      keepdim,
+      "reduce_prod_fwd",
+      {{shape, ScalarType(), 0}});
+  syn_out(0) = std::move(reduce_prod[0]);
 }
 } // namespace habana

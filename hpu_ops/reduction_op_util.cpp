@@ -41,12 +41,11 @@ std::shared_ptr<void> ReductionOpParams(
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
+    const at::Tensor& self,
     std::vector<synTensor> inputs,
     const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
-    const at::IntArrayRef self_shape,
-    const at::IntArrayRef outshape,
     std::vector<NodeAttr::NodeOutputAttr> output_attr) {
   struct Parameters {
     std::shared_ptr<void> param_list;
@@ -56,8 +55,9 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
 
   auto dim = dims.vec();
   auto mask = std::bitset<64>();
-  std::vector<int64_t> orig_shape{self_shape.vec()};
+  std::vector<int64_t> orig_shape{self.sizes().vec()};
   const int ndims = orig_shape.size();
+  auto num_outputs = output_attr.size();
 
   std::vector<synTensor> tensor_list;
   std::vector<synapse_helpers::tensor> reshape_list;
@@ -70,6 +70,18 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       dim.push_back(i);
     }
   }
+  HABANA_ASSERT(num_outputs <= 2, "Number of outputs is greater than 2.");
+  auto reduc_output_attrs =
+      [](sizes_vec outshapes,
+         std::vector<at::ScalarType> dtypes,
+         int num_out) -> std::vector<NodeAttr::NodeOutputAttr> {
+    std::vector<NodeAttr::NodeOutputAttr> reduc_output_attrs;
+    for (int itr = 0; itr < num_out; itr++) {
+      reduc_output_attrs.push_back({outshapes.at(itr), dtypes.at(itr)});
+    }
+
+    return reduc_output_attrs;
+  };
 
   for (const auto& i : dim) {
     mask.set(c10::maybe_wrap_dim(i, ndims, true));
@@ -87,13 +99,15 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       parameters.push_back({p});
     }
   }
-
+  auto retain_ten_shape =
+      num_outputs > 1 ? parameters[0].shape_list : self.sizes().vec();
   size_t len = parameters.size();
-  output_attr[0].sizes = parameters[0].shape_list;
+  // NOTE: 1. Need to handle when TPC returns two outputs and pytorch
+  // returns one output.
+  // 2. Flatten the input when dim is none for certain ops.
   if (keepdim) {
     // When keepdim value is set to true
     if (len == 1) {
-      output_attr[0].final_result_index = 0; // result index
       auto op_out = OpBackend::BuildNode(
           op,
           graph,
@@ -110,7 +124,10 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
           graph,
           {guid,
            std::move(inputs),
-           output_attr,
+           reduc_output_attrs(
+               {parameters[0].shape_list, retain_ten_shape},
+               {output_attr[0].dtype, output_attr[1].dtype},
+               num_outputs),
            parameters[0].param_list.get(),
            parameters[0].size_list});
 
@@ -118,24 +135,32 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
 
       // Iterating over the for loop when multiple dim values are passed
       for (size_t i = 1; i <= len - 1; i++) {
-        output_attr[0].sizes = parameters[i].shape_list;
         tensor_itr = OpBackend::BuildNode(
             op,
             graph,
             {guid,
              {tensor_list[i - 1]},
-             output_attr,
+             reduc_output_attrs(
+                 {parameters[i].shape_list, retain_ten_shape},
+                 {output_attr[0].dtype, output_attr[1].dtype},
+                 num_outputs),
              parameters[i].param_list.get(),
              parameters[i].size_list});
 
         tensor_list.emplace_back(tensor_itr[0].get());
       }
+      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+        auto reshape = OpBackend::BuildReshape(
+            op,
+            graph,
+            tensor_itr[itr].get(),
+            output_attr[itr].sizes,
+            output_attr[itr].dtype,
+            output_attr[itr].final_result_index);
 
-      auto reshape = OpBackend::BuildReshape(
-          op, graph, tensor_itr[0].get(), outshape, op->ScalarType(), 0);
-
-      // output of reshape is the output of this op
-      reshape_list.emplace_back(std::move(reshape));
+        // output of reshape is the output of this op
+        reshape_list.emplace_back(std::move(reshape));
+      }
       return reshape_list;
     }
   } else {
@@ -145,36 +170,59 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
         graph,
         {guid,
          std::move(inputs),
-         output_attr,
+         reduc_output_attrs(
+             {parameters[0].shape_list, retain_ten_shape},
+             {output_attr[0].dtype, output_attr[1].dtype},
+             num_outputs),
          parameters[0].param_list.get(),
          parameters[0].size_list});
 
     tensor_list.emplace_back(op_out[0].get());
     if (len == 1) {
-      auto reshape = OpBackend::BuildReshape(
-          op, graph, op_out[0].get(), outshape, op->ScalarType(), 0);
-      reshape_list.emplace_back(std::move(reshape));
+      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+        auto reshape = OpBackend::BuildReshape(
+            op,
+            graph,
+            op_out[itr].get(),
+            output_attr[itr].sizes,
+            output_attr[itr].dtype,
+            output_attr[itr].final_result_index);
+
+        // output of reshape is the output of this op
+        reshape_list.emplace_back(std::move(reshape));
+      }
 
       return reshape_list;
     } else {
       // Iterating over the for loop when multiple dim values are passed
       for (size_t i = 1; i <= len - 1; i++) {
-        output_attr[0].sizes = parameters[i].shape_list;
         tensor_itr = OpBackend::BuildNode(
             op,
             graph,
             {guid,
              {tensor_list[i - 1]},
-             output_attr,
+             reduc_output_attrs(
+                 {parameters[i].shape_list, retain_ten_shape},
+                 {output_attr[0].dtype, output_attr[1].dtype},
+                 num_outputs),
              parameters[i].param_list.get(),
              parameters[i].size_list});
 
         tensor_list.emplace_back(tensor_itr[0].get());
       }
       // output of reshape is the output of this op
-      auto reshape = OpBackend::BuildReshape(
-          op, graph, tensor_itr[0].get(), outshape, op->ScalarType(), 0);
-      reshape_list.emplace_back(std::move(reshape));
+      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+        auto reshape = OpBackend::BuildReshape(
+            op,
+            graph,
+            tensor_itr[itr].get(),
+            output_attr[itr].sizes,
+            output_attr[itr].dtype,
+            output_attr[itr].final_result_index);
+
+        // output of reshape is the output of this op
+        reshape_list.emplace_back(std::move(reshape));
+      }
       return reshape_list;
     }
   }
