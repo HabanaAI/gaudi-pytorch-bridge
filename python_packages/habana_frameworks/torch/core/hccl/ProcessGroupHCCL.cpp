@@ -525,8 +525,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   HOST_SYNC()
-  return collective(
+  auto work = collective(
       tensors,
       tensors,
       [rootRank = opts.rootRank](
@@ -538,6 +539,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           hcclStream_t stream) {
         auto tensor_data_type = getHCCLDataType(input.scalar_type());
         auto numel = input.numel();
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] broadcast with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            numel,
+            " data_type :: ",
+            tensor_data_type);
         return hcclBroadcast(
             send_buffer,
             recv_buffer,
@@ -547,11 +557,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
             hccl_comm,
             stream);
       });
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   std::vector<at::Tensor> allreduce_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());
@@ -581,6 +594,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
               (num_elements > chunk_size) ? chunk_size : num_elements;
+          PT_DISTRIBUTED_DEBUG(
+              "[PYT-DIST] allreduce with input_address :: ",
+              (send_buffer + data_offset),
+              " output_address :: ",
+              (recv_buffer + data_offset),
+              " elem_cnt :: ",
+              num_elements_in_current_chunk,
+              " data_type :: ",
+              getHCCLDataType(input.scalar_type()));
 
           hccl_result = hcclAllReduce(
               send_buffer + data_offset,
@@ -604,6 +626,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
       tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
     }
   }
+  PT_DISTRIBUTED_END;
   return work;
 }
 
@@ -617,7 +640,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce_coalesced(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
-  return collective(
+  PT_DISTRIBUTED_BEGIN;
+  auto work = collective(
       tensors,
       tensors,
       [root = opts.rootRank * tensors.size() + opts.rootTensor,
@@ -628,6 +652,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] reduce with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            input.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
         return hcclReduce(
             send_buffer,
             recv_buffer,
@@ -638,6 +671,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
             hccl_comm,
             stream);
       });
+
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
@@ -646,6 +682,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   // Currently only support for alltoall of same size split supported
   std::vector<at::Tensor> inputTensors;
   std::vector<at::Tensor> outputTensors;
@@ -659,7 +696,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   // copy_data_within_device
   outputTensor.copy_(inputTensor);
 
-  return collective(
+  auto work = collective(
       inputTensors,
       outputTensors,
       [numRanks = getSize(), rank = getRank()](
@@ -673,7 +710,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
         size_t rank_offset = count *
             c10::elementSize(getInternalScalarType(input.scalar_type()));
         auto type = getHCCLDataType(input.scalar_type());
-
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] alltoall with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            count,
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
         hcclGroupStart();
         hcclResult_t hccl_result{hcclSuccess};
         for (auto r = 0; r < numRanks; r++) {
@@ -715,12 +760,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
 
         return hccl_result;
       });
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
   HOST_SYNC()
@@ -733,6 +781,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] allgather with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            input.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
         auto work = hcclAllGather(
             send_buffer,
             recv_buffer,
@@ -748,6 +805,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
       outputTensors[i][j].copy_(outputFlattened[i][j], true);
     }
   }
+  PT_DISTRIBUTED_END;
   return work;
 }
 
@@ -785,6 +843,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   auto inputFlattened =
       flatten_for_scatter_gather(inputTensors, outputTensors, size_);
   for (size_t i = 0; i < inputTensors.size(); ++i) {
@@ -792,7 +851,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
       inputFlattened[i][j].copy_(inputTensors[i][j], true);
     }
   }
-  return collective(
+  auto work = collective(
       inputFlattened,
       outputTensors,
       [reduceOp = opts.reduceOp](
@@ -803,6 +862,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
         // Wait for event on input
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] reduce_scatter with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            output.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
         auto work = hcclReduceScatter(
             send_buffer,
             recv_buffer,
@@ -814,19 +882,29 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
 
         return work;
       });
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
     int tag) {
-  return pointToPoint(
+  PT_DISTRIBUTED_BEGIN;
+  auto work = pointToPoint(
       tensors,
       [](at::Tensor& input,
          const void* send_buff,
          hcclComm_t& hccl_comm,
          hcclStream_t stream,
          int peerRank) {
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] send with input_address :: ",
+            send_buff,
+            " elem_cnt :: ",
+            input.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
         return hcclSend(
             send_buff,
             input.numel(),
@@ -836,19 +914,29 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
             stream);
       },
       dstRank);
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
     int tag) {
-  return pointToPoint(
+  PT_DISTRIBUTED_BEGIN;
+  auto work = pointToPoint(
       tensors,
       [](at::Tensor& tensor,
          void* recv_buff,
          hcclComm_t& hccl_comm,
          hcclStream_t stream,
          int peerRank) {
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] send with input_address :: ",
+            recv_buff,
+            " elem_cnt :: ",
+            tensor.numel(),
+            " data_type :: ",
+            getHCCLDataType(tensor.scalar_type()));
         return hcclRecv(
             recv_buff,
             tensor.numel(),
@@ -858,6 +946,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
             stream);
       },
       srcRank);
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 void ProcessGroupHCCL::groupStart() {
@@ -894,6 +984,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recvAnysource(
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
     const BarrierOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
   std::vector<int> devices;
   for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
        it++) {
@@ -902,7 +993,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
 
   auto comms = getCommList(devices);
   auto commStreams = getCommStreams(devices);
-
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] Host and device barrier from rank :: ", getRank())
   hostBarrier();
   for (size_t i = 0; i < comms.size(); i++) {
     hcclBarrier(*comms[i], commStreams[i]);
@@ -912,7 +1004,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
   std::vector<at::Tensor> outputs;
   auto deviceCtxts = getDeviceCtxtList(devices);
   auto work = initWork(outputs, res, comms, deviceCtxts);
-
+  PT_DISTRIBUTED_END;
   return work;
 }
 
