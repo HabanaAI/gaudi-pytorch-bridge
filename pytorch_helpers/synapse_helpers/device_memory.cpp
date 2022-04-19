@@ -659,23 +659,26 @@ bool device_memory::defragment_memory(
 
 size_t device_memory::get_total_memory_required(
     absl::Span<const device_ptr> addresses) {
-  std::unordered_map<device_ptr, size_t> umap_addr;
-  std::unique_lock<std::mutex> lock(mutex_);
-  for (const auto address : addresses) {
-    auto h = mem_handle::reinterpret_from_pointer(address);
-    if (!h.is_valid())
-      continue;
-    auto ptr_size = handle2pointer_.GetPtrSize(h.id());
-    if (ptr_size.ptr_ == nullptr) {
-      auto found = umap_addr.find(address);
-      if (found == umap_addr.end()) {
-        umap_addr[address] = ptr_size.size_;
+  size_t total_memory = 0;
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    std::unordered_map<device_ptr, size_t> umap_addr;
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (const auto address : addresses) {
+      auto h = mem_handle::reinterpret_from_pointer(address);
+      if (!h.is_valid())
+        continue;
+      auto ptr_size = handle2pointer_.GetPtrSize(h.id());
+      if (ptr_size.ptr_ == nullptr) {
+        auto found = umap_addr.find(address);
+        if (found == umap_addr.end()) {
+          umap_addr[address] = ptr_size.size_;
+        }
       }
     }
-  }
-  size_t total_memory = 0;
-  for (const auto addr : umap_addr) {
-    total_memory += block_align(addr.second);
+    size_t total_memory = 0;
+    for (const auto addr : umap_addr) {
+      total_memory += block_align(addr.second);
+    }
   }
 
   return total_memory;

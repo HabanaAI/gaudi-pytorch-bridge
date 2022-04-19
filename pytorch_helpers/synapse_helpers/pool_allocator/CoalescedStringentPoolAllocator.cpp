@@ -316,7 +316,7 @@ void CoalescedStringentPooling::pool_destroy() const {
 
 bool CoalescedStringentPooling::is_memory_available(size_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size_t limit = (max_pool_size * mem_threshold);
+  size_t limit = (max_pool_size * (mem_threshold / 100.0));
 
   if ((size + bytes_in_use) > limit) {
     PT_DEVMEM_DEBUG("total requested memory size::", size, " not available");
