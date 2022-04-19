@@ -9,8 +9,7 @@ import os
 import torch.utils.data
 import torchvision.datasets
 from enum import Enum
-import torch_hpu
-import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.experimental as htexp
 
 from .aeon_config import get_aeon_config
 from .aeon_ssd_configurator import AeonSSDConfigurator
@@ -33,10 +32,10 @@ def _get_rank():
         return 0
 
 def isGaudi(device):
-    return (device == htcore.synDeviceGaudi) or (device == htcore.synDeviceGaudiM)
+    return (device == htexp.synDeviceType.synDeviceGaudi) or (device == htexp.synDeviceType.synDeviceGaudiM)
 
 def isGaudi2(device):
-    return device == htcore.synDeviceGaudi2
+    return device == htexp.synDeviceType.synDeviceGaudi2
 
 import habana_dataloader.habana_dl_app
 class CocoDataLoader(torch.utils.data.DataLoader):
@@ -97,7 +96,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
         keyword_args = copy.deepcopy(kwargs)
         keyword_args.update(dict(zip(inspect.getfullargspec(super(HabanaDataLoader, self).__init__).args[1:], args)))
 
-        self.DeviceType = torch_hpu.get_device_type()
+        self.DeviceType = htexp._get_device_type()
 
         self.fallback_activated = False
         try:

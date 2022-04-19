@@ -5,7 +5,7 @@ import numpy as np
 from test_utils import compare_tensors
 
 try:
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.utils.experimental as exp
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
 
@@ -20,21 +20,21 @@ def test_hpu_lazy_data_ptr(input_tensor):
     t1_h = t1.detach().to(hpu)
     t1_h.requires_grad = True
     t1_h.retain_grad()
-    print("t1_h data_ptr ", hex(htcore.data_ptr(t1_h)))
+    print("t1_h data_ptr ", hex(exp._data_ptr(t1_h)))
 
     t2_h = torch.abs(t1_h)
     t3_h = t2_h.mul_(t1_h)
     out_h = torch.add(t2_h, t3_h)
 
-    print("out_h data_ptr ", hex(htcore.data_ptr(out_h)))
+    print("out_h data_ptr ", hex(exp._data_ptr(out_h)))
 
     t2 = torch.abs(t1)
     t3 = t2.mul_(t1)
     out = torch.add(t2, t3)
 
     t3_view = t3_h.view(-1)
-    t3_h_data_ptr = htcore.data_ptr(t3_h)
-    t3_view_data_ptr = htcore.data_ptr(t3_view)
+    t3_h_data_ptr = exp._data_ptr(t3_h)
+    t3_view_data_ptr = exp._data_ptr(t3_view)
 
     print("t3_h data_ptr ", hex(t3_h_data_ptr))
     print("t3_view data_ptr ", hex(t3_view_data_ptr))
@@ -46,7 +46,7 @@ def test_hpu_lazy_data_ptr(input_tensor):
     # out_h.backward(grad_out.detach().to(hpu))
     htcore.mark_step()
 
-    print("t1_h.grad data_ptr ", hex(htcore.data_ptr(t1_h.grad)))
+    print("t1_h.grad data_ptr ", hex(exp._data_ptr(t1_h.grad)))
     grad_t1_h = t1_h.grad.cpu()
 
     out_cpu_to_compare = out.clone().detach()

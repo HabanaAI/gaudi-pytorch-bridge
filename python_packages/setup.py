@@ -71,9 +71,11 @@ def get_version():
 
 
 core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
-hccl_csrc = glob.glob("habana_frameworks/torch/core/hccl/*.cpp")
+hpu_csrc = glob.glob("habana_frameworks/torch/hpu/csrc/*.cpp")
+hccl_csrc = glob.glob("habana_frameworks/torch/distributed/hccl/*.cpp")
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
-profiler_csrc = glob.glob("habana_frameworks/torch/profiler/csrc/*.cpp")
+experimental_csrc = glob.glob("habana_frameworks/torch/utils/experimental/csrc/*.cpp")
+profiler_csrc = glob.glob("habana_frameworks/torch/utils/profiler/csrc/*.cpp")
 
 
 class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True)):
@@ -90,6 +92,16 @@ class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=Tr
         libs = [l for l in libs if os.path.exists(l)]
 
         libs_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "lib")
+        os.makedirs(libs_path, exist_ok=True)
+        for lib in libs:
+            copy_file(lib, libs_path)
+
+        libs_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "utils", "lib")
+        os.makedirs(libs_path, exist_ok=True)
+        for lib in libs:
+            copy_file(lib, libs_path)
+
+        libs_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "distributed", "lib")
         os.makedirs(libs_path, exist_ok=True)
         for lib in libs:
             copy_file(lib, libs_path)
@@ -117,6 +129,8 @@ setup(
     package_data={
         "habana_frameworks.torch.hpex.hmp": ["*.txt"],
         "habana_frameworks.torch": ["lib/*.so"],
+        "habana_frameworks.torch.utils": ["lib/*.so"],
+        "habana_frameworks.torch.distributed": ["lib/*.so"],
     },
     ext_modules=[
         cpp_extension.CppExtension(
@@ -130,7 +144,17 @@ setup(
             extra_compile_args=extra_compile_args,
         ),
         cpp_extension.CppExtension(
-            name="habana_frameworks.torch.core._hccl_C",
+            name="habana_frameworks.torch._hpu_C",
+            sources=hpu_csrc,
+            language="c++",
+            include_dirs=include_dirs,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            libraries=libraries,
+            runtime_library_dirs=["$ORIGIN/lib/"],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habana_frameworks.torch.distributed._hccl_C",
             sources=hccl_csrc,
             language="c++",
             include_dirs=include_dirs,
@@ -150,7 +174,17 @@ setup(
             extra_compile_args=extra_compile_args,
         ),
         cpp_extension.CppExtension(
-            name="habana_frameworks.torch._profiler_C",
+            name="habana_frameworks.torch.utils._experimental_C",
+            sources=experimental_csrc,
+            language="c++",
+            include_dirs=include_dirs,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            libraries=libraries,
+            runtime_library_dirs=["$ORIGIN/lib/"],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habana_frameworks.torch.utils._profiler_C",
             sources=profiler_csrc,
             language="c++",
             include_dirs=include_dirs,
