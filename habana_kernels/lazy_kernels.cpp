@@ -5443,24 +5443,63 @@ Tensor sum_dim_IntList_hpu_lazy(
   PT_LAZY_TRACE;
 
   at::Tensor self_updated_dtype = self;
-
-  if (dtype.has_value() &&
-      (dtype.value() != self_updated_dtype.scalar_type())) {
-    self_updated_dtype = self.to(dtype.value());
+  ScalarType result_dtype;
+  /* Match the HPU return dtype with CPU behaviour.
+   * If 'dtype' parameter is specified and it has value:
+   *      Return result in the dtype as specified by 'dtype' parameter.
+   * Else:
+   * Return result in:
+   * i.  int64 for inputs of integral or bool dtypes
+   * ii. corresponding floating point dtype for inputs
+   *      of FP type.
+   *      ie, fp32 input -> fp32 output
+   *      ie, bf16 input -> bf16 output
+   */
+  if (dtype.has_value()) {
+    if (dtype.value() != self_updated_dtype.scalar_type()) {
+      self_updated_dtype = self.to(dtype.value());
+    }
+    result_dtype = dtype.value();
+  } else {
+    result_dtype = c10::isIntegralType(self_updated_dtype.scalar_type(), true)
+        ? c10::ScalarType::Long
+        : self_updated_dtype.scalar_type();
   }
-
-  if (self.scalar_type() == c10::ScalarType::Bool ||
-      self.scalar_type() == c10::ScalarType::Byte) {
-    self_updated_dtype = self.to(c10::ScalarType::Int);
+  /* for non-floating types, tpc supports only int dtype for sum */
+  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
+    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
   }
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self_updated_dtype, dim, keepdim, dtype};
 
-  LazyOp<at::Tensor> k(
-      "hpu::sum_dim_IntList",
-      {self_updated_dtype, dim, keepdim, dtype},
-      {},
-      {ReduceOperator::compute_output_shape(self_updated_dtype, dim, keepdim)});
-  auto result = k.call();
-  return result;
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(
+        const std::vector<at::IValue>& vector_of_inputs,
+        ScalarType result_dtype)
+        : LazyOp<T>("hpu::sum_dim_IntList", vector_of_inputs, {}, {}, -1),
+          result_dtype_(result_dtype) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dim = inputs[1].toIntList();
+      auto keepdim = inputs[2].toBool();
+      auto shape =
+          ReduceOperator::compute_output_shape(self, dim.vec(), keepdim);
+      return empty_hpu_lazy(
+          shape,
+          self.options().dtype(result_dtype_),
+          self.suggest_memory_format(),
+          false);
+    }
+    ScalarType result_dtype_;
+  };
+
+  Kernel kernel{vector_of_inputs, result_dtype};
+  return kernel.call();
 }
 
 Tensor& sum_out_hpu_lazy(
@@ -5472,9 +5511,15 @@ Tensor& sum_out_hpu_lazy(
   PT_LAZY_TRACE;
   at::Tensor self_updated_dtype = self;
 
-  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
+  if (dtype.has_value() &&
+      (dtype.value() != self_updated_dtype.scalar_type())) {
     self_updated_dtype = self.to(dtype.value());
   }
+  /* for non-floating types, tpc supports only int dtype for sum */
+  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
+    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
+  }
+
   LazyOp<at::Tensor&> k(
       "aten::sum",
       {self_updated_dtype, dim, keepdim, dtype, out},
@@ -5509,27 +5554,53 @@ Tensor& mean_dim_out_hpu_lazy(
       mean, PARAMS2(self, dim, keepdim, dtype, output), out)
 }
 
-Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
+Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  auto self = self_in;
-  // Cast Boolean/Char (I8) inputs to Float since TPC kernel supports only
-  // f32
-  if (self_in.scalar_type() == c10::ScalarType::Bool ||
-      self_in.scalar_type() == c10::ScalarType::Char) {
-    c10::ScalarType dst_dtype = c10::ScalarType::Float;
-    self = empty_hpu_lazy(
-        self_in.sizes(),
-        self_in.options().dtype(dst_dtype),
-        self_in.suggest_memory_format(),
-        false);
-    self = copy_hpu_lazy_(self, self_in, true);
+
+  at::Tensor self_updated_dtype = self;
+  ScalarType result_dtype;
+
+  /* Refer to comment in sum_dim_IntList_hpu_lazy on result dtype setting */
+  if (dtype.has_value()) {
+    if (dtype.value() != self_updated_dtype.scalar_type()) {
+      self_updated_dtype = self.to(dtype.value());
+    }
+    result_dtype = dtype.value();
+  } else {
+    result_dtype = c10::isIntegralType(self_updated_dtype.scalar_type(), true)
+        ? c10::ScalarType::Long
+        : self_updated_dtype.scalar_type();
   }
+  /* for non-floating types, tpc supports only int dtype for sum */
+  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
+    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
+  }
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self_updated_dtype, dtype};
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(
+        const std::vector<at::IValue>& vector_of_inputs,
+        ScalarType result_dtype)
+        : LazyOp<T>("aten::sum", vector_of_inputs, {}, {}, -1),
+          result_dtype_(result_dtype) {}
 
-  LazyOp<at::Tensor> k{"aten::sum", {self, dtype}, {}, {{}}};
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      return empty_hpu_lazy(
+          {},
+          self.options().dtype(result_dtype_),
+          self.suggest_memory_format(),
+          false);
+    }
+    ScalarType result_dtype_;
+  };
 
-  Tensor result = k.call();
-  result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  return result;
+  Kernel kernel{vector_of_inputs, result_dtype};
+  return kernel.call();
 }
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
