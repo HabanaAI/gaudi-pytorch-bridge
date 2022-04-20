@@ -2167,11 +2167,9 @@ prelu:
   out_ids: [0]
 
 prod.int_out:
-  custom_output_shape: ProdOutputShape
-  custom_fill_params: FillArgMinMaxParams
   dtypes: [BFloat16, Float]
   guid: reduce_prod_fwd
-  op_backend: ProdOut
+  op_template: reduction
 
 random_:
   custom_fill_params: FillRandomParams

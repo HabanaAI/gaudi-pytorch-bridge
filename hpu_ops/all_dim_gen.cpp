@@ -9,6 +9,7 @@
  */
 #include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
+#include "reduction_template.h"
 
 namespace habana {
 
@@ -36,33 +37,30 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph, syn_in(0), outshape, self.scalar_type(), c10::ScalarType::Float);
 
   const int64_t axis = stack.at(1).toInt();
+  const bool keepdim = stack.at(2).toBool();
   auto dim = (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis;
-  outshape[dim] = 1;
 
-  size_t size = 0;
-  PARAMS_STUB(ns_Reduction::Params);
-  params->reductionDimension = self.dim() - 1 - dim;
+  auto out_shape = AllDimOutputShape(stack, true)[0];
 
-  auto reduce_prod = BuildOp(
+  auto reduce_prod = HandleReductionDimAndKeepdim(
+      this,
       graph,
-      "reduce_prod_fwd_f32",
+      self,
       {cast_f32.get()},
-      {{outshape, ScalarType()}},
-      params.get(),
-      size);
+      dim,
+      keepdim,
+      "reduce_prod_fwd_f32",
+      {{out_shape, ScalarType()}});
 
   auto cast_i8 = CastHelper(
       graph,
       reduce_prod[0].get(),
-      outshape,
+      out_shape,
       c10::ScalarType::Float,
-      c10::ScalarType::Bool);
+      c10::ScalarType::Bool,
+      0);
 
-  auto out_shape = AllDimOutputShape(stack, true)[0];
-  auto reshape =
-      ReshapeHelper(graph, cast_i8.get(), out_shape, c10::ScalarType::Bool, 0);
-
-  syn_out(0) = std::move(reshape);
+  syn_out(0) = std::move(cast_i8);
 }
 
 void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
