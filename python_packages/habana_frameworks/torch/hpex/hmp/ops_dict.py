@@ -49,6 +49,7 @@ ops_dict = {
     "nll_loss": [torch.nn.functional],
     "mse_loss": [torch.nn.functional],
     "smooth_l1_loss": [torch.nn.functional],
+    "l1_loss": [torch.nn.functional],
     # Binary
     "add": [torch, torch.Tensor],
     "addcmul": [torch, torch.Tensor],
