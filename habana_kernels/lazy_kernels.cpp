@@ -1838,12 +1838,29 @@ Tensor& set_hpu_lazy_(
   return self;
 }
 
-Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
+Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   PT_LAZY_TRACE;
+
+  auto self = self_;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
     auto hl_self = GetHbLazyTensor(self);
-    HandleViewsOrUpdate(self, hl_self);
+
+    // multilevel view optimization
+    // v1 = view(a, out_size1)
+    // v2 = view(v1, out_size2)
+    // The above sequence can be compressed to v2 = view(a, out_size2)
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    auto self_id = hl_self.getTensorUniqueId();
+    auto it = context->view_table.find(self_id);
+    if (it != context->view_table.end()) {
+      StrideParams* params_ptr = &it->second;
+      if (params_ptr->optype == kStridedOpView) {
+        self = params_ptr->parent;
+        PT_VIEWTABLE_DEBUG("invoked multilevel view optimization");
+      }
+    }
+
     auto inferred_size = habana_helpers::infer_size(size, self.numel());
     auto stride =
         at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
@@ -3666,7 +3683,6 @@ Tensor slice_hpu_lazy(
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
     auto hl_self_in = GetHbLazyTensor(self_in);
-    HandleViewsOrUpdate(self_in, hl_self_in);
     auto out = slice_hpu_with_asstrided(self_in, dim, start, end, step);
     auto hb_result = GetHbLazyTensor(out);
     auto& strided_param = getViewTableParams(hb_result);
@@ -3905,7 +3921,6 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE)) {
     auto hl_self = GetHbLazyTensor(self);
-    HandleViewsOrUpdate(self, hl_self);
 
     auto out = at::native::select(self, dim, index);
 
@@ -6086,7 +6101,6 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   // individually.
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
     auto hl_self = GetHbLazyTensor(self);
-    HandleViewsOrUpdate(self, hl_self);
     auto out = at::native::transpose(self, dim0_, dim1_);
     auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
     auto out_id = GetHbLazyTensor(out).getTensorUniqueId();
@@ -6262,7 +6276,6 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
     auto hl_self = GetHbLazyTensor(self);
-    HandleViewsOrUpdate(self, hl_self);
     auto out = at::native::permute(self, dims_in);
     if (is_fallback_original_op(self, out)) {
       auto hb_result = GetHbLazyTensor(out);

@@ -495,3 +495,15 @@ TEST_F(LazyBasicKernelTest, viewtranspose) {
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, multilevelview) {
+  torch::Tensor A = torch::randn({2, 3, 4, 5});
+  auto hA = A.to(torch::kHPU);
+  auto B = A.view({2 * 3, 4, 5});
+  auto C = B.view({2 * 3, 4 * 5});
+
+  auto hB = hA.view({2 * 3, 4, 5});
+  auto hC = hB.view({2 * 3, 4 * 5});
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}
