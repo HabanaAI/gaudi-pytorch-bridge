@@ -14,6 +14,20 @@
 
 namespace habana {
 
+static inline at::ScalarType get_dtype_from_self(
+    const at::Tensor& self,
+    const at::optional<at::ScalarType>& dtype,
+    bool promote_integers) {
+  if (dtype.has_value()) {
+    return dtype.value();
+  }
+  at::ScalarType src_type = self.scalar_type();
+  if (promote_integers && at::isIntegralType(src_type, /*includeBool=*/true)) {
+    return at::kLong;
+  }
+  return src_type;
+}
+
 sizes_vec ReductionOutputShape(
     const at::Tensor& self,
     at::optional<at::IntArrayRef> dims,

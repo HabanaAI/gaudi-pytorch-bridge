@@ -43,20 +43,6 @@ static at::optional<at::ScalarType> get_dtype(
       : at::nullopt;
 }
 
-inline at::ScalarType get_dtype_from_self(
-    const at::Tensor& self,
-    const at::optional<at::ScalarType>& dtype,
-    bool promote_integers) {
-  if (dtype.has_value()) {
-    return dtype.value();
-  }
-  at::ScalarType src_type = self.scalar_type();
-  if (promote_integers && at::isIntegralType(src_type, /*includeBool=*/true)) {
-    return at::kLong;
-  }
-  return src_type;
-}
-
 static at::IntArrayRef optional_to_arrayref(const c10::optional<int64_t>& opt) {
   return opt.has_value() ? opt.value() : at::IntArrayRef{};
 }

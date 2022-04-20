@@ -583,6 +583,17 @@ def lazyop(
                     opname,
                     ", ".join(param_vars),
                 )
+        elif ctxop.get_op_template() == "reduction":
+            # Here, check for self/dtype for fallback
+            has_dtype = "dtype" in param_vars
+            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}{}(self, {}{}, {}{})\n".format(
+                "_ARG" if has_dtype else "",
+                "2" if overload else "",
+                "dtype, " if has_dtype else "",
+                opname,
+                overload + ", " if overload else "",
+                ", ".join(param_vars),
+            )
         else:
             for t in input_tensors:
                 if overload:

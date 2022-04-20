@@ -7,8 +7,8 @@
  *
  ******************************************************************************
  */
-#include "hpu_op_helper.h"
 #include "generated/hpu_op.h"
+#include "reduction_template.h"
 
 namespace habana {
 
@@ -22,6 +22,12 @@ bool SupportedDtypes::count(const at::Tensor& tensor) const {
 
 bool SupportedDtypes::count(const c10::optional<at::Tensor>& tensor) const {
   return tensor.has_value() and count(tensor.value());
+}
+
+bool SupportedDtypes::count(
+    const at::Tensor& tensor,
+    at::optional<at::ScalarType> type) const {
+  return m_dtypes.count(get_dtype_from_self(tensor, type, true));
 }
 
 std::vector<at::Tensor> GetMetaTensorList(

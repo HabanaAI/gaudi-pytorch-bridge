@@ -21,6 +21,8 @@ class SupportedDtypes {
   bool count(c10::ScalarType type) const;
   bool count(const at::Tensor& tensor) const;
   bool count(const c10::optional<at::Tensor>& tensor) const;
+  // for reduction, promotes integral types to long
+  bool count(const at::Tensor& tensor, at::optional<at::ScalarType> type) const;
 
  private:
   std::unordered_set<c10::ScalarType> m_dtypes;
@@ -373,16 +375,15 @@ class OpBackend : public HabanaOperator {
   }
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG(input, dtype, opname, args...)       \
-  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(                     \
-          dtype.has_value() ? dtype.value() : input.scalar_type()))) {         \
+  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(input, dtype))) {    \
     return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
         args);                                                                 \
   }
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG2(                                \
     input, dtype, opname, overload, args...)                               \
-  if (ABSL_PREDICT_FALSE(!opname##_##overload##_supported_dtypes.count(    \
-          dtype.has_value() ? dtype.value() : input.scalar_type()))) {     \
+  if (ABSL_PREDICT_FALSE(                                                  \
+          !opname##_##overload##_supported_dtypes.count(input, dtype))) {  \
     return at::native::                                                    \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
             args);                                                         \
