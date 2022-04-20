@@ -1204,7 +1204,12 @@ Tensor& hpu_wrap::_index_put_impl_(
 
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
-    indices_list.push_back(input.value_or(Tensor()));
+    if (input.has_value() && !input->defined()) {
+      FALLBACK_IF_UNSUPPORTED_OP2(
+          _index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
+    } else {
+      indices_list.push_back(input.value());
+    }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return _index_put_impl_hpu_lazy_(
