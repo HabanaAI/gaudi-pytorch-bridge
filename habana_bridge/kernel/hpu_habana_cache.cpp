@@ -1429,16 +1429,16 @@ std::shared_ptr<habana_helpers::DynamicBucketInfo> DynamicBucketInfoMap::get(
 
 size_t DynamicBucketInfoMap::Size() const {
   size_t size = 0;
-  for (auto const& [recipe, bucketInfo] : map_) {
-    size += bucketInfo->Size();
+  for (auto const& p : map_) {
+    size += p.second->Size();
   }
   return size;
 }
 
 size_t DynamicBucketInfoMap::HistSize() const {
   size_t size = 0;
-  for (auto const& [recipe, bucketInfo] : map_) {
-    size += bucketInfo->HistSize();
+  for (auto const& p : map_) {
+    size += p.second->HistSize();
   }
   return size;
 }
@@ -1454,8 +1454,8 @@ size_t RecipeCacheLRU::Size() const {
 
 size_t RecipeCacheLRU::SynapseRecipeSize() const {
   size_t size = 0;
-  for (auto const& [recipeArgumentSpec, recipeValueSpec] : list_) {
-    size += recipeValueSpec->recipe->get_recipe_host_mem_size();
+  for (auto const& p : list_) {
+    size += p.second->recipe->get_recipe_host_mem_size();
   }
   return size;
 }
