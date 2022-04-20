@@ -21,6 +21,7 @@
 #include "spdlog/common.h"
 #include "spdlog/fmt/bundled/format.h"
 #pragma GCC diagnostic pop
+#include <absl/strings/str_format.h>
 
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
@@ -57,9 +58,30 @@ inline std::string _str_wrapper(const Args&... args) {
   return ss.str();
 }
 
+inline std::string print_hdr() {
+  auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch();
+  auto epochSeconds =
+      std::chrono::duration_cast<std::chrono::seconds>(timeSinceEpoch);
+  std::chrono::microseconds usecs =
+      std::chrono::duration_cast<std::chrono::microseconds>(timeSinceEpoch) -
+      epochSeconds;
+  time_t unixTimestamp = epochSeconds.count();
+  struct tm ltime;
+  localtime_r(&unixTimestamp, &ltime);
+  return absl::StrFormat(
+      "[%02d-%02d %02d:%02d:%02d::%06d][%ld]",
+      ltime.tm_mon + 1,
+      ltime.tm_mday,
+      ltime.tm_hour,
+      ltime.tm_min,
+      ltime.tm_sec,
+      usecs.count(),
+      pthread_self());
+}
+
 template <typename... Args>
 inline void print(std::ostream& os, const Args&... args) {
-  (os << ... << args);
+  (os << Logger::print_hdr() << ... << args);
 }
 
 // Convert a list of string-like arguments into a single string.
@@ -273,13 +295,15 @@ class PTFuncLog {
   PTFuncLog(std::string pn, std::string n, bool debug)
       : pName(std::move(pn)), name(std::move(n)), isDebug(debug) {
     if (isDebug) {
-      std::clog << "HABANA_LOG: begin of " << pName << "\n";
+      std::clog << Logger::print_hdr() << "HABANA_LOG: begin of " << pName
+                << "\n";
     }
     synapse_helpers::trace_start(name.c_str());
   }
   ~PTFuncLog() {
     if (isDebug) {
-      std::clog << "HABANA_LOG: end of " << pName << "\n";
+      std::clog << Logger::print_hdr() << "HABANA_LOG: end of " << pName
+                << "\n";
     }
     synapse_helpers::trace_end(name.c_str());
   }

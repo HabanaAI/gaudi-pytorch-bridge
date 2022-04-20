@@ -51,6 +51,7 @@ void PTOpTrace::increment_compound_ops() {
 
   if (habana_lazy::DebugHelper::getInstance().isExceededMaxCompoundSize()) {
     PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
-    habana_lazy::HbLazyTensor::StepMarker({});
+    bool async = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD);
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, async);
   }
 }

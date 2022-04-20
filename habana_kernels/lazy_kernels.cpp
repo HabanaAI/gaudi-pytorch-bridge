@@ -770,6 +770,9 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       IsHbLazyTensor(src),
       "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
 
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  context->JoinPendingLaunchThread();
+
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
@@ -867,6 +870,11 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
   auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
+  auto context =
+      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
+  if (self_hb_tensor.IsExecutionInProgress()) {
+    context->JoinPendingLaunchThread();
+  }
 
   if (self_hb_tensor.CurrentIrValue() &&
       !self_hb_tensor.CurrentIrValue().IsHpuInputNode()) {
@@ -876,8 +884,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   // Set the tensor as input and mark as input
   setTensorAsInputNode(self_hb_tensor);
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
+
   context->MarkTensorStatus(
       self_hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 

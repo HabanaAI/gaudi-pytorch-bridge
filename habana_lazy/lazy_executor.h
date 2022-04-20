@@ -9,6 +9,7 @@
  */
 #pragma once
 #include <thread>
+#include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/tensor_impl.h"
@@ -95,6 +96,19 @@ class EqualFn {
   }
 };
 
+class SingleTonExecThreadPool {
+ public:
+  static habana_helpers::ThreadPool& getInstance() {
+    static habana_helpers::ThreadPool thread_pool_obj(1);
+    return thread_pool_obj;
+  }
+
+ private:
+  SingleTonExecThreadPool() = default;
+  SingleTonExecThreadPool(const SingleTonExecThreadPool&) = delete;
+  SingleTonExecThreadPool& operator=(const SingleTonExecThreadPool&) = delete;
+};
+
 class HbExecutionContext {
  public:
   HbExecutionContext() = default;
@@ -111,13 +125,14 @@ class HbExecutionContext {
           std::shared_ptr<Data> data = p.second.lock();
           if ((data != nullptr) && (data->execution_status == kEXECUTING)) {
             data->execution_status = kEXECUTION_COMPLETE;
+            data->is_executing = false;
           }
         });
   }
 
   void MarkTensorsExecuted(
       const c10::Device& device,
-      const std::vector<uint64_t>& indices) {
+      const std::vector<int64_t>& indices) {
     std::lock_guard<std::recursive_mutex> lock(
         habana_lazy::HbContextArena::Get()->GetMutex());
     HbContext* devctx =
@@ -127,6 +142,7 @@ class HbExecutionContext {
         std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
         if (data != nullptr) {
           data->execution_status = kEXECUTION_COMPLETE;
+          data->is_executing = false;
         }
       }
     }
@@ -214,7 +230,6 @@ class HbExecutionContext {
       PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
       scalar_to_tensor_map.clear();
     }
-    hb_tensors_out_view.clear();
   }
 
   size_t viewTableSize() const {
@@ -260,6 +275,12 @@ class HbExecutionContext {
 
   // view tensors that occurs as graph outputs
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
+
+  // Handle for the launch thread, only one thread is alive at a time.
+  std::future<void> m_launch_thread_handle;
+  void JoinPendingLaunchThread();
+  // Tensorids list which is part of current exec thread
+  std::vector<int64_t> executing_tids;
 
  private:
   GraphPtr mp_g;
