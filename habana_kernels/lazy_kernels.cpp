@@ -3615,10 +3615,6 @@ Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
-  if (self_in.dim() <= 1) {
-    return at::native::slice(self_in, dim, start, end, step);
-  }
-
   auto hl_self_in = GetHbLazyTensor(self_in);
   auto out = slice_hpu_with_asstrided(self_in, dim, start, end, step);
   auto hb_result = GetHbLazyTensor(out);
@@ -5042,16 +5038,19 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode) {
   PT_LAZY_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP2_O(max_pool2d_with_indices_backward, PARAMS2(
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode,
-      indices,
-      grad_input),grad_input)
+  FALLBACK_IF_UNSUPPORTED_OP2_O(
+      max_pool2d_with_indices_backward,
+      PARAMS2(
+          grad_output,
+          input,
+          kernel_size,
+          stride,
+          padding,
+          dilation,
+          ceil_mode,
+          indices,
+          grad_input),
+      grad_input)
 }
 
 Tensor max_pool2d_with_indices_backward_hpu_lazy(
@@ -5168,16 +5167,19 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
     c10::optional<int64_t> divisor_override) {
   PT_LAZY_TRACE;
 
-  FALLBACK_IF_UNSUPPORTED_OP2_O(avg_pool2d_backward,PARAMS2(
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      ceil_mode,
-      count_include_pad,
-      divisor_override,
-      grad_input),grad_input)
+  FALLBACK_IF_UNSUPPORTED_OP2_O(
+      avg_pool2d_backward,
+      PARAMS2(
+          grad_output,
+          input,
+          kernel_size,
+          stride,
+          padding,
+          ceil_mode,
+          count_include_pad,
+          divisor_override,
+          grad_input),
+      grad_input)
 }
 
 Tensor avg_pool2d_backward_hpu_lazy(
@@ -5503,7 +5505,8 @@ Tensor& mean_dim_out_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP2_O(mean,PARAMS2(self, dim, keepdim, dtype, output),out)
+  FALLBACK_IF_UNSUPPORTED_OP2_O(
+      mean, PARAMS2(self, dim, keepdim, dtype, output), out)
 }
 
 Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
