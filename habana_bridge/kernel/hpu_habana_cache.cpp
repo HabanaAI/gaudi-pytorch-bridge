@@ -912,11 +912,12 @@ void RecipeValueSpec::patch_launch_info(
         break;
       }
       case HOST_TO_DEVICE_TENSOR: {
+        const auto& tsv = ti.syn_shape();
         syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),
             ti.get_host_ptr(),
             ti.tensor_type(),
-            {},
+            {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
             tensor_ids[tensor_idx++]});
         break;
       }
