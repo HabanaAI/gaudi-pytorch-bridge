@@ -1272,7 +1272,12 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // can upscale it and send it back. For now we just send the 32bit
   // tensor that Habana holds
 
-  self = self.contiguous(self.suggest_memory_format());
+  // suggest_memory_format() uses strides and sizes to determine the memory
+  // format. Depending on strided_view's stride params, the self (and src)
+  // memory format can be incorrecly mapped to ch last or ch last 3d. Refer:
+  // LazyBasicKernelTest.noncontiguous. Use backend tensors memory format to
+  // correctly identify the memory format
+  self = self.contiguous(tensor_data.value().suggest_memory_format());
   if (type != typeMetaToScalarType(_src.dtype())) {
     // If we need to upscale the CPU tensor using the .to for now
     // It rebinds the self reference to the new tensor

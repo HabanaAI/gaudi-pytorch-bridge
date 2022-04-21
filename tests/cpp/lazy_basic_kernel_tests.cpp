@@ -507,3 +507,12 @@ TEST_F(LazyBasicKernelTest, multilevelview) {
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, noncontiguous) {
+  auto A = torch::randn({1, 2, 2, 2});
+  auto hA = A.to(torch::kHPU);
+  auto B = A.as_strided({1, 2, 2, 2}, {8, 1, 4, 2});
+
+  auto hB = hA.as_strided({1, 2, 2, 2}, {8, 1, 4, 2});
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
