@@ -134,9 +134,6 @@ void replace_inplace_ops(
 }
 
 void replace_inplace_ops(std::shared_ptr<Graph>& graph) {
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VIEW_TABLE),
-      "Expect view table to be enabled for correct functionality");
   std::vector<Node*> inplace_ops;
   for (auto node : graph->nodes()) {
     if (canReplaceOp(graph, node)) {
