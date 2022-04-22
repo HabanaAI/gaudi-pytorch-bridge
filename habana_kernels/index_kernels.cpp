@@ -1489,6 +1489,10 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   auto indices = inputs[1].toTensor();
   auto values = inputs[2].toTensor();
 
+  TORCH_CHECK(
+      (indices.numel() / indices.sizes().vec()[1]) <= inp.numel(),
+      "number of indices should be less than of self");
+
   auto shape = DimVector(inp.sizes());
   auto output = habana_helpers::createPTTensor(
       inp,
