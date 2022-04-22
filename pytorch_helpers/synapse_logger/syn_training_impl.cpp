@@ -177,15 +177,19 @@ void LoadSymbols(void* lib_handle) {
 
 } // namespace lib_synapse
 
-std::map<synStreamType, std::string> streamNameMap = {
-    {STREAM_TYPE_COPY_DEVICE_TO_HOST, "STREAM_TYPE_COPY_DEVICE_TO_HOST"},
-    {STREAM_TYPE_COPY_HOST_TO_DEVICE, "STREAM_TYPE_COPY_HOST_TO_DEVICE"},
-    {STREAM_TYPE_COPY_DEVICE_TO_DEVICE, "STREAM_TYPE_COPY_DEVICE_TO_DEVICE"},
-    {STREAM_TYPE_COMPUTE, "STREAM_TYPE_COMPUTE"},
-    {STREAM_TYPE_NETWORK_COLLECTIVE, "STREAM_TYPE_NETWORK_COLLECTIVE"},
-    {STREAM_TYPE_COMPUTE_MEDIA, "STREAM_TYPE_COMPUTE_MEDIA"},
-    {STREAM_TYPE_MAX_USER_TYPES, "STREAM_TYPE_RESERVED_1"},
-    {STREAM_TYPE_MAX, "STREAM_TYPE_MAX"}};
+std::map<synStreamType, const std::string> streamNameMap = {
+    {STREAM_TYPE_COPY_DEVICE_TO_HOST, "\"STREAM_TYPE_COPY_DEVICE_TO_HOST\""},
+    {STREAM_TYPE_COPY_HOST_TO_DEVICE, "\"STREAM_TYPE_COPY_HOST_TO_DEVICE\""},
+    {STREAM_TYPE_COPY_DEVICE_TO_DEVICE,
+     "\"STREAM_TYPE_COPY_DEVICE_TO_DEVICE\""},
+    {STREAM_TYPE_COMPUTE, "\"STREAM_TYPE_COMPUTE\""},
+    {STREAM_TYPE_NETWORK_COLLECTIVE, "\"STREAM_TYPE_NETWORK_COLLECTIVE\""},
+    {STREAM_TYPE_COMPUTE_MEDIA, "\"STREAM_TYPE_COMPUTE_MEDIA\""},
+    {STREAM_TYPE_MAX_USER_TYPES, "\"STREAM_TYPE_RESERVED_1\""},
+    {STREAM_TYPE_MAX, "\"STREAM_TYPE_MAX\""}};
+
+std::map<synStreamHandle, const std::string> streamNameFromStreamHandleMap;
+std::map<synEventHandle, const std::string> streamNameFromEventHandleMap;
 
 synStatus synDestroyTensor(synTensor tensor) {
   API_LOG_CALL(ARG(tensor));
@@ -234,13 +238,17 @@ synStatus SYN_API_CALL synStreamCreate(
   CALL_SYN_FUNC(
       lib_synapse::synStreamCreate, pStreamHandle, deviceId, streamType, flags)
   API_LOG_RESULT(S_ARG(pStreamHandle));
+  streamNameFromStreamHandleMap.insert(
+      std::pair<synStreamHandle, const std::string>(
+          pStreamHandle[0], streamName));
 
   return status;
 }
 
 synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(streamHandle));
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
+  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamDestroy, streamHandle)
   API_LOG_RESULT();
@@ -252,7 +260,9 @@ synStatus SYN_API_CALL synStreamWaitEvent(
     synEventHandle eventHandle,
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(streamHandle), ARG(eventHandle), ARG(flags));
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
+  API_LOG_CALL(
+      ARG(streamHandle), ARG(eventHandle), ARG(flags), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synStreamWaitEvent, streamHandle, eventHandle, flags)
@@ -263,7 +273,8 @@ synStatus SYN_API_CALL synStreamWaitEvent(
 synStatus SYN_API_CALL
 synStreamSynchronize(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(streamHandle));
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
+  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamSynchronize, streamHandle)
   API_LOG_RESULT();
@@ -273,7 +284,8 @@ synStreamSynchronize(const synStreamHandle streamHandle) {
 
 synStatus SYN_API_CALL synStreamQuery(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(streamHandle));
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
+  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamQuery, streamHandle)
   API_LOG_RESULT();
@@ -326,11 +338,15 @@ synStatus SYN_API_CALL synEventMapTensorBase(
 synStatus SYN_API_CALL
 synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle));
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
+  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synEventRecord, eventHandle, streamHandle)
   API_LOG_RESULT();
   synapse_logger::logger.event_recorded(streamHandle, eventHandle);
+  streamNameFromEventHandleMap.insert(
+      std::pair<synEventHandle, const std::string>(eventHandle, streamName));
+
   return status;
 }
 
@@ -345,7 +361,8 @@ synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
 
 synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(eventHandle));
+  const std::string streamName = streamNameFromEventHandleMap.at(eventHandle);
+  API_LOG_CALL(ARG(eventHandle), ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synEventSynchronize, eventHandle)
   API_LOG_RESULT();
@@ -384,6 +401,7 @@ synStatus SYN_API_CALL synLaunch(
     const synRecipeHandle pRecipeHandle,
     uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       ARG(launchTensorsInfo),
@@ -391,7 +409,8 @@ synStatus SYN_API_CALL synLaunch(
       ARG(numberTensors),
       ARG_X(pWorkspace),
       ARG(pRecipeHandle),
-      ARG(flags));
+      ARG(flags),
+      ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synLaunch,
@@ -415,6 +434,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEventsBase(
     const uint32_t numberOfEvents,
     uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       M_ARG_X(launchTensorsInfo, numberOfTensors),
@@ -423,7 +443,8 @@ synStatus SYN_API_CALL synLaunchWithExternalEventsBase(
       ARG(pRecipeHandle),
       M_ARG_X(eventHandleList, numberOfEvents),
       ARG(numberOfEvents),
-      ARG(flags));
+      ARG(flags),
+      ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synLaunchWithExternalEventsBase,
@@ -473,8 +494,15 @@ synStatus SYN_API_CALL synMemCopyAsync(
       break;
   }
 
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
   API_LOG_CALL(
-      ARG(streamHandle), ARG_X(src), ARG_X(size), ARG_X(dst), ARG(direction));
+      ARG(streamHandle),
+      ARG_X(src),
+      ARG_X(size),
+      ARG_X(dst),
+      ARG(direction),
+      ARG(streamName));
+
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synMemCopyAsync, streamHandle, src, size, dst, direction)
@@ -508,13 +536,15 @@ synStatus SYN_API_CALL synMemCopyAsyncMultiple(
       break;
   }
 
+  const std::string streamName = streamNameFromStreamHandleMap.at(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       M_ARG_X(src, numCopies),
       M_ARG_X(size, numCopies),
       M_ARG_X(dst, numCopies),
       ARG(direction),
-      ARG(numCopies));
+      ARG(numCopies),
+      ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synMemCopyAsyncMultiple,
