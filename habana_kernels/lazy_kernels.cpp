@@ -1829,7 +1829,8 @@ Tensor convolution_hpu_lazy(
           transposed,
           c10::MemoryFormat::Contiguous,
           false,
-          is_weight_hwck)},
+          is_weight_hwck,
+          groups)},
       0);
   return k.call();
 }

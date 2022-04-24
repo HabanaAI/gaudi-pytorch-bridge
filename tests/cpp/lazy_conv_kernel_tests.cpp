@@ -298,6 +298,138 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
+TEST_F(LazyConvKernelTest, ConvTranspose2dG2Test) {
+  auto in = torch::randn({1, 16, 12, 12}, torch::dtype(torch::kFloat)); // nchw
+  auto wt = torch::randn({16, 8, 3, 3}, torch::dtype(torch::kFloat)); // ckhw
+  auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+  auto exp = torch::conv_transpose2d(in, wt, {}, 2, 0, 0, 2, 1);
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor result = torch::conv_transpose2d(h_in, h_wt, {}, 2, 0, 0, 2, 1);
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, Conv2dG2Test) {
+  auto in = torch::randn({1, 16, 12, 12}, torch::dtype(torch::kFloat)); // nchw
+  auto wt = torch::randn({16, 8, 3, 3}, torch::dtype(torch::kFloat)); // kchw
+  auto exp =
+      torch::relu(torch::conv2d(in, wt, {}, {2}, at::IntArrayRef{0}, {1}, 2));
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor outConv1 =
+      torch::conv2d(h_in, h_wt, {}, {2}, at::IntArrayRef{0}, {1}, 2);
+  torch::Tensor outcpu = torch::relu(outConv1);
+  Tensor out = outcpu.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
+  auto in =
+      torch::randn({64, 3, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
+  auto wt = torch::randn({3, 5, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
+  auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+  auto exp = torch::conv_transpose3d(in, wt, {}, 1, 0, 0, 1, 1);
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 4, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor result = torch::conv_transpose3d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
+  auto in =
+      torch::randn({64, 16, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
+  auto wt =
+      torch::randn({16, 4, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
+  auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+  auto exp = torch::conv_transpose3d(in, wt, {}, 2, 0, 0, 2, 1);
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 4, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor result = torch::conv_transpose3d(h_in, h_wt, {}, 2, 0, 0, 2, 1);
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, Conv3dTest) {
+  auto in =
+      torch::randn({64, 5, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
+  auto wt = torch::randn({3, 5, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
+  auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+  auto exp =
+      torch::relu(torch::conv3d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1));
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 4, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor result = torch::relu(
+      torch::conv3d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1));
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, Conv3dG2Test) {
+  auto in =
+      torch::randn({64, 16, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
+  auto wt =
+      torch::randn({16, 8, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
+  auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+  auto exp =
+      torch::relu(torch::conv3d(in, wt, {}, {2}, at::IntArrayRef{0}, {1}, 2));
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wt_hwck = wt.permute({2, 3, 4, 1, 0}).contiguous();
+    h_wt = wt_hwck.to(torch::kHPU);
+  }
+
+  torch::Tensor result = torch::relu(
+      torch::conv3d(h_in, h_wt, {}, {2}, at::IntArrayRef{0}, {1}, 2));
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
 TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad()); // nchw
   auto hin = in.to(torch::kHPU);

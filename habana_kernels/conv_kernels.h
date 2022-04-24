@@ -58,7 +58,8 @@ class ConvOperator : public habana::HabanaOperator {
       const bool transposed,
       c10::MemoryFormat memory_format,
       const bool is_conv_3d = false,
-      const bool is_weight_hwck = true);
+      const bool is_weight_hwck = true,
+      const int64_t groups = 1);
 
   static std::vector<int64_t> compute_output_shape(
       std::vector<int64_t> shape_in,
@@ -67,7 +68,8 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
       const bool ceil_mode,
-      const bool transposed);
+      const bool transposed,
+      const int64_t groups);
 
  private:
   static std::vector<int64_t> compute_output_shape_2d(
@@ -77,7 +79,8 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
       const bool ceil_mode,
-      const bool transposed);
+      const bool transposed,
+      const int64_t groups);
 
   static std::vector<int64_t> compute_output_shape_3d(
       std::vector<int64_t> shape_in,
@@ -86,7 +89,8 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
       const bool ceil_mode,
-      const bool transposed);
+      const bool transposed,
+      const int64_t groups);
 
   static int64_t compute_output_single_dim(
       std::vector<int64_t> shape_in,

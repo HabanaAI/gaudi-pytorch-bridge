@@ -126,18 +126,32 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
     const bool ceil_mode,
-    const bool transposed) {
+    const bool transposed,
+    const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
       "compute_output_shape only for Synapse layout handling mode");
 
   bool conv3d = is_5d_tensor(shape_in, shape_wt);
-  return conv3d
-      ? compute_output_shape_3d(
-            shape_in, shape_wt, pad, stride, dilation, ceil_mode, transposed)
-      : compute_output_shape_2d(
-            shape_in, shape_wt, pad, stride, dilation, ceil_mode, transposed);
+  return conv3d ? compute_output_shape_3d(
+                      shape_in,
+                      shape_wt,
+                      pad,
+                      stride,
+                      dilation,
+                      ceil_mode,
+                      transposed,
+                      groups)
+                : compute_output_shape_2d(
+                      shape_in,
+                      shape_wt,
+                      pad,
+                      stride,
+                      dilation,
+                      ceil_mode,
+                      transposed,
+                      groups);
 }
 
 std::vector<int64_t> ConvOperator::compute_output_shape_2d(
@@ -147,7 +161,8 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
     const bool ceil_mode,
-    const bool transposed) {
+    const bool transposed,
+    const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
@@ -177,7 +192,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
       CONV2D_KERNEL_WIDTH_ATTRIBUTE_IDX,
       transposed);
 
-  auto K = transposed ? shape_wt[1] : shape_wt[WEIGHT_KERNEL_K_IDX];
+  auto K = transposed ? shape_wt[1] * groups : shape_wt[WEIGHT_KERNEL_K_IDX];
 
   std::vector<int64_t> out_shape{shape_in[INPUT_N_IDX], K, output_H, output_W};
   return out_shape;
@@ -190,7 +205,8 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
     const bool ceil_mode,
-    const bool transposed) {
+    const bool transposed,
+    const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
@@ -230,7 +246,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
       CONV3D_KERNEL_WIDTH_ATTRIBUTE_IDX,
       transposed);
 
-  auto K = transposed ? shape_wt[1] : shape_wt[WEIGHT_KERNEL_3D_K_IDX];
+  auto K = transposed ? shape_wt[1] * groups : shape_wt[WEIGHT_KERNEL_3D_K_IDX];
 
   std::vector<int64_t> out_shape{
       shape_in[INPUT_3D_N_IDX], K, output_D, output_H, output_W};
@@ -279,7 +295,8 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const bool transposed,
     c10::MemoryFormat memory_format,
     const bool is_conv_3d,
-    const bool is_weight_hwck) {
+    const bool is_weight_hwck,
+    const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
       (memory_format == c10::MemoryFormat::ChannelsLast3d) ||
@@ -289,7 +306,14 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     return compute_output_shape(
-        shape_in, shape_wt, pad, stride, dilation, ceil_mode, transposed);
+        shape_in,
+        shape_wt,
+        pad,
+        stride,
+        dilation,
+        ceil_mode,
+        transposed,
+        groups);
   }
 
   // the following is required to this function being called during
@@ -367,10 +391,12 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
         input_W, pad_W, dil_W, filter_W, stride_W, false, transposed);
 
     auto K = shape_wt[p_dim_pos_wt[4]];
+    int64_t out_filter = K;
 
     if (transposed) {
       // for conv_transpose3d weights are in DHWKC format
       K = shape_wt[p_dim_pos_wt[3]];
+      out_filter = K * groups;
     }
     std::vector<int64_t> out_shape;
 
@@ -379,10 +405,10 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
       out_shape.push_back(output_D);
       out_shape.push_back(output_H);
       out_shape.push_back(output_W);
-      out_shape.push_back(K);
+      out_shape.push_back(out_filter);
     } else {
       out_shape.push_back(shape_in[0]);
-      out_shape.push_back(K);
+      out_shape.push_back(out_filter);
       out_shape.push_back(output_D);
       out_shape.push_back(output_H);
       out_shape.push_back(output_W);
@@ -444,10 +470,12 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
         input_W, pad_W, dil_W, filter_W, stride_W, false, transposed);
 
     auto K = shape_wt[p_dim_pos_wt[3]];
+    int64_t out_filter = K;
 
     if (transposed) {
       // for conv_transpose2d weights are in HWKC format
       K = shape_wt[p_dim_pos_wt[2]];
+      out_filter = K * groups;
     }
     std::vector<int64_t> out_shape;
 
@@ -455,10 +483,10 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
       out_shape.push_back(shape_in[0]);
       out_shape.push_back(output_H);
       out_shape.push_back(output_W);
-      out_shape.push_back(K);
+      out_shape.push_back(out_filter);
     } else {
       out_shape.push_back(shape_in[0]);
-      out_shape.push_back(K);
+      out_shape.push_back(out_filter);
       out_shape.push_back(output_H);
       out_shape.push_back(output_W);
     }
@@ -549,7 +577,9 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast3d,
-      true /*is_conv_3d*/);
+      true /*is_conv_3d*/,
+      true /*is_weight_hwck*/,
+      groups);
 
   auto output = habana_helpers::createPTTensor(
       input,
@@ -666,7 +696,10 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       dilation,
       false,
       transposed,
-      c10::MemoryFormat::ChannelsLast);
+      c10::MemoryFormat::ChannelsLast,
+      false /*is_conv_3d*/,
+      true /*is_weight_hwck*/,
+      groups);
 
   auto output = habana_helpers::createPTTensor(
       input,
@@ -838,6 +871,7 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto padding = inputs[4].toIntList().vec();
   const auto dilation = inputs[5].toIntList().vec();
   const bool transposed = inputs[6].toBool();
+  const int64_t groups = inputs[8].toInt();
 
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
@@ -856,7 +890,9 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       false,
       transposed,
       format,
-      is_conv_3d);
+      is_conv_3d,
+      true,
+      groups);
 
   auto output = at::empty(shape_out, input.options(), memory_format);
   std::vector<at::Tensor> v{output};

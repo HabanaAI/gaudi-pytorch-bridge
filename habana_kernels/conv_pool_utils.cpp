@@ -96,9 +96,7 @@ void check_convolution_params(
       "weight tensordimension count  != ",
       weight_dims);
 
-  if (transposed) {
-    TORCH_CHECK(groups == 1, "transpose convolution doesn't support groups");
-  } else {
+  if (!transposed) {
     TORCH_CHECK(
         groups * weight.size(weight_channel) == input.size(input_channel),
         "Number of input channels doesn't match weight channels times groups ",
