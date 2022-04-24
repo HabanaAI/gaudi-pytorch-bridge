@@ -4,11 +4,10 @@ import os
 import torch
 
 def check_mem_stats_file_created():
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-    load_habana_module()
     import habana_frameworks.torch.core as htcore
     a = torch.ones([20,30,400,50]).to('hpu')
-    htcore.memstat_devmem_start_collect("htcore.memstat_devmem_start_collect...", False)
+    import habana_frameworks.torch.utils.debug as htdebug
+    htdebug._memstat_devmem_start_collect("htcore.memstat_devmem_start_collect...", False)
     def run_iter():
       b = torch.transpose(a, 2,3)
       c = b.clone()
@@ -19,9 +18,9 @@ def check_mem_stats_file_created():
 
     for i in range(2):
       run_iter()
-      htcore.memstat_devmem_stop_collect("Transpose mem stat:" + str(i))
+      htdebug._memstat_devmem_stop_collect("Transpose mem stat:" + str(i))
     htcore.mark_step()
-    htcore.memstat_devmem_stop_collect("Transpose mem stat END")
+    htdebug._memstat_devmem_stop_collect("Transpose mem stat END")
 
     assert(os.path.exists("habana_log.livealloc.log_0"))
 

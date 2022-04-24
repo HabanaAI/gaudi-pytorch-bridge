@@ -6,8 +6,8 @@ from torch.optim import AdamW
 
 
 def permute_4d_5d_tensor(tensor, to_filters_last):
-    import habana_frameworks.torch.core as htcore
-    if htcore.is_enabled_weight_permute_pass() is True:
+    import habana_frameworks.torch.utils.debug as htdebug
+    if htdebug._is_enabled_weight_permute_pass() is True:
         return tensor
     if tensor.ndim == 4:
         if to_filters_last:

@@ -36,6 +36,7 @@ import torch
 import torch.nn as nn
 
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.debug as htdebug
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -871,21 +872,21 @@ if __name__ == "__main__":
         else:
             lr_change = args.learning_rate
 
-        htcore.enable_fuse_t_mm_optimization(True)
+        htdebug._enable_fuse_t_mm_optimization(True)
 
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
             # Temporarily disabling to allow Lazy Mode 2.Have to enable back.
             # from habana_frameworks.torch.hpex.optimizers import FusedSGD
-            # htcore.enable_eliminate_common_subexpression(False)
-            # htcore.enable_constant_pooling(False)
+            # htdebug._enable_eliminate_common_subexpression(False)
+            # htdebug._enable_constant_pooling(False)
             # optimizer = FusedSGD(list(dlrm_habana.top_l.parameters())
             optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         elif args.optimizer == "adagrad":
             from habana_frameworks.torch.hpex.optimizers import FusedAdagrad
-            htcore.enable_eliminate_common_subexpression(False)
-            htcore.enable_constant_pooling(False)
+            htdebug._enable_eliminate_common_subexpression(False)
+            htdebug._enable_constant_pooling(False)
 
             optimizer = FusedAdagrad(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
@@ -1120,7 +1121,7 @@ if __name__ == "__main__":
                     break
 
                 if (is_perf_mode()):
-                    htcore.run_saved_model()
+                    htdebug._run_saved_model()
                 else:
                     Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
 

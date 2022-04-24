@@ -69,7 +69,8 @@ class TrainMetaData():
 
     def log_live_mem_alloc(self, msg=""):
         if self.log_live_mem_alloc_enabled:
-            htcore.memstat_livealloc(msg)
+            import habana_frameworks.torch.utils.debug as htdebug
+            htdebug._memstat_livealloc(msg)
 
     @staticmethod
     def accuracy(output, target, topk=(1,)):
@@ -272,7 +273,8 @@ def parse_args():
 
 def permute_params_on_device(args, model):
     if args.run_lazy_mode:
-        if htcore.is_enabled_weight_permute_pass() is True:
+        import habana_frameworks.torch.utils.debug as htdebug
+        if htdebug._is_enabled_weight_permute_pass() is True:
             return
 
     with torch.no_grad():

@@ -1,11 +1,11 @@
 #How to check device memory statistics
 ###This APIs can be used to collect the memory allocation statistics.
 
-#####1. memstat_devmem_start_collect(msg, show_leaked_callstacks)
+#####1. _memstat_devmem_start_collect(msg, show_leaked_callstacks)
   This API will start collecting the statistscs and dump the values of statistics counters till this point. If show_leaked_callstacks is enabled, it will also dump the callstacks which are alive between start
 and stop statistics collection process.
 
-#####2. memstat_devmem_stop_collect(msg)
+#####2. _memstat_devmem_stop_collect(msg)
   This API will dump the collected statistcs till this point and reset some of the counters. When next time this api is called, it will dump the difference in the statistics between this call and next call. '`msg`' can include the iteration counter or epoch counter number so that we can match the statistics values from file against the iterations/epochs.
 
 The default file location is current folder and file name is '`habana_log.livealloc.log_0`' for rank 0 processes. In distributed environment, each rank will have a seperate file.

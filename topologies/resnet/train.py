@@ -23,6 +23,10 @@ try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
+try:
+    import habana_frameworks.torch.utils.debug as htdebug
+except ImportError:
+    assert False, "Could Not import habana_frameworks.torch.utils.debug"
 
 sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
 from topologies import tools
@@ -259,7 +263,7 @@ def adjust_learning_rate(optimizer, epoch, lr_vec):
 #permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
 #and permute from RSCK to KCRS is used for checkpoint saving
 def permute_params(model, to_filters_last, lazy_mode):
-    if htcore.is_enabled_weight_permute_pass() is True:
+    if htdebug._is_enabled_weight_permute_pass() is True:
         return
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -277,7 +281,7 @@ def permute_params(model, to_filters_last, lazy_mode):
 
 
 def permute_momentum(optimizer, to_filters_last, lazy_mode):
-    if htcore.is_enabled_weight_permute_pass() is True:
+    if htdebug._is_enabled_weight_permute_pass() is True:
         return
     # Permute the momentum buffer before using for checkpoint
     for group in optimizer.param_groups:
@@ -417,9 +421,8 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     if args.run_lazy_mode:
         from habana_frameworks.torch.hpex.optimizers import FusedSGD
-        import habana_frameworks.torch.core as htcore
-        htcore.enable_eliminate_common_subexpression(False)
-        htcore.enable_constant_pooling(False)
+        htdebug._enable_eliminate_common_subexpression(False)
+        htdebug._enable_constant_pooling(False)
         sgd_optimizer = FusedSGD
     else:
         sgd_optimizer = torch.optim.SGD
