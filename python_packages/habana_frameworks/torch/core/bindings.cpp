@@ -114,6 +114,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana_lazy::exec::OptPassCfg::GetInstance()
         ->IsEnabledWeightPermutePass();
   });
+  m.def("is_enabled_synapse_layout_handling", []() {
+    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
+  });
   m.def("synchronize_device", []() {
     synapse_helpers::HPURegistrar::synchronize_device();
   });

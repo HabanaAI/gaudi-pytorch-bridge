@@ -5,6 +5,7 @@ import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
 from test_hpu_pool import output_size
 from copy import deepcopy
+import habana_frameworks.torch.core as htcore
 
 # N - batch
 # H - input height
@@ -87,7 +88,8 @@ def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     tt = out_nchw_hpu.to(cpu)
@@ -113,7 +115,8 @@ def test_hpu_conv_transpose3d(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     tt = out_nchw_hpu.to(cpu)
@@ -133,7 +136,8 @@ def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     tt = out_nhwc_hpu.to(cpu)
@@ -159,7 +163,8 @@ def test_hpu_conv_transpose3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding,
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     tt = out_nhwc_hpu.to(cpu)
@@ -179,7 +184,8 @@ def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #create bwd input tensor
@@ -188,7 +194,10 @@ def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
     np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
-    np.testing.assert_allclose(out_hpu_bwd[1].permute(3,2,0,1).to(cpu).detach().numpy(),
+    out_hpu_bwd_1 = out_hpu_bwd[1]
+    if not htcore.is_enabled_synapse_layout_handling():
+        out_hpu_bwd_1 = out_hpu_bwd[1].permute(3,2,0,1)
+    np.testing.assert_allclose(out_hpu_bwd_1.to(cpu).detach().numpy(),
                 out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
     if (out_cpu_bwd[2] != None):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
@@ -213,7 +222,8 @@ def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #create bwd input tensor
@@ -222,7 +232,10 @@ def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding
     out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
     np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
-    np.testing.assert_allclose(out_hpu_bwd[1].permute(4,3,0,1,2).to(cpu).detach().numpy(),
+    out_hpu_bwd_1 = out_hpu_bwd[1]
+    if not htcore.is_enabled_synapse_layout_handling():
+        out_hpu_bwd_1= out_hpu_bwd[1].permute(4,3,0,1,2)
+    np.testing.assert_allclose(out_hpu_bwd_1.to(cpu).detach().numpy(),
                 out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
     if (out_cpu_bwd[2] != None):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
@@ -242,7 +255,8 @@ def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding,
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #create bwd input tensor
@@ -251,7 +265,10 @@ def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding,
     out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))
     np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
-    np.testing.assert_allclose(out_hpu_bwd[1].permute(3,2,0,1).to(cpu).detach().numpy(),
+    out_hpu_bwd_1 = out_hpu_bwd[1]
+    if not htcore.is_enabled_synapse_layout_handling():
+        out_hpu_bwd_1 = out_hpu_bwd[1].permute(3,2,0,1)
+    np.testing.assert_allclose(out_hpu_bwd_1.to(cpu).detach().numpy(),
                 out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
     if (out_cpu_bwd[2] != None):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
@@ -277,7 +294,8 @@ def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, 
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #create bwd input tensor
@@ -286,7 +304,10 @@ def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, 
     out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last_3d).to(hpu))
     np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
-    np.testing.assert_allclose(out_hpu_bwd[1].permute(4,3,0,1,2).to(cpu).detach().numpy(),
+    out_hpu_bwd_1 = out_hpu_bwd[1]
+    if not htcore.is_enabled_synapse_layout_handling():
+        out_hpu_bwd_1 = out_hpu_bwd[1].permute(4,3,0,1,2)
+    np.testing.assert_allclose(out_hpu_bwd_1.to(cpu).detach().numpy(),
                 out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
     if (out_cpu_bwd[2] != None):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
@@ -307,7 +328,8 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #print(out_cpu_nchw_hpu.shape, out_cpu_nchw_hpu.stride(), out_cpu_nchw.shape, out_cpu_nchw.stride())
@@ -337,7 +359,8 @@ def test_hpu_conv3d(N, D, H, W, C, T, R, S, K, stride, padding, bias, dtype, tol
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
 
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
@@ -361,7 +384,8 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #create bwd input tensor
@@ -391,7 +415,8 @@ def test_hpu_conv3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias, dt
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #create bwd input tensor
@@ -416,7 +441,8 @@ def test_hpu_conv_fwd_bwd_dilation(N, H, W, C, R, S, K, stride, padding, dilatio
     input_nchw_hpu = input_nchw.to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     #create bwd input tensor
@@ -440,7 +466,8 @@ def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #hpu result permute since in channels_last, the kernel output is also in channels_last
@@ -468,7 +495,8 @@ def test_hpu_conv3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #hpu result permute since in channels_last, the kernel output is also in channels_last
@@ -490,7 +518,8 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #create bwd input tensor
@@ -519,7 +548,8 @@ def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, b
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
     kernel_nhwc_hpu = kernel_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
     #hpu forward
     out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
     #create bwd input tensor
@@ -544,8 +574,9 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
     kernel1_hpu = kernel1_copy.to(hpu)
     kernel2_hpu = kernel2_copy.to(hpu)
     #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
-    kernel1_hpu.weight.data = kernel1_hpu.weight.data.permute((2, 3, 1, 0))
-    kernel2_hpu.weight.data = kernel2_hpu.weight.data.permute((2, 3, 1, 0))
+    if not htcore.is_enabled_synapse_layout_handling():
+        kernel1_hpu.weight.data = kernel1_hpu.weight.data.permute((2, 3, 1, 0))
+        kernel2_hpu.weight.data = kernel2_hpu.weight.data.permute((2, 3, 1, 0))
     #weights_inter_hwck1 = kernel1_cpu.weight.data.to(hpu).permute((2, 3, 1, 0))
     #kernel1_hpu.weight.data = weights_inter_hwck1
     #weights_inter_hwck2 = kernel2_cpu.weight.data.to(hpu).permute((2, 3, 1, 0))

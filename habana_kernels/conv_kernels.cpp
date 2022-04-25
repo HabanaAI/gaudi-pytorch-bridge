@@ -38,9 +38,10 @@ synConvolution3DParams synapse_conv3d_params_builder(
   constexpr uint32_t d_axis = 0;
   constexpr uint32_t h_axis = 1;
   constexpr uint32_t w_axis = 2;
-  const int64_t filter_D = weight[d_axis];
-  const int64_t filter_H = weight[h_axis];
-  const int64_t filter_W = weight[w_axis];
+
+  const int64_t filter_D = weight[WEIGHT_KERNEL_3D_Q_IDX];
+  const int64_t filter_H = weight[WEIGHT_KERNEL_3D_R_IDX];
+  const int64_t filter_W = weight[WEIGHT_KERNEL_3D_S_IDX];
   const int64_t stride_D = stride[d_axis];
   const int64_t stride_H = stride[h_axis];
   const int64_t stride_W = stride[w_axis];
@@ -762,13 +763,31 @@ void ConvOperator::AllocateAndAddSynapseNode(
             scOp->AllocateAndAddSynapseNode(
                 graph, inputs, OutputMetaDataVector(1));
 
+            std::vector<c10::IValue> stack;
+            if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+              // reshape bias to match to NCHW output format
+              auto ReshapeOp = make_operator<ReshapeOperator>(
+                  this->p_context_->device_id_, input.scalar_type());
+              ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+              int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
+              c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+              // Build Params for the graph
+              stack.emplace_back(IValue(bias));
+              stack.emplace_back(IValue(shape));
+              ReshapeOp->AllocateAndAddSynapseNode(
+                  graph, stack, OutputMetaDataVector(1));
+              stack.clear();
+              bias = ReshapeOp->GetOutputs()[0];
+              p_context_->syn_inputs_[2] =
+                  std::move(ReshapeOp->GetSynOutputs()[0]);
+            }
+
             auto addOp = make_operator<AddOperator>(
                 this->p_context_->device_id_, input.scalar_type());
             addOp->SetSynapseInput(scOp->GetSynOutputs()[0]);
             addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
             // Build Params for the graph
             Scalar alphaValue = 1.0;
-            torch::jit::Stack stack;
             stack.emplace_back(IValue(scOp->GetOutputs()[0]));
             stack.emplace_back(IValue(bias));
             stack.emplace_back(IValue(alphaValue));

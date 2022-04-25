@@ -25,9 +25,11 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "kernel_utils.h"
+#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;
+using namespace synapse_helpers::layouts;
 
 extern bool is_5d_tensor(const std::vector<at::Tensor>& inputs);
 
@@ -313,7 +315,7 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
     const OutputMetaDataVector& output_metadata,
     bool mask_grad_in) {
   auto grad_out_nhwc = inputs[0].toTensor();
-  auto channel_dim = 4;
+  auto channel_dim = INPUT_3D_C_IDX;
   std::vector<OutputMetaData> out_2_metadata =
       SelectVectorIndices(output_metadata, {2});
   auto grad_bias = habana_helpers::createPTTensor(
@@ -373,10 +375,11 @@ void ConvBackwardOperator::ComputeBiasGrad(
     bool mask_grad_in) {
   std::vector<OutputMetaData> out_2_metadata =
       SelectVectorIndices(output_metadata, {2});
+  auto channel_dim = INPUT_C_IDX;
   auto grad_out_nhwc = inputs[0].toTensor();
   auto grad_bias = habana_helpers::createPTTensor(
       grad_out_nhwc,
-      {grad_out_nhwc.size(3)},
+      {grad_out_nhwc.size(channel_dim)},
       grad_out_nhwc.options(),
       c10::nullopt,
       out_2_metadata.at(0).persistent);
@@ -384,7 +387,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
   if (mask_grad_in) {
     std::vector<int64_t> dim_to_reduce;
     for (int64_t i = 0; i < grad_out_nhwc.ndimension(); ++i) {
-      if (i != 3) // skip C dimension
+      if (i != channel_dim) // skip C dimension
         dim_to_reduce.push_back(i);
     }
     c10::IntArrayRef shape(dim_to_reduce.data(), dim_to_reduce.size());
