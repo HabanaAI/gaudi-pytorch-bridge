@@ -5974,10 +5974,6 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-  // PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW is disabled by default. if there
-  // is back-to-back asstrided ops, it will be merged together into single
-  // as_strided. But the perf there is degrade compared to ops executing
-  // individually.
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
     auto hl_self = GetHbLazyTensor(self);
     auto out = at::native::transpose(self, dim0_, dim1_);
