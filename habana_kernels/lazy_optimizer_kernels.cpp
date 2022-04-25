@@ -219,12 +219,11 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
   return k.call();
 }
 
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_lazy(
+void optimizer_lamb_phase1_hpu_lazy(
     const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& hl_adam_step_vec,
+    std::vector<at::Tensor>& hl_adam_norm_vec,
+    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weights,
     std::vector<at::Tensor>& exp_avg,
     std::vector<at::Tensor>& exp_avg_sq,
@@ -240,26 +239,6 @@ optimizer_lamb_phase1_hpu_lazy(
   PT_LAZY_TRACE;
   static_cast<void>(lr);
 
-  /*
-  Assuming mark step is present before optimizer is invoked
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hl_grad = GetHbLazyTensor(gradients[i]);
-    updateDstDependencies(hl_grad, gradients[i], true);
-
-    auto hl_wts = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hl_wts, weights[i], true);
-
-    auto hlexpavg = GetHbLazyTensor(exp_avg[i]);
-    updateDstDependencies(hlexpavg, exp_avg[i], true);
-
-    auto hlexpavgsq = GetHbLazyTensor(exp_avg_sq[i]);
-    updateDstDependencies(hlexpavgsq, exp_avg_sq[i], true);
-  }
-  */
-
-  auto hl_clip_global = GetHbLazyTensor(clip_global_grad_norm);
-  updateDstDependencies(hl_clip_global, clip_global_grad_norm, true);
-
   float bias_correction1 = 1.0, bias_correction2 = 1.0;
   if (bias_correction) {
     bias_correction1 = 1.0 - std::pow(beta1, step);
@@ -274,128 +253,29 @@ optimizer_lamb_phase1_hpu_lazy(
   auto bias_correction1_t = get_tensor_for_scalar(bias_correction1);
   auto bias_correction2_t = get_tensor_for_scalar(bias_correction2);
 
-  ir::NodePtr node = std::make_shared<ir::OptimizerFusedLambPhase1>(
-      gradients,
+  LazyOptimizationOp<void> k(
+      "hpu::habanaOptimizerLambPhase1",
+      {gradients,
+       weights,
+       exp_avg,
+       exp_avg_sq,
+       clip_global_grad_norm,
+       beta1,
+       beta2,
+       beta3,
+       epsilon,
+       bias_correction1_t,
+       bias_correction2_t,
+       weight_decay},
+      {5, 6, 7, 8, 11});
+
+  k.call(
+      hl_adam_step_vec,
+      hl_adam_norm_vec,
+      hl_weight_norm_vec,
       weights,
       exp_avg,
-      exp_avg_sq,
-      clip_global_grad_norm,
-      beta1,
-      beta2,
-      beta3,
-      epsilon,
-      bias_correction1_t,
-      bias_correction2_t,
-      weight_decay);
-
-  int64_t out_index = 0;
-
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-
-  std::vector<Tensor> weight_norm_vec, adam_norm_vec, adam_step_vec;
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto adam_step = empty_hpu_lazy(
-        weights[i].sizes(),
-        weights[i].options(),
-        weights[i].suggest_memory_format(),
-        false);
-    auto hl_adam_step = GetHbLazyTensor(adam_step);
-    ir::Value& out1 = hl_adam_step.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hl_adam_step.GetDevice(),
-        hl_adam_step.GetSizes(),
-        hl_adam_step.dtype_optional(),
-        out_index++);
-
-    context->m_retained_tensor_list.emplace_back(adam_step);
-    adam_step_vec.push_back(adam_step);
-
-    auto adam_norm = empty_hpu_lazy(
-        {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
-    auto hl_adam_norm = GetHbLazyTensor(adam_norm);
-    ir::Value& out2 = hl_adam_norm.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hl_adam_norm.GetDevice(),
-        hl_adam_norm.GetSizes(),
-        hl_adam_norm.dtype_optional(),
-        out_index++);
-
-    context->m_retained_tensor_list.emplace_back(adam_norm);
-    adam_norm_vec.push_back(adam_norm);
-
-    auto weight_norm = empty_hpu_lazy(
-        {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
-    auto hl_weight_norm = GetHbLazyTensor(weight_norm);
-    ir::Value& out3 = hl_weight_norm.CurrentIrValue();
-    out3.SetNode(
-        node,
-        hl_weight_norm.GetDevice(),
-        hl_weight_norm.GetSizes(),
-        hl_weight_norm.dtype_optional(),
-        out_index++);
-
-    context->m_retained_tensor_list.emplace_back(weight_norm);
-    weight_norm_vec.push_back(weight_norm);
-
-    // add the tensors that are updated inplace
-    auto exp_avg_temp = empty_hpu_lazy(
-        exp_avg[i].sizes(),
-        exp_avg[i].options(),
-        exp_avg[i].suggest_memory_format(),
-        false);
-    auto hl_exp_avg_temp = GetHbLazyTensor(exp_avg_temp);
-    ir::Value& out4 = hl_exp_avg_temp.CurrentIrValue();
-    out4.SetNode(
-        node,
-        hl_exp_avg_temp.GetDevice(),
-        hl_exp_avg_temp.GetSizes(),
-        hl_exp_avg_temp.dtype_optional(),
-        out_index++);
-    context->m_retained_tensor_list.emplace_back(exp_avg_temp);
-
-    auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
-    ir::Value& out5 = hl_exp_avg.CurrentIrValue();
-    out5.SetNode(
-        node,
-        hl_exp_avg.GetDevice(),
-        hl_exp_avg.GetSizes(),
-        hl_exp_avg.dtype_optional(),
-        out_index++);
-    context->m_retained_tensor_list.emplace_back(exp_avg[i]);
-
-    auto exp_avg_sq_temp = empty_hpu_lazy(
-        exp_avg_sq[i].sizes(),
-        exp_avg_sq[i].options(),
-        exp_avg_sq[i].suggest_memory_format(),
-        false);
-    auto hl_exp_avg_sq_temp = GetHbLazyTensor(exp_avg_sq_temp);
-    ir::Value& out6 = hl_exp_avg_sq_temp.CurrentIrValue();
-    out6.SetNode(
-        node,
-        hl_exp_avg_sq_temp.GetDevice(),
-        hl_exp_avg_sq_temp.GetSizes(),
-        hl_exp_avg_sq_temp.dtype_optional(),
-        out_index++);
-    context->m_retained_tensor_list.emplace_back(exp_avg_sq_temp);
-
-    auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
-    ir::Value& out7 = hl_exp_avg_sq.CurrentIrValue();
-    out7.SetNode(
-        node,
-        hl_exp_avg_sq.GetDevice(),
-        hl_exp_avg_sq.GetSizes(),
-        hl_exp_avg_sq.dtype_optional(),
-        out_index++);
-    context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
-  }
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
-
-  return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
+      exp_avg_sq);
 }
 
 void optimizer_lamb_phase2_hpu_lazy(

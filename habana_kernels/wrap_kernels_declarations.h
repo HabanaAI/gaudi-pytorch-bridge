@@ -972,12 +972,12 @@ at::Tensor gather2d_hpu_wrap(
 at::Tensor optimizer_lamb_fused_norm_hpu_wrap(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm);
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_wrap(
+
+void optimizer_lamb_phase1_hpu_wrap(
     const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& hl_adam_step_vec,
+    std::vector<at::Tensor>& hl_adam_norm_vec,
+    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
@@ -990,6 +990,7 @@ optimizer_lamb_phase1_hpu_wrap(
     const int step,
     const int bias_correction,
     const float weight_decay);
+
 void optimizer_lamb_phase2_hpu_wrap(
     std::vector<at::Tensor>& weight_vec,
     const std::vector<at::Tensor>& adam_norm_vec,

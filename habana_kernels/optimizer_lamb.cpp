@@ -254,9 +254,11 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
   }
 }
 
-std::tuple<std::vector<Tensor>, std::vector<Tensor>, std::vector<Tensor>>
-optimizer_lamb_phase1_hpu(
+void optimizer_lamb_phase1_hpu(
     const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& hl_adam_step_vec,
+    std::vector<at::Tensor>& hl_adam_norm_vec,
+    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
@@ -381,18 +383,18 @@ optimizer_lamb_phase1_hpu(
   TORCH_CHECK(
       out.size() == static_cast<unsigned int>(7 * num_params),
       "Incorrect size of outputs");
-  std::vector<Tensor> weight_norm, adam_norm, adam_step;
-  adam_step.push_back(out[0]);
-  adam_norm.push_back(out[1]);
-  weight_norm.push_back(out[2]);
+
+  hl_adam_step_vec.push_back(out[0]);
+  hl_adam_norm_vec.push_back(out[1]);
+  hl_weight_norm_vec.push_back(out[2]);
   for (auto j = 1; j < num_params; j++) {
-    adam_step.push_back(out[7 * j]);
-    adam_norm.push_back(out[7 * j + 1]);
-    weight_norm.push_back(out[7 * j + 2]);
+    hl_adam_step_vec.push_back(out[7 * j]);
+    hl_adam_norm_vec.push_back(out[7 * j + 1]);
+    hl_weight_norm_vec.push_back(out[7 * j + 2]);
   }
 
   PT_OTHER_OPS_END;
-  return std::tie(weight_norm, adam_norm, adam_step);
+  return;
 }
 
 void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(

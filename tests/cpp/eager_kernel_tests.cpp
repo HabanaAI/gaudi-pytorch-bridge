@@ -737,12 +737,15 @@ TEST_F(EagerKernelTest, LambOptPh1Test) {
   auto bias_correction = true;
   auto weight_decay = 0.1;
   auto grad_averaging = 1;
+  std::vector<torch::Tensor> weight_norm_1, adam_norm_1, adam_step_1;
   std::vector<torch::Tensor> weight_norm, adam_norm, adam_step;
   if (cache) {
-    std::tie(weight_norm, adam_norm, adam_step) =
-        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
+    (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
         ? optimizer_lamb_phase1_hpu_lazy(
               grad_vec_1,
+              adam_step_1,
+              adam_norm_1,
+              weight_norm_1,
               wt_vec_1,
               exp_avg_vec_1,
               exp_avg_sq_vec_1,
@@ -757,6 +760,9 @@ TEST_F(EagerKernelTest, LambOptPh1Test) {
               weight_decay)
         : optimizer_lamb_phase1_hpu(
               grad_vec_1,
+              adam_step_1,
+              adam_norm_1,
+              weight_norm_1,
               wt_vec_1,
               exp_avg_vec_1,
               exp_avg_sq_vec_1,
@@ -770,10 +776,12 @@ TEST_F(EagerKernelTest, LambOptPh1Test) {
               bias_correction,
               weight_decay);
   }
-  std::tie(weight_norm, adam_norm, adam_step) =
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
+  (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
       ? optimizer_lamb_phase1_hpu_lazy(
             grad_vec,
+            adam_step,
+            adam_norm,
+            weight_norm,
             wt_vec,
             exp_avg_vec,
             exp_avg_sq_vec,
@@ -788,6 +796,9 @@ TEST_F(EagerKernelTest, LambOptPh1Test) {
             weight_decay)
       : optimizer_lamb_phase1_hpu(
             grad_vec,
+            adam_step,
+            adam_norm,
+            weight_norm,
             wt_vec,
             exp_avg_vec,
             exp_avg_sq_vec,
@@ -1095,12 +1106,13 @@ TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
   torch::Tensor houtput = output.to(torch::kHPU);
 
   int dim = 0;
-  auto hout_backward =
-      torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput.scalar_type());
+  auto hout_backward = torch::_log_softmax_backward_data(
+      hgrad, houtput, dim, hinput.scalar_type());
 
   auto hout2_back = hout_backward.to(torch::kCPU);
 
-  auto cout_back = _log_softmax_backward_data(grad, output, dim, input.scalar_type());
+  auto cout_back =
+      _log_softmax_backward_data(grad, output, dim, input.scalar_type());
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }

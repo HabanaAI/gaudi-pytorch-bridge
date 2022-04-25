@@ -652,12 +652,12 @@ at::Tensor fused_norm_hpu_lazy(
 at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm);
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_lazy(
+
+void optimizer_lamb_phase1_hpu_lazy(
     const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& hl_adam_step_vec,
+    std::vector<at::Tensor>& hl_adam_norm_vec,
+    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weights,
     std::vector<at::Tensor>& exp_avg,
     std::vector<at::Tensor>& exp_avg_sq,

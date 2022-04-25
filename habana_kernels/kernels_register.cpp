@@ -5531,12 +5531,11 @@ Tensor optimizer_lamb_fused_norm_hpu_wrap(
   }
 }
 
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_wrap(
+void optimizer_lamb_phase1_hpu_wrap(
     const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& hl_adam_step_vec,
+    std::vector<at::Tensor>& hl_adam_norm_vec,
+    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weights,
     std::vector<at::Tensor>& exp_avg,
     std::vector<at::Tensor>& exp_avg_sq,
@@ -5579,8 +5578,11 @@ optimizer_lamb_phase1_hpu_wrap(
       "weight_decay=",
       to_string(weight_decay));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return optimizer_lamb_phase1_hpu_lazy(
+    optimizer_lamb_phase1_hpu_lazy(
         gradients,
+        hl_adam_step_vec,
+        hl_adam_norm_vec,
+        hl_weight_norm_vec,
         weights,
         exp_avg,
         exp_avg_sq,
@@ -5594,8 +5596,11 @@ optimizer_lamb_phase1_hpu_wrap(
         bias_correction,
         weight_decay);
   } else {
-    return optimizer_lamb_phase1_hpu(
+    optimizer_lamb_phase1_hpu(
         gradients,
+        hl_adam_step_vec,
+        hl_adam_norm_vec,
+        hl_weight_norm_vec,
         weights,
         exp_avg,
         exp_avg_sq,
