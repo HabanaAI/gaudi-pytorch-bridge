@@ -220,9 +220,9 @@ void optimizer_adamw_hpu_lazy(
         out_index++);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
+  // adding stepmarker to avoid user error of missing mark step after fused
+  // adamw step call
+  HbLazyTensor::StepMarker({});
 }
 
 Tensor optimizer_lamb_fused_norm_hpu_lazy(
