@@ -254,7 +254,16 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 }
 
 void ProcessGroupHCCL::destroy() {
-  hostBarrier();
+  std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
+  auto worker_count = store_->add(barrier_key, 1);
+  if (getRank() == 0) {
+    while (worker_count != size_) {
+      worker_count = store_->add(barrier_key, 0);
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+    }
+  }
+
   for (auto element : hccl_communicator_) {
     hcclCommDestroy(*(element.second));
   }
