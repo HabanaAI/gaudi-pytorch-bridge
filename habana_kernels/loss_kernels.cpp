@@ -21,7 +21,9 @@
 #include "habana_kernels/threshold_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "simple_generic_kernel.h"
+#include "synapse_helpers/layout_utils.h"
 #include "synapse_helpers/recipe.h"
+using namespace synapse_helpers::layouts;
 
 using namespace torch;
 using namespace habana;
@@ -135,7 +137,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
   std::vector<int64_t> reshaped_self_sizes;
   if (reduction == at::Reduction::Reduction::None) {
-    reshaped_self_sizes.emplace_back(self.sizes()[0]);
+    reshaped_self_sizes.emplace_back(self.sizes()[INPUT_N_IDX]);
   } else {
     reshaped_self_sizes.emplace_back(1);
   }
@@ -211,9 +213,9 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
 
   std::vector<int64_t> reshaped_self_sizes;
   if (reduction == at::Reduction::Reduction::None) {
-    reshaped_self_sizes.emplace_back(self.sizes()[0]);
-    reshaped_self_sizes.emplace_back(self.sizes()[1]);
-    reshaped_self_sizes.emplace_back(self.sizes()[2]);
+    reshaped_self_sizes.emplace_back(self.sizes()[INPUT_N_IDX]);
+    reshaped_self_sizes.emplace_back(self.sizes()[INPUT_H_IDX]);
+    reshaped_self_sizes.emplace_back(self.sizes()[INPUT_W_IDX]);
   } else {
     reshaped_self_sizes.emplace_back(1);
   }
@@ -287,7 +289,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     std::vector<int64_t> reshaped_self_sizes;
     if (reduction == at::Reduction::Reduction::None) {
-      reshaped_self_sizes.emplace_back(self.sizes()[0]);
+      reshaped_self_sizes.emplace_back(self.sizes()[INPUT_N_IDX]);
     } else {
       reshaped_self_sizes.emplace_back(1);
     }
@@ -366,9 +368,9 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     std::vector<int64_t> reshaped_self_sizes;
     if (reduction == at::Reduction::Reduction::None) {
-      reshaped_self_sizes.emplace_back(self.sizes()[0]);
-      reshaped_self_sizes.emplace_back(self.sizes()[1]);
-      reshaped_self_sizes.emplace_back(self.sizes()[2]);
+      reshaped_self_sizes.emplace_back(self.sizes()[INPUT_N_IDX]);
+      reshaped_self_sizes.emplace_back(self.sizes()[INPUT_H_IDX]);
+      reshaped_self_sizes.emplace_back(self.sizes()[INPUT_W_IDX]);
     } else {
       reshaped_self_sizes.emplace_back(1);
     }
@@ -1280,7 +1282,7 @@ Tensor binary_cross_entropy_hpu(
 
   std::vector<at::Tensor> pt_inputs{self, target};
   if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty({self.sizes()[1]}, self.options());
+    auto output = at::empty({self.sizes()[INPUT_H_IDX]}, self.options());
     Op.Execute(key, pt_inputs, output);
   } else {
     // Build Params for the graph
