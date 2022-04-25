@@ -1060,42 +1060,28 @@ Tensor& hpu_wrap::scatter_add_(
     return scatter_add_inplace_src_hpu(self, dim_, index, src);
   }
 };
-Tensor& hpu_wrap::index_add_(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& indices,
+
+Tensor& hpu_wrap::index_add_out(
+    const Tensor& self,
+    int64_t dim,
+    const Tensor& index,
     const Tensor& source,
-    const Scalar& alpha) {
-  Tensor alpha_times_source = hpu_wrap::mul(source, alpha);
+    const Scalar& alpha,
+    Tensor& out) {
   FALLBACK_IF_UNSUPPORTED_OP(
-      index_add_,
-      PARAMS1(self, indices, source),
-      PARAMS2(self, dim_, indices, alpha_times_source, alpha))
+      index_add_out,
+      PARAMS1(self, index, source, out),
+      PARAMS2(self, dim, index, source, alpha, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_add_hpu_lazy_(self, dim_, indices, alpha_times_source);
-
+    return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
   } else {
-    return index_add_hpu_(self, dim_, indices, alpha_times_source);
+    HABANA_ASSERT(0 && "index_add_out is not implemented for eager mode");
+    /* dummy return to satisfy compiler */
+    return out;
   }
-};
-Tensor& hpu_wrap::index_add_(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& indices,
-    const Tensor& source) {
-  FALLBACK_IF_UNSUPPORTED_OP(
-      index_add_,
-      PARAMS1(self, indices, source),
-      PARAMS2(self, dim_, indices, source, 1))
+}
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_add_hpu_lazy_(self, dim_, indices, source);
-
-  } else {
-    return index_add_hpu_(self, dim_, indices, source);
-  }
-};
 Tensor hpu_wrap::index_put(
     const Tensor& self,
     const c10::List<c10::optional<Tensor>>& indices,

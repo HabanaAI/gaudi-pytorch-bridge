@@ -448,7 +448,7 @@ static const std::
                at::ScalarType::Float,
                at::ScalarType::Long}}},
             {
-                "index_add_",
+                "index_add_out",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Short,

@@ -3117,6 +3117,30 @@ Tensor& masked_select_out_hpu_lazy(
   return out;
 }
 
+Tensor& index_add_hpu_lazy_out(
+    const Tensor& self,
+    int64_t dim,
+    const Tensor& indices,
+    const Tensor& source,
+    const Scalar& alpha,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+
+  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
+
+  LazyOp<Tensor> index_add_op(
+      "aten::index_add",
+      {self, dim_, indices, source, alpha},
+      {1}, // metadata_indices
+      {self.sizes().vec()} // out_shapes
+  );
+
+  Tensor index_add_out = index_add_op.call();
+
+  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_add_out, out}};
+  return k.call(out);
+}
+
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim,

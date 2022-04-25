@@ -260,6 +260,13 @@ at::Tensor& index_add_hpu_lazy_(
     int64_t dim_,
     const at::Tensor& indices,
     const at::Tensor& source);
+at::Tensor& index_add_hpu_lazy_out(
+    const at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& indices,
+    const at::Tensor& source,
+    const at::Scalar& alpha,
+    at::Tensor& out);
 at::Tensor index_put_hpu_lazy(
     const at::Tensor& self,
     at::TensorList indices,

@@ -713,7 +713,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 4, "Incorrect size of inputs for index_add operator");
+      inputs.size() == 5, "Incorrect size of inputs for index_add operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input 0 type expected to be Tensor for index_add operator");
@@ -726,11 +726,15 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[3].isTensor(),
       "Input 3 type expected to be Tensor for index_add operator");
+  TORCH_CHECK(
+      inputs[4].isScalar(),
+      "Input 4 type expected to be Scalar for index_add operator");
 
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto index = inputs[2].toTensor();
   auto value = inputs[3].toTensor();
+  auto alpha = inputs[4].toScalar();
 
   std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
   torch::jit::Stack temp_stack;
@@ -745,14 +749,22 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       graph, temp_stack, OutputMetaDataVector(1));
   temp_stack.clear();
 
+  ////alpha_value = value * alpha;
+  auto mulOp = make_operator<MulOperator>(
+      this->p_context_->device_id_, value.scalar_type());
+  temp_stack = {IValue(value), IValue(alpha)};
+  mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+  mulOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
+  temp_stack.clear();
+
   ////value_acc += slice;
   auto addOp = make_operator<AddOperator>(
       this->p_context_->device_id_, value.scalar_type());
   temp_stack = {
-      IValue(value),
+      IValue(mulOp->GetOutputs()[0]),
       IValue(index_selectOp->GetOutputs()[0]),
       IValue(Scalar(1.0))};
-  addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+  addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
   addOp->SetSynapseInput(index_selectOp->GetSynOutputs()[0]);
   addOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
   addSynOutput.push_back(std::move(addOp->GetSynOutputs()[0]));
