@@ -5399,6 +5399,16 @@ Tensor empty_hpu_lazy(
         c10::nullopt,
         mem_format);
 
+    // backend tensor should always be contiguous as per view table design
+    std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
+    if (contig_strides.size()) {
+      habana_helpers::recalc_strides(
+          contig_strides, at_internal_tensor.sizes().vec());
+      IntArrayRef new_strides = contig_strides;
+      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          at_internal_tensor.sizes(), new_strides);
+    }
+
     // set metadata that its a shape tensor
     if (shape_tensor) {
       habana_lazy::HbInternalTensorImpl* impl =

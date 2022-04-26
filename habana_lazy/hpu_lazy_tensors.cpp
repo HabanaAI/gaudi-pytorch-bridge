@@ -17,6 +17,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -24,6 +25,7 @@
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/sbs_debug.h"
+#include "habana_lazy/view_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -1111,6 +1113,48 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 }
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
+  // Handle views before doing shallow copy
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto src_id = this->getTensorUniqueId();
+  auto dst_id = dest->getTensorUniqueId();
+
+  // if src is a view, create an entry in view table for dst as well
+  auto it = context->view_table.find(src_id);
+  if (it != context->view_table.end()) {
+    StrideParams params = it->second;
+
+    // avoid circular links. Example:
+    // param.data = permute(param.data). In this case dst_id can be same as
+    // params.parent's id. In this case, evaluate the tensor before shallow copy
+    auto parent_id = GetHbLazyTensor(params.parent).getTensorUniqueId();
+
+    if (dst_id != parent_id) {
+      context->view_table[dst_id] = params;
+    } else {
+      // evaluate the tensor
+      auto aten_t = AtenFromHbLazyTensor(
+          *this, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      HbLazyTensorViews::HandleViews(aten_t, *this);
+      std::vector<HbLazyTensor> tensors = {*this};
+      HbLazyTensor::SyncTensorsGraph(&tensors);
+    }
+  }
+
+  // if src has an updated version, create an entry in orig_tensor_map for the
+  // destination
+  auto ori_tensor_map_it = context->orig_tensor_map.find(src_id);
+  if (ori_tensor_map_it != context->orig_tensor_map.end()) {
+    auto updated_base = ori_tensor_map_it->second;
+    context->orig_tensor_map[dst_id] = updated_base;
+
+    PT_VIEWTABLE_DEBUG(
+        "[hbcopyTensor] Mem_stat.  ",
+        " orig_tensor_map map size: ",
+        context->orig_tensor_map.size(),
+        ", total bytes: ",
+        context->tensorMapSize());
+  }
+
   // We can add stuff related to view tensors later
   // SW-43241: The shallow copy copies the ir_value etc from one tensor
   // to another. If the same ir_value is used in both the tensors, then
@@ -1135,32 +1179,6 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   auto data_tensor = CurrentTensorData();
   if (data_tensor.has_value()) {
     dest->SetTensorData(*data_tensor);
-  }
-
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto src_id = this->getTensorUniqueId();
-  auto dst_id = dest->getTensorUniqueId();
-
-  // if src is a view, create an entry in view table for dst as well
-  auto it = context->view_table.find(src_id);
-  if (it != context->view_table.end()) {
-    StrideParams params = it->second;
-    context->view_table[dst_id] = params;
-  }
-
-  // if src has an updated version, create an entry in orig_tensor_map for the
-  // destination
-  auto ori_tensor_map_it = context->orig_tensor_map.find(src_id);
-  if (ori_tensor_map_it != context->orig_tensor_map.end()) {
-    auto updated_base = ori_tensor_map_it->second;
-    context->orig_tensor_map[dst_id] = updated_base;
-
-    PT_VIEWTABLE_DEBUG(
-        "[hbcopyTensor] Mem_stat.  ",
-        " orig_tensor_map map size: ",
-        context->orig_tensor_map.size(),
-        ", total bytes: ",
-        context->tensorMapSize());
   }
 }
 

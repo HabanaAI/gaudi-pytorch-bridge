@@ -600,6 +600,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
         !habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
       h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+      IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
     }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -1055,8 +1056,11 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   torch::Tensor A = torch::randn({5, 6, 24, 24});
   torch::Tensor hA = A.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  auto hOut = hA.permute({0, 2, 3, 1});
-  auto out = A.permute({0, 2, 3, 1});
+  auto B = A.permute({0, 2, 3, 1});
+  auto out = B.add(0.5);
+  auto hB = hA.permute({0, 2, 3, 1});
+  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+  auto hOut = hB.add(0.5);
   UpdateOpCounters();
   auto hOut_cpu = hOut.to(torch::kCPU);
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
@@ -1074,6 +1078,9 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
     EXPECT_EQ(habana_lazy::SBSDebug::getInstance().GetNumberOfErrorLines(), 0);
     EXPECT_EQ(habana_lazy::SBSInterface::getNumberOfErrors(), 0);
   }
+
+  ResetOpCounters();
+  ResetSBSHandlers();
 }
 
 // Enable when this is resolved: [SW-78057]
