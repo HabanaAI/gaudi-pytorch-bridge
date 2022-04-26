@@ -327,7 +327,7 @@ TEST_F(LazyBasicKernelTest, DISABLED_SelectOnChlastInput) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(B, hB.cpu()), true);
 }
-TEST_F(LazyBasicKernelTest, asStridedOnChlastInput) {
+TEST_F(LazyBasicKernelTest, DISABLED_asStridedOnChlastInput) {
   torch::Tensor A =
       torch::randn({2, 3, 4, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);
@@ -340,7 +340,7 @@ TEST_F(LazyBasicKernelTest, asStridedOnChlastInput) {
   auto hOut = torch::as_strided(hA, sizes, strides, offset);
   EXPECT_EQ(allclose(out, hOut.cpu()), true);
 }
-TEST_F(LazyBasicKernelTest, asStridedOnChlastOutput) {
+TEST_F(LazyBasicKernelTest, DISABLED_asStridedOnChlastOutput) {
   torch::Tensor A =
       torch::randn({2, 3, 4, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);

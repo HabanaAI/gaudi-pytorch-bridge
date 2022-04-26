@@ -814,6 +814,14 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
   auto src = src_.contiguous(src_.suggest_memory_format());
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    if (!(src.is_contiguous(c10::MemoryFormat::Contiguous))) {
+      HABANA_ASSERT(
+          false,
+          "ChannelsLast tensors are currently not supported when PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true");
+    }
+  }
+
   InitSizesAndStrides(
       self,
       c10::nullopt,
@@ -5417,6 +5425,13 @@ Tensor empty_hpu_lazy(
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
       : options.memory_format_opt();
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    if (*mem_format != c10::MemoryFormat::Contiguous) {
+      HABANA_ASSERT(
+          false,
+          "ChannelsLast tensors are currently not supported when PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true");
+    }
+  }
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
   auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
