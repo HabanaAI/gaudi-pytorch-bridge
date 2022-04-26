@@ -1813,26 +1813,18 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
   auto running_mean = running_mean_opt.value_or(Tensor());
   auto running_var = running_var_opt.value_or(Tensor());
 
-  // Additional check added  in case input dims are less than 4
-  // fall back to CPU since HPU supports only 4D inputs
-  // This can be removed once we implement support to reshape
-  // non 4D inputs in the bridge
-  if (!hpu_check_inputs_impl(
-          "native_batch_norm",
-          {input, weight, bias, running_mean, running_var}) ||
-      (input.dim() < 4)) {
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        native_batch_norm,
-        PARAMS2(
-            input,
-            weight_opt,
-            bias_opt,
-            running_mean_opt,
-            running_var_opt,
-            training,
-            momentum,
-            eps))
-  }
+  FALLBACK_IF_UNSUPPORTED_OP(
+      native_batch_norm,
+      PARAMS1(input, weight, bias, running_mean, running_var),
+      PARAMS2(
+          input,
+          weight_opt,
+          bias_opt,
+          running_mean_opt,
+          running_var_opt,
+          training,
+          momentum,
+          eps))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return batch_norm_hpu_lazy(
