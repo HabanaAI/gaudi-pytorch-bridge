@@ -48,6 +48,12 @@ class OptPassCfg {
 
   OptPassCfg() {
     SetDefaultOptFlags();
+    /*
+      Temporary logging during new layout handling mechanism integration
+    */
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      PT_SYNHELPER_WARN("New Layout handling flow activated");
+    }
   }
 
  public:
