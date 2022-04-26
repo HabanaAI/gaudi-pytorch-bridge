@@ -37,6 +37,13 @@ namespace {
     }                                                 \
   }
 
+#define NW_STREAM_SYNC()                               \
+  {                                                    \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_NW_STREAM_SYNC)) { \
+      nwStreamSync();                                  \
+    }                                                  \
+  }
+
 std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
     {at::kByte, hcclUint8},
     {at::kChar, hcclChar},
@@ -201,6 +208,23 @@ void ProcessGroupHCCL::hostBarrier() {
   }
 
   barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
+  PT_DISTRIBUTED_END;
+}
+
+void ProcessGroupHCCL::nwStreamSync() {
+  PT_DISTRIBUTED_BEGIN;
+  std::vector<int> devices;
+  for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
+       it++) {
+    devices.push_back(it->first);
+  }
+
+  auto comms = getCommList(devices);
+  auto commStreams = getCommStreams(devices);
+  for (size_t i = 0; i < comms.size(); i++) {
+    synStreamSynchronize(commStreams[i]);
+  }
+
   PT_DISTRIBUTED_END;
 }
 
@@ -536,17 +560,18 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
-  HOST_SYNC()
   auto work = collective(
       tensors,
       tensors,
-      [rootRank = opts.rootRank](
+      [rootRank = opts.rootRank, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         auto tensor_data_type = getHCCLDataType(input.scalar_type());
         auto numel = input.numel();
         PT_DISTRIBUTED_DEBUG(
@@ -584,17 +609,19 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
-  HOST_SYNC()
+
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
-      [reduceOp = opts.reduceOp](
+      [reduceOp = opts.reduceOp, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
         size_t element_size =
@@ -781,7 +808,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
   PT_DISTRIBUTED_BEGIN;
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
-  HOST_SYNC()
+
   auto work = collective(
       inputTensors,
       outputFlattened,
@@ -791,6 +818,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           hcclStream_t stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] allgather with input_address :: ",
             send_buffer,

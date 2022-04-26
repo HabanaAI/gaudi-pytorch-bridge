@@ -290,6 +290,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   std::mutex mutex_;
   c10::intrusive_ptr<Store> store_;
   void hostBarrier();
+  void nwStreamSync();
   size_t barrier_cnt_;
 
   // Maintains the list of communicators associated with the devices.
