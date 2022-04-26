@@ -1353,13 +1353,13 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
     // otherwise the caller need to wait
     if (lit->second->get_use_flag() == false) {
       if (mem_exhausted) {
-        PT_BRIDGE_WARN(
+        PT_BRIDGE_DEBUG(
             "memory exhausted : removing recipe, key ",
             lit->first->hashCode(),
             ", size ",
             synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       } else {
-        PT_BRIDGE_WARN(
+        PT_BRIDGE_DEBUG(
             "lru max size ",
             max_size_,
             " reached : removing recipe, key ",
