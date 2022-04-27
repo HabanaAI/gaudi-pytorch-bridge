@@ -976,9 +976,9 @@ exponential_:
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
-  op_frontend: LazyIntSeed
-  op_backend: ExponentialIntSeedInput
-  schema_args: "(Tensor(a!) self, float lambd=1.0, *, int seed) -> Tensor(a!)"
+  op_frontend: LazyTensorSeed
+  op_backend: ExponentialSeedTensorInput
+  schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
 
 eye.out:
   custom_output_shape: EyeOutputShape
