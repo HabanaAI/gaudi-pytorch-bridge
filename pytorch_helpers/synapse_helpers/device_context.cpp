@@ -61,7 +61,7 @@ hcclResult_t device_context::open_device(int device_id) {
 }
 
 hcclResult_t device_context::acquire_collective_stream(
-    hcclStream_t* stream_handle_ptr) {
+    synStreamHandle* stream_handle_ptr) {
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::acquire_collective_stream(stream_handle_ptr=",
       stream_handle_ptr,
@@ -238,7 +238,7 @@ hcclResult_t device_context::copy_data_within_device(
 }
 
 hcclResult_t device_context::prepare_stream(
-    hcclStream_t stream_handle,
+    synStreamHandle stream_handle,
     synapse_helpers::device_ptr input_address) {
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::acquire_copy_stream(stream_handle=",
@@ -266,7 +266,7 @@ hcclResult_t device_context::prepare_stream(
 }
 
 hcclResult_t device_context::submit_events(
-    hcclStream_t stream_handle,
+    synStreamHandle stream_handle,
     synapse_helpers::device_ptr output_address,
     const synapse_helpers::event_done_callback& done_callback) {
   PT_DISTRIBUTED_DEBUG(
@@ -303,7 +303,7 @@ hcclResult_t device_context::submit_future(
   return hcclSuccess;
 }
 
-hcclResult_t device_context::stream_synchronize(hcclStream_t stream) {
+hcclResult_t device_context::stream_synchronize(synStreamHandle stream) {
   return to_hccl_result(synStreamSynchronize(stream));
 }
 

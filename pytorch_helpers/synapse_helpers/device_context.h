@@ -54,7 +54,7 @@ class device_context : std::enable_shared_from_this<device_context> {
 
   hcclResult_t open_device(int device_id);
 
-  hcclResult_t acquire_collective_stream(hcclStream_t* stream_handle_ptr);
+  hcclResult_t acquire_collective_stream(synStreamHandle* stream_handle_ptr);
   hcclResult_t release_stream(synStreamHandle stream_handle);
 
   hcclResult_t acquire_copy_stream(
@@ -76,18 +76,18 @@ class device_context : std::enable_shared_from_this<device_context> {
   hcclResult_t unlock_address(void* const address);
 
   hcclResult_t prepare_stream(
-      hcclStream_t stream_handle,
+      synStreamHandle stream_handle,
       synapse_helpers::device_ptr input_address);
 
   hcclResult_t submit_events(
-      hcclStream_t stream_handle,
+      synStreamHandle stream_handle,
       synapse_helpers::device_ptr output_address,
       const synapse_helpers::event_done_callback& done_callback = [] {});
 
   hcclResult_t submit_future(
       synapse_helpers::device_ptr device_addr,
       std::future<bool> fut);
-  hcclResult_t stream_synchronize(hcclStream_t stream_handle);
+  hcclResult_t stream_synchronize(synStreamHandle stream_handle);
 
   hcclResult_t synchronize_output(synapse_helpers::device_ptr output_address);
   hcclResult_t barrier();

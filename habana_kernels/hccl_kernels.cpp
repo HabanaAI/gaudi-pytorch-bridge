@@ -138,7 +138,7 @@ void collective(
   for (size_t i = 0; i < inputs.size(); ++i) {
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
     auto deviceCtxt = comm->getDeviceCtxt(devices.at(i));
-    hcclStream_t collective_stream = comm->getCommStream(devices.at(i));
+    synStreamHandle collective_stream = comm->getCommStream(devices.at(i));
 
     void* input_address;
     void* output_address;
@@ -229,7 +229,7 @@ void pointToPoint(
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
     auto deviceCtxt = comm->getDeviceCtxt(devices.at(i));
-    hcclStream_t collective_stream = comm->getCommStream(devices.at(i));
+    synStreamHandle collective_stream = comm->getCommStream(devices.at(i));
 
     void* tensor_address;
     synapse_helpers::device_ptr tensor_storage_ptr =
@@ -339,7 +339,7 @@ void HcclBroadcastOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
         int64_t numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
@@ -403,7 +403,7 @@ void HcclAllreduceOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
@@ -484,7 +484,7 @@ void HcclReduceOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
@@ -556,7 +556,7 @@ void HcclAllToAllOutOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         int numRanks = comm->GetSize();
         size_t count = input->get_numel() / numRanks;
         size_t rank_offset =
@@ -636,7 +636,7 @@ void HcclAllgatherOutOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
         int64_t numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
@@ -699,7 +699,7 @@ void HcclReduceScatterOutOperator::RunCollective(
           const void* send_buffer,
           void* recv_buffer,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         hcclResult_t hccl_result = hcclReduceScatter(
             send_buffer,
             recv_buffer,
@@ -758,7 +758,7 @@ void HcclSendOperator::RunCollective(
           PtTensorInfoShared& input,
           const void* send_buff,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream,
+          synStreamHandle stream,
           int peerRank) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
         int64_t numel = input->get_numel();
@@ -820,7 +820,7 @@ void HcclRecvOperator::RunCollective(
           PtTensorInfoShared& input,
           void* recv_buff,
           std::shared_ptr<HcclCommunicator> comm,
-          hcclStream_t stream,
+          synStreamHandle stream,
           int peerRank) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
         int64_t numel = input->get_numel();

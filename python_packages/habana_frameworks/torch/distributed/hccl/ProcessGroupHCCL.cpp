@@ -309,7 +309,7 @@ std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
         std::make_shared<hccl_integration::device_context>(deviceId);
     device_contexts_[deviceId] = deviceCtxt;
 
-    hcclStream_t collective_stream;
+    synStreamHandle collective_stream;
     deviceCtxt->acquire_collective_stream(&collective_stream);
     comm_streams_[deviceId] = collective_stream;
   }
@@ -445,13 +445,13 @@ std::vector<std::shared_ptr<hcclComm_t>> ProcessGroupHCCL::getCommList(
   return comms;
 }
 
-hcclStream_t ProcessGroupHCCL::getCommStream(int device) {
+synStreamHandle ProcessGroupHCCL::getCommStream(int device) {
   return comm_streams_.find(device)->second;
 }
 
-std::vector<hcclStream_t> ProcessGroupHCCL::getCommStreams(
+std::vector<synStreamHandle> ProcessGroupHCCL::getCommStreams(
     const std::vector<int>& devices) {
-  std::vector<hcclStream_t> hcclStreams(devices.size());
+  std::vector<synStreamHandle> hcclStreams(devices.size());
   for (size_t i = 0; i < devices.size(); ++i) {
     hcclStreams[i] = getCommStream(devices[i]);
   }
@@ -489,7 +489,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
     void* tensor_address;
-    hcclStream_t collective_stream = commStreams[i];
+    synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
@@ -563,7 +563,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     auto deviceCtxt = deviceCtxts[i];
     void* input_address;
     void* output_address;
-    hcclStream_t collective_stream = commStreams[i];
+    synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
     synapse_helpers::device_ptr output_storage_ptr =
@@ -639,7 +639,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
         auto scalar_type = input.scalar_type();
@@ -693,7 +693,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
         hcclResult_t hccl_result{hcclSuccess};
@@ -763,7 +763,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce with input_address :: ",
             send_buffer,
@@ -829,7 +829,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         size_t count = input.numel() / numRanks;
         size_t rank_offset = count *
             c10::elementSize(getInternalScalarType(input.scalar_type()));
@@ -928,7 +928,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
@@ -1056,7 +1056,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream) {
+          synStreamHandle stream) {
         // Wait for event on input
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce_scatter with input_address :: ",
@@ -1098,7 +1098,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
       [&](at::Tensor& input,
           const void* send_buff,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream,
+          synStreamHandle stream,
           int peerRank) {
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] send with input_address :: ",
@@ -1136,7 +1136,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
       [&](at::Tensor& tensor,
           void* recv_buff,
           hcclComm_t& hccl_comm,
-          hcclStream_t stream,
+          synStreamHandle stream,
           int peerRank) {
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] send with input_address :: ",

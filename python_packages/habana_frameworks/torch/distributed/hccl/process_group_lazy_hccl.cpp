@@ -473,7 +473,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::barrier(
   habana_lazy::HbLazyTensor::StepMarker();
 
   auto comm = habana::HcclCommunicator::Get(comm_->GetId());
-  std::vector<hcclStream_t> collective_streams = comm->getCommStreams();
+  std::vector<synStreamHandle> collective_streams = comm->getCommStreams();
   for (size_t i = 0; i < collective_streams.size(); i++) {
     hcclBarrier(*comm->GetHcclHandle(), collective_streams.at(i));
   }

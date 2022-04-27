@@ -33,8 +33,8 @@ class HcclCommunicator {
 
   std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(
       int device_id);
-  std::vector<hcclStream_t> getCommStreams();
-  hcclStream_t getCommStream(int device_id);
+  std::vector<synStreamHandle> getCommStreams();
+  synStreamHandle getCommStream(int device_id);
   std::shared_ptr<hcclComm_t> GetHcclHandle();
 
   static std::shared_ptr<HcclCommunicator> Create(
@@ -57,7 +57,7 @@ class HcclCommunicator {
   std::shared_ptr<hcclComm_t> hccl_handle_;
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
-  std::map<int, hcclStream_t> comm_streams_;
+  std::map<int, synStreamHandle> comm_streams_;
   std::mutex mutex_;
   std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn_;
   std::once_flag init_flag;

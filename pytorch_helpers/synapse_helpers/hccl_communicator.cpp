@@ -55,18 +55,18 @@ std::shared_ptr<hccl_integration::device_context> HcclCommunicator::
   return device_contexts_.at(deviceId);
 }
 
-std::vector<hcclStream_t> HcclCommunicator::getCommStreams() {
-  std::vector<hcclStream_t> streams;
+std::vector<synStreamHandle> HcclCommunicator::getCommStreams() {
+  std::vector<synStreamHandle> streams;
   for (auto const& stream : comm_streams_) {
     streams.emplace_back(stream.second);
   }
   return streams;
 }
 
-hcclStream_t HcclCommunicator::getCommStream(int deviceId) {
+synStreamHandle HcclCommunicator::getCommStream(int deviceId) {
   if (comm_streams_.find(deviceId) == comm_streams_.end()) {
     auto devctx = getDeviceCtxt(deviceId);
-    hcclStream_t collective_stream_;
+    synStreamHandle collective_stream_;
     devctx->acquire_collective_stream(&collective_stream_);
     comm_streams_[deviceId] = collective_stream_;
   }

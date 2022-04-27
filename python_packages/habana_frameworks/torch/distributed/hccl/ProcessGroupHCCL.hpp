@@ -273,7 +273,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
 
   void broadcastUniqueHCCLID(hcclUniqueId* hcclID);
   std::shared_ptr<hcclComm_t> getComm(int deviceId);
-  hcclStream_t getCommStream(int deviceId);
+  synStreamHandle getCommStream(int deviceId);
   std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(int deviceId);
 
   std::vector<int> getDeviceList(const std::vector<at::Tensor>& tensors);
@@ -281,7 +281,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
       const std::vector<int>& devices);
   std::vector<std::shared_ptr<hccl_integration::device_context>>
   getDeviceCtxtList(const std::vector<int>& devices);
-  std::vector<hcclStream_t> getCommStreams(const std::vector<int>& devices);
+  std::vector<synStreamHandle> getCommStreams(const std::vector<int>& devices);
   // Helper function that is called by the destructor
   void destroy();
   bool stop_;
@@ -297,7 +297,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   std::map<int, std::shared_ptr<hcclComm_t>> hccl_communicator_;
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
-  std::map<int, hcclStream_t> comm_streams_;
+  std::map<int, synStreamHandle> comm_streams_;
 };
 
 } // namespace c10d
