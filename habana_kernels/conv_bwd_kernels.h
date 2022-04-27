@@ -67,7 +67,7 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
@@ -91,7 +91,7 @@ class Conv3dInputDifferentiationOperator : public HabanaOperator {
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
          synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
@@ -114,8 +114,7 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::SRCK});
   }
@@ -138,8 +137,7 @@ class Conv3dWeightDifferentiationOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::SRQCK});
   }
