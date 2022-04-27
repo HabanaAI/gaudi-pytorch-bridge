@@ -1951,9 +1951,12 @@ void SliceOperator::ValidateSliceInputs(
     std::vector<int64_t>& step,
     std::vector<int64_t>& start) {
   for (unsigned i = 0; i < inp_shape.size(); i++) {
-    TORCH_CHECK(
-        (start[i] < inp_shape[i]),
-        "Slice invalid starts param, which is greater or equal to the dimension");
+    // exclude ZST from shape validation check
+    if (inp_shape[i]) {
+      TORCH_CHECK(
+          (start[i] < inp_shape[i]),
+          "Slice invalid starts param, which is greater or equal to the dimension");
+    }
 
     // original equation as per at::native::slice
     // sizes[dim] = (end_val - start_val + step - 1) / step; // round-up
