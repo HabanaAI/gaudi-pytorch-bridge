@@ -36,7 +36,11 @@ int64_t HcclCommunicator::GetSize() const {
 HcclCommunicator::~HcclCommunicator() {
   PT_LAZY_DEBUG("HcclCommunicator destroy. id = ", id_);
   if (hccl_handle_) {
-    hcclCommDestroy(*hccl_handle_);
+    auto status = hcclCommDestroy(*hccl_handle_);
+    HABANA_ASSERT(
+        status == hcclSuccess,
+        "hcclCommDestroy returned with an error status=",
+        status);
     hccl_handle_.reset();
   }
 }

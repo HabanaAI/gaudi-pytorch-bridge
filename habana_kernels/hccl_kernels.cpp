@@ -152,7 +152,7 @@ void collective(
              output,
              input_address,
              output_address,
-             comm,
+             std::move(comm),
              collective_stream);
       TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
       deviceCtxt->submit_events(collective_stream, output_storage_ptr, done_cb);
@@ -231,7 +231,8 @@ void pointToPoint(
           ", peerRank = ",
           peerRank);
 
-      auto hccl_result = fn(tensor, address, comm, collective_stream, peerRank);
+      auto hccl_result =
+          fn(tensor, address, std::move(comm), collective_stream, peerRank);
       TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
       deviceCtxt->submit_events(collective_stream, tensor_storage_ptr, done_cb);
       pr->set_value(hccl_result == hcclSuccess);
