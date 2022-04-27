@@ -575,6 +575,8 @@ Tensor add_permute_lazy(
   return result;
 }
 
+// Here self corresponds to the output of op(view_tensor) where view_tensor =
+// strided_view(base)
 void strided_insert_hpu_lazy(
     const Tensor& self,
     const Tensor& insert_t,

@@ -39,9 +39,7 @@ void updateTensorViewIfNeeded(
     auto tensor_id = hb_tensor.getTensorUniqueId();
     auto tensor_id_itr = context->view_table.find(tensor_id);
     if (tensor_id_itr != context->view_table.end()) {
-      const habana_lazy::StrideParams& params = context->view_table[tensor_id];
-      auto updated_tensor = habana_lazy::get_recent_base_tensor(params.base);
-      habana_lazy::strided_insert_hpu_lazy(updated_tensor, new_tensor);
+      habana_lazy::strided_insert_hpu_lazy(old_tensor, new_tensor);
     }
   }
 }
