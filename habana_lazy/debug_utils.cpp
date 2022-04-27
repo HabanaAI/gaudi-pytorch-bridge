@@ -262,7 +262,9 @@ std::string IrGraphDumpUtil::PostOrderToText(
       std::string node_string =
           print_ir_graph_info ? node->ToStringIrGraph() : node->ToString();
       std::string::size_type pos = node_string.find("\n");
-      node_string[pos] = ' ';
+      if (pos != std::string::npos) {
+        node_string[pos] = ' ';
+      }
       ss << node_string;
     } else {
       ss << "  %" << id_map.at(node) << " = "
