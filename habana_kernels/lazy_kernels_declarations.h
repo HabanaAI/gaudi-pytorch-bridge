@@ -476,8 +476,18 @@ at::Tensor prod_dim_hpu_lazy(
     int64_t dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
     const at::Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
     bool sorted,
     bool return_inverse,
     bool return_counts);

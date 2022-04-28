@@ -472,7 +472,22 @@ class IndexOperator : public HabanaOperator {
       at::TensorList indices);
 };
 
-// unique Operator
+// torch::unique Operator
+class Unique_Operator : public HabanaOperator {
+ public:
+  Unique_Operator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+// torch::_unique2 Operator
 class UniqueOperator : public HabanaOperator {
  public:
   UniqueOperator(int device_id, c10::ScalarType scalarType)
@@ -487,6 +502,21 @@ class UniqueOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
+
+// torch::unique_dim Operator
+class UniqueDimOperator : public HabanaOperator {
+ public:
+  UniqueDimOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 // Linspace Operator

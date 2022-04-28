@@ -115,8 +115,7 @@ class OpAttributeCheck {
         // checking for sorted = true
         {"topk", {{5, {c10::IValue(true)}}}},
         // checking sorted, return_inverse, return_counts = false
-        {"unique", {{3, {c10::IValue(false)}}, {4, {c10::IValue(false)}}}},
-    };
+        {"unique", {{3, {c10::IValue(false)}}, {4, {c10::IValue(false)}}}}};
   }
 
   void hpu_check_ivalues(std::string oper_name, torch::jit::Stack& inputs) {

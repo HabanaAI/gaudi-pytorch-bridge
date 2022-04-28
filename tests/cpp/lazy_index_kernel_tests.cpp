@@ -15,6 +15,276 @@ using namespace habana_lazy;
 using namespace at;
 
 class LazyIndexKernelTest : public habana_lazy_test::LazyTest {};
+class UniqueParameterizedTestFixture
+    : public ::testing::TestWithParam<
+          std::tuple<torch::Tensor, c10::ScalarType, bool>> {};
+class UniqueDimParameterizedTestFixture
+    : public ::testing::TestWithParam<
+          std::tuple<torch::Tensor, c10::ScalarType, int64_t, bool, bool>> {};
+
+TEST_P(UniqueParameterizedTestFixture, tests) {
+  c10::ScalarType dtype = std::get<1>(GetParam());
+  torch::Tensor input_cpu = std::get<0>(GetParam()).to(dtype);
+  bool return_inverse = std::get<2>(GetParam());
+
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+  auto out_hpu = torch::_unique(input_hpu, false, return_inverse);
+  auto out_cpu = torch::_unique(input_cpu, false, return_inverse);
+
+  auto unique_hpu_out = std::get<0>(out_hpu).to(torch::kCPU);
+  auto unique_cpu_out = std::get<0>(out_cpu);
+  EXPECT_EQ(allclose(unique_hpu_out, unique_cpu_out), true);
+
+  if (return_inverse) {
+    auto ri_hpu_out = std::get<1>(out_hpu).to(torch::kCPU);
+    auto ri_cpu_out = std::get<1>(out_cpu);
+    EXPECT_EQ(allclose(ri_hpu_out, ri_cpu_out), true);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    UniqueTest,
+    UniqueParameterizedTestFixture,
+    ::testing::Values(
+        std::make_tuple(torch::randint(0, 10, {10}), torch::kInt32, false),
+        std::make_tuple(torch::randint(0, 10, {200}), torch::kFloat, false),
+        std::make_tuple(torch::randint(0, 10, {25, 25}), torch::kInt32, false),
+        std::make_tuple(torch::randint(0, 10, {25, 25}), torch::kFloat, false),
+        std::make_tuple(
+            torch::randint(100, 200, {25, 20, 5}),
+            torch::kInt32,
+            false),
+        std::make_tuple(torch::randint(20, 30, {10, 10}), torch::kFloat, false),
+        std::make_tuple(
+            torch::randint(50, 75, {5, 20, 20, 5}),
+            torch::kInt32,
+            false),
+        std::make_tuple(
+            torch::randint(50, 75, {5, 20, 20, 5}),
+            torch::kFloat,
+            false),
+        std::make_tuple(torch::randint(0, 10, {10}), torch::kInt32, true),
+        std::make_tuple(torch::randint(0, 10, {200}), torch::kFloat, true),
+        std::make_tuple(torch::randint(0, 10, {25, 25}), torch::kInt32, true),
+        std::make_tuple(torch::randint(0, 10, {25, 25}), torch::kFloat, true),
+        std::make_tuple(
+            torch::randint(100, 200, {25, 20, 5}),
+            torch::kInt32,
+            true),
+        std::make_tuple(torch::randint(20, 30, {10, 10}), torch::kFloat, true),
+        std::make_tuple(
+            torch::randint(50, 75, {5, 20, 20, 5}),
+            torch::kInt32,
+            true),
+        std::make_tuple(
+            torch::randint(50, 75, {5, 20, 20, 5}),
+            torch::kFloat,
+            true)));
+
+TEST_P(UniqueDimParameterizedTestFixture, tests) {
+  c10::ScalarType dtype = std::get<1>(GetParam());
+  int64_t dim = std::get<2>(GetParam());
+  bool return_inverse = std::get<3>(GetParam());
+  bool return_counts = std::get<4>(GetParam());
+
+  torch::Tensor input_cpu = std::get<0>(GetParam()).to(dtype);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  auto out_hpu =
+      torch::unique_dim(input_hpu, dim, false, return_inverse, return_counts);
+  auto out_cpu =
+      torch::unique_dim(input_cpu, dim, false, return_inverse, return_counts);
+
+  auto unique_hpu_out =
+      std::get<0>(std::get<0>(out_hpu).to(torch::kCPU).sort(dim));
+  auto unique_cpu_out = std::get<0>(std::get<0>(out_cpu).sort(dim));
+
+  EXPECT_EQ(allclose(unique_hpu_out, unique_cpu_out), true);
+
+  if (return_inverse) {
+    auto ri_hpu_out = std::get<0>(std::get<1>(out_hpu).to(torch::kCPU).sort(0));
+    auto ri_cpu_out = std::get<0>(std::get<1>(out_cpu).sort(0));
+    EXPECT_EQ(allclose(ri_hpu_out, ri_cpu_out), true);
+  }
+
+  if (return_counts) {
+    auto rc_hpu_out = std::get<0>(std::get<2>(out_hpu).to(torch::kCPU).sort(0));
+    auto rc_cpu_out = std::get<0>(std::get<2>(out_cpu).sort(0));
+    EXPECT_EQ(allclose(rc_hpu_out, rc_cpu_out), true);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    UniqueDimTest,
+    UniqueDimParameterizedTestFixture,
+    ::testing::Values(
+        std::make_tuple(
+            torch::tensor(
+                {{{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}},
+                 {{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}}),
+            torch::kInt32,
+            -1,
+            false,
+            false),
+        std::make_tuple(
+            torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}),
+            torch::kInt32,
+            1,
+            true,
+            true),
+        std::make_tuple(
+            torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
+            torch::kInt32,
+            1,
+            true,
+            true),
+        std::make_tuple(
+            torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}),
+            torch::kInt32,
+            1,
+            false,
+            false),
+        std::make_tuple(
+            torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
+            torch::kInt32,
+            1,
+            false,
+            true),
+        std::make_tuple(
+            torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
+            torch::kInt32,
+            1,
+            true,
+            false),
+        std::make_tuple(
+            torch::tensor(
+                {{{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}},
+                 {{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}}),
+            torch::kInt32,
+            2,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {10}),
+            torch::kInt32,
+            0,
+            false,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {20}),
+            torch::kFloat,
+            0,
+            false,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20}),
+            torch::kInt32,
+            0,
+            true,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20}),
+            torch::kFloat,
+            0,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20}),
+            torch::kInt32,
+            1,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20}),
+            torch::kFloat,
+            1,
+            true,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20, 10}),
+            torch::kInt32,
+            0,
+            false,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {15, 12, 13}),
+            torch::kFloat,
+            0,
+            true,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {13, 24, 21}),
+            torch::kInt32,
+            1,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {23, 14, 25}),
+            torch::kFloat,
+            1,
+            true,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {13, 24, 27}),
+            torch::kInt32,
+            2,
+            false,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {23, 14, 22}),
+            torch::kFloat,
+            2,
+            false,
+            false),
+
+        std::make_tuple(
+            torch::randint(0, 10, {10, 20, 10, 20}),
+            torch::kInt32,
+            0,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {15, 12, 13, 16}),
+            torch::kFloat,
+            0,
+            true,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {13, 24, 21, 12}),
+            torch::kInt32,
+            1,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {23, 14, 25, 29}),
+            torch::kFloat,
+            1,
+            false,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {13, 24, 27, 13}),
+            torch::kInt32,
+            2,
+            false,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {23, 14, 22, 14}),
+            torch::kFloat,
+            2,
+            true,
+            false),
+        std::make_tuple(
+            torch::randint(0, 10, {13, 21, 27, 22}),
+            torch::kInt32,
+            3,
+            true,
+            true),
+        std::make_tuple(
+            torch::randint(0, 10, {23, 17, 22, 21}),
+            torch::kFloat,
+            3,
+            false,
+            true)));
 
 TEST_F(LazyIndexKernelTest, IndexSelectTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));

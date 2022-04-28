@@ -5858,7 +5858,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "roi_align_bwd(Tensor inputs, Tensor rois, Tensor n_rois, Tensor input_shape, int sr, float ss, bool aligned) -> Tensor");
   m.def(
+      "_unique(Tensor self, bool sorted, bool return_inverse) -> (Tensor, Tensor)");
+  m.def(
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
+  m.def(
+      "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor, Tensor)");
   m.def(
       "gather_elements(Tensor self, Tensor index, Tensor? opt, int64_t dim_, bool sorted) -> Tensor");
   m.def("permute(Tensor(a) self, int[] dims) -> Tensor(a)");

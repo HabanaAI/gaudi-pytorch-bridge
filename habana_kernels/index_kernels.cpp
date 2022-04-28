@@ -3191,6 +3191,166 @@ Tensor index_hpu(const at::Tensor& input, TensorList indices) {
   return out.at(0);
 }
 
+void Unique_Operator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  HABANA_ASSERT(
+      inputs.size() == 3 && "Incorrect size of inputs in Unique_Operator");
+  HABANA_ASSERT(inputs[0].isTensor() && "Input 0 is expected to be tensor");
+  HABANA_ASSERT(inputs[1].isBool() && "Input 1 is expected to be bool");
+  HABANA_ASSERT(inputs[2].isBool() && "Input 2 is expected to be bool");
+
+  bool sorted = inputs[1].toBool();
+  if (sorted == true) {
+    PT_KERNEL_WARN(
+        "Recieved sorted=True, ignoring as TPC kernel does not support it");
+  }
+
+  auto self = inputs[0].toTensor();
+  int elements = self.numel();
+  auto output_shape = DimVector{elements};
+  auto valid_shape = DimVector{1};
+
+  // create output and valid shape tensors which are compulsory
+  auto output_feature_map = habana_helpers::createPTTensor(
+      self,
+      output_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      output_metadata.at(0).persistent);
+  auto valid_count = habana_helpers::createPTTensor(
+      self,
+      valid_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      output_metadata.at(1).persistent);
+  auto inverse_tensor = habana_helpers::createPTTensor(
+      self,
+      output_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      output_metadata.at(2).persistent);
+
+  ns_UniqueKernel::Params params;
+  params.returnInverse = 1; // When set to 1 will return Inverse
+  params.returnCounts = 0; // When set to 0 will not return Counts
+  // dim = -5 returns flattened result(unique elements over all dimesions)
+  params.dim = -5;
+
+  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
+  synDataType synType = syn_type_int32;
+  AllocateSynapseOutput(
+      graph,
+      valid_count,
+      synType,
+      output_metadata.at(1),
+      graph.is_dynamic_graph());
+  AllocateSynapseOutput(
+      graph,
+      inverse_tensor,
+      synType,
+      output_metadata.at(2),
+      graph.is_dynamic_graph());
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void UniqueDimOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  HABANA_ASSERT(
+      inputs.size() == 5 && "Incorrect size of inputs in UniqueDimOperator");
+  HABANA_ASSERT(inputs[0].isTensor() && "Input 0 is expected to be tensor");
+  HABANA_ASSERT(inputs[1].isInt() && "Input 1 is expected to be int");
+  HABANA_ASSERT(inputs[2].isBool() && "Input 2 is expected to be bool");
+  HABANA_ASSERT(inputs[3].isBool() && "Input 3 is expected to be bool");
+  HABANA_ASSERT(inputs[4].isBool() && "Input 4 is expected to be bool");
+
+  bool sorted = inputs[2].toBool();
+  if (sorted == true) {
+    PT_KERNEL_WARN(
+        "Recieved sorted=True, ignoring as TPC kernel does not support it");
+  }
+  int64_t dim = inputs[1].toInt();
+  auto self = inputs[0].toTensor();
+  if (dim < 0) {
+    dim = self.dim() + dim;
+  }
+  auto output_shape = DimVector(self.sizes());
+  auto valid_shape =
+      DimVector{1}; // As valid tensor will be a 1D tensor with single value
+  auto inverse_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+  auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+
+  // create output and valid shape tensors which are compulsory
+  auto output_feature_map = habana_helpers::createPTTensor(
+      self,
+      output_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      output_metadata.at(0).persistent);
+  auto valid_count = habana_helpers::createPTTensor(
+      self,
+      valid_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      output_metadata.at(1).persistent);
+  auto inverse_tensor = habana_helpers::createPTTensor(
+      self,
+      inverse_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      output_metadata.at(2).persistent);
+  auto counts_tensor = habana_helpers::createPTTensor(
+      self,
+      counts_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      output_metadata.at(3).persistent);
+
+  ns_UniqueKernel::Params params;
+  params.returnInverse = 1; // When set to 1 will return Inverse
+  params.returnCounts = 1; // When set to 1 will return Counts
+  params.dim = self.dim() - dim - 1;
+
+  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
+  synDataType synType = syn_type_int32;
+  AllocateSynapseOutput(
+      graph,
+      valid_count,
+      synType,
+      output_metadata.at(1),
+      graph.is_dynamic_graph());
+  AllocateSynapseOutput(
+      graph,
+      inverse_tensor,
+      synType,
+      output_metadata.at(2),
+      graph.is_dynamic_graph());
+  AllocateSynapseOutput(
+      graph,
+      counts_tensor,
+      synType,
+      output_metadata.at(3),
+      graph.is_dynamic_graph());
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   int elements = self.numel();
@@ -3537,6 +3697,8 @@ static auto& KernelRegistry =
         .add("hpu::slice", KERNEL_FN(SliceOperator))
         .add("aten::index_add", KERNEL_FN(IndexAddOperator))
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
+        .add("hpu::_unique", KERNEL_FN(Unique_Operator))
+        .add("hpu::unique_dim", KERNEL_FN(UniqueDimOperator))
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
