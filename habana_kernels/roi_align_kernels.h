@@ -67,6 +67,15 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
             "roialign_bwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
   void AllocateAndAddSynapseNode(
@@ -82,6 +91,14 @@ class QuadTreeFwdImplOperator : public HabanaOperator {
             "quad_tree_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
   void AllocateAndAddSynapseNode(
