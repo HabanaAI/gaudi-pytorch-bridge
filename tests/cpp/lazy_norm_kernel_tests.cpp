@@ -328,6 +328,45 @@ TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
 }
 
+TEST_F(LazyNormKernelTest, BatchNorm7DForwardExecute) {
+  auto input_tensor = torch::randn(
+      {1, 5, 8, 10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+  at::Tensor weight =
+      torch::randn(5, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tWeight = weight.to(torch::kHPU);
+  at::Tensor bias =
+      torch::randn(5, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tBias = bias.to(torch::kHPU);
+  auto mean = torch::randn(5, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
+  auto var = torch::ones(5, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
+
+  float mom = 0.1;
+  float eps = 1e-5;
+  // Training = True
+  auto results_cpu = torch::native_batch_norm(
+      input_tensor, weight, bias, mean, var, true, mom, eps);
+
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+  auto curr_mean_cpu = std::get<1>(results_cpu);
+
+  auto results = torch::native_batch_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps);
+
+  HbLazyTensor::StepMarker({});
+  at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
+  auto curr_mean_lazy = std::get<1>(results).to(torch::kCPU);
+
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(curr_mean_lazy.cpu(), curr_mean_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(tHabanaMean.cpu(), mean, 0.01, 0.01), true);
+  // Note higher tolerance needed for variance due to TPC kernel accuracy
+  // limitation
+  EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
+}
+
 TEST_F(LazyNormKernelTest, BatchNormAffineFalseForwardExecute) {
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));

@@ -4459,11 +4459,38 @@ static inline Tensor bn_reshape_to_4d(const Tensor& in_t) {
   Tensor reshaped_t;
   std::vector<int64_t> ret_shape(4, 1);
   auto in_shape = in_t.sizes().vec();
-  std::copy(in_shape.begin(), in_shape.end(), ret_shape.begin());
+  Tensor in_ = in_t;
+  // TPC  BN supports only 4D inputs. This means that any higher dims have to be
+  // flattened
+  if (in_shape.size() > 4) {
+    // Input is in dims format N,C,D1,D2,D3,...,Dm,H,W
+    std::vector<int64_t> permute_dims(in_shape.size(), 0);
+    for (size_t i = 0; i < permute_dims.size(); i++) {
+      permute_dims[i] = i;
+    }
+    std::swap(permute_dims[1], permute_dims[permute_dims.size() - 3]);
+    // Changed/Permuted Input is in dims format N,Dm,D1,D2,D3,...,C,H,W
+    in_ = in_t.permute(permute_dims);
+    in_shape = in_.sizes().vec();
+    auto higher_dim_size = std::accumulate(
+        in_shape.begin(),
+        in_shape.begin() + in_shape.size() - 3,
+        1,
+        std::multiplies<int64_t>{});
+    ret_shape[0] = higher_dim_size;
+    // Get the shape ready to change input to format
+    // {(N*Dm*D1*D2*D3*Dm-1),C,H,W}
+    std::copy(
+        in_shape.begin() + in_shape.size() - 3,
+        in_shape.end(),
+        ret_shape.begin() + 1);
+  } else {
+    std::copy(in_shape.begin(), in_shape.end(), ret_shape.begin());
+  }
   if (3 == in_shape.size()) { // For 3-D in_t[2] should be at reshaped_t[3]
     std::swap(ret_shape[2], ret_shape[3]);
   }
-  reshaped_t = in_t.reshape(ret_shape);
+  reshaped_t = in_.reshape(ret_shape);
   return reshaped_t;
 }
 
@@ -4483,7 +4510,16 @@ static inline Tensor bn_reshape_from_4d_to_orig(
       res = in_t.reshape({in_sizes[0], in_sizes[1], in_sizes[2]});
       break;
     default:
-      res = in_t;
+      // Input is in dims format N,Dm,D1,D2,D3,...,C,H,W
+      // Final output should be in format N,C,D1,D2,D3,...,Dm,H,W
+      std::vector<int64_t> permute_dims(in_sizes.size(), 0);
+      for (size_t i = 0; i < permute_dims.size(); i++) {
+        permute_dims[i] = i;
+      }
+      std::swap(permute_dims[1], permute_dims[permute_dims.size() - 3]);
+      std::swap(in_sizes[1], in_sizes[in_sizes.size() - 3]);
+      auto res_ = in_t.reshape(in_sizes);
+      res = res_.permute(permute_dims);
       break;
   }
   return res;
@@ -4522,7 +4558,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   PT_LAZY_TRACE;
   Tensor input;
   auto in_sizes = input_.sizes().vec();
-  if (input_.ndimension() < 4) {
+  if (input_.ndimension() != 4) {
     input = bn_reshape_to_4d(input_);
   } else {
     input = input_;
@@ -4601,7 +4637,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     auto res_ = op.call();
     Tensor res;
     auto res0 = std::get<0>(res_);
-    if (input_.ndimension() < 4) {
+    if (input_.ndimension() != 4) {
       res = bn_reshape_from_4d_to_orig(res0, in_sizes);
     } else {
       res = res0;
@@ -4638,12 +4674,12 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   Tensor grad_out;
   auto in_sizes = input_.sizes().vec();
   auto gradout_sizes = grad_out_.sizes().vec();
-  if (input_.ndimension() < 4) {
+  if (input_.ndimension() != 4) {
     input = bn_reshape_to_4d(input_);
   } else {
     input = input_;
   }
-  if (grad_out_.ndimension() < 4) {
+  if (grad_out_.ndimension() != 4) {
     grad_out = bn_reshape_to_4d(grad_out_);
   } else {
     grad_out = grad_out_;
@@ -4712,7 +4748,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   auto res_ = op.call();
   auto res0 = std::get<0>(res_);
   Tensor res;
-  if (input_.ndimension() < 4) {
+  if (input_.ndimension() != 4) {
     res = bn_reshape_from_4d_to_orig(res0, in_sizes);
   } else {
     res = res0;

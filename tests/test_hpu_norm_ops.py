@@ -20,6 +20,12 @@ batch_norm_test_case_list_2d = [
     (16, 224, 224, 3),
 ]
 
+
+batch_norm_test_case_list_3d = [
+    # N, C, D, H, W
+    (1, 128, 16, 20, 20),
+]
+
 batch_norm_test_case_list_1d = [
     # N, C
     (16, 128),
@@ -119,6 +125,19 @@ def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
         copy_kernel=True,
     )
 
+
+@pytest.mark.parametrize("N, C, D, H, W", batch_norm_test_case_list_3d)
+def test_hpu_batch_norm_3d_fwd_bwd(N, C, D, H, W):
+    kernel = torch.nn.BatchNorm3d(C)
+    kernel_params_fwd = {"input": torch.randn(N, C, D, H, W, requires_grad=True)}
+    bwd_tensors = [torch.randn(N, C, D, H, W)]
+
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel,
+        tensor_list_bwd=bwd_tensors,
+        kernel_params_fwd=kernel_params_fwd,
+        copy_kernel=True,
+    )
 
 @pytest.mark.parametrize("N, C", batch_norm_test_case_list_1d)
 def test_hpu_batch_norm_1d_fwd_bwd(N, C):
