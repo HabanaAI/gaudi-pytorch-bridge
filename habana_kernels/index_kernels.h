@@ -487,4 +487,46 @@ class LinspaceOutOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
+// Squeeze operator
+class SqueezeOperator : public HabanaOperator {
+ public:
+  SqueezeOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("squeeze") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t dim);
+};
+
+// Unsqueeze operator
+class UnsqueezeOperator : public HabanaOperator {
+ public:
+  UnsqueezeOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("expand_dims") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t dim);
+};
+
 } // namespace habana

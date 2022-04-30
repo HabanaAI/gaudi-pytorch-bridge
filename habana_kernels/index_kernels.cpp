@@ -3128,6 +3128,89 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
   return std::make_tuple(cast_out, inverse_indices, counts);
 }
 
+std::vector<int64_t> SqueezeOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t dim) {
+  std::vector<int64_t> out_shape;
+  auto dims = self.dim();
+  if (dims == 0 || self.sizes()[dim] != 1) {
+    out_shape = self.sizes().vec();
+  } else {
+    for (const auto d : c10::irange(dims)) {
+      if (d != dim || self.sizes()[dim] != 1) {
+        out_shape.push_back(self.sizes()[d]);
+      }
+    }
+  }
+
+  return out_shape;
+}
+
+void SqueezeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 2, "Incorrect size of inputs for squeeze operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+
+  auto input = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+
+  auto shape = SqueezeOperator::compute_output_shape(input, dim);
+
+  auto output = habana_helpers::createPTTensor(
+      input,
+      shape,
+      input.options(),
+      input.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  const auto syn_axis = input.dim() - dim - 1;
+  synAxisParams params{static_cast<unsigned int>(syn_axis)};
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+std::vector<int64_t> UnsqueezeOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t dim) {
+  std::vector<int64_t> out_shape(self.sizes().vec());
+  out_shape.insert(out_shape.begin() + dim, 1);
+
+  return out_shape;
+}
+
+void UnsqueezeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 2, "Incorrect size of inputs for unsqueeze operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+
+  auto input = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+
+  auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
+
+  auto output = habana_helpers::createPTTensor(
+      input,
+      shape,
+      input.options(),
+      input.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  const auto syn_axis = input.dim() - dim;
+  synAxisParams params{static_cast<unsigned int>(syn_axis)};
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::index_select", KERNEL_FN(IndexSelectOperator))
@@ -3148,4 +3231,6 @@ static auto& KernelRegistry =
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
-        .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator));
+        .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator))
+        .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
+        .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator));

@@ -176,5 +176,23 @@ struct ScatterAdd : public ir::Node {
   }
 };
 
+struct SqueezeBase : public ir::Node {
+  enum class SqueezeParams { DIM_INDEX = 1 };
+  SqueezeBase() = delete;
+  SqueezeBase(const at::Tensor& self, int64_t dim, std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_self = habana_lazy::GetHbLazyTensor(self);
+
+    hl_self = HandleViewsOrUpdate(self, hl_self);
+
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+
+    m_meta_data.set(dim, static_cast<size_t>(SqueezeParams::DIM_INDEX));
+    AddInputPtTensors(input_pt_vec);
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy

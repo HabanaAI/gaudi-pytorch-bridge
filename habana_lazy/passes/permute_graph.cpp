@@ -36,7 +36,9 @@ static const std::unordered_set<std::string> dim_based_nodes{
     "aten::_softmax_backward_data",
     "hpu::max_dim",
     "aten::_log_softmax_backward_data",
-    "aten::_log_softmax"};
+    "aten::_log_softmax",
+    "aten::squeeze",
+    "aten::unsqueeze"};
 
 bool IsNodeLayoutAgnostic(
     const Node* node,
@@ -147,7 +149,9 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
 }
 
 static const std::unordered_map<std::string, size_t> dimBasedOptimOpsIdx = {
-    {"aten::slice", 1}};
+    {"aten::slice", 1},
+    {"aten::squeeze", 1},
+    {"aten::unsqueeze", 1}};
 
 bool isDimBasedOptimOp(const Node* node) {
   return node ? dimBasedOptimOpsIdx.count(node->kind().toQualString()) != 0

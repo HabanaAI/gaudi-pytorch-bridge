@@ -451,62 +451,6 @@ Tensor add_slice_lazy(
   return result;
 }
 
-Tensor add_select_lazy(
-    const Tensor& self,
-    const StridedOpSelectParams& params,
-    c10::optional<Tensor> out_t) {
-  PT_LAZY_TRACE;
-  int64_t dim = params.dim;
-  int64_t index = params.index;
-  int64_t ndim = self.dim();
-  if (ndim == 0) {
-    HABANA_ASSERT(false, "select() cannot be applied to a 0-dim tensor.")
-  }
-  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  auto size = self.size(dim);
-  if (index < -size || index >= size) {
-    if (self.has_names() && self.names()[dim] != Dimname::wildcard()) {
-      HABANA_ASSERT(
-          false,
-          "select(): index ",
-          index,
-          " out of range for tensor of size ",
-          self.sizes(),
-          " at dimension ",
-          self.names()[dim]);
-    }
-    HABANA_ASSERT(
-        false,
-        "select(): index ",
-        index,
-        " out of range for tensor of size ",
-        self.sizes(),
-        " at dimension ",
-        dim);
-  }
-  if (index < 0) {
-    index += size;
-  }
-
-  auto node = std::make_shared<ir::Slice>(self, dim, index);
-
-  // infer shape
-  auto shape = SelectOperator::compute_output_shape(self, dim);
-
-  HABANA_ASSERT(out_t.has_value());
-  Tensor result = out_t.value();
-  auto hl_result = GetHbLazyTensor(result);
-
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  flush_op(result);
-  return result;
-}
-
 Tensor add_transpose_lazy(
     const Tensor& self,
     const StridedOpTransposeParams& params,
@@ -571,6 +515,28 @@ Tensor add_permute_lazy(
       hl_result.GetSizes(),
       hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
+  flush_op(result);
+  return result;
+}
+
+Tensor add_squeeze_unsqueeze_lazy(
+    const Tensor& self,
+    const int64_t dim,
+    c10::optional<Tensor> out_t,
+    std::string node_str) {
+  PT_LAZY_TRACE;
+  auto hl_self = GetHbLazyTensor(self);
+
+  ir::NodePtr node = std::make_shared<ir::SqueezeBase>(self, dim, node_str);
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   flush_op(result);
   return result;
 }
@@ -667,9 +633,6 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
             add_slice_lazy(recent_orig_t, params.params.slice_param, t_opt);
           }
           break;
-        case kStridedOpSelect:
-          add_select_lazy(recent_orig_t, params.params.select_param, t_opt);
-          break;
         case kStridedOpTranspose:
           add_transpose_lazy(
               recent_orig_t, params.params.transpose_param, t_opt);
@@ -679,6 +642,20 @@ bool HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
           break;
         case kStridedOpPermute:
           add_permute_lazy(recent_orig_t, params.sizes, t_opt);
+          break;
+        case kStridedOpSqueeze:
+          add_squeeze_unsqueeze_lazy(
+              recent_orig_t,
+              params.params.squeeze_param.dim,
+              t_opt,
+              "aten::squeeze");
+          break;
+        case kStridedOpUnsqueeze:
+          add_squeeze_unsqueeze_lazy(
+              recent_orig_t,
+              params.params.squeeze_param.dim,
+              t_opt,
+              "aten::unsqueeze");
           break;
         case kStridedOpDefault:
           add_asstrided_node = true;
@@ -3660,7 +3637,6 @@ Tensor slice_hpu_with_asstrided(
       storage_offset,
       true /*is_update_view*/,
       c10::nullopt);
-
   return result;
 }
 
@@ -3886,31 +3862,36 @@ Tensor slice_backward_hpu_lazy(
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "select() cannot be applied to a 0-dim tensor.");
+  }
+  dim = c10::maybe_wrap_dim(dim, ndim);
+  auto size = self.size(dim);
+  if (index < -size || index >= size) {
+    TORCH_CHECK_INDEX(
+        false,
+        "select(): index ",
+        index,
+        " out of range for tensor of size ",
+        self.sizes(),
+        " at dimension ",
+        dim);
+  }
+  if (index < 0) {
+    index += size;
+  }
 
-  auto hl_self = GetHbLazyTensor(self);
+  c10::optional<int64_t> start_opt = c10::make_optional(index);
 
-  auto out = at::native::select(self, dim, index);
+  int64_t end = index + 1;
+  c10::optional<int64_t> end_opt = c10::make_optional(end);
+  auto slice_out = slice_hpu_lazy(self, dim, start_opt, end_opt, 1);
+  auto out = squeeze_hpu_lazy(slice_out, dim);
 
-  // in case of 5d channels last, the strides are not correct while creating
-  // empty_as_strided_lazy when coming from as_strided_hpu_lazy
-  auto is_5d_cl = (self.dim() == 5) &&
-      (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d);
-  // There could be some cases where view/slice/etc followed by slice, in
-  // those cases use as_strided instead of using the SelectOp.
-  if ((!is_5d_cl) && is_fallback_original_op(self, out)) {
-    auto hb_result = GetHbLazyTensor(out);
-    auto& strided_param = getViewTableParams(hb_result);
-    strided_param.optype = kStridedOpSelect;
-    StridedOpSelectParams select_param = {dim, index};
-    strided_param.params.select_param = select_param;
-
-    PT_VIEWTABLE_DEBUG(
-        "select fallback tensor id ",
-        hl_self.getTensorUniqueId(),
-        " dim ",
-        dim,
-        " index ",
-        index);
+  // single op tests expect 0-D to be preserved at the front end.
+  if (self.dim() == 1) {
+    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   }
   return out;
 }
@@ -6191,6 +6172,9 @@ Tensor t_hpu_lazy(const Tensor& self) {
       auto hb_result = GetHbLazyTensor(out);
       auto& strided_param = getViewTableParams(hb_result);
       strided_param.optype = kStridedOpT;
+
+      PT_VIEWTABLE_DEBUG(
+          "t fallback tensor id ", GetHbLazyTensor(self).getTensorUniqueId());
     }
     return out;
   } else {
@@ -6218,6 +6202,55 @@ Tensor t_hpu_lazy(const Tensor& self) {
     Kernel kernel{vector_of_inputs};
     return kernel.call();
   }
+}
+
+Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
+  PT_LAZY_TRACE;
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim());
+
+  // no degenerate axis to squeeze
+  if ((self.sizes()[dim] != 1) || (self.dim() == 1)) {
+    return self;
+  }
+
+  auto out = at::native::squeeze(self, dim);
+  if (is_fallback_original_op(self, out)) {
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    strided_param.optype = kStridedOpSqueeze;
+    StridedOpSqueezeParams squeeze_param = {dim};
+    strided_param.params.squeeze_param = squeeze_param;
+
+    PT_VIEWTABLE_DEBUG(
+        "squeeze fallback tensor id ",
+        GetHbLazyTensor(self).getTensorUniqueId(),
+        " dim ",
+        dim);
+  }
+  return out;
+}
+
+Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
+  PT_LAZY_TRACE;
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim() + 1);
+
+  auto out = at::native::unsqueeze(self, dim);
+  if (is_fallback_original_op(self, out)) {
+    auto hb_result = GetHbLazyTensor(out);
+    auto& strided_param = getViewTableParams(hb_result);
+    strided_param.optype = kStridedOpUnsqueeze;
+    StridedOpSqueezeParams squeeze_param = {dim};
+    strided_param.params.squeeze_param = squeeze_param;
+
+    PT_VIEWTABLE_DEBUG(
+        "unsqueeze fallback tensor id ",
+        GetHbLazyTensor(self).getTensorUniqueId(),
+        " dim ",
+        dim);
+  }
+  return out;
 }
 
 void adjustPTSizesLazy(Tensor& t) {
