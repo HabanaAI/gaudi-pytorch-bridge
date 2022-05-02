@@ -31,7 +31,7 @@ TEST(NMSTest, NmsSmall) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(NMSTest, BatchedNms) {
+TEST(NMSTest, DISABLED_BatchedNms) {
   torch::manual_seed(0);
   // Generate random scores for each box
   auto num_boxes = 10;
