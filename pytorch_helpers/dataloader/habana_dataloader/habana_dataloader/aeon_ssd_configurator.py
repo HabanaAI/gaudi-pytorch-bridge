@@ -157,6 +157,7 @@ class AeonSSDConfigurator:
                 "max_sample": 1,
                 "sample_constraint": {
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
@@ -169,6 +170,7 @@ class AeonSSDConfigurator:
                 "sample_constraint": {
                     "min_jaccard_overlap": 0.1,
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
@@ -181,6 +183,7 @@ class AeonSSDConfigurator:
                 "sample_constraint": {
                     "min_jaccard_overlap": 0.3,
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
@@ -193,6 +196,7 @@ class AeonSSDConfigurator:
                 "sample_constraint": {
                     "min_jaccard_overlap": 0.5,
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
@@ -205,6 +209,7 @@ class AeonSSDConfigurator:
                 "sample_constraint": {
                     "min_jaccard_overlap": 0.7,
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
@@ -217,6 +222,7 @@ class AeonSSDConfigurator:
                 "sample_constraint": {
                     "min_jaccard_overlap": 0.9,
                     "emit_no_center": True,
+                    "cover_all_objects":True
                 },
                 "sampler": {
                     "aspect_ratio": [0.5, 2.0],
