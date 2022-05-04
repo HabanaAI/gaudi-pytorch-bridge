@@ -1213,7 +1213,7 @@ void habana_helpers::copy_data_to_host(
   if (src.nbytes() == 0) {
     return;
   }
-  if (non_blocking) {
+  if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
@@ -1264,7 +1264,7 @@ void habana_helpers::copy_data_to_device(
     return;
   }
 
-  if (non_blocking) {
+  if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
@@ -1311,7 +1311,7 @@ void habana_helpers::copy_data_within_device(
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  if (non_blocking) {
+  if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
