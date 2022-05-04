@@ -3413,6 +3413,23 @@ Tensor index_put_hpu_lazy(
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
+  // handle views for tensorlist indices
+  TensorList indices_in_list(indices_vec);
+  indices_vec = HandleViewsTensorList(indices_in_list);
+  at::TensorList indices = indices_vec;
+  // For ZST indices tensor scatter_nd
+  // operation is throwing GC error therefore we have this workaround to
+  // return a copy of input tensor.
+  // GC Jira - SW-73941
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].numel() == 0 || value_in.numel() == 0) {
+      auto result = self.clone();
+      auto hl_result = GetHbLazyTensor(result);
+      updateDstDependencies(hl_result, result);
+      flush_op(result);
+      return result;
+    }
+  }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
       indices_in[0].scalar_type() == c10::ScalarType::Bool) {
     TensorList indices_in_list(indices_vec);
@@ -3469,23 +3486,6 @@ Tensor index_put_hpu_lazy(
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     return index_put_frontend_impl_hpu_lazy(
         self, indices_in, value_in, accumulate);
-  }
-  // handle views for tensorlist indices
-  TensorList indices_in_list(indices_vec);
-  indices_vec = HandleViewsTensorList(indices_in_list);
-  at::TensorList indices = indices_vec;
-  // For ZST indices tensor scatter_nd
-  // operation is throwing GC error therefore we have this workaround to
-  // return a copy of input tensor.
-  // GC Jira - SW-73941
-  for (size_t i = 0; i < indices_vec.size(); i++) {
-    if (indices_vec[i].numel() == 0 || value_in.numel() == 0) {
-      auto result = self.clone();
-      auto hl_result = GetHbLazyTensor(result);
-      updateDstDependencies(hl_result, result);
-      flush_op(result);
-      return result;
-    }
   }
 
   LazyOp<at::Tensor> index_put_op{
