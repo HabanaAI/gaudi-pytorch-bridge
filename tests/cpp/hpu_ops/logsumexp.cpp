@@ -65,6 +65,36 @@ TEST_F(HpuOpTest, logsumexp_5d_2d_keepdim_out) {
   Compare(expected, result);
 }
 
+// 0d input keepdim: false
+TEST_F(HpuOpTest, logsumexp_0d) {
+  auto tensor1 = torch::tensor(45.0);
+  auto tensor2 = torch::tensor(45.0, "hpu");
+  const std::vector<int64_t> dim{};
+
+  auto expected = torch::empty(0);
+  auto result = torch::empty(0, "hpu");
+
+  torch::logsumexp_outf(tensor1, dim, /*keepdim*/ false, expected);
+  torch::logsumexp_outf(tensor2, dim, /*keepdim*/ false, result);
+
+  Compare(expected, result);
+}
+
+// 0d input keepdim: true
+TEST_F(HpuOpTest, logsumexp_0d_keepdim) {
+  auto tensor1 = torch::tensor(50.0);
+  auto tensor2 = torch::tensor(50.0, "hpu");
+  const std::vector<int64_t> dim{0};
+
+  auto expected = torch::empty(0);
+  auto result = torch::empty(0, "hpu");
+
+  torch::logsumexp_outf(tensor1, dim, /*keepdim*/ true, expected);
+  torch::logsumexp_outf(tensor2, dim, /*keepdim*/ true, result);
+
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, logsumexp_4d_3d_out) {
   torch::ScalarType dtype = torch::kBFloat16;
   GenerateInputs(1, {{2, 3, 4, 5}}, {dtype});

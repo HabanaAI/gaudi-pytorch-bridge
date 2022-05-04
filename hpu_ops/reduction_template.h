@@ -107,6 +107,6 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
-    const std::vector<NodeAttr::NodeOutputAttr>& output_attr);
+    std::vector<NodeAttr::NodeOutputAttr> output_attr);
 
 } // namespace habana
