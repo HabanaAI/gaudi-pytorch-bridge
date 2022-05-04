@@ -930,13 +930,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
     int dstRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::HbLazyTensor::StepMarker();
   auto work = pointToPoint(
       tensors,
-      [](at::Tensor& input,
-         const void* send_buff,
-         hcclComm_t& hccl_comm,
-         hcclStream_t stream,
-         int peerRank) {
+      [&](at::Tensor& input,
+          const void* send_buff,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream,
+          int peerRank) {
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] send with input_address :: ",
             send_buff,
@@ -962,13 +963,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
     int srcRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::HbLazyTensor::StepMarker();
   auto work = pointToPoint(
       tensors,
-      [](at::Tensor& tensor,
-         void* recv_buff,
-         hcclComm_t& hccl_comm,
-         hcclStream_t stream,
-         int peerRank) {
+      [&](at::Tensor& tensor,
+          void* recv_buff,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream,
+          int peerRank) {
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] send with input_address :: ",
             recv_buff,
