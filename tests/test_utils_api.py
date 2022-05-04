@@ -35,3 +35,38 @@ from habana_frameworks.torch.utils import profiler as htprofiler
 htprofiler._setup_profiler()
 htprofiler._start_profiler()
 htprofiler._stop_profiler()
+
+import habana_frameworks.torch.core as htcore
+htcore.set_dynamic_mode()
+htcore.set_module_name("test_name")
+htcore.enable_eliminate_common_subexpression(False)
+htcore.enable_eliminate_dead_code(False)
+htcore.enable_constant_pooling(False)
+htcore.enable_peephole_optimization(False)
+htcore.enable_fuse_t_mm_optimization(False)
+htcore.enable_fuse_bn_relu_optimization(False)
+htcore.enable_permute_pass(False)
+htcore.enable_replace_inplace_ops(False)
+htcore.enable_replace_views(False)
+htcore.enable_weight_permute_pass(False)
+print(htcore.is_enabled_weight_permute_pass())
+htcore.enable_weight_permute_pass(True)
+print(htcore.is_enabled_weight_permute_pass())
+#htcore.run_saved_model()
+
+htcore.memstat_livealloc("test memory live alloc")
+htcore.memstat_devmem_start_collect("test memory start collect", False)
+htcore.memstat_devmem_stop_collect("test memory stop collect")
+
+htcore.dump_refined_recipe_stat()
+htcore.disable_bucket_refinement()
+htcore.dump_bucket_memory_stat()
+htcore.dump_history_memory_stat()
+htcore.dump_recipe_memory_stat()
+htcore.dump_synapse_recipe_memory_stat()
+htcore.dump_dynamic_shape_memory_stat()
+
+import habana_frameworks.torch.profiler.ProfilerApi as htprofiler
+htprofiler.setup_profiler()
+htprofiler.start_profiler()
+htprofiler.stop_profiler()

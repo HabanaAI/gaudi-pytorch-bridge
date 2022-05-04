@@ -1,4 +1,5 @@
 import habana_frameworks.torch.utils.profiler as htprofiler
+import warnings
 
 def setup_profiler() -> None:
     warnings.warn("habana_frameworks.torch.profiler.setup_profiler is deprecated. "
