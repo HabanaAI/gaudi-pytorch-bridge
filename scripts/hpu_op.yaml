@@ -1277,6 +1277,10 @@ erfc.out:
   dtypes: [BFloat16, Float]
   op_backend: Erfc
 
+erfinv.out:
+  dtypes: [Float]
+  guid: erfinv_fwd
+
 exp.out:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
