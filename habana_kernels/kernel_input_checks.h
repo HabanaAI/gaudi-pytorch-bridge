@@ -46,10 +46,6 @@ class OpAttributeCheck {
 
   void populate_attribute_checks() {
     OpAttributeCheck::ivalue_op_info = {
-        // Checking for addmm op for argument 4 and 5 which is beta and alpha
-        {"addmm",
-         {{4, {c10::IValue(1), c10::IValue(1.0)}},
-          {5, {c10::IValue(1), c10::IValue(1.0)}}}},
         // checking for divisor_override = None
         {"avg_pool2d", {{7, {c10::IValue(c10::nullopt)}}}},
         // checking for divisor_override = None
