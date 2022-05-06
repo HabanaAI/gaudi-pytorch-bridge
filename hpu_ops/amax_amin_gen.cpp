@@ -12,14 +12,6 @@
 #include "reduction_template.h"
 
 namespace habana {
-sizes_vec AmaxAminOutputShape(const at::Stack& stack, bool) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  std::vector<int64_t> dim = stack.at(1).toIntList().vec();
-  const bool keepdim = stack.at(2).toBool();
-  std::vector<int64_t> compute_shape =
-      ReduceOperator::compute_output_shape(self, dim, keepdim);
-  return {compute_shape};
-}
 
 sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
@@ -38,27 +30,6 @@ sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
     shape = ReduceOperator::compute_output_shape(self, dim_vec, keepdim);
     return {{shape}, {shape}};
   }
-}
-
-void AmaxAmin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto new_shape = AmaxAminOutputShape(stack)[0];
-
-  auto self = stack.at(0).toTensor();
-
-  const bool keepdim = stack.at(2).toBool();
-  auto dim = stack.at(1).toIntVector();
-
-  auto AmaxAmin = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      self,
-      {syn_in(0)},
-      dim,
-      keepdim,
-      guid_,
-      {{new_shape, ScalarType(), 0}});
-
-  syn_out(0) = std::move(AmaxAmin.at(0));
 }
 
 static std::vector<synapse_helpers::tensor> AminmaxOutput(

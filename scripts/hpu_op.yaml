@@ -135,33 +135,15 @@ all.out:
   dtypes: [Char]
   op_backend: AllDim
 
-amax:
-  force_default: false
-  custom_output_shape: AmaxAminOutputShape
-  dtypes: [Float, BFloat16, Int]
-  guid:  reduce_max_fwd
-  out_ids: [0]
-  op_backend: AmaxAmin
-
 amax.out:
-  custom_output_shape: AmaxAminOutputShape
   dtypes: [Float, BFloat16, Int]
   guid:  reduce_max_fwd
-  op_backend: AmaxAmin
-
-amin:
-  force_default: false
-  custom_output_shape: AmaxAminOutputShape
-  dtypes: [Float, BFloat16, Int]
-  guid:  reduce_min_fwd
-  out_ids: [0]
-  op_backend: AmaxAmin
+  op_template: reduction
 
 amin.out:
-  custom_output_shape: AmaxAminOutputShape
   dtypes: [Float, BFloat16, Int]
   guid:  reduce_min_fwd
-  op_backend: AmaxAmin
+  op_template: reduction
 
 aminmax:
   force_default: false
@@ -1752,19 +1734,6 @@ logit_backward.grad_input:
   custom_fill_params: FillLogitBackwardParams
   dtypes: [BFloat16, Float]
   guid: logit_bwd
-
-logsumexp:
-  force_default: false
-  custom_output_shape: LogSumExpOutputShape
-  dtypes: [BFloat16,Float]
-  op_backend: LogSumExp
-  out_ids: [0]
-
-logsumexp.out:
-  force_default: false
-  dtypes: [BFloat16,Float]
-  op_backend: LogSumExp
-  custom_output_shape: LogSumExpOutputShape
 
 logspace.out:
   dtypes: [BFloat16, Float]
