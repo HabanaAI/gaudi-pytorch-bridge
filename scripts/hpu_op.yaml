@@ -1301,6 +1301,25 @@ hardsigmoid_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: hard_sigmoid_bwd
 
+hardswish:
+  dtypes: [BFloat16, Float]
+  guid: hard_swish_fwd
+  out_ids: [0]
+
+hardswish.out:
+  dtypes: [BFloat16, Float]
+  guid: hard_swish_fwd
+
+hardswish_:
+  dtypes: [BFloat16, Float]
+  guid: hard_swish_fwd
+  inplace_ids: [0]
+
+hardswish_backward:
+  dtypes: [BFloat16, Float]
+  guid: hard_swish_bwd
+  out_ids: [0]
+
 hardtanh:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
