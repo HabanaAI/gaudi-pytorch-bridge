@@ -7461,6 +7461,19 @@ Tensor batched_nms_hpu_lazy(
     const Tensor& indexes,
     float iou_threshold) {
   PT_LAZY_TRACE;
+
+  if (boxes.numel() == 0 && scores.numel() == 0 && indexes.numel() == 0) {
+    auto shape = DimVector{0};
+    auto output = empty_hpu_lazy(
+        shape,
+        scores.options().dtype(c10::ScalarType::Long),
+        scores.suggest_memory_format(),
+        true);
+    auto hl_output = GetHbLazyTensor(output);
+    updateDstDependencies(hl_output, output);
+    flush_op(output);
+    return output;
+  }
   // Ensuring that the boxes and scores input to batched_nms is always FP32,
   // this is because CGUID expects boxes to be f32. TBD: move this cast addition
   // to HMP
