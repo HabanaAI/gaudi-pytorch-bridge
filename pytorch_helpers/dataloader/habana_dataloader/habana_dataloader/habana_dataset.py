@@ -304,11 +304,16 @@ class HabanaDataloaderWrapper:
             self.dataloader = dataloader_type(*args, **kwargs)
 
         except Exception as e:
-            #Fallback to PT Dataloader
-            print('-'*50)
-            print(f"{'-'*10}Fallback to PT DL: {e}")
-            print('-'*50)
-            self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
+            fallback_enabled = os.getenv('DATALOADER_FALLBACK_EN', True)
+            if fallback_enabled:
+                #Fallback to PT Dataloader
+                print('-'*50)
+                print(f"{'-'*10}Fallback to PT DL: {e}")
+                print('-'*50)
+                self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
+            else:
+                print(f"Habana dataloader configuration failed: {e}")
+                raise
 
     def __iter__(self):
         self.iter = iter(self.dataloader)
