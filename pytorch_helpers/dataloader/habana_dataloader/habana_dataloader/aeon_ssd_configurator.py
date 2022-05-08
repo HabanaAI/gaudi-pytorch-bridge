@@ -43,7 +43,7 @@ class AeonSSDConfigurator:
 
         self.transforms_config = {}
         self._make_transforms_config(additional)
-        default_out_folder = os.environ.get('HABANA_MANIFEST_PATH', os.path.join(os.environ['HOME'], "habana_manifest"))
+        default_out_folder = os.environ.get('HABANA_MANIFEST_PATH', os.path.join(os.path.curdir, "habana_manifest"))
         self.out_folder = os.path.join(default_out_folder, "train" if self.train else "val")
         self._get_or_create_aeon_manifest()
 
@@ -83,7 +83,6 @@ class AeonSSDConfigurator:
         restrict_images = 0 #image num restriction disabled
 
         manifest = ["@FILE\tFILE\tASCII_INT\n"]
-        manifest_filename = "manifest.cfg"
         dataset_size = restrict_images if restrict_images != 0 else len(self.dataset.images)
         print(f"Generating aeon manifest for {dataset_size} images:")
 
