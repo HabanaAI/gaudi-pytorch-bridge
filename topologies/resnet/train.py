@@ -72,6 +72,11 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         trainMetaData.tracept.start(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
 
+        if not args.channels_last:
+            import habana_frameworks.torch.core as htcore
+            if htcore.is_enabled_synapse_layout_handling():
+                image = image.contiguous()
+
         image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
 
         if args.distributed:
@@ -128,6 +133,11 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
+
+            if not args.channels_last:
+                import habana_frameworks.torch.core as htcore
+                if htcore.is_enabled_synapse_layout_handling():
+                    image = image.contiguous()
 
             image = image.to(device, non_blocking=True)
 
@@ -263,6 +273,9 @@ def adjust_learning_rate(optimizer, epoch, lr_vec):
 #permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
 #and permute from RSCK to KCRS is used for checkpoint saving
 def permute_params(model, to_filters_last, lazy_mode):
+    if htcore.is_enabled_synapse_layout_handling():
+        print("permute_params disabled")
+        return
     if htdebug._is_enabled_weight_permute_pass() is True:
         return
     with torch.no_grad():
@@ -281,6 +294,9 @@ def permute_params(model, to_filters_last, lazy_mode):
 
 
 def permute_momentum(optimizer, to_filters_last, lazy_mode):
+    if htcore.is_enabled_synapse_layout_handling():
+        print("permute_momentum disabled")
+        return
     if htdebug._is_enabled_weight_permute_pass() is True:
         return
     # Permute the momentum buffer before using for checkpoint
@@ -612,7 +628,7 @@ def parse_args():
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')
 
-    parser.add_argument('--channels-last', default='True', type=lambda x: x.lower() == 'true',
+    parser.add_argument('--channels-last', default='False', type=lambda x: x.lower() == 'true',
                         help='Whether input is in channels last format.'
                         'Any value other than True(case insensitive) disables channels-last')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
