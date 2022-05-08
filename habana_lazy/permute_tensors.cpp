@@ -13,6 +13,7 @@
 #include "habana_device/HPUAllocator.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "synapse_helpers/layout_utils.h"
@@ -50,6 +51,140 @@ void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
   }
 }
 
+std::vector<int64_t> translateSynapsePermuteToPt(
+    const std::vector<uint8_t>& synapse_permuate) {
+  // first reverse vector and then change idx to mirror
+  // NHWC 2013 -> 3102 -> 0231
+  // RSCK 3201 -> 1023 -> 2310
+  std::vector<int64_t> pt_permute(
+      synapse_permuate.rbegin(), synapse_permuate.rend());
+  for (size_t i = 0; i < synapse_permuate.size(); i++) {
+    pt_permute[i] = pt_permute.size() - pt_permute[i] - 1;
+  }
+  return pt_permute;
+}
+
+std::vector<int64_t> calcNewStrides(
+    const torch::Tensor& permutedTensor,
+    const std::vector<int64_t>& pt_permute) {
+  // compute strides based on new sizes after permute
+  // permtue the strides
+  std::vector<int64_t> new_sizes, new_strides;
+  std::tie(new_sizes, new_strides) =
+      PermuteOperator::compute_output_shape(permutedTensor, pt_permute);
+
+  std::vector<int64_t> new_strides_perm(new_strides.size());
+  for (size_t i = 0; i < new_strides.size(); i++) {
+    new_strides_perm[pt_permute[i]] = new_strides[i];
+  }
+  return new_strides_perm;
+}
+
+void PermuteTensors::handlePermutedTensor(
+    const torch::Tensor& permutedTensor,
+    torch::Tensor& cpuTensor,
+    bool non_blocking) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(
+      permutedTensor.device().type() == c10::DeviceType::HPU,
+      "handlePermutedTensor permutedTensor should be HPU");
+  TORCH_CHECK(
+      cpuTensor.device().type() == c10::DeviceType::CPU,
+      "handlePermutedTensor cpuTensor should be CPU");
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto synapse_permute = getMemoryPermutation(permutedTensor);
+    if (synapse_permute.size() != 0) {
+      TORCH_CHECK(
+          permutedTensor.dim() == 4 || permutedTensor.dim() == 5,
+          "handlePermutedTensor we only support transposed tensor on 4/5 Dims");
+      if (non_blocking) {
+        TORCH_CHECK(
+            false, "handlePermutedTensor we only support non_blocking = false");
+      }
+      // translate synapse permtue to pt permute
+      auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
+      // calculate new strides according to permutation
+      auto strides = calcNewStrides(permutedTensor, pt_permute);
+      auto scalar_type = cpuTensor.scalar_type();
+      if (permutedTensor.dim() == 4) {
+        if (scalar_type == c10::ScalarType::BFloat16) {
+          handlePermutedTensor4D<c10::BFloat16>(cpuTensor, strides);
+        } else if (
+            scalar_type == c10::ScalarType::Float ||
+            scalar_type == c10::ScalarType::Int) {
+          handlePermutedTensor4D<float>(cpuTensor, strides);
+        } else if (
+            scalar_type == c10::ScalarType::Double ||
+            scalar_type == c10::ScalarType::Long) {
+          handlePermutedTensor4D<double>(cpuTensor, strides);
+        } else {
+          TORCH_CHECK(
+              false,
+              "handlePermutedTensor missing support for scalar_type",
+              scalar_type);
+        }
+      } else {
+        if (scalar_type == c10::ScalarType::BFloat16) {
+          handlePermutedTensor5D<c10::BFloat16>(cpuTensor, strides);
+        } else if (
+            scalar_type == c10::ScalarType::Float ||
+            scalar_type == c10::ScalarType::Int) {
+          handlePermutedTensor5D<float>(cpuTensor, strides);
+        } else if (
+            scalar_type == c10::ScalarType::Double ||
+            scalar_type == c10::ScalarType::Long) {
+          handlePermutedTensor5D<double>(cpuTensor, strides);
+        } else {
+          TORCH_CHECK(
+              false,
+              "handlePermutedTensor missing support for scalar_type",
+              scalar_type);
+        }
+      }
+    }
+  }
+}
+
+MemoryPermutation PermuteTensors::getMemoryPermutation(
+    const torch::Tensor& tensor) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(
+      tensor.device().type() == c10::DeviceType::HPU,
+      "getMemoryPermutation tensor should be HPU");
+
+  HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
+  auto hb_data = hb_tensor.GetHbLazyTensorData().value();
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  return hb_impl->GetMemoryPermutation();
+}
+
+void PermuteTensors::setMemoryPermutation(
+    const torch::Tensor& tensor,
+    MemoryPermutation permutation) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(
+      tensor.device().type() == c10::DeviceType::HPU,
+      "setMemoryPermutation tensor should be HPU");
+
+  HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
+  auto hb_data = hb_tensor.GetHbLazyTensorData().value();
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  hb_impl->SetMemoryPermutation(permutation);
+}
+
+void PermuteTensors::clearPermuteInformation(
+    const torch::Tensor& permutedTensor) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(
+      permutedTensor.device().type() == c10::DeviceType::HPU,
+      "clearPermuteInformation permutedTensor should be HPU");
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    setMemoryPermutation(permutedTensor, {});
+  }
+}
+
 void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   PT_LAYOUTS_DEBUG("Permuting weight to RSCK, count: ", m_permute_counter++);
   torch::Tensor weight_cpu = weight.to(c10::kCPU);
@@ -60,12 +195,8 @@ void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
-  // Update lazy & impl status
-  HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
-  auto hb_weight_data = weight_hb_tensor.GetHbLazyTensorData().value();
-  auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_weight_data);
-  hb_weight_impl->SetMemoryPermutation(
-      synapse_helpers::layouts::weight_rsck_in_memory);
+  // Update Permutation
+  setMemoryPermutation(weight, weight_rsck_in_memory);
 }
 
 void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
@@ -79,19 +210,7 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
   copy_hpu_lazy_(weight, weight_cpu, false);
 
   // Update lazy & impl status
-  // Currently updating both as between iteration impl info is vanished
-  // While lazy tensor is kept & in lowering to Synapse stage we don't
-  // have access to lazy tensors.
-  HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
-  auto hb_weight_data = weight_hb_tensor.GetHbLazyTensorData().value();
-  auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_weight_data);
-  PT_LAYOUTS_DEBUG(
-      "PermuteTensors setting permutation on tensor: ",
-      weight_hb_tensor.getDataPtr()->ir_value.mp_node->get_id(),
-      " hbinternal address: ",
-      reinterpret_cast<void*>(hb_weight_impl));
-  hb_weight_impl->SetMemoryPermutation(
-      synapse_helpers::layouts::weight_qrsck_in_memory);
+  setMemoryPermutation(weight, weight_qrsck_in_memory);
 }
 
 bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
@@ -104,12 +223,11 @@ bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
     return false;
   }
   // Don't access tensor impl if not graph input
-  auto hb_weight_data = weight_hb_tensor.GetHbLazyTensorData().value();
-  auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_weight_data);
+  auto current_permutaion = getMemoryPermutation(weight);
   auto required_permute = weight.dim() == 4
       ? synapse_helpers::layouts::weight_rsck_in_memory
       : synapse_helpers::layouts::weight_qrsck_in_memory;
-  bool is_permuted = hb_weight_impl->GetMemoryPermutation() == required_permute;
+  bool is_permuted = current_permutaion == required_permute;
   if (is_permuted) {
     PT_LAYOUTS_DEBUG(
         "shouldPermuteWeight already permuted to: ",
@@ -258,4 +376,62 @@ void PermuteTensors::restrideWeightTensorDataToQRSCK(
   delete[] tempBuff;
 }
 
+template <typename T>
+void PermuteTensors::handlePermutedTensor4D(
+    const torch::Tensor& tensor,
+    const std::vector<int64_t>& strides) {
+  T* ptr = (T*)tensor.data_ptr();
+  auto sizes = tensor.sizes();
+
+  // Creating temp buffer the size of the tensor
+  T* tempBuff = new T[tensor.numel()]();
+  int buffer_counter = 0;
+  for (int i = 0; i < sizes[0]; ++i) {
+    for (int j = 0; j < sizes[1]; ++j) {
+      for (int k = 0; k < sizes[2]; ++k) {
+        for (int l = 0; l < sizes[3]; ++l) {
+          tempBuff[buffer_counter] =
+              ptr[i * strides[0] + j * strides[1] + k * strides[2] +
+                  l * strides[3]];
+          buffer_counter++;
+        }
+      }
+    }
+  }
+
+  // Copy tmp buffer to original tensor memory
+  std::memcpy(ptr, tempBuff, tensor.numel() * sizeof(T));
+  delete[] tempBuff;
+}
+
+template <typename T>
+void PermuteTensors::handlePermutedTensor5D(
+    const torch::Tensor& tensor,
+    const std::vector<int64_t>& strides) {
+  T* ptr = (T*)tensor.data_ptr();
+  auto sizes = tensor.sizes();
+
+  // Creating temp buffer the size of the tensor
+  T* tempBuff = new T[tensor.numel()]();
+  int buffer_counter = 0;
+
+  for (int i = 0; i < sizes[0]; ++i) {
+    for (int j = 0; j < sizes[1]; ++j) {
+      for (int k = 0; k < sizes[2]; ++k) {
+        for (int l = 0; l < sizes[3]; ++l) {
+          for (int m = 0; m < sizes[4]; ++m) {
+            tempBuff[buffer_counter] =
+                ptr[i * strides[0] + j * strides[1] + k * strides[2] +
+                    l * strides[3] + m * strides[4]];
+            buffer_counter++;
+          }
+        }
+      }
+    }
+  }
+
+  // Copy tmp buffer to original tensor memory
+  std::memcpy(ptr, tempBuff, tensor.numel() * sizeof(T));
+  delete[] tempBuff;
+}
 } // namespace habana_lazy

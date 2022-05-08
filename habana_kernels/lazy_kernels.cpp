@@ -807,6 +807,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     self = copy_hpu_(self, tensor_data.value(), non_blocking);
   }
   // No need to CreateHbLazyTensor for self as it is on CPU
+  habana_lazy::PermuteTensors::handlePermutedTensor(_src, self, non_blocking);
   return self;
 }
 
@@ -894,7 +895,13 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
   // This is the internal tensor, it isn't a lazy tensor
   auto self_internal_tesor = self_hb_tensor_data.value();
+
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+    hb_impl->SetMemoryPermutation({});
+    // habana_lazy::PermuteTensors::clearPermuteInformation(self);
+  }
 
   // self may have been resized, so re-set its size and strides
   self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -914,6 +921,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
         self_internal_tesor.storage().data_ptr() ==
         internal_tensor_from_copy.storage().data_ptr());
   }
+
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   flush_op(self);
