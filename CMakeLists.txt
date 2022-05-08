@@ -150,6 +150,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/passes/weight_permute_graph.cpp
   habana_lazy/hpu_lazy_cache.cpp
   habana_lazy/lazy_executor.cpp
+  habana_lazy/permute_tensors.cpp
   habana_lazy/sbs_debug.cpp
   habana_lazy/sbs_runner.cpp
   habana_lazy/visualize.cpp

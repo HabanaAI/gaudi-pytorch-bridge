@@ -23,6 +23,7 @@
 
 #include "habana_helpers/logging.h"
 
+#include "synapse_helpers/layout_utils.h"
 #include "synapse_helpers/synapse_error.h"
 #include "synapse_helpers/value_or_ref.h"
 
@@ -375,7 +376,8 @@ class tensor final {
       void* host_ptr = nullptr,
       const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
-      synTensorType tensor_type = DATA_TENSOR);
+      synTensorType tensor_type = DATA_TENSOR,
+      synapse_helpers::layouts::MemoryPermutation memory_permutation = {});
 
   tensor(
       synDeviceId device_id,
@@ -393,13 +395,16 @@ class tensor final {
       void* host_ptr = nullptr,
       const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
-      synTensorType tensor_type = DATA_TENSOR);
+      synTensorType tensor_type = DATA_TENSOR,
+      synapse_helpers::layouts::MemoryPermutation memory_permutation = {});
 
   void set_placeholder() {
     placeholder_ = true;
   }
   synapse_error_o create_old_synapi();
   synapse_error_o create();
+  synapse_error_o set_layout();
+  synapse_error_o set_permutation();
   void cleanup();
 
   std::string tensor_name_;
@@ -433,6 +438,9 @@ class tensor final {
   std::vector<int64_t> pt_shape_;
   std::vector<int64_t> pt_strides_;
   static bool generate_placeholder_;
+
+  // permutaion representation for passing strided weight tensor to Synapse
+  synapse_helpers::layouts::MemoryPermutation permutation_;
 };
 
 /**

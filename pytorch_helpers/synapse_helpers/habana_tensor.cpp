@@ -105,7 +105,8 @@ tensor::tensor(
     void* host_ptr,
     const uint64_t host_ptr_size,
     const uint64_t offset,
-    synTensorType tensor_type)
+    synTensorType tensor_type,
+    synapse_helpers::layouts::MemoryPermutation memory_permutation)
     : tensor_name_{tensor_name},
       tensor_id_{tensor_id},
       device_id_{device_id},
@@ -122,7 +123,8 @@ tensor::tensor(
       host_ptr_{host_ptr},
       host_ptr_size_{host_ptr_size},
       offset_(offset),
-      tensor_type_(tensor_type) {}
+      tensor_type_(tensor_type),
+      permutation_(memory_permutation) {}
 
 tensor::tensor(
     synDeviceId device_id,
@@ -140,7 +142,8 @@ tensor::tensor(
     void* host_ptr,
     const uint64_t host_ptr_size,
     const uint64_t offset,
-    synTensorType tensor_type)
+    synTensorType tensor_type,
+    synapse_helpers::layouts::MemoryPermutation memory_permutation)
     : tensor_name_{tensor_name},
       tensor_id_{tensor_id},
       device_id_{device_id},
@@ -157,7 +160,8 @@ tensor::tensor(
       host_ptr_{host_ptr},
       host_ptr_size_{host_ptr_size},
       offset_(offset),
-      tensor_type_(tensor_type) {}
+      tensor_type_(tensor_type),
+      permutation_(memory_permutation) {}
 
 tensor::tensor(tensor&& other) noexcept
     : tensor_name_{other.name()},
@@ -178,7 +182,8 @@ tensor::tensor(tensor&& other) noexcept
       host_ptr_size_{other.host_ptr_size_},
       offset_{other.offset_},
       tensor_type_{other.tensor_type_},
-      pt_shape_{other.pt_shape_} {
+      pt_shape_{other.pt_shape_},
+      permutation_(other.permutation_) {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -206,6 +211,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   host_ptr_size_ = other.host_ptr_size_;
   tensor_type_ = other.tensor_type_;
   pt_shape_ = other.pt_shape_;
+  permutation_ = other.permutation_;
 
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
@@ -293,6 +299,52 @@ synapse_error_o tensor::create_old_synapi() {
   return {};
 }
 
+synapse_error_o tensor::set_permutation() {
+  if (permutation_.size() == 0) {
+    return {};
+  }
+  synStatus status;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    synTensorPermutation synPermutation;
+    std::copy(
+        permutation_.begin(), permutation_.end(), synPermutation.permutation);
+    synPermutation.dims = permutation_.size();
+    status = synTensorSetPermutation(tensor_, &synPermutation);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "synTensorSetPermutation failed.", status, cleanup());
+  }
+  return {};
+}
+
+synapse_error_o tensor::set_layout() {
+  synStatus status;
+  // Add strides and datatype.
+  // As of now synapse supports only default strides -
+  // Set the desired data type of the tensor in the device.
+  // In the future, this API can also be used to set the strides of a tensors,
+  // but currently only default strides are allowed.
+  // If the given strides are empty (zeros) then they will be calculated
+  // inside the tensor according to its geometry.
+  synTensorDeviceLayout deviceLayout;
+  uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
+    PT_SYNHELPER_DEBUG("Not passing strides to synapse, all strides will be 0");
+  } else if (permutation_.empty()) {
+    // If we pass permutation to Synapse tensor, we must pass empty strides
+    std::copy_n(
+        stride_.max_.data(), stride_.max_.rank().value, std::begin(strides));
+  }
+
+  memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
+  deviceLayout.deviceDataType = data_type_;
+
+  status = synTensorSetDeviceLayout(tensor_, &deviceLayout);
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "synTensorSetDeviceLayout failed.", status, cleanup());
+  return {};
+}
+
 synapse_error_o tensor::create() {
   if (GET_ENV_FLAG_NEW(PT_HPU_INTERNAL_OLD_SYNAPI)) {
     return create_old_synapi();
@@ -327,30 +379,8 @@ synapse_error_o tensor::create() {
         tensor_, host_ptr_, total_size_bytes_ * 2, data_type_, false);
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
-
-  // Add strides and datatype.
-  // As of now synapse supports only default strides -
-  // Set the desired data type of the tensor in the device.
-  // In the future, this API can also be used to set the strides of a tensors,
-  // but currently only default strides are allowed.
-  // If the given strides are empty (zeros) then they will be calculated
-  // inside the tensor according to its geometry.
-  synTensorDeviceLayout deviceLayout;
-  uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
-    PT_SYNHELPER_DEBUG("Not passing strides to synapse, all strides will be 0");
-  } else {
-    std::copy_n(
-        stride_.max_.data(), stride_.max_.rank().value, std::begin(strides));
-  }
-
-  memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
-  deviceLayout.deviceDataType = data_type_;
-
-  status = synTensorSetDeviceLayout(tensor_, &deviceLayout);
-  SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "synTensorSetDeviceLayout failed.", status, cleanup());
+  set_layout();
+  set_permutation();
 
   if (is_const_) {
     HABANA_ASSERT(!is_persistent_);

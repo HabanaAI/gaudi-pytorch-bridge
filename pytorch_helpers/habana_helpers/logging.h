@@ -222,6 +222,7 @@ class PtLogger {
     VIEWTABLE = 0x4000,
     REFINEMENT = 0x8000,
     HOSTSTAT = 0x10000,
+    LAYOUTS = 0x20000
   };
 };
 
@@ -540,6 +541,8 @@ class PTOpTrace {
   PT_MOD_DEBUG(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_REFINEMENT_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::REFINEMENT, __VA_ARGS__)
+#define PT_LAYOUTS_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::LAYOUTS, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \
@@ -553,3 +556,16 @@ class PTOpTrace {
       __VA_ARGS__)
 
 // End of logging macros
+
+template <
+    typename Integer,
+    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+std::string VecToString(const std::vector<Integer>& vec) {
+  std::ostringstream sstr;
+  sstr << "[";
+  for (size_t i = 0; i < vec.size(); ++i) {
+    sstr << (i > 0 ? ", " : "") << (unsigned)vec[i];
+  }
+  sstr << "]";
+  return sstr.str();
+}

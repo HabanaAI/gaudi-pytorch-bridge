@@ -18,6 +18,7 @@
 #include <c10/util/Optional.h>
 #include "habana_helpers/tensor_utils.h"
 #include "hpu_lazy_tensors.h"
+#include "pytorch_helpers/synapse_helpers/layout_utils.h"
 
 namespace habana_lazy {
 
@@ -105,6 +106,15 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     tensor_layout = layout;
   }
 
+  synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
+    return m_memory_permutation;
+  }
+
+  void SetMemoryPermutation(
+      synapse_helpers::layouts::MemoryPermutation permutation) {
+    m_memory_permutation = permutation;
+  }
+
   void setTensorType(synTensorType tensor_type) {
     m_tensor_type = tensor_type;
   }
@@ -137,6 +147,9 @@ class HbInternalTensorImpl : public c10::TensorImpl {
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
+
+  // Memory permutation represents how tensor layout is set in memory
+  synapse_helpers::layouts::MemoryPermutation m_memory_permutation;
 
   void* host_ptr_ = nullptr;
   void* compile_host_ptr_ = nullptr;

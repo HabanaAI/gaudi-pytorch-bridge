@@ -20,6 +20,7 @@
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/habana_tensor.h"
+#include "synapse_helpers/layout_utils.h"
 #include "synapse_helpers/synapse_error.h"
 
 // next step todo:
@@ -107,6 +108,12 @@ class tensor_builder_base {
 
   ConcreteBuilder& with_stride(const tensor::shape_t& stride) {
     stride_ = tensor::dynamic_shape_t{stride, stride};
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& with_permutation(
+      const synapse_helpers::layouts::MemoryPermutation& permutation) {
+    permutation_ = permutation;
     return static_cast<ConcreteBuilder&>(*this);
   }
 
@@ -285,7 +292,8 @@ class tensor_builder_base {
         host_ptr_,
         host_ptr_size_,
         offset_,
-        tensor_type_);
+        tensor_type_,
+        permutation_);
 
     auto create_result{t.create()};
 
@@ -320,6 +328,7 @@ class tensor_builder_base {
   synTensorType tensor_type_{DATA_TENSOR};
   bool error_invalid_shape_{false};
   bool error_invalid_dtype_{false};
+  synapse_helpers::layouts::MemoryPermutation permutation_;
 
   uint64_t total_size_bytes() const {
     return detail::size_bytes_from_shape(shape_.max(), data_type_);

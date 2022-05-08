@@ -14,8 +14,15 @@ enum class SynapseLayoutFormat {
   SRQCK = 3,
   DONT_CARE = 4,
   AWHN = 5,
-  INVALID = 6
+  INVALID
 };
+
+// Memory permutation represents how tensor layout is set in memory
+// For Synapse transposes weight we use API: synTensorSetPermutation
+// instead of providing strided tensor.
+using MemoryPermutation = std::vector<uint8_t>;
+static const MemoryPermutation weight_rsck_in_memory = {3, 2, 0, 1};
+static const MemoryPermutation weight_qrsck_in_memory = {4, 3, 0, 1, 2};
 
 static constexpr char dont_care[] = "";
 static constexpr char pt_default_data_layout[] = "WHCN";

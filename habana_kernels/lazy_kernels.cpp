@@ -63,6 +63,7 @@
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/unpack.h"
+#include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view.h"
 #include "habana_lazy/view_utils.h"
@@ -1746,6 +1747,12 @@ Tensor convolution_hpu_lazy(
       }
     }
   }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+    habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
+  }
+
   auto weight_hwck = permute_wt_hpu(weight_hpu);
   bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
                              ->IsEnabledWeightPermutePass())

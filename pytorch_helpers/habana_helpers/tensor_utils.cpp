@@ -26,7 +26,9 @@
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
+#include "habana_lazy/permute_tensors.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
@@ -745,14 +747,28 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
+  std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
+  std::vector<uint8_t> permutation;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+    if (hb_weight_impl) {
+      permutation = hb_weight_impl->GetMemoryPermutation();
+      if (!permutation.empty()) {
+        // If we pass permutation to Synapse tensor, we must pass empty strides
+        strides.clear();
+        PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+      }
+    }
+  }
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
-          calculate_strides(tensor.sizes().vec()),
+          strides,
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
           .set_offset(syn_offset)
           .mark_persistence(persistent)
-          .mark_external(external);
+          .mark_external(external)
+          .with_permutation(permutation);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
