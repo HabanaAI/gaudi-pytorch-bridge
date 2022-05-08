@@ -3516,9 +3516,7 @@ at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self, int64_t dim) {
   FALLBACK_IF_UNSUPPORTED_OP_O(squeeze, PARAMS1(self), PARAMS2(self, dim), dim)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) &&
-      (self.dim() <= SYN_MAX_TENSOR_DIM)) {
-    // squeeze gc guid supports max output tensor dim of 5
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return squeeze_hpu_lazy(self, dim);
   } else {
     return at::native::squeeze(self, dim);

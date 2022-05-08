@@ -463,3 +463,17 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   auto a = torch::linspace_outf(start, end, step, out);
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
+
+TEST_F(LazyIndexKernelTest, SelectNDimsTest) {
+  torch::Tensor a =
+      torch::randn({2, 3, 4, 5, 6, 4}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 2;
+
+  Tensor h_out = torch::select(h_a, dim, 3);
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::select(a, dim, 3);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+}
