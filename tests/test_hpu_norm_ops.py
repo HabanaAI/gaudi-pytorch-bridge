@@ -52,10 +52,7 @@ def test_hpu_native_layer_norm(N, H, W, C, split_dim):
     kernel = torch.nn.LayerNorm(shape_norm, elementwise_affine=True)
     kernel_params_fwd = {"input": torch.randn(shape, requires_grad=True)}
 
-    bwd_tensor1 = torch.randn(shape)
-    bwd_tensor2 = None
-    bwd_tensor3 = None
-    bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+    bwd_tensors = [torch.randn(shape)]
     evaluate_fwd_bwd_kernel(
         kernel=kernel,
         tensor_list_bwd=bwd_tensors,
@@ -80,10 +77,7 @@ def test_hpu_layer_norm_fwd_bwd(N, H, W, C, split_dim):
     kernel = torch.nn.LayerNorm(shape_norm)
     kernel_params_fwd = {"input": torch.randn(shape, requires_grad=True)}
 
-    bwd_tensor1 = torch.randn(shape)
-    bwd_tensor2 = torch.randn(shape[0:split_dim])
-    bwd_tensor3 = torch.randn(shape[0:split_dim])
-    bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+    bwd_tensors = [torch.randn(shape)]
     evaluate_fwd_bwd_kernel(
         kernel=kernel,
         tensor_list_bwd=bwd_tensors,
@@ -100,10 +94,7 @@ def test_hpu_layer_norm_withcache_fwd_bwd(N, H, W, C, split_dim):
     for i in range(2):
         kernel = torch.nn.LayerNorm(shape_norm)
         kernel_params_fwd = {"input": torch.randn(shape, requires_grad=True)}
-        bwd_tensor1 = torch.randn(shape)
-        bwd_tensor2 = torch.randn(shape[0:split_dim])
-        bwd_tensor3 = torch.randn(shape[0:split_dim])
-        bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+        bwd_tensors = [torch.randn(shape)]
         evaluate_fwd_bwd_kernel(
             kernel=kernel,
             tensor_list_bwd=bwd_tensors,
