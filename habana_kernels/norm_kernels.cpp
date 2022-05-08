@@ -2514,6 +2514,17 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
 
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
 
+  kernel_meta_data_.synapse_input_layout.assign(
+      {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+                  : synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+  kernel_meta_data_.synapse_output_layout.assign(
+      {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+                  : synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+
   std::string guid = "instance_norm_fwd_" +
       habana_helpers::name_suffix_from_type(input.scalar_type());
   SetGuid(guid);
@@ -2564,6 +2575,12 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
 std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
     at::Tensor input,
     c10::MemoryFormat mf) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto is_norm_3d = is_5d_tensor(input.sizes().vec());
+    auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
+                                   : synapse_helpers::layouts::INPUT_C_IDX;
+    return {input.sizes().vec()[channels_idx]};
+  }
   // fetch channel dimension based on memory format
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
   constexpr int nchw_idx = 1;
@@ -2604,6 +2621,20 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
   auto mean = in_stack[2].toTensor();
 
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
+
+  kernel_meta_data_.synapse_input_layout.assign(
+      {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+                  : synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+                  : synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+  kernel_meta_data_.synapse_output_layout.assign(
+      {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+                  : synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
 
   std::string guid = "instance_norm_bwd_" +
       habana_helpers::name_suffix_from_type(input.scalar_type());
