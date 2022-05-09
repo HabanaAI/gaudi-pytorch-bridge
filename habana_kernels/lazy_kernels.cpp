@@ -7229,7 +7229,11 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
     bool return_inverse,
     bool return_counts) {
   PT_LAZY_TRACE;
-
+  if (self.numel() == 0) {
+    auto result_ = empty_hpu_lazy(
+        self.sizes(), self.options(), self.suggest_memory_format(), true);
+    return std::make_tuple(result_, result_, result_);
+  }
   struct Unique : LazyOp<std::tuple<at::Tensor, at::Tensor>> {
     explicit Unique(
         const std::vector<at::IValue>& inputs,
