@@ -1459,10 +1459,14 @@ ir::NodePtr create_as_strided_node(
   auto mf = self.suggest_memory_format();
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                            (mf == c10::MemoryFormat::ChannelsLast3d))
-        ? "hpu::strided_view_cl_ds"
-        : "hpu::strided_view_ds";
+    std::string node_str = "hpu::strided_view_ds";
+
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                  (mf == c10::MemoryFormat::ChannelsLast3d))
+          ? "hpu::strided_view_cl_ds"
+          : "hpu::strided_view_ds";
+    }
 
     auto out_size_st = empty_hpu_lazy(
         size,
@@ -1489,10 +1493,14 @@ ir::NodePtr create_as_strided_node(
         self, out_size_st, out_stride_st, offset_st, node_str);
     return node;
   } else {
-    std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                            (mf == c10::MemoryFormat::ChannelsLast3d))
-        ? "hpu::strided_view_cl"
-        : "hpu::strided_view";
+    std::string node_str = "hpu::strided_view";
+
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
+                  (mf == c10::MemoryFormat::ChannelsLast3d))
+          ? "hpu::strided_view_cl"
+          : "hpu::strided_view";
+    }
     node =
         std::make_shared<ir::StridedView>(self, size, stride, offset, node_str);
   }

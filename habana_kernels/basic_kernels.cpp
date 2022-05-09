@@ -609,8 +609,9 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> AsStridedOperator::
   std::vector<int64_t> out_size_vec;
   std::vector<int64_t> out_stride_vec;
 
-  if ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) ||
-      (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d)) {
+  if (((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) ||
+       (self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d)) &&
+      (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))) {
     if (size.size() == 4) {
       // NCHW -> NHWC
       const int64_t dim_pos_in[4] = {
