@@ -1517,6 +1517,9 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
       at::Tensor pt_tensor = input.toTensor();
       habana_helpers::TensorShape shape(
           pt_tensor.sizes(), pt_tensor.scalar_type());
+      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+      HABANA_ASSERT(impl);
+      shape.set_tensor_type(impl->getTensorType());
       shape_map[i] = shape;
     }
   }
@@ -2351,6 +2354,20 @@ void HabanaLaunchOpPT::handle_pass_exception(
       graph_input_info.max_policy);
   auto fallback_ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "After fallback\n",
+      "min policy: ",
+      graph_input_info.min_policy,
+      '\n',
+      "max policy: ",
+      graph_input_info.max_policy,
+      '\n',
+      "Input shapes:",
+      graph_input_info.act_input_tshapes,
+      '\n',
+      "Fallback range ::\n",
+      fallback_ranges.DebugString(),
+      "--------------------");
   // After calculating ranges set bucket_info policy to DEFAULT
   // so that for next bucket created the starting policy be started again
   current_dbipsh_->SetDefaultPolicy();

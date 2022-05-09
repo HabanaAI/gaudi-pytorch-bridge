@@ -402,6 +402,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   if (enable_caching_ && refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         current_dbipsh_->digest_str(),
+        current_dbipsh_->history_str(),
         "Recipe Header::",
         rv.header_str(),
         "\n",

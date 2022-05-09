@@ -289,7 +289,8 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
       for (size_t dim_idx = 0; dim_idx < tensor_it->second.dims(); dim_idx++) {
         auto dim_val{tensor_it->second.dim_size(dim_idx)};
         ref_tshapes[tensor_idx].emplace(dim_idx, dim_val);
-        local_min_history_tensor_shapes_[tensor_idx].emplace(dim_idx, dim_val);
+        local_min_history_tensor_shapes_[tensor_idx].emplace(
+            dim_idx, (dim_val == 1) ? INT_MAX : dim_val);
         local_max_history_tensor_shapes_[tensor_idx].emplace(dim_idx, dim_val);
       }
     }
@@ -306,6 +307,7 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
        tensor_it_ref != shapes_.cend();
        ++tensor_it_ref, ++tensor_it_new) {
     dynamic_dims_helper_.rem_size_[tensor_it_ref->first] = 1;
+
     for (size_t i = 0; i < tensor_it_ref->second.dims(); ++i) {
       if (tensor_it_ref->second.dim_size(i) !=
           tensor_it_new->second.dim_size(i)) {
@@ -845,8 +847,10 @@ size_t DynamicBucketInfo::CalculateHistoric(
           auto updated_val{history_element.at(tensor_idx).at(dim_idx)};
           historic_dim_val = updated_val;
         }
-        if ((1 == current_dim_val && current_dim_val != historic_dim_val) ||
-            (1 != current_dim_val && comp(historic_dim_val, current_dim_val))) {
+        if (((1 == current_dim_val || 1 == historic_dim_val) &&
+             current_dim_val != historic_dim_val) ||
+            (1 != current_dim_val && 1 != historic_dim_val &&
+             comp(historic_dim_val, current_dim_val))) {
           is_fit_history_element = false;
           break;
         }
@@ -889,8 +893,9 @@ void DynamicBucketInfo::CalculateLocalHistoricMin(
       int64_t current_dim_val = shapes.at(tensor_idx).dim_size(dim_idx);
       // Check if input recieved is lower than already stored,
       // If yes replace the input stored with recieved
-      if (local_min_history_tensor_shapes_.at(tensor_idx).at(dim_idx) >
-          current_dim_val) {
+      if ((local_min_history_tensor_shapes_.at(tensor_idx).at(dim_idx) >
+           current_dim_val) &&
+          (current_dim_val != 1)) {
         local_min_history_tensor_shapes_.at(tensor_idx).at(dim_idx) =
             current_dim_val;
       }
@@ -980,7 +985,6 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         TORCH_CHECK(0, "Unrecognized condition");
         break;
       case DynamicDimsPolicy::HISTORIC:
-      case DynamicDimsPolicy::LOCAL_HISTORIC:
         min_value = ref_dim_val;
         if (min_dim_shapes.count(tensor_idx)) {
           auto& dim_map = min_dim_shapes.at(tensor_idx);
@@ -992,22 +996,46 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         if (min_value == 0)
           min_value = current_shape.dim_size(el.pos);
         break;
+      case DynamicDimsPolicy::LOCAL_HISTORIC:
+        if (shapes.at(el.num).dim_size(el.pos) == 1 || ref_dim_val == INT_MAX) {
+          min_value = shapes.at(el.num).dim_size(el.pos);
+        } else {
+          min_value = ref_dim_val;
+          if (min_dim_shapes.count(tensor_idx)) {
+            auto& dim_map = min_dim_shapes.at(tensor_idx);
+            if (dim_map.count(dim_idx)) {
+              min_value = dim_map.at(dim_idx);
+            }
+          }
+        }
+        // Not allowed to go from non-0 to 0
+        if (min_value == 0)
+          min_value = current_shape.dim_size(el.pos);
+        break;
       case DynamicDimsPolicy::CURRENT:
         min_value = current_shape.dim_size(el.pos);
         break;
       case DynamicDimsPolicy::FLATTENED:
+        TORCH_CHECK(
+            false,
+            "Policy FLATTENED is currently unsupported for choosing min");
         min_value = dim_multipliers.at(el.num).at(el.pos).first;
         break;
       case DynamicDimsPolicy::CALCULATED:
-        min_value = current_shape.dim_size(el.pos) * 0.5;
+        if (1 != current_shape.dim_size(el.pos)) {
+          min_value = current_shape.dim_size(el.pos) * 0.5;
+        }
         break;
     }
+
+    // min == 1 means that the corresponding dimension is a broadcast dimension
+    // max will have to be 1 whenever min == 1
+    // historic should return max as 1 whenever min == 1
     switch (max_policy_) {
       case DynamicDimsPolicy::DEFAULT:
         TORCH_CHECK(0, "Unrecognized condition");
         break;
       case DynamicDimsPolicy::HISTORIC:
-      case DynamicDimsPolicy::LOCAL_HISTORIC:
         if (max_dim_shapes.count(tensor_idx)) {
           auto& dim_map = max_dim_shapes.at(tensor_idx);
           if (dim_map.count(dim_idx)) {
@@ -1015,14 +1043,35 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           }
         }
         break;
+      case DynamicDimsPolicy::LOCAL_HISTORIC:
+        if (1 == min_value) {
+          max_value = 1;
+        } else {
+          auto& dim_map = max_dim_shapes.at(tensor_idx);
+          if (dim_map.count(dim_idx)) {
+            max_value = dim_map.at(dim_idx);
+          }
+        }
+        break;
       case DynamicDimsPolicy::CURRENT:
-        dim_max_multiplier = 1;
+        max_value = int64_t(shapes.at(el.num).dim_size(el.pos));
         break;
       case DynamicDimsPolicy::FLATTENED:
+        TORCH_CHECK(
+            false,
+            "Policy FLATTENED is currently unsupported for choosing max");
         dim_max_multiplier = dim_multipliers.at(el.num).at(el.pos).second;
+        max_value =
+            int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
         break;
       case DynamicDimsPolicy::CALCULATED:
-        // leave default max multiplier
+        // use default max multiplier
+        if (1 == min_value) {
+          max_value = 1;
+        } else {
+          max_value =
+              int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
+        }
         break;
     }
 
@@ -1031,14 +1080,8 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         ? min_value
         : int64_t(shapes.at(el.num).dim_size(el.pos));
 
-    // using the current as max
-    // max_policy_ only determines the multiplication factor
-    int64_t max =
-        ((max_policy_ == DynamicDimsPolicy::HISTORIC) ||
-                 (max_policy_ == DynamicDimsPolicy::LOCAL_HISTORIC)
-             ? max_value
-             : int64_t(shapes.at(el.num).dim_size(el.pos)) *
-                 dim_max_multiplier);
+    int64_t max{max_value};
+
     // Check if this is a dynamic paddings input
     if (pad_shapes.count(el.num) > 0) {
       // paddings contain a pair of (before, after) num of pad elements for each
@@ -1058,6 +1101,19 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           (pad_output_dim_size - current_paddings_dim_size) *
               dim_max_multiplier;
     }
+    TORCH_CHECK(
+        min != 1 || max == 1,
+        "with min policy: ",
+        min_policy_,
+        ", and max policy: ",
+        max_policy_,
+        '\n',
+        "Incompatible min=",
+        min,
+        " and max=",
+        max,
+        " values are computed. Broadcast may break");
+
     result.emplace_back(std::make_pair(min, max));
   }
   return result;

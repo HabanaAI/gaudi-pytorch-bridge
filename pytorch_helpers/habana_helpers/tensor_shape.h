@@ -11,11 +11,11 @@
  *******************************************************************************
  */
 #pragma once
-#include <iostream>
-#include <vector>
-
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
+#include <iostream>
+#include <vector>
+#include "tensor_utils.h"
 
 namespace habana_helpers {
 
@@ -91,12 +91,21 @@ class TensorShape {
     return size;
   }
 
+  synTensorType get_tensor_type() const {
+    return m_tensor_type;
+  }
+
+  void set_tensor_type(synTensorType tensor_type) {
+    m_tensor_type = tensor_type;
+  }
+
  private:
   size_t m_dim{0};
   int64_t n_elements{0};
   bool is_scalar_initialized{false};
   at::ScalarType scalar_type_;
   std::vector<int64_t> m_sizes;
+  synTensorType m_tensor_type;
 };
 
 } // namespace habana_helpers
