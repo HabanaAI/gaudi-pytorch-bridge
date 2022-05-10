@@ -171,6 +171,7 @@ class HabanaAcceleratedPytorchDL {
     if (!m_channels_last) {
       /* Converting Image from NHWC -> NCHW */
       image = image.permute({0, 3, 1, 2});
+      image = image.contiguous();
     }
 
     return make_vec(image, target);
