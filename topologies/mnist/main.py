@@ -271,21 +271,6 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def permute_params_on_device(args, model):
-    if args.run_lazy_mode:
-        import habana_frameworks.torch.utils.debug as htdebug
-        if htdebug._is_enabled_weight_permute_pass() is True:
-            return
-
-    with torch.no_grad():
-        for name, param in model.named_parameters():
-            if(param.ndim == 4):
-                param.data = param.data.permute((2,3,1,0))
-
-    if args.run_lazy_mode:
-        # Execute permutes to keep these disconnected from main graph
-        htcore.mark_step()
-
 def main(args):
 
     rank = args.rank
@@ -308,9 +293,6 @@ def main(args):
     model = Net().to(device)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {'pin_memory': True, 'pin_memory_device': 'hpu'}  if use_habana else {}
-
-    if(device==torch.device('hpu')):
-        permute_params_on_device(args, model)
 
     if args.run_trace_mode:
         with torch.jit.optimized_execution(True):
