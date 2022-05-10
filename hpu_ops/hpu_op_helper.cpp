@@ -265,12 +265,18 @@ void OpBackend::HandleInplaceFn(
 
   for (int inplace_id : m_inplace_ids) {
     // Index can vary in syn_inputs_ and in stack
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[inplace_id],
-            graph,
-            m_output_metadata.at(inplace_id).external));
-    p_context_->pt_outputs_.emplace_back(stack[inplace_id].toTensor());
+    const auto& ival = stack[inplace_id];
+    const auto& tensors = ival.isTensor()
+        ? static_cast<at::List<at::Tensor>>(ival.toTensor())
+        : ival.toTensorList();
+    for (auto i = 0u; i < tensors.size(); ++i) {
+      p_context_->syn_outputs_.emplace_back(
+          habana_helpers::duplicate_tensor_in_memory_section(
+              p_context_->syn_inputs_[i],
+              graph,
+              m_output_metadata.at(inplace_id).external));
+      p_context_->pt_outputs_.emplace_back(tensors[i]);
+    }
   }
 }
 

@@ -394,7 +394,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_fundamental<T>::value, T>::type call() {
+  typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
     viewUpdateInputs();
 
     const auto& node = create_node();
@@ -411,6 +411,29 @@ class LazyOp {
     updateDstDependencies(hl_result, result, false);
     runSBS(result);
     return result.item().template to<T>();
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      at::TensorList tensors) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    const auto& node = create_node();
+    int i = 0;
+
+    for (const auto& tensor : tensors) {
+      auto hl_result = GetHbLazyTensor(tensor);
+      updateDstDependencies(hl_result, tensor, true);
+      hl_result.CurrentIrValue().SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional(),
+          i++);
+      context->MarkTensorStatus(
+          hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+    }
+    runSBS(tensors);
+    flush_op(tensors);
   }
 
   template <typename T = ReturnType>

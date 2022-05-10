@@ -668,7 +668,9 @@ def lazyop(
             ", ".join(extract_reduction_vars_indices(param_vars))
         )
 
-    code += "  return hpu_op.call({})".format(lazyop_call_args)
+    code += "  {}hpu_op.call({})".format(
+        "" if rtype == "void" else "return ", lazyop_call_args
+    )
     return code + ";\n}"
 
 
@@ -877,6 +879,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     op_frontend += generate_entry_debug_code(tree, fname, params)
 
     tfetcher = TensorFetcher("metatens")
+    rtype = get_return_type_str(rwxtree, rwsig)
     param_vars = []
     meta_param_vars = []
     call_args = []
@@ -889,13 +892,9 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
 
         if cptype == "TensorList":
             xname = "l_{}".format(pname)
-            code += ("  auto {} = habana::GetMetaTensorList({}.vec());\n").format(
-                xname, pname
-            )
             meta_param_vars.append(xname)
         elif cptype == "TensorOptions":
             gcode, xname = rewrite_tensor_options(fname, pname)
-            code += gcode
             meta_param_vars.append(xname)
         elif cptype == "c10::optional":
             wrapped_type = type_core(get_template_type_list(ptype)[0])
@@ -910,11 +909,15 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
             xname = tfetcher.add(pname, False)
             meta_param_vars.append(xname)
         else:
+            assert cptype == "Tensor"
             xname = tfetcher.add(pname, True)
             meta_param_vars.append(xname)
             call_args.append(pname)
 
-    rtype = get_return_type_str(rwxtree, rwsig)
+        if rtype == "void":
+            if cptype == "TensorList" or cptype == "Tensor":
+                call_args.append(pname)
+
     opname = get_aten_opname(aten_sig)
     ctxop = ctx.get_op(opname)
     fn = ctx.get_function(fname)
