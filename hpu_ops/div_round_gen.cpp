@@ -186,6 +186,9 @@ void DivRoundModeOperator::AddNode(
           computation_type,
           bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}});
     if (!bOtherThanTrueMode) {
+      // when flow reaches here, computation_type is same as final_result_type,
+      // so computation_type can be used as div's return type and that is the
+      // return type of div_rounding_mode
       syn_out(0) = std::move(divOp[0]);
       return;
     }
@@ -199,6 +202,9 @@ void DivRoundModeOperator::AddNode(
           computation_type,
           bNeedToCastFinalResult ? c10::nullopt : c10::make_optional<int>(0)}});
     if (!bNeedToCastFinalResult) {
+      // when flow reaches here, computation_type is same as final_result_type,
+      // so computation_type can be used as return type of floor/trunc and that
+      // is the return type of div_rounding_mode
       syn_out(0) = std::move(makeIntegerOp[0]);
       return;
     }
