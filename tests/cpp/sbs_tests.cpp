@@ -527,10 +527,10 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
   }
 }
 
-TEST_P(SBSWithParamsTest, ConvolutionSBSTest_random_CL) {
+TEST_P(SBSWithParamsTest, DISABLED_ConvolutionSBSTest_random_CL) {
   ConvolutionSBSTest(true, true);
 }
-TEST_P(SBSWithParamsTest, ConvolutionSBSTest_const_CL) {
+TEST_P(SBSWithParamsTest, DISABLED_ConvolutionSBSTest_const_CL) {
   ConvolutionSBSTest(true, false);
 }
 TEST_P(SBSWithParamsTest, ConvolutionSBSTest_random_Contiguous) {

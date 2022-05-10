@@ -38,7 +38,7 @@ TEST_F(HpuOpTest, upsample_nearest3d_fwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_nearest3d_bwd_size) {
+TEST_F(HpuOpTest, DISABLED_upsample_nearest3d_bwd_size) {
   GenerateInputs(1, {{1, 4, 6, 8, 4}});
   std::vector<int64_t> out_size = {6, 8, 4};
   c10::optional<double> scale_d = 2.0;

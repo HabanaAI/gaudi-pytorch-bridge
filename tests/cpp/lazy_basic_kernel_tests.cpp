@@ -97,7 +97,7 @@ TEST_F(LazyBasicKernelTest, permuteTest) {
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, permuteContCLTest) {
+TEST_F(LazyBasicKernelTest, DISABLED_permuteContCLTest) {
   torch::Tensor A =
       torch::randn({5, 6, 24, 24}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);
@@ -291,7 +291,7 @@ TEST_F(LazyBasicKernelTest, getTensorForScalarNoDtype) {
   EXPECT_EQ(tensor.scalar_type(), torch::kFloat);
 }
 
-TEST_F(LazyBasicKernelTest, SliceOnChlastInput) {
+TEST_F(LazyBasicKernelTest, DISABLED_SliceOnChlastInput) {
   torch::Tensor A =
       torch::randn({2, 4, 3, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);
@@ -318,7 +318,7 @@ TEST_F(LazyBasicKernelTest, SelectOnChlast3dInput) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(B, hB.cpu()), true);
 }
-TEST_F(LazyBasicKernelTest, SelectOnChlastInput) {
+TEST_F(LazyBasicKernelTest, DISABLED_SelectOnChlastInput) {
   torch::Tensor A =
       torch::randn({2, 4, 3, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
   auto hA = A.to(torch::kHPU);
@@ -442,7 +442,7 @@ TEST_F(LazyBasicKernelTest, InplaceSliceonChlast) {
   EXPECT_EQ(allclose(A, hA.cpu()), true);
 }
 
-TEST_F(LazyBasicKernelTest, InplaceSliceonChlast3d) {
+TEST_F(LazyBasicKernelTest, DISABLED_InplaceSliceonChlast3d) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   torch::Tensor A = torch::randn({N, C, D, H, W})
                         .contiguous(c10::MemoryFormat::ChannelsLast3d);

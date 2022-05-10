@@ -73,7 +73,7 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -168,7 +168,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest2) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -258,7 +258,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest3) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -1687,7 +1687,7 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest_IDST) {
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR);
 }
 
-TEST_F(LazyDynamicShapesTest, DS_GridSamplerTest) {
+TEST_F(LazyDynamicShapesTest, DISABLED_DS_GridSamplerTest) {
   auto grid_sampler_test = [](std::vector<int64_t> pad_sizes,
                               std::vector<int64_t> input_shape) {
     torch::Tensor tensor = torch::randn(pad_sizes).to(torch::kFloat);

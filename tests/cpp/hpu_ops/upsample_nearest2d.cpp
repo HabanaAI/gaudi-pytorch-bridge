@@ -14,7 +14,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale) {
+TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_scale) {
   GenerateInputs(1, {{1, 9, 3, 4}});
   std::vector<int64_t> size = {6, 12};
   c10::optional<double> scale_h = 2.0;
@@ -89,7 +89,7 @@ TEST_F(HpuOpTest, upsample_nearest2d_bwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_nearest2d_bwd_size) {
+TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_bwd_size) {
   GenerateInputs(1, {{1, 4, 6, 8}});
   std::vector<int64_t> out_size = {6, 8};
   std::vector<int64_t> input_size = {1, 4, 3, 4};
