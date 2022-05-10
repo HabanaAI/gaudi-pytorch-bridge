@@ -6098,33 +6098,9 @@ Tensor empty_strided_hpu_lazy(
 
 Tensor clone_hpu_lazy(
     const Tensor& self,
-    c10::optional<MemoryFormat> optional_memory_format) {
+    c10::optional<MemoryFormat> memory_format) {
   PT_LAZY_TRACE;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto it = context->view_table.find(GetHbLazyTensor(self).getTensorUniqueId());
-
-  if (it != context->view_table.end()) {
-    auto params = it->second;
-    if (params.optype == kStridedOpDefault) {
-      // if clone is performed on view tensor, clone the base and then take a
-      // view. Refer: LazyBasicKernelTest.viewclone tests
-      // TODO: This approach is not performant as base tensor can potentially be
-      // much larger than view tensor.
-
-      auto base_clone = at::native::clone(params.base);
-
-      auto out = as_strided_hpu_lazy(
-          base_clone, params.sizes, params.strides, params.offset);
-
-      PT_VIEWTABLE_DEBUG(
-          "clone on as_strided. Base tensor is cloned ",
-          params.base.sizes(),
-          out.sizes());
-
-      return out;
-    }
-  }
-  return at::native::clone(self, optional_memory_format);
+  return at::native::clone(self, memory_format);
 }
 
 Tensor& zero_hpu_lazy(Tensor& self) {
