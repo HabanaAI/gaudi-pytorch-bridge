@@ -68,12 +68,11 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       const habana_helpers::TensorShape&,
       const std::string&,
       uint64_t) override{};
-  void LogShapes(
-      std::shared_ptr<torch::jit::Graph>,
-      const at::ArrayRef<torch::jit::IValue>&,
-      uint64_t) override{};
+  void LogShapes(std::shared_ptr<torch::jit::Graph>, InpTensorShapes&, uint64_t)
+      override{};
   void LogCompilation(
       const std::string&,
+      std::shared_ptr<torch::jit::Graph>,
       DynamicDimsPolicy,
       DynamicDimsPolicy,
       ResultShapes,
@@ -81,13 +80,22 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       const std::string&,
       CompilationPass,
       uint64_t) override{};
-  void LogUsedBucket(int, ResultShapes, bool, uint64_t) override{};
+  void LogUsedBucket(
+      int,
+      std::shared_ptr<torch::jit::Graph>,
+      ResultShapes,
+      bool,
+      uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
   void LogLaunchBase(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
   void LogLaunchPerf(uint64_t, uint64_t, uint64_t) override{};
-  void LogRefineCompilation(ResultShapes, uint64_t, uint64_t, uint64_t)
-      override{};
+  void LogRefineCompilation(
+      ResultShapes,
+      std::shared_ptr<torch::jit::Graph>,
+      uint64_t,
+      uint64_t,
+      uint64_t) override{};
   void LogRefineResult(const std::string&, uint64_t) override{};
   uint64_t GetCurrentStep() override {
     return 0;
@@ -146,23 +154,20 @@ void CompilationStatistics::LogShape(
 
 void CompilationStatistics::LogShapes(
     std::shared_ptr<torch::jit::Graph> jit_ir_graph,
-    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    InpTensorShapes& shapes,
     uint64_t step) {
-  for (size_t j = 0; j < input_refs.size(); j++) {
+  for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
     auto value_input = jit_ir_graph->inputs().at(j);
-    std::string tensor_name = value_input->debugName();
-    at::Tensor pt_tensor = input_refs[j].toTensor();
-    bool kind =
-        habana_lazy::GetHbInternalTensorImpl(pt_tensor)->isShapeTensor();
-    LogShape(
-        tensor_name,
-        habana_helpers::TensorShape(pt_tensor.sizes(), pt_tensor.scalar_type()),
-        kind ? "shape tensor" : "",
-        step);
+    std::string tensor_name =
+        std::to_string(j) + std::string("_") + value_input->debugName();
+    auto tensor_shape = shapes.at(j);
+    bool kind = habana_helpers::is_shape_tensor(tensor_shape.get_tensor_type());
+    LogShape(tensor_name, tensor_shape, kind ? "shape tensor" : "", step);
   }
 }
 void CompilationStatistics::LogCompilation(
     const std::string& jit_ir,
+    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     DynamicDimsPolicy min_policy,
     DynamicDimsPolicy max_policy,
     ResultShapes ranges,
@@ -182,7 +187,7 @@ void CompilationStatistics::LogCompilation(
   compilation["jit ir graph"] = ir_vector;
   compilation["min policy"] = stringify(min_policy);
   compilation["max policy"] = stringify(max_policy);
-  compilation["ranges"] = GetRanges(ranges);
+  compilation["ranges"] = GetRanges(ranges, jit_ir_graph);
   compilation["recipe"] = signature;
   compilation["result"] = result;
   compilation["scope"] = stringify(last_compilation_pass);
@@ -196,12 +201,13 @@ void CompilationStatistics::LogCompilation(
 
 void CompilationStatistics::LogUsedBucket(
     int id,
+    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     ResultShapes ranges,
     bool refine_candidate,
     uint64_t step) {
   json json_bucket;
   json_bucket["id"] = id;
-  json_bucket["ranges"] = GetRanges(std::move(ranges));
+  json_bucket["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_bucket["refine candidate"] = refine_candidate;
   json_file_[GetStep(step)]["selected bucket"] = json_bucket;
 }
@@ -234,12 +240,13 @@ void CompilationStatistics::LogLaunchPerf(
 
 void CompilationStatistics::LogRefineCompilation(
     ResultShapes ranges,
+    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     uint64_t signature,
     uint64_t bucket,
     uint64_t step) {
   json json_refine;
   json_refine["recipe"] = signature;
-  json_refine["ranges"] = GetRanges(std::move(ranges));
+  json_refine["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_refine["bucket id"] = bucket;
   json_file_[GetStep(step)]["refine"] = json_refine;
 }
@@ -271,12 +278,18 @@ std::string CompilationStatistics::GetStep(uint64_t step) {
       "%0*d", leading_zeros, step > 0 ? step : GetCurrentStep());
 }
 
-nlohmannV340::json CompilationStatistics::GetRanges(ResultShapes ranges) {
+nlohmannV340::json CompilationStatistics::GetRanges(
+    ResultShapes ranges,
+    std::shared_ptr<torch::jit::Graph> jit_ir_graph) {
   json result;
-  for (auto range : ranges.min_shapes) {
-    auto index = range.first;
-    result[std::to_string(index)] = ranges.min_shapes[index].DebugString() +
-        "-" + ranges.max_shapes[index].DebugString();
+  for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
+    if (ranges.min_shapes.find(j) != ranges.min_shapes.end()) {
+      auto value_input = jit_ir_graph->inputs().at(j);
+      std::string tensor_name =
+          std::to_string(j) + std::string("_") + value_input->debugName();
+      result[tensor_name] = ranges.min_shapes[j].DebugString() + "-" +
+          ranges.max_shapes[j].DebugString();
+    }
   }
   return result;
 }

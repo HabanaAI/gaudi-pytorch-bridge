@@ -62,7 +62,7 @@ class CompilationStatistics {
 
   virtual void LogShapes(
       std::shared_ptr<torch::jit::Graph> jit_ir_graph,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      InpTensorShapes&,
       uint64_t step = 0);
   /**
    * @brief Adds compilation details to iteration compilation list
@@ -79,6 +79,7 @@ class CompilationStatistics {
    */
   virtual void LogCompilation(
       const std::string& jit_ir,
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       DynamicDimsPolicy min_policy,
       DynamicDimsPolicy max_policy,
       ResultShapes ranges,
@@ -98,6 +99,7 @@ class CompilationStatistics {
    */
   virtual void LogUsedBucket(
       int id,
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       ResultShapes ranges,
       bool refine_candidate,
       uint64_t step = 0);
@@ -133,6 +135,7 @@ class CompilationStatistics {
    */
   virtual void LogRefineCompilation(
       ResultShapes ranges,
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       uint64_t signature,
       uint64_t bucket,
       uint64_t step = 0);
@@ -166,7 +169,9 @@ class CompilationStatistics {
   nlohmannV340::json json_file_;
   std::ofstream file_handle;
   std::string GetStep(uint64_t step);
-  nlohmannV340::json GetRanges(habana_helpers::ResultShapes ranges);
+  nlohmannV340::json GetRanges(
+      habana_helpers::ResultShapes ranges,
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph);
   CompilationStatistics(std::string path, uint64_t global_count);
   CompilationStatistics(const CompilationStatistics&) = delete;
   void operator=(const CompilationStatistics&) = delete;

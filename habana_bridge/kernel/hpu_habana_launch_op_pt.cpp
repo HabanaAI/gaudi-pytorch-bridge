@@ -1736,7 +1736,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         try_run_shape_inference(
             ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
         current_dbipsh_->get_statistics()->LogUsedBucket(
-            current_bucket_id_, ranges, 0);
+            current_bucket_id_, jit_ir_graph, ranges, 0);
       }
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
@@ -1777,7 +1777,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
       current_dbipsh_->get_statistics()->LogSelectedRecipe(
           cur_rargpsh->hashCode(), 0);
-      current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
+      current_dbipsh_->get_statistics()->LogShapes(
+          jit_ir_graph, graph_input_info.act_input_tshapes);
 
       auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
       auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};
@@ -2156,7 +2157,11 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
           input_refs, graph_key, op_strs, cur_ds_token_);
       new_recipe_key = cur_rargpsh->hashCode();
       statpsh->LogRefineCompilation(
-          input_ranges, new_recipe_key, new_bucket.GetIndex(), current_step);
+          input_ranges,
+          jit_ir_graph,
+          new_recipe_key,
+          new_bucket.GetIndex(),
+          current_step);
 
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
@@ -2507,6 +2512,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       try_catch_fail = true;
       current_dbipsh_->get_statistics()->LogCompilation(
           jit_ir,
+          jit_ir_graph,
           graph_input_info.min_policy,
           graph_input_info.max_policy,
           ranges,
@@ -2514,7 +2520,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
               graph_input_info.current_bucket_id),
           "dynamic compilation failed",
           last_compilation_pass);
-      current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
+      current_dbipsh_->get_statistics()->LogShapes(
+          jit_ir_graph, graph_input_info.act_input_tshapes);
       current_dbipsh_->get_statistics()->LogSelectedRecipe(
           current_dbipsh_->GetRecipeKeyForBucket(
               graph_input_info.current_bucket_id),
@@ -2536,6 +2543,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   if (!try_catch_fail) {
     current_dbipsh_->get_statistics()->LogCompilation(
         jit_ir,
+        jit_ir_graph,
         graph_input_info.min_policy,
         graph_input_info.max_policy,
         ranges,
@@ -2543,10 +2551,11 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
             graph_input_info.current_bucket_id),
         result,
         last_compilation_pass);
-    current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph, input_refs);
+    current_dbipsh_->get_statistics()->LogShapes(
+        jit_ir_graph, graph_input_info.act_input_tshapes);
     if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
       current_dbipsh_->get_statistics()->LogUsedBucket(
-          graph_input_info.current_bucket_id, ranges, 0);
+          graph_input_info.current_bucket_id, jit_ir_graph, ranges, 0);
     }
     current_dbipsh_->get_statistics()->LogSelectedRecipe(
         current_dbipsh_->GetRecipeKeyForBucket(
