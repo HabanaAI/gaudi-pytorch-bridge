@@ -4539,8 +4539,12 @@ static inline Tensor bn_create_and_init_undefined_input(
   } else {
     rm_size = in_t.sizes()[1];
   }
+  // undefined inputs are model params which are always in Float32
   ret_t = empty_hpu_lazy(
-      rm_size, in_t.options(), in_t.suggest_memory_format(), true);
+      rm_size,
+      in_t.options().dtype(c10::ScalarType::Float),
+      in_t.suggest_memory_format(),
+      true);
   if (fill)
     fill_hpu_lazy_(ret_t, val);
   return ret_t;
