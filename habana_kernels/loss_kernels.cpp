@@ -71,7 +71,6 @@ synapse_bce_logits_params_builder(
   } else if (reduction == at::Reduction::Reduction::Sum) {
     param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_SUM;
   } else {
-    HABANA_ASSERT(0 && "https://jira.habana-labs.com/browse/SW-36304")
     param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_NO_REDUCTION;
   }
   param.posMode = posWeightsDefined ? POS_WEIGHT_ENABLE : POS_WEIGHT_DISABLE;

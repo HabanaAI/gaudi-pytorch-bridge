@@ -52,11 +52,6 @@ class OpAttributeCheck {
         {"avg_pool2d_backward", {{8, {c10::IValue(c10::nullopt)}}}},
         // checking for divisor_override = None
         {"avg_pool2d_backward_out", {{8, {c10::IValue(c10::nullopt)}}}},
-        // checking for reduction = Mean or Sum
-        {"binary_cross_entropy_with_logits",
-         {{5,
-           {c10::IValue(at::Reduction::Reduction::Mean),
-            c10::IValue(at::Reduction::Reduction::Sum)}}}},
         // checking for weights = None/undefined, reduction = Mean or Sum
         {"binary_cross_entropy",
          {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}},
