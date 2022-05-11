@@ -217,25 +217,28 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         if (t_dev2.dtype == torch.int):
             t_dev2 = t_dev2.long()
 
-        #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
-        tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
-        if tid != 0 : # Need permute
-            t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
-            if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology or 'maskrcnn' in topology) and ('bkwd' in tensor_info or 'frwd' in tensor_info):
-                print(f"because of view, after permute also shape didn't match.. {t_dev1.size()}, {t_dev2.size()} ....\n permute back and do reshape with cpu size")
-                tensor_to_perm = None
-                if tid == 1:
-                    tensor_to_perm = t_dev1
-                elif tid == 2:
-                    tensor_to_perm = t_dev2
-                if tensor_to_perm.ndim == 4:
-                    tensor_to_perm = tensor_to_perm.permute((2, 3, 1, 0)) # permute KCRS to RSCK
-                elif tensor_to_perm.ndim == 5:
-                    tensor_to_perm = tensor_to_perm.permute((2, 3, 4, 1, 0)) # permute KCRST to RSTCK
-                if tid == 1:
-                    t_dev1 = tensor_to_perm.reshape(t_dev2.size())
-                else:
-                    t_dev2 = tensor_to_perm.reshape(t_dev1.size())
+        # Tensor permute not needed for vision based topologies where channel_last feature is disabled and this will be done for various topologies in steps.
+        # Currently done for 'resnet','mobilenetv2','googlenet' so these are being skipped.
+        if topology not in ['resnet','mobilenetv2','googlenet']:
+            #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
+            tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
+            if tid != 0 : # Need permute
+                t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
+                if t_dev1.size() != t_dev2.size() and ('unet3d' in topology or 'unet2d' in topology or 'maskrcnn' in topology) and ('bkwd' in tensor_info or 'frwd' in tensor_info):
+                    print(f"because of view, after permute also shape didn't match.. {t_dev1.size()}, {t_dev2.size()} ....\n permute back and do reshape with cpu size")
+                    tensor_to_perm = None
+                    if tid == 1:
+                        tensor_to_perm = t_dev1
+                    elif tid == 2:
+                        tensor_to_perm = t_dev2
+                    if tensor_to_perm.ndim == 4:
+                        tensor_to_perm = tensor_to_perm.permute((2, 3, 1, 0)) # permute KCRS to RSCK
+                    elif tensor_to_perm.ndim == 5:
+                        tensor_to_perm = tensor_to_perm.permute((2, 3, 4, 1, 0)) # permute KCRST to RSTCK
+                    if tid == 1:
+                        t_dev1 = tensor_to_perm.reshape(t_dev2.size())
+                    else:
+                        t_dev2 = tensor_to_perm.reshape(t_dev1.size())
 
         if  t_dev1.numel() == 0:
             equal = True
