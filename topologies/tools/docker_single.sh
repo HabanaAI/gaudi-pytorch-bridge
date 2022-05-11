@@ -1,12 +1,19 @@
 #!/bin/bash
 #Update the mount points accordingly to point to the model_garden
 MOUNT="/software/lfs/data/:/root/data -v  /software:/software "
-#Set the PATH_SRC to point to qnpu repo (habanaqa, model_garden and automationto) use the QA scripts 
-#PATH_SRC=""
+#Set the PATH_SRC to point to qnpu repo (habanaqa, model_garden and automationto) use the QA scripts
+PATH_SRC=""
 
 
 #PROXY_SETTING="-e HTTP_PROXY=http://proxy-dmz.intel.com:911 -e https_proxy=http://proxy-dmz.intel.com:912 -e http_proxy=http://proxy-dmz.intel.com:911 \
 #-e no_proxy=habana-labs.com,127.0.0.1,localhost -e NO_PROXY=habana-labs.com,127.0.0.1,localhost -e HTTPS_PROXY=http://proxy-dmz.intel.com:912"
+
+
+if [ "$PATH_SRC" == "" ];
+then
+echo "Set the PATH_SRC to point to the src repo path. Need to point to the root dir of model_garden"
+exit
+fi
 
 if [[ -z "$3" ]]; then
 echo "setup_docker.sh  <container name> <release version number> <build number> <optional, default 18:Linux version number>"
@@ -20,14 +27,14 @@ LINUX_VER=$4
 
 if [ -z "$4" ]
 then
-LINUX_VER=18
+LINUX_VER=20
 else
 LINUX_VER=$4
 fi
 
 if [ -z "$5" ]
 then
-PT_VER="1.10.1"
+PT_VER="1.11.0"
 else
 PT_VER=$5
 fi
@@ -102,7 +109,6 @@ CHECK_CONT=`docker ps  | grep ${CONT_NAME} | awk -F' '  '{print $NF}'`
         echo "Creating container $CONT_NAME"
         docker run -d -t --privileged=true --env BUILD_NUMBER=$DOCK_NUM  ${PROXY_SETTING} \
         --env MULTI_HLS_IPS=$HOSTNAMES \
-        --env PYTHONPATH=$PYTHONPATH:/root/habanaqa \
         --env SOFTWARE_DATA=/software/data/ \
         --env SOFTWARE_LFS_DATA=/software/lfs/data/ \
         --env MODEL_GARDEN_PYTORCH_PATH=/root/model_garden/PyTorch/ \
