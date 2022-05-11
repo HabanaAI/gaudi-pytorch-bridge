@@ -4420,7 +4420,7 @@ TORCH_LIBRARY(hpu, m) {
       "bitwise_xor_Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)");
   m.def("bitwise_not_Tensor_out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)");
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
-  m.def("habana_d2d_memcpy_other(Tensor s, Tensor d) -> Tensor");
+  m.def("habana_d2d_memcpy_other(Tensor s, Tensor(a!) d) -> Tensor(a!)");
   m.def(
       "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def(
@@ -4486,8 +4486,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("restride(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("permute_weight(Tensor self, int[] size) -> (Tensor)");
   m.def("permuted_weight_restride(Tensor self, int[] size) -> (Tensor)");
-  m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
-  m.def("control_edge_(Tensor self)-> Tensor(a!)");
+  m.def("control_edge_other_(Tensor self, Tensor(a!) other) -> Tensor(a!)");
+  m.def("control_edge_(Tensor(a!) self)-> Tensor(a!)");
   m.def(
       "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? residual_add, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
