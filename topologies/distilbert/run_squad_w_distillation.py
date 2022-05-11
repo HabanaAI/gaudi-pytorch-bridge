@@ -166,7 +166,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
         if args.hpu:
              # Distributed DataParallel for HPU
              model = torch.nn.parallel.DistributedDataParallel(
-                 model, bucket_cap_mb=230, find_unused_parameters=False, gradient_as_bucket_view = True
+                 model, bucket_cap_mb=230, find_unused_parameters=False, gradient_as_bucket_view = True, broadcast_buffers = False
              )
         else:
              model = torch.nn.parallel.DistributedDataParallel(
@@ -211,7 +211,9 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
                 logger.info("  Starting fine-tuning.")
 
     tr_loss, logging_loss = 0.0, 0.0
-    model.zero_grad()
+    # model.zero_grad()
+    for param in model.parameters():
+        param.grad = None
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
@@ -219,10 +221,10 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
     set_seed(args)
     # log the pre-epoch-loop memory usage
 
+
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0], smoothing=1)
         for step, batch in enumerate(epoch_iterator):
-
             start_time = time.time()
             trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
             # Skip past any already trained steps if resuming training
@@ -338,7 +340,9 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
                     htcore.mark_step()
 
                 scheduler.step()  # Update learning rate schedule
-                model.zero_grad()
+                # model.zero_grad()
+                for param in model.parameters():
+                    param.grad = None
 
                 global_step += 1
 
@@ -406,6 +410,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
         if args.max_steps > 0 and global_step > args.max_steps:
             train_iterator.close()
             break
+            
 
     if args.local_rank in [-1, 0]:
         tb_writer.close()
@@ -859,6 +864,7 @@ def main():
     if args.hpu:
         from habana_frameworks.torch.utils.library_loader import load_habana_module
         load_habana_module()
+        os.environ["MAX_WAIT_ATTEMPTS"] = "50"
         device = torch.device("hpu")
         args.n_gpu = 1
         world_size = 1
