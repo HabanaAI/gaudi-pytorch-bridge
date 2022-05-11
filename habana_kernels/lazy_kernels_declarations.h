@@ -598,14 +598,18 @@ at::Tensor empty_hpu_lazy(
     const at::TensorOptions& options,
     c10::optional<at::MemoryFormat> optional_memory_format,
     bool create_storage = true,
-    synTensorType tensor_type = DATA_TENSOR);
+    synTensorType tensor_type = DATA_TENSOR,
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view =
+        c10::nullopt);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     const at::TensorOptions& options,
     bool create_storage = true,
     synTensorType tensor_type = DATA_TENSOR,
-    int64_t storage_offset = 0);
+    int64_t storage_offset = 0,
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view =
+        c10::nullopt);
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::MemoryFormat> memory_format);

@@ -31,6 +31,10 @@ class HbLazyTensorImpl : public c10::TensorImpl {
  public:
   HbLazyTensorImpl(HbLazyTensor hb_tensor);
   HbLazyTensorImpl(HbLazyTensor hb_tensor, c10::Storage&& tensor_storage);
+  HbLazyTensorImpl(
+      HbLazyTensor hb_tensor,
+      const c10::Storage& tensor_storage,
+      c10::DispatchKeySet key_set);
   HbLazyTensor& tensor() {
     return m_tensor;
   }

@@ -28,6 +28,14 @@ at::Tensor AtenFromHbLazyTensor(
     c10::optional<c10::IntArrayRef> size,
     c10::optional<c10::IntArrayRef> stride,
     c10::optional<c10::MemoryFormat> mem_format);
+at::Tensor AtenFromHbLazyTensor(
+    HbLazyTensor HbLazy_tensor,
+    const c10::Storage& lazy_storage,
+    c10::DispatchKeySet key_set,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format);
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
     const caffe2::TypeMeta& data_type,

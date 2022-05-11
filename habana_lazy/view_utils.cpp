@@ -268,7 +268,13 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     result = out_t.value();
   } else {
     result = empty_strided_hpu_lazy(
-        size, stride, self_.options(), false, DATA_TENSOR, storage_offset);
+        size,
+        stride,
+        self_.options(),
+        false,
+        DATA_TENSOR,
+        storage_offset,
+        self);
   }
 
   StrideParams params;

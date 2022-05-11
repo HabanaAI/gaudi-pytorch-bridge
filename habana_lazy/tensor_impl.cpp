@@ -48,6 +48,20 @@ HbLazyTensorImpl::HbLazyTensorImpl(
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
 }
 
+HbLazyTensorImpl::HbLazyTensorImpl(
+    HbLazyTensor hb_tensor,
+    const c10::Storage& tensor_storage,
+    c10::DispatchKeySet key_set)
+    : c10::TensorImpl(
+          c10::TensorImpl::VIEW,
+          c10::Storage(tensor_storage),
+          key_set,
+          c10::scalarTypeToTypeMeta(hb_tensor.dtype())),
+      m_size_initialized(false),
+      m_tensor(std::move(hb_tensor)) {
+  const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+}
+
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
   m_tensor = std::move(hb_tensor);
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();

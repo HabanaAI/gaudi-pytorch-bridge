@@ -5331,7 +5331,8 @@ Tensor empty_hpu_lazy(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format,
     bool create_storage,
-    synTensorType tensor_type) {
+    synTensorType tensor_type,
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view) {
   PT_LAZY_TRACE;
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
@@ -5435,9 +5436,22 @@ Tensor empty_hpu_lazy(
   } else {
     HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
         size, 0, options.device(), typeMetaToScalarType(original_dtype));
-    Tensor at_tensor = AtenFromHbLazyTensor(
-        hb_tensor, tensor_type, size, c10::nullopt, mem_format);
-    return at_tensor;
+    if (base_view.has_value()) {
+      const auto& base = base_view.value().get();
+      const auto& storage = base.storage();
+      auto key_set = base.key_set();
+      return (AtenFromHbLazyTensor(
+          hb_tensor,
+          storage,
+          key_set,
+          tensor_type,
+          size,
+          c10::nullopt,
+          mem_format));
+    } else {
+      return (AtenFromHbLazyTensor(
+          hb_tensor, tensor_type, size, c10::nullopt, mem_format));
+    }
   }
 }
 
@@ -5447,10 +5461,11 @@ Tensor empty_strided_hpu_lazy(
     const TensorOptions& options,
     bool create_storage,
     synTensorType tensor_type,
-    int64_t storage_offset) {
+    int64_t storage_offset,
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view) {
   PT_LAZY_TRACE;
-  at::Tensor empty_tensor =
-      empty_hpu_lazy(size, options, c10::nullopt, create_storage, tensor_type);
+  at::Tensor empty_tensor = empty_hpu_lazy(
+      size, options, c10::nullopt, create_storage, tensor_type, base_view);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
 
   if (storage_offset) {

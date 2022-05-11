@@ -44,6 +44,21 @@ at::Tensor AtenFromHbLazyTensor(
   return tensor;
 }
 
+at::Tensor AtenFromHbLazyTensor(
+    HbLazyTensor HbLazy_tensor,
+    const c10::Storage& storage,
+    c10::DispatchKeySet key_set,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format) {
+  HABANA_ASSERT(HbLazy_tensor.is_null() == false);
+  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
+      std::move(HbLazy_tensor), storage, key_set));
+  InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
+  return tensor;
+}
+
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
     const caffe2::TypeMeta& data_type,
