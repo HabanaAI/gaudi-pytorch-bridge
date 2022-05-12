@@ -416,69 +416,92 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
     const c10::ScalarType& scalar_type) {
   const torch::Tensor& self = stack.at(0).toTensor();
   const auto& final_out_shape = MaxPool3DIndicesOutputShape(stack, false);
-  const auto& transpose_input_shape =
-      TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL3D);
-  const auto& output_transpose_shape =
-      TransposeShape(final_out_shape[0], MaxpoolVariant::MAXPOOL3D);
   size_t size = 0;
   const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
-
-  // Transpose params
-  synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
-
-  // TPC expects inputs in N D H W C or D H W C format so we use transpose guid
-  // for reordering.
-  std::vector<std::vector<int>> permutation_order =
-      GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL3D, self.dim());
-
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[0], self.dim());
-
   auto index_type = FindIndexType(self.scalar_type());
+  std::vector<synapse_helpers::tensor> output;
+  // TODO: SW-86955 move build op to code gen
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    const auto& transpose_input_shape =
+        TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL3D);
+    const auto& output_transpose_shape =
+        TransposeShape(final_out_shape[0], MaxpoolVariant::MAXPOOL3D);
 
-  auto input_transpose = ShapeTranspose(
-      op,
-      graph,
-      {input.at(0)},
-      transpose_input_shape,
-      scalar_type,
-      trans_params);
+    // Transpose params
+    synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
 
-  // maxpool3d guid will return tuple of tensors (indices tensor, output tensor)
-  auto maxpool3d = OpBackend::BuildNode(
-      op,
-      graph,
-      {"maxpool_3d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type),
-       {input_transpose[0].get()},
-       {{output_transpose_shape, index_type},
-        {output_transpose_shape, scalar_type}},
-       params.get(),
-       size});
+    // TPC expects inputs in N D H W C or D H W C format so we use transpose
+    // guid for reordering.
+    std::vector<std::vector<int>> permutation_order =
+        GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL3D, self.dim());
 
-  // After aplying maxpool3d, need to change the order of both indices and
-  // output tensor to N C D H W or C D H W format
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[1], self.dim());
+    trans_params = ChangeTransposePermutation(
+        trans_params, permutation_order[0], self.dim());
 
-  auto output = ShapeTranspose(
-      op,
-      graph,
-      {maxpool3d[1].get()},
-      final_out_shape[0],
-      scalar_type,
-      trans_params,
-      1);
+    auto input_transpose = ShapeTranspose(
+        op,
+        graph,
+        {input.at(0)},
+        transpose_input_shape,
+        scalar_type,
+        trans_params);
 
-  auto output_indx = ShapeTranspose(
-      op,
-      graph,
-      {maxpool3d[0].get()},
-      final_out_shape[0],
-      index_type,
-      trans_params,
-      0);
+    // maxpool3d guid will return tuple of tensors (indices tensor, output
+    // tensor)
+    auto maxpool3d = OpBackend::BuildNode(
+        op,
+        graph,
+        {"maxpool_3d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type),
+         {input_transpose[0].get()},
+         {{output_transpose_shape, index_type},
+          {output_transpose_shape, scalar_type}},
+         params.get(),
+         size});
 
-  output.emplace_back(std::move(output_indx.at(0)));
+    // After aplying maxpool3d, need to change the order of both indices and
+    // output tensor to N C D H W or C D H W format
+    trans_params = ChangeTransposePermutation(
+        trans_params, permutation_order[1], self.dim());
+
+    auto output_scalar = ShapeTranspose(
+        op,
+        graph,
+        {maxpool3d[1].get()},
+        final_out_shape[0],
+        scalar_type,
+        trans_params,
+        1);
+
+    auto output_indx = ShapeTranspose(
+        op,
+        graph,
+        {maxpool3d[0].get()},
+        final_out_shape[0],
+        index_type,
+        trans_params,
+        0);
+
+    output.emplace_back(std::move(output_scalar.at(0)));
+    output.emplace_back(std::move(output_indx.at(0)));
+  }
+  // PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
+  else {
+    // maxpool3d guid will return tuple of tensors (indices tensor, output
+    // tensor)
+    auto maxpool3d = OpBackend::BuildNode(
+        op,
+        graph,
+        {"maxpool_3d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type),
+         {input.at(0)},
+         {{final_out_shape[0], index_type, 0},
+          {final_out_shape[0], scalar_type, 1}},
+         params.get(),
+         size});
+
+    // It's reversed, as the calling function expects it this way
+    output.emplace_back(std::move(maxpool3d.at(1)));
+    output.emplace_back(std::move(maxpool3d.at(0)));
+  }
   return output;
 }
 
@@ -514,68 +537,81 @@ void MaxPool3DWithIndicesBwd::AddNode(
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack, true);
   const torch::Tensor& self = stack.at(1).toTensor();
-  const auto& transpose_input_shape = TransposeShape(
-      stack.at(0).toTensor().sizes().vec(), MaxpoolVariant::MAXPOOL3D);
-  const auto& transpose_output_shape =
-      TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL3D);
-
   size_t size = 0;
   const auto& params = FillParams(stack, size);
+  // TODO: SW-86955 move build op to code gen
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    const auto& transpose_input_shape = TransposeShape(
+        stack.at(0).toTensor().sizes().vec(), MaxpoolVariant::MAXPOOL3D);
+    const auto& transpose_output_shape =
+        TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL3D);
 
-  const auto& output_transposeshape =
-      TransposeShape(out_shape[0], MaxpoolVariant::MAXPOOL3D);
+    const auto& output_transposeshape =
+        TransposeShape(out_shape[0], MaxpoolVariant::MAXPOOL3D);
 
-  // Transpose params
-  synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
+    // Transpose params
+    synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
 
-  // TPC expects inputs in N D H W C or D H W C format so we use transpose guid
-  // for reordering.
-  std::vector<std::vector<int>> permutation_order =
-      GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL3D, self.dim());
+    // TPC expects inputs in N D H W C or D H W C format so we use transpose
+    // guid for reordering.
+    std::vector<std::vector<int>> permutation_order =
+        GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL3D, self.dim());
 
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[0], self.dim());
-  auto index_type = FindIndexType(self.scalar_type());
+    trans_params = ChangeTransposePermutation(
+        trans_params, permutation_order[0], self.dim());
+    auto index_type = FindIndexType(self.scalar_type());
 
-  auto input_transpose = ShapeTranspose(
-      this,
-      graph,
-      {syn_in(0)},
-      transpose_input_shape,
-      ScalarType(),
-      trans_params);
+    auto input_transpose = ShapeTranspose(
+        this,
+        graph,
+        {syn_in(0)},
+        transpose_input_shape,
+        ScalarType(),
+        trans_params);
 
-  auto index_transpose = ShapeTranspose(
-      this,
-      graph,
-      {syn_in(2)},
-      transpose_input_shape,
-      index_type,
-      trans_params);
+    auto index_transpose = ShapeTranspose(
+        this,
+        graph,
+        {syn_in(2)},
+        transpose_input_shape,
+        index_type,
+        trans_params);
 
-  auto maxpool3d_gradout = BuildOp(
-      graph,
-      "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {input_transpose[0].get(), index_transpose[0].get()},
-      {{transpose_output_shape, ScalarType()}},
-      params.get(),
-      size);
+    auto maxpool3d_gradout = BuildOp(
+        graph,
+        "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {input_transpose[0].get(), index_transpose[0].get()},
+        {{transpose_output_shape, ScalarType()}},
+        params.get(),
+        size);
 
-  // After aplying maxpool3d, need to change the order of both indices and
-  // output tensor to N C D H W or C D H W format
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[1], self.dim());
+    // After aplying maxpool3d, need to change the order of both indices and
+    // output tensor to N C D H W or C D H W format
+    trans_params = ChangeTransposePermutation(
+        trans_params, permutation_order[1], self.dim());
 
-  auto grad_output = ShapeTranspose(
-      this,
-      graph,
-      {maxpool3d_gradout[0].get()},
-      out_shape[0],
-      ScalarType(),
-      trans_params,
-      0);
+    auto grad_output = ShapeTranspose(
+        this,
+        graph,
+        {maxpool3d_gradout[0].get()},
+        out_shape[0],
+        ScalarType(),
+        trans_params,
+        0);
 
-  syn_out(0) = std::move(grad_output.at(0));
+    syn_out(0) = std::move(grad_output.at(0));
+  }
+  // PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
+  else {
+    auto maxpool3d_gradout = BuildOp(
+        graph,
+        "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0), syn_in(2)},
+        {{out_shape[0], ScalarType(), 0}},
+        params.get(),
+        size);
+    syn_out(0) = std::move(maxpool3d_gradout.at(0));
+  }
 }
 
 // Since the out varriant intices tensor has some issue
