@@ -853,13 +853,9 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::mul_.Tensor", KERNEL_FN(MulInplaceOperator))
         .add("aten::mul_.Scalar", KERNEL_FN(MulInplaceOperator))
-        .add("aten::pow_.Tensor", KERNEL_FN(PowInplaceOperator))
-        .add("aten::pow_.Scalar", KERNEL_FN(PowInplaceOperator))
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator))
         .add("aten::addcmul_", KERNEL_FN(AddcmulInplaceOperator))
         .add("aten::addcdiv_", KERNEL_FN(AddcdivInplaceOperator))
         .add("aten::div_.Tensor", KERNEL_FN(DivInplaceOperator))
-        .add("aten::div_.Scalar", KERNEL_FN(DivInplaceOperator))
-        .add("aten::sub_.Tensor", KERNEL_FN(SubInplaceOperator))
-        .add("aten::sub_.Scalar", KERNEL_FN(SubInplaceOperator));
+        .add("aten::div_.Scalar", KERNEL_FN(DivInplaceOperator));

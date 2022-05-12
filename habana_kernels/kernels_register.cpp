@@ -307,24 +307,14 @@ Tensor hpu_wrap::sub(
   FALLBACK_IF_UNSUPPORTED_OP_O(
       sub, PARAMS1(self, other), PARAMS2(self, other, alpha), Tensor)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sub_tensor_hpu_lazy(self, other, alpha);
-
-  } else {
-    return sub_tensor_hpu(self, other, alpha);
-  }
+  return sub_tensor_hpu(self, other, alpha);
 };
 Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
       sub_, PARAMS1(self, other), PARAMS2(self, other, alpha), Tensor)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sub_tensor_hpu_lazy_(self, other, alpha);
-
-  } else {
-    return sub_tensor_hpu_(self, other, alpha);
-  }
+  return sub_tensor_hpu_(self, other, alpha);
 };
 Tensor hpu_wrap::sub(
     const Tensor& self,
@@ -334,24 +324,14 @@ Tensor hpu_wrap::sub(
   FALLBACK_IF_UNSUPPORTED_OP_O(
       sub, PARAMS1(self), PARAMS2(self, other, alpha), Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sub_scalar_hpu_lazy(self, other, alpha);
-
-  } else {
-    return sub_scalar_hpu(self, other, alpha);
-  }
+  return sub_scalar_hpu(self, other, alpha);
 };
 Tensor& hpu_wrap::sub_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
       sub_, PARAMS1(self), PARAMS2(self, other, alpha), Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sub_scalar_hpu_lazy_(self, other, alpha);
-
-  } else {
-    return sub_scalar_hpu_(self, other, alpha);
-  }
+  return sub_scalar_hpu_(self, other, alpha);
 };
 Tensor hpu_wrap::rsub(
     const Tensor& self,
@@ -361,12 +341,7 @@ Tensor hpu_wrap::rsub(
   FALLBACK_IF_UNSUPPORTED_OP_O(
       rsub, PARAMS1(self), PARAMS2(self, other, alpha), Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return rsub_scalar_hpu_lazy(self, other, alpha);
-
-  } else {
-    return rsub_scalar_hpu(self, other, alpha);
-  }
+  return rsub_scalar_hpu(self, other, alpha);
 };
 Tensor hpu_wrap::_s_where(
     const Tensor& condition,
@@ -592,59 +567,34 @@ Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   FALLBACK_IF_UNSUPPORTED_OP_O(
       pow, PARAMS1(self, other), PARAMS2(self, other), Tensor_Tensor)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return pow_tensor_tensor_hpu_lazy(self, other);
-
-  } else {
-    return pow_tensor_tensor_hpu(self, other);
-  }
+  return pow_tensor_tensor_hpu(self, other);
 };
 Tensor& hpu_wrap::pow_(Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
       pow_, PARAMS1(self, other), PARAMS2(self, other), Tensor)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return pow_tensor_tensor_hpu_lazy_(self, other);
-
-  } else {
-    return pow_tensor_tensor_hpu_(self, other);
-  }
+  return pow_tensor_tensor_hpu_(self, other);
 };
 Tensor hpu_wrap::pow(const Tensor& self, const Scalar& other) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
       pow, PARAMS1(self), PARAMS2(self, other), Tensor_Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return pow_tensor_scalar_hpu_lazy(self, other);
-
-  } else {
-    return pow_tensor_scalar_hpu(self, other);
-  }
+  return pow_tensor_scalar_hpu(self, other);
 };
 Tensor& hpu_wrap::pow_(Tensor& self, const Scalar& other) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
       pow_, PARAMS1(self), PARAMS2(self, other), Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return pow_tensor_scalar_hpu_lazy_(self, other);
-
-  } else {
-    return pow_tensor_scalar_hpu_(self, other);
-  }
+  return pow_tensor_scalar_hpu_(self, other);
 };
 Tensor hpu_wrap::pow(const Scalar& other, const Tensor& self) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(pow, PARAMS1(self), PARAMS2(other, self), Scalar)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return pow_scalar_tensor_hpu_lazy(other, self);
-
-  } else {
-    return pow_scalar_tensor_hpu(other, self);
-  }
+  return pow_scalar_tensor_hpu(other, self);
 };
 
 Tensor hpu_wrap::maximum(const Tensor& self, const Tensor& other) {
@@ -3411,23 +3361,13 @@ Tensor& hpu_wrap::exp_(Tensor& self) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP(exp_, PARAMS1(self), PARAMS2(self))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return exp_hpu_lazy_(self);
-
-  } else {
-    return exp_hpu_(self);
-  }
+  return exp_hpu_(self);
 };
 Tensor hpu_wrap::exp(const Tensor& self) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP(exp, PARAMS1(self), PARAMS2(self))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return exp_hpu_lazy(self);
-
-  } else {
-    return exp_hpu(self);
-  }
+  return exp_hpu(self);
 };
 Tensor& hpu_wrap::neg_out(const Tensor& input, Tensor& result) {
   PT_OP_TRACE;

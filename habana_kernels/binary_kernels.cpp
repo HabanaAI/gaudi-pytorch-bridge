@@ -1830,14 +1830,8 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
         .add("aten::add.Scalar", KERNEL_FN(AddOperator))
-        .add("aten::sub.Tensor", KERNEL_FN(SubOperator))
-        .add("aten::sub.Scalar", KERNEL_FN(SubOperator))
         .add("hpu::rsub.Tensor", KERNEL_FN(RsubOperator))
-        .add("aten::rsub.Scalar", KERNEL_FN(RsubOperator))
         .add("aten::mul.Tensor", KERNEL_FN(MulOperator))
         .add("aten::mul.Scalar", KERNEL_FN(MulOperator))
         .add("aten::div.Tensor", KERNEL_FN(DivOperator))
-        .add("aten::div.Scalar", KERNEL_FN(DivOperator))
-        .add("aten::pow.Tensor_Scalar", KERNEL_FN(PowOperator))
-        .add("aten::pow.Tensor_Tensor", KERNEL_FN(PowOperator))
-        .add("aten::pow.Scalar", KERNEL_FN(PowOperator));
+        .add("aten::div.Scalar", KERNEL_FN(DivOperator));

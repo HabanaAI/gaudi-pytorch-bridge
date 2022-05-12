@@ -67,19 +67,45 @@ static auto BuildBinary(
        {{outshape, result_type, out_index}}});
 }
 
-void BinaryOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void BinaryWithAlpha::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, 0);
-  const at::Tensor& other = stack_tensor(stack, 1);
-  const at::ScalarType& result_type = at::result_type(self, other);
-  auto alpha = stack[2].toScalar();
+  std::vector<int64_t> other_size = {};
+  at::ScalarType result_type;
+  at::ScalarType other_type;
+  at::ScalarType self_type = self.scalar_type();
 
+  if (stack.at(1).isTensor()) {
+    const at::Tensor& other = stack_tensor(stack, 1);
+    other_size = other.sizes().vec();
+    result_type = at::result_type(self, other);
+    other_type = other.scalar_type();
+
+  } else {
+    const auto& other_scalar = stack[1].toScalar();
+    result_type = at::result_type(self, other_scalar);
+    // other_size remains empty in scalar case
+    other_type = result_type;
+  }
+  auto alpha = stack[2].toScalar();
+  if (IsInplace()) {
+    TORCH_CHECK(
+        result_type == self_type ||
+            (c10::isFloatingType(result_type) &&
+             c10::isFloatingType(self_type)),
+        "result type ",
+        result_type,
+        " can't be cast to the desired output type ",
+        self_type)
+  }
   auto op = BuildBinary(
       this,
       graph,
       guid_,
       {syn_in(0), syn_in(1)},
-      {self.sizes().vec(), other.sizes().vec()},
-      {self.scalar_type(), other.scalar_type()},
+      {self.sizes().vec(), other_size},
+      {self_type, other_type},
       result_type,
       alpha,
       0);
@@ -130,4 +156,34 @@ void ForeachBinary::AddNode(
     }
   }
 }
+
+void RSubScalarOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const at::Tensor& self = stack_tensor(stack, 0);
+  auto outshape = BinaryOutputShape(stack);
+  std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
+
+  const auto& other_scalar = stack[1].toScalar();
+  at::ScalarType result_type = at::result_type(self, other_scalar);
+
+  std::unique_ptr<synapse_helpers::tensor> constant =
+      std::make_unique<synapse_helpers::tensor>(
+          ConstantHelper(graph, other_scalar, result_type));
+  inputs.at(0) = {constant->get()};
+  auto alpha = stack[2].toScalar();
+  auto result = BuildBinary(
+      this,
+      graph,
+      guid_,
+      inputs,
+      {{}, self.sizes().vec()},
+      {self.scalar_type(), result_type},
+      result_type,
+      alpha,
+      0);
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana

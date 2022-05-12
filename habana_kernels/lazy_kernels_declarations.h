@@ -84,26 +84,6 @@ at::Tensor& add_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other,
     const at::Scalar& alpha);
-at::Tensor sub_tensor_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& other,
-    const at::Scalar& alpha);
-at::Tensor& sub_tensor_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& other,
-    const at::Scalar& alpha);
-at::Tensor sub_scalar_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& other,
-    const at::Scalar& alpha);
-at::Tensor& sub_scalar_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& other,
-    const at::Scalar& alpha);
-at::Tensor rsub_scalar_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& other,
-    const at::Scalar& alpha);
 at::Tensor& mul_tensor_hpu_lazy_(at::Tensor& self, const at::Tensor& other);
 at::Tensor& mul_out_hpu_lazy(
     at::Tensor& out,
@@ -127,21 +107,6 @@ at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
 at::Tensor floor_divide_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
-at::Tensor pow_tensor_tensor_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& other);
-at::Tensor& pow_tensor_tensor_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& other);
-at::Tensor pow_tensor_scalar_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& other);
-at::Tensor& pow_tensor_scalar_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& other);
-at::Tensor pow_scalar_tensor_hpu_lazy(
-    const at::Scalar& other,
-    const at::Tensor& self);
 at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor upsample_nearest2d_hpu_lazy(
     const at::Tensor& input,
@@ -700,8 +665,6 @@ at::Tensor gelu_hpu_lazy(const at::Tensor& self);
 at::Tensor gelu_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& self);
-at::Tensor& exp_hpu_lazy_(at::Tensor& self);
-at::Tensor exp_hpu_lazy(const at::Tensor& self);
 at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
 at::Tensor& reciprocal_hpu_lazy_(at::Tensor& self);
 at::Tensor reciprocal_hpu_lazy(const at::Tensor& self);
