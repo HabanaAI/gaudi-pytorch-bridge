@@ -33,6 +33,7 @@ void stream_event_manager::add_producer(
 void stream_event_manager::add_future(
     device_ptr device_address,
     std::future<bool> fut) {
+  PT_SYNHELPER_TRACE;
   std::lock_guard<std::mutex> lock(future_mut_);
   auto found = future_by_addr_.find(device_address);
   if (found != future_by_addr_.end()) {
@@ -43,6 +44,7 @@ void stream_event_manager::add_future(
 }
 
 void stream_event_manager::wait_for_future(device_ptr device_address) {
+  PT_SYNHELPER_TRACE;
   std::lock_guard<std::mutex> lock(future_mut_);
   auto found = future_by_addr_.find(device_address);
   if (found != future_by_addr_.end()) {
