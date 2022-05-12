@@ -175,3 +175,24 @@ TEST_F(FallbackTest, tensorView_Inplace_4) {
   EXPECT_EQ(allclose(a, hOut_cpu, 0.001, 0.001), true);
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
+
+TEST_F(FallbackTest, tensorlistView_Inplace) {
+  setenv("PT_HPU_PLACE_ON_CPU", "_foreach_abs_", 1);
+  torch::Tensor t1 = torch::randn({3, 3});
+  torch::Tensor t2 = torch::randn({8, 8});
+  auto t1_hpu = t1.to(torch::kHPU);
+  auto t2_hpu = t2.to(torch::kHPU);
+  auto view1 = torch::as_strided(t1, (2, 2), (1, 2));
+  auto view2 = torch::as_strided(t2, (2, 6), (1, 2));
+  at::_foreach_abs_({view1, view2});
+  auto view1_hpu = torch::as_strided(t1_hpu, (2, 2), (1, 2));
+  auto view2_hpu = torch::as_strided(t2_hpu, (2, 6), (1, 2));
+  at::_foreach_abs_({view1_hpu, view2_hpu});
+
+  /*
+  foreach ops are not supporting on view tensor
+  EXPECT_EQ(allclose(a, hOut_cpu, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(a, hOut_cpu, 0.001, 0.001), true);
+  */
+  unsetenv("PT_HPU_PLACE_ON_CPU");
+}
