@@ -1906,7 +1906,8 @@ Tensor add_tensor_hpu_lazy(
   // cast it to expected result data type tensor
   if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
       other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = other.to(res_dtype);
+    other_cast = get_tensor_for_scalar(
+        other.item().toFloat(), other.options().dtype(res_dtype));
   }
 
   if (alpha_float != 1.0) {
@@ -2122,7 +2123,8 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   // cast it to expected result data type tensor
   if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
       other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = other.to(res_dtype);
+    other_cast = get_tensor_for_scalar(
+        other.item().toFloat(), other.options().dtype(res_dtype));
   }
 
   LazyBinaryOp<at::Tensor> k{
