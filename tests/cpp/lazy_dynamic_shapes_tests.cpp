@@ -73,7 +73,7 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest) {
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -168,7 +168,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest2) {
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -258,7 +258,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest2) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest3) {
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
   int kH = 3;
   int kW = 3;
   const int C = 16;

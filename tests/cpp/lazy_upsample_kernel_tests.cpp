@@ -42,7 +42,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
 }
 */
 
-TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest_channelLast) {
+TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest_channelLast) {
   torch::Tensor tensor =
       torch::randn({2, 3, 4, 5}).to(c10::MemoryFormat::ChannelsLast);
   torch::Tensor tHabana = tensor.to(torch::kHPU);

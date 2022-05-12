@@ -33,7 +33,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_nearest2d_fwd_size) {
+TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_size) {
   GenerateInputs(1, {{2, 7, 3, 4}});
   std::vector<int64_t> size = {10, 17};
 

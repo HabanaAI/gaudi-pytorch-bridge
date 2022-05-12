@@ -15,7 +15,7 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 // forward variants
-TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale) {
+TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_fwd_scale) {
   GenerateInputs(1, {{2, 7, 3, 4}});
   std::vector<double> scale_factor = {1.999, 2.999};
 
@@ -84,7 +84,7 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
+TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_scale) {
   GenerateInputs(1, {{2, 7, 1, 6}});
   std::vector<double> scale = {0.6, 1.7};
   std::vector<int64_t> input_size = {2, 7, 3, 4};

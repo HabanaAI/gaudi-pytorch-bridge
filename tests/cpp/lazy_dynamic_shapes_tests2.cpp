@@ -51,7 +51,7 @@ class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {
   }
 };
 
-TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
+TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlastInput) {
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -66,7 +66,7 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
+TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast3dInput) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {

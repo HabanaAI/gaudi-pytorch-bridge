@@ -33,7 +33,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_fwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale_zero) {
+TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_fwd_scale_zero) {
   GenerateInputs(1, {{2, 7, 3, 4}});
   std::vector<double> scale_factor = {0.6, 1.7};
 
@@ -50,7 +50,7 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale_zero) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_bilinear2d_fwd_size) {
+TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_fwd_size) {
   GenerateInputs(1, {{4, 5, 3, 25}});
   std::vector<int64_t> size = {8, 50};
 
@@ -94,7 +94,7 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale) {
+TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_bwd_scale) {
   GenerateInputs(1, {{2, 7, 1, 6}});
   std::vector<double> scales = {0.6, 1.7};
   std::vector<int64_t> input_size = {2, 7, 3, 4};

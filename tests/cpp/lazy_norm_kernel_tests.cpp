@@ -39,7 +39,7 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
-TEST_F(LazyNormKernelTest, InstanceNormChLast) {
+TEST_F(LazyNormKernelTest, DISABLED_InstanceNormChLast) {
   auto input_tensor =
       torch::arange(240, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 2}, c10::MemoryFormat::ChannelsLast);
@@ -127,7 +127,7 @@ TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dFwdBwd) {
       true);
 }
 
-TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
+TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dChLastFwdBwd) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }
