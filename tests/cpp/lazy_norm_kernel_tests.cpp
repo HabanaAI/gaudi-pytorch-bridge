@@ -367,7 +367,7 @@ TEST_F(LazyNormKernelTest, BatchNorm7DForwardExecute) {
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
 }
 
-TEST_F(LazyNormKernelTest, BatchNorm5DChannelsLastForwardExecute) {
+TEST_F(LazyNormKernelTest, DISABLED_BatchNorm5DChannelsLastForwardExecute) {
   auto input_tensor =
       torch::randn(
           {8, 3, 10, 10, 4}, torch::dtype(torch::kFloat).requires_grad(false))
