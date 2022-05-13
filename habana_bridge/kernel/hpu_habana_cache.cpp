@@ -1384,14 +1384,14 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
       list_.erase(lit);
       dropped = true;
 
-      PT_BRIDGE_WARN(
+      PT_BRIDGE_DEBUG(
           "after dropping lru recipe, #recipes ",
           RecipeValueSpec::get_recipe_count(),
           ", total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
     } else {
       use_count++;
-      PT_BRIDGE_WARN(
+      PT_BRIDGE_DEBUG(
           "all recipes are in use used_recipe_count=",
           use_count,
           " can not drop any recipe");
