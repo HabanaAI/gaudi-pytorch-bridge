@@ -85,6 +85,7 @@ ops_dict = {
     "relu6": [torch.nn.functional],
     "hardtanh": [torch.nn.functional],
     "tanh": [torch.nn.functional],
+    "sigmoid": [torch, torch.Tensor],
     # Shapes
     "t": [torch, torch.Tensor],
     "flatten": [torch, torch.Tensor],
