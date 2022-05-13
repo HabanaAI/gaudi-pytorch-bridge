@@ -207,6 +207,14 @@ struct OptimizedJITGraphAndMetaData {
 
   bool get_is_control_edge_processing_required();
 
+  void set_syn_graph_empty_flag(bool flag) {
+    is_syn_graph_empty = flag;
+  }
+
+  bool get_syn_graph_empty_flag() const {
+    return is_syn_graph_empty;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -221,6 +229,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<std::vector<int64_t>> new_positions{};
   std::vector<bool> is_in_graph_outputs{};
   bool is_control_edge_processing_required = false;
+  bool is_syn_graph_empty{false};
 };
 
 /**

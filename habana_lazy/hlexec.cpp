@@ -247,14 +247,26 @@ void HlExec::GetOrCreate(
                   parent_vec)
                   .hashCode();
 
+  auto ConstructJITGraph{
+      // Create a JIT graph from the post order graph
+      // Optimization is done during Create() itself
+      [&]() -> void {
+        mp_g_ = std::make_shared<Graph>();
+        Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
+        PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
+        at::ArrayRef<torch::jit::IValue> input_refs =
+            torch::jit::last(stack, mp_g_->inputs().size());
+        mp_g_and_meta_data_ =
+            std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
+      }};
+
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
-    mp_g_ = std::make_shared<Graph>();
-    Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
-    PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
-    at::ArrayRef<torch::jit::IValue> input_refs =
-        torch::jit::last(stack, mp_g_->inputs().size());
-    mp_g_and_meta_data_ =
-        std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
+    PT_LAZY_DEBUG(
+        "JIT Cache disabled :: key ",
+        m_g_hash_,
+        ", graph_index ",
+        visualize::GetGraphIndex(m_g_hash_));
+    ConstructJITGraph();
     return;
   }
   mp_g_and_meta_data_ = habana_lazy::LazyGraphCache::GetLazyCache()
@@ -269,17 +281,9 @@ void HlExec::GetOrCreate(
         ", graph_index ",
         visualize::GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache miss");
-    mp_g_ = std::make_shared<Graph>();
     // Cache miss handling
     // ===================
-    // Create a JIT graph from the post order graph
-    // Optimization is done during Create() itself
-    Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
-    PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
-    at::ArrayRef<torch::jit::IValue> input_refs =
-        torch::jit::last(stack, mp_g_->inputs().size());
-    mp_g_and_meta_data_ =
-        std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
+    ConstructJITGraph();
     LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_and_meta_data_);
   } else {
     PT_LAZY_DEBUG(

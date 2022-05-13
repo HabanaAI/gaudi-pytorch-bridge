@@ -1875,6 +1875,7 @@ void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
 
 void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   PT_BRIDGE_BEGIN;
+  static int idx{1};
   ProcessInputStack(input_st);
 
   iteration_count_++;
@@ -1883,8 +1884,12 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   PT_BRIDGE_DEBUG(
       "Lowering:\n",
       "JIT_IR_Graph_BEGIN\n",
+      "Graph ",
+      idx,
+      '\n',
       jit_ir_graph->toString(),
       "JIT_IR_Graph_END\n");
+  idx += 1;
 
   // Handle everything related to graph when dynamic flag is set.
   if (refine_ds_enabled_) {
@@ -1969,9 +1974,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   CreateValueToIvalueMapForInputs();
 
-  //<Decription> This is the main function that
-  //  a. creates the HabanaLaunchOp
-  //  b. compiles and executes the same
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());
   BuildSynapseGraph(syn_graph);
@@ -1984,12 +1986,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   if (is_jit_cached_graph_info_available == false) {
     jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
   }
-
-  // clear the context
-  // TODO : See if we need to add a contect to this object pointer or clearing
-  // like this is good?
-
-  // Fetch the output shape tensors for cache miss cases??
 
   ClearStatics();
 

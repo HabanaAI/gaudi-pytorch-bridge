@@ -388,7 +388,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
-
   rv.launch(input_refs, intermediate_tensors_ptr);
   rv.update_hit_count();
 
@@ -825,6 +824,10 @@ void habana::HabanaLaunchOpPT::UpdateOutputs() {
     IValPtrShared ivpsh = oit->second;
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
+
+  jit_graph_and_meta_data->set_syn_graph_empty_flag(true);
+  PT_BRIDGE_DEBUG(
+      "Empty synapse recipe. The corresponding JIT IR should not cached");
   PT_BRIDGE_END;
 }
 

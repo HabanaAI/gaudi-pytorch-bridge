@@ -554,6 +554,7 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
     const std::vector<HbLazyTensor>& tensors,
     std::vector<int> indices) {
   PT_LAZY_TRACE;
+  static int idx{1};
   habana_lazy::ir::PostOrderData po_data;
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
@@ -570,8 +571,12 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   if (!GET_ENV_FLAG_NEW(PT_HPU_DUMP_IR_DOT_GRAPH)) {
     PT_LAZY_DEBUG(
         "Lazy_IR_Graph_BEGIN\n",
+        "Graph ",
+        idx,
+        '\n',
         IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots),
         "Lazy_IR_Graph_END");
+    idx += 1;
     PT_IRGRAPH_DEBUG(IrGraphDumpUtil::PostOrderToText(
         po_data.post_order, p_roots, true, true));
   } else {
@@ -888,6 +893,16 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   bool exception = false;
   try {
     hlexec.Launch(stack);
+    if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
+      // The graph was not compiled. Remove the JIT graph from the cache
+      PT_LAZY_DEBUG(
+          "Removing JIT IR Graph with :: key ",
+          hlexec.GetGraphHash(),
+          ", graph_index ",
+          visualize::GetGraphIndex(hlexec.GetGraphHash()),
+          " from  the JIT Cache");
+      LazyGraphCache::GetLazyCache().RemoveGraph(hlexec.GetGraphHash());
+    }
   } catch (...) {
     launch_except = std::current_exception();
     exception = true;

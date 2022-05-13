@@ -278,6 +278,10 @@ class HlExec {
     return mp_g_;
   }
 
+  size_t GetGraphHash() {
+    return m_g_hash_;
+  }
+
   void set_graph(GraphPtr p_g) {
     mp_g_ = p_g;
   }
@@ -285,6 +289,10 @@ class HlExec {
   void set_lazy_front_end_info(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info) {
     lazyInfo = info;
+  }
+
+  OptimizedJITGraphAndMetaDataPtr GetJITGraphMetaDataPtr() {
+    return mp_g_and_meta_data_;
   }
 
  private:
