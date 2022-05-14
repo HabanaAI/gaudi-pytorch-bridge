@@ -109,7 +109,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
             # Try aeon when HPUMediaPipe is not available
             if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 try:
-                    from medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+                    from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
 
                 except (ImportError) as e:
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
@@ -152,7 +152,7 @@ class HabanaDataLoader(torch.utils.data.DataLoader):
                                         a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
                                         a_num_instances=num_instances, a_instance_id=instance_id, a_device="hpu")
 
-                from mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
+                from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
 
                 print(f"Running with Habana media DataLoader with num_instances = {num_instances}, instance_id = {instance_id}.")
