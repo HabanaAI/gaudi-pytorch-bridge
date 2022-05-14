@@ -13,7 +13,8 @@ enum class SynapseLayoutFormat {
   SRCK = 2,
   SRQCK = 3,
   DONT_CARE = 4,
-  INVALID = 5
+  AWHN = 5,
+  INVALID = 6
 };
 
 static constexpr char dont_care[] = "";
@@ -28,6 +29,7 @@ static const std::unordered_map<const SynapseLayoutFormat, const char*>
         {SynapseLayoutFormat::WHDCN, pt_default_3d_data_layout},
         {SynapseLayoutFormat::SRCK, pt_default_weight_layout},
         {SynapseLayoutFormat::SRQCK, pt_default_3d_weight_layout},
+        {SynapseLayoutFormat::AWHN, "AWHN"},
         {SynapseLayoutFormat::DONT_CARE, dont_care}};
 
 inline std::vector<const char*> getSynapseLayoutFormat(

@@ -1116,7 +1116,7 @@ grid_sampler_2d:
   - [NHWC, NCHW]
   - [NHWC]
   synapse_layouts:
-  - [WHCN, DONT_CARE]
+  - [WHCN, AWHN]
   - [WHCN]
   out_ids: [0]
 
