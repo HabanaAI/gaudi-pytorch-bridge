@@ -3022,19 +3022,21 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   bool sorted = inputs[1].toBool();
   bool return_inverse = inputs[2].toBool();
   bool return_counts = inputs[3].toBool();
-  if (sorted == true) {
+
+  auto self = inputs[0].toTensor();
+  int elements = self.numel();
+  auto output_shape = DimVector{elements};
+  auto valid_shape = DimVector{1};
+
+  if (sorted == true && self.dim() != 1) {
     PT_KERNEL_WARN(
-        "Recieved sorted=True, ignoring as TPC kernel does not support it");
+        "Recieved sorted=True for input of dims not equal 1, ignoring as TPC kernel does not support it");
   }
   // Assert for return_inverse, return_counts as function expects extra output
   // if set
   HABANA_ASSERT((!return_inverse) && "return_inverse not supported in unique2");
   HABANA_ASSERT((!return_counts) && "return_counts not supported in unique2");
 
-  auto self = inputs[0].toTensor();
-  int elements = self.numel();
-  auto output_shape = DimVector{elements};
-  auto valid_shape = DimVector{1};
 
   // The first output tensor contains unique elements.
   // The second output tensor contains the number of unique elements.
@@ -3059,13 +3061,16 @@ void UniqueOperator::AllocateAndAddSynapseNode(
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
 
-  ns_UniqueKernel::Params params;
+  ns_UniqueKernel::ParamsV2 params;
   params.returnInverse = 0;
   params.returnCounts = 0;
+  params.sorted = 0;
+  if (self.dim() == 1)
+    params.sorted = sorted;
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
 
-  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
+  p_context_->params_.emplace<ns_UniqueKernel::ParamsV2>(params);
   p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));

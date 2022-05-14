@@ -3487,6 +3487,11 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
       PARAMS1(self),
       PARAMS2(self, sorted, return_inverse, return_counts))
 
+  if (sorted && self.dim() != 1) {
+    FALLBACK_IF_UNSUPPORTED_OP2(
+        _unique2, PARAMS2(self, sorted, return_inverse, return_counts))
+  }
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
   } else {
