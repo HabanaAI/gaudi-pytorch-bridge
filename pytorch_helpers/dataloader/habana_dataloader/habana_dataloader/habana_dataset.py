@@ -291,34 +291,6 @@ def _is_coco_dataset(dataset):
         except:
             return False
         return False
-
-class HabanaDataloaderWrapper:
-    def __init__(self, *args, **kwargs):
-        dataset = kwargs.get("dataset", args[0])
-        dataloader_type = None
-        if isinstance(dataset, torchvision.datasets.ImageFolder):
-            dataloader_type = ResnetDataLoader
-        elif _is_coco_dataset(dataset):
-            dataloader_type = SSDDataLoader
-        try:
-            self.dataloader = dataloader_type(*args, **kwargs)
-
-        except Exception as e:
-            fallback_enabled = os.getenv('DATALOADER_FALLBACK_EN', True)
-            if fallback_enabled:
-                #Fallback to PT Dataloader
-                print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
-                self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
-            else:
-                print(f"Habana dataloader configuration failed: {e}")
-                raise
-
-    def __iter__(self):
-        self.iter = iter(self.dataloader)
-        return self
-    def __next__(self):
-        return next(self.iter)
-
 class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get("dataset", args[0])
@@ -334,9 +306,7 @@ class HabanaDataLoader:
             fallback_enabled = os.getenv('DATALOADER_FALLBACK_EN', True)
             if fallback_enabled:
                 #Fallback to PT Dataloader
-                print('-'*50)
-                print(f"{'-'*10}Fallback to PT DL: {e}")
-                print('-'*50)
+                print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
                 self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
             else:
                 print(f"Habana dataloader configuration failed: {e}")
