@@ -38,7 +38,7 @@ def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
 import habana_dataloader.habana_dl_app
-class CocoDataLoader(torch.utils.data.DataLoader):
+class SSDDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get('dataset', args[0])
         self.batch_size = kwargs.get('batch_size')
@@ -91,10 +91,10 @@ class CocoDataLoader(torch.utils.data.DataLoader):
             label_out = label
 
         return img.contiguous(), img_id, img_size, bbox_out, label_out
-class HabanaDataLoader(torch.utils.data.DataLoader):
+class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
-        keyword_args.update(dict(zip(inspect.getfullargspec(super(HabanaDataLoader, self).__init__).args[1:], args)))
+        keyword_args.update(dict(zip(inspect.getfullargspec(super(ResnetDataLoader, self).__init__).args[1:], args)))
 
         self.DeviceType = htexp._get_device_type()
 
@@ -297,9 +297,9 @@ class HabanaDataloaderWrapper:
         dataset = kwargs.get("dataset", args[0])
         dataloader_type = None
         if isinstance(dataset, torchvision.datasets.ImageFolder):
-            dataloader_type = HabanaDataLoader
+            dataloader_type = ResnetDataLoader
         elif _is_coco_dataset(dataset):
-            dataloader_type = CocoDataLoader
+            dataloader_type = SSDDataLoader
         try:
             self.dataloader = dataloader_type(*args, **kwargs)
 
@@ -318,3 +318,34 @@ class HabanaDataloaderWrapper:
         return self
     def __next__(self):
         return next(self.iter)
+
+class HabanaDataLoader:
+    def __init__(self, *args, **kwargs):
+        dataset = kwargs.get("dataset", args[0])
+        dataloader_type = None
+        if isinstance(dataset, torchvision.datasets.ImageFolder):
+            dataloader_type = ResnetDataLoader
+        elif _is_coco_dataset(dataset):
+            dataloader_type = SSDDataLoader
+        try:
+            self.dataloader = dataloader_type(*args, **kwargs)
+
+        except Exception as e:
+            fallback_enabled = os.getenv('DATALOADER_FALLBACK_EN', True)
+            if fallback_enabled:
+                #Fallback to PT Dataloader
+                print('-'*50)
+                print(f"{'-'*10}Fallback to PT DL: {e}")
+                print('-'*50)
+                self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
+            else:
+                print(f"Habana dataloader configuration failed: {e}")
+                raise
+
+    def __iter__(self):
+        self.iter = iter(self.dataloader)
+        return self
+    def __next__(self):
+        return next(self.iter)
+    def __len__(self):
+        return len(self.dataloader)
