@@ -307,9 +307,7 @@ class HabanaDataloaderWrapper:
             fallback_enabled = os.getenv('DATALOADER_FALLBACK_EN', True)
             if fallback_enabled:
                 #Fallback to PT Dataloader
-                print('-'*50)
-                print(f"{'-'*10}Fallback to PT DL: {e}")
-                print('-'*50)
+                print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
                 self.dataloader = torch.utils.data.DataLoader(*args, **kwargs)
             else:
                 print(f"Habana dataloader configuration failed: {e}")
