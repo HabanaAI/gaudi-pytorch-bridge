@@ -510,6 +510,10 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
     // corresponding to that
     std::string id = "dedx3d";
     SetGuid(id);
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
     // conv_transpose2d weights are in DHWKC format
     weight_channel =
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ? 0 : 4;
@@ -615,6 +619,10 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
     // conv_transpose2d realized using conv_backward w.r.t input, so use guid
     // corresponding to that
     SetGuid("dedx");
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     // conv_transpose2d weights are in HWKC format
     weight_channel =
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ? 0 : 3;
