@@ -232,20 +232,25 @@ void BatchNormForwardOperator::generateCacheInputs(Stack& inputs) {
 
   Tensor wt_hpu, bias_hpu;
   auto device = DeviceType::HPU;
+  auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
   if (training) {
-    wt_hpu = create_or_return_pt_tensor_bn(weight, input.sizes()[3], device);
-    bias_hpu = create_or_return_pt_tensor_bn(bias, input.sizes()[3], device);
+    wt_hpu = create_or_return_pt_tensor_bn(
+        weight, input.sizes()[channel_dim], device);
+    bias_hpu =
+        create_or_return_pt_tensor_bn(bias, input.sizes()[channel_dim], device);
   } else {
-    bias_hpu = create_or_return_pt_tensor_bn(bias, input.sizes()[3], device);
-    wt_hpu = create_or_return_pt_tensor_bn(weight, input.sizes()[3], device);
+    bias_hpu =
+        create_or_return_pt_tensor_bn(bias, input.sizes()[channel_dim], device);
+    wt_hpu = create_or_return_pt_tensor_bn(
+        weight, input.sizes()[channel_dim], device);
   }
 
   running_vars_def = running_mean.defined();
-  Tensor running_mean_hpu =
-      create_or_return_pt_tensor_bn(running_mean, input.sizes()[3], device);
-  Tensor running_var_hpu =
-      create_or_return_pt_tensor_bn(running_var, input.sizes()[3], device);
+  Tensor running_mean_hpu = create_or_return_pt_tensor_bn(
+      running_mean, input.sizes()[channel_dim], device);
+  Tensor running_var_hpu = create_or_return_pt_tensor_bn(
+      running_var, input.sizes()[channel_dim], device);
 
   Tensor residualAdd;
   if (training == true) {
@@ -333,24 +338,25 @@ void BatchNormForwardOperator::preProcessInputs(
 
   Tensor wt_hpu, bias_hpu;
   auto device = DeviceType::HPU;
+  auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
   if (training) {
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[3], device, (uint)1);
+        graph, weight, input.sizes()[channel_dim], device, (uint)1);
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[3], device, (uint)2);
+        graph, bias, input.sizes()[channel_dim], device, (uint)2);
   } else {
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[3], device, (uint)1);
+        graph, bias, input.sizes()[channel_dim], device, (uint)1);
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[3], device, (uint)2);
+        graph, weight, input.sizes()[channel_dim], device, (uint)2);
   }
 
   running_vars_def = running_mean.defined();
   Tensor running_mean_hpu = create_or_return_tensor_bn(
-      graph, running_mean, input.sizes()[3], device, (uint)3);
+      graph, running_mean, input.sizes()[channel_dim], device, (uint)3);
   Tensor running_var_hpu = create_or_return_tensor_bn(
-      graph, running_var, input.sizes()[3], device, (uint)4);
+      graph, running_var, input.sizes()[channel_dim], device, (uint)4);
 
   Tensor residualAdd;
   if (training == true) {
@@ -766,23 +772,24 @@ void BatchNormForwardRmvOperator::preProcessInputs(
 
   Tensor wt_hpu, bias_hpu;
   auto device = DeviceType::HPU;
+  auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
   if (training) {
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[3], device, (uint)1);
+        graph, weight, input.sizes()[channel_dim], device, (uint)1);
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[3], device, (uint)2);
+        graph, bias, input.sizes()[channel_dim], device, (uint)2);
   } else {
     bias_hpu = create_or_return_tensor_bn(
-        graph, bias, input.sizes()[3], device, (uint)1);
+        graph, bias, input.sizes()[channel_dim], device, (uint)1);
     wt_hpu = create_or_return_tensor_bn(
-        graph, weight, input.sizes()[3], device, (uint)2);
+        graph, weight, input.sizes()[channel_dim], device, (uint)2);
   }
 
   Tensor running_mean_hpu = create_or_return_tensor_bn(
-      graph, running_mean, input.sizes()[3], device, (uint)4);
+      graph, running_mean, input.sizes()[channel_dim], device, (uint)4);
   Tensor running_var_hpu = create_or_return_tensor_bn(
-      graph, running_var, input.sizes()[3], device, (uint)5);
+      graph, running_var, input.sizes()[channel_dim], device, (uint)5);
 
   pre_inputs = {
       std::move(input),
@@ -929,16 +936,20 @@ void BatchNormBackwardOperator::preProcessInputs(
   Tensor bias_hpu;
 
   auto device = input.device();
+  auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
 
-  create_opt_input_tensor_bn_bwd(graph, weight, input.sizes()[3], device, 2);
   create_opt_input_tensor_bn_bwd(
-      graph, running_mean, input.sizes()[3], device, 3);
+      graph, weight, input.sizes()[channel_dim], device, 2);
   create_opt_input_tensor_bn_bwd(
-      graph, running_var, input.sizes()[3], device, 4);
-  create_opt_input_tensor_bn_bwd(graph, save_mean, input.sizes()[3], device, 5);
+      graph, running_mean, input.sizes()[channel_dim], device, 3);
   create_opt_input_tensor_bn_bwd(
-      graph, save_invstd, input.sizes()[3], device, 6);
-  create_opt_input_tensor_bn_bwd(graph, bias_hpu, input.sizes()[3], device, 7);
+      graph, running_var, input.sizes()[channel_dim], device, 4);
+  create_opt_input_tensor_bn_bwd(
+      graph, save_mean, input.sizes()[channel_dim], device, 5);
+  create_opt_input_tensor_bn_bwd(
+      graph, save_invstd, input.sizes()[channel_dim], device, 6);
+  create_opt_input_tensor_bn_bwd(
+      graph, bias_hpu, input.sizes()[channel_dim], device, 7);
 
   SetProprocessingDone();
 }
@@ -1005,7 +1016,8 @@ void BatchNormBackwardOperator::generateCacheInputs(Stack& inputs) {
 
   auto device = input.device();
 
-  auto opt_tensor = at::empty({input.sizes()[3]}, device);
+  auto opt_tensor =
+      at::empty({input.sizes()[synapse_helpers::layouts::INPUT_C_IDX]}, device);
 
   std::vector<at::Tensor> pt_inputs{
       grad_out,

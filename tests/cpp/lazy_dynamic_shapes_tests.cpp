@@ -2002,3 +2002,79 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   auto current_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
   HABANA_ASSERT(current_recipe_count < actual_recipe_count);
 }
+
+TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
+  int kH = 3;
+  int kW = 3;
+  const int C = 16;
+  const int N = 16;
+  int H = 16;
+  at::Scalar inScalar = 2.0;
+  std::vector<int> in_sizes{16, 32, 64, 128};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+    torch::Tensor in_tensor =
+        torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
+    torch::Tensor gamma =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor beta =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    c10::optional<at::Tensor> mean;
+    torch::Tensor var =
+        torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_var = var.to(torch::kHPU);
+    float mom = 0.1;
+    float eps = 1e-5;
+    auto h_bn_outs = torch::native_batch_norm(
+        h_in_tensor, h_gamma, h_beta, mean, h_var, true, mom, eps);
+    auto bn_outs = torch::native_batch_norm(
+        in_tensor, gamma, beta, mean, var, true, mom, eps);
+    auto h_bn_out = std::get<0>(h_bn_outs);
+    auto bn_out = std::get<0>(bn_outs);
+
+    torch::Tensor out_hpu = h_bn_out.to(torch::kCPU);
+    EXPECT_EQ(allclose(out_hpu, bn_out, 0.01, 0.01), true);
+
+    auto grad_tensor = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    auto tHabanaGrad = grad_tensor.to(torch::kHPU);
+
+    auto save_mean = torch::randn({C}, torch::requires_grad(false));
+    auto tHabanaSaveMean = save_mean.to(torch::kHPU);
+
+    auto save_ivar = torch::randn({C}, torch::requires_grad(false));
+    auto tHabanaSaveIVar = save_ivar.to(torch::kHPU);
+
+    auto results_cpu = torch::native_batch_norm_backward(
+        grad_tensor,
+        in_tensor,
+        gamma,
+        mean,
+        var,
+        save_mean,
+        save_ivar,
+        true,
+        0.1,
+        {true, true, true});
+    at::Tensor result_cpu = std::get<0>(results_cpu);
+
+    auto results = torch::native_batch_norm_backward(
+        tHabanaGrad,
+        h_in_tensor,
+        h_gamma,
+        mean,
+        h_var,
+        tHabanaSaveMean,
+        tHabanaSaveIVar,
+        true,
+        0.1,
+        {true, true, true});
+
+    at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
+    EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+}
