@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-void HpuOpTestUtil::Compare(
+void HpuOpTestUtilBase::Compare(
     const torch::Tensor& cpu_result,
     const torch::Tensor& hpu_result,
     double rtol,
@@ -41,7 +41,7 @@ void HpuOpTestUtil::Compare(
   }
 }
 
-void HpuOpTestUtil::GenerateInputs(
+void HpuOpTestUtilBase::GenerateInputs(
     int num_inputs,
     torch::ArrayRef<torch::IntArrayRef> sizes_,
     torch::ArrayRef<torch::ScalarType> dtypes_) {
@@ -84,7 +84,7 @@ void HpuOpTestUtil::GenerateInputs(
   }
 }
 
-void HpuOpTestUtil::GenerateIntInputs(
+void HpuOpTestUtilBase::GenerateIntInputs(
     int num_inputs,
     torch::ArrayRef<torch::IntArrayRef> sizes,
     int low,
@@ -102,7 +102,7 @@ void HpuOpTestUtil::GenerateIntInputs(
 }
 
 template <>
-int HpuOpTestUtil::GenerateScalar(
+int HpuOpTestUtilBase::GenerateScalar(
     c10::optional<int> min,
     c10::optional<int> max) const {
   std::uniform_int_distribution<> dist(min.value_or(-127), max.value_or(128));
@@ -110,7 +110,7 @@ int HpuOpTestUtil::GenerateScalar(
 }
 
 template <>
-bool HpuOpTestUtil::GenerateScalar(
+bool HpuOpTestUtilBase::GenerateScalar(
     c10::optional<bool> min,
     c10::optional<bool> max) const {
   std::bernoulli_distribution dist;

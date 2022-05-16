@@ -4,7 +4,6 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, lerp_scalar) {
   GenerateInputs(2, {{1}, {4, 8}});
-  SetSeed();
   int weight = 1;
 
   auto expected = torch::lerp(GetCpuInput(0), GetCpuInput(1), weight);
@@ -51,7 +50,6 @@ TEST_F(HpuOpTest, lerp_tensor_out) {
 
 TEST_F(HpuOpTest, lerp_scalar_) {
   GenerateInputs(2);
-  SetSeed();
   const int weight = 1;
 
   GetCpuInput(0).lerp_(GetCpuInput(1), weight);
@@ -62,7 +60,6 @@ TEST_F(HpuOpTest, lerp_scalar_) {
 
 TEST_F(HpuOpTest, lerp_tensor_) {
   GenerateInputs(3);
-  SetSeed();
 
   GetCpuInput(0).lerp_(GetCpuInput(1), GetCpuInput(2));
   GetHpuInput(0).lerp_(GetHpuInput(1), GetHpuInput(2));

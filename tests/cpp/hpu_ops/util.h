@@ -13,7 +13,7 @@
 #include <torch/torch.h>
 #include <random>
 
-class HpuOpTestUtil : public habana_lazy_test::LazyTest {
+class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
  public:
   void Compare(
       const torch::Tensor& cpu_result,
@@ -80,18 +80,27 @@ class HpuOpTestUtil : public habana_lazy_test::LazyTest {
 };
 
 template <typename T>
-T HpuOpTestUtil::GenerateScalar(c10::optional<T> min, c10::optional<T> max)
+T HpuOpTestUtilBase::GenerateScalar(c10::optional<T> min, c10::optional<T> max)
     const {
   std::uniform_real_distribution<T> dist(min.value_or(-127), max.value_or(128));
   return dist(m_mt);
 }
 
 template <>
-int HpuOpTestUtil::GenerateScalar(
+int HpuOpTestUtilBase::GenerateScalar(
     c10::optional<int> min,
     c10::optional<int> max) const;
 
 template <>
-bool HpuOpTestUtil::GenerateScalar(
+bool HpuOpTestUtilBase::GenerateScalar(
     c10::optional<bool> min,
     c10::optional<bool> max) const;
+
+class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
+  void SetUp() override {
+    DisableCpuFallback();
+  }
+  void TearDown() override {
+    RestoreMode();
+  }
+};

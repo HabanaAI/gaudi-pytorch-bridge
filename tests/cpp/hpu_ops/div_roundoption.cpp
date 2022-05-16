@@ -12,9 +12,9 @@
 
 // Limits for generated values of variants of Int
 #define MIN_INT_VALUE_GENERATED -360
-#define MAX_INT_VALUE_GENERATED 360
+#define MAX_INT_VALUE_GENERATED -1
 
-#define MIN_INT8_VALUE_GENERATED -50
+#define MIN_INT8_VALUE_GENERATED 1
 #define MAX_INT8_VALUE_GENERATED 50
 
 class HpuOpTest : public HpuOpTestUtil {};

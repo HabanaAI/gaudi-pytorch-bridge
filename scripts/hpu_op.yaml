@@ -1,13 +1,357 @@
-_foreach_abs_:
-  inplace_ids: [0]
-  guid: abs
-  op_backend: Foreach
-
 _foreach_abs:
-  out_ids: [0]
-  guid: abs
+  dtypes: [BFloat16, Float]
+  guid: abs_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_abs_:
+  dtypes: [BFloat16, Float]
+  guid: abs_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_acos:
+  dtypes: [Float]
+  guid: acos_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_acos_:
+  dtypes: [Float]
+  guid: acos_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_asin:
+  dtypes: [Float]
+  guid: asin_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_asin_:
+  dtypes: [Float]
+  guid: asin_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_atan:
+  dtypes: [Float]
+  guid: atan_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_atan_:
+  dtypes: [Float]
+  guid: atan_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_ceil:
+  dtypes: [BFloat16, Float]
+  guid: ceil_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_ceil_:
+  dtypes: [BFloat16, Float]
+  guid: ceil_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_cos:
+  guid: cos_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_cos_:
+  dtypes: [BFloat16, Float]
+  guid: cos_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_cosh:
+  dtypes: [Float]
+  guid: cosh_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_cosh_:
+  dtypes: [Float]
+  guid: cosh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_erf:
+  dtypes: [BFloat16, Float]
+  guid: erf_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_erf_:
+  dtypes: [BFloat16, Float]
+  guid: erf_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+#_foreach_erfc:
+#  guid: erfc_fwd
+#  op_backend: Foreach
+#  op_frontend: ForeachFE
+#  out_ids: [0]
+#
+#_foreach_erfc_:
+#  guid: erfc_fwd
+#  inplace_ids: [0]
+#  op_backend: Foreach
+
+_foreach_exp:
+  dtypes: [BFloat16, Float]
+  guid: exp_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_exp_:
+  dtypes: [BFloat16, Float]
+  guid: exp_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_expm1:
+  dtypes: [Float]
+  guid: expm1_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_expm1_:
+  dtypes: [Float]
+  guid: expm1_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_floor:
+  dtypes: [BFloat16, Float]
+  guid: floor_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_floor_:
+  dtypes: [BFloat16, Float]
+  guid: floor_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+#_foreach_frac:
+#  guid: frac_fwd
+#  op_backend: Foreach
+#  op_frontend: ForeachFE
+#  out_ids: [0]
+#
+#_foreach_frac_:
+#  guid: frac_fwd
+#  inplace_ids: [0]
+#  op_backend: Foreach
+#
+#_foreach_lgamma:
+#  guid: lgamma_fwd
+#  op_backend: Foreach
+#  op_frontend: ForeachFE
+#  out_ids: [0]
+#
+#_foreach_lgamma_:
+#  guid: lgamma_fwd
+#  inplace_ids: [0]
+#  op_backend: Foreach
+
+_foreach_log:
+  dtypes: [BFloat16, Float]
+  guid: log_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_log_:
+  dtypes: [BFloat16, Float]
+  guid: log_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+#_foreach_log10:
+#  guid: log10_fwd
+#  op_backend: Foreach
+#  op_frontend: ForeachFE
+#  out_ids: [0]
+#
+#_foreach_log10_:
+#  guid: log10_fwd
+#  inplace_ids: [0]
+#  op_backend: Foreach
+
+_foreach_log1p:
+  dtypes: [BFloat16, Float]
+  guid: log1p_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_log1p_:
+  dtypes: [BFloat16, Float]
+  guid: log1p_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_log2:
+  dtypes: [BFloat16, Float]
+  guid: log2_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_log2_:
+  dtypes: [BFloat16, Float]
+  guid: log2_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_neg:
+  dtypes: [BFloat16, Float, Int]
+  guid: neg_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_neg_:
+  dtypes: [BFloat16, Float, Int]
+  guid: neg_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_reciprocal:
+  dtypes: [BFloat16, Float]
+  guid: reciprocal_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_reciprocal_:
+  dtypes: [BFloat16, Float]
+  guid: reciprocal_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_round:
+  dtypes: [BFloat16, Float]
+  guid: round_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_round_:
+  dtypes: [BFloat16, Float]
+  guid: round_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_sigmoid:
+  dtypes: [BFloat16, Float]
+  guid: sigmoid_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_sigmoid_:
+  dtypes: [BFloat16, Float]
+  guid: sigmoid_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_sin:
+  dtypes: [BFloat16, Float]
+  guid: sin_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_sin_:
+  dtypes: [BFloat16, Float]
+  guid: sin_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_sinh:
+  dtypes: [Float]
+  guid: sinh_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_sinh_:
+  dtypes: [Float]
+  guid: sinh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_sqrt:
+  dtypes: [BFloat16, Float]
+  guid: sqrt_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_sqrt_:
+  dtypes: [BFloat16, Float]
+  guid: sqrt_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_tan:
+  dtypes: [Float]
+  guid: tan_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_tan_:
+  dtypes: [Float]
+  guid: tan_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_tanh:
+  dtypes: [BFloat16, Float]
+  guid: tanh_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_tanh_:
+  dtypes: [BFloat16, Float]
+  guid: tanh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_trunc:
+  dtypes: [BFloat16, Float]
+  guid: trunc_fwd
+  op_backend: Foreach
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_trunc_:
+  dtypes: [BFloat16, Float]
+  guid: trunc_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
 
 abs.out:
   dtypes: [BFloat16, Float]
