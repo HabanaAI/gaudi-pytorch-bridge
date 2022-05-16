@@ -308,7 +308,7 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_DEFRAGMENTATION_INFO, bool, false);
 // Option to pass layouts handling to new flow, which will be handled by Syanpse
 // No more need to permute layouts/weight via jit optimization passes.
 // All will be handled via Synapse
-ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_FCD_STRIDE_OPT, bool, true);
 
 // Option to enable numeric limits check for CPU tensors when downcasting
