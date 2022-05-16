@@ -3,6 +3,12 @@ _foreach_abs_:
   guid: abs
   op_backend: Foreach
 
+_foreach_abs:
+  out_ids: [0]
+  guid: abs
+  op_backend: Foreach
+  op_frontend: ForeachFE
+
 abs.out:
   dtypes: [BFloat16, Float]
   guid: abs_fwd

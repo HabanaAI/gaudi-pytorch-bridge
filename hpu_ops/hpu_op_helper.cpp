@@ -191,7 +191,23 @@ void OpBackend::HandleFn(
     return;
   }
 
+  std::vector<at::Tensor> tensors;
   const auto& outshapes = ComputeOutputShapes(stack, true);
+
+  for (int res_id : m_res_ids) {
+    at::IValue ival = stack.at(res_id);
+    if (ival.isTensor()) {
+      tensors.emplace_back(ival.toTensor());
+    } else if (ival.isTensorList()) {
+      const auto& list = ival.toTensorList();
+      tensors.insert(tensors.end(), list.begin(), list.end());
+    } else {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          false,
+          "Result type can be only tensor or a list of tensors but got ",
+          ival.tagKind());
+    }
+  }
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       outshapes.empty() || outshapes.size() == m_output_metadata.size(),
@@ -201,22 +217,14 @@ void OpBackend::HandleFn(
       outshapes.size());
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      m_res_ids.size() == m_output_metadata.size(),
+      tensors.size() == m_output_metadata.size(),
       "Num outputs defined (",
       m_res_ids.size(),
       ") as out_ids is not matching with actual num outputs (",
       m_output_metadata.size());
-  for (unsigned i = 0; i < m_output_metadata.size(); ++i) {
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        stack.at(m_res_ids.at(i)).isTensor(),
-        "Index in out_ids[",
-        i,
-        "] is incorrect, got ",
-        stack.at(m_res_ids.at(i)).tagKind(),
-        " instead of Tensor.");
-    // Use sizes of tensor at m_res_id if ComputeOutputShapes() is not
-    // implemented
-    const auto& t = stack.at(m_res_ids.at(i)).toTensor();
+
+  int i = 0;
+  for (const at::Tensor& t : tensors) {
     const auto& dtype = m_promote_type or m_promote_int_to_float
         ? ComputePromotedScalarType(stack, true)
         : t.scalar_type();
@@ -227,7 +235,7 @@ void OpBackend::HandleFn(
         outshape,
         t.options().dtype(dtype),
         m_output_metadata.at(i).persistent);
-    AllocateSynapseOutput(graph, output, m_output_metadata.at(i));
+    AllocateSynapseOutput(graph, output, m_output_metadata.at(i++));
   }
 }
 

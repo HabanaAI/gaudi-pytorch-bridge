@@ -437,6 +437,30 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
+      type
+      call() {
+    const auto& tensors = get_result_overrideable();
+    const auto& node = create_node();
+    int i = 0;
+
+    for (const auto& tensor : tensors) {
+      auto hl_result = GetHbLazyTensor(tensor);
+      hl_result.CurrentIrValue().SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional(),
+          i++);
+      updateDstDependencies(hl_result, tensor, false);
+    }
+    runSBS(tensors);
+    flush_op(tensors);
+
+    return tensors;
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
