@@ -1753,7 +1753,8 @@ Tensor convolution_hpu_lazy(
       : true;
   if (weight_hwck.device().type() == c10::DeviceType::CPU &&
       (!habana_lazy::exec::OptPassCfg::GetInstance()
-            ->IsEnabledWeightPermutePass())) {
+            ->IsEnabledWeightPermutePass()) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     auto is_5d_layout = weight_hwck.dim() == 5;
     c10::MemoryFormat memory_format = is_5d_layout
         ? c10::MemoryFormat::ChannelsLast3d
