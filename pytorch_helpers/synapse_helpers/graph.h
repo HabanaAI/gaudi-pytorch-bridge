@@ -28,15 +28,6 @@
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/synapse_error.h"
 
-namespace absl {
-template <typename... Ts>
-class variant;
-} // namespace absl
-namespace synapse_helpers {
-class device;
-class tensor;
-} // namespace synapse_helpers
-
 #define UNUSED __attribute__((unused))
 
 namespace synapse_helpers {

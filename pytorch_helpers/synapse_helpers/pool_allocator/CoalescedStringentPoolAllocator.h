@@ -85,11 +85,11 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
-  size_t allocated_size(const void* ptr) const;
-  std::vector<std::pair<void*, size_t>> get_memory_info() const;
-  std::pair<void*, size_t> get_tail_chunk_info() const;
-  std::tuple<void*, size_t, size_t> get_small_alloc_info() const;
-  bool is_memory_available(size_t size) const;
+  size_t allocated_size(const void* ptr) const override;
+  std::vector<std::pair<void*, size_t>> get_memory_info() const override;
+  std::pair<void*, size_t> get_tail_chunk_info() const override;
+  std::tuple<void*, size_t, size_t> get_small_alloc_info() const override;
+  bool is_memory_available(size_t size) const override;
 
  private:
   struct chunkcompare {

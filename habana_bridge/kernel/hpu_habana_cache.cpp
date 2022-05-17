@@ -1590,8 +1590,9 @@ void DiskCache::Add(
       GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_DUMP_DEBUG);
   if (dump_debug_info) {
     static int debug_id = 0;
-    std::string recipe_name =
-        valSpec.recipe ? valSpec.recipe->recipe_name_ : "recipe " + debug_id++;
+    std::string recipe_name = valSpec.recipe
+        ? valSpec.recipe->recipe_name_
+        : "recipe " + std::to_string(debug_id++);
     std::string hash_content_filepath = recipe_cache_.get_cache_path() + "/" +
         hashCode + cache_id_suffix_ + "_" + recipe_name + ".hash_content";
     std::ofstream hash_content_file(hash_content_filepath.c_str());

@@ -30,7 +30,7 @@
 #include "pytorch_helpers/synapse_helpers/time_slot.h"
 
 namespace habana {
-class RecipeValueSpec;
+struct RecipeValueSpec;
 }
 
 namespace habana_helpers {
@@ -384,7 +384,6 @@ class Bucket {
 
   uint64_t token_{uninitialized_token};
   size_t idx_{0};
-  size_t parent_idx_{ULONG_MAX};
   size_t recipe_key_{0};
   bool is_first_launch_{true};
 

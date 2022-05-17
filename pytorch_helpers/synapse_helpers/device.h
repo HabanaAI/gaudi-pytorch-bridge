@@ -40,11 +40,6 @@
 #include "synapse_helpers/stream_event_manager.h"
 #include "synapse_helpers/synapse_error.h"
 
-namespace absl {
-template <typename... Ts>
-class variant;
-} // namespace absl
-
 namespace synapse_helpers {
 std::string get_mem_str(size_t nbytes);
 

@@ -473,8 +473,6 @@ struct HandleMover {
           " dst_end_addr::",
           dst_end_addr);
       size_t size_base = dst_end_addr - src_base_addr;
-      src_base_addr = src_base_addr;
-      dst_base_addr = dst_base_addr;
 
       auto status = synMemCopyAsync(
           dev.get_device_to_device_stream(),

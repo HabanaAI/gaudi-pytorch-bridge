@@ -36,6 +36,8 @@ class SBSInterface {
   static size_t getNumberOfTensorCopies();
   static void reset();
 
+  virtual ~SBSInterface() = default;
+
   virtual void populateInputForCPUOp(
       const std::vector<at::IValue>& inputs,
       const ir::MetaData& metadata,
@@ -83,7 +85,7 @@ class SBSDisabledOp : public SBSInterface {
 
 class SBSRunner : public SBSInterface {
  public:
-  SBSRunner(SBSTensorIndexSet disabled_output_tensors = {})
+  explicit SBSRunner(SBSTensorIndexSet disabled_output_tensors = {})
       : m_disabled_output_tensors(disabled_output_tensors) {}
 
   void populateInputForCPUOp(
@@ -130,7 +132,7 @@ class SBSRunner : public SBSInterface {
 
 class SBSPermutable : public SBSRunner {
  public:
-  SBSPermutable(size_t index_to_permute)
+  explicit SBSPermutable(size_t index_to_permute)
       : SBSRunner(), m_index_to_permute(index_to_permute) {}
 
  protected:

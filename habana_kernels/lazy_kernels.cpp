@@ -4263,12 +4263,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
               {},
               -1),
           dY{std::move(dY)},
-          X{std::move(X)},
           normalized_shape{std::move(normalized_shape)},
-          mean{std::move(mean)},
-          rstd{std::move(rstd)},
           weight_opt{std::move(weight_opt)},
-          bias_opt{std::move(bias_opt)},
           grad_input_mask{std::move(grad_input_mask)} {}
 
    private:
@@ -4289,12 +4285,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       return std::make_tuple(result_dY, result2, result3);
     }
     const at::Tensor& dY;
-    const at::Tensor& X;
     IntArrayRef normalized_shape;
-    const at::Tensor& mean;
-    const at::Tensor& rstd;
     const c10::optional<Tensor>& weight_opt;
-    const c10::optional<Tensor>& bias_opt;
     std::array<bool, 3> grad_input_mask;
   };
 

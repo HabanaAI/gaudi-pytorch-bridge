@@ -53,7 +53,7 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<int64_t> reshape_outshape = {reshape_size};
 
   auto reshaped_inp = ReshapeHelper(
-      graph, {syn_in(index_of_self)}, reshape_outshape, ScalarType());
+      graph, syn_in(index_of_self), reshape_outshape, ScalarType());
 
   std::vector<int64_t> topk_outshape;
   topk_outshape = {self.numel()};
@@ -85,7 +85,7 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto output_shape = MedianOutputShape(stack)[0];
   auto median_output = ReshapeHelper(
-      graph, {median_value[0].get()}, output_shape, ScalarType(), 0);
+      graph, median_value[0].get(), output_shape, ScalarType(), 0);
   syn_out(0) = std::move(median_output);
 }
 
@@ -148,10 +148,10 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     auto output_shape = MediandimOutputShape(stack)[0];
     auto reshaped_median_value = ReshapeHelper(
-        graph, {median_value[0].get()}, output_shape, ScalarType(), 0);
+        graph, median_value[0].get(), output_shape, ScalarType(), 0);
 
     auto reshaped_median_index = ReshapeHelper(
-        graph, {median_index[0].get()}, output_shape, ScalarType(), 1);
+        graph, median_index[0].get(), output_shape, ScalarType(), 1);
 
     syn_out(0) = std::move(reshaped_median_value);
     syn_out(1) = std::move(reshaped_median_index);

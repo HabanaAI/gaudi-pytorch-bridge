@@ -26,7 +26,9 @@ enum class MemoryState { FREE, IN_USE, FIXED };
 
 struct MemoryBlock {
   MemoryBlock() = default;
-  MemoryBlock(const MemoryBlock&) = default;
+  ~MemoryBlock() = default;
+  MemoryBlock(const MemoryBlock& other);
+  MemoryBlock& operator=(const MemoryBlock& other);
 
   MemoryBlock(
       MemoryState state,

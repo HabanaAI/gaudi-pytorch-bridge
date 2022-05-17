@@ -497,8 +497,7 @@ inline bool device::copy_data_to_device_(
   unsigned attempt = 0;
   std::shared_ptr<device_ptr_lock> locked;
   do {
-    locked = std::make_shared<device_ptr_lock>(
-        std::move(lock_addresses(destination)));
+    locked = std::make_shared<device_ptr_lock>(lock_addresses(destination));
     status = synMemCopyAsync(
         stream_h2d_,
         reinterpret_cast<uint64_t>(mapped_cpu_data),
@@ -631,8 +630,7 @@ synapse_error device::copy_data_to_device(
   }
 
   unsigned attempt = 0;
-  auto locked =
-      std::make_shared<device_ptr_lock>(std::move(lock_addresses(dsts)));
+  auto locked = std::make_shared<device_ptr_lock>(lock_addresses(dsts));
   HABANA_ASSERT(
       transfers.size() ==
       std::size_t(std::distance(locked->begin(), locked->end())));
@@ -715,8 +713,7 @@ synapse_error device::copy_data_to_host(
   unsigned attempt = 0;
   std::shared_ptr<device_ptr_lock> locked;
   do {
-    locked = std::make_shared<device_ptr_lock>(
-        std::move(lock_addresses(device_data)));
+    locked = std::make_shared<device_ptr_lock>(lock_addresses(device_data));
     status = synMemCopyAsync(
         stream_d2h_,
         locked->at(0),
@@ -781,8 +778,8 @@ synapse_error device::copy_data_within_device(
   synStatus status;
 
   sem_.enqueue_wait_event(src_event_addr, stream_d2d_);
-  auto locked = std::make_shared<device_ptr_lock>(
-      std::move(lock_addresses(source, destination)));
+  auto locked =
+      std::make_shared<device_ptr_lock>(lock_addresses(source, destination));
   status = synMemCopyAsync(
       stream_d2d_,
       locked->at(0),
@@ -820,8 +817,8 @@ synapse_error device::copy_data_within_device(
     dsts_event_addr[i] = transfers[i].dst_event_addr;
   }
 
-  auto locked = std::make_shared<device_ptr_lock>(
-      std::move(lock_addresses(all_addresses)));
+  auto locked =
+      std::make_shared<device_ptr_lock>(lock_addresses(all_addresses));
   HABANA_ASSERT(
       transfers.size() * 2 ==
       std::size_t(std::distance(locked->begin(), locked->end())));

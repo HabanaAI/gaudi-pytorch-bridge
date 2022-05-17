@@ -623,7 +623,7 @@ void HandleMultiInputOutput(
     ValuePtrTensorLayoutMap& value_to_tensor_layout) {
   auto node_ins = node->inputs();
   auto node_outs = node->outputs();
-  size_t output_tensor_idx = 0, node_idx = 0;
+  size_t node_idx = 0;
   habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
   habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
   for (const auto value_in : node_ins) {
@@ -668,7 +668,6 @@ void HandleMultiInputOutput(
             habana::LayoutFormat::NCHW;
       }
     }
-    output_tensor_idx++;
   }
 }
 

@@ -31,6 +31,27 @@ static std::string MemoryStateToString(MemoryState state) {
   return {};
 }
 
+MemoryBlock::MemoryBlock(const MemoryBlock& other)
+    : state_{other.state_},
+      handle_{other.handle_},
+      ptr_{other.ptr_},
+      size_{other.size_},
+      actual_size_{other.actual_size_} {}
+
+MemoryBlock& MemoryBlock::operator=(const MemoryBlock& other) {
+  if (this == &other) {
+    return *this;
+  }
+
+  state_ = other.state_;
+  handle_ = other.handle_;
+  ptr_ = other.ptr_;
+  size_ = other.size_;
+  actual_size_ = other.actual_size_;
+
+  return *this;
+}
+
 MemoryBlock::MemoryBlock(
     MemoryState state,
     synapse_helpers::mem_handle::id_t handle,

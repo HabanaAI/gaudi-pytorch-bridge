@@ -366,7 +366,7 @@ class ProfilerSession : public libkineto::IActivityProfilerSession {
     return buf;
   }
 
-  void processTrace(ActivityLogger& logger) {
+  void processTrace(ActivityLogger& logger) override {
     for (const auto& activity : activities_) {
       activity.log(logger);
     }

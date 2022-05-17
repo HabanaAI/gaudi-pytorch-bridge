@@ -156,7 +156,6 @@ void DivRoundModeOperator::AddNode(
     std::unique_ptr<synapse_helpers::tensor> cast[cNoOfInputTensors];
 
     // Convert each tensor to float/bfloat16 (if not already in)
-    std::pair<c10::ScalarType, c10::ScalarType> type_key;
     std::string strNode_type;
 
     for (unsigned char i = 0; i < cNoOfInputTensors; ++i) {
