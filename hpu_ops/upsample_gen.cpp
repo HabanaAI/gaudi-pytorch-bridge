@@ -800,13 +800,14 @@ static std::vector<synapse_helpers::tensor> Resize(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     std::shared_ptr<void> params,
-    size_t size) {
+    size_t size,
+    c10::optional<int> final_index = c10::nullopt) {
   return OpBackend::BuildNode(
       op,
       graph,
       {op->GetGuid(),
        std::move(input),
-       {{outshape, op->ScalarType()}},
+       {{outshape, op->ScalarType(), final_index}},
        params.get(),
        size});
 }
@@ -816,7 +817,8 @@ static std::vector<synapse_helpers::tensor> Slice(
     synapse_helpers::graph& graph,
     int input_size,
     std::vector<synTensor> input,
-    const at::IntArrayRef outshape) {
+    const at::IntArrayRef outshape,
+    c10::optional<int> final_index = c10::nullopt) {
   if (input_size == 3) {
     // 3D inputs are reshaped to 4D inputs
     input_size = 4;
@@ -833,12 +835,13 @@ static std::vector<synapse_helpers::tensor> Slice(
       graph,
       {"slice",
        std::move(input),
-       {{outshape, op->ScalarType()}},
+       {{outshape, op->ScalarType(), final_index}},
        &slice_params,
        sizeof(slice_params)});
 }
-// Upsample Common function
-std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
+
+// Upsample Common function - Old Layout
+std::vector<synapse_helpers::tensor> UpsampleCommonFuncOldLayout(
     OpBackend* op,
     synapse_helpers::graph& graph,
     enum modes upsample_mode,
@@ -933,6 +936,163 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   // Transpose to Pytorch MemLayout
   return Transpose_MemFormat(
       op, graph, variant_type, {resize[0].get()}, outshape, true, 0);
+}
+
+// Upsample Common function - New Layout
+std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    enum modes upsample_mode,
+    bool isForward,
+    std::vector<synTensor> input,
+    const at::IntArrayRef shape_in,
+    c10::IValue out_size,
+    bool align_corners,
+    c10::IValue scales,
+    double scale_w,
+    double scale_h,
+    double scale_d,
+    const at::IntArrayRef outshape,
+    const int variant_type) {
+  std::vector<int64_t> out_shape_temp(shape_in.begin(), shape_in.end());
+  std::vector<synTensor> reshaped_input(std::move(input));
+  std::vector<synapse_helpers::tensor> reshape;
+
+  // Reshape - 1D varaints only
+  // N,C,W to N,C,H,W where H=2
+  if (variant_type == 3) {
+    out_shape_temp = {
+        shape_in[0], shape_in[1], static_cast<int64_t>(1), shape_in[2]};
+    reshape.emplace_back(OpBackend::BuildReshape(
+        op, graph, reshaped_input[0], out_shape_temp, op->ScalarType()));
+    reshaped_input[0] = reshape[0].get();
+  }
+  // Resize
+  // modify input width value with output width value
+  // when both size and scale is provided with align_corners=false
+  bool modifyInputWithOutputWidth =
+      isForward && !align_corners && (!out_size.isNone() && !scales.isNone());
+  if (modifyInputWithOutputWidth) {
+    if (variant_type == 3) { // 1D
+      out_shape_temp.at(3) = static_cast<int64_t>(shape_in[2] * scale_w);
+    } else if (variant_type == 5) { // 3D
+      out_shape_temp.at(2) = static_cast<int64_t>(shape_in[2] * scale_d);
+      out_shape_temp.at(3) = static_cast<int64_t>(shape_in[3] * scale_h);
+      out_shape_temp.at(4) = static_cast<int64_t>(shape_in[4] * scale_w);
+    }
+  } else {
+    if (variant_type == 3) { // 1D
+      out_shape_temp.at(3) = outshape.at(2);
+    } else if (variant_type == 5) { // 3D
+      out_shape_temp.at(1) = outshape.at(1);
+      out_shape_temp.at(2) = outshape.at(2);
+      out_shape_temp.at(3) = outshape.at(3);
+    }
+  }
+  size_t size = 0;
+  const auto& params = FillResizeParams(
+      variant_type,
+      size,
+      upsample_mode,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners);
+  auto final_index_for_resize = modifyInputWithOutputWidth || variant_type == 3
+      ? c10::optional<int>()
+      : c10::optional<int>(0);
+  auto resize = Resize(
+      op,
+      graph,
+      reshaped_input,
+      out_shape_temp,
+      params,
+      size,
+      final_index_for_resize);
+  // Slice
+  // For Fwd ops, when both size and scale is provided with align_corners=false
+  if (modifyInputWithOutputWidth) {
+    std::vector<int64_t> slice_shape(outshape.begin(), outshape.end());
+    if (variant_type == 3) { // 1D
+      // NCHW
+      slice_shape = {shape_in[0], shape_in[1], 1 /*H*/, outshape.at(2)};
+    }
+    auto final_index_for_slice =
+        variant_type == 3 ? c10::optional<int>() : c10::optional<int>(0);
+    resize = Slice(
+        op,
+        graph,
+        variant_type,
+        {resize[0].get()},
+        slice_shape,
+        final_index_for_slice);
+  };
+
+  // Reshape - 1D variants only
+  // N,C,H,W to N,C,W where H=2
+  if (variant_type == 3) {
+    resize.front() = OpBackend::BuildReshape(
+        op, graph, resize[0].get(), outshape, op->ScalarType(), 0);
+  }
+  return resize;
+}
+
+// Upsample Common function
+std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    enum modes upsample_mode,
+    bool isForward,
+    std::vector<synTensor> input,
+    const at::IntArrayRef shape_in,
+    c10::IValue out_size,
+    bool align_corners,
+    c10::IValue scales,
+    double scale_w,
+    double scale_h,
+    double scale_d,
+    const at::IntArrayRef outshape,
+    const int variant_type) {
+  PT_LAZY_DEBUG(__FUNCTION__);
+  std::vector<synapse_helpers::tensor> output;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    output = UpsampleCommonFuncSynapseLayout(
+        op,
+        graph,
+        upsample_mode,
+        isForward,
+        input,
+        shape_in,
+        out_size,
+        align_corners,
+        scales,
+        scale_w,
+        scale_h,
+        scale_d,
+        outshape,
+        variant_type);
+  }
+  //! PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
+  else {
+    output = UpsampleCommonFuncOldLayout(
+        op,
+        graph,
+        upsample_mode,
+        isForward,
+        input,
+        shape_in,
+        out_size,
+        align_corners,
+        scales,
+        scale_w,
+        scale_h,
+        scale_d,
+        outshape,
+        variant_type);
+  }
+  return output;
 }
 
 // AddNode FWD 1D Linear function

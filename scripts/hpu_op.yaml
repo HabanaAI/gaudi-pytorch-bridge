@@ -2987,15 +2987,17 @@ upsample_bicubic2d:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_bicubic2d.out:
-#   custom_fill_params: FillBicubicFwdParams
-#   custom_output_shape: UpsampleBicubic2DFwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_fwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_bicubic2d.out:
+  custom_fill_params: FillBicubicFwdParams
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_bicubic2d.vec:
   force_default: false
@@ -3025,15 +3027,17 @@ upsample_bicubic2d_backward:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_bicubic2d_backward.grad_input:
-#   custom_fill_params: FillBicubicBwdParams
-#   custom_output_shape: UpsampleBicubic2DBwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_bwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_bicubic2d_backward.grad_input:
+  custom_fill_params: FillBicubicBwdParams
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_bicubic2d_backward.vec:
   force_default: false
@@ -3063,15 +3067,17 @@ upsample_bilinear2d:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_bilinear2d.out:
-#   custom_fill_params: FillBilinearFwdParams
-#   custom_output_shape: UpsampleBilinear2DFwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_fwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_bilinear2d.out:
+  custom_fill_params: FillBilinearFwdParams
+  custom_output_shape: UpsampleBilinear2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_bilinear2d.vec:
   force_default: false
@@ -3101,15 +3107,17 @@ upsample_bilinear2d_backward:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_bilinear2d_backward.grad_input:
-#   custom_fill_params: FillBilinearBwdParams
-#   custom_output_shape: UpsampleBilinear2DBwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_bwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_bilinear2d_backward.grad_input:
+  custom_fill_params: FillBilinearBwdParams
+  custom_output_shape: UpsampleBilinear2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_bilinear2d_backward.vec:
   force_default: false
@@ -3131,6 +3139,9 @@ upsample_linear1d:
   dtypes: [BFloat16, Float]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_linear1d.out:
@@ -3138,6 +3149,9 @@ upsample_linear1d.out:
   dtypes: [BFloat16, Float]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_linear1d.vec:
   force_default: false
@@ -3146,6 +3160,9 @@ upsample_linear1d.vec:
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   out_ids: [0]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_linear1d_backward:
   force_default: false
@@ -3154,12 +3171,18 @@ upsample_linear1d_backward:
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
   out_ids: [0]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_linear1d_backward.grad_input:
   custom_output_shape: UpsampleLinear1DBwdOutputShape
   dtypes: [BFloat16, Float]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_linear1d_backward.vec:
   force_default: false
@@ -3167,6 +3190,9 @@ upsample_linear1d_backward.vec:
   dtypes: [BFloat16, Float]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_nearest1d:
@@ -3175,6 +3201,9 @@ upsample_nearest1d:
   dtypes: [BFloat16, Float]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_nearest1d.out:
@@ -3182,6 +3211,9 @@ upsample_nearest1d.out:
   dtypes: [BFloat16, Float]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_nearest1d.vec:
   force_default: false
@@ -3189,6 +3221,9 @@ upsample_nearest1d.vec:
   dtypes: [BFloat16, Float]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_nearest1d_backward:
@@ -3197,6 +3232,9 @@ upsample_nearest1d_backward:
   dtypes: [BFloat16, Float]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_nearest1d_backward.grad_input:
@@ -3204,6 +3242,9 @@ upsample_nearest1d_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_nearest1d_backward.vec:
   force_default: false
@@ -3211,6 +3252,9 @@ upsample_nearest1d_backward.vec:
   dtypes: [BFloat16, Float]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
   out_ids: [0]
 
 upsample_nearest2d:
@@ -3227,15 +3271,17 @@ upsample_nearest2d:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_nearest2d.out:
-#   custom_fill_params: FillNearestFwdParams
-#   custom_output_shape: UpsampleNearest2DFwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_fwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_nearest2d.out:
+  custom_fill_params: FillNearestFwdParams
+  custom_output_shape: UpsampleNearest2DFwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_nearest2d_backward:
   force_default: false
@@ -3251,15 +3297,17 @@ upsample_nearest2d_backward:
   - [WHCN]
   out_ids: [0]
 
-# Due to this Issue https://jira.habana-labs.com/browse/SW-77788 the following op is commented
-# upsample_nearest2d_backward.grad_input:
-#   custom_fill_params: FillNearestBwdParams
-#   custom_output_shape: UpsampleNearest2DBwdOutputShape
-#   dtypes: [BFloat16, Float]
-#   guid: resize_bwd
-#   layouts:
-#   - [NHWC, NCHW]
-#   - [NHWC]
+upsample_nearest2d_backward.grad_input:
+  custom_fill_params: FillNearestBwdParams
+  custom_output_shape: UpsampleNearest2DBwdOutputShape
+  dtypes: [BFloat16, Float]
+  guid: resize_bwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
 
 upsample_nearest3d.out:
   custom_output_shape: UpsampleNearest3DFwdOutputShape
