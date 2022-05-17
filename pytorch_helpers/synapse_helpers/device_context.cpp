@@ -38,7 +38,12 @@ device_context::device_context(int device_id) {
   open_device(device_id);
 }
 
-device_context::~device_context() {}
+device_context::~device_context() {
+  if (device_) {
+    device_->cleanup();
+    device_ = nullptr;
+  }
+}
 
 hcclResult_t device_context::open_device(int device_id) {
   PT_DISTRIBUTED_DEBUG(

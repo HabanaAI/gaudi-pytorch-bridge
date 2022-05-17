@@ -340,6 +340,7 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 
 void ProcessGroupHCCL::destroy() {
   hostBarrier();
+  device_contexts_.clear();
   std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
   auto worker_count = store_->add(barrier_key, 1);
   if (getRank() == 0) {
