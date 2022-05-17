@@ -2923,9 +2923,6 @@ Tensor& hpu_wrap::cat_out(
   }
 };
 Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      transpose, PARAMS1(self), PARAMS2(self, dim0_, dim1_), int)
-
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return transpose_hpu_lazy(self, dim0_, dim1_);
 
@@ -2935,8 +2932,6 @@ Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 };
 
 Tensor hpu_wrap::t(const Tensor& self) {
-  FALLBACK_IF_UNSUPPORTED_OP(t, PARAMS1(self), PARAMS2(self))
-
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return t_hpu_lazy(self);
 
