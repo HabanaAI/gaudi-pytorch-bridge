@@ -30,7 +30,8 @@ enum StrideOPType {
   kStridedOpT,
   kStridedOpPermute,
   kStridedOpSqueeze,
-  kStridedOpUnsqueeze
+  kStridedOpUnsqueeze,
+  kStridedOpExpand
 };
 
 struct StridedOpSliceParams {
@@ -48,10 +49,16 @@ struct StridedOpTransposeParams {
 struct StridedOpSqueezeParams {
   int64_t dim;
 };
+
+struct StridedOpExpandParams {
+  bool implicit = false;
+};
+
 union OpParams {
   StridedOpSliceParams slice_param;
   StridedOpTransposeParams transpose_param;
   StridedOpSqueezeParams squeeze_param;
+  StridedOpExpandParams expand_param;
   OpParams(){};
 };
 

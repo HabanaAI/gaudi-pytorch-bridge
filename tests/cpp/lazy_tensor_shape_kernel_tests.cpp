@@ -1565,3 +1565,114 @@ TEST_F(LazyTensorShapeKernelTest, TriuInplaceTest) {
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest1) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  torch::Tensor input = torch::randn({3, 1});
+  torch::Tensor h_input = input.to(torch::kHPU);
+
+  torch::Tensor A = input.expand({3, 4});
+  torch::Tensor AT = torch::transpose(A, 1, 0);
+  auto Asplit = torch::split(A, 2, 1);
+  torch::Tensor AView = input.view(-1);
+  torch::Tensor A1 = AView.add_(2.0);
+
+  torch::Tensor hA = h_input.expand({3, 4});
+  torch::Tensor hAT = torch::transpose(hA, 1, 0);
+  auto hAsplit = torch::split(hA, 2, 1);
+  torch::Tensor hAView = h_input.view(-1);
+  torch::Tensor hA1 = hAView.add_(2.0);
+
+  std::vector<at::Tensor> hso;
+  hso.reserve(hAsplit.size());
+  for (const auto& ht : hAsplit) {
+    hso.push_back(ht.to(torch::kCPU));
+  }
+
+  for (size_t i = 0; i < hAsplit.size(); i++) {
+    EXPECT_EQ(allclose(Asplit[i], hso[i]), true);
+  }
+
+  EXPECT_EQ(allclose(A, hA.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(AT, hAT.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(A1, hA1.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest2) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  torch::Tensor input = torch::randn({4, 1});
+  torch::Tensor h_input = input.to(torch::kHPU);
+
+  torch::Tensor Aexp = input.expand({4, 4});
+  torch::Tensor Asel = torch::select(Aexp, 1, 0);
+  torch::Tensor Aadd = Asel.add_(2.0);
+
+  torch::Tensor hAexp = h_input.expand({4, 4});
+  torch::Tensor hAsel = torch::select(hAexp, 1, 0);
+  torch::Tensor hAadd = hAsel.add_(2.0);
+
+  EXPECT_EQ(allclose(Aexp, hAexp.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(Asel, hAsel.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(Aadd, hAadd.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest3) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  torch::Tensor input = torch::randn({4, 2, 2, 2, 1});
+  torch::Tensor h_input = input.to(torch::kHPU);
+
+  torch::Tensor Aexp = input.expand({4, 2, 2, 2, 4});
+  torch::Tensor Asel = torch::select(Aexp, -1, -1);
+  torch::Tensor Aadd = Asel.add_(10.0);
+
+  torch::Tensor hAexp = h_input.expand({4, 2, 2, 2, 4});
+  torch::Tensor hAsel = torch::select(hAexp, -1, -1);
+  torch::Tensor hAadd = hAsel.add_(10.0);
+
+  EXPECT_EQ(allclose(Aexp, hAexp.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(Asel, hAsel.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(Aadd, hAadd.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest4) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  torch::Tensor input = torch::randn({1});
+  torch::Tensor h_input = input.to(torch::kHPU);
+
+  torch::Tensor Aexp = input.expand({0});
+
+  torch::Tensor hAexp = h_input.expand({0});
+
+  EXPECT_EQ(allclose(Aexp, hAexp.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest5) {
+  double rtol = 1e-03;
+  double atol = 1e-03;
+
+  torch::Tensor input = torch::randn({1});
+  torch::Tensor h_input = input.to(torch::kHPU);
+
+  torch::Tensor Aexp = input.expand({0});
+  torch::Tensor Aview = Aexp.view({-1});
+  torch::Tensor Aadd = Aview.add_(10);
+
+  torch::Tensor hAexp = h_input.expand({0});
+  torch::Tensor hAview = hAexp.view({-1});
+  torch::Tensor hAadd = hAview.add_(10);
+
+  EXPECT_EQ(allclose(Aexp, hAexp.to(torch::kCPU), rtol, atol), true);
+  EXPECT_EQ(allclose(input, h_input.to(torch::kCPU), rtol, atol), true);
+}

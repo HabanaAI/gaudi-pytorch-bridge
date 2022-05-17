@@ -163,6 +163,13 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
               t_opt,
               "aten::unsqueeze");
           break;
+        case kStridedOpExpand:
+          add_expand_lazy(
+              recent_orig_t,
+              params.sizes,
+              params.params.expand_param.implicit,
+              t_opt);
+          break;
         case kStridedOpDefault:
           add_asstrided_node = true;
           break;
@@ -622,6 +629,57 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
     // op. step marker will be used at the end
     strided_insert_hpu_lazy(weight, wt_updated, /*is_flush*/ false);
   }
+}
+
+Tensor HbLazyTensorViews::add_expand_lazy(
+    const Tensor& self,
+    std::vector<int64_t> sizes,
+    bool implicit,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+
+  IntArrayRef size_in{sizes};
+  auto size = size_in;
+  std::vector<int64_t> initvec{1};
+  size = (size_in.vec().size() == 0) ? initvec : size_in;
+
+  std::vector<at::Tensor> input_pt_vec;
+  std::vector<int64_t> expandedSizes;
+  std::vector<int64_t> expandedStrides;
+  std::tie(expandedSizes, expandedStrides) =
+      at::inferExpandGeometry(self.sizes(), self.strides(), size);
+
+  // expandedStrides will be set to 0 by inferExpandGeometry.
+  // Since we give back a contiguous tensor, we will set strides
+  // to proper values.
+  habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+
+  auto expand_shape = empty_strided_hpu_lazy(
+      expandedSizes, expandedStrides, self.options(), false, SHAPE_TENSOR);
+
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  hl_self = HandleViewsOrUpdate(self, hl_self);
+  auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
+  auto hl_false = GetIrValueForScalar(implicit);
+
+  ir::NodePtr node = ir::Node::Create(
+      Symbol::fromQualString("hpu::expand"),
+      {hl_self.GetIrValue(), hl_params_shape.GetIrValue(), hl_false});
+
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  input_pt_vec.emplace_back(self);
+  input_pt_vec.emplace_back(expand_shape);
+  node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
+  return result;
 }
 
 } // namespace habana_lazy

@@ -5938,6 +5938,7 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   auto size_vec = size_in.vec();
   auto flattened_size = std::accumulate(
       size_vec.begin(), size_vec.end(), 1, std::multiplies<int64_t>());
+
   if (flattened_size == 0) {
     auto result = empty_hpu_lazy(
         size_in.vec(), self.options(), self.suggest_memory_format(), true);
@@ -5946,59 +5947,27 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
     flush_op(result);
     return result;
   }
-  auto size = size_in;
-  std::vector<int64_t> initvec{1};
-  size = (size_in.vec().size() == 0) ? initvec : size_in;
 
-  std::vector<int64_t> expandedSizes;
-  std::vector<int64_t> expandedStrides;
-  std::tie(expandedSizes, expandedStrides) =
-      at::inferExpandGeometry(self.sizes(), self.strides(), size);
+  auto out = at::native::expand(self, size_in, implicit);
+  auto hl_self = GetHbLazyTensor(self);
+  auto hb_result = GetHbLazyTensor(out);
+  auto self_id = hl_self.getTensorUniqueId();
+  auto out_id = hb_result.getTensorUniqueId();
 
-  // expandedStrides will be set to 0 by inferExpandGeometry.
-  // Since we give back a contiguous tensor, we will set strides
-  // to proper values.
-  habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+  if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
+    auto& strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
+    strided_param.optype = kStridedOpExpand;
+    strided_param.sizes = size_in.vec();
+    StridedOpExpandParams expand_param = {implicit};
+    strided_param.params.expand_param = expand_param;
 
-  std::vector<at::IValue> vector_of_inputs;
-  std::string op_name;
-  ir::NodePtr node;
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    auto expand_shape_tensor = empty_strided_hpu_lazy(
-        expandedSizes, expandedStrides, self.options(), false, SHAPE_TENSOR);
-    op_name = "hpu::expand";
-    vector_of_inputs = {self, expand_shape_tensor, implicit};
-  } else {
-    op_name = "aten::expand";
-    vector_of_inputs = {self, size, implicit};
+    PT_VIEWTABLE_DEBUG(
+        "expand fallback tensor id ",
+        hl_self.getTensorUniqueId(),
+        " sizes ",
+        size_in.vec());
   }
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(
-        const std::vector<int64_t> expandedSizes,
-        const std::vector<int64_t> expandedStrides,
-        const std::string& op_name,
-        const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>(op_name, vector_of_inputs, {}, {}, -1),
-          expandedSizes(expandedSizes),
-          expandedStrides(expandedStrides) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      return empty_strided_hpu_lazy(
-          expandedSizes, expandedStrides, self.options(), false);
-    }
-    std::vector<int64_t> expandedSizes;
-    std::vector<int64_t> expandedStrides;
-  };
-
-  Kernel kernel{expandedSizes, expandedStrides, op_name, vector_of_inputs};
-  return kernel.call();
+  return out;
 }
 
 std::vector<Tensor> split_with_sizes_hpu_lazy(
