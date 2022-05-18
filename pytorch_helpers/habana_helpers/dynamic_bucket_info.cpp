@@ -148,8 +148,21 @@ bool Bucket::IsInRange(
     if (skipped_ranges.find(i) != skipped_ranges.end()) {
       continue;
     }
-    if (dims[i] < ranges_[i].first || ranges_[i].second < dims[i]) {
-      return false;
+
+    if (true == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_ZERO_MIN)) {
+      if ((ranges_[i].first == ranges_[i].second) &&
+          (ranges_[i].first != dims[i])) {
+        return false;
+      }
+      // Since GC assuming min = 0 we just check if input[i] > max
+      // for bucket match
+      if (dims[i] > ranges_[i].second) {
+        return false;
+      }
+    } else {
+      if (dims[i] < ranges_[i].first || ranges_[i].second < dims[i]) {
+        return false;
+      }
     }
   }
   return true;
