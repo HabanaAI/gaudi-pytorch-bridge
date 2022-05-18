@@ -852,9 +852,7 @@ Tensor& addcdiv_hpu_(
 
   // TBD: The following option to not cache the recipe is done
   // till a way to accomodate changing scalar values is found.
-  const string cacheScalarEnvValue = "PT_HPU_CACHE_RECIPE_WITH_SCALAR";
-  const char* cacheValue = getenv(cacheScalarEnvValue.c_str());
-  if (cacheValue && (strncmp(cacheValue, "0", 1) == 0)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_CACHE_RECIPE_WITH_SCALAR)) {
     PT_DEVICE_DEBUG("Caching disabled for ", node_type);
     key = 0;
   } else {

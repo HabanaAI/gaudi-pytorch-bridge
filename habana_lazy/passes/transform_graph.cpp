@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "transform_graph.h"
+#include "synapse_helpers/env_flags.h"
 #include "torch/csrc/jit/passes/subgraph_rewrite.h"
 
 #include <nlohmann/json.hpp>
@@ -133,11 +134,7 @@ Patterns internal_patts = {
       return (%a)"}};
 
 std::string get_transform_graph_file() {
-  if (std::getenv("HABANA_TRANSFORM_GRAPH_FILE")) {
-    return static_cast<std::string>(std::getenv("HABANA_TRANSFORM_GRAPH_FILE"));
-  } else {
-    return {};
-  }
+  return GET_ENV_FLAG_NEW(HABANA_TRANSFORM_GRAPH_FILE);
 }
 
 Pattern make_pattern(const char* p, const char* r) {

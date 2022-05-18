@@ -30,6 +30,7 @@
 #include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
+#include "synapse_helpers/env_flags.h"
 #include "visualize.h"
 
 namespace habana_lazy {
@@ -282,7 +283,7 @@ void HlExec::GetOrCreate(
             mp_g_, input_refs, unique_cntr);
       }};
 
-  if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_CACHE_DISABLE)) {
     PT_LAZY_DEBUG(
         "JIT Cache disabled :: key ",
         m_g_hash_,

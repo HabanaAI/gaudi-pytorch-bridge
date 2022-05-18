@@ -949,7 +949,7 @@ void RecipeValueSpec::update_patching_table(
 
 void RecipeValueSpec::populate_syn_tensor_ids() {
   if (!recipe) {
-    PT_BRIDGE_DEBUG("Empty recipie. No need to retrive tensor ids.");
+    PT_BRIDGE_DEBUG("Empty recipe. No need to retrieve tensor ids.");
     return;
   }
   for (size_t i = 0; i < num_tinfos; ++i) {

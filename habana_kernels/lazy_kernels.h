@@ -1157,7 +1157,7 @@ class LazyOp {
   bool calculate_key_and_check_optimized_lazy_eager_cache(
       size_t& lazy_eager_key) {
     bool IsCached = false;
-    if (!(std::getenv("PT_HPU_LAZY_CACHE_DISABLE"))) {
+    if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_CACHE_DISABLE)) {
       lazy_eager_key = calculate_optimized_lazy_eager_key();
       PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
       if (lazy_eager_key != 0) {

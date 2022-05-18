@@ -34,7 +34,7 @@
 
 #define PGM_LRU_MAX_EAGER_NRECIPES 100000
 #define PGM_LRU_MAX_LAZY_NRECIPES 30000
-#define PGM_LRU_MIN_NRECIPES 3
+#define PGM_LRU_MIN_NRECIPES 3u
 
 namespace habana {
 
@@ -470,9 +470,10 @@ class RecipeCacheLRU {
         max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
       else
         max_size_ = PGM_LRU_MAX_EAGER_NRECIPES;
-      char* smaxsize = getenv("HABANA_PGM_LRU_MAX");
-      if (smaxsize != nullptr) {
-        max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));
+
+      if (IS_ENV_FLAG_DEFINED_NEW(HABANA_PGM_LRU_MAX)) {
+        max_size_ = std::max(
+            PGM_LRU_MIN_NRECIPES, GET_ENV_FLAG_NEW(HABANA_PGM_LRU_MAX));
       }
     }
     return *instance_;
