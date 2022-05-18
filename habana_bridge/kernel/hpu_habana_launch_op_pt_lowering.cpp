@@ -76,9 +76,6 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
 
   output_tensorinfo_map.clear();
 
-  valptr_to_persistent_map.clear();
-  valptr_to_external_map.clear();
-
   pt_to_synapse_tensors.clear();
   meta_syn_tensors.clear();
   buff_to_input_ivpsh_map.clear();

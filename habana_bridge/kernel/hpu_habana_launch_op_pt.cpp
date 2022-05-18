@@ -33,6 +33,7 @@
 
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_bridge/kernel/refinement_engine.h"
+#include "habana_bridge/passes/hpu_habana_persistence_marker_pass.h"
 
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
@@ -128,9 +129,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
     HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
   }
-
-  valptr_to_persistent_map = {};
-  valptr_to_external_map = {};
 
   tensor_dump_numel_ = -2;
 
@@ -239,10 +237,11 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
           " appears in graph output");
     }
     is_persistent = true;
-  } else if (
-      valptr_to_persistent_map.find(value_out) !=
-      valptr_to_persistent_map.end()) {
-    if (valptr_to_persistent_map[value_out]) {
+  } else {
+    is_persistent = persistence_marker_pass_data_ptr_.get()
+        ? persistence_marker_pass_data_ptr_->IsPersistentNode(value_out)
+        : false;
+    if (is_persistent) {
       PT_BRIDGE_DEBUG(
           "Persistent tensor for ",
           node->kind().toQualString(),
@@ -250,22 +249,15 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
           value_out->debugName(),
           " created for an in-place op");
     }
-    is_persistent = valptr_to_persistent_map[value_out];
-  } else {
-    // If no specific flag is set, the mark as false
-    is_persistent = false;
   }
 
   return is_persistent;
 }
 
 bool HabanaLaunchOpPT::IsValueExternal(torch::jit::Value* value) {
-  bool is_external = false;
-  auto is_external_iter = valptr_to_external_map.find(value);
-  if (is_external_iter != valptr_to_external_map.end()) {
-    is_external = is_external_iter->second;
-  }
-  return is_external;
+  return persistence_marker_pass_data_ptr_.get()
+      ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
+      : false;
 }
 
 OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
@@ -690,10 +682,12 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 
       // Validate external flag was set correctly
       const auto& value = output_nodes.at(output_tensor_idx);
-      auto required_external = valptr_to_external_map.find(value);
-      if (required_external != valptr_to_external_map.end()) {
+      bool required_external = persistence_marker_pass_data_ptr_.get()
+          ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
+          : false;
+      if (required_external) {
         HABANA_ASSERT(
-            out_tensor_syn.is_external() == required_external->second,
+            out_tensor_syn.is_external() == required_external,
             "Output ",
             output_tensor_idx,
             " of node ",
@@ -1321,7 +1315,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
   if (is_jit_cached_graph_info_available == false) {
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
+      persistence_marker_pass_data_ptr_ =
+          std::move(PersistenceMarkerPass(this).VisitGraph(jit_ir_graph));
     }
   }
 

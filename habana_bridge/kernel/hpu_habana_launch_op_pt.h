@@ -109,6 +109,9 @@ class PassException : public std::exception {
   std::string m_message;
 };
 
+// Forward declaration
+class PersistenceMarkerPassData;
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(
@@ -127,7 +130,12 @@ class HabanaLaunchOpPT {
 
   static std::unordered_set<std::string> watchlist_;
 
+  static bool isControlEdge(torch::jit::Node* node);
+  c10::ScalarType getNodeScalarType(torch::jit::Node* node);
+
  private:
+  std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
+
   std::string op_name = std::string();
   std::string name = std::string();
   size_t graph_index = 0;
@@ -163,11 +171,6 @@ class HabanaLaunchOpPT {
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
-
-  // A map for value to persistent flag
-  std::unordered_map<CValPtr, bool> valptr_to_persistent_map;
-  // A map for value to external flag
-  std::unordered_map<CValPtr, bool> valptr_to_external_map;
 
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
@@ -288,14 +291,7 @@ class HabanaLaunchOpPT {
       bool is_shape_inference = false);
 
   LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
-  void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
-  void set_persistence_input(torch::jit::Node*);
-  void set_persistence_output(torch::jit::Node*);
-  void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
-  void set_external_input(torch::jit::Node*);
-  void MarkProducerExternal(torch::jit::Value* val);
-  void externalMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
@@ -304,7 +300,6 @@ class HabanaLaunchOpPT {
       torch::jit::Value* value_out);
   bool IsValueExternal(torch::jit::Value* value);
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
-  bool isControlEdge(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
@@ -361,7 +356,6 @@ class HabanaLaunchOpPT {
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
-  c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);

@@ -18,7 +18,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_bridge/passes/hpu_habana_persistence_marker_pass.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/logging.h"
@@ -42,11 +42,11 @@ using namespace torch::jit;
 using namespace jitgraph_utils;
 using namespace habana;
 
-void HabanaLaunchOpPT::set_persistence_input(torch::jit::Node* node) {
+void PersistenceMarkerPass::set_persistence_input(torch::jit::Node* node) {
   auto val = node->input(0);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
-    valptr_to_persistent_map[val] = true;
+    valptr_to_persistent_map_[val] = true;
   } else if (val->type()->kind() == c10::TypeKind::ListType) {
     // This case is needed for fused clip norm
     // fused clip norm has List(as_strided(grads) ->fused_norm. Since fused norm
@@ -56,21 +56,21 @@ void HabanaLaunchOpPT::set_persistence_input(torch::jit::Node* node) {
 
     for (auto in_val : list_in_vals) {
       if (in_val->type()->kind() == c10::TypeKind::TensorType) {
-        valptr_to_persistent_map[in_val] = true;
+        valptr_to_persistent_map_[in_val] = true;
       }
     }
   }
 }
 
-void HabanaLaunchOpPT::set_persistence_output(torch::jit::Node* node) {
+void PersistenceMarkerPass::set_persistence_output(torch::jit::Node* node) {
   auto val = node->output(0);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
-    valptr_to_persistent_map[val] = true;
+    valptr_to_persistent_map_[val] = true;
   }
 }
 
-void HabanaLaunchOpPT::persistenceMarkingPass(
+void PersistenceMarkerPass::MarkPersistenceNodes(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     if (node->kind().is_prim()) {
@@ -79,7 +79,9 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
 
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-        0, node->schema().operator_name(), getNodeScalarType(node));
+        0,
+        node->schema().operator_name(),
+        habana_launch_op_ptr_->getNodeScalarType(node));
     if (HabanaKernel == nullptr)
       continue;
 
@@ -89,7 +91,7 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
-    if (isControlEdge(node) || isInplace(node) ||
+    if (HabanaLaunchOpPT::isControlEdge(node) || isInplace(node) ||
         habana_lazy::IsCollective(node->kind())) {
       set_persistence_input(node);
       set_persistence_output(node);
@@ -97,7 +99,7 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
   } // for (auto* node : graph_nodes)
 } // function end
 
-void HabanaLaunchOpPT::set_external_input(torch::jit::Node* node) {
+void PersistenceMarkerPass::set_external_input(torch::jit::Node* node) {
   for (auto& val : node->inputs()) {
     if (val->type()->kind() == c10::TypeKind::TensorType) {
       MarkProducerExternal(val);
@@ -112,8 +114,8 @@ void HabanaLaunchOpPT::set_external_input(torch::jit::Node* node) {
   }
 }
 
-void HabanaLaunchOpPT::MarkProducerExternal(torch::jit::Value* val) {
-  while (isControlEdge(val->node())) {
+void PersistenceMarkerPass::MarkProducerExternal(torch::jit::Value* val) {
+  while (HabanaLaunchOpPT::isControlEdge(val->node())) {
     val = val->node()->inputs().at(0);
   }
   if (isInGraphInputs(val) != -1) {
@@ -123,11 +125,11 @@ void HabanaLaunchOpPT::MarkProducerExternal(torch::jit::Value* val) {
         " to extenal map since it is an input to the graph")
   } else {
     PT_LAZY_DEBUG("Adding ", val->debugName(), " to extenal map")
-    valptr_to_external_map[val] = true;
+    valptr_to_external_map_[val] = true;
   }
 }
 
-void HabanaLaunchOpPT::externalMarkingPass(
+void PersistenceMarkerPass::ExternalMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     if (node->kind().is_prim()) {
@@ -136,7 +138,9 @@ void HabanaLaunchOpPT::externalMarkingPass(
 
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-        0, node->schema().operator_name(), getNodeScalarType(node));
+        0,
+        node->schema().operator_name(),
+        habana_launch_op_ptr_->getNodeScalarType(node));
     if (HabanaKernel == nullptr)
       continue;
 
@@ -149,11 +153,11 @@ void HabanaLaunchOpPT::externalMarkingPass(
   } // for (auto* node : graph_nodes)
 } // function end
 
-void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
+void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
     torch::jit::graph_node_list graph_nodes) {
   // This pass marks tensors persistent if they are nt persistent from graph
   // but are made persistent due to synapse limitations
-  persistenceMarkingPass(graph_nodes);
+  MarkPersistenceNodes(graph_nodes);
 
   // This pass marks tensors external if they are used as input tensors for
   // collective ops. Used for Signal From Graph to signal the tensor data is
@@ -162,6 +166,15 @@ void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto device_type = device.type();
   if (device_type == synDeviceGaudi || device_type == synDeviceGaudiM) {
-    externalMarkingPass(graph_nodes);
+    ExternalMarkingPass(graph_nodes);
   }
+}
+
+std::unique_ptr<PersistenceMarkerPassData> PersistenceMarkerPass::VisitGraph(
+    const std::shared_ptr<torch::jit::Graph> graph) {
+  TORCH_CHECK(NULL != habana_launch_op_ptr_);
+  TORCH_CHECK(NULL != graph.get());
+  RunMetaDataAdjustmentPasses(graph->nodes());
+  return std::make_unique<PersistenceMarkerPassData>(
+      valptr_to_persistent_map_, valptr_to_external_map_);
 }
