@@ -89,36 +89,7 @@ size_t RecipeValueSpec::compile_count = 0;
 size_t RecipeValueSpec::launch_count = 0;
 
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
-  std::unordered_map<size_t, std::vector<int64_t>> shape_tensor_map;
-  auto num_inputs = inputs.size();
-
-  /*
-   * Here we iterate over each of the input and we need to ignore
-   * shape comparison for shape tensors. In order to do that we
-   * do the below, for each shape tensor
-   * 1. For every shape tensor set the size as {1}
-   * 2. Create the complete argument spec (CAS) with the above change
-   * 3. After the CAS is created, restore the shape tensor to original
-   *    value
-   */
-  for (size_t i = 0; i < num_inputs; i++) {
-    if (!inputs[i].isTensor())
-      continue;
-    auto& tensor = inputs[i].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-
-    if (impl && impl->isShapeTensor()) {
-      shape_tensor_map.insert({i, tensor.sizes().vec()});
-      tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
-    }
-  }
   p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
-
-  for (auto& s : shape_tensor_map) {
-    HABANA_ASSERT(s.first < inputs.size());
-    inputs[s.first].toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
-        s.second);
-  }
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
