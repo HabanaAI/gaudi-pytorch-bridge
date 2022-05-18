@@ -15,6 +15,7 @@
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/tensor_shape.h"
+#include "habana_lazy/sbs_debug.h"
 
 using namespace habana;
 using namespace at;
@@ -179,6 +180,10 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
           t_opt);
     }
     is_view = true;
+
+    // Ops inside HandleViews function do not call flush_op separately.
+    // Hence handling SBS debug counter here
+    SBSDebug::getInstance().IncreaseOpsAndTensors(1);
   }
   return is_view;
 }
@@ -290,11 +295,6 @@ Tensor HbLazyTensorViews::add_strided_view_node(
 
   if (is_0d_tensor) {
     result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  }
-
-  // when is_update_view == True is flush op is done in as_strided_hpu_lazy
-  if (!is_update_view) {
-    flush_op(result);
   }
 
   return result;
@@ -467,7 +467,6 @@ Tensor HbLazyTensorViews::add_view_lazy(
       hb_result.GetDevice(),
       hb_result.GetSizes(),
       hb_result.dtype_optional());
-  flush_op(result);
   return result;
 }
 
@@ -492,7 +491,6 @@ Tensor HbLazyTensorViews::add_slice_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
-  flush_op(result);
   return result;
 }
 
@@ -514,7 +512,6 @@ Tensor HbLazyTensorViews::add_transpose_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
-  flush_op(result);
   return result;
 }
 
@@ -536,8 +533,6 @@ Tensor HbLazyTensorViews::add_t_lazy(
       hl_result.dtype_optional());
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
   return result;
 }
 
@@ -562,7 +557,6 @@ Tensor HbLazyTensorViews::add_permute_lazy(
       hl_result.GetSizes(),
       hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
-  flush_op(result);
   return result;
 }
 
@@ -584,7 +578,6 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
-  flush_op(result);
   return result;
 }
 
