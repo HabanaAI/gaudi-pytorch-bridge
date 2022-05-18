@@ -150,11 +150,10 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
     }
 
     // Add the Mult node
-    // NOTE: TO DO: Using arg1 is not entirely correct in createPTTensor
-    // need to consider between arg1 and arg2
+    auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto output_mult = habana_helpers::createPTTensor(
         arg1,
-        arg1.sizes(),
+        IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
         arg1.suggest_memory_format(),
         c10::ScalarType::Int,
