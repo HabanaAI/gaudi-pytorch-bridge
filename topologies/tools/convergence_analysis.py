@@ -240,7 +240,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
                     else:
                         t_dev2 = tensor_to_perm.reshape(t_dev1.size())
 
-        if t_dev1.size() != t_dev2.size():
+        if ('bkwd' in tensor_info or 'frwd' in tensor_info) and t_dev1.size() != t_dev2.size():
             print(f"because of view, shape didn't match.., {file_dev1} {t_dev1.size()}, {t_dev2.size()} ....\n do reshape with cpu size")
             t_dev2 = t_dev2.reshape(t_dev1.size())
 
