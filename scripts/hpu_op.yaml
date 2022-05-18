@@ -1366,16 +1366,19 @@ huber_loss_backward.out:
 
 heaviside:
   force_default: false
+  custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Heaviside
   out_ids: [0]
 
 heaviside.out:
+  custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Heaviside
 
 heaviside_:
   force_default: false
+  custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
   op_backend: Heaviside
   inplace_ids: [0]

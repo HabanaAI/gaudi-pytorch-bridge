@@ -27,8 +27,8 @@ std::shared_ptr<void> FillConstantParams(
 }
 
 void Heaviside::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-
+  const auto& comparision_outshape = stack_tensor(stack, 0).sizes();
+  const auto final_outshape = BinaryOutputShape(stack, true)[0];
   size_t size = 0;
   const auto& params = FillConstantParams(stack, size, 1);
 
@@ -57,25 +57,25 @@ void Heaviside::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), const_zero[0].get()},
-      {{outshape, result_type}});
+      {{comparision_outshape, result_type}});
 
   auto greater_than_zero = BuildOp(
       graph,
       "greater_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), const_zero[0].get()},
-      {{outshape, result_type}});
+      {{comparision_outshape, result_type}});
 
   auto where_inner = BuildOp(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {greater_than_zero[0].get(), const_one[0].get(), syn_in(1)},
-      {{outshape, ScalarType()}});
+      {{final_outshape, ScalarType()}});
 
   auto where_outer = BuildOp(
       graph,
       "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {less_than_zero[0].get(), const_zero[0].get(), where_inner[0].get()},
-      {{outshape, ScalarType(), 0}});
+      {{final_outshape, ScalarType(), 0}});
 
   // output of where_outer is the output of this op
   syn_out(0) = std::move(where_outer[0]);
