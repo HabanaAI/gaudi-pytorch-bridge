@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest3d_fwd_out) {
+TEST_F(HpuOpTest, upsample_nearest3d_fwd_out) {
   GenerateInputs(1, {{2, 7, 3, 4, 5}});
   std::vector<int64_t> size = {6, 12, 10};
   c10::optional<double> scale_h = 6.0;
@@ -38,7 +38,7 @@ TEST_F(HpuOpTest, upsample_nearest3d_fwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest3d_bwd_size) {
+TEST_F(HpuOpTest, upsample_nearest3d_bwd_size) {
   GenerateInputs(1, {{1, 4, 6, 8, 4}});
   std::vector<int64_t> out_size = {6, 8, 4};
   c10::optional<double> scale_d = 2.0;
@@ -57,7 +57,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_nearest3d_bwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest3d_bwd_out) {
+TEST_F(HpuOpTest, upsample_nearest3d_bwd_out) {
   GenerateInputs(1, {{2, 4, 10, 20, 30}});
   std::vector<int64_t> out_size = {10, 20, 30};
   std::vector<int64_t> input_size = {2, 4, 5, 4, 10};
