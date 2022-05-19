@@ -4118,7 +4118,14 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
          training,
          momentum,
          eps});
-    return {op.call(), running_mean, running_var};
+    auto res_ = op.call();
+    Tensor res;
+    if (input_.ndimension() != 4) {
+      res = bn_reshape_from_4d_to_orig(res_, in_sizes);
+    } else {
+      res = res_;
+    }
+    return {res, running_mean, running_var};
   }
 }
 
