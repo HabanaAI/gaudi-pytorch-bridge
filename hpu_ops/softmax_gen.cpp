@@ -15,7 +15,7 @@ namespace habana {
 std::shared_ptr<void> FillSoftmaxForwardParams(
     const at::Stack& stack,
     size_t& size) {
-  PARAMS_STUB(ns_Softmax::ParamsV2);
+  PARAMS_STUB(ns_Softmax::Params);
 
   // index positions for input args
   constexpr size_t selfPositionInArgList = 0;
