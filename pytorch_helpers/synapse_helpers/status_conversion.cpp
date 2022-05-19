@@ -75,10 +75,11 @@ hcclResult_t to_hccl_result(synStatus status) {
       return hcclInvalidArgument;
     case synFail:
       return hcclInternalError;
+    default:
+      PT_DISTRIBUTED_FATAL(
+          "Encountered unrecognized synStatus enum value of: ",
+          static_cast<int>(status));
   }
-  PT_DISTRIBUTED_FATAL(
-      "Encountered unrecognized synStatus enum value of: ",
-      static_cast<int>(status));
 
   return hcclInternalError;
 }
