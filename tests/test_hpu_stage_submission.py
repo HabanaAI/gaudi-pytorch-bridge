@@ -1,7 +1,7 @@
 import os
 import torch
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
+import habana_frameworks.torch.hpu
+import habana_frameworks.torch.core as htcore
 
 torch.manual_seed(0)
 dev_hpu = torch.device("hpu")
@@ -38,7 +38,7 @@ def test_hpu_lazy_stage_submission():
 
 if __name__ == '__main__':
   os.environ["PT_HPU_LAZY_MODE"] = "1"
-  os.environ["PT_HPU_MAX_COMPOUND_OP_SIZE"] = "10"
+  os.environ["PT_HPU_MAX_COMPOUND_OP_SIZE"] = "15"
   os.environ["PT_HPU_ENABLE_STAGE_SUBMISSION"] = "1"
   test_hpu_lazy_stage_submission()
 
