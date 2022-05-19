@@ -75,6 +75,14 @@ void PtTensorInfo::populate_tinfo(
   auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
   if (hb_internal_tensor != nullptr) {
     hb_internal_lf_ = hb_internal_tensor->GetTensorLayout();
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      PT_HABHELPER_DEBUG(
+          "Saving the layout and permutation to the cache for tensor: ",
+          tensor_id,
+          "   permutation: ",
+          VecToString(hb_internal_tensor->GetMemoryPermutation()));
+      hb_internal_perm_ = hb_internal_tensor->GetMemoryPermutation();
+    }
   }
 
   offset_ = (get_buffer_syn() - get_buffer_start_syn());
@@ -159,6 +167,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, is_ZST_);
   deserialize(is, is_view_tensor_);
   deserialize(is, is_restrided_);
+  deserialize(is, hb_internal_perm_);
   deserialize(is, offset_);
   deserialize(is, ir_name_);
   deserialize(is, syn_name_);
@@ -186,6 +195,7 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, is_ZST_);
   serialize(os, is_view_tensor_);
   serialize(os, is_restrided_);
+  serialize(os, hb_internal_perm_);
   serialize(os, offset_);
   serialize(os, ir_name_);
   serialize(os, syn_name_);

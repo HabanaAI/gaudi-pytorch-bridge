@@ -1853,8 +1853,13 @@ void RecipeValueSpec::create_outdup(
   long pt_offset = (long)ti.get_offset() / parent_tensor.itemsize();
   auto pt_opt_offset = c10::make_optional(pt_offset);
 
-  at::Tensor pt_outdup =
-      at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+  at::Tensor pt_outdup;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    pt_outdup = parent_tensor;
+  } else {
+    pt_outdup =
+        at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+  }
 
   ti.patch(pt_outdup);
 

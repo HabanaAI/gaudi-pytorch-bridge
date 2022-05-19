@@ -141,6 +141,10 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    ComputePermutationHashCode(input_refs);
+    hash_code = at::hash_combine(hash_code, perm_hash_code);
+  }
   dynamic_hash_code = hash_code;
 }
 
@@ -159,6 +163,10 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    ComputePermutationHashCode(input_refs);
+    hash_code = at::hash_combine(hash_code, perm_hash_code);
+  }
 }
 
 void RecipeArgumentSpec::ComputeOffsetHashCode(
@@ -174,6 +182,25 @@ void RecipeArgumentSpec::ComputeOffsetHashCode(
           reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
       auto offset = (buffer_ptr - storage_data_ptr_);
       offset_hash_code = at::hash_combine(offset_hash_code, offset);
+    }
+  }
+}
+
+void RecipeArgumentSpec::ComputePermutationHashCode(
+    at::ArrayRef<torch::jit::IValue> input_refs) {
+  perm_hash_code = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto tensor = input.toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      if (impl) {
+        for (auto item : impl->GetMemoryPermutation()) {
+          perm_hash_code = at::hash_combine(perm_hash_code, item);
+        }
+      } else {
+        PT_BRIDGE_DEBUG(
+            "Could not update cache key with tensor's permutation because the BE tensor has no internal impl");
+      }
     }
   }
 }
@@ -592,6 +619,14 @@ void RecipeValueSpec::update_patching_table(
           internal_lf_new);
       hb_internal_tensor->SetTensorLayout(internal_lf_new);
     }
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      PT_BRIDGE_DEBUG(
+          "Setting synapse permutation as saved in the cache to the output tensor id: ",
+          ti.get_tensor_id(),
+          " permutation: ",
+          VecToString(ti.getHbInternalPermute()));
+      hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
+    }
     return pt_tensor;
   }};
 
@@ -603,6 +638,11 @@ void RecipeValueSpec::update_patching_table(
     if (input.isTensor()) {
       auto& tensor = input.toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      PT_BRIDGE_DEBUG(
+          "Cache input HbInternal address: ",
+          impl,
+          " permute: ",
+          VecToString(impl->GetMemoryPermutation()));
       bool is_shape_tensor = impl && impl->isShapeTensor();
       if (false == is_shape_tensor) {
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());

@@ -403,6 +403,18 @@ at::Tensor habana_helpers::createPTTensor(
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
+      if (hb_weight_impl) {
+        auto permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          // If we pass permutation to Synapse tensor, we must pass empty
+          // strides
+          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+          hb_weight_impl->SetMemoryPermutation(permutation);
+        }
+      }
+    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input, input.sizes(), input.options(), input.suggest_memory_format());
@@ -419,6 +431,18 @@ at::Tensor habana_helpers::createPTTensor(
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(size, options, input.suggest_memory_format());
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
+      if (hb_weight_impl) {
+        auto permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          // If we pass permutation to Synapse tensor, we must pass empty
+          // strides
+          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+          hb_weight_impl->SetMemoryPermutation(permutation);
+        }
+      }
+    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input, size, options, input.suggest_memory_format());
@@ -439,6 +463,18 @@ at::Tensor habana_helpers::createPTTensor(
         size,
         options,
         optional_memory_format.value_or(MemoryFormat::Contiguous));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
+      if (hb_weight_impl) {
+        auto permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          // If we pass permutation to Synapse tensor, we must pass empty
+          // strides
+          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+          hb_weight_impl->SetMemoryPermutation(permutation);
+        }
+      }
+    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
@@ -460,6 +496,18 @@ at::Tensor habana_helpers::createPTTensor(
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty_strided(size, strides, options);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
+      if (hb_weight_impl) {
+        auto permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          // If we pass permutation to Synapse tensor, we must pass empty
+          // strides
+          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+          hb_weight_impl->SetMemoryPermutation(permutation);
+        }
+      }
+    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
@@ -485,6 +533,18 @@ at::Tensor habana_helpers::createPTTensor(
         size,
         input.options().dtype(data_type),
         optional_memory_format.value_or(MemoryFormat::Contiguous));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
+      if (hb_weight_impl) {
+        auto permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          // If we pass permutation to Synapse tensor, we must pass empty
+          // strides
+          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+          hb_weight_impl->SetMemoryPermutation(permutation);
+        }
+      }
+    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
@@ -843,11 +903,31 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
+  std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
+  std::vector<uint8_t> permutation;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+    if (hb_weight_impl) {
+      permutation = hb_weight_impl->GetMemoryPermutation();
+      if (!permutation.empty()) {
+        // If we pass permutation to Synapse tensor, we must pass empty strides
+        strides.clear();
+        PT_LAZY_DEBUG(
+            "Setting permutation to tensor: ",
+            name,
+            " id: ",
+            tensor_id,
+            " permutation: ",
+            VecToString(permutation));
+      }
+    }
+  }
+
   auto builder =
-      synapse_helpers::tensor_builder(
-          tensor.sizes(), calculate_strides(tensor.sizes().vec()), synType)
+      synapse_helpers::tensor_builder(tensor.sizes(), strides, synType)
           .mark_persistence(persistent)
-          .mark_external(external);
+          .mark_external(external)
+          .with_permutation(permutation);
 
   if (!name.empty()) {
     builder.use_suffix(name);

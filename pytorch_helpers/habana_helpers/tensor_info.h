@@ -239,6 +239,16 @@ class PtTensorInfo {
     return hb_internal_lf_;
   }
 
+  const synapse_helpers::layouts::MemoryPermutation& getHbInternalPermute()
+      const {
+    return hb_internal_perm_;
+  }
+
+  void setHbInternalPermute(
+      const synapse_helpers::layouts::MemoryPermutation& permute) {
+    hb_internal_perm_ = permute;
+  }
+
   bool is_ZST() const {
     return is_ZST_;
   }
@@ -303,6 +313,7 @@ class PtTensorInfo {
   c10::TensorOptions topts_;
 
   habana_lazy::LayoutFormat hb_internal_lf_{habana_lazy::LayoutFormat::kNCHW};
+  synapse_helpers::layouts::MemoryPermutation hb_internal_perm_;
 
   synTensorType tensor_type_{DATA_TENSOR};
   std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};

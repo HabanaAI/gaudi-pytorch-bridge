@@ -137,11 +137,13 @@ struct RecipeArgumentSpec {
 
  private:
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
+  void ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 
   HbCas cas;
   std::string opstrs;
   size_t hash_code{0};
   size_t graph_hash_code{0};
+  size_t perm_hash_code{0};
   size_t offset_hash_code{0};
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
