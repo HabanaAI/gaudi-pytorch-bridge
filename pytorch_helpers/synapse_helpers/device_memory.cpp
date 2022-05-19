@@ -678,7 +678,6 @@ size_t device_memory::get_total_memory_required(
         }
       }
     }
-    size_t total_memory = 0;
     for (const auto addr : umap_addr) {
       total_memory += block_align(addr.second);
     }
