@@ -1912,15 +1912,6 @@ median.dim_values:
   dtypes: [Float]
   op_backend: Mediandim
 
-#min.dim:
-#  force_default: false
-#  custom_output_shape: MinMaxOutputShape
-#  custom_fill_params: FillMinMaxParams
-#  dtypes: [BFloat16, Float]
-#  op_backend: Min
-#  op_frontend: LazyMin
-#  out_ids: [0,0]
-
 min.dim_min:
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
