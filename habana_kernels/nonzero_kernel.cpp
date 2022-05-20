@@ -62,11 +62,30 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(outputs);
 }
 
+float NonZeroOperator::round_dims(
+    const at::Tensor& input_tensor,
+    int group_size) {
+  auto group_size_f = static_cast<float>(group_size);
+  auto last_dim_rounded =
+      std::ceil(input_tensor.sizes()[input_tensor.dim() - 1] / group_size_f) *
+      group_size_f;
+  return last_dim_rounded;
+}
+
 std::vector<int64_t> NonZeroOperator::compute_output_shape(
     const at::Tensor& self) {
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   auto elements = self.numel();
+  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
+      (self.dim() <= 4)) {
+    elements = 1;
+    auto last_dim_rounded = round_dims(self, 64);
+    for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
+      elements *= self.sizes()[i];
+    }
+    elements = elements * last_dim_rounded;
+  }
   std::vector<int64_t> output_shape{elements, dimensions};
   return output_shape;
 }
@@ -76,7 +95,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 1,
+      inputs.size() == 2,
       "Incorrect size of inputs expected for NonZero operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -86,8 +105,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       "output_metadata expected to be vector of size 2");
 
   auto self = inputs[0].toTensor();
-
-  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NONZERO_CGUID) == false) ||
+  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == false) ||
       (self.dim() > 4)) {
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
@@ -143,18 +161,8 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     AllocateSynapseOutput(
         graph, shape_tensor, synType, output_metadata.at(1), false);
 
-    constexpr int group_size = 64;
-    constexpr int max_chunks = 8;
-    auto group_size_f = static_cast<float>(group_size);
-    auto last_dim_rounded =
-        std::ceil(self.sizes()[self.dim() - 1] / group_size_f) * group_size_f;
-    auto pad = static_cast<unsigned int>(
-        last_dim_rounded - self.sizes()[self.dim() - 1]);
-    ns_NonzeroV2::Params params;
-    params.max_chunks = max_chunks;
-    params.group_size = group_size;
-    std::fill_n(params.pads, 2 * MAX_DIMENSIONS_NUM, 0);
-    params.pads[self.dim()] = pad;
+    ns_NonzeroV2::Params params = {};
+    params.group_size = 64;
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }

@@ -2403,7 +2403,33 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   // Add nonzero node
   auto output_shape = NonZeroOperator::compute_output_shape(self);
   std::vector<int64_t> shape_tensor_shape{5};
-  NonZero k({self}, {}, {output_shape, shape_tensor_shape});
+  Tensor nz_shape_tensor;
+  c10::optional<at::Tensor> nonzero_shape_tensor =
+      c10::make_optional(nz_shape_tensor);
+  nonzero_shape_tensor = c10::nullopt;
+  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
+      (self.dim() <= 4)) {
+    constexpr int group_size = 64;
+    auto input_tensor = self;
+    auto last_dim_rounded =
+        NonZeroOperator::round_dims(input_tensor, group_size);
+    std::vector<int64_t> nonzero_input_shape_tensor;
+    for (unsigned i = 0; i < input_tensor.dim() - 1; i++) {
+      nonzero_input_shape_tensor.emplace_back(input_tensor.sizes()[i]);
+    }
+    auto group_size_aligned_dim =
+        (long int)last_dim_rounded / (long int)group_size;
+    nonzero_input_shape_tensor.emplace_back(group_size_aligned_dim);
+    nonzero_input_shape_tensor.emplace_back(group_size);
+    nonzero_shape_tensor = empty_hpu_lazy(
+        nonzero_input_shape_tensor,
+        self.options().dtype(c10::ScalarType::Int),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+  }
+  NonZero k(
+      {self, nonzero_shape_tensor}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2460,7 +2486,11 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   std::vector<int64_t> shape_tensor_shape{5};
   using T = std::tuple<at::Tensor, at::Tensor>;
   LazyOp<T> k(
-      "hpu::nonzero", {self}, {}, {output_shape, shape_tensor_shape}, 0);
+      "hpu::nonzero",
+      {self, c10::nullopt},
+      {},
+      {output_shape, shape_tensor_shape},
+      0);
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2865,9 +2895,35 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
   };
 
   // Add nonzero node
-  std::vector<int64_t> output_shape{elements, dimensions};
+  auto output_shape = NonZeroOperator::compute_output_shape(self);
   std::vector<int64_t> shape_tensor_shape{5};
-  NonZero k({self}, {}, {output_shape, shape_tensor_shape});
+  Tensor nz_shape_tensor;
+  c10::optional<at::Tensor> nonzero_shape_tensor =
+      c10::make_optional(nz_shape_tensor);
+  nonzero_shape_tensor = c10::nullopt;
+  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
+      (self.dim() <= 4)) {
+    constexpr int group_size = 64;
+    auto input_tensor = self;
+    auto last_dim_rounded =
+        NonZeroOperator::round_dims(input_tensor, group_size);
+    std::vector<int64_t> nonzero_input_shape_tensor;
+    for (unsigned i = 0; i < input_tensor.dim() - 1; i++) {
+      nonzero_input_shape_tensor.emplace_back(input_tensor.sizes()[i]);
+    }
+    auto group_size_aligned_dim =
+        (long int)last_dim_rounded / (long int)group_size;
+    nonzero_input_shape_tensor.emplace_back(group_size_aligned_dim);
+    nonzero_input_shape_tensor.emplace_back(group_size);
+    nonzero_shape_tensor = empty_hpu_lazy(
+        nonzero_input_shape_tensor,
+        self.options().dtype(c10::ScalarType::Int),
+        c10::MemoryFormat::Contiguous,
+        false,
+        SHAPE_TENSOR);
+  }
+  NonZero k(
+      {self, nonzero_shape_tensor}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2881,7 +2937,6 @@ Tensor index_put_hpu_lazy(
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
-
   std::vector<Tensor> indices_vec{indices_in.vec()};
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
@@ -2911,9 +2966,16 @@ Tensor index_put_hpu_lazy(
     indices_vec = HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
     at::TensorList indices = indices_vec;
     auto nonzero_outputs = nonzero_ip_hpu_lazy(indices[0]);
+    // We need to slice the output of nonzero
+    // since the new CGUID flow returns a padded output.
+    // In order to provide the right input tensor to
+    // index_put, it must be with respect to the original
+    // input tensor and not the padded output from non-zero
+    auto nonzero_sliced_outputs =
+        slice_hpu_lazy(nonzero_outputs[0], 0, 0, indices[0].numel(), 1);
     // Calculate the dimensionality of updates for broadcasting
     auto rank_inp = self.ndimension();
-    auto rank_idx = nonzero_outputs[0].sizes().vec()[1];
+    auto rank_idx = nonzero_sliced_outputs.sizes().vec()[1];
     std::vector<int64_t> value_upd_dim;
 
     if ((value_in.numel() >
@@ -2921,7 +2983,7 @@ Tensor index_put_hpu_lazy(
                // count in indices will match values numel
       if (indices[0].dim() != self.dim() &&
           value_in.dim() != (1 + (self.dim() - indices[0].dim()))) {
-        value_upd_dim.push_back(nonzero_outputs[0].sizes().vec()[0]);
+        value_upd_dim.push_back(nonzero_sliced_outputs.sizes().vec()[0]);
         for (int i = rank_idx; i < rank_inp; i++)
           value_upd_dim.push_back(self.sizes().vec()[i]);
       } else {
@@ -2929,7 +2991,7 @@ Tensor index_put_hpu_lazy(
           value_upd_dim.push_back(value_in.sizes().vec()[i]);
       }
     } else { // We are assuming uses passes value shapes correctly for scatter
-      value_upd_dim.push_back(nonzero_outputs[0].sizes().vec()[0]);
+      value_upd_dim.push_back(nonzero_sliced_outputs.sizes().vec()[0]);
       for (int i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self.sizes().vec()[i]);
     }
@@ -2949,7 +3011,7 @@ Tensor index_put_hpu_lazy(
     LazyOp<at::Tensor> index_put_op{
         "hpu::index_put",
         {self,
-         nonzero_outputs[0],
+         nonzero_sliced_outputs,
          nonzero_outputs[1],
          value_in,
          value_dim_tensor,

@@ -29,5 +29,6 @@ class NonZeroOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
+  static float round_dims(const at::Tensor& input_tensor, int group_size);
 };
 } // namespace habana

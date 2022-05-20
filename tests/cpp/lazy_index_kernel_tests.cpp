@@ -280,8 +280,7 @@ TEST_F(LazyIndexKernelTest, NonZeroTestMixValues) {
   EXPECT_EQ(allclose(h_cout, out_cpu), true);
 }
 
-TEST_F(LazyIndexKernelTest, DISABLED_NonZeroV2TestMixValues) {
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_NONZERO_CGUID, true, 1);
+TEST_F(LazyIndexKernelTest, NonZeroV2TestMixValues) {
   auto test = [](std::vector<int64_t> shape, c10::ScalarType type) {
     torch::Tensor input_cpu = torch::randint(0, 2, shape, torch::dtype(type));
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
@@ -295,7 +294,6 @@ TEST_F(LazyIndexKernelTest, DISABLED_NonZeroV2TestMixValues) {
   test({2, 121}, torch::kFloat);
   test({2, 121}, torch::kBFloat16);
   test({2, 3, 121}, torch::kInt8);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_NONZERO_CGUID);
 }
 
 TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse) {

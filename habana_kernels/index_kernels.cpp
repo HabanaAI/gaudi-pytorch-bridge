@@ -907,7 +907,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
 
   auto non_zero_op =
       make_operator<NonZeroOperator>(device_id, c10::ScalarType::Bool);
-  stack = {IValue(indices[0])};
+  stack = {IValue(indices[0]), IValue{c10::nullopt}};
   non_zero_op->SetSynapseInput(p_context_->syn_inputs_[1]);
 
   non_zero_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(2));
