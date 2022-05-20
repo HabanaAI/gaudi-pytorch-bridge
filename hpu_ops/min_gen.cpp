@@ -12,7 +12,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-
+#if 0
 template <>
 LazyMin<::std::tuple<at::Tensor, at::Tensor>>::LazyMin(
     const std::string& qualstring,
@@ -37,6 +37,8 @@ template <>
       shape, t.options().dtype(at::kLong), t.suggest_memory_format(), false);
   return ::std::tuple<at::Tensor, at::Tensor>(values, indices);
 }
+
+#endif
 
 sizes_vec MinMaxOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
@@ -67,6 +69,7 @@ std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
+#if 0
 void Min::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
@@ -93,4 +96,5 @@ void Min::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(reduce_min[0]);
   syn_out(1) = std::move(reduce_min[1]);
 }
+#endif
 } // namespace habana
