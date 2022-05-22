@@ -5441,7 +5441,8 @@ Tensor empty_hpu_lazy(
       ? optional_memory_format
       : options.memory_format_opt();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    if (*mem_format != c10::MemoryFormat::Contiguous) {
+    if (mem_format.has_value() &&
+        *mem_format != c10::MemoryFormat::Contiguous) {
       HABANA_ASSERT(
           false,
           "ChannelsLast tensors are currently not supported when PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true");
