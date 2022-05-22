@@ -42,8 +42,125 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
   torch::Tensor outConv1 = torch::conv2d(
       input_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::Tensor outcpu = torch::relu(outConv1);
-
   EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+}
+
+TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ||
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+    return;
+  }
+  for (size_t i = 0; i < 2; ++i) {
+    auto input_tensor =
+        torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 3, 3}); // nchw
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+
+    auto weight_tensor =
+        torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({3, 3, 3, 1}); // hwck
+
+    torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
+
+    torch::Tensor outConv =
+        torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor outhpu = torch::relu(outConv);
+    torch::Tensor out = outhpu.to(torch::kCPU);
+
+    torch::Tensor outConv1 = torch::conv2d(
+        input_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor outcpu = torch::relu(outConv1);
+
+    HbLazyTensor wight_hb_tensor = GetHbLazyTensor(outhpu);
+    auto hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
+    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+    auto perm = hb_weight_impl->GetMemoryPermutation();
+    std::vector<uint8_t> expected_perm = {2, 0, 1, 3};
+    EXPECT_EQ(perm, expected_perm);
+    EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+    auto weight_tensor1 =
+        torch::arange(9, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({3, 3, 1, 1}); // hwck
+
+    torch::Tensor tHabanaW1 = weight_tensor1.to(torch::kHPU);
+    torch::Tensor outConv2 =
+        torch::conv2d(outhpu, tHabanaW1, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    torch::Tensor outConv2Cpu =
+        torch::conv2d(out, weight_tensor1, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    torch::Tensor out1 = outConv2.to(torch::kCPU);
+    EXPECT_EQ(allclose(out1, outConv2Cpu, 0.01, 0.01), true);
+  }
+}
+
+TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ||
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+    return;
+  }
+  auto weight_tensor =
+      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({3, 3, 3, 1}); // hwck
+
+  torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
+
+  auto weight_tensor1 =
+      torch::arange(9, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({3, 3, 1, 1}); // hwck
+
+  torch::Tensor tHabanaW1 = weight_tensor1.to(torch::kHPU);
+  for (size_t i = 0; i < 2; ++i) {
+    auto input_tensor =
+        torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 3, 3}); // nchw
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+
+    torch::Tensor outConv =
+        torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    EXPECT_EQ(allclose(tHabanaW, weight_tensor, 0.01, 0.01), true);
+
+    torch::Tensor outhpu = torch::relu(outConv);
+    torch::Tensor out = outhpu.to(torch::kCPU);
+
+    torch::Tensor outConv1 = torch::conv2d(
+        input_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+    torch::Tensor outcpu = torch::relu(outConv1);
+
+    EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+
+    torch::Tensor outConv2 =
+        torch::conv2d(outhpu, tHabanaW1, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    torch::Tensor outConv2Cpu =
+        torch::conv2d(out, weight_tensor1, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+    torch::Tensor out1 = outConv2.to(torch::kCPU);
+
+    HbLazyTensor wight_hb_tensor = GetHbLazyTensor(tHabanaW);
+    auto hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
+    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+    auto perm = hb_weight_impl->GetMemoryPermutation();
+    std::vector<uint8_t> expected_perm = {3, 2, 0, 1};
+    EXPECT_EQ(perm, expected_perm);
+
+    EXPECT_EQ(allclose(out1, outConv2Cpu, 0.01, 0.01), true);
+
+    EXPECT_EQ(allclose(tHabanaW1, weight_tensor1, 0.01, 0.01), true);
+
+    tHabanaW1.add_(1);
+    weight_tensor1.add_(1);
+    tHabanaW1 = weight_tensor1.to(torch::kHPU);
+    EXPECT_EQ(allclose(tHabanaW1, weight_tensor1, 0.01, 0.01), true);
+    wight_hb_tensor = GetHbLazyTensor(tHabanaW1);
+    hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
+    hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+    perm = hb_weight_impl->GetMemoryPermutation();
+    expected_perm = {};
+    // verify that Memory permutation was removed
+    EXPECT_EQ(perm, expected_perm);
+  }
 }
 
 TEST_F(LazyConvKernelTest, MaxPool2DTest) {

@@ -899,8 +899,15 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     auto hb_impl = habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
-    hb_impl->SetMemoryPermutation({});
-    // habana_lazy::PermuteTensors::clearPermuteInformation(self);
+    auto synapse_permute = hb_impl->GetMemoryPermutation();
+    if (synapse_permute.size() != 0) {
+      PT_LAYOUTS_DEBUG(
+          "clearing memory permute, id ",
+          self_hb_tensor.getTensorUniqueId(),
+          " permute ",
+          VecToString(synapse_permute))
+      hb_impl->SetMemoryPermutation({});
+    }
   }
 
   // self may have been resized, so re-set its size and strides
