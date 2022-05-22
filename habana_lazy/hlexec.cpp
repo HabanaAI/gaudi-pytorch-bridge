@@ -107,6 +107,13 @@ void HlExec::FindDuplicateInStack(
     if (!input.toTensor().has_storage()) {
       return;
     }
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      if (!(input.toTensor().is_contiguous(c10::MemoryFormat::Contiguous))) {
+        HABANA_ASSERT(
+            false,
+            "ChannelsLast tensors are currently not supported when PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true");
+      }
+    }
   }
 
   for (size_t i = 0; i < stack_size; i++) {
