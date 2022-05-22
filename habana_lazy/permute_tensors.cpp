@@ -154,8 +154,12 @@ MemoryPermutation PermuteTensors::getMemoryPermutation(
       "getMemoryPermutation tensor should be HPU");
 
   HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
-  auto hb_data = hb_tensor.GetHbLazyTensorData().value();
-  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  auto hb_data = hb_tensor.GetHbLazyTensorData();
+  if (!hb_data.has_value()) {
+    return {};
+  }
+  auto hb_data_val = hb_data.value();
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data_val);
   return hb_impl->GetMemoryPermutation();
 }
 
