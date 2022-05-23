@@ -161,8 +161,7 @@ void RandomSeedTensorInput::AddNode(
         rand_params.get(),
         size);
 
-    PARAMS_STUB(ns_CastKernel::IntParams);
-    params->cast_mode = _CastIntMode_t::TRUNCATE;
+    PARAMS_STUB(ns_CastKernel::Params);
     auto cast = BuildOp(
         graph,
         "cast_f32_to_i32",
