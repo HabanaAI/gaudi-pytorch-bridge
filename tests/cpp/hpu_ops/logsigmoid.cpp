@@ -12,16 +12,19 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, DISABLED_log_sigmoid_fwd) {
+// Note: No need to compare second o/p since it contains results of
+// computations CPU does to use in the CPU backward pass impl.
+// This is non standard. So do no compare this tensor.
+TEST_F(HpuOpTest, log_sigmoid_fwd) {
   GenerateInputs(1);
 
   auto exp = torch::log_sigmoid_forward(GetCpuInput(0));
   auto res = torch::log_sigmoid_forward(GetHpuInput(0));
   Compare(std::get<0>(exp), std::get<0>(res));
-  Compare(std::get<1>(exp), std::get<1>(res));
+  // No need to compare second o/p. See Note above.
 }
 
-TEST_F(HpuOpTest, DISABLED_log_sigmoid_fwd_out) {
+TEST_F(HpuOpTest, log_sigmoid_fwd_out) {
   GenerateInputs(1);
 
   auto out = torch::empty(0);
@@ -32,7 +35,7 @@ TEST_F(HpuOpTest, DISABLED_log_sigmoid_fwd_out) {
   torch::log_sigmoid_forward_outf(GetCpuInput(0), out, buffer);
   torch::log_sigmoid_forward_outf(GetHpuInput(0), hout, hbuffer);
   Compare(out, hout);
-  Compare(buffer, hbuffer);
+  // No need to compare second o/p(i.e, buffer). See Note above.
 }
 
 TEST_F(HpuOpTest, DISABLED_log_sigmoid_bwd) {
