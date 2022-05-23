@@ -2137,6 +2137,13 @@ Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   // If self is a ZST then return it as it is since there is nothing to fill
   if (!self.numel() && (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))
     return self;
+
+  if (value.isBoolean()) {
+    int bool_val = value.toBool();
+    LazyOp<at::Tensor&> k{"aten::fill_", {self, bool_val}};
+    return k.call(self);
+  }
+
   LazyOp<at::Tensor&> k{"aten::fill_", {self, value}};
   return k.call(self);
 }
