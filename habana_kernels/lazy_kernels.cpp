@@ -1099,8 +1099,10 @@ const Tensor& as_strided_hpu_lazy_(
         hb_result.GetDevice(),
         hb_result.GetSizes(),
         hb_result.dtype_optional());
-    // update the view if any
-    updateDstDependencies(hb_result, self);
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    context->MarkTensorStatus(
+        hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     flush_op(self);
     return self;
   } else {
