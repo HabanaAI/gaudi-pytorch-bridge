@@ -3128,6 +3128,10 @@ round.out:
   dtypes: [BFloat16, Float]
   guid: round_fwd
 
+round.decimals_out:
+  dtypes: [BFloat16, Float]
+  op_backend: RoundDecimal
+
 rrelu_with_noise:
   dtypes: [BFloat16, Float]
   op_frontend: LazyTensorSeed
