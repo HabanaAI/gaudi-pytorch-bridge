@@ -86,6 +86,11 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       ResultShapes,
       bool,
       uint64_t) override{};
+  virtual void LogFallback(
+      std::string,
+      DynamicDimsPolicy,
+      std::string,
+      uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
   void LogLaunchBase(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
@@ -210,6 +215,15 @@ void CompilationStatistics::LogUsedBucket(
   json_bucket["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_bucket["refine candidate"] = refine_candidate;
   json_file_[GetStep(step)]["selected bucket"] = json_bucket;
+}
+
+void CompilationStatistics::LogFallback(
+    std::string pass,
+    DynamicDimsPolicy policy,
+    std::string error,
+    uint64_t step) {
+  std::string key = pass + "_fallback_" + stringify(policy);
+  json_file_[GetStep(step)][key] = error;
 }
 
 void CompilationStatistics::LogSelectedRecipe(

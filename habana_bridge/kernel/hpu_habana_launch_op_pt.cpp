@@ -2338,9 +2338,10 @@ void HabanaLaunchOpPT::run_shape_inference(
   try {
     run_pass();
   } catch (std::exception& e) {
-    error_str = e.what();
+    std::string error = e.what();
+    error_str = error.substr(0, error.find("\n"));
     PT_DYNAMIC_SHAPE_DEBUG("Exception occured in Pass = ", pass);
-    PT_DYNAMIC_SHAPE_DEBUG("Exception Details :\n", error_str);
+    PT_DYNAMIC_SHAPE_DEBUG("Exception Details : ", error_str);
     throw_exception = true;
   }
 
@@ -2365,6 +2366,8 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // in policy = CURRENT, it is unrecoverable, throw runtime error in this
     // case
     case ShapeInfo::InferencePass::MIN_SHAPE: {
+      current_dbipsh_->get_statistics()->LogFallback(
+          "MIN_PASS", graph_input_info.min_policy, e.what());
       // In case there is fallback for LOCAL_HISTORIC we need to discard the
       // current running min and reset running min to previous successfull one
       if (graph_input_info.min_policy ==
@@ -2390,6 +2393,8 @@ void HabanaLaunchOpPT::handle_pass_exception(
     // in policy = CURRENT, it is unrecoverable, throw runtime error in this
     // case
     case ShapeInfo::InferencePass::MAX_SHAPE: {
+      current_dbipsh_->get_statistics()->LogFallback(
+          "MAX_PASS", graph_input_info.max_policy, e.what());
       // In case there is fallback for LOCAL_HISTORIC we need to discard the
       // current running max and reset running max to previous successfult one
       if (graph_input_info.max_policy ==

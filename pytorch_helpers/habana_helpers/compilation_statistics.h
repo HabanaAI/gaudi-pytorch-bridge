@@ -104,6 +104,12 @@ class CompilationStatistics {
       bool refine_candidate,
       uint64_t step = 0);
 
+  virtual void LogFallback(
+      std::string,
+      DynamicDimsPolicy,
+      std::string error,
+      uint64_t step = 0);
+
   /**
    * @brief Add selected recipe information
    *
