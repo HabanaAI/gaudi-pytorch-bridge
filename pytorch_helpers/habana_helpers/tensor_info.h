@@ -275,6 +275,14 @@ class PtTensorInfo {
     return reinterpret_cast<uint64_t>(host_ptr_);
   }
 
+  bool get_allow_permutation() const {
+    return is_allow_permutation_;
+  }
+
+  bool set_allow_permutation(bool allow_permutation) {
+    return is_allow_permutation_ = allow_permutation;
+  }
+
   size_t Size() const {
     size_t size = sizeof(*this);
     size += ir_name_.size() * sizeof(decltype(ir_name_)::value_type);
@@ -289,6 +297,7 @@ class PtTensorInfo {
   bool is_view_tensor_{false};
   bool is_restrided_{false};
   bool is_external_{false};
+  bool is_allow_permutation_{false};
 
   void* buffer_{nullptr};
   void* buffer_start_{nullptr};

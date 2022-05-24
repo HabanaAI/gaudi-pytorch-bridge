@@ -264,6 +264,17 @@ class tensor final {
     return stride_.max();
   }
 
+  const synapse_helpers::layouts::MemoryPermutation& permutation() const {
+    return permutation_;
+  }
+
+  void set_identity_permutation() {
+    for (size_t i = 0; i < permutation_.size(); ++i) {
+      permutation_[i] = i;
+    }
+    set_permutation();
+  }
+
   synDataType type() const {
     return data_type_;
   }
@@ -358,6 +369,7 @@ class tensor final {
   static void set_generate_placeholder(bool f) {
     generate_placeholder_ = f;
   }
+  synapse_error_o set_permutation();
 
  private:
   tensor(
@@ -404,7 +416,6 @@ class tensor final {
   synapse_error_o create_old_synapi();
   synapse_error_o create();
   synapse_error_o set_layout();
-  synapse_error_o set_permutation();
   void cleanup();
 
   std::string tensor_name_;
@@ -470,6 +481,19 @@ inline std::ostream& operator<<(
     const tensor::dynamic_shape_t& d) {
   return out << "min : " << d.min() << ", max : " << d.max();
 }
+template <
+    typename Integer,
+    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+inline std::ostream& operator<<(
+    std::ostream& out,
+    const std::vector<Integer>& d) {
+  out << "[";
+  for (size_t i = 0; i < d.size(); ++i) {
+    out << (i > 0 ? ", " : "") << (unsigned)d[i];
+  }
+  return out << "]";
+}
+
 inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
   return out << "Tensor " << tensor.tensor_name_ << " at " << &tensor
              << ", internal=" << tensor.tensor_
@@ -481,7 +505,8 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
              << ", offset=" << tensor.offset_
              << ", size=" << tensor.total_size_bytes_ << '\n'
              << "    shape :: " << tensor.shape_ << '\n'
-             << "    stride :: " << tensor.stride_;
+             << "    stride :: " << tensor.stride_ << '\n'
+             << "    permutation :: " << tensor.permutation_;
 }
 
 using tensor_or_ref = value_or_ref<tensor>;

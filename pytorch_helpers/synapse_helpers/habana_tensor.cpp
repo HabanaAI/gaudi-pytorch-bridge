@@ -305,6 +305,13 @@ synapse_error_o tensor::set_permutation() {
   }
   synStatus status;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    PT_SYNHELPER_DEBUG(
+        "Calling synTensorSetPermutation on: ",
+        tensor_id_,
+        "  permutation size: ",
+        permutation_.size(),
+        " permutation: ",
+        VecToString(permutation_));
     synTensorPermutation synPermutation;
     std::copy(
         permutation_.begin(), permutation_.end(), synPermutation.permutation);
@@ -318,13 +325,6 @@ synapse_error_o tensor::set_permutation() {
 
 synapse_error_o tensor::set_layout() {
   synStatus status;
-  // Add strides and datatype.
-  // As of now synapse supports only default strides -
-  // Set the desired data type of the tensor in the device.
-  // In the future, this API can also be used to set the strides of a tensors,
-  // but currently only default strides are allowed.
-  // If the given strides are empty (zeros) then they will be calculated
-  // inside the tensor according to its geometry.
   synTensorDeviceLayout deviceLayout;
   uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
 

@@ -42,6 +42,7 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
   torch::Tensor outConv1 = torch::conv2d(
       input_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::Tensor outcpu = torch::relu(outConv1);
+
   EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
 }
 

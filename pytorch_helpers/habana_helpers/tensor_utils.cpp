@@ -816,7 +816,13 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       if (!permutation.empty()) {
         // If we pass permutation to Synapse tensor, we must pass empty strides
         strides.clear();
-        PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
+        PT_LAZY_DEBUG(
+            "Setting permutation to tensor: ",
+            name,
+            " id: ",
+            tensor_id,
+            " permutation: ",
+            VecToString(permutation));
       }
     }
   }
@@ -1101,6 +1107,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor,
     synapse_helpers::graph& graph,
     bool external) {
+  PT_BRIDGE_TRACE;
   if (graph.is_dynamic_graph()) {
     habana::ShapeInference::UpdateShapeInfo(graph, tensor.pt_shape());
   }
@@ -1126,6 +1133,11 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
                      .mark_external(external)
                      .set_offset(tensor.get_offset());
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    PT_LAZY_DEBUG(
+        "Setting a duplicate tensor with permutation: ", tensor.permutation());
+    builder.with_permutation(tensor.permutation());
+  }
   if (tensor.has_dynamic_shape()) {
     builder.with_dynamic_shape(tensor.dynamic_shape());
   }
@@ -1144,6 +1156,7 @@ synapse_helpers::tensor habana_helpers::
         std::vector<int64_t>& strides,
         const uint64_t offset,
         bool external) {
+  PT_BRIDGE_TRACE;
   if (graph.is_dynamic_graph()) {
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);
   }
@@ -1175,7 +1188,11 @@ synapse_helpers::tensor habana_helpers::
       builder.with_dynamic_shape(dynamic_shape);
     }
   }
-
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    PT_LAZY_DEBUG(
+        "Setting a duplicate tensor with permutation: ", tensor.permutation());
+    builder.with_permutation(tensor.permutation());
+  }
   auto maybe_tensor = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
       tensor.graph());

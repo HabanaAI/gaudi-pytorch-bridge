@@ -602,6 +602,8 @@ void RecipeValueSpec::update_patching_table(
   auto create_empty_tensor{[](const PtTensorInfo& ti) -> at::Tensor {
     auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
     auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+    PT_BRIDGE_DEBUG(
+        "Cache created a BE tensor, HbInternal address: ", hb_internal_tensor);
     TORCH_CHECK(
         hb_internal_tensor != nullptr,
         "Tensor for ",

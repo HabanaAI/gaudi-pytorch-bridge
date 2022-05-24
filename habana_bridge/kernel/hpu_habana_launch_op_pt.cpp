@@ -298,6 +298,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
+  PT_BRIDGE_TRACE
   auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
 
   for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
@@ -312,6 +313,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     const HabanaOperatorPtr& habana_op,
     at::Tensor& pt_tensor) {
+  PT_BRIDGE_TRACE;
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
@@ -351,6 +353,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
+  PT_BRIDGE_TRACE
   std::vector<at::Tensor> pyTensorList;
   const auto& ivalue = value_to_ivalue[value_in];
   if (ivalue->isTensor()) {
@@ -368,8 +371,9 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     if (!pt_tensor.defined()) {
       continue;
     }
-
     auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor);
+    PT_BRIDGE_DEBUG(
+        "Allocated synpase tensor for input tensor: ", syn_tensor.id());
 
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
@@ -1015,6 +1019,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 }
 
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
+  PT_BRIDGE_TRACE
   if (node->kind() == torch::jit::prim::Constant) {
     auto node_vals = node->outputs();
     bool is_jit_cached_graph_info_available =
@@ -1134,6 +1139,7 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
 }
 
 void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
+  PT_BRIDGE_TRACE
   // Call the meta op via CPU impl
   // Some ops dont support c10 op.callBoxed so we need to call via JIT
   torch::jit::Stack stack;
@@ -1501,6 +1507,71 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // dont want to call delete untill we are done with whole graph
     habana_kernels.push_back(HabanaKernel);
   }
+  // allow permutation only for output tensors
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    for (auto ti : output_tensorinfo_map) {
+      auto ival = ti.first;
+      auto iter = pt_to_synapse_tensors.find(ival);
+      HABANA_ASSERT(pt_to_synapse_tensors.count(ival));
+      if (iter != pt_to_synapse_tensors.end()) {
+        auto syn_vec = (iter->second);
+        auto& out_syntensor = (*syn_vec)[0];
+        if (iter->second->size() != 1) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because the PT tensor is mapped to multiple synapse tensors");
+          continue;
+        }
+        auto rank = out_syntensor.ref().pt_shape().size();
+        if (rank != 5 && rank != 4) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because the PT tensor rank is not 4 or 5. other ranks are not supported. current rank: ",
+              rank);
+          continue;
+        }
+        PT_BRIDGE_DEBUG(
+            "Setting synapse allow permutation on tensor: ",
+            out_syntensor.ref().id());
+        synTensorSetAllowPermutation(out_syntensor.ref().get(), 1);
+        ti.second->set_allow_permutation(true);
+      }
+    }
+    for (auto ti : duplicate_input_to_outtinfo_map) {
+      auto ival = ti.first;
+      auto iter = pt_to_synapse_tensors.find(ival);
+      HABANA_ASSERT(pt_to_synapse_tensors.count(ival));
+      if (iter != pt_to_synapse_tensors.end()) {
+        auto syn_vec = (iter->second);
+        auto& out_syntensor = (*syn_vec)[0];
+        if (iter->second->size() != 1) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because the PT tensor is mapped to multiple synapse tensors");
+          continue;
+        }
+        auto rank = out_syntensor.ref().shape().rank().value;
+        if (rank != 5 && rank != 4) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because the PT tensor rank is not 4 or 5. other ranks are not supported. current rank: ",
+              rank);
+          continue;
+        }
+        PT_BRIDGE_DEBUG(
+            "Setting synapse allow permutation on tensor: ",
+            out_syntensor.ref().id());
+        synTensorSetAllowPermutation(out_syntensor.ref().get(), 1);
+        ti.second->set_allow_permutation(true);
+      }
+    }
+  }
   PT_BRIDGE_END;
 }
 
@@ -1855,6 +1926,20 @@ void RecipeValueSpec::create_outdup(
 
   at::Tensor pt_outdup;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    if (!ti.get_allow_permutation()) {
+      auto impl = habana_lazy::GetHbInternalTensorImpl(parent_tensor);
+      if (impl) {
+        impl->SetMemoryPermutation({});
+        PT_BRIDGE_DEBUG(
+            "Resetting tensor ",
+            ti.get_tensor_id(),
+            " permutation because it is not allowed permutation (cache hit flow)")
+      } else {
+        TORCH_CHECK(
+            false,
+            "Failed to reset the permutation because the BE tensor has no internal impl (cache hit flow)");
+      }
+    }
     pt_outdup = parent_tensor;
   } else {
     pt_outdup =
@@ -1979,6 +2064,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   BuildSynapseGraph(syn_graph);
   CompileSynapseGraph();
   ConstructPatchingTable();
+  UpdateSynapsePermutations();
   ExecuteSynapseGraph();
 
   is_jit_cached_graph_info_available =

@@ -426,6 +426,7 @@ class HabanaLaunchOpPT {
   }
 
   void CompileSynapseGraph();
+  void UpdateSynapsePermutations();
   void ConstructPatchingTable();
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);

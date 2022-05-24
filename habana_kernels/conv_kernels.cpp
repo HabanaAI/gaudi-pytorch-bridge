@@ -22,6 +22,7 @@
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
 #include "synapse_helpers/layout_utils.h"
 
@@ -594,6 +595,16 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
   at::Tensor bias;
   at::Tensor input = inputs[0].toTensor();
   at::Tensor weight = inputs[1].toTensor();
+  if (habana_lazy::GetHbInternalTensorImpl(weight)) {
+    PT_BRIDGE_DEBUG(
+        "ConvOp lowering weight HbInternal address: ",
+        habana_lazy::GetHbInternalTensorImpl(weight),
+        " permute: ",
+        VecToString(habana_lazy::GetHbInternalTensorImpl(weight)
+                        ->GetMemoryPermutation()));
+  } else {
+    PT_BRIDGE_DEBUG("ConvOp lowering - weight HbInternal address is null!")
+  }
   const auto stride = inputs[3].toIntList().vec();
   const auto padding = inputs[4].toIntList().vec();
   const auto dilation = inputs[5].toIntList().vec();

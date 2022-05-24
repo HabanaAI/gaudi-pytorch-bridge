@@ -258,6 +258,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     bool is_persistent,
     synTensorType shape_tensor_type,
     void* host_ptr) {
+  PT_BRIDGE_TRACE;
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
 
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {

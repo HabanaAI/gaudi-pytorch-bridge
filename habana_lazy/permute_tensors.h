@@ -41,6 +41,14 @@ class PermuteTensors {
   static bool shouldPermuteWeight(const torch::Tensor& weight);
   static bool shouldPermutePreCastedWeight(const torch::Tensor& weight);
   static const torch::Tensor getPreCastedWeight(const torch::Tensor& weight);
+  template <typename T>
+  static void handlePermutedTensor4D(
+      const torch::Tensor& tensor,
+      const std::vector<int64_t>& strides);
+  template <typename T>
+  static void handlePermutedTensor5D(
+      const torch::Tensor& tensor,
+      const std::vector<int64_t>& strides);
   static unsigned m_permute_counter;
 };
 

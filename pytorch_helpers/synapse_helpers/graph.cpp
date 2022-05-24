@@ -188,14 +188,27 @@ synapse_error_o graph::add_node(
   }
   SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
   const auto& node_type{get_value(node_type_or_err)};
+  for (auto& tensor : outputs) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      PT_LAZY_DEBUG(
+          "synapse output tensors should not carry permutation. Clearing the permutation from synapse output tensor.");
+      synTensorPermutation perm;
+      perm.dims = 0;
+      auto status = synTensorSetPermutation(tensor, &perm);
+      if (status != synStatus::synSuccess) {
+        PT_SYNHELPER_WARN("Node " + node_type + "  failed.", " Err: ", status);
+      }
+    }
+  }
   PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }
-
+  static int cnt = 0;
   std::string node_name;
   if (current_op_name_) {
-    node_name += *current_op_name_ + "/" + node_type;
+    node_name +=
+        *current_op_name_ + "/" + node_type + "/" + std::to_string(cnt++);
   }
   synapse_helpers::detail::tensor_name_generator::to_netron_syntax(node_name);
 
@@ -302,6 +315,18 @@ synapse_error_v<uint64_t> graph::query_workspace_size(
       "Getting workspace size failed",
       synWorkspaceGetSize(&workspace_size, recipe_handle.syn_recipe_handle_));
   return workspace_size;
+}
+
+synapse_error_o graph::query_recipe_tensor_info(
+    std::shared_ptr<graph::recipe_handle> recipe_handle,
+    std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
+  SYNAPSE_SUCCESS_CHECK(
+      "Getting launch tensor info failed",
+      synTensorRetrieveLaunchInfoById(
+          recipe_handle->syn_recipe_handle_,
+          tensor_info_vec.size(),
+          tensor_info_vec.data()));
+  return {};
 }
 
 synapse_error_o graph::launch(

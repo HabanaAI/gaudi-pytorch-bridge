@@ -143,6 +143,10 @@ class graph {
 
   static synapse_error_v<std::string> name_suffix_from_type(synDataType type);
 
+  static synapse_error_o query_recipe_tensor_info(
+      std::shared_ptr<graph::recipe_handle> recipe_handle,
+      std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec);
+
   static synapse_error_v<uint64_t> query_workspace_size(
       const graph::recipe_handle& recipe_handle);
 

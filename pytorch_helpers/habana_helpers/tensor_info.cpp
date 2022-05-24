@@ -167,6 +167,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, is_ZST_);
   deserialize(is, is_view_tensor_);
   deserialize(is, is_restrided_);
+  deserialize(is, is_allow_permutation_);
   deserialize(is, hb_internal_perm_);
   deserialize(is, offset_);
   deserialize(is, ir_name_);
@@ -195,6 +196,7 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, is_ZST_);
   serialize(os, is_view_tensor_);
   serialize(os, is_restrided_);
+  serialize(os, is_allow_permutation_);
   serialize(os, hb_internal_perm_);
   serialize(os, offset_);
   serialize(os, ir_name_);
