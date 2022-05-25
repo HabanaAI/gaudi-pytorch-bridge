@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "reduction_template.h"
+#include "habana_kernels/lowering_util.h"
 
 namespace habana {
 
@@ -182,11 +183,12 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   auto dim = dims.vec();
   auto mask = std::bitset<64>();
   std::vector<int64_t> orig_shape{self.sizes().vec()};
-  const int ndims = orig_shape.size();
+  int ndims = orig_shape.size();
   auto num_outputs = output_attr.size();
   int num_tpc_outputs = 1;
 
   std::vector<synTensor> tensor_list;
+  std::vector<synapse_helpers::tensor> flatten_input;
   std::vector<synapse_helpers::tensor> reshape_list;
   std::vector<synapse_helpers::tensor> tensor_itr;
   std::vector<Parameters> parameters;
@@ -197,6 +199,62 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     }
   }
   HABANA_ASSERT(num_outputs <= 2, "Number of outputs is greater than 2.");
+
+  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndims);
+  auto num_dims_to_reduce = dim.size();
+  std::vector<int64_t> next_val(ndims);
+  std::iota(next_val.begin(), next_val.end(), 0);
+  bool flatten_higher_dims = false;
+  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
+    if (dim[i] == next_val[i]) {
+      flatten_higher_dims = true;
+    } else {
+      flatten_higher_dims = false;
+      break;
+    }
+  }
+  auto use_flat_input =
+      GET_ENV_FLAG_NEW(PT_HPU_REDUCTION_FLATTEN_INPUT) && flatten_higher_dims;
+  if (use_flat_input) {
+    // reshaped_self_sizes is used to hold appropriate input sizes
+    std::vector<int64_t> reshaped_self_sizes;
+
+    auto flatten_size = std::accumulate(
+        orig_shape.begin(),
+        orig_shape.begin() + num_dims_to_reduce,
+        1,
+        std::multiplies<int>());
+    if (keepdim) {
+      // we need to keep a size of '1' for upper dims, flattened value at last
+      // pos of "dim array", and original sizes for lower dimensions
+      // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
+      // [1,1,48,2]
+      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
+        reshaped_self_sizes.emplace_back(1);
+      }
+    }
+    // else all upper dims sizes are flattened into a single dim at 0
+    // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
+    // [48,2]
+    reshaped_self_sizes.emplace_back(flatten_size);
+    for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+      reshaped_self_sizes.emplace_back(orig_shape[i]);
+    }
+    orig_shape = reshaped_self_sizes;
+    ndims = reshaped_self_sizes.size();
+    auto flat_input = OpBackend::BuildReshape(
+        op, graph, inputs[0], reshaped_self_sizes, op->ScalarType());
+    flatten_input.emplace_back(std::move(flat_input));
+    std::vector<int64_t> reshaped_in_dim;
+    // updating the dim input according to reshaped input
+    if (!keepdim) {
+      reshaped_in_dim.push_back(0);
+    } else {
+      reshaped_in_dim.push_back(dim[num_dims_to_reduce - 1]);
+    }
+    dim = reshaped_in_dim;
+  }
+
   for (const auto& i : dim) {
     mask.set(c10::maybe_wrap_dim(i, ndims, true));
   }
@@ -257,12 +315,14 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     return reduce_output_attrs;
   };
   size_t len = parameters.size();
-  // NOTE: Need to handle:Flatten the input when dim is continuous or none
   if (keepdim) {
     // When keepdim value is set to true
     if (len == 1) {
       auto op_out = reduction_build_node(
-          std::move(inputs), output_attr, /*param_index*/ 0);
+          use_flat_input ? std::vector<synTensor>{flatten_input[0].get()}
+                         : std::move(inputs),
+          output_attr,
+          /*param_index*/ 0);
 
       return op_out;
     } else {
@@ -297,7 +357,8 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   } else {
     // When keepdim value is set to false
     auto op_out = reduction_build_node(
-        std::move(inputs),
+        use_flat_input ? std::vector<synTensor>{flatten_input[0].get()}
+                       : std::move(inputs),
         reduce_output_attrs(parameters[0].shape_list),
         /*param_index*/ 0);
     tensor_list.emplace_back(op_out[0].get());

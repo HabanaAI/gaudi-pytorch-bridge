@@ -312,6 +312,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_FCD_STRIDE_OPT, bool, true);
 
+// Option to enable the flattening algorithm for the reduction ops
+ENV_STRUCT_DEFINITION(PT_HPU_REDUCTION_FLATTEN_INPUT, bool, true);
+
 // Option to enable numeric limits check for CPU tensors when downcasting
 // Ex long/double data type to int/float data type
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK, bool, true);
