@@ -510,8 +510,8 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
+    const at::Tensor& mom,
     const float wd,
-    const float mom,
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
@@ -524,7 +524,7 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
   }
 
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedSGDMomentum>(
-      gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+      gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov);
 
   int64_t out_index = 0;
   HABANA_ASSERT(weights.size() == momentum.size());

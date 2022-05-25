@@ -258,12 +258,7 @@ class OptimizerFusedSGD : public Node {
 
 class OptimizerFusedSGDMomentum : public Node {
  public:
-  enum class OptFusedSGDMomentumIndex {
-    kwdIdx = 5,
-    kmomIdx,
-    kdampIdx,
-    knesterovIdx
-  };
+  enum class OptFusedSGDMomentumIndex { kwdIdx = 6, kdampIdx, knesterovIdx };
   OptimizerFusedSGDMomentum() = delete;
   OptimizerFusedSGDMomentum(
       const at::TensorList& gradients,
@@ -271,8 +266,8 @@ class OptimizerFusedSGDMomentum : public Node {
       at::TensorList& momentum,
       const at::Tensor& epoch_num,
       const at::Tensor& lr,
+      const at::Tensor& mom,
       const float wd,
-      const float mom,
       const float damp,
       const bool nesterov)
       : ir::Node(c10::Symbol::fromQualString(
@@ -287,9 +282,10 @@ class OptimizerFusedSGDMomentum : public Node {
     auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
     AddInput(hl_lr.GetIrValue());
 
+    auto hl_mom = GetOrCreateHbLazyTensor(mom, c10::kHPU);
+    AddInput(hl_mom.GetIrValue());
+
     m_meta_data.set(wd, static_cast<size_t>(OptFusedSGDMomentumIndex::kwdIdx));
-    m_meta_data.set(
-        mom, static_cast<size_t>(OptFusedSGDMomentumIndex::kmomIdx));
     m_meta_data.set(
         damp, static_cast<size_t>(OptFusedSGDMomentumIndex::kdampIdx));
     m_meta_data.set(
@@ -300,10 +296,6 @@ class OptimizerFusedSGDMomentum : public Node {
     std::stringstream ss;
     ss << Node::ToString() << ", wd="
        << m_meta_data.get(static_cast<size_t>(OptFusedSGDMomentumIndex::kwdIdx))
-              .toDouble()
-       << ", momentum="
-       << m_meta_data
-              .get(static_cast<size_t>(OptFusedSGDMomentumIndex::kmomIdx))
               .toDouble()
        << ", dampening="
        << m_meta_data

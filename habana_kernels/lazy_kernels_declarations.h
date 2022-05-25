@@ -801,8 +801,8 @@ at::Tensor& optimizer_sgd_momentum_hpu_lazy(
     at::TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
+    const at::Tensor& mom,
     const float wd,
-    const float mom,
     const float damp,
     const bool nesterov);
 at::Tensor ones_like_hpu_lazy(

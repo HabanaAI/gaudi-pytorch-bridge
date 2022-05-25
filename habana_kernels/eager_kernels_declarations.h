@@ -826,8 +826,8 @@ at::Tensor& optimizer_sgd_momentum_hpu(
     at::TensorList& momentum_vec,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
+    const at::Tensor& mom,
     const float wd,
-    const float mom,
     const float damp,
     const bool nesterov);
 at::Tensor habana_nms_hpu(

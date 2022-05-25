@@ -4121,13 +4121,14 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
     const float damp,
     const bool nesterov) {
   PT_OP_TRACE;
+  auto mom_t = get_tensor_for_scalar(mom);
   if (!habana_lazy::isDeviceInLoweringMode() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     optimizer_sgd_momentum_hpu_lazy(
-        gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+        gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
   } else {
     optimizer_sgd_momentum_hpu(
-        gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+        gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
   }
 
   return lr;
@@ -4662,7 +4663,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor[] weights_in, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
   m.def(
-      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
+      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> Tensor(a!)");
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor[] weight_vec, Tensor[] exp_avg_vec, Tensor[] exp_avg_sq_vec, Tensor lr_t, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> (Tensor[])");
   m.def(

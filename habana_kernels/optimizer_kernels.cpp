@@ -981,7 +981,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
   TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
   TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
   TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
   TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
   TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
@@ -1024,10 +1024,13 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   }
   auto epoch_num = inputs[3].toTensor();
   auto lr = inputs[4].toTensor();
+  auto mom = inputs[5].toTensor();
 
   ns_OptimizerSGD::Params params;
-  params.wd = inputs[5].toDouble();
-  params.mom = inputs[6].toDouble();
+  params.wd = inputs[6].toDouble();
+  // we use mom tensor instead. setting to some non zero as a hack. Need fix
+  // from tpc glue
+  params.mom = (float)0.1;
   params.damp = inputs[7].toDouble();
   params.nesterov = inputs[8].toBool();
 
@@ -1066,7 +1069,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
       inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
   TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
   TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
   TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
   TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
   TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
@@ -1076,6 +1079,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
   auto momentum = inputs[2].toTensorList();
   auto epoch_num = inputs[3].toTensor();
   auto lr = inputs[4].toTensor();
+  auto mom = inputs[5].toTensor();
 
   auto num_params = static_cast<unsigned int>(gradients.size());
 
@@ -1091,6 +1095,8 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
     op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
+    op->SetSynapseInput(
+        p_context_->syn_inputs_[3 * num_params + 2]); // mom tensor
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -1139,8 +1145,8 @@ Tensor& optimizer_sgd_momentum_hpu(
     TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
+    const at::Tensor& mom,
     const float wd,
-    const float mom,
     const float damp,
     const bool nesterov) {
   PT_OTHER_OPS_BEGIN;
@@ -1160,8 +1166,8 @@ Tensor& optimizer_sgd_momentum_hpu(
       IValue(momentum),
       IValue(epoch_num),
       IValue(lr),
-      IValue(wd),
       IValue(mom),
+      IValue(wd),
       IValue(damp),
       IValue(nesterov)};
 
@@ -1183,6 +1189,7 @@ Tensor& optimizer_sgd_momentum_hpu(
 
   pt_inputs.push_back(epoch_num);
   pt_inputs.push_back(lr);
+  pt_inputs.push_back(mom);
 
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
