@@ -52,7 +52,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 #define FOREACH_TESTS(op) FOREACH(_foreach_##op) FOREACH_(_foreach_##op)
 
-/*FOREACH_TESTS(zero)*/
+FOREACH_(_foreach_zero)
 FOREACH_TESTS(exp)
 FOREACH_TESTS(sqrt)
 FOREACH_TESTS(abs)
@@ -62,10 +62,12 @@ FOREACH_TESTS(atan)
 FOREACH_TESTS(ceil)
 FOREACH_TESTS(cos)
 FOREACH_TESTS(cosh)
-FOREACH_TESTS(erf) /*FOREACH_TESTS(erfc)*/
+FOREACH_TESTS(erf)
+FOREACH_TESTS(erfc)
 FOREACH_TESTS(expm1)
 FOREACH_TESTS(floor)
-FOREACH_TESTS(log) /*FOREACH_TESTS(log10)*/
+FOREACH_TESTS(log)
+FOREACH_TESTS(log10)
 FOREACH_TESTS(log1p)
 FOREACH_TESTS(log2)
 FOREACH_TESTS(neg)
@@ -75,7 +77,7 @@ FOREACH_TESTS(sin)
 FOREACH_TESTS(sinh)
 FOREACH_TESTS(round)
 /*FOREACH_TESTS(lgamma)*/
-/*FOREACH_TESTS(frac)*/
+FOREACH_TESTS(frac)
 FOREACH_TESTS(reciprocal)
 FOREACH_TESTS(sigmoid)
 FOREACH_TESTS(trunc)

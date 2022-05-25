@@ -41,4 +41,16 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(i) = std::move(out[0]);
   }
 }
+
+void ForeachZero::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto& tensors = stack[0].toTensorList();
+  for (auto i = 0u; i < tensors.size(); ++i) {
+    const auto& tensor = tensors[i];
+    auto out =
+        ConstantHelper(graph, 0, tensor.scalar_type(), tensor.sizes(), i);
+    syn_out(i) = std::move(out);
+  }
+}
 } // namespace habana

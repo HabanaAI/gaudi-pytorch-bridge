@@ -101,16 +101,16 @@ _foreach_erf_:
   inplace_ids: [0]
   op_backend: Foreach
 
-#_foreach_erfc:
-#  guid: erfc_fwd
-#  op_backend: Foreach
-#  op_frontend: ForeachFE
-#  out_ids: [0]
-#
-#_foreach_erfc_:
-#  guid: erfc_fwd
-#  inplace_ids: [0]
-#  op_backend: Foreach
+_foreach_erfc:
+  dtypes: [BFloat16, Float]
+  op_backend: ForeachErfc
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_erfc_:
+  dtypes: [BFloat16, Float]
+  inplace_ids: [0]
+  op_backend: ForeachErfc
 
 _foreach_exp:
   dtypes: [BFloat16, Float]
@@ -151,27 +151,16 @@ _foreach_floor_:
   inplace_ids: [0]
   op_backend: Foreach
 
-#_foreach_frac:
-#  guid: frac_fwd
-#  op_backend: Foreach
-#  op_frontend: ForeachFE
-#  out_ids: [0]
-#
-#_foreach_frac_:
-#  guid: frac_fwd
-#  inplace_ids: [0]
-#  op_backend: Foreach
-#
-#_foreach_lgamma:
-#  guid: lgamma_fwd
-#  op_backend: Foreach
-#  op_frontend: ForeachFE
-#  out_ids: [0]
-#
-#_foreach_lgamma_:
-#  guid: lgamma_fwd
-#  inplace_ids: [0]
-#  op_backend: Foreach
+_foreach_frac:
+  dtypes: [BFloat16, Float]
+  op_backend: ForeachFrac
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_frac_:
+  dtypes: [BFloat16, Float]
+  inplace_ids: [0]
+  op_backend: ForeachFrac
 
 _foreach_log:
   dtypes: [BFloat16, Float]
@@ -186,16 +175,16 @@ _foreach_log_:
   inplace_ids: [0]
   op_backend: Foreach
 
-#_foreach_log10:
-#  guid: log10_fwd
-#  op_backend: Foreach
-#  op_frontend: ForeachFE
-#  out_ids: [0]
-#
-#_foreach_log10_:
-#  guid: log10_fwd
-#  inplace_ids: [0]
-#  op_backend: Foreach
+_foreach_log10:
+  dtypes: [BFloat16, Float]
+  op_backend: ForeachLog10
+  op_frontend: ForeachFE
+  out_ids: [0]
+
+_foreach_log10_:
+  dtypes: [BFloat16, Float]
+  inplace_ids: [0]
+  op_backend: ForeachLog10
 
 _foreach_log1p:
   dtypes: [BFloat16, Float]
@@ -352,6 +341,11 @@ _foreach_trunc_:
   guid: trunc_fwd
   inplace_ids: [0]
   op_backend: Foreach
+
+_foreach_zero_:
+  dtypes: [BFloat16, Float, Int, Short, Byte, Char]
+  inplace_ids: [0]
+  op_backend: ForeachZero
 
 abs.out:
   dtypes: [BFloat16, Float]
