@@ -48,14 +48,15 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         drop_last = True # Currently AEON support only drop_last for SSD
         self.encoder = None
         distributed = kwargs.get('sampler', None) != None
+        channels_last = kwargs.get('channels_last', False)
 
-        self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, manifest, distributed=distributed)
+        self.configurator = AeonSSDConfigurator(dataset, self.batch_size, num_workers, shuffle, channels_last, manifest, distributed=distributed)
         aeon_config = self.configurator.get_config()
 
         self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(aeon_config,
                                                                                       True, # pin_memory
                                                                                       True, # use_prefetch
-                                                                                      False, # channels-last
+                                                                                      channels_last, # channels-last
                                                                                       drop_last
                                                                                       )
 
@@ -95,6 +96,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
         keyword_args.update(dict(zip(inspect.getfullargspec(super(ResnetDataLoader, self).__init__).args[1:], args)))
+        channels_last = keyword_args.get('channels_last', False)
 
         self.DeviceType = htexp._get_device_type()
 
@@ -129,11 +131,11 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 ht = HabanaAeonTransforms(torch_transforms)
                 aeon_transform_config, is_train = ht.get_aeon_transforms()
                 manifest_filename = generate_aeon_manifest(self.dataset.imgs)
-                aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, self.batch_size, self.num_workers, is_train)
+                aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, self.batch_size, self.num_workers, channels_last, is_train)
                 self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(aeon_config_json,
                                                                         True, # pin_memory
                                                                         True, # use_prefetch
-                                                                        False, # channels-last
+                                                                        channels_last,
                                                                         self.drop_last
                                                                         )
                 print("Running with Habana aeon DataLoader")

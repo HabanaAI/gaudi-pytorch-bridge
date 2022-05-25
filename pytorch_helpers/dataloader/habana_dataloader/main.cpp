@@ -60,6 +60,7 @@ class HabanaAcceleratedPytorchDL {
     m_user_idx = 0;
     m_aeon_idx = 0;
     m_shouldStopPrefetch = false;
+    m_aeon_permute = image_etl.value("aeon_permute", true);
 
     if (drop_last) {
       m_total_batch_count = m_record_count / m_batch_size;
@@ -128,14 +129,34 @@ class HabanaAcceleratedPytorchDL {
     return m_batch_size;
   }
 
+  at::Tensor make_image_tensor(at::TensorOptions image_options) {
+    if (!m_channels_last && m_aeon_permute) {
+      return torch::empty(
+          {m_batch_size, 3, m_img_height, m_img_width},
+          image_options,
+          {torch::MemoryFormat::Contiguous});
+    } else {
+      return torch::empty(
+          {m_batch_size, m_img_height, m_img_width, 3},
+          image_options,
+          {torch::MemoryFormat::Contiguous});
+    }
+  }
+
+  void maybe_permute(at::Tensor& t) {
+    if (!m_channels_last && !m_aeon_permute) {
+      /* Converting Image from NHWC -> NCHW */
+      t = t.permute({0, 3, 1, 2}).contiguous();
+    }
+  }
+
   virtual std::vector<torch::Tensor> getTensorTuple(bool is_last_batch) {
     auto image_options = torch::TensorOptions().dtype(torch::kFloat32);
     auto target_options = torch::TensorOptions().dtype(torch::kInt32);
 
     int step_batch_size = get_step_batch_size(is_last_batch);
 
-    auto image = torch::empty(
-        {m_batch_size, m_img_height, m_img_width, 3}, image_options);
+    auto image = make_image_tensor(image_options);
     if (m_pin_memory) {
       image = at::native::pin_memory(image, torch::kHPU);
     }
@@ -168,11 +189,7 @@ class HabanaAcceleratedPytorchDL {
     /* This is the format in which pytorch expects to accept the data */
     target = target.to(torch::kInt64);
 
-    if (!m_channels_last) {
-      /* Converting Image from NHWC -> NCHW */
-      image = image.permute({0, 3, 1, 2});
-      image = image.contiguous();
-    }
+    maybe_permute(image);
 
     return make_vec(image, target);
   }
@@ -237,6 +254,7 @@ class HabanaAcceleratedPytorchDL {
   uint64_t m_record_count;
   int m_last_batch_remainder;
   bool m_channels_last;
+  bool m_aeon_permute;
 
   // For prefetching:
   static const int s_buffer_level = 3;
@@ -280,10 +298,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
 
     int step_batch_size = get_step_batch_size(is_last_batch);
 
-    auto image = torch::empty(
-        {m_batch_size, m_img_height, m_img_width, 3},
-        image_options,
-        {torch::MemoryFormat::Contiguous});
+    auto image = make_image_tensor(image_options);
     auto bbox = torch::empty({m_batch_size, m_max_gt_boxes, 4}, bbox_options);
     auto label = torch::empty({m_batch_size, m_max_gt_boxes}, label_options);
     auto img_id = torch::empty({m_batch_size}, img_id_options);
@@ -329,13 +344,10 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
       label = label.narrow(0, 0, step_batch_size);
     }
 
+    maybe_permute(image);
+
     /* This is the format in which pytorch expects to accept the data */
     label = label.to(torch::kInt64);
-
-    if (!m_channels_last) {
-      /* Converting Image from NHWC -> NCHW */
-      image = image.permute({0, 3, 1, 2});
-    }
 
     return make_vec(image, img_id, img_shape, bbox, label);
   }

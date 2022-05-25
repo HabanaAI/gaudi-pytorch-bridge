@@ -30,6 +30,7 @@ class AeonSSDConfigurator:
     batch_size:       int
     num_workers:      int
     shuffle:          bool
+    channel_last:     bool
     manifest:         string
     distributed:      bool = True
 
@@ -255,7 +256,7 @@ class AeonSSDConfigurator:
             "type": "image",
             "height": self.transforms_config["height"],
             "width": self.transforms_config["width"],
-            "channel_major": False,
+            "channel_major": not self.channel_last,
             "output_type": "float"
         }
         return image_config

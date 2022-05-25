@@ -21,12 +21,12 @@ def _get_rank():
     else:
         return 0
 
-def _get_image_config(transforms):
+def _get_image_config(transforms, channels_last):
     image_config = {
         "type": "image",
         "height": transforms["height"],
         "width": transforms["width"],
-        "channel_major": False,
+        "channel_major": not channels_last,
         "output_type": "float"
     }
     return image_config
@@ -54,8 +54,8 @@ def _get_augmentation(transforms, is_train):
         augmentation_config["validation_mode"] = True
     return augmentation_config
 
-def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, workers, is_train=True):
-    image_config = _get_image_config(transforms)
+def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, workers, channels_last, is_train=True):
+    image_config = _get_image_config(transforms, channels_last)
     label_config = _get_label_config()
     augmentation_config = _get_augmentation(transforms, is_train)
     instance_id = _get_rank()
