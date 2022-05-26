@@ -163,6 +163,13 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
     for (auto& info : tensor_info_vec) {
       HABANA_ASSERT(persistent_to_tensor_id.count(info.tensorId));
       auto tensor_id = persistent_to_tensor_id[info.tensorId];
+      if (info.tensorType == TENSOR_TYPE_INVALID) {
+        PT_BRIDGE_WARN(
+            "Synapse returned a TENSOR_TYPE_INVALID when querying the persistent tensors for permutations, in tensor: ",
+            tensor_id,
+            " . It means that the synapse tensor is not in the recipe, probably not attached to a node");
+        continue;
+      }
       std::vector<uint8_t> permute_vec(
           info.tensorPermutation, info.tensorPermutation + info.tensorDims);
       // if this is an identity permutation we set empty permute
