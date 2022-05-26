@@ -581,4 +581,47 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
   return result;
 }
 
+// For inplace torch ops acting on views, lazyOp calls will automatically insert
+// strided insert node. But we need to do this manually for custom kernels. This
+// api is meant to be used in custom kernels for tensors
+// that are updated inplace. Strided insert node will be additionally inserted
+// if the input tensor is a view.
+void HbLazyTensorViews::CustomKernelAddNodeInplace(
+    const at::Tensor& weight,
+    habana_lazy::ir::NodePtr node,
+    int64_t& out_index) {
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto hl_weight = GetHbLazyTensor(weight);
+  auto id = hl_weight.getTensorUniqueId();
+  auto it = context->view_table.find(id);
+
+  if (it == context->view_table.end()) {
+    ir::Value& out5 = hl_weight.CurrentIrValue();
+    out5.SetNode(
+        node,
+        hl_weight.GetDevice(),
+        hl_weight.GetSizes(),
+        hl_weight.dtype_optional(),
+        out_index++);
+  } else {
+    auto wt_updated = empty_hpu_lazy(
+        weight.sizes(),
+        weight.options(),
+        weight.suggest_memory_format(),
+        false);
+    auto hl_wt_updated = GetHbLazyTensor(wt_updated);
+    ir::Value& out5 = hl_wt_updated.CurrentIrValue();
+    out5.SetNode(
+        node,
+        hl_wt_updated.GetDevice(),
+        hl_wt_updated.GetSizes(),
+        hl_wt_updated.dtype_optional(),
+        out_index++);
+
+    // add strided insert node. Do not flush in lazy eager as it is a fused
+    // op. step marker will be used at the end
+    strided_insert_hpu_lazy(weight, wt_updated, /*is_flush*/ false);
+  }
+}
+
 } // namespace habana_lazy

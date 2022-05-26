@@ -10,6 +10,7 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/ops/unpack.h"
+#include "habana_lazy/view_utils.h"
 
 using namespace at;
 using namespace habana;
@@ -121,24 +122,13 @@ void optimizer_adamw_hpu_lazy(
     const float epsilon,
     const float modified_wd) {
   PT_LAZY_TRACE;
-  std::vector<at::Tensor> pweights;
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto weight_hwck = permute_wt_hpu(weights[i]);
-    pweights.push_back(weight_hwck);
-  }
-  TensorList weights_hwck(pweights);
 
-  for (size_t i = 0; i < weights_hwck.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights_hwck[i]);
-    updateDstDependencies(hlweight, weights_hwck[i], true);
-  }
-
-  auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHPU);
-  auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
+  auto hl_lr_t = GetHbLazyTensor(lr_t);
+  auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
 
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedAdamw>(
       gradients,
-      weights_hwck,
+      weights,
       exp_avg,
       exp_avg_sq,
       lr_t,
@@ -150,7 +140,7 @@ void optimizer_adamw_hpu_lazy(
 
   int64_t out_index = 0;
 
-  auto hlweight = habana_lazy::GetHbLazyTensor(weights_hwck[0]);
+  auto hlweight = habana_lazy::GetHbLazyTensor(weights[0]);
   habana_lazy::ir::Value& out = hlweight.CurrentIrValue();
   node->set_as_output_tensor_list();
   out.SetNode(
@@ -162,9 +152,9 @@ void optimizer_adamw_hpu_lazy(
   habana_lazy::ir::NodePtr node_unpack =
       std::make_shared<habana_lazy::ir::ListUnpack>(out);
 
-  for (size_t i = 0; i < weights_hwck.size(); i++) {
+  for (size_t i = 0; i < weights.size(); i++) {
     if (modified_wd != 1.0) {
-      auto hl_wd = GetHbLazyTensor(weights_hwck[i]);
+      auto hl_wd = GetHbLazyTensor(weights[i]);
       ir::Value& out0 = hl_wd.CurrentIrValue();
       out0.SetNode(
           node_unpack,
@@ -210,14 +200,8 @@ void optimizer_adamw_hpu_lazy(
         hl_exp_avg_sq_1.dtype_optional(),
         out_index++);
 
-    auto hl_weight = GetHbLazyTensor(weights_hwck[i]);
-    ir::Value& out5 = hl_weight.CurrentIrValue();
-    out5.SetNode(
-        node_unpack,
-        hl_weight.GetDevice(),
-        hl_weight.GetSizes(),
-        hl_weight.dtype_optional(),
-        out_index++);
+    HbLazyTensorViews::CustomKernelAddNodeInplace(
+        weights[i], node_unpack, out_index);
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {

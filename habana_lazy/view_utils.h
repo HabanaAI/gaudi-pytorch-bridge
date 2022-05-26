@@ -77,6 +77,10 @@ class HbLazyTensorViews {
   static StrideParams& getViewTableParams(HbLazyTensor& hl_view_t);
   static at::Tensor get_base_tensor(const at::Tensor& self);
   static const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
+  static void CustomKernelAddNodeInplace(
+      const at::Tensor& self,
+      habana_lazy::ir::NodePtr node,
+      int64_t& out_index);
 };
 
 at::Tensor add_strided_insert_node(

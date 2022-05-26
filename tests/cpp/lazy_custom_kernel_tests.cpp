@@ -174,9 +174,9 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
     grad_vec_cpu.push_back(t_in);
     auto tH = t.to(torch::kHPU);
     grad_vec.push_back(tH);
-    wt_vec_cpu.push_back(torch::ones_like(t_in));
+    wt_vec_cpu.push_back(torch::ones_like(t_in).view({M, N}));
     auto tH_w = torch::ones_like(t_in).to(torch::kHPU);
-    wt_vec.push_back(tH_w);
+    wt_vec.push_back(tH_w.view({M, N}));
     exp_avg_vec_cpu.push_back(torch::zeros_like(t_in));
     auto tH_ea = torch::zeros_like(t_in).to(torch::kHPU);
     exp_avg_vec.push_back(tH_ea);
