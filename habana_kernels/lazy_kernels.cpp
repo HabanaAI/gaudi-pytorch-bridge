@@ -4262,7 +4262,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   if (!running_mean_.defined()) {
     running_mean = bn_create_and_init_undefined_input(
         input, input.suggest_memory_format(), false, 0);
-    output_mask[1] = 1;
   } else {
     running_mean = running_mean_;
   }
@@ -4270,7 +4269,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   if (!running_var_.defined()) {
     running_var = bn_create_and_init_undefined_input(
         input, input.suggest_memory_format(), false, 1);
-    output_mask[2] = 1;
   } else {
     running_var = running_var_;
   }
@@ -4282,22 +4280,21 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
         : LazyOp<T>("aten::native_batch_norm_backward", inputs, {}, -1) {}
     T get_result_overrideable() override {
       const auto& inputs = get_inputs();
-      auto output_mask = inputs.back().toListRef();
+      // auto output_mask = inputs.back().toListRef();//output_mask ignored
       auto input = inputs[1].toTensor();
       auto running_mean = inputs[3].toTensor();
       auto running_var = inputs[4].toTensor();
-      auto create_res = [&](int i, Tensor in) {
+      auto create_res = [&](Tensor in) {
         Tensor res;
-        if (output_mask[i].toBool()) {
-          res = empty_hpu_lazy(
-              in.sizes(), in.options(), in.suggest_memory_format(), false);
-        }
+        // first output is based on input and for HPU-TPC implementation it
+        // cannot be left uncreated.
+        // We ignore output_mask values as TPC always creates 3 outputs
+        res = empty_hpu_lazy(
+            in.sizes(), in.options(), in.suggest_memory_format(), false);
         return res;
       };
       return {
-          create_res(0, input),
-          create_res(1, running_mean),
-          create_res(2, running_var)};
+          create_res(input), create_res(running_mean), create_res(running_var)};
     }
   };
   BN op(
