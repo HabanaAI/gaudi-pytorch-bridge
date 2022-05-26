@@ -10,6 +10,7 @@
 
 #include "habana_lazy/permute_tensors.h"
 #include <c10/core/Storage.h>
+#include <cstddef>
 #include "habana_device/HPUAllocator.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -107,42 +108,12 @@ void PermuteTensors::handlePermutedTensor(
       auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
       // calculate new strides according to permutation
       auto strides = calcNewStrides(permutedTensor, pt_permute);
-      auto scalar_type = cpuTensor.scalar_type();
-      if (permutedTensor.dim() == 4) {
-        if (scalar_type == c10::ScalarType::BFloat16) {
-          handlePermutedTensor4D<c10::BFloat16>(cpuTensor, strides);
-        } else if (
-            scalar_type == c10::ScalarType::Float ||
-            scalar_type == c10::ScalarType::Int) {
-          handlePermutedTensor4D<float>(cpuTensor, strides);
-        } else if (
-            scalar_type == c10::ScalarType::Double ||
-            scalar_type == c10::ScalarType::Long) {
-          handlePermutedTensor4D<double>(cpuTensor, strides);
-        } else {
-          TORCH_CHECK(
-              false,
-              "handlePermutedTensor missing support for scalar_type",
-              scalar_type);
-        }
-      } else {
-        if (scalar_type == c10::ScalarType::BFloat16) {
-          handlePermutedTensor5D<c10::BFloat16>(cpuTensor, strides);
-        } else if (
-            scalar_type == c10::ScalarType::Float ||
-            scalar_type == c10::ScalarType::Int) {
-          handlePermutedTensor5D<float>(cpuTensor, strides);
-        } else if (
-            scalar_type == c10::ScalarType::Double ||
-            scalar_type == c10::ScalarType::Long) {
-          handlePermutedTensor5D<double>(cpuTensor, strides);
-        } else {
-          TORCH_CHECK(
-              false,
-              "handlePermutedTensor missing support for scalar_type",
-              scalar_type);
-        }
-      }
+      auto old_sizes = cpuTensor.sizes();
+      // set cpu tensor with old sizes + new strides
+      cpuTensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          old_sizes, strides);
+      // permute tensor back to host
+      cpuTensor = cpuTensor.contiguous();
     }
   }
 }
@@ -382,65 +353,6 @@ void PermuteTensors::restrideWeightTensorDataToQRSCK(
 
   // Copy tmp buffer to original tensor memory
   std::memcpy(ptr, tempBuff, weight.numel() * sizeof(T));
-  delete[] tempBuff;
-}
-
-template <typename T>
-void PermuteTensors::handlePermutedTensor4D(
-    const torch::Tensor& tensor,
-    const std::vector<int64_t>& strides) {
-  T* ptr = (T*)tensor.data_ptr();
-  auto sizes = tensor.sizes();
-
-  // Creating temp buffer the size of the tensor
-  T* tempBuff = new T[tensor.numel()]();
-  int buffer_counter = 0;
-  for (int i = 0; i < sizes[0]; ++i) {
-    for (int j = 0; j < sizes[1]; ++j) {
-      for (int k = 0; k < sizes[2]; ++k) {
-        for (int l = 0; l < sizes[3]; ++l) {
-          tempBuff[buffer_counter] =
-              ptr[i * strides[0] + j * strides[1] + k * strides[2] +
-                  l * strides[3]];
-          buffer_counter++;
-        }
-      }
-    }
-  }
-
-  // Copy tmp buffer to original tensor memory
-  std::memcpy(ptr, tempBuff, tensor.numel() * sizeof(T));
-  delete[] tempBuff;
-}
-
-template <typename T>
-void PermuteTensors::handlePermutedTensor5D(
-    const torch::Tensor& tensor,
-    const std::vector<int64_t>& strides) {
-  T* ptr = (T*)tensor.data_ptr();
-  auto sizes = tensor.sizes();
-
-  // Creating temp buffer the size of the tensor
-  T* tempBuff = new T[tensor.numel()]();
-  int buffer_counter = 0;
-
-  for (int i = 0; i < sizes[0]; ++i) {
-    for (int j = 0; j < sizes[1]; ++j) {
-      for (int k = 0; k < sizes[2]; ++k) {
-        for (int l = 0; l < sizes[3]; ++l) {
-          for (int m = 0; m < sizes[4]; ++m) {
-            tempBuff[buffer_counter] =
-                ptr[i * strides[0] + j * strides[1] + k * strides[2] +
-                    l * strides[3] + m * strides[4]];
-            buffer_counter++;
-          }
-        }
-      }
-    }
-  }
-
-  // Copy tmp buffer to original tensor memory
-  std::memcpy(ptr, tempBuff, tensor.numel() * sizeof(T));
   delete[] tempBuff;
 }
 } // namespace habana_lazy

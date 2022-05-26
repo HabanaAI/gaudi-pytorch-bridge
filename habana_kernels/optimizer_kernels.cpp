@@ -987,26 +987,41 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
-  PT_BRIDGE_DEBUG(
-      "OptimizerSGDMomentumOperator lowering gradient HbInternal address: ",
-      habana_lazy::GetHbInternalTensorImpl(gradients),
-      " permute: ",
-      VecToString(habana_lazy::GetHbInternalTensorImpl(gradients)
-                      ->GetMemoryPermutation()));
+  if (habana_lazy::GetHbInternalTensorImpl(gradients)) {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering gradient HbInternal address: ",
+        habana_lazy::GetHbInternalTensorImpl(gradients),
+        " permute: ",
+        VecToString(habana_lazy::GetHbInternalTensorImpl(gradients)
+                        ->GetMemoryPermutation()));
+  } else {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering - gradients HbInternal address is null!")
+  }
   auto weights = inputs[1].toTensor();
-  PT_BRIDGE_DEBUG(
-      "OptimizerSGDMomentumOperator lowering weight HbInternal address: ",
-      habana_lazy::GetHbInternalTensorImpl(weights),
-      " permute: ",
-      VecToString(habana_lazy::GetHbInternalTensorImpl(weights)
-                      ->GetMemoryPermutation()));
+  if (habana_lazy::GetHbInternalTensorImpl(weights)) {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering weight HbInternal address: ",
+        habana_lazy::GetHbInternalTensorImpl(weights),
+        " permute: ",
+        VecToString(habana_lazy::GetHbInternalTensorImpl(weights)
+                        ->GetMemoryPermutation()));
+  } else {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering - weights HbInternal address is null!")
+  }
   auto momentum = inputs[2].toTensor();
-  PT_BRIDGE_DEBUG(
-      "OptimizerSGDMomentumOperator lowering momentum HbInternal address: ",
-      habana_lazy::GetHbInternalTensorImpl(momentum),
-      " permute: ",
-      VecToString(habana_lazy::GetHbInternalTensorImpl(momentum)
-                      ->GetMemoryPermutation()));
+  if (habana_lazy::GetHbInternalTensorImpl(momentum)) {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering momentum HbInternal address: ",
+        habana_lazy::GetHbInternalTensorImpl(momentum),
+        " permute: ",
+        VecToString(habana_lazy::GetHbInternalTensorImpl(momentum)
+                        ->GetMemoryPermutation()));
+  } else {
+    PT_BRIDGE_DEBUG(
+        "OptimizerSGDMomentumOperator lowering - momentum HbInternal address is null!")
+  }
   auto epoch_num = inputs[3].toTensor();
   auto lr = inputs[4].toTensor();
 

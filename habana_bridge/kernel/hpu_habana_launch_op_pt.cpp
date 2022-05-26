@@ -298,7 +298,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
-  PT_BRIDGE_TRACE
+  PT_BRIDGE_TRACE;
   auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
 
   for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
@@ -353,7 +353,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
-  PT_BRIDGE_TRACE
+  PT_BRIDGE_TRACE;
   std::vector<at::Tensor> pyTensorList;
   const auto& ivalue = value_to_ivalue[value_in];
   if (ivalue->isTensor()) {
@@ -1019,7 +1019,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 }
 
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
-  PT_BRIDGE_TRACE
+  PT_BRIDGE_TRACE;
   if (node->kind() == torch::jit::prim::Constant) {
     auto node_vals = node->outputs();
     bool is_jit_cached_graph_info_available =
@@ -1139,7 +1139,7 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
 }
 
 void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
-  PT_BRIDGE_TRACE
+  PT_BRIDGE_TRACE;
   // Call the meta op via CPU impl
   // Some ops dont support c10 op.callBoxed so we need to call via JIT
   torch::jit::Stack stack;
