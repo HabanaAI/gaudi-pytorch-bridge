@@ -123,9 +123,14 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
   void setDevice(at::Device d) const override {
     // For CPU device, fork is invoking set_device from Engine::thread_init with
-    // device=0. This is causing assert as we have not yet initialized  synapse
-    // devices or HPURegistrar. As a WA, if set_device is called, before
-    // initialization we can silently return after giving a warning.
+    // device=0. Hence, as the HPU device won't be initialized at that point,
+    // silently ignore the call.
+
+    // NOTE: Current setDevice() implementation is a non-functioning one.
+    // There is no runtime update for any setDevice call.
+    // As there is always 1 device in play all the time,
+    // setDevice() usage wont be required currently.
+
     if (synapse_helpers::HPURegistrar::isInitialized()) {
       TORCH_INTERNAL_ASSERT(d.type() == type());
       habana::HPUDeviceAllocator::allocator_active_device_id =
@@ -135,13 +140,9 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           "habana active device: ",
           habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
-    } else {
-      TORCH_WARN(
-          "Failed to set device as habana device, since deviceId=",
-          int(d.index()),
-          " is not yet initialized");
     }
   }
+
   void uncheckedSetDevice(at::Device d) const noexcept override {
     habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
     if (habana::HPUDeviceAllocator::allocator_active_device_id != 0)
