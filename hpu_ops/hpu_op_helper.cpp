@@ -512,6 +512,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
     c10::optional<int> final_result_index) {
   const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
       "_to_" + habana_helpers::name_suffix_from_type(to);
+  HABANA_ASSERT(from != to, guid, " cannot be used.");
 
   ns_CastKernel::Params params{};
   SET_CAST_ROUNDING_MODE(guid);

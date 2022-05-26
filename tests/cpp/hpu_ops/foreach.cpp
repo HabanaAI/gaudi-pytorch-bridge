@@ -52,6 +52,25 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 #define FOREACH_TESTS(op) FOREACH(_foreach_##op) FOREACH_(_foreach_##op)
 
+#define FOREACH_SCALAR(inplace_op)                                           \
+  TEST_F(HpuOpTest, inplace_op##_) {                                         \
+    static constexpr int n = 5;                                              \
+    std::vector<at::Tensor> cpu_in;                                          \
+    std::vector<at::Tensor> hpu_in;                                          \
+    GenerateInputs(n, {{4, 2, 3}, {4, 0, 5}, {128}, {64, 1}, {2, 3, 4, 5}}); \
+    for (int i = 0; i < n; ++i) {                                            \
+      cpu_in.push_back(GetCpuInput(i));                                      \
+      hpu_in.push_back(GetHpuInput(i));                                      \
+    }                                                                        \
+                                                                             \
+    inplace_op##_(cpu_in);                                                   \
+    inplace_op##_(hpu_in);                                                   \
+                                                                             \
+    for (int i = 0; i < n; ++i) {                                            \
+      Compare(cpu_in[i], hpu_in[i]);                                         \
+    }                                                                        \
+  }
+
 FOREACH_(_foreach_zero)
 FOREACH_TESTS(exp)
 FOREACH_TESTS(sqrt)

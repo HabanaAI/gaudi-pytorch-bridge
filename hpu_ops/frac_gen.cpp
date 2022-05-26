@@ -58,6 +58,7 @@ static auto BuildFrac(
        {input, mul[0].get()},
        {{outshape, dtype, out_index}}});
 }
+
 void Frac::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto out = BuildFrac(this, graph, syn_in(0), ScalarType(), outshape, 0);
