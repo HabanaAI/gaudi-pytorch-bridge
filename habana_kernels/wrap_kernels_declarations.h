@@ -904,7 +904,7 @@ void optimizer_adamw_hpu_wrap(
     at::TensorList& weight_vec,
     at::TensorList& exp_avg_vec,
     at::TensorList& exp_avg_sq_vec,
-    at::Tensor& lr_t,
+    const float lr,
     at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,

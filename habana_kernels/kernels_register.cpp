@@ -10,6 +10,7 @@
 #include <torch/library.h>
 
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
@@ -3822,13 +3823,14 @@ void optimizer_adamw_hpu_wrap(
     TensorList& weight_vec,
     TensorList& exp_avg_vec,
     TensorList& exp_avg_sq_vec,
-    at::Tensor& lr_t,
+    const float lr,
     at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
     const float weight_decay) {
   TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
+  auto lr_t = get_tensor_for_scalar(lr);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     optimizer_adamw_hpu_lazy(
         gradient_vec,

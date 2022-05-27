@@ -9,7 +9,7 @@ static void optimizer_fused_adamw(
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
-    at::Tensor& lr,
+    const float lr,
     at::Tensor& neg_step,
     const float beta1,
     const float beta2,

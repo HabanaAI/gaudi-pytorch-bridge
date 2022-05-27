@@ -72,7 +72,6 @@ class FusedAdamW(object):
         # NOTE: we only have one param_group and don't allow user to add additional
         # param group as it's not a common use case.
         self.param_group = {"params": params}
-        self.lr_list = [] # For Habana Impl
         self.neg_step_list = [] # For Habana Impl
 
     def step_param(self, param: Tensor, grad: Optional[Tensor]):
@@ -121,7 +120,6 @@ class FusedAdamW(object):
         exp_avg_sqs = []
         max_exp_avg_sqs = []
         state_steps: List[int] = []
-        self.lr_list.clear()
         self.neg_step_list.clear()
 
         if len(params) != len(gradients):
@@ -177,12 +175,6 @@ class FusedAdamW(object):
         # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
         # perform weight decay unconditonally.
         modified_wd = 1.0 -self.defaults['weight_decay']*self.defaults['lr']
-        # Habana 'lr' is converted to tensor to avoid recompilation in case of cache miss.
-
-        lr_t = torch.tensor(
-                [self.defaults['lr']], dtype=torch.float, requires_grad=False
-            ).to(params[0].device, non_blocking=True)
-        self.lr_list.append(lr_t)
         eps = self.defaults['eps'] #group["eps"],
 
         with torch.no_grad():
@@ -191,7 +183,7 @@ class FusedAdamW(object):
                 params_with_grad,#wt_list,
                 exp_avgs, #exp_avg_list,
                 exp_avg_sqs, #exp_avg_sq_list,
-                lr_t,
+                self.defaults['lr'],
                 neg_step_t,
                 beta1,
                 beta2,

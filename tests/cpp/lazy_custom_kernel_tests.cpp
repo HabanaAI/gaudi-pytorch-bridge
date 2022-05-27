@@ -191,7 +191,6 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
   TensorList exp_avg_sq(exp_avg_sq_vec);
 
   auto lr = 0.1;
-  auto lr_t = torch::tensor({lr}).to(torch::kHPU);
   auto neg_step_t = torch::tensor({-lr}).to(torch::kHPU);
   auto beta1 = 0.5;
   auto beta2 = 0.5;
@@ -204,7 +203,7 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
       weights,
       exp_avg,
       exp_avg_sq,
-      lr_t,
+      lr,
       neg_step_t,
       beta1,
       beta2,

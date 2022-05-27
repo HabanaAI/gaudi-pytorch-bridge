@@ -38,7 +38,6 @@ class FusedAdamW(Optimizer):
         )
         super().__init__(params, defaults)
 
-        self.lr_list = []
         self.neg_step_list = []
         self.device = self.param_groups[0]["params"][0].device
 
@@ -67,14 +66,9 @@ class FusedAdamW(Optimizer):
         if closure is not None:
             loss = closure()
 
-        self.lr_list.clear()
         self.neg_step_list.clear()
 
         for group in self.param_groups:
-            lr_t = torch.tensor(
-                [group["lr"]], dtype=torch.float, requires_grad=False
-            ).to(self.device, non_blocking=True)
-            self.lr_list.append(lr_t)
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
 
             for p in group["params"]:
@@ -135,7 +129,7 @@ class FusedAdamW(Optimizer):
                 wt_list,
                 exp_avg_list,
                 exp_avg_sq_list,
-                lr_t,
+                group["lr"],
                 neg_step_t,
                 beta1,
                 beta2,
