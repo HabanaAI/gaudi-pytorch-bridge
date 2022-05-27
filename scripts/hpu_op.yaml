@@ -524,24 +524,12 @@ any.dim:
 
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
-  custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16, Int, Char]
   guid: argmax_fwd
   op_backend: ArgMinMax
 
-argmin:
-  custom_output_shape: ArgMinMaxOutputShape
-  custom_fill_params: FillArgMinMaxParams
-  dtypes: [Float, BFloat16]
-  force_default: false
-  op_backend: ArgMinMax
-  guid: argmin_fwd
-  op_frontend: LazyArgmin
-  out_ids: [0]
-
 argmin.out:
   custom_output_shape: ArgMinMaxOutputShape
-  custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16]
   guid: argmin_fwd
   op_backend: ArgMinMax

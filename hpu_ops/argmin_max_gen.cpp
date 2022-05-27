@@ -9,25 +9,9 @@
  */
 
 #include "generated/hpu_op.h"
-#include "habana_kernels/reduction_kernels.h"
+#include "reduction_template.h"
 
 namespace habana {
-
-template <>
-LazyArgmin<at::Tensor>::LazyArgmin(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
-
-template <>
-at::Tensor LazyArgmin<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  const auto& t = inputs.at(0).toTensor();
-  auto shape = ArgMinMaxOutputShape(inputs)[0];
-  return habana_lazy::empty_hpu_lazy(
-      shape, t.options().dtype(at::kLong), t.suggest_memory_format(), false);
-}
 
 std::shared_ptr<void> FillArgMinMaxParams(
     const at::Stack& stack,
@@ -44,79 +28,40 @@ std::shared_ptr<void> FillArgMinMaxParams(
 
 sizes_vec ArgMinMaxOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  auto isEmptyDim = stack.at(1).isNone();
+
+  auto dim = stack.at(1);
+  auto is_dim_none = dim.isNone();
+  auto dim_vec =
+      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
 
   const bool keepdim = stack.at(2).toBool();
-  std::vector<int64_t> shape{self.sizes().vec()};
-  if (isEmptyDim && !keepdim) {
-    return {{}};
-  } else if (isEmptyDim && keepdim) {
-    std::vector<int64_t> shape(self.dim(), 1);
-    return {shape};
-  } else {
-    std::vector<int64_t> dim{stack.at(1).toInt()};
-    shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
-    return {shape};
-  }
+  auto shape = ReductionOutputShape(self, dim_vec, keepdim);
+
+  return {shape};
 }
 
 void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto isEmptyDim = stack.at(1).isNone();
   const bool keepdim = stack.at(2).toBool();
 
-  auto dim = isEmptyDim
-      ? 0
-      : c10::maybe_wrap_dim(stack.at(1).toInt(), self.dim(), true);
-
   auto shape = ArgMinMaxOutputShape(stack)[0];
-  std::vector<int64_t> outshape{self.sizes().vec()};
-
-  size_t size = 0;
-  const auto& params = FillArgMinMaxParams(stack, size);
   auto dtype = torch::kInt;
-  int64_t shape_val = 1;
+  auto dim = stack.at(1);
+  auto is_dim_none = dim.isNone();
 
-  // If dim is None, find max/min from the flattened input tensor.
-  if (isEmptyDim) {
-    for (long i : outshape) {
-      shape_val *= i;
-    } // flattened input shape
+  auto dim_vec =
+      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
 
-    std::vector<int64_t> output_shape{shape_val};
-    auto reshape = ReshapeHelper(graph, syn_in(0), output_shape, ScalarType());
-    if (!keepdim) {
-      auto op = BuildOp(
-          graph,
-          guid_,
-          {reshape.get()},
-          {{shape, dtype, 0}},
-          params.get(),
-          size);
-      syn_out(0) = std::move(op[0]);
-    } else {
-      std::vector<int64_t> op_shape{1};
-      auto op = BuildOp(
-          graph,
-          guid_,
-          {reshape.get()},
-          {{op_shape, dtype}},
-          params.get(),
-          size);
-      auto output = ReshapeHelper(graph, op[0].get(), shape, dtype, 0);
-      syn_out(0) = std::move(output);
-    }
-  } else if (!keepdim) { // reduce dim when keepdim is false using reshape.
-    outshape[dim] = 1;
-    auto op = BuildOp(
-        graph, guid_, {syn_in(0)}, {{outshape, dtype}}, params.get(), size);
-    auto reshape = ReshapeHelper(graph, op[0].get(), shape, dtype, 0);
+  auto op = HandleReductionDimAndKeepdim(
+      this,
+      graph,
+      self,
+      {syn_in(0)},
+      dim_vec,
+      keepdim,
+      guid_,
+      {{shape, dtype, 0}});
 
-    syn_out(0) = std::move(reshape);
-  } else { // Direct TPC kernel call when keepdim is true.
-    auto op = BuildOp(
-        graph, guid_, {syn_in(0)}, {{shape, dtype, 0}}, params.get(), size);
-    syn_out(0) = std::move(op[0]);
-  }
+  syn_out(0) = std::move(op[0]);
 }
 } // namespace habana
