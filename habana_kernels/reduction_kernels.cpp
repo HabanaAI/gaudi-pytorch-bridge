@@ -1897,8 +1897,6 @@ static auto& KernelRegistry =
         .add("aten::prod", KERNEL_FN(ProdOperator))
         .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator))
         .add("aten::prod.dim_Int", KERNEL_FN(ProdDimOperator))
-        .add("aten::any", KERNEL_FN(AnyOperator))
-        .add("aten::any.dim", KERNEL_FN(AnyDimOperator))
         .add("aten::any.out", KERNEL_FN(AnyDimOutOperator))
         .add("hpu::all_dim", KERNEL_FN(AllOperator))
         .add("aten::argmax", KERNEL_FN(ArgMaxOperator));

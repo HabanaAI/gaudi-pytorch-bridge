@@ -7,55 +7,101 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
-#include "hpu_op_helper.h"
 
+#include "generated/hpu_op.h"
+#include "habana_kernels/reduction_kernels.h"
+#include "hpu_op_helper.h"
+#include "reduction_template.h"
+
+constexpr float cmp_value = 0; // value to compare with the reduce sum result
 namespace habana {
 
-void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  const auto& outshape = stack_tensor(stack, 0).sizes();
+sizes_vec AnyDimOutputShape(const at::Stack& stack, bool) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  auto dim = stack.at(1).toInt();
+  const bool keepdim = stack.at(2).toBool();
 
-  auto cast_f32 = CastHelper(
-      graph, syn_in(0), outshape, self.scalar_type(), c10::ScalarType::Float);
+  return ReductionOutputShape(self, dim, keepdim);
+}
 
-  auto self_size = self.sizes();
-  auto reshape_size = std::accumulate(
-      std::begin(self_size),
-      std::end(self_size),
-      1,
-      std::multiplies<int64_t>());
-  std::vector<int64_t> reshape_outshape = {reshape_size};
+template <>
+AnyOutputType<at::Tensor>::AnyOutputType(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
-  auto reshape = ReshapeHelper(
-      graph, cast_f32.get(), reshape_outshape, c10::ScalarType::Float);
+template <>
+at::Tensor AnyOutputType<at::Tensor>::get_result_overrideable() {
+  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+  const auto& t = inputs.at(0).toTensor();
+  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs)[0]
+                                 : AllAnyOutputShape(inputs)[0];
+  return habana_lazy::empty_hpu_lazy(
+      shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
+}
 
-  auto abs = BuildOp(
+std::vector<synapse_helpers::tensor> AnyCommonFunc(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Tensor& self,
+    const at::IntArrayRef dim,
+    const bool keepdim,
+    synapse_helpers::tensor& input,
+    const at::IntArrayRef outshape) {
+  auto dtype = at::ScalarType::Float;
+  input = HandleReductionDtype(op, graph, self, std::move(input), dtype);
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {outshape, op->ScalarType()}};
+
+  auto abs = OpBackend::BuildNode(
+      op,
       graph,
-      "abs_fwd_f32",
-      {reshape.get()},
-      {{reshape_outshape, c10::ScalarType::Float}});
+      {"abs_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+       {input.get()},
+       {{self.sizes().vec(), op->ScalarType()}}});
 
-  size_t size = 0;
-  PARAMS_STUB(ns_Reduction::Params);
-  auto reduce_sum = BuildOp(
+  auto reduce_sum = HandleReductionDimAndKeepdim(
+      op,
       graph,
-      "reduce_sum_fwd_f32",
+      self,
       {abs[0].get()},
-      {{1, c10::ScalarType::Float}},
-      params.get(),
-      size);
+      dim,
+      keepdim,
+      "reduce_sum_fwd_" +
+          habana_helpers::name_suffix_from_type(op->ScalarType()),
+      output_attrs);
 
-  constexpr float value = 0;
-  auto constant_value = ConstantHelper(graph, value);
-  auto out_shape = AllOutputShape(stack, true)[0];
+  auto zero_tensor =
+      OpBackend::BuildConstant(op, graph, cmp_value, op->ScalarType());
 
-  auto greater_than_zero = BuildOp(
+  return OpBackend::BuildNode(
+      op,
       graph,
-      "greater_fwd_f32",
-      {reduce_sum[0].get(), constant_value.get()},
-      {{out_shape, c10::ScalarType::Bool, 0}});
+      {"greater_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+       {reduce_sum[0].get(), zero_tensor.get()},
+       {{outshape, c10::ScalarType::Bool, 0}}});
+}
 
-  syn_out(0) = std::move(greater_than_zero[0]);
+void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  synapse_helpers::tensor& input = GetSynInputs()[0];
+  auto outshape = ComputeOutputShapes(stack, true)[0];
+  auto dim = stack.at(1).toInt();
+  bool keepdim = stack.at(2).toBool();
+
+  auto any_out =
+      AnyCommonFunc(this, graph, self, dim, keepdim, input, outshape);
+  syn_out(0) = std::move(any_out[0]);
+}
+
+void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  synapse_helpers::tensor& input = GetSynInputs()[0];
+  auto outshape = ComputeOutputShapes(stack, true)[0];
+
+  auto any_out = AnyCommonFunc(this, graph, self, {}, false, input, outshape);
+  syn_out(0) = std::move(any_out[0]);
 }
 } // namespace habana

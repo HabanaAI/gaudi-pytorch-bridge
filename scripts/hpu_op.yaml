@@ -175,6 +175,22 @@ any.all_out:
   dtypes: [Char]
   op_backend: Any
 
+any:
+  force_default: false
+  custom_output_shape: AllAnyOutputShape
+  dtypes: [Char, Float, BFloat16, Int]
+  op_frontend: AnyOutputType
+  op_backend: Any
+  out_ids: [0]
+
+any.dim:
+  force_default: false
+  custom_output_shape: AnyDimOutputShape
+  dtypes: [Char, Float, BFloat16, Int]
+  op_frontend: AnyOutputType
+  op_backend: AnyDim
+  out_ids: [0]
+
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
   custom_fill_params: FillArgMinMaxParams
