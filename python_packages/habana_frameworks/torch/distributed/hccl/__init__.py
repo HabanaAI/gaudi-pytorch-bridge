@@ -12,7 +12,7 @@ def initialize_distributed_hpu() -> None:
     local_rank = -1
     if ('WORLD_SIZE' in os.environ and
         'RANK' in os.environ and
-        'local_rank' in os.environ):
+        'LOCAL_RANK' in os.environ):
         world_size = int(os.environ["WORLD_SIZE"])
         rank       = int(os.environ["RANK"])
         local_rank = int(os.environ["LOCAL_RANK"])
