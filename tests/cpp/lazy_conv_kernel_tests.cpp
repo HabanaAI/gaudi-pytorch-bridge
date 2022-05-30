@@ -47,8 +47,7 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
 }
 
 TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ||
-      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     return;
   }
   for (size_t i = 0; i < 2; ++i) {
@@ -72,13 +71,15 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest) {
         input_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor outcpu = torch::relu(outConv1);
 
-    HbLazyTensor wight_hb_tensor = GetHbLazyTensor(outhpu);
-    auto hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
-    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
-    auto perm = hb_weight_impl->GetMemoryPermutation();
-    std::vector<uint8_t> expected_perm = {2, 0, 1, 3};
-    EXPECT_EQ(perm, expected_perm);
-    EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+      HbLazyTensor weight_hb_tensor = GetHbLazyTensor(outhpu);
+      auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+      auto perm = hb_weight_impl->GetMemoryPermutation();
+      std::vector<uint8_t> expected_perm = {2, 0, 1, 3};
+      EXPECT_EQ(perm, expected_perm);
+      EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+    }
     auto weight_tensor1 =
         torch::arange(9, torch::dtype(torch::kFloat).requires_grad(false))
             .reshape({3, 3, 1, 1}); // hwck
@@ -96,8 +97,7 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest) {
 }
 
 TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ||
-      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     return;
   }
   auto weight_tensor =
@@ -139,20 +139,24 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
     torch::Tensor outConv2Cpu =
         torch::conv2d(out, weight_tensor1, {}, {1}, at::IntArrayRef{0}, {1}, 1);
 
-    HbLazyTensor wight_hb_tensor = GetHbLazyTensor(tHabanaW);
-    auto hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
-    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
-    auto perm = hb_weight_impl->GetMemoryPermutation();
-    std::vector<uint8_t> expected_perm = {3, 2, 0, 1};
-    EXPECT_EQ(perm, expected_perm);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+      HbLazyTensor weight_hb_tensor = GetHbLazyTensor(tHabanaW);
+      auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+      auto perm = hb_weight_impl->GetMemoryPermutation();
+      std::vector<uint8_t> expected_perm = {3, 2, 0, 1};
+      EXPECT_EQ(perm, expected_perm);
+    }
 
     HbLazyTensor::StepMarker({});
 
-    wight_hb_tensor = GetHbLazyTensor(outConv2);
-    hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
-    hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
-    perm = hb_weight_impl->GetMemoryPermutation();
-    expected_perm = {2, 0, 1, 3};
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+      HbLazyTensor weight_hb_tensor = GetHbLazyTensor(outConv2);
+      auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+      auto perm = hb_weight_impl->GetMemoryPermutation();
+      std::vector<uint8_t> expected_perm = {2, 0, 1, 3};
+    }
     torch::Tensor out1 = outConv2.to(torch::kCPU);
 
     EXPECT_EQ(allclose(out1, outConv2Cpu, 0.01, 0.01), true);
@@ -164,12 +168,15 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
     tHabanaW1.add_(1);
     weight_tensor1.add_(1);
 
-    wight_hb_tensor = GetHbLazyTensor(tHabanaW1);
-    hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
-    hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
-    perm = hb_weight_impl->GetMemoryPermutation();
-    expected_perm = {3, 2, 0, 1};
-    EXPECT_EQ(perm, expected_perm);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE) &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+      HbLazyTensor weight_hb_tensor = GetHbLazyTensor(tHabanaW1);
+      auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+      auto perm = hb_weight_impl->GetMemoryPermutation();
+      std::vector<uint8_t> expected_perm = {3, 2, 0, 1};
+      EXPECT_EQ(perm, expected_perm);
+    }
 
     tHabanaW1cpu = tHabanaW1.to(torch::kCPU);
 
@@ -177,11 +184,11 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
 
     tHabanaW1 = weight_tensor1.to(torch::kHPU);
     EXPECT_EQ(allclose(tHabanaW1, weight_tensor1, 0.01, 0.01), true);
-    wight_hb_tensor = GetHbLazyTensor(tHabanaW1);
-    hb_wight_data = wight_hb_tensor.GetHbLazyTensorData().value();
-    hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
-    perm = hb_weight_impl->GetMemoryPermutation();
-    expected_perm = {};
+    auto weight_hb_tensor = GetHbLazyTensor(tHabanaW1);
+    auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
+    auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
+    auto perm = hb_weight_impl->GetMemoryPermutation();
+    std::vector<uint8_t> expected_perm = {};
     // verify that Memory permutation was removed
     EXPECT_EQ(perm, expected_perm);
   }
