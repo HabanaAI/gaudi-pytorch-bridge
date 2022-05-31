@@ -218,8 +218,8 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             t_dev2 = t_dev2.long()
 
         # Tensor permute not needed for vision based topologies where channel_last feature is disabled and this will be done for various topologies in steps.
-        # Currently done for 'resnet','mobilenetv2','googlenet','unet2d', 'unet3d' so these are being skipped.
-        if topology not in ['resnet', 'mobilenetv2', 'googlenet', 'unet3d', 'unet2d']:
+        # Currently done for 'resnet','mobilenetv2','googlenet','unet2d', 'unet3d', 'maskrcnn' so these are being skipped.
+        if topology not in ['resnet', 'mobilenetv2', 'googlenet', 'unet3d', 'unet2d', 'maskrcnn']:
             #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
             tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
             if tid != 0 : # Need permute
