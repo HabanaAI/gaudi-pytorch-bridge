@@ -2411,30 +2411,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   Tensor nz_shape_tensor;
   c10::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
-  nonzero_shape_tensor = c10::nullopt;
-  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
-      (self.dim() <= 4)) {
-    constexpr int group_size = 64;
-    auto input_tensor = self;
-    auto last_dim_rounded =
-        NonZeroOperator::round_dims(input_tensor, group_size);
-    std::vector<int64_t> nonzero_input_shape_tensor;
-    for (unsigned i = 0; i < input_tensor.dim() - 1; i++) {
-      nonzero_input_shape_tensor.emplace_back(input_tensor.sizes()[i]);
-    }
-    auto group_size_aligned_dim =
-        (long int)last_dim_rounded / (long int)group_size;
-    nonzero_input_shape_tensor.emplace_back(group_size_aligned_dim);
-    nonzero_input_shape_tensor.emplace_back(group_size);
-    nonzero_shape_tensor = empty_hpu_lazy(
-        nonzero_input_shape_tensor,
-        self.options().dtype(c10::ScalarType::Int),
-        c10::MemoryFormat::Contiguous,
-        false,
-        SHAPE_TENSOR);
-  }
-  NonZero k(
-      {self, nonzero_shape_tensor}, {}, {output_shape, shape_tensor_shape});
+  NonZero k({self, c10::nullopt}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2905,30 +2882,7 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
   Tensor nz_shape_tensor;
   c10::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
-  nonzero_shape_tensor = c10::nullopt;
-  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
-      (self.dim() <= 4)) {
-    constexpr int group_size = 64;
-    auto input_tensor = self;
-    auto last_dim_rounded =
-        NonZeroOperator::round_dims(input_tensor, group_size);
-    std::vector<int64_t> nonzero_input_shape_tensor;
-    for (unsigned i = 0; i < input_tensor.dim() - 1; i++) {
-      nonzero_input_shape_tensor.emplace_back(input_tensor.sizes()[i]);
-    }
-    auto group_size_aligned_dim =
-        (long int)last_dim_rounded / (long int)group_size;
-    nonzero_input_shape_tensor.emplace_back(group_size_aligned_dim);
-    nonzero_input_shape_tensor.emplace_back(group_size);
-    nonzero_shape_tensor = empty_hpu_lazy(
-        nonzero_input_shape_tensor,
-        self.options().dtype(c10::ScalarType::Int),
-        c10::MemoryFormat::Contiguous,
-        false,
-        SHAPE_TENSOR);
-  }
-  NonZero k(
-      {self, nonzero_shape_tensor}, {}, {output_shape, shape_tensor_shape});
+  NonZero k({self, c10::nullopt}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);

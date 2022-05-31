@@ -15,6 +15,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
@@ -70,6 +71,19 @@ float NonZeroOperator::round_dims(
       std::ceil(input_tensor.sizes()[input_tensor.dim() - 1] / group_size_f) *
       group_size_f;
   return last_dim_rounded;
+}
+
+std::vector<int64_t> NonZeroOperator::compute_output_st_shape(
+    const at::Tensor& input_tensor) {
+  constexpr int group_size = 64;
+  auto last_dim_rounded = NonZeroOperator::round_dims(input_tensor, group_size);
+  auto out_st_shape = input_tensor.sizes().vec();
+  auto group_size_aligned_dim =
+      (long int)last_dim_rounded / (long int)group_size;
+  out_st_shape.pop_back();
+  out_st_shape.emplace_back(group_size_aligned_dim);
+  out_st_shape.emplace_back(group_size);
+  return out_st_shape;
 }
 
 std::vector<int64_t> NonZeroOperator::compute_output_shape(
@@ -165,6 +179,23 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     SetGuid(
         "non_zero_v2_fwd_" +
         habana_helpers::name_suffix_from_type(self.scalar_type()));
+
+    // (i) This output_describing_shape_tensor is created to be used by
+    // "reshape" node within CGUID. This should be created within CGUID in
+    // future. (ii) This shape tensor should not be created in as part of
+    // accumulation (lazy_kernels) else relationship between input tensor and
+    // shape tensor st = f(input) is not preserved in all cases (e.g. min, max
+    // shape inference with Calculated or Local Historic policies). (iii)
+    // Creating shape tensor in back-end kernel is ok for cases where shape
+    // tensor is strictly a function of another input tensor(s) and not a scalar
+    // value coming from framework.
+    // (iv) Please consult with vgoel@habana.ai before removing or modifying
+    // this shape_tensor.
+    auto st_shape = compute_output_st_shape(self);
+    Tensor reshape_shape_tensor = habana_helpers::createPTTensor(
+        self, st_shape, self.options(), self.suggest_memory_format(), false);
+    AllocateSynapseShapeTensor(graph, reshape_shape_tensor);
+
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
     auto cordinates_of_true = habana_helpers::createPTTensor(

@@ -33,5 +33,8 @@ class NonZeroOperator : public HabanaOperator {
 
   virtual OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
+
+  static std::vector<int64_t> compute_output_st_shape(
+      const at::Tensor& input_tensor);
 };
 } // namespace habana
