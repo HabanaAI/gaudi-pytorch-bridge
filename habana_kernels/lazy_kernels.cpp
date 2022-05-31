@@ -1750,8 +1750,11 @@ Tensor convolution_hpu_lazy(
   PT_LAZY_TRACE;
   Tensor weight_hpu = weight;
   if (weight.device().type() == c10::DeviceType::CPU &&
-      (habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass())) {
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    weight_hpu = weight.to(c10::kHPU, true);
+
+  if (habana_lazy::exec::OptPassCfg::GetInstance()
+          ->IsEnabledWeightPermutePass()) {
     weight_hpu = weight.to(c10::kHPU, true);
     HbLazyTensor src_hb_tensor =
         GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
