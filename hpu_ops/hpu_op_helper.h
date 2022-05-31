@@ -119,7 +119,7 @@ class OpBackend : public HabanaOperator {
     return m_shape_tensors;
   }
 
-  const auto& CreateShapeTensorInput(
+  const synapse_helpers::tensor& CreateShapeTensorInput(
       synapse_helpers::graph& graph,
       at::ScalarType dtype,
       at::IntArrayRef sizes,

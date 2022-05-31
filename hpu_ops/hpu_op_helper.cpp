@@ -428,7 +428,7 @@ void OpBackend::AllocateAndAddSynapseNode(
   AddNode(graph, stack);
 }
 
-const auto& OpBackend::CreateShapeTensorInput(
+const synapse_helpers::tensor& OpBackend::CreateShapeTensorInput(
     synapse_helpers::graph& graph,
     at::ScalarType dtype,
     at::IntArrayRef sizes,
