@@ -36,6 +36,7 @@ ops_dict = {
     "embedding": [torch],
     "layer_norm": [torch.nn.functional],
     "instance_norm": [torch.nn.functional],
+    "group_norm": [torch.nn.functional],
     "interpolate": [torch.nn.functional],
     "sort": [torch, torch.Tensor],
     # Classifiers and loss metrics

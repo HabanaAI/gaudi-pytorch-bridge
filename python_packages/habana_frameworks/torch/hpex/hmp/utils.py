@@ -160,7 +160,9 @@ def op_wrap_var_input_len(op, cast_fn, wrap_len):
             return op(*args, **kwds)
 
         vprint("casting ", op, cast_fn.__name__)
-        args_out = get_new_args(cast_fn, args[0:wrap_len], kwds)
+        #Because batch_norm is different from layer_norm, kwds include tensors and scale parameters.
+        #kwds should keep the orignal data type.
+        args_out = get_new_args(cast_fn, args[0:wrap_len], dict())
         args_cast = args_out + args[wrap_len:]
         return op(*args_cast, **kwds)
 
@@ -275,7 +277,7 @@ def cast_ops_list(ops_list, ops_dict, cast_fn=None):
     cast_fn (to_bf16, to_fp32, None): cast function to be used
                      on OPs in input list
     """
-    special_list = ["layer_norm", "batch_norm"]
+    special_list = ["layer_norm", "batch_norm", "instance_norm", "group_norm"]
 
     for op in ops_list:
         key = str(op)
