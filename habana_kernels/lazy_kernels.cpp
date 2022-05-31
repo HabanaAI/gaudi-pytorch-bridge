@@ -3739,6 +3739,19 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   return k.call();
 }
 
+Tensor addmm_hpu_lazy(
+    const Tensor& self,
+    const Tensor& mat1,
+    const Tensor& mat2,
+    const Scalar& beta,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  const std::vector<int64_t> shape_out = {mat1.size(0), mat2.size(1)};
+  LazyOp<Tensor> k{
+      "aten::addmm", {self, mat1, mat2, beta, alpha}, {}, {shape_out}};
+  return k.call();
+}
+
 Tensor& batch_gemm_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,

@@ -66,13 +66,6 @@ addcmul.out:
   op_backend: AddCOpOut
   scalar_ids: [3]
 
-addmm:
-  force_default: false
-  custom_output_shape: AddMMOutshape
-  dtypes: [BFloat16, Float]
-  op_backend: AddMM
-  out_ids: [0]
-
 addmm_:
   force_default: false
   custom_output_shape: AddMMOutshape

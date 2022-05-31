@@ -1394,7 +1394,11 @@ Tensor hpu_wrap::addmm(
   FALLBACK_IF_UNSUPPORTED_OP1(
       addmm, PARAMS1(mat1, mat2), PARAMS2(self, mat1, mat2, beta, alpha))
 
-  return addmm_hpu(self, mat1, mat2, beta, alpha);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
+  } else {
+    return addmm_hpu(self, mat1, mat2, beta, alpha);
+  }
 };
 Tensor& hpu_wrap::bmm_out(const Tensor& self, const Tensor& mat2, Tensor& out) {
   FALLBACK_IF_UNSUPPORTED_OP(
