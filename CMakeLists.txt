@@ -232,7 +232,7 @@ endif()
 option(BUILD_PKGS "Build python packages" ON)
 option(INSTALL_PKGS "Install python packages" OFF)
 if (BUILD_PKGS)
-  find_program(PIP "pip" REQUIRED)
+  set(PIP ${PYTHON_EXECUTABLE} -m pip)
   set(PKGS
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
     ${CMAKE_SOURCE_DIR}/python_packages
