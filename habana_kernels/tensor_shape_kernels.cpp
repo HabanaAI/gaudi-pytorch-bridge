@@ -55,8 +55,8 @@ Tensor CatOperator::CheckAllocateOutput(
     Stack& inputs,
     const OutputMetaData& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for matmul operator");
+      inputs.size() == 2 || inputs.size() == 3,
+      "Incorrect size of inputs expected for cat operator");
 
   TORCH_CHECK(
       inputs[0].isTensorList(), "Input arg2 type expected to be tensor list");
@@ -64,7 +64,6 @@ Tensor CatOperator::CheckAllocateOutput(
 
   auto tensors = inputs[0].toTensorList();
   auto dim_ = inputs[1].toInt();
-  auto tensor_count = tensors.size();
 
   auto first_tensor = tensors.get(0);
   int64_t dim =
@@ -74,16 +73,21 @@ Tensor CatOperator::CheckAllocateOutput(
       "Cat dimension specified exceeds tensors dimensions");
   CatOutOperator::validate_tensor_dim_sizes(tensors, dim);
   if (dim != dim_) {
-    inputs.pop_back();
-    inputs.emplace_back(IValue(dim));
+    inputs[1] = IValue(dim);
   }
 
-  // out tensor size should match along all dimensions for input tensors except
-  // along the dim in which to cat
-  auto out_size = first_tensor.sizes().vec();
-  out_size[dim] = 0;
-  for (unsigned i = 0; i < tensor_count; i++) {
-    out_size[dim] += tensors.get(i).sizes()[dim];
+  std::vector<int64_t> out_size;
+  if (inputs.size() == 2) {
+    auto tensor_count = tensors.size();
+    // out tensor size should match along all dimensions for input tensors
+    // except along the dim in which to cat
+    out_size = first_tensor.sizes().vec();
+    out_size[dim] = 0;
+    for (unsigned i = 0; i < tensor_count; i++) {
+      out_size[dim] += tensors.get(i).sizes()[dim];
+    }
+  } else { // shape tensor being used
+    out_size = inputs[2].toTensor().sizes().vec();
   }
 
   auto out = habana_helpers::createPTTensor(
@@ -1370,6 +1374,7 @@ at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims) {
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::cat", KERNEL_FN_GLOBAL(CatOperator))
+        .add("hpu::cat", KERNEL_FN_GLOBAL(CatOperator))
         .add("aten::cat.out", KERNEL_FN_GLOBAL(CatOutOperator))
         .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
         .add("hpu::permute", KERNEL_FN_GLOBAL(PermuteOperator))

@@ -5531,26 +5531,64 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
 
   const TensorList view_list{t_list};
 
-  struct Kernel : public LazyOp<at::Tensor> {
-    explicit Kernel(const at::TensorList tensors, int64_t dim)
-        : LazyOp<at::Tensor>("aten::cat", {tensors, dim}, {1}, {}, -1),
-          tensors{tensors},
-          dim{dim} {}
-    at::Tensor get_result_overrideable() override {
-      auto first_tensor = tensors[0];
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    struct Kernel : public LazyOp<at::Tensor> {
+      explicit Kernel(
+          const at::TensorList tensors,
+          int64_t dim,
+          at::Tensor out_shape_tensor)
+          : LazyOp<at::Tensor>(
+                "hpu::cat",
+                {tensors, dim, out_shape_tensor},
+                {1},
+                {},
+                -1),
+            tensors{tensors},
+            dim{dim} {}
+      at::Tensor get_result_overrideable() override {
+        auto first_tensor = tensors[0];
+        auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
+        return empty_hpu_lazy(
+            shape_out,
+            first_tensor.options(),
+            first_tensor.suggest_memory_format(),
+            false);
+      }
+      const TensorList tensors;
+      int64_t dim;
+    };
 
-      auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
-      return empty_hpu_lazy(
-          shape_out,
-          first_tensor.options(),
-          first_tensor.suggest_memory_format(),
-          false);
-    }
-    const TensorList tensors;
-    int64_t dim;
-  };
-  Kernel k{view_list, dim_};
-  return k.call();
+    auto output_shape = CatOutOperator::compute_output_shape(tensors, dim_);
+    auto output_shape_tensor = empty_hpu_lazy(
+        IntArrayRef(output_shape),
+        tensors[0].options().dtype(c10::ScalarType::Int),
+        tensors[0].suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
+    Kernel k{view_list, dim_, output_shape_tensor};
+    return k.call();
+  } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
+    struct Kernel : public LazyOp<at::Tensor> {
+      explicit Kernel(const at::TensorList tensors, int64_t dim)
+          : LazyOp<at::Tensor>("aten::cat", {tensors, dim}, {1}, {}, -1),
+            tensors{tensors},
+            dim{dim} {}
+      at::Tensor get_result_overrideable() override {
+        auto first_tensor = tensors[0];
+
+        auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
+        return empty_hpu_lazy(
+            shape_out,
+            first_tensor.options(),
+            first_tensor.suggest_memory_format(),
+            false);
+      }
+      const TensorList tensors;
+      int64_t dim;
+    };
+    Kernel k{view_list, dim_};
+    return k.call();
+  }
 }
 
 Tensor& cat_hpu_lazy_out(

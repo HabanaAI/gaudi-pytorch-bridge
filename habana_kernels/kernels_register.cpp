@@ -4520,6 +4520,7 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
+  m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");
   m.def(
       "repeat_inlv(Tensor input, Tensor repeats, int dim, Tensor out_shape) -> Tensor");
   m.def(
