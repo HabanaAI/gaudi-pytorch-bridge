@@ -13,6 +13,7 @@ ops_dict = {
     "conv_transpose2d": [torch.nn.functional, torch],
     "conv_transpose3d": [torch.nn.functional, torch],
     # pool
+    "avg_pool3d": [torch.nn.functional],
     "avg_pool2d": [torch.nn.functional],
     "max_pool2d": [torch.nn.functional],
     "max_pool2d_with_indices": [torch.nn.functional],
