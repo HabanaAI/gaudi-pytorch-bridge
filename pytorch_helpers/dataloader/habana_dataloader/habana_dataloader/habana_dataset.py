@@ -45,7 +45,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         num_workers = kwargs.get('num_workers')
         shuffle = kwargs.get('shuffle')
         manifest = kwargs.get('manifest', "manifest.cfg")
-        drop_last = True # Currently AEON support only drop_last for SSD
+        drop_last = kwargs.get('drop_last', False)
         self.encoder = None
         distributed = kwargs.get('sampler', None) != None
         channels_last = kwargs.get('channels_last', False)

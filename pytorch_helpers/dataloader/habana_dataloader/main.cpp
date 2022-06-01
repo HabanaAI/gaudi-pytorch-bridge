@@ -341,7 +341,10 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
     // Workaround for bad batch size
     if (step_batch_size < m_batch_size) {
       image = image.narrow(0, 0, step_batch_size);
+      bbox = bbox.narrow(0, 0, step_batch_size);
       label = label.narrow(0, 0, step_batch_size);
+      img_id = img_id.narrow(0, 0, step_batch_size);
+      img_shape = img_shape.narrow(0, 0, step_batch_size);
     }
 
     maybe_permute(image);
