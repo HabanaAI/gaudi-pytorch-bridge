@@ -100,6 +100,14 @@ class OpBackend : public HabanaOperator {
       bool is_outfn);
 
  public:
+  bool isMetaMode() const {
+    return m_meta_mode;
+  }
+
+  OutputShapeInfRetType& GetMeta() {
+    return m_meta;
+  }
+
   const c10::ScalarType& ScalarType() const {
     return m_scalar_type;
   }
@@ -228,13 +236,8 @@ class OpBackend : public HabanaOperator {
       void* params = nullptr,
       size_t param_size = 0);
 
-  synTensor& syn_in(int index) {
-    return p_context_->syn_inputs_.at(index).ref().get();
-  }
-
-  synapse_helpers::tensor& syn_out(int index) {
-    return p_context_->syn_outputs_.at(index);
-  }
+  synTensor syn_in(int index);
+  synapse_helpers::tensor& syn_out(int index);
 
   synapse_helpers::tensor CastHelper(
       synapse_helpers::graph& graph,
@@ -259,6 +262,8 @@ class OpBackend : public HabanaOperator {
       c10::optional<int> final_result_index = c10::nullopt);
 
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
+
+  OutputShapeInfRetType ComputeOutputShape(at::Stack&) override;
 
  public:
   static std::vector<synapse_helpers::tensor> BuildNode(
@@ -301,6 +306,13 @@ class OpBackend : public HabanaOperator {
   bool m_promote_type = false;
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
+
+  synapse_helpers::graph* m_graph = nullptr;
+
+  // For shape inference of outputs/intermediates
+  bool m_meta_mode = false;
+  OutputShapeInfRetType m_meta;
+  static const synapse_helpers::tensor m_null;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;

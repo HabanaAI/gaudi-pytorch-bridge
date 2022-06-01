@@ -104,6 +104,23 @@ OpBackend::OpBackend(
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
+const synapse_helpers::tensor OpBackend::m_null =
+    synapse_helpers::tensor::create_placeholder(0, {}, {});
+
+synTensor OpBackend::syn_in(int index) {
+  if (isMetaMode()) {
+    return m_null.get();
+  }
+  return p_context_->syn_inputs_.at(index).ref().get();
+}
+
+synapse_helpers::tensor& OpBackend::syn_out(int index) {
+  if (isMetaMode()) {
+    return const_cast<synapse_helpers::tensor&>(m_null);
+  }
+  return p_context_->syn_outputs_.at(index);
+}
+
 static c10::ScalarType get_promoted_type(
     const at::Tensor& t,
     at::Scalar s,
@@ -404,9 +421,26 @@ synapse_helpers::tensor OpBackend::ReshapeHelper(
 }
 
 void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  if (isMetaMode()) {
+    const auto& t = stack[0].toTensor();
+    const auto& sizes = m_compute_output_shapes
+        ? m_compute_output_shapes(stack, true)[0]
+        : t.sizes().vec();
+    m_meta.AddOutputTensor(TensorMetaData(
+        sizes, t.strides().vec(), t.scalar_type(), t.suggest_memory_format()));
+    return;
+  }
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   AddNodeToSynapseGraph(graph, params.get(), size);
+}
+
+OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
+  m_meta_mode = true;
+  AddNode(*m_graph, stack);
+  m_meta_mode = false;
+
+  return m_meta;
 }
 
 void OpBackend::AllocateAndAddSynapseNode(
@@ -433,6 +467,9 @@ const synapse_helpers::tensor& OpBackend::CreateShapeTensorInput(
     at::ScalarType dtype,
     at::IntArrayRef sizes,
     synTensorType shape_tensor_type) {
+  if (isMetaMode()) {
+    return m_null;
+  }
   auto st = habana_helpers::create_shape_tensor(
       GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
   m_shape_tensors.emplace_back(std::move(st));
@@ -443,6 +480,28 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     OpBackend* op,
     synapse_helpers::graph& graph,
     NodeAttr node_attr) {
+  if (op->isMetaMode()) {
+    auto& meta = op->GetMeta();
+    std::vector<synapse_helpers::tensor> out;
+
+    for (const auto& attr : node_attr.output_attrs) {
+      const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
+      const auto& md = TensorMetaData(
+          t.sizes().vec(),
+          t.strides().vec(),
+          attr.dtype,
+          at::MemoryFormat::Contiguous);
+      if (attr.final_result_index.has_value()) {
+        meta.AddOutputTensor(md);
+      } else {
+        meta.AddIntermediateTensor(md);
+      }
+      out.emplace_back(synapse_helpers::tensor::create_placeholder(0, {}, {}));
+    }
+
+    return out;
+  }
+
   auto ctx = op->p_context_;
   std::vector<synapse_helpers::tensor> outputs;
   std::vector<synTensor> node_outputs;
@@ -554,13 +613,9 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   }
 
   std::vector<synTensor> input;
-
-  // No inputs for non dynamic graph
-  if (graph.is_dynamic_graph()) {
-    input.emplace_back(op->CreateShapeTensorInput(
-                             graph, valtype, constant_outshape, SHAPE_TENSOR)
-                           .get());
-  }
+  input.emplace_back(op->CreateShapeTensorInput(
+                           graph, valtype, constant_outshape, SHAPE_TENSOR)
+                         .get());
 
   auto constant = BuildNode(
       op,
@@ -598,12 +653,9 @@ synapse_helpers::tensor OpBackend::BuildReshape(
         the definition.
   */
   std::vector<synTensor> inputs = {syn_in};
+  inputs.emplace_back(
+      op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
 
-  // Do we really need this condition?
-  if (graph.is_dynamic_graph()) {
-    inputs.emplace_back(
-        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
-  }
   auto reshape = BuildNode(
       op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});
   return std::move(reshape.at(0));

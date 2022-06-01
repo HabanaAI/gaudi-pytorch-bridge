@@ -140,6 +140,7 @@ using OutputShapeInfRetTypePtr = std::shared_ptr<OutputShapeInfRetType>;
 class OutputShapeInfRetType {
  public:
   void AddOutputTensor(const TensorMetaData& data);
+  void AddIntermediateTensor(const TensorMetaData& data);
   void AddShapeTensor(const TensorMetaData& data);
   void AddDupTensor(const TensorMetaData& data);
   const IdxTensorTup& GetOutputTensor(size_t index);

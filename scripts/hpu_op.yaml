@@ -401,7 +401,6 @@ add.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_backend: BinaryOp
-  scalar_ids: [2]
   use_meta: true
 
 addcdiv.out:

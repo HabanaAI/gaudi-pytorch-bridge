@@ -559,6 +559,13 @@ void habana::OutputShapeInfRetType::AddOutputTensor(
   AddTensor(data, output_tensors);
 }
 
+void habana::OutputShapeInfRetType::AddIntermediateTensor(
+    const TensorMetaData& data) {
+  OutputShapeInfRetType output;
+  output.AddOutputTensor(data);
+  kernel_outputs.emplace_back(std::make_shared<OutputShapeInfRetType>(output));
+}
+
 void habana::OutputShapeInfRetType::AddShapeTensor(const TensorMetaData& data) {
   AddTensor(data, shape_tensors);
 }
