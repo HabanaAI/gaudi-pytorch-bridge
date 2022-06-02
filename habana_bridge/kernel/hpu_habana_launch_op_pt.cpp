@@ -1928,18 +1928,23 @@ void RecipeValueSpec::create_outdup(
 
   at::Tensor pt_outdup;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    if (!ti.get_allow_permutation()) {
-      auto impl = habana_lazy::GetHbInternalTensorImpl(parent_tensor);
-      if (impl) {
+    auto impl = habana_lazy::GetHbInternalTensorImpl(parent_tensor);
+    if (impl) {
+      if (!ti.get_allow_permutation()) {
         impl->SetMemoryPermutation({});
         PT_BRIDGE_DEBUG(
             "Resetting tensor ",
             ti.get_tensor_id(),
-            " permutation because it is not allowed permutation (cache hit flow)")
+            " permutation because it is not allowed permutation (cache hit flow)");
       } else {
-        TORCH_CHECK(
-            false,
-            "Failed to reset the permutation because the BE tensor has no internal impl (cache hit flow)");
+        PT_BRIDGE_DEBUG(
+            "Setting tensor ",
+            ti.get_tensor_id(),
+            " permutation from the TensorInfo cache record: ",
+            VecToString(ti.getHbInternalPermute()),
+            " old permutation was: ",
+            impl->GetMemoryPermutation());
+        impl->SetMemoryPermutation(ti.getHbInternalPermute());
       }
     }
     pt_outdup = parent_tensor;
