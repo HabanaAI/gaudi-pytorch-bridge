@@ -5413,50 +5413,6 @@ Tensor any_hpu_lazy(const Tensor& self) {
   return kernel.call();
 }
 
-Tensor argmax_hpu_lazy(
-    const Tensor& self,
-    c10::optional<int64_t> dim,
-    bool keepdim) {
-  PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self, dim, keepdim};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::argmax", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim = inputs[1].toOptional<int64_t>();
-      auto keepdim = inputs[2].toBool();
-      std::vector<int64_t> dim_vec;
-
-      if (dim.has_value()) {
-        // Replacing Int value with single element IntList
-        dim_vec.push_back(dim.value());
-      } else {
-        auto ndim = self.dim();
-        for (int i = 0; i < ndim; i++) {
-          dim_vec.push_back(i);
-        }
-      }
-      auto shape = ReduceOperator::compute_output_shape(self, dim_vec, keepdim);
-      return empty_hpu_lazy(
-          shape,
-          self.options().dtype(c10::ScalarType::Long),
-          self.suggest_memory_format(),
-          false);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
-}
-
 Tensor softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,

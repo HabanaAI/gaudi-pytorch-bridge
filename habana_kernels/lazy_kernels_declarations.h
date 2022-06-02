@@ -607,10 +607,6 @@ at::Tensor& any_dim_out_hpu_lazy(
     at::Tensor& output);
 at::Tensor any_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor any_hpu_lazy(const at::Tensor& self);
-at::Tensor argmax_hpu_lazy(
-    const at::Tensor& self,
-    c10::optional<int64_t> dim,
-    bool keepdim);
 at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
 at::Tensor softmax_hpu_lazy(
     const at::Tensor& self,

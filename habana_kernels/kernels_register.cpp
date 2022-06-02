@@ -3463,16 +3463,6 @@ Tensor& hpu_wrap::log2_(Tensor& self) {
   FALLBACK_IF_UNSUPPORTED_OP(log2_, PARAMS1(self), PARAMS2(self))
   return log2_hpu_(self);
 }
-Tensor hpu_wrap::argmax(
-    const at::Tensor& self,
-    c10::optional<int64_t> dim,
-    bool keepdim) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return argmax_hpu_lazy(self, dim, keepdim);
-  } else {
-    return argmax_hpu(self, dim, keepdim);
-  }
-}
 
 std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
     const at::Tensor& self,
