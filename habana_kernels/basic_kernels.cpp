@@ -420,6 +420,86 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
 }
 
+OutputShapeInfRetType CastLazyOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto type = inputs[1].toScalarType();
+
+  std::string node_type;
+  if (self.scalar_type() != type) {
+    std::pair<c10::ScalarType, c10::ScalarType> type_key{
+        self.scalar_type(), type};
+    auto iter = habana_helpers::cast_map.find(type_key);
+    if (iter != habana_helpers::cast_map.end()) {
+      node_type = iter->second;
+    } else {
+      HABANA_ASSERT(
+          0 &&
+              "Unsupported Cast operation requested in CastLazyOperator::ComputeOutputShape: ",
+          self.scalar_type(),
+          " -> ",
+          type);
+    }
+  } else {
+    node_type = "cast_identity";
+  }
+
+  // Insert the cast node - in case cast is to same type alias, insert an
+  // identity op
+  OutputShapeInfRetType out;
+  if (node_type.compare("cast_identity")) {
+    if (self.scalar_type() == c10::ScalarType::BFloat16 &&
+        type == c10::ScalarType::Int) {
+      auto bf_to_floatOp = make_operator<CastOperator>(
+          self.device().index(), "cast_bf16_to_f32");
+      inputs[1] = IValue(c10::ScalarType::Float);
+      auto bf_to_floatOp_out =
+          out.call_ComputeOutputShape(bf_to_floatOp, inputs);
+      auto bf_to_floatOp_out_tensor = bf_to_floatOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(bf_to_floatOp_out_tensor));
+
+      auto float_to_intOp =
+          make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
+      inputs[1] = IValue(c10::ScalarType::Int);
+      auto float_to_intOp_out =
+          out.call_ComputeOutputShape(float_to_intOp, inputs);
+      auto float_to_intOp_out_tensor = float_to_intOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(float_to_intOp_out_tensor));
+    } else if (
+        self.scalar_type() == c10::ScalarType::Byte &&
+        type == c10::ScalarType::BFloat16) {
+      auto byte_to_floatOp =
+          make_operator<CastOperator>(self.device().index(), "cast_u8_to_f32");
+      inputs[1] = IValue(c10::ScalarType::Float);
+      auto byte_to_floatOp_out =
+          out.call_ComputeOutputShape(byte_to_floatOp, inputs);
+      auto byte_to_floatOp_out_tensor = byte_to_floatOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(byte_to_floatOp_out_tensor));
+
+      auto float_to_bfOp = make_operator<CastOperator>(
+          self.device().index(), "cast_f32_to_bf16");
+      inputs[1] = IValue(c10::ScalarType::BFloat16);
+      auto float_to_bfOp_out =
+          out.call_ComputeOutputShape(float_to_bfOp, inputs);
+      auto float_to_bfOp_out_tensor = float_to_bfOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(float_to_bfOp_out_tensor));
+    } else {
+      auto Op = make_operator<CastOperator>(self.device().index(), node_type);
+      auto Op_out = out.call_ComputeOutputShape(Op, inputs);
+      auto out_tensor = Op_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(out_tensor));
+    }
+  } else {
+    auto identityOp = make_operator<IdentityOperator>(
+        self.device().index(), self.scalar_type());
+    torch::jit::Stack stack = {IValue(self)};
+    auto identityOp_out = out.call_ComputeOutputShape(identityOp, stack);
+    auto out_tensor = identityOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  }
+  return out;
+}
+
 void CastLazyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -538,6 +618,29 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   }
 }
 
+OutputShapeInfRetType MemCopyOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  OutputShapeInfRetType out;
+  if (inputs.size() == 2) {
+    auto output = inputs[1].toTensor();
+    out.AddOutputTensor(TensorMetaData(
+        output.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            output.sizes(), output.suggest_memory_format()),
+        output.scalar_type(),
+        output.suggest_memory_format()));
+  } else {
+    out.AddOutputTensor(TensorMetaData(
+        self.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            self.sizes(), self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format()));
+  }
+  return out;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for memcpy, used for D2D mem transfers
  * @param self - input which needs to be transferred
@@ -561,6 +664,29 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   }
   p_context_->params_size_ = 0;
   AddNodeToSynapseGraph(graph, NULL, 0);
+}
+
+OutputShapeInfRetType IdentityOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  OutputShapeInfRetType out;
+  if (inputs.size() == 2) {
+    auto output = inputs[1].toTensor();
+    out.AddOutputTensor(TensorMetaData(
+        output.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            output.sizes(), output.suggest_memory_format()),
+        output.scalar_type(),
+        output.suggest_memory_format()));
+  } else {
+    out.AddOutputTensor(TensorMetaData(
+        self.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            self.sizes(), self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format()));
+  }
+  return out;
 }
 
 void IdentityOperator::AllocateAndAddSynapseNode(
@@ -868,6 +994,20 @@ void StridedInsertOperator::compute_params(
   }
 }
 
+OutputShapeInfRetType StridedInsertOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto orig_t = inputs[0].toTensor();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      orig_t.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          orig_t.sizes(), orig_t.suggest_memory_format()),
+      orig_t.scalar_type(),
+      orig_t.suggest_memory_format()));
+  return out;
+}
+
 void StridedInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -945,6 +1085,32 @@ bool StridedViewOperator::verifyViewMemoryAccess(
     return false;
   }
   return true;
+}
+
+OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  std::vector<int64_t> size;
+  std::vector<int64_t> strides;
+
+  bool have_shape_tensors = inputs[1].isTensor();
+  if (have_shape_tensors) {
+    size = inputs[1].toTensor().sizes().vec();
+    strides = inputs[2].toTensor().sizes().vec();
+  } else {
+    size = inputs[1].toIntVector();
+    strides = inputs[2].toIntVector();
+  }
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      size, strides, self.scalar_type(), self.suggest_memory_format());
+  out.AddOutputTensor(tensor_meta_data);
+
+  if (!have_shape_tensors) {
+    out.AddShapeTensor(tensor_meta_data);
+  }
+  return out;
 }
 
 /*************************************************************************

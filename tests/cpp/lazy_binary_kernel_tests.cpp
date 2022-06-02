@@ -909,3 +909,211 @@ TEST_F(LazyBinaryKernelTest, MaxDim2Dim1) {
       allclose(std::get<0>(out_hpu).to(at::kCPU), std::get<0>(out_cpu)) &&
       allclose(std::get<1>(out_hpu).to(at::kCPU), std::get<1>(out_cpu)));
 }
+
+// Also validates ComputeOutputShape for GUID mult_fwd_f32 and add_fwd_f32
+TEST_F(LazyBinaryKernelTest, AddFwdF32) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor out_cpu = torch::add(A, B, 2.3);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor out_hpu = torch::add(hA, hB, 2.3);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID cast_f32_to_bf16, mult_fwd_bf16,
+// add_fwd_bf16 and cast_bf16_to_f32
+TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor out_cpu =
+      torch::add(A.to(torch::kBFloat16), B.to(torch::kBFloat16), 2.3);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor out_hpu =
+      torch::add(hA.to(torch::kBFloat16), hB.to(torch::kBFloat16), 2.3);
+
+  EXPECT_EQ(
+      allclose(
+          out_hpu.to(torch::kFloat).to(torch::kCPU),
+          out_cpu.to(torch::kFloat),
+          0.001,
+          0.001),
+      true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID cast_f32_to_i32, mult_fwd_i32,
+// add_fwd_i32 and cast_i32_to_f32
+TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor out_cpu =
+      torch::add(A.to(torch::kInt32), B.to(torch::kInt32), 3);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor out_hpu =
+      torch::add(hA.to(torch::kInt32), hB.to(torch::kInt32), 3);
+
+  EXPECT_EQ(
+      allclose(
+          out_hpu.to(torch::kFloat).to(torch::kCPU),
+          out_cpu.to(torch::kFloat),
+          0.001,
+          0.001),
+      true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+/* ToDo enable AddFwdWithScalar, Here in this test Scalar is added as constant
+ * tensor in Jit stack input during allocateAndAddSynapeNode. Hence during
+ * compute shape validation, Constant node is not seen and Validation fails with
+ * mismatch in number of kernels.
+ */
+// Also validates ComputeOutputShape for GUID mult_fwd_f32, Constant and
+// add_fwd_f32
+TEST_F(LazyBinaryKernelTest, DISABLED_AddFwdF32WithScalar) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  // test case for result = add(tensor, scalar, alpha)
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  Scalar B = 3.0;
+  Scalar alpha = 2.0;
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor out_hpu = torch::add(hA, B, alpha);
+  torch::Tensor out_cpu = torch::add(A, B, alpha);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID sub_fwd_f32
+TEST_F(LazyBinaryKernelTest, SubFwdF32) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::randn({3, 4}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({3, 4}, torch::requires_grad(false));
+  torch::Tensor out_cpu = torch::sub(A, B);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor out_hpu = torch::sub(hA, hB);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID sub_fwd_f16
+TEST_F(LazyBinaryKernelTest, SubFwdBf16) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A =
+      torch::randn({3, 4}, torch::dtype(torch::kBFloat16).requires_grad(false));
+  torch::Tensor B =
+      torch::randn({3, 4}, torch::dtype(torch::kBFloat16).requires_grad(false));
+  torch::Tensor out_cpu = torch::sub(A, B);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor out_hpu = torch::sub(hA, hB);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID div_fwd_f32
+TEST_F(LazyBinaryKernelTest, DivFwdF32Scalar) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto a = torch::ones({2, 3, 4});
+  auto b = torch::div(a, 2);
+  auto out = torch::div(b, 3);
+
+  auto ha = a.to("hpu");
+  auto hb = torch::div(ha, 2);
+  auto hout = torch::div(hb, 3);
+
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID div_fwd_f16
+TEST_F(LazyBinaryKernelTest, DivFwdBf16Scalar) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto a = torch::ones({2, 3, 4}, torch::dtype(torch::kBFloat16));
+  auto b = torch::div(a, 2);
+  auto out = torch::div(b, 3);
+
+  auto ha = a.to("hpu");
+  auto hb = torch::div(ha, 2);
+  auto hout = torch::div(hb, 3);
+
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID pow_fwd_f32
+TEST_F(LazyBinaryKernelTest, PowFwdF32) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  const std::vector<int64_t> dimentions{4, 5, 3};
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  Tensor expected = torch::pow(A, B);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto result = torch::pow(hA, hB);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also validates ComputeOutputShape for GUID pow_fwd_f16
+TEST_F(LazyBinaryKernelTest, PowFwdF16) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  const std::vector<int64_t> dimentions{4, 5, 3};
+  torch::Tensor A = torch::ones(dimentions, torch::dtype(torch::kBFloat16));
+  torch::Tensor B = torch::rand(dimentions, torch::dtype(torch::kBFloat16));
+
+  Tensor expected = torch::pow(A, B);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto result = torch::pow(hA, hB);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

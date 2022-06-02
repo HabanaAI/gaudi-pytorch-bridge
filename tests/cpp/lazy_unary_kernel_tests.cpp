@@ -938,3 +938,63 @@ TEST_F(LazyUnaryKernelTest, EluBackwardTest) {
       0.001,
       /*equal_nan*/ true));
 }
+
+// Also Validates ComputeOutputShape for GUID cast_u8_to_f32, cast_f32_to_i32,
+// cast_i32_to_bf16
+TEST_F(LazyUnaryKernelTest, CastU8F32I32) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::randint(
+      0, 255, {2, 3, 4}, torch::dtype(torch::kUInt8).requires_grad(false));
+  torch::Tensor out_cpu =
+      A.to(torch::kFloat).to(torch::kInt32).to(torch::kBFloat16);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor out_hpu =
+      hA.to(torch::kFloat).to(torch::kInt32).to(torch::kBFloat16);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also Validates ComputeOutputShape for GUID cast_f32_to_i8, identity,
+// cast_i8_to_f32
+TEST_F(LazyUnaryKernelTest, CastIdentity) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto A = torch::rand({2, 3, 4});
+  auto out = A.to(torch::kChar).to(torch::kBool).to(torch::kFloat);
+
+  // Char cast to Bool inserts Identity Op
+  auto hA = A.to(torch::kHPU);
+  auto hOut = hA.to(torch::kChar).to(torch::kBool).to(torch::kFloat);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Also Validates ComputeOutputShape for GUID memcpy
+TEST_F(LazyUnaryKernelTest, CopyD2D) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto A = torch::rand({2, 3, 4});
+  auto ones = torch::ones_like(A);
+
+  auto hA = A.to(torch::kHPU);
+  auto hOnes = ones.to(torch::kHPU);
+
+  auto res = torch::add(A, ones);
+  auto hRes = torch::add(hA, hOnes);
+
+  auto out = torch::zeros_like(A);
+  auto hOut = out.to(torch::kHPU);
+
+  out.copy_(res);
+  hOut.copy_(hRes);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

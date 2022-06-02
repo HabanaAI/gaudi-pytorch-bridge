@@ -356,24 +356,46 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
 
 habana::OutputShapeInfRetType habana::BinaryWrapperOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
+  auto binaryOp = make_operator<BinaryOperator>(
+      this->p_context_->device_id_, guid_, this->scalarType_);
+
   OutputShapeInfRetType out;
-  Tensor arg1 = inputs[0].toTensor();
-  Tensor arg2 = inputs[1].toTensor();
-  if (inputs[0].isTensor() && inputs[1].isTensor()) {
-    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
-    out.AddOutputTensor(TensorMetaData(
-        shape_out,
-        HabanaOperator::CalculateStrides(
-            shape_out, arg1.suggest_memory_format()),
-        arg1.scalar_type(),
-        arg1.suggest_memory_format()));
-    return out;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
+    auto arg1 = inputs[0].toTensor();
+    // add constant node to convert 2nd input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else { // 1st input is a scalar
+    auto arg2 = inputs[1].toTensor();
+    // add constant node to convert 1st input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
   }
-  out.AddOutputTensor(TensorMetaData(
-      arg1.sizes().vec(),
-      arg1.strides().vec(),
-      arg1.scalar_type(),
-      arg1.suggest_memory_format()));
   return out;
 }
 
@@ -487,24 +509,47 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
 
 habana::OutputShapeInfRetType habana::BinaryWrapperOperatorWithAlpha::
     ComputeOutputShape(torch::jit::Stack& inputs) {
-  Tensor arg1 = inputs[0].toTensor();
-  Tensor arg2 = inputs[1].toTensor();
+  auto binaryOp = make_operator<BinaryOperatorWithAlpha>(
+      this->p_context_->device_id_, guid_, this->scalarType_);
+
   OutputShapeInfRetType out;
-  if (inputs[0].isTensor() && inputs[1].isTensor()) {
-    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
-    out.AddOutputTensor(TensorMetaData(
-        shape_out,
-        HabanaOperator::CalculateStrides(
-            shape_out, arg1.suggest_memory_format()),
-        arg1.scalar_type(),
-        arg1.suggest_memory_format()));
-    return out;
+  if (inputs[0].isTensor() &&
+      inputs[1].isTensor()) { // First 2 inputs are both tensors
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
+    auto arg1 = inputs[0].toTensor();
+    // add constant node to convert 2nd input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else { // 1st input is a scalar
+    auto arg2 = inputs[1].toTensor();
+    // add constant node to convert 1st input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
   }
-  out.AddOutputTensor(TensorMetaData(
-      arg1.sizes().vec(),
-      arg1.strides().vec(),
-      arg1.scalar_type(),
-      arg1.suggest_memory_format()));
   return out;
 }
 

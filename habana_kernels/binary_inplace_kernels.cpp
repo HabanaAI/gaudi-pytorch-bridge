@@ -97,6 +97,31 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
   }
 }
 
+habana::OutputShapeInfRetType habana::BinaryInplaceOperatorWithAlpha::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+
+  OutputShapeInfRetType out;
+  if (inputs[2].toScalar().toFloat() != 1.0) {
+    // Multiplication between arg2 and alpha is required
+    auto mulOp = make_operator<habana::MulOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    torch::jit::Stack mulOp_stack{inputs[1], inputs[2]};
+    auto mulOp_out = out.call_ComputeOutputShape(mulOp, mulOp_stack);
+    auto out_tensor = mulOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  }
+
+  out.AddOutputTensor(TensorMetaData(
+      arg1.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          arg1.sizes(), arg1.suggest_memory_format()),
+      arg1.scalar_type(),
+      arg1.suggest_memory_format()));
+  return out;
+}
+
 /************************************************************************
  * @brief This function implements synapse node addition for Binary OPs
  * with 3 input arguments (where 1st input is always a tensor whereas
@@ -152,6 +177,36 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
       std::move(binaryOp->GetSynOutputs()[0]));
 }
 
+habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto binaryOp = make_operator<BinaryInplaceOperatorWithAlpha>(
+      this->p_context_->device_id_, guid_, this->scalarType_);
+
+  if (inputs[0].isTensor() &&
+      inputs[1].isTensor()) { // First 2 inputs are both tensors
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
+    auto arg1 = inputs[0].toTensor();
+    // add constant node to convert 2nd input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+  }
+  return out;
+}
+
 /************************************************************************
  * @brief This function implements synapse node addition for
  * inplace binary operators where both inputs are tensors. Mismatch in
@@ -192,6 +247,20 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
       nullptr,
       0,
       std::move(guid_));
+}
+
+habana::OutputShapeInfRetType habana::BinaryInplaceOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  Tensor arg1 = inputs[0].toTensor();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      arg1.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          arg1.sizes(), arg1.suggest_memory_format()),
+      arg1.scalar_type(),
+      arg1.suggest_memory_format()));
+  return out;
 }
 
 /************************************************************************
@@ -248,6 +317,35 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(binaryInplaceOp->GetOutputs()[0]);
   p_context_->syn_outputs_.emplace_back(
       std::move(binaryInplaceOp->GetSynOutputs()[0]));
+}
+
+habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperator::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto binaryOp = make_operator<BinaryInplaceOperator>(
+      this->p_context_->device_id_, guid_, this->scalarType_);
+
+  if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
+    auto arg1 = inputs[0].toTensor();
+    // add constant node to convert 2nd input to tensor
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto const_out_tensor = constOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(const_out_tensor));
+
+    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto out_tensor = binaryOp_out.GetOutputTensor(0);
+  }
+  return out;
 }
 
 /************************************************************************

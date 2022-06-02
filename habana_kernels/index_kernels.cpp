@@ -2494,6 +2494,84 @@ std::vector<T> get_start_step_end(const IntArrayRef& shape) {
   return d;
 }
 
+OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  if (inputs.size() == 3) {
+    auto output_shape_tensor = inputs[2].toTensor();
+    auto result = inputs[1].toTensor();
+    at::Tensor host_tensor = inputs[0].toTensor();
+
+    auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+    if (impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T) {
+      out.AddOutputTensor(TensorMetaData(
+          output_shape_tensor.sizes().vec(),
+          HabanaOperator::CalculateStrides(
+              output_shape_tensor.sizes(),
+              output_shape_tensor.suggest_memory_format()),
+          output_shape_tensor.scalar_type(),
+          output_shape_tensor.suggest_memory_format()));
+    } else if (impl->get_host_dt_type() == habana_lazy::HostDataType::FLOAT_T) {
+      out.AddOutputTensor(TensorMetaData(
+          result.sizes().vec(),
+          HabanaOperator::CalculateStrides(
+              result.sizes(), result.suggest_memory_format()),
+          result.scalar_type(),
+          result.suggest_memory_format()));
+    }
+  } else {
+    auto result = inputs[3].toTensor();
+    auto start = inputs[0].toScalar();
+    auto end = inputs[1].toScalar();
+    auto step = inputs[2].toScalar();
+
+    if (!(result.scalar_type() == ScalarType::Float ||
+          result.scalar_type() == ScalarType::BFloat16)) {
+      std::vector<int64_t> sizes_vec{step.toInt(), end.toInt(), start.toInt()};
+      IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
+
+      out.AddShapeTensor(TensorMetaData(
+          idst_sizes.vec(),
+          HabanaOperator::CalculateStrides(
+              idst_sizes, result.suggest_memory_format()),
+          c10::ScalarType::Int,
+          result.suggest_memory_format()));
+    }
+
+    // If datatype is int/bf16/fp32 , no cast node is required
+    // For datatypes Char, Bool one additional cast node is
+    // required. Arange kernel return i32 output node Cast kernel will convert
+    // i32 -> (i8)
+    if (!(result.scalar_type() == ScalarType::Int ||
+          result.scalar_type() == ScalarType::Float ||
+          result.scalar_type() == ScalarType::BFloat16)) {
+      auto output_range = habana_helpers::createPTTensor(
+          result,
+          result.sizes(),
+          result.options(),
+          result.suggest_memory_format(),
+          c10::ScalarType::Int,
+          false);
+
+      out.AddOutputTensor(TensorMetaData(
+          result.sizes().vec(),
+          HabanaOperator::CalculateStrides(
+              result.sizes(), result.suggest_memory_format()),
+          c10::ScalarType::Int,
+          result.suggest_memory_format()));
+
+      // Create cast operator
+      auto castOp = make_operator<CastOutOperator>(
+          this->p_context_->device_id_, "cast_i32_to_i8");
+      torch::jit::Stack stack = {IValue(output_range), IValue(result)};
+      auto castOp_out = out.call_ComputeOutputShape(castOp, stack);
+      auto out_tensor = castOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(out_tensor));
+    }
+  }
+  return out;
+}
+
 void ArangeOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

@@ -16,7 +16,11 @@ using namespace at;
 
 class LazyBinaryInplaceKernelTest : public habana_lazy_test::LazyTest {};
 
+// Also validates ComputeOutputShape for MulInplace
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
@@ -33,9 +37,14 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for MulInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   auto hA = A.to(torch::kHPU);
@@ -51,9 +60,14 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for MulInplaceScalarBf16
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 3});
   auto A_bf16 = A.to(torch::kBFloat16);
   torch::Tensor B = torch::randn({2, 3});
@@ -71,9 +85,14 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
   Tensor out = result.to(torch::kFloat).to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.1, 0.1), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for AddInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   auto hA = A.to(torch::kHPU);
@@ -89,9 +108,14 @@ TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for SubInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, SubInplaceScalarTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   auto hA = A.to(torch::kHPU);
@@ -107,6 +131,7 @@ TEST_F(LazyBinaryInplaceKernelTest, SubInplaceScalarTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
@@ -222,7 +247,11 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
+// Also validates ComputeOutputShape for DivInplace
 TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
@@ -237,6 +266,7 @@ TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
   Tensor out = hA.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, DivInplaceIntermediateTest) {

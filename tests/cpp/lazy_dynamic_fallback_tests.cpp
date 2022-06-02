@@ -167,7 +167,11 @@ TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
   }
 }
 
+// Also validates ComputeOutputShape for concat and strided_view
 TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   int H = 7;
   std::vector<int> in_sizes{100, 110, 120};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -189,6 +193,7 @@ TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
     torch::Tensor out = torch::as_strided(cat_out, sizes, strides, offset);
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 // Its places here only because its getting bucket hit and max calculation fail.

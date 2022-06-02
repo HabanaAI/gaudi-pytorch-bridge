@@ -289,7 +289,11 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute_gal) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
+// Also validates ComputeOutputShape for BatchNormFwd
 TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
@@ -326,6 +330,7 @@ TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
   // Note higher tolerance needed for variance due to TPC kernel accuracy
   // limitation
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyNormKernelTest, BatchNorm7DForwardExecute) {
@@ -443,7 +448,11 @@ TEST_F(LazyNormKernelTest, BatchNormAffineFalseForwardExecute) {
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
 }
 
+// Also validates ComputeOutputShape for BatchNormInf
 TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   auto input_tensor = torch::randn(
       {5, 3, 7, 2}, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
@@ -473,9 +482,14 @@ TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
   auto result_lazy = std::get<0>(results).to(torch::kCPU);
 
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for BatchNormBwd
 TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   auto grad_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 4}, c10::MemoryFormat::Contiguous); // nchw
@@ -527,6 +541,7 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
 
   at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyNormKernelTest, InstanceNorm) {

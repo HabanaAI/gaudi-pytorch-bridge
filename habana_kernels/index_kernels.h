@@ -428,6 +428,9 @@ class ArangeOperatorHT : public ArangeOperator {
   ArangeOperatorHT(int device_id, c10::ScalarType scalarType)
       : ArangeOperator(device_id, scalarType) {}
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

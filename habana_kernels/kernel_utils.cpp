@@ -320,6 +320,33 @@ ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
   return params;
 }
 
+habana::OutputShapeInfRetType CastOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto type = inputs[1].toScalarType();
+  habana::OutputShapeInfRetType out;
+  if (self.scalar_type() == c10::ScalarType::Byte &&
+      type == c10::ScalarType::Bool) {
+    // cast doesn't handle Byte->Bool: So, use gt op.
+    torch::jit::Stack stack;
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(0));
+    auto gtOp = make_operator<habana::GtOperator>(
+        self.device().index(), self.scalar_type());
+    auto gtOp_out = out.call_ComputeOutputShape(gtOp, stack);
+    auto out_tensor = gtOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else {
+    out.AddOutputTensor(habana::TensorMetaData(
+        self.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            self.sizes(), self.suggest_memory_format()),
+        type,
+        self.suggest_memory_format()));
+  }
+  return out;
+}
+
 void CastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -364,6 +391,19 @@ void CastOperator::AllocateAndAddSynapseNode(
   }
 }
 
+habana::OutputShapeInfRetType CastOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto output = inputs[1].toTensor();
+  habana::OutputShapeInfRetType out;
+  out.AddDupTensor(habana::TensorMetaData(
+      output.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          output.sizes(), output.suggest_memory_format()),
+      output.scalar_type(),
+      output.suggest_memory_format()));
+  return out;
+}
+
 void CastOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -392,6 +432,21 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   // Cast requires only 1 input popping second as it is output
   p_context_->syn_inputs_.pop_back();
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+habana::OutputShapeInfRetType ConstantOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto output = inputs[0].toTensor();
+  auto tensor_meta_data = habana::TensorMetaData(
+      output.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          output.sizes(), output.suggest_memory_format()),
+      output.scalar_type(),
+      output.suggest_memory_format());
+  habana::OutputShapeInfRetType out;
+  out.AddDupTensor(tensor_meta_data);
+  out.AddShapeTensor(tensor_meta_data);
+  return out;
 }
 
 void ConstantOutOperator::AllocateAndAddSynapseNode(
@@ -444,6 +499,21 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   }
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+habana::OutputShapeInfRetType ConstantOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto input = inputs[0].toTensor();
+  auto tensor_meta_data = habana::TensorMetaData(
+      input.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          input.sizes(), input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+  habana::OutputShapeInfRetType out;
+  out.AddOutputTensor(tensor_meta_data);
+  out.AddShapeTensor(tensor_meta_data);
+  return out;
 }
 
 void ConstantOperator::AllocateAndAddSynapseNode(

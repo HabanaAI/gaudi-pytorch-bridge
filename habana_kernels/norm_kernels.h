@@ -46,6 +46,9 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -144,6 +147,9 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -199,6 +205,9 @@ class BatchNormInfOperator : public habana::HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -240,6 +249,9 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
     resize_done = false;
     preprocessing_done = false;
   }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

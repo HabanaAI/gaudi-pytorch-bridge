@@ -88,6 +88,8 @@ class CastOutOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::ANY, habana::LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -105,6 +107,8 @@ class CastOperator : public CastOutOperator {
       : CastOutOperator(device_id, guid) {
     kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY});
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -121,6 +125,9 @@ class ConstantOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
+
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -158,6 +165,9 @@ class ConstantOutOperator : public habana::HabanaOperator {
     // special case, adding -1 to the tpc order, will not add any inputs
     kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
+
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

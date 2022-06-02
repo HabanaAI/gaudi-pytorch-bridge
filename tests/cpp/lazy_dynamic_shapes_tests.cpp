@@ -846,7 +846,11 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 }
 
+// Also validates ComputeOutputShape for ArangeHtI32
 TEST_F(LazyDynamicShapesTest, ArangeTestHt) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   // std::vector<int> start_sizes{1, 1, 1, 1};
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
@@ -873,6 +877,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTestHt) {
     EXPECT_EQ(allclose(h_cout, a), true);
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloat) {
@@ -901,7 +906,11 @@ TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloat) {
   }
 }
 
+// Also validates ComputeOutputShape for ArangeHtF32
 TEST_F(LazyDynamicShapesTest, ArangeTestFloatHt) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
@@ -927,6 +936,7 @@ TEST_F(LazyDynamicShapesTest, ArangeTestFloatHt) {
     EXPECT_EQ(allclose(h_cout, a), true);
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeInplaceTest2) {
@@ -1026,7 +1036,11 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
   }
 }
 
+// Also validates ComputeOutputShape for View, AddInplace and strided_insert
 TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   int N = 1;
   int C = 2;
   int H = 4;
@@ -1045,6 +1059,7 @@ TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
     auto out = out_hpu.to(torch::kCPU);
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, CastTest) {
