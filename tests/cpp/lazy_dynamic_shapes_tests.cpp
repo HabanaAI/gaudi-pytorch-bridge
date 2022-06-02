@@ -2078,3 +2078,28 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
 }
+
+// Also validates ComputeOutputShape for for Reshape/View
+TEST_F(LazyDynamicShapesTest, ReshapeTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  const int N = 2;
+  const int C = 4;
+  const int H = 8;
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+
+    int W = in_sizes[i];
+    auto A = torch::randn({N * C * H * W});
+    auto A_reshape = A.reshape({N, C, H, W});
+
+    auto hA = A.to(torch::kHPU);
+    auto hA_reshape = hA.reshape({N, C, H, W});
+
+    EXPECT_TRUE(allclose(hA_reshape.to(torch::kCPU), A_reshape));
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

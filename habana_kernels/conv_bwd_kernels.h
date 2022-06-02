@@ -35,6 +35,10 @@ class ConvBackwardOperator : public HabanaOperator {
   }
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -72,6 +76,9 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -96,6 +103,9 @@ class Conv3dInputDifferentiationOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -119,6 +129,9 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::SRCK});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -141,6 +154,9 @@ class Conv3dWeightDifferentiationOperator : public HabanaOperator {
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::SRQCK});
   }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

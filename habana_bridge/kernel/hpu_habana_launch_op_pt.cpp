@@ -1404,8 +1404,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputs_metadata);
       if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+        HabanaOperatorPtr tmpHabanaKernel =
+            KernelRegistry().get(device_id, op, getNodeScalarType(node));
         auto output_shape_handle =
-            HabanaKernel->ComputeOutputShape(input_stack);
+            tmpHabanaKernel->ComputeOutputShape(input_stack);
         validateOutputShape(HabanaKernel, output_shape_handle);
       }
     }

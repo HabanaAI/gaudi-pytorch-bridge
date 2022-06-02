@@ -20,6 +20,9 @@ class CatOutOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -92,6 +95,9 @@ class ReshapeOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.changes_dims = true;
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -103,6 +109,8 @@ class ReshapeOperator : public habana::HabanaOperator {
 class TransposeOperator : public habana::HabanaOperator {
  public:
   TransposeOperator(int device_id, c10::ScalarType scalarType);
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -143,6 +151,8 @@ class BroadcastOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -187,6 +197,8 @@ class ViewOperator : public ReshapeOperator {
  public:
   ViewOperator(int device_id, c10::ScalarType scalarType)
       : ReshapeOperator(device_id, scalarType) {}
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

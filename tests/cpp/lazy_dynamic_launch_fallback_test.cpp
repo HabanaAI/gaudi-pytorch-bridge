@@ -38,7 +38,11 @@ class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
   }
 };
 
+// Also validates ComputeOutputShape for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   constexpr int Wmax{482}, Hmax{200};
   std::vector<int> W_in_sizes{1, Wmax, 1, Wmax, 1, Wmax};
   std::vector<int> H_in_sizes{Hmax, 1, Hmax, 1, 1, Hmax};
@@ -56,10 +60,15 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
     auto cE = hE.to(torch::kCPU);
     EXPECT_EQ(allclose(cE, E), true);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 // This test requires fallback
+// Also validates ComputeOutputShape for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   std::vector<int> W_in_sizes{754, 350, 664, 1};
   std::vector<int> H_in_sizes{2, 2, 2, 2};
   std::vector<int> W_expand_sizes{754, 350, 664, 500};
@@ -78,4 +87,5 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
 
     EXPECT_EQ(allclose(h_cout, cout), true);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }

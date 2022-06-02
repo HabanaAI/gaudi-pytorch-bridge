@@ -100,6 +100,26 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
   EXPECT_EQ(allclose(result, exp), true);
 }
 
+// Also Validates ComputeOutputShape for concat
+TEST_F(LazyTensorShapeKernelTest, CatTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  auto A = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+  auto B = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+  auto C = torch::randn({1, 8, 8}).to(torch::kBFloat16);
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+
+  auto out_cpu = torch::cat({A, B, C});
+  auto out_hpu = torch::cat({hA, hB, hC});
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 TEST_F(LazyTensorShapeKernelTest, CatOutViewTest) {
   auto A = torch::randn({1, 8, 8}).to(torch::kBFloat16);
   auto B = torch::randn({1, 8, 8}).to(torch::kBFloat16);
@@ -367,21 +387,31 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
+// Also Validates ComputeOutputShape for transpose
 TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::transpose(hA, 1, 0);
   torch::Tensor Out = torch::transpose(A, 1, 0);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also Validates ComputeOutputShape for transpose
 TEST_F(LazyTensorShapeKernelTest, TransposeTest2) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({8, 224, 224, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::transpose(hA, 0, 3);
   torch::Tensor Out = torch::transpose(A, 0, 3);
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyTensorShapeKernelTest, DISABLED_TransposeTestCL) {

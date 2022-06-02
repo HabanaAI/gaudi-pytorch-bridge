@@ -1466,6 +1466,22 @@ std::vector<int64_t> BceLogitsFwdOperator::compute_output_shape(
   }
 }
 
+OutputShapeInfRetType BceLogitsFwdOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto reduction = inputs[4].toInt();
+
+  auto out_shape = BceLogitsFwdOperator::compute_output_shape(self, reduction);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
+}
+
 void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

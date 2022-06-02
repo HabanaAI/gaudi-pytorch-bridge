@@ -119,6 +119,8 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       return {sizes[0], 1};
     case 1:
       return {1};
+    case 0:
+      return {};
     default:
       HABANA_ASSERT(0);
   };

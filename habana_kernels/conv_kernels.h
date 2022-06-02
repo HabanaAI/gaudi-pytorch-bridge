@@ -41,6 +41,9 @@ class ConvOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -126,6 +129,9 @@ class SpatialConvOperator : public habana::HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -153,6 +159,9 @@ class SpatialConv3DOperator : public habana::HabanaOperator {
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

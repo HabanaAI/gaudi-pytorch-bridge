@@ -326,6 +326,38 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
 }
 
+// Also validates ComputeOutputShape for BCELogitsFwd
+TEST_F(LazyLossKernelTest, BCELogitsFwdLossTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  auto input = torch::randn({5, 2, 4, 3});
+  auto target = torch::randn({5, 2, 4, 3});
+  // weight (Tensor, optional) – a manual rescaling weight if provided it’s
+  // repeated to match input tensor shape
+  c10::optional<Tensor> weight = torch::randn({3});
+  // pos_weight (Tensor, optional) – a weight of positive examples. Must be a
+  // vector with length equal to the number of classes.
+  c10::optional<Tensor> pos_weight = torch::rand({3});
+
+  torch::Tensor hinput = input.to(torch::kHPU);
+  torch::Tensor htarget = target.to(torch::kHPU);
+  c10::optional<Tensor> hweight = weight.value().to(torch::kHPU);
+  c10::optional<Tensor> hpos_weight = pos_weight.value().to(torch::kHPU);
+
+  auto houtput = torch::binary_cross_entropy_with_logits(
+      hinput, htarget, hweight, hpos_weight, at::Reduction::Mean);
+
+  auto houtfwd = houtput.to(torch::kCPU);
+
+  // reference output
+  auto expfwd = torch::binary_cross_entropy_with_logits(
+      input, target, weight, pos_weight, at::Reduction::Mean);
+
+  EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 TEST_P(LazyLossKernelWithParamsTest, BCELogitsLossTest) {
   bool testWeight = std::get<0>(GetParam());
   bool testPosWeight = std::get<1>(GetParam());

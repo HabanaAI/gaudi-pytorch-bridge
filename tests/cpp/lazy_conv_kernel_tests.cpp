@@ -211,7 +211,11 @@ class LazyConvKernelGraphTest : public habana_lazy_test::LazyTest {
   }
 };
 
+// Also validates ComputeOutputShape for Conv Bwd
 TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto grad_output = torch::randn({2, 6, 2, 3}, torch::requires_grad(false));
   auto input = torch::randn({2, 5, 3, 4}, torch::requires_grad(false));
   auto weight = torch::randn({6, 5, 2, 2}, torch::requires_grad(false));
@@ -284,9 +288,14 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   torch::jit::testing::FileCheck()
       .check_count("= aten::convolution_backward_overrideable", 1)
       ->run(*hlexec->get_graph());
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for Conv2d
 TEST_F(LazyConvKernelTest, ConvExecTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
   auto wt = torch::randn({5, 4, 3, 3}, torch::dtype(torch::kFloat)); // kchw
   auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -306,9 +315,14 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for ConvTranspose2d
 TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
   auto wt = torch::randn({4, 5, 3, 3}, torch::dtype(torch::kFloat)); // ckhw
   auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
@@ -326,9 +340,14 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   torch::Tensor result = torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for ConvTranspose2d
 TEST_F(LazyConvKernelTest, ConvTranspose2dG2Test) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in = torch::randn({1, 16, 12, 12}, torch::dtype(torch::kFloat)); // nchw
   auto wt = torch::randn({16, 8, 3, 3}, torch::dtype(torch::kFloat)); // ckhw
   auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
@@ -346,6 +365,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dG2Test) {
   torch::Tensor result = torch::conv_transpose2d(h_in, h_wt, {}, 2, 0, 0, 2, 1);
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyConvKernelTest, Conv2dG2Test) {
@@ -370,7 +390,11 @@ TEST_F(LazyConvKernelTest, Conv2dG2Test) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
+// Also validates ComputeOutputShape for ConvTranspose3d
 TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in =
       torch::randn({64, 3, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
   auto wt = torch::randn({3, 5, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
@@ -389,9 +413,14 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
   torch::Tensor result = torch::conv_transpose3d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also validates ComputeOutputShape for ConvTranspose3d
 TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in =
       torch::randn({64, 16, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
   auto wt =
@@ -411,6 +440,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
   torch::Tensor result = torch::conv_transpose3d(h_in, h_wt, {}, 2, 0, 0, 2, 1);
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyConvKernelTest, Conv3dTest) {
@@ -460,7 +490,11 @@ TEST_F(LazyConvKernelTest, Conv3dG2Test) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
+// Also validates ComputeOutputShape for ConvTranspose2dBwd
 TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad()); // nchw
   auto hin = in.to(torch::kHPU);
   auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
@@ -508,4 +542,5 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   } else {
     EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }

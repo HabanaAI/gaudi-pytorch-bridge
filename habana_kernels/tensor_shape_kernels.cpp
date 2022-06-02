@@ -234,6 +234,26 @@ std::vector<int64_t> CatOutOperator::compute_output_shape(
   return out_size;
 }
 
+OutputShapeInfRetType CatOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto tensors = inputs[0].toTensorVector();
+  auto dim_ = inputs[1].toInt();
+  auto out = inputs[2].toTensor();
+
+  // Convert "c10::List<at::Tensor>" to "at::TensorList"
+  auto out_shape = CatOutOperator::compute_output_shape(tensors, dim_);
+
+  auto metaData = TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, out.suggest_memory_format()),
+      out.scalar_type(),
+      out.suggest_memory_format());
+  OutputShapeInfRetType out_dup;
+  out_dup.AddOutputTensor(metaData);
+  out_dup.AddDupTensor(metaData);
+  return out_dup;
+}
+
 void CatOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -376,6 +396,25 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
   // In effect, keep the tensor contiguous.
   habana_helpers::recalc_strides(self_strides, self_sizes);
   return std::make_tuple(self_sizes, self_strides);
+}
+
+OutputShapeInfRetType TransposeOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  auto dim0_ = inputs[1].toInt();
+  auto dim1_ = inputs[2].toInt();
+
+  std::vector<int64_t> self_sizes, self_strides;
+  std::tie(self_sizes, self_strides) =
+      TransposeOperator::compute_output_shape(self, dim0_, dim1_);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      self_sizes,
+      self_strides,
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
 }
 
 void TransposeOperator::AllocateAndAddSynapseNode(
@@ -685,6 +724,44 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   return ret;
 }
 
+OutputShapeInfRetType ReshapeOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  std::vector<int64_t> inferred_size;
+  Tensor self = inputs[0].toTensor();
+  /*
+   * if we have already created shape tensor at the frontend, then
+   * we dont need the below processing at all.
+   */
+  if (inputs[1].isIntList()) {
+    auto shape = inputs[1].toIntList();
+    auto shape_vector = shape.vec();
+    auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
+    inferred_size = habana_helpers::infer_size(input_shape, self.numel());
+  } else {
+    auto shapeTensor = inputs[1].toTensor();
+    inferred_size = shapeTensor.sizes().vec();
+  }
+
+  auto memory_format = self.suggest_memory_format();
+  if (inferred_size.size() < 4) {
+    memory_format = at::MemoryFormat::Contiguous;
+  }
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      inferred_size,
+      HabanaOperator::CalculateStrides(inferred_size, memory_format),
+      self.scalar_type(),
+      memory_format);
+  out.AddOutputTensor(tensor_meta_data);
+
+  if (inputs[1].isIntList()) {
+    out.AddShapeTensor(tensor_meta_data);
+  }
+
+  return out;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.Tensor.reshape
  * @param self - input on which reshape needs to be applied
@@ -799,6 +876,23 @@ void FlattenOperator::AllocateAndAddSynapseNode(
   ReshapeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
+OutputShapeInfRetType ViewOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  if (inputs[1].isIntList()) {
+    auto dims = inputs[1].toIntVector();
+
+    // Reshape Operator doesnt support -1 argument, remove it if present
+    auto inferred_dims = habana_helpers::infer_size(dims, self.numel());
+    // remove start_dim & end_dim. we have already used these to compute shape
+    inputs.pop_back();
+    // insert computed shape into inputs stack before calling reshape
+    inputs.push_back(IValue(inferred_dims));
+  }
+
+  return ReshapeOperator::ComputeOutputShape(inputs);
+}
+
 void ViewOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -827,6 +921,39 @@ void ViewOperator::AllocateAndAddSynapseNode(
   }
 
   ReshapeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+}
+
+OutputShapeInfRetType BroadcastOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+
+  std::vector<int64_t> expandedSizes;
+  std::vector<int64_t> expandedStrides;
+  OutputShapeInfRetType out;
+  if (inputs[1].isIntList()) {
+    auto size = inputs[1].toIntList();
+    std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(
+        self.sizes(), self.strides(), IntArrayRef(size.vec()));
+
+    habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+    out.AddShapeTensor(TensorMetaData(
+        expandedSizes,
+        expandedStrides,
+        self.scalar_type(),
+        self.suggest_memory_format()));
+  } else {
+    auto expand_shape = inputs[1].toTensor();
+    expandedSizes = expand_shape.sizes().vec();
+    expandedStrides = HabanaOperator::CalculateStrides(
+        expandedSizes, self.suggest_memory_format());
+  }
+
+  out.AddOutputTensor(TensorMetaData(
+      expandedSizes,
+      expandedStrides,
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
 }
 
 void BroadcastOperator::AllocateAndAddSynapseNode(

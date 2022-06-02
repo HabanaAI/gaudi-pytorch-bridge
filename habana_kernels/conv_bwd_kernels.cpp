@@ -47,6 +47,22 @@ extern synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& dilation, // HW
     int64_t groups);
 
+OutputShapeInfRetType Conv3dInputDifferentiationOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_input_nhwc = inputs[8].toTensor();
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      grad_input_nhwc.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          grad_input_nhwc.sizes(), grad_input_nhwc.suggest_memory_format()),
+      grad_input_nhwc.scalar_type(),
+      grad_input_nhwc.suggest_memory_format());
+  out.AddShapeTensor(tensor_meta_data);
+  out.AddOutputTensor(tensor_meta_data);
+  return out;
+}
+
 void Conv3dInputDifferentiationOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -113,6 +129,22 @@ void Conv3dInputDifferentiationOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(graph, grad_input_nhwc, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
+}
+
+OutputShapeInfRetType ConvInputDifferentiationOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_input_nhwc = inputs[8].toTensor();
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      grad_input_nhwc.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          grad_input_nhwc.sizes(), grad_input_nhwc.suggest_memory_format()),
+      grad_input_nhwc.scalar_type(),
+      grad_input_nhwc.suggest_memory_format());
+  out.AddShapeTensor(tensor_meta_data);
+  out.AddOutputTensor(tensor_meta_data);
+  return out;
 }
 
 void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
@@ -183,6 +215,20 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
 }
 
+OutputShapeInfRetType Conv3dWeightDifferentiationOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_weight = inputs[8].toTensor();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      grad_weight.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          grad_weight.sizes(), grad_weight.suggest_memory_format()),
+      grad_weight.scalar_type(),
+      grad_weight.suggest_memory_format()));
+  return out;
+}
+
 void Conv3dWeightDifferentiationOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -244,6 +290,20 @@ void Conv3dWeightDifferentiationOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(graph, grad_weight, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
+}
+
+OutputShapeInfRetType ConvWeightDifferentiationOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_weight = inputs[8].toTensor();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      grad_weight.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          grad_weight.sizes(), grad_weight.suggest_memory_format()),
+      grad_weight.scalar_type(),
+      grad_weight.suggest_memory_format()));
+  return out;
 }
 
 void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
@@ -425,6 +485,255 @@ void ConvBackwardOperator::ComputeBiasGrad(
         out_2_metadata.at(0).name));
     p_context_->pt_outputs_.emplace_back(grad_bias);
   }
+}
+
+OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_out_nhwc = inputs[0].toTensor();
+  auto input_nhwc = inputs[1].toTensor();
+  auto weight_hwck = inputs[2].toTensor();
+  const auto stride = inputs[3].toIntList().vec();
+  const auto padding = inputs[4].toIntList().vec();
+  const auto dilation = inputs[5].toIntList().vec();
+  auto transposed = inputs[6].toBool();
+  auto output_padding = inputs[7].toIntList().vec();
+  auto groups = inputs[8].toInt();
+  auto output_mask_in = inputs[9].toBoolList();
+
+  std::vector<at::Tensor> temp_inputs{input_nhwc, weight_hwck};
+  auto is_conv_3d = is_5d_tensor(temp_inputs);
+
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
+      {&input_nhwc, &grad_out_nhwc, &weight_hwck});
+
+  auto grad_weight = habana_helpers::nonPersistentTensor(
+      weight_hwck, weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
+
+  auto grad_input_nhwc = habana_helpers::nonPersistentTensor(
+      input_nhwc, input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
+
+  OutputShapeInfRetType out;
+  if (transposed) { // conv_transpose2d bwd
+    // Create the "spatial_convolution" operator
+    auto ConvInputDiffOp = make_operator<ConvOperator>(
+        this->p_context_->device_id_, grad_out_nhwc.scalar_type());
+
+    if (output_mask_in[0]) {
+      // use spatial_convolution with bias = None and
+      // transposed = false (since we want to use "spatial_convolution" guid)
+      Tensor bias = Tensor();
+      std::vector<c10::IValue> stack = {
+          IValue(grad_out_nhwc),
+          IValue(weight_hwck),
+          IValue(bias),
+          IValue(stride),
+          IValue(padding),
+          IValue(dilation),
+          IValue(false),
+          IValue(output_padding),
+          IValue(groups)};
+      auto ConvInputDiffOp_out =
+          out.call_ComputeOutputShape(ConvInputDiffOp, stack);
+      auto out_tensor = ConvInputDiffOp_out.GetOutputTensor(0);
+      out.MoveToOutput(std::move(out_tensor));
+    } else {
+      out.AddOutputTensor(TensorMetaData(
+          input_nhwc.sizes().vec(),
+          HabanaOperator::CalculateStrides(input_nhwc.sizes(), memory_format),
+          grad_out_nhwc.scalar_type(),
+          memory_format));
+    }
+
+    if (output_mask_in[1]) {
+      // order of input_nhwc & grad_out_nhwc swapped (w.r.t. regular
+      // convolution backward weight gradient computation)
+      std::vector<c10::IValue> stack = {
+          IValue(input_nhwc),
+          IValue(grad_out_nhwc),
+          IValue(weight_hwck),
+          IValue(stride),
+          IValue(padding),
+          IValue(dilation),
+          IValue(output_padding),
+          IValue(output_mask_in),
+          IValue(grad_weight),
+          IValue(groups)};
+
+      // Create the operator
+      if (is_conv_3d) {
+        std::string node_type = "dedw3d";
+        auto Conv3dWeightDiffOp =
+            make_operator<Conv3dWeightDifferentiationOperator>(
+                this->p_context_->device_id_, node_type);
+        auto Conv3dWeightDiffOp_out =
+            out.call_ComputeOutputShape(Conv3dWeightDiffOp, stack);
+        auto out_tensor = Conv3dWeightDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      } else {
+        std::string node_type = "dedw";
+        auto ConvWeightDiffOp =
+            make_operator<ConvWeightDifferentiationOperator>(
+                this->p_context_->device_id_, node_type);
+        auto ConvWeightDiffOp_out =
+            out.call_ComputeOutputShape(ConvWeightDiffOp, stack);
+        auto out_tensor = ConvWeightDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      }
+    } else {
+      out.AddOutputTensor(TensorMetaData(
+          weight_hwck.sizes().vec(),
+          HabanaOperator::CalculateStrides(weight_hwck.sizes(), memory_format),
+          grad_out_nhwc.scalar_type(),
+          memory_format));
+    }
+  } else { // conv2d backwards
+    // Add "dedw" node followed by "dedx" node. Adding in reverse order causes a
+    // simulator crash (TBD: investigate later if required)
+    std::vector<c10::IValue> stackDedw = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(output_padding),
+        IValue(output_mask_in),
+        IValue(grad_weight),
+        IValue(groups)};
+
+    std::vector<c10::IValue> stackDedx = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(output_padding),
+        IValue(output_mask_in),
+        IValue(grad_input_nhwc),
+        IValue(groups)};
+
+    // Create the operator
+    if (is_conv_3d) {
+      auto Conv3dWeightDiffOp =
+          make_operator<Conv3dWeightDifferentiationOperator>(
+              this->p_context_->device_id_, "dedw3d");
+      auto Conv3dWeightDiffOp_out =
+          out.call_ComputeOutputShape(Conv3dWeightDiffOp, stackDedw);
+
+      auto Conv3dInputDiffOp =
+          make_operator<Conv3dInputDifferentiationOperator>(
+              this->p_context_->device_id_, "dedx3d");
+      auto Conv3dInputDiffOp_out =
+          out.call_ComputeOutputShape(Conv3dInputDiffOp, stackDedx);
+
+      // Although we have "dedw3d" node first in the graph followed by "dedx3d",
+      // when pushing outputs we want to maintain correct order
+      if (output_mask_in[0]) {
+        auto out_tensor = Conv3dInputDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      } else {
+        out.AddOutputTensor(TensorMetaData(
+            input_nhwc.sizes().vec(),
+            HabanaOperator::CalculateStrides(input_nhwc.sizes(), memory_format),
+            grad_out_nhwc.scalar_type(),
+            memory_format));
+      }
+
+      if (output_mask_in[1]) {
+        auto out_tensor = Conv3dWeightDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      } else {
+        out.AddOutputTensor(TensorMetaData(
+            weight_hwck.sizes().vec(),
+            HabanaOperator::CalculateStrides(
+                weight_hwck.sizes(), memory_format),
+            grad_out_nhwc.scalar_type(),
+            memory_format));
+      }
+    } else {
+      auto ConvWeightDiffOp = make_operator<ConvWeightDifferentiationOperator>(
+          this->p_context_->device_id_, "dedw");
+      auto ConvWeightDiffOp_out =
+          out.call_ComputeOutputShape(ConvWeightDiffOp, stackDedw);
+
+      auto ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
+          this->p_context_->device_id_, "dedx");
+      auto ConvInputDiffOp_out =
+          out.call_ComputeOutputShape(ConvInputDiffOp, stackDedx);
+
+      // Although we have "dedw" node first in the graph followed by "dedx",
+      // when pushing outputs we want to maintain correct order
+      if (output_mask_in[0]) {
+        auto out_tensor = ConvInputDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      } else {
+        out.AddOutputTensor(TensorMetaData(
+            input_nhwc.sizes().vec(),
+            HabanaOperator::CalculateStrides(input_nhwc.sizes(), memory_format),
+            grad_out_nhwc.scalar_type(),
+            memory_format));
+      }
+
+      if (output_mask_in[1]) {
+        auto out_tensor = ConvWeightDiffOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      } else {
+        out.AddOutputTensor(TensorMetaData(
+            weight_hwck.sizes().vec(),
+            HabanaOperator::CalculateStrides(
+                weight_hwck.sizes(), memory_format),
+            grad_out_nhwc.scalar_type(),
+            memory_format));
+      }
+    }
+  }
+
+  // Bias grad computation same for conv2d bwd and conv2d_transpose bwd
+  int64_t channel_dim;
+  if (is_conv_3d) {
+    channel_dim = INPUT_3D_C_IDX;
+  } else {
+    channel_dim = INPUT_C_IDX;
+  }
+
+  auto grad_bias = habana_helpers::nonPersistentTensor(
+      grad_out_nhwc,
+      {grad_out_nhwc.size(channel_dim)},
+      grad_out_nhwc.options(),
+      c10::nullopt);
+
+  if (output_mask_in[2]) {
+    std::vector<int64_t> dim_to_reduce;
+    for (int64_t i = 0; i < grad_out_nhwc.ndimension(); ++i) {
+      if (i != channel_dim) // skip C dimension
+        dim_to_reduce.push_back(i);
+    }
+    c10::IntArrayRef shape(dim_to_reduce.data(), dim_to_reduce.size());
+
+    at::ScalarType scalar_type = grad_out_nhwc.scalar_type();
+
+    // Create the operator
+    auto SumOp = make_operator<SumDimOutOperator>(
+        this->p_context_->device_id_, scalar_type);
+    std::vector<c10::IValue> stack2 = {
+        IValue(grad_out_nhwc),
+        IValue(shape),
+        IValue(false),
+        IValue(scalar_type),
+        IValue(grad_bias)};
+    auto SumOp_out = out.call_ComputeOutputShape(SumOp, stack2);
+    auto out_tensor = SumOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else {
+    out.AddOutputTensor(TensorMetaData(
+        grad_bias.sizes().vec(),
+        HabanaOperator::CalculateStrides(grad_bias.sizes(), memory_format),
+        grad_out_nhwc.scalar_type(),
+        memory_format));
+  }
+
+  return out;
 }
 
 void ConvBackwardOperator::AllocateAndAddSynapseNode(

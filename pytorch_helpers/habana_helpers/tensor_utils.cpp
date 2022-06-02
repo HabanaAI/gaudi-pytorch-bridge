@@ -727,7 +727,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
                        .build(
                            synapse_helpers::HPURegistrar::get_device(devid),
                            graph.get_graph_handle());
-    return absl::get<synapse_helpers::tensor>(std::move(variant));
+    synapse_helpers::tensor syn_tensor =
+        absl::get<synapse_helpers::tensor>(std::move(variant));
+    syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
+    return syn_tensor;
   }
 
   auto builder =
@@ -741,7 +744,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto variant = builder.build(
       synapse_helpers::HPURegistrar::get_device(devid),
       graph.get_graph_handle());
-  return absl::get<synapse_helpers::tensor>(std::move(variant));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
+  return syn_tensor;
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(
@@ -803,7 +809,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     auto variant = builder.build(
         synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
         graph.get_graph_handle());
-    return absl::get<synapse_helpers::tensor>(std::move(variant));
+    synapse_helpers::tensor syn_tensor =
+        absl::get<synapse_helpers::tensor>(std::move(variant));
+    syn_tensor.set_pt_info(
+        tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+    return syn_tensor;
   }
 
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
@@ -906,7 +916,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     auto variant = builder.build(
         synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
         graph.get_graph_handle());
-    return absl::get<synapse_helpers::tensor>(std::move(variant));
+    synapse_helpers::tensor syn_tensor =
+        absl::get<synapse_helpers::tensor>(std::move(variant));
+    syn_tensor.set_pt_info(
+        tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+    return syn_tensor;
   }
 
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
@@ -1145,7 +1159,10 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
   auto maybe_tensor = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
       tensor.graph());
-  return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+  syn_tensor.set_pt_info(tensor.pt_shape(), tensor.pt_strides());
+  return syn_tensor;
 }
 
 synapse_helpers::tensor habana_helpers::
@@ -1196,7 +1213,10 @@ synapse_helpers::tensor habana_helpers::
   auto maybe_tensor = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
       tensor.graph());
-  return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+  syn_tensor.set_pt_info(sizes, strides);
+  return syn_tensor;
 }
 
 std::vector<std::string> habana_helpers::names(
