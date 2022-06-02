@@ -26,7 +26,8 @@ std::string ResultShapes::DebugString() {
   }
   std::sort(tensor_idx_vec.begin(), tensor_idx_vec.end());
   for (const auto i : tensor_idx_vec) {
-    O << " " << min_shapes.at(i) << " - " << max_shapes.at(i) << '\n';
+    O << " " << i << " : " << min_shapes.at(i) << " - " << max_shapes.at(i)
+      << '\n';
   }
   return O.str();
 }
@@ -56,7 +57,8 @@ std::string ResultShapes::DebugString(const InpTensorShapes& inp_shapes) {
     }
     tshape_str_lo += "]";
     tshape_str_hi += "]";
-    result += tshape_str_lo + " -" + tshape_str_hi;
+    result += std::to_string(tshape_idx) + " : " + tshape_str_lo + " -" +
+        tshape_str_hi;
   }
   return result;
 }

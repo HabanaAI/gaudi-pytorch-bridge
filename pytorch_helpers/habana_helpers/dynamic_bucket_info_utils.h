@@ -155,7 +155,7 @@ inline std::ostream& operator<<(
     std::ostream& O,
     const std::map<int64_t, habana_helpers::TensorShape>& t) {
   for (const auto& a : t) {
-    O << '\n' << " " << a.second;
+    O << '\n' << " " << a.first << " : " << a.second;
   }
   return O;
 }

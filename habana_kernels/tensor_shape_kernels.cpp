@@ -1021,6 +1021,11 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   } else {
     TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
     auto expand_shape = p_context_->syn_inputs_.back().ref().pt_shape();
+    // This call is to check compatibility of shapes for broadcast and fail in
+    // bridge if required (instead of failing at GC). Also required for
+    // switching policy correctly in DS shape inference passes.
+    at::inferExpandGeometry(
+        self.sizes(), self.strides(), IntArrayRef(expand_shape));
     result = habana_helpers::createPTTensor(
         self,
         expand_shape,

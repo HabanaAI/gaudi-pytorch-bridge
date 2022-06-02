@@ -37,6 +37,8 @@ std::string stringify(DynamicDimsPolicy policy) {
       return "HISTORIC";
     case DynamicDimsPolicy::LOCAL_HISTORIC:
       return "LOCAL_HISTORIC";
+    case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
+      return "LOCAL_HIST_PER_TSR";
     default:
       LOG(FATAL) << "Unknown compilation policy";
   }

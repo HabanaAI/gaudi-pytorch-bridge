@@ -51,6 +51,7 @@ enum class DynamicDimsPolicy {
   CALCULATED,
   HISTORIC,
   LOCAL_HISTORIC,
+  LOCAL_HIST_PER_TSR,
   FLATTENED
 };
 
@@ -64,6 +65,8 @@ inline DynamicDimsPolicy getPolicy(unsigned int policy_num) {
       return DynamicDimsPolicy::HISTORIC;
     case 4:
       return DynamicDimsPolicy::LOCAL_HISTORIC;
+    case 5:
+      return DynamicDimsPolicy::LOCAL_HIST_PER_TSR;
     default:
       PT_DYNAMIC_SHAPE_FATAL("Invalid policy number ", policy_num);
   }
@@ -99,6 +102,8 @@ inline std::string DebugString(const DynamicDimsPolicy& d) {
       return std::string("CURRENT");
     case DynamicDimsPolicy::LOCAL_HISTORIC:
       return std::string("LOCAL_HISTORIC");
+    case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
+      return std::string("LOCAL_HIST_PER_TSR");
   }
   return std::string();
 }
@@ -530,6 +535,11 @@ class DynamicBucketInfo {
   void RestoreLocalMaxHistory() {
     local_max_history_tensor_shapes_ = local_max_history_success_shapes_;
   }
+  void RestoreLocalHistoryPerTensor(bool isMin) {
+    auto idx = isMin ? 0 : 1;
+    local_pt_history_tensor_shapes_[idx] =
+        local_pt_history_success_shapes_[idx];
+  }
   size_t GetGraphKey() {
     return graph_key_;
   }
@@ -697,6 +707,9 @@ class DynamicBucketInfo {
   }
   void CalculateLocalHistoricMin(const InpTensorShapes& shapes);
   void CalculateLocalHistoricMax(const InpTensorShapes& shapes);
+  void CalculateLocalHistoricPerTensor(
+      const InpTensorShapes& shapes,
+      bool isMin = true);
 
   DynamicRanges CalculateRanges(
       const InpTensorShapes& shapes,
@@ -726,6 +739,8 @@ class DynamicBucketInfo {
   DimsHistoryElement local_min_history_success_shapes_;
   DimsHistoryElement local_max_history_tensor_shapes_;
   DimsHistoryElement local_max_history_success_shapes_;
+  DimsHistoryElement local_pt_history_tensor_shapes_[2];
+  DimsHistoryElement local_pt_history_success_shapes_[2];
   DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
   DynamicDimsPolicy max_policy_{MAX_POLICY_DEFAULT};
   bool refine_enabled_ = true;

@@ -286,12 +286,20 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
           tensor_idx, std::map<int64_t, int64_t>());
       local_max_history_tensor_shapes_.emplace(
           tensor_idx, std::map<int64_t, int64_t>());
+      local_pt_history_tensor_shapes_[0].emplace(
+          tensor_idx, std::map<int64_t, int64_t>());
+      local_pt_history_tensor_shapes_[1].emplace(
+          tensor_idx, std::map<int64_t, int64_t>());
       for (size_t dim_idx = 0; dim_idx < tensor_it->second.dims(); dim_idx++) {
         auto dim_val{tensor_it->second.dim_size(dim_idx)};
         ref_tshapes[tensor_idx].emplace(dim_idx, dim_val);
         local_min_history_tensor_shapes_[tensor_idx].emplace(
             dim_idx, (dim_val == 1) ? INT_MAX : dim_val);
         local_max_history_tensor_shapes_[tensor_idx].emplace(dim_idx, dim_val);
+        local_pt_history_tensor_shapes_[0][tensor_idx].emplace(
+            dim_idx, (dim_val == 1) ? INT_MAX : dim_val);
+        local_pt_history_tensor_shapes_[1][tensor_idx].emplace(
+            dim_idx, dim_val);
       }
     }
   }
@@ -877,6 +885,93 @@ size_t DynamicBucketInfo::CalculateHistoric(
   return xin_idx;
 }
 
+void DynamicBucketInfo::CalculateLocalHistoricPerTensor(
+    const InpTensorShapes& shapes,
+    bool isMin) {
+  auto idx = isMin ? 0 : 1;
+  auto& local_history_success_shapes_ = local_pt_history_success_shapes_[idx];
+  auto& local_history_tensor_shapes_ = local_pt_history_tensor_shapes_[idx];
+  TORCH_CHECK(
+      !local_history_tensor_shapes_.empty(),
+      "Local per tensor history is empty");
+  local_history_success_shapes_ = local_history_tensor_shapes_;
+  for (auto dynamic_dims{local_history_tensor_shapes_.begin()};
+       dynamic_dims != local_history_tensor_shapes_.end();
+       dynamic_dims++) {
+    auto tensor_idx = dynamic_dims->first;
+
+    // No update to history required if a tensor does not have a dynamic dim
+    if (dynamic_dims_helper_.dd_.find(tensor_idx) ==
+        dynamic_dims_helper_.dd_.end()) {
+      continue;
+    }
+
+    std::map<int64_t, int64_t> local_vals, current_vals;
+    for (auto curr_dim{dynamic_dims->second.begin()};
+         curr_dim != dynamic_dims->second.end();
+         curr_dim++) {
+      auto dim_idx = curr_dim->first;
+      int64_t current_dim_val = shapes.at(tensor_idx).dim_size(dim_idx);
+      current_vals[dim_idx] = current_dim_val;
+      local_vals[dim_idx] =
+          local_history_tensor_shapes_.at(tensor_idx).at(dim_idx);
+    }
+
+    auto y_min = [](std::map<int64_t, int64_t> first,
+                    std::map<int64_t, int64_t> second) {
+      auto it1 = first.cbegin();
+      auto it2 = second.cbegin();
+      // if any dim value within current_val_tensor is less than
+      // historic_val_tensor, update vals. Having a stricter check, i.e., update
+      // vals only if all dim vals are less does not work in cases where dim
+      // vals are changing in opposite directions.
+      // E.g. historic_vals = {1, 1056, 811008} current_vals = {1, 800, 870400}
+      // we end up creating range {1056 - 1600} which will fail in patching.
+      for (; it1 != first.end(); it1++, it2++) {
+        if (it1->second < it2->second) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    auto y_max = [](std::map<int64_t, int64_t> first,
+                    std::map<int64_t, int64_t> second) {
+      auto it1 = first.cbegin();
+      auto it2 = second.cbegin();
+      // if any dim value within current_val_tensor is greater than
+      // historic_val_tensor, update vals. Having a stricter check, i.e., update
+      // vals only if all dim vals are greater does not work in cases where dim
+      // vals are changing in opposite directions.
+      for (; it1 != first.end(); it1++, it2++) {
+        if (it1->second > it2->second) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Check if input recieved is lower than already stored,
+    // If yes replace the input stored with recieved
+    if (isMin && y_min(current_vals, local_vals)) {
+      for (auto curr_vals_local{current_vals.begin()};
+           curr_vals_local != current_vals.end();
+           curr_vals_local++) {
+        // if value on a dim is 1, then skip updating for that dim
+        if (curr_vals_local->second == 1) {
+          curr_vals_local->second = local_vals.at(curr_vals_local->first);
+        }
+      }
+      local_history_tensor_shapes_.at(tensor_idx) = current_vals;
+    }
+    // Check if input recieved is higher than already stored,
+    // If yes replace the input stored with recieved
+    if (!isMin && y_max(current_vals, local_vals)) {
+      local_history_tensor_shapes_.at(tensor_idx) = current_vals;
+    }
+  }
+}
+
 void DynamicBucketInfo::CalculateLocalHistoricMin(
     const InpTensorShapes& shapes) {
   TORCH_CHECK(
@@ -954,6 +1049,11 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     min_dim_shapes = local_min_history_tensor_shapes_;
   }
 
+  if (min_policy_ == DynamicDimsPolicy::LOCAL_HIST_PER_TSR) {
+    CalculateLocalHistoricPerTensor(shapes, true);
+    min_dim_shapes = local_pt_history_tensor_shapes_[0];
+  }
+
   if (max_policy_ == DynamicDimsPolicy::HISTORIC) {
     auto dims_history_idx{CalculateHistoricMax(shapes)};
     max_dim_shapes = dims_history.at(dims_history_idx).tshapes();
@@ -961,6 +1061,10 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
   if (max_policy_ == DynamicDimsPolicy::LOCAL_HISTORIC) {
     CalculateLocalHistoricMax(shapes);
     max_dim_shapes = local_max_history_tensor_shapes_;
+  }
+  if (max_policy_ == DynamicDimsPolicy::LOCAL_HIST_PER_TSR) {
+    CalculateLocalHistoricPerTensor(shapes, false);
+    max_dim_shapes = local_pt_history_tensor_shapes_[1];
   }
 
   for (size_t i{}; i < dynamic_dims_helper_.flat_dd_.size(); i++) {
@@ -997,6 +1101,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           min_value = current_shape.dim_size(el.pos);
         break;
       case DynamicDimsPolicy::LOCAL_HISTORIC:
+      case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
         if (shapes.at(el.num).dim_size(el.pos) == 1 || ref_dim_val == INT_MAX) {
           min_value = shapes.at(el.num).dim_size(el.pos);
         } else {
@@ -1044,6 +1149,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         }
         break;
       case DynamicDimsPolicy::LOCAL_HISTORIC:
+      case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
         if (1 == min_value) {
           max_value = 1;
         } else {

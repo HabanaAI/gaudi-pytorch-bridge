@@ -2381,6 +2381,10 @@ void HabanaLaunchOpPT::handle_pass_exception(
           habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC) {
         current_dbipsh_->RestoreLocalMinHistory();
       }
+      if (graph_input_info.min_policy ==
+          habana_helpers::DynamicDimsPolicy::LOCAL_HIST_PER_TSR) {
+        current_dbipsh_->RestoreLocalHistoryPerTensor(true);
+      }
       graph_input_info.set_next_min_policy();
       std::string min_policy_seq =
           GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER);
@@ -2407,6 +2411,10 @@ void HabanaLaunchOpPT::handle_pass_exception(
       if (graph_input_info.max_policy ==
           habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC) {
         current_dbipsh_->RestoreLocalMaxHistory();
+      }
+      if (graph_input_info.max_policy ==
+          habana_helpers::DynamicDimsPolicy::LOCAL_HIST_PER_TSR) {
+        current_dbipsh_->RestoreLocalHistoryPerTensor(false);
       }
       graph_input_info.set_next_max_policy();
       std::string max_policy_seq =

@@ -261,5 +261,12 @@ TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
         bucket_info.GetMaxPolicy(),
         habana_helpers::DynamicDimsPolicy::LOCAL_HISTORIC);
   }
+  {
+    SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "5", 1);
+    habana_helpers::DynamicBucketInfo bucket_info;
+    ASSERT_EQ(
+        bucket_info.GetMaxPolicy(),
+        habana_helpers::DynamicDimsPolicy::LOCAL_HIST_PER_TSR);
+  }
   UNSET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
 }
