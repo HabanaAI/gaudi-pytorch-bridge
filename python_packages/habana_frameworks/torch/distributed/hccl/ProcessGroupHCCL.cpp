@@ -569,6 +569,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
+    deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
     deviceCtxt->lock_address(in_view_vec[i].data_ptr(), &input_address);
     deviceCtxt->lock_address(out_view_vec[i].data_ptr(), &output_address);
 
