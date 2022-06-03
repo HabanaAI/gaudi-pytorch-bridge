@@ -32,6 +32,28 @@ TEST_F(LazyWhereKernelTest, WhereTest) {
   EXPECT_EQ(equal, true);
 }
 
+TEST_F(LazyWhereKernelTest, WhereTest_CptOpShp) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  torch::Tensor x = torch::randn({2, 3});
+  torch::Tensor y = torch::randn({2, 3});
+  torch::Tensor z = x > 0;
+  auto out = torch::_s_where(z, x, y);
+
+  auto hx = x.to(torch::kHPU);
+  auto hy = y.to(torch::kHPU);
+  auto hz = z.to(torch::kHPU);
+  auto outHabana = torch::_s_where(hz, hx, hy);
+
+  auto result = outHabana.to(torch::kCPU);
+
+  bool equal = out.allclose(result, 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 TEST_F(LazyWhereKernelTest, WhereBroadcastTest) {
   torch::Tensor cond = torch::randint(0, 2, {2, 3});
   torch::Tensor condBool = cond > 0;

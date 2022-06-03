@@ -110,6 +110,24 @@ std::vector<int64_t> WhereOperator::compute_output_shape(
   return result_tensor_sizes;
 }
 
+OutputShapeInfRetType WhereOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto condition = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto other = inputs[2].toTensor();
+
+  auto out_shape = WhereOperator::compute_output_shape(condition, self, other);
+
+  auto metaData = TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(metaData);
+  return out;
+}
+
 Tensor process_where_op(
     const std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,

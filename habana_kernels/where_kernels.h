@@ -28,6 +28,9 @@ class WhereOperator : public HabanaOperator {
       const at::Tensor& self,
       const at::Tensor& other);
   void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 } // namespace habana
