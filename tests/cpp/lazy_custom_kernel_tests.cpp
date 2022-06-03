@@ -112,6 +112,93 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   HbLazyTensor::StepMarker({});
 }
 
+TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
+  auto grad = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto wts = torch::randn({5, 4, 3, 3}, torch::requires_grad(false))
+                 .view({5, 4, 3, 3});
+  auto moments = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto epoch_num = torch::tensor({1});
+  auto lr = torch::tensor({0.01});
+
+  auto hgrad = grad.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
+    hgrad = grad_hwck.to(torch::kHPU);
+  }
+  auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
+    hwts = wts_hwck.to(torch::kHPU).view({5, 4, 3, 3});
+  }
+  auto hmoments = moments.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
+    hmoments = moments_hwck.to(torch::kHPU);
+  }
+  auto hepoch_num = epoch_num.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+
+  TensorList hlgradients(hgrad);
+  TensorList hlweights(hwts);
+  TensorList hlmoments(hmoments);
+  auto hwts_before = torch::clone(hwts);
+
+  torch::Tensor out1, out2;
+  auto t = optimizer_sgd_momentum_hpu_wrap(
+      hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
+
+  auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
+  auto h_in = in.to(torch::kHPU);
+  torch::Tensor result =
+      torch::conv2d(h_in, hwts, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+  // Sample optimizer+forward graph
+  HbLazyTensor::StepMarker({});
+  // std::cout << " orog wt after " << hwts.to(torch::kCPU) ;
+  // std::cout << " orog wt after before " << hwts_before.to(torch::kCPU);
+
+  // bool equal =
+  //      hwts_before.allclose(hwts.to(torch::kCPU), 0.001, 0.001);
+  // EXPECT_EQ(equal, false);
+}
+
+TEST_F(LazyCustomKernelTest, OptAdagradCustomOp_WtView) {
+  auto grad = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto wts = torch::randn({5, 4, 3, 3}, torch::requires_grad(false))
+                 .view({5, 4, 3, 3});
+  auto var = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
+  auto epoch_num = torch::tensor({1});
+  auto lr = torch::tensor({0.01});
+
+  auto hgrad = grad.to(torch::kHPU);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      !habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass()) {
+    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
+    hgrad = grad_hwck.to(torch::kHPU);
+  }
+  auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
+  auto hvar = var.to(torch::kHPU);
+  auto hepoch_num = epoch_num.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+
+  TensorList hlgradients(hgrad);
+  TensorList hlweights(hwts);
+  TensorList hlvars(hvar);
+
+  auto t = optimizer_adagrad_hpu_wrap(
+      hlgradients, hlweights, hlvars, hepoch_num, hlr, 0.1, 0.1, 0.01);
+
+  // Sample optimizer+forward graph
+  HbLazyTensor::StepMarker({});
+}
+
 TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
@@ -344,6 +431,53 @@ TEST_F(LazyCustomKernelTest, EMATest_1) {
   // v = updated_ema
   // d = decay
   // msd = model.module.state_dict() - module_inputs
+
+  for (auto i = 0; i < num_params; i++) {
+    updated_ema_cpu[i] = updated_ema_cpu[i].mul(decay);
+    model_inputs_cpu[i] = model_inputs_cpu[i].mul((1.0 - decay));
+    updated_ema_cpu[i] = updated_ema_cpu[i].add_(model_inputs_cpu[i]);
+  }
+
+  for (auto i = 0; i < num_params; i++) {
+    // std::cout << "CPU " << updated_ema_cpu[i].to(torch::kCPU) << "\n HPU " <<
+    // updated_ema[i].to(torch::kCPU) << "i " << i << "\n";
+    bool equal = updated_ema_cpu[i].allclose(
+        updated_ema[i].to(torch::kCPU), 0.001, 0.001);
+    EXPECT_EQ(equal, true);
+  }
+}
+
+TEST_F(LazyCustomKernelTest, EMATest_WtView) {
+  torch::manual_seed(0);
+  int num_params = 1;
+  int M = 4;
+  int N = 4;
+  auto decay = 0.4567;
+  auto d = torch::tensor({decay}).to(torch::kHPU);
+  std::vector<torch::Tensor> model_inputs; // msd - prev val
+  std::vector<torch::Tensor> updated_ema; // ema - value
+
+  std::vector<torch::Tensor> model_inputs_cpu;
+  std::vector<torch::Tensor> updated_ema_cpu;
+
+  auto t_in = torch::randn({M, N});
+  for (auto i = 0; i < num_params; i++) {
+    model_inputs_cpu.push_back(t_in);
+    auto t = t_in.to(torch::kHPU);
+    model_inputs.push_back(t);
+
+    updated_ema_cpu.push_back(torch::ones_like(t_in.view({M, N})));
+    auto tH_w = torch::ones_like(t_in).to(torch::kHPU);
+    tH_w = tH_w.view({M, N});
+    updated_ema.push_back(tH_w);
+  }
+
+  TensorList mdIn(model_inputs);
+  TensorList updtEma(updated_ema);
+
+  optimizer_ema_hpu_wrap(mdIn, updtEma, d);
+
+  HbLazyTensor::StepMarker({});
 
   for (auto i = 0; i < num_params; i++) {
     updated_ema_cpu[i] = updated_ema_cpu[i].mul(decay);

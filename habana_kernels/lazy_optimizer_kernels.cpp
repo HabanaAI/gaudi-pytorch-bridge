@@ -96,14 +96,8 @@ void optimizer_ema_hpu_lazy(
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
   for (size_t i = 0; i < updated_ema.size(); i++) {
-    auto hl_updtema = GetHbLazyTensor(updated_ema[i]);
-    ir::Value& out1 = hl_updtema.CurrentIrValue();
-    out1.SetNode(
-        node_unpack,
-        hl_updtema.GetDevice(),
-        hl_updtema.GetSizes(),
-        hl_updtema.dtype_optional(),
-        out_index++);
+    HbLazyTensorViews::CustomKernelAddNodeInplace(
+        updated_ema[i], node_unpack, out_index);
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
@@ -435,14 +429,7 @@ void optimizer_lamb_phase2_hpu_lazy(
 
   int64_t out_index = 0;
   for (size_t i = 0; i < weights.size(); i++) {
-    auto hl_weight = GetHbLazyTensor(weights[i]);
-    ir::Value& out1 = hl_weight.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hl_weight.GetDevice(),
-        hl_weight.GetSizes(),
-        hl_weight.dtype_optional(),
-        out_index++);
+    HbLazyTensorViews::CustomKernelAddNodeInplace(weights[i], node, out_index);
   }
 }
 
@@ -470,16 +457,8 @@ Tensor& optimizer_adagrad_hpu_lazy(
 
   int64_t out_index = 0;
   HABANA_ASSERT(weights.size() == variances.size());
-
   for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
-    ir::Value& out1 = hlweight.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hlweight.GetDevice(),
-        hlweight.GetSizes(),
-        hlweight.dtype_optional(),
-        out_index++);
+    HbLazyTensorViews::CustomKernelAddNodeInplace(weights[i], node, out_index);
 
     auto hlvariance = GetHbLazyTensor(variances[i]);
     ir::Value& out2 = hlvariance.CurrentIrValue();
@@ -584,13 +563,8 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
         }
       }
     }
-    ir::Value& out1 = hlweight.CurrentIrValue();
-    out1.SetNode(
-        node_unpack,
-        hlweight.GetDevice(),
-        hlweight.GetSizes(),
-        hlweight.dtype_optional(),
-        out_index++);
+    HbLazyTensorViews::CustomKernelAddNodeInplace(
+        weights[i], node_unpack, out_index);
 
     auto hlmomentum = GetHbLazyTensor(momentum[i]);
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {

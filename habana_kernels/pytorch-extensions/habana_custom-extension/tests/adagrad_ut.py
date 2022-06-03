@@ -3,8 +3,7 @@ import os
 import sys
 import torch
 
-from hb_custom import FusedAdagrad
-
+from habana_frameworks.torch.hpex.optimizers import FusedAdagrad
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 load_habana_module()
 habana = torch.device("hpu")
