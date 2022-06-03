@@ -197,6 +197,13 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
         if (iter->second->isTensor()) {
           auto& tensor = iter->second->toTensor();
           auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+          PT_BRIDGE_DEBUG(
+              "Updating the PT tensor HbInternalTensorImpl address: ",
+              impl,
+              " with permutation: ",
+              VecToString(permute_or_empty),
+              " old permutation was: ",
+              VecToString(impl->GetMemoryPermutation()));
           if (impl) {
             if (permute_vec.size() != tensor.sizes().size()) {
               PT_BRIDGE_WARN(

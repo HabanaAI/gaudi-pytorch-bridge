@@ -160,12 +160,14 @@ void RecipeArgumentSpec::ComputeOffsetHashCode(
 void RecipeArgumentSpec::ComputePermutationHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs) {
   perm_hash_code = 0;
+  uint32_t cnt = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto tensor = input.toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       if (impl) {
         for (auto item : impl->GetMemoryPermutation()) {
+          perm_hash_code = at::hash_combine(perm_hash_code, cnt);
           perm_hash_code = at::hash_combine(perm_hash_code, item);
         }
       } else {
@@ -173,6 +175,7 @@ void RecipeArgumentSpec::ComputePermutationHashCode(
             "Could not update cache key with tensor's permutation because the BE tensor has no internal impl");
       }
     }
+    cnt++;
   }
 }
 

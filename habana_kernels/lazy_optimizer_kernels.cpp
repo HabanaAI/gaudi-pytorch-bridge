@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "habana_kernels/lazy_kernels.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/view_utils.h"
@@ -564,9 +565,25 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
       hlweight.dtype_optional());
 
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
-
+  PT_BRIDGE_DEBUG("FE weights & mumentum tensors size: ", weights.size());
   for (size_t i = 0; i < weights.size(); i++) {
     auto hlweight = GetHbLazyTensor(weights[i]);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      if (hlweight.GetHbLazyTensorData().has_value()) {
+        auto internal_tensor = hlweight.GetHbLazyTensorData().value();
+        auto hb_lazy_impl_internal = GetHbInternalTensorImpl(internal_tensor);
+        if (hb_lazy_impl_internal) {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE weight tensor with address: ",
+              hb_lazy_impl_internal,
+              " permutation: ",
+              VecToString(hb_lazy_impl_internal->GetMemoryPermutation()));
+        } else {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE weight tensor has no BE tensor, this could indicate a problem");
+        }
+      }
+    }
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.SetNode(
         node_unpack,
@@ -576,6 +593,22 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
         out_index++);
 
     auto hlmomentum = GetHbLazyTensor(momentum[i]);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      if (hlmomentum.GetHbLazyTensorData().has_value()) {
+        auto internal_tensor = hlmomentum.GetHbLazyTensorData().value();
+        auto hb_lazy_impl_internal = GetHbInternalTensorImpl(internal_tensor);
+        if (hb_lazy_impl_internal) {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE momentum tensor with address: ",
+              hb_lazy_impl_internal,
+              " permutation: ",
+              VecToString(hb_lazy_impl_internal->GetMemoryPermutation()));
+        } else {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE momentum tensor has no BE tensor, this could indicate a problem");
+        }
+      }
+    }
     ir::Value& out2 = hlmomentum.CurrentIrValue();
     out2.SetNode(
         node_unpack,

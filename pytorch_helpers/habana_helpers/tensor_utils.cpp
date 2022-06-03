@@ -403,18 +403,6 @@ at::Tensor habana_helpers::createPTTensor(
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      if (hb_weight_impl) {
-        auto permutation = hb_weight_impl->GetMemoryPermutation();
-        if (!permutation.empty()) {
-          // If we pass permutation to Synapse tensor, we must pass empty
-          // strides
-          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
-          hb_weight_impl->SetMemoryPermutation(permutation);
-        }
-      }
-    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input, input.sizes(), input.options(), input.suggest_memory_format());
@@ -431,18 +419,6 @@ at::Tensor habana_helpers::createPTTensor(
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(size, options, input.suggest_memory_format());
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      if (hb_weight_impl) {
-        auto permutation = hb_weight_impl->GetMemoryPermutation();
-        if (!permutation.empty()) {
-          // If we pass permutation to Synapse tensor, we must pass empty
-          // strides
-          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
-          hb_weight_impl->SetMemoryPermutation(permutation);
-        }
-      }
-    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input, size, options, input.suggest_memory_format());
@@ -463,18 +439,6 @@ at::Tensor habana_helpers::createPTTensor(
         size,
         options,
         optional_memory_format.value_or(MemoryFormat::Contiguous));
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      if (hb_weight_impl) {
-        auto permutation = hb_weight_impl->GetMemoryPermutation();
-        if (!permutation.empty()) {
-          // If we pass permutation to Synapse tensor, we must pass empty
-          // strides
-          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
-          hb_weight_impl->SetMemoryPermutation(permutation);
-        }
-      }
-    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
@@ -496,18 +460,6 @@ at::Tensor habana_helpers::createPTTensor(
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty_strided(size, strides, options);
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      if (hb_weight_impl) {
-        auto permutation = hb_weight_impl->GetMemoryPermutation();
-        if (!permutation.empty()) {
-          // If we pass permutation to Synapse tensor, we must pass empty
-          // strides
-          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
-          hb_weight_impl->SetMemoryPermutation(permutation);
-        }
-      }
-    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
@@ -533,18 +485,6 @@ at::Tensor habana_helpers::createPTTensor(
         size,
         input.options().dtype(data_type),
         optional_memory_format.value_or(MemoryFormat::Contiguous));
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      if (hb_weight_impl) {
-        auto permutation = hb_weight_impl->GetMemoryPermutation();
-        if (!permutation.empty()) {
-          // If we pass permutation to Synapse tensor, we must pass empty
-          // strides
-          PT_LAZY_DEBUG("Setting tensor with permutation: ", permutation);
-          hb_weight_impl->SetMemoryPermutation(permutation);
-        }
-      }
-    }
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,
