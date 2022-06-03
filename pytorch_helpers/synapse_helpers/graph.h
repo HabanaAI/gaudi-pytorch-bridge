@@ -147,7 +147,8 @@ class graph {
       uint64_t workspace_size,
       std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
       std::unique_ptr<device_ptr_lock>& address_lock,
-      std::vector<shared_event>& ext_events);
+      std::vector<shared_event>& ext_events,
+      stream& compute_stream);
 
   static synapse_error_o launch(
       device& device,
@@ -155,7 +156,8 @@ class graph {
       uint64_t workspace_size,
       std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
       std::unique_ptr<device_ptr_lock>& address_lock,
-      std::vector<shared_event>& ext_events);
+      std::vector<shared_event>& ext_events,
+      stream& compute_stream);
 
   const std::string& name() const {
     return name_;

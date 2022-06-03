@@ -32,7 +32,8 @@ class recipe {
   bool launch(
       const std::vector<void*>& in_buffers,
       const std::vector<void*>& out_buffers,
-      std::unique_ptr<device_ptr_lock>& addr_locked);
+      std::unique_ptr<device_ptr_lock>& addr_locked,
+      stream& compute_stream);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> getRecipeHandle();
   ~recipe();
 

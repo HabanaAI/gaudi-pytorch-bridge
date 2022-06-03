@@ -232,6 +232,9 @@ class HabanaLaunchOpPT {
   uint64_t t_compile_ns{0};
   std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
 
+  // user stream info
+  synapse_helpers::hpuStream_t hpu_stream;
+
   // Making the cache eviction policy as lru as default
 
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
@@ -430,7 +433,7 @@ class HabanaLaunchOpPT {
   void ConstructPatchingTable();
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
-  void ExecuteSynapseGraph();
+  void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();

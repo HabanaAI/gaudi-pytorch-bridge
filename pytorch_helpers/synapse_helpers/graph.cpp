@@ -335,14 +335,16 @@ synapse_error_o graph::launch(
     uint64_t workspace_size,
     std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
-    std::vector<shared_event>& ext_events) {
+    std::vector<shared_event>& ext_events,
+    stream& compute_stream) {
   return launch(
       device,
       recipe_handle,
       workspace_size,
       inputs_and_outputs_info,
       address_lock,
-      ext_events);
+      ext_events,
+      compute_stream);
 }
 
 synapse_error_o graph::launch(
@@ -351,7 +353,8 @@ synapse_error_o graph::launch(
     uint64_t workspace_size,
     std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
-    std::vector<shared_event>& ext_events) {
+    std::vector<shared_event>& ext_events,
+    stream& compute_stream) {
   PT_SYNHELPER_BEGIN;
   synStatus status;
 
@@ -363,6 +366,7 @@ synapse_error_o graph::launch(
   if (!recipe_handle.in_execution_phase_) {
     return synapse_error{"Graph not in execution phase.", synStatus::synFail};
   }
+  PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
   PT_SYNHELPER_DEBUG(
       "in graph::launch, launch handle string:\n",
       absl::StrFormat(
@@ -392,7 +396,6 @@ synapse_error_o graph::launch(
           inputs_and_outputs_info.begin(),
           inputs_and_outputs_info.end(),
           table_checker) == inputs_and_outputs_info.end());
-  auto& compute_stream = device.get_compute_stream();
 
   auto workspace_buffer = device.get_workspace_buffer(workspace_size);
   std::vector<device_ptr> addresses(

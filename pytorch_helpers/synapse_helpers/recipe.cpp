@@ -100,7 +100,8 @@ void recipe::populate_syn_tensor_ids() {
 bool recipe::launch(
     const std::vector<void*>& in_buffers,
     const std::vector<void*>& out_buffers,
-    std::unique_ptr<device_ptr_lock>& addr_locked) {
+    std::unique_ptr<device_ptr_lock>& addr_locked,
+    stream& compute_stream) {
   std::vector<synLaunchTensorInfo> syn_info;
   syn_info.reserve(input_names_.size() + output_names_.size());
 
@@ -127,7 +128,8 @@ bool recipe::launch(
       workspace_size_,
       syn_info,
       addr_locked,
-      ext_events)};
+      ext_events,
+      compute_stream)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(

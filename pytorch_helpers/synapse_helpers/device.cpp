@@ -115,7 +115,6 @@ device::device(
       event_handle_cache_{*this, 0},
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
-      stream_comp_{*this, stream_flavor::COMPUTE_0},
       // Network collective should not be created without hcl
       stream_network_collective_ptr_{nullptr},
       stream_d2d_{*this, stream_flavor::DMA_D2D},
@@ -124,6 +123,8 @@ device::device(
       recipe_handle_cache_{*this},
       host_memory_{*this},
       device_memory_{*this} {
+  // create default stream
+  create_default_compute_stream();
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
@@ -394,11 +395,33 @@ device::~device() {
 void device::flush_stream_events() {
   for (int id = (int)stream_flavor::_BEGIN; id < (int)stream_flavor::_END;
        id += 1) {
-    // do not flush collective, if it was not created before
-    if (id == (int)stream_flavor::COLLECTIVE_0 &&
-        !stream_network_collective_ptr_)
-      continue;
-    get_stream(static_cast<stream_flavor>(id)).flush();
+    switch (id) {
+      case stream_flavor::DMA_D2D:
+        stream_d2d_.flush();
+        break;
+      case stream_flavor::DMA_H2D:
+        stream_h2d_.flush();
+        break;
+      case stream_flavor::DMA_D2H:
+        stream_d2h_.flush();
+        break;
+      case stream_flavor::COMPUTE:
+        for (auto& cs : stream_compute_) {
+          auto& stream = *cs.second;
+          stream.flush();
+        }
+        break;
+      case stream_flavor::COLLECTIVE_0:
+        // do not flush collective, if it was not created before
+        if (stream_network_collective_ptr_) {
+          auto& stream = *stream_network_collective_ptr_;
+          stream.flush();
+        }
+        break;
+      default:
+        PT_SYNHELPER_FATAL("Invalid stream id ", id);
+        std::terminate();
+    }
   }
   auto start = std::chrono::steady_clock::now();
   while (true) {
@@ -413,24 +436,6 @@ void device::flush_stream_events() {
           .count());
 }
 
-stream& device::get_stream(stream_flavor id) {
-  switch (id) {
-    case stream_flavor::COMPUTE_0:
-      return stream_comp_;
-    case stream_flavor::DMA_D2D:
-      return stream_d2d_;
-    case stream_flavor::DMA_H2D:
-      return stream_h2d_;
-    case stream_flavor::DMA_D2H:
-      return stream_d2h_;
-    case stream_flavor::COLLECTIVE_0:
-      HABANA_ASSERT(stream_network_collective_ptr_);
-      return *stream_network_collective_ptr_;
-    default:
-      PT_SYNHELPER_FATAL("Invalid stream id ", id);
-      std::terminate();
-  }
-}
 std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   stream << "synDevice at " << &syn_device;
   switch (syn_device.type()) {

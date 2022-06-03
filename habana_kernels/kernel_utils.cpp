@@ -11,6 +11,7 @@
 
 #include <perf_lib_layer_params.h>
 #include "habana_device/HPUCheck.h"
+#include "habana_device/HPUStream.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_recipe_signature.h"
@@ -212,7 +213,8 @@ static void launchRecipe(
     const uint32_t device_id,
     std::shared_ptr<synapse_helpers::recipe>& recipe) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto& stream_handle = device.get_compute_stream();
+  auto& stream_handle =
+      device.get_compute_stream(c10::hpu::getCurrentHPUStream());
   std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
   if (device.IsStreamASyncEnabled()) {
     // wait for input DMA to complete before launching the compute.
@@ -220,7 +222,8 @@ static void launchRecipe(
 
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
-    bool status = recipe->launch(input_buffers, output_buffers, address_lock);
+    bool status = recipe->launch(
+        input_buffers, output_buffers, address_lock, stream_handle);
     if (!status) {
       recipe_counter.decrease_and_notify();
       TORCH_CHECK(false, "syn launch failed");
@@ -240,7 +243,7 @@ static void launchRecipe(
           return;
         });
   } else {
-    recipe->launch(input_buffers, output_buffers, address_lock);
+    recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }

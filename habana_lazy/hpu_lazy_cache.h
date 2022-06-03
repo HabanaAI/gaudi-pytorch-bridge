@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #pragma once
+#include <synapse_helpers/device.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
@@ -215,6 +216,14 @@ struct OptimizedJITGraphAndMetaData {
     return is_syn_graph_empty;
   }
 
+  void SetHPUStream(synapse_helpers::hpuStream_t stream) {
+    hpu_stream = stream;
+  }
+
+  synapse_helpers::hpuStream_t GetHPUStream() {
+    return hpu_stream;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -230,6 +239,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<bool> is_in_graph_outputs{};
   bool is_control_edge_processing_required = false;
   bool is_syn_graph_empty{false};
+  synapse_helpers::hpuStream_t hpu_stream = 0;
 };
 
 /**

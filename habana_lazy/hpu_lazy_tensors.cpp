@@ -27,6 +27,7 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 
+#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -871,6 +872,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     bool async) {
   PT_LAZY_TRACE;
+  if (!(*tensors).size())
+    return;
+
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
   context->JoinPendingLaunchThread();
@@ -1036,6 +1040,8 @@ void HbLazyTensor::SyncTensorsGraphInternalOptimized(
   optimized_path_jit_ir_and_mdata->SetOpName(
       lazyFrontEndInfo->get_lazy_op_name());
   optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
+  optimized_path_jit_ir_and_mdata->SetHPUStream(
+      c10::hpu::getCurrentHPUStream());
   habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
   std::exception_ptr launch_except;
   bool exception = false;

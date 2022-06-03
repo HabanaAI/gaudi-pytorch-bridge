@@ -41,8 +41,7 @@ synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
       return STREAM_TYPE_COPY_HOST_TO_DEVICE;
     case DMA_D2H:
       return STREAM_TYPE_COPY_DEVICE_TO_HOST;
-    case COMPUTE_0:
-      // TODO: Need to add specifier for secondary stream of the same type
+    case COMPUTE:
       return STREAM_TYPE_COMPUTE;
     case COLLECTIVE_0:
       // TODO: Need to add specifier for secondary stream of the same type
@@ -72,6 +71,7 @@ stream::stream(class device& device, stream_flavor flavor)
       &handle_, device_.id(), get_value(syn_flavor), STREAM_EMPTY_FLAGS);
   if (synStatus::synSuccess != status)
     PT_SYNHELPER_FATAL("Stream creation failed with status: ", status);
+  PT_SYNHELPER_DEBUG("Stream creation with handle: ", handle_);
 }
 
 void stream::register_pending_event(
@@ -95,6 +95,7 @@ void stream::register_pending_event(
 }
 
 void stream::gc_thread_proc() {
+  PT_SYNHELPER_DEBUG("GC thread stream::");
   std::queue<shared_event> partial_events{};
   while (true) {
     std::unique_lock<std::mutex> lock(mut_);
@@ -131,6 +132,13 @@ void stream::synchronize() {
   synStatus status = synStreamSynchronize(handle_);
   if (synStatus::synSuccess != status)
     PT_SYNHELPER_FATAL("synStreamSynchronize failed with status: ", status);
+}
+
+synStatus stream::query() {
+  synStatus status = synStreamQuery(handle_);
+  if (synStatus::synSuccess != status)
+    PT_SYNHELPER_DEBUG("synStreamSynchronize failed with status: ", status);
+  return status;
 }
 
 void stream::flush(int timeout_ms) {

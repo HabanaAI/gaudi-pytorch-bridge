@@ -26,6 +26,7 @@
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
 #include "passes/weight_permute_graph.h"
+#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
 #include "visualize.h"
@@ -67,6 +68,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
+  mp_g_and_meta_data_->SetHPUStream(c10::hpu::getCurrentHPUStream());
   habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
   try {
     habanaLoweringOp.run(stack);

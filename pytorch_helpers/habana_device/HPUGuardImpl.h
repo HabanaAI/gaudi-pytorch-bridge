@@ -9,19 +9,27 @@
  */
 #pragma once
 
+#include <c10/core/Device.h>
+#include <c10/core/DeviceGuard.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
+#include <c10/util/Exception.h>
 #include <synapse_api.h>
 #include <unordered_set>
 
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
+#include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
 #include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
 
+using namespace c10::hpu;
+
 namespace habana {
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
+  static constexpr at::DeviceType static_devType = at::DeviceType::HPU;
+
   HABANAGuardImpl() = default;
   at::DeviceType type() const override {
     return at::DeviceType::HPU;
@@ -151,17 +159,25 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
   }
-  at::Stream getStream(UNUSED at::Device d) const noexcept override {
-    // no-op
-    return at::Stream(
-        at::Stream::DEFAULT, at::Device(at::DeviceType::HPU, -1));
+  at::Stream getStream(at::Device d) const noexcept override {
+    return getCurrentHPUStream(d.index()).unwrap();
   }
-  // NB: These do NOT set the current device
-  at::Stream exchangeStream(UNUSED at::Stream s) const noexcept override {
-    // no-op
-    return at::Stream(
-        at::Stream::DEFAULT, at::Device(at::DeviceType::HPU, -1));
+
+  at::Stream getDefaultStream(at::Device d) const override {
+    return getDefaultHPUStream(d.index());
   }
+
+  at::Stream getStreamFromGlobalPool(at::Device d, bool isHighPriority = false)
+      const override {
+    return getStreamFromPool(isHighPriority, d.index());
+  }
+  at::Stream exchangeStream(at::Stream s) const noexcept override {
+    HPUStream hs(s);
+    auto old_stream = getCurrentHPUStream(s.device().index());
+    setCurrentHPUStream(hs);
+    return old_stream.unwrap();
+  }
+
   at::DeviceIndex deviceCount() const noexcept override {
     return 1;
   }
@@ -184,5 +200,16 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   void destroyEvent(
       UNUSED void* event,
       UNUSED const at::DeviceIndex device_index) const noexcept override {}
+
+  // Stream-related functions
+  bool queryStream(const at::Stream& stream) const override {
+    HPUStream hpu_stream{stream};
+    return hpu_stream.query();
+  }
+
+  void synchronizeStream(const at::Stream& stream) const override {
+    HPUStream hpu_stream{stream};
+    hpu_stream.synchronize();
+  }
 };
 } // namespace habana

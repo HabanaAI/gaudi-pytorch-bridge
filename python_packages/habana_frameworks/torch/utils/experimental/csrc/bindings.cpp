@@ -15,6 +15,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 
 int GetDeviceType() {
@@ -44,7 +45,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("t"));
   m.def("compute_stream", []() {
     auto& d = synapse_helpers::HPURegistrar::get_device();
-    void* stream = (void*)d.get_compute_stream();
+    HPUStream hpu_stream = getDefaultHPUStream(d.id());
+    void* stream = (void*)d.get_compute_stream(hpu_stream.id());
     return reinterpret_cast<intptr_t>(stream);
   });
   py::enum_<synDeviceType>(m, "synDeviceType")

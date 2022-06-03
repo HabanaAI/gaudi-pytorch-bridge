@@ -26,6 +26,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "absl/types/variant.h"
@@ -42,6 +43,7 @@
 
 namespace synapse_helpers {
 std::string get_mem_str(size_t nbytes);
+typedef uint32_t hpuStream_t;
 
 class session;
 
@@ -202,9 +204,6 @@ class device {
       transfer_manifest const& transfers,
       event_done_callback unref_cb);
 
-  stream& get_compute_stream() {
-    return stream_comp_;
-  }
   stream& get_or_create_network_collective_stream() {
     if (!stream_network_collective_ptr_) {
       stream_network_collective_ptr_ =
@@ -221,7 +220,6 @@ class device {
   stream& get_device_to_device_stream() {
     return stream_d2d_;
   };
-  stream& get_stream(stream_flavor id);
 
   /** \brief Returns global workspace buffer
    *  \param size checks if given size is bigger than global buffer, if so, logs
@@ -371,6 +369,45 @@ class device {
 
   void cleanup_workspace_buffer();
 
+  void create_compute_stream(hpuStream_t& hpu_stream) {
+    std::unique_lock<std::mutex> lock(stream_mutex_);
+    hpu_stream = ++compute_stream_index_;
+    stream_compute_[hpu_stream] =
+        absl::make_unique<stream>(*this, stream_flavor::COMPUTE);
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: New device stream created with index", compute_stream_index_);
+  }
+
+  void create_default_compute_stream() {
+    std::unique_lock<std::mutex> lock(stream_mutex_);
+    auto it = stream_compute_.find(0);
+    HABANA_ASSERT(it == stream_compute_.end());
+    stream_compute_[0] =
+        absl::make_unique<stream>(*this, stream_flavor::COMPUTE);
+  }
+
+  int get_compute_stream_count() {
+    // FIXME need to get the info from synapse.
+    if (type_ == synDeviceGaudi)
+      return 2;
+    if (type_ == synDeviceGaudi2)
+      return 4;
+    return 1;
+  }
+
+  stream& get_compute_stream(hpuStream_t id) {
+    std::unique_lock<std::mutex> lock(stream_mutex_);
+    if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM)) {
+      return *stream_compute_[0];
+    } else {
+      auto it = stream_compute_.find(id);
+      HABANA_ASSERT(it != stream_compute_.end());
+
+      auto& stream = *it->second;
+      return stream;
+    }
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -401,14 +438,15 @@ class device {
   device_ptr workspace_buffer_{0}; // global workspace buffer per device to be
                                    // used to launch recipes
   std::mutex ws_mutex_;
+  std::mutex stream_mutex_;
   event_handle_cache event_handle_cache_;
   event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
-  stream stream_comp_;
   std::unique_ptr<stream> stream_network_collective_ptr_;
   stream stream_d2d_;
   stream stream_h2d_;
   stream stream_d2h_;
+  std::unordered_map<hpuStream_t, std::unique_ptr<stream>> stream_compute_;
   stream_event_manager sem_;
   recipe_handle_cache recipe_handle_cache_;
   bool is_caching_enabled_;
@@ -430,6 +468,9 @@ class device {
   bool cleanup_done_{false};
 
   std::set<synapse_helpers::device_ptr> copy_tensor_set_{};
+
+  // compute stream counter
+  std::atomic<uint32_t> compute_stream_index_{0};
 
   // private inline method
   inline bool copy_data_to_device_(

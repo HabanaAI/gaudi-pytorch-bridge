@@ -26,7 +26,7 @@ class device;
 
 enum stream_flavor {
   _BEGIN = 0,
-  COMPUTE_0 = 0,
+  COMPUTE = 0,
   DMA_D2D = 1,
   DMA_H2D = 2,
   DMA_D2H = 3,
@@ -79,6 +79,8 @@ class stream {
    * when on computation is done on device side.
    */
   void synchronize();
+
+  synStatus query();
 
   /*! \return device
    */

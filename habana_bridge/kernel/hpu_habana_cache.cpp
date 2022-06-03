@@ -1019,6 +1019,7 @@ void RecipeValueSpec::PrintDebugInfo(
 }
 
 void RecipeValueSpec::launch(
+    synapse_helpers::hpuStream_t hpu_stream,
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
@@ -1030,7 +1031,8 @@ void RecipeValueSpec::launch(
   }
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto& stream_handle = device.get_compute_stream();
+  auto& stream_handle = device.get_compute_stream(hpu_stream);
+
   std::vector<at::Tensor> ptRefs;
   std::vector<at::Tensor> outPtRefs;
   std::vector<synapse_helpers::device_ptr> outDevPtr;
@@ -1107,8 +1109,7 @@ void RecipeValueSpec::launch(
       synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
       PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
       ext_events.emplace_back(device.map_event_to_tensor(
-          device.get_compute_stream(), recipe->syn_recipe_handle_, &ti, []() {
-          }));
+          stream_handle, recipe->syn_recipe_handle_, &ti, []() {}));
 
       // Remove collective kenrel inputs from outDevPtr since they will be
       // signaled from the graph (if they are external)
@@ -1137,7 +1138,8 @@ void RecipeValueSpec::launch(
             workspace_size,
             syn_launch_info,
             address_lock,
-            ext_events)};
+            ext_events,
+            stream_handle)};
         if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
           recipe_counter.decrease_and_notify();
           auto& error = error_optional.value();
@@ -1163,8 +1165,7 @@ void RecipeValueSpec::launch(
 
     // register events for external tensors on compute
     for (size_t i = 0; i < ext_events.size(); ++i) {
-      device.register_producer_on_stream(
-          device.get_compute_stream(), ext_events.at(i));
+      device.register_producer_on_stream(stream_handle, ext_events.at(i));
     }
 
     auto resource_holder = std::make_shared<ResourceHolder>();
@@ -1216,7 +1217,8 @@ void RecipeValueSpec::launch(
           workspace_size,
           syn_launch_info,
           address_lock,
-          ext_events)};
+          ext_events,
+          stream_handle)};
       if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
         auto& error = error_optional.value();
         PT_BRIDGE_FATAL(
@@ -1290,18 +1292,19 @@ void RecipeCacheLRU::insert(
   val->increment_recipe_count();
 
   auto mit = map_.find(key);
-  TORCH_CHECK(
-      mit == map_.end(),
-      "problematic key ",
-      key->hashCode(),
-      " another recipe already exists in cache");
+  if (mit != map_.end()) {
+    PT_BRIDGE_DEBUG(
+        "problematic key ",
+        key->hashCode(),
+        " another recipe already exists in cache");
+  } else {
+    list_.push_front(std::pair<
+                     std::shared_ptr<RecipeArgumentSpec>,
+                     std::shared_ptr<RecipeValueSpec>>(key, val));
+    map_.emplace(key, list_.begin());
 
-  list_.push_front(std::pair<
-                   std::shared_ptr<RecipeArgumentSpec>,
-                   std::shared_ptr<RecipeValueSpec>>(key, val));
-  map_.emplace(key, list_.begin());
-
-  RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes;
+    RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes;
+  }
 }
 
 std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
