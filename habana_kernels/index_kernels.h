@@ -304,6 +304,9 @@ class ScatterNdONNXOperator : public HabanaOperator {
     scalarType_ = scalarType;
   }
 
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

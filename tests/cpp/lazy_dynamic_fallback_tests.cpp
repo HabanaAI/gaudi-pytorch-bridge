@@ -294,6 +294,9 @@ TEST_F(LazyDynamicFallbackTest, DynamicAvgPoolBkwdTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   int N = 1;
   const int C = 16;
   int H = 16;
@@ -321,4 +324,5 @@ TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
     auto out_cpu_lazy = outHabana.to(torch::kCPU);
     ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }

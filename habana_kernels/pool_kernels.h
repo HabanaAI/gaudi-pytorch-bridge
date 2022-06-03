@@ -79,6 +79,9 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.tpc_input_order = {0, 2};
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -99,6 +102,7 @@ class MaxPool2dWithIndicesBackwardOperator
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
   }
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

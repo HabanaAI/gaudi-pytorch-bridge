@@ -406,6 +406,23 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);
 }
 
+habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOutOperator::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  at::Tensor grad_input = inputs[0].toTensor();
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      grad_input.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          grad_input.sizes().vec(), grad_input.suggest_memory_format()),
+      grad_input.scalar_type(),
+      grad_input.suggest_memory_format());
+  // output tensor
+  out.AddOutputTensor(tensor_meta_data);
+  out.AddShapeTensor(tensor_meta_data);
+  return out;
+}
+
 void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -447,7 +464,12 @@ void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
 
   std::vector<int64_t> expected_output_size{
       out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-  TORCH_CHECK(grad_out.sizes().vec() == expected_output_size);
+  TORCH_CHECK(
+      grad_out.sizes().vec() == expected_output_size,
+      " expected:",
+      grad_out.sizes().vec(),
+      " but got: ",
+      expected_output_size);
   TORCH_CHECK(input.sizes() == grad_input.sizes());
   TORCH_CHECK(grad_out.sizes() == indices.sizes());
 
@@ -511,7 +533,12 @@ void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
 
   std::vector<int64_t> expected_output_size{
       out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-  TORCH_CHECK(grad_out.sizes().vec() == expected_output_size);
+  TORCH_CHECK(
+      grad_out.sizes().vec() == expected_output_size,
+      " expected: ",
+      grad_out.sizes().vec(),
+      " but got: ",
+      expected_output_size);
   TORCH_CHECK(input.sizes() == grad_input.sizes());
   TORCH_CHECK(grad_out.sizes() == indices.sizes());
 
