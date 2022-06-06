@@ -280,6 +280,21 @@ TEST_F(LazyIndexKernelTest, NonZeroTestMixValues) {
   EXPECT_EQ(allclose(h_cout, out_cpu), true);
 }
 
+TEST_F(LazyIndexKernelTest, NonZeroTestMixValues_CmptOpShp) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  torch::Tensor input_cpu =
+      torch::randint(0, 7, {5, 7}, torch::dtype(torch::kInt64));
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+  auto out_hpu = torch::nonzero(input_hpu);
+  auto out_cpu = torch::nonzero(input_cpu);
+  auto h_cout = out_hpu.to(torch::kCPU);
+  EXPECT_EQ(allclose(h_cout, out_cpu), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 TEST_F(LazyIndexKernelTest, NonZeroV2TestMixValues) {
   auto test = [](std::vector<int64_t> shape, c10::ScalarType type) {
     torch::Tensor input_cpu = torch::randint(0, 2, shape, torch::dtype(type));

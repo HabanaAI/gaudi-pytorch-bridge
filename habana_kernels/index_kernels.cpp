@@ -2175,6 +2175,48 @@ std::vector<int64_t> SelectOperator::compute_output_shape(
   return shape;
 }
 
+habana::OutputShapeInfRetType SelectOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toInt();
+  auto input_shape = self.sizes();
+  auto dimensions = input_shape.size();
+
+  auto start = index;
+  auto end = index + 1;
+  int64_t step = 1;
+
+  bool is_slice_output = false;
+  is_slice_output = (dimensions != 1) ? false : true;
+
+  auto slice_op =
+      make_operator<SliceOperator>(self.device().index(), self.scalar_type());
+
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
+  auto slice_out = out.call_ComputeOutputShape(slice_op, stack);
+  auto out_tensor = slice_out.GetOutputTensor(0);
+  out.MoveToOutput(std::move(out_tensor));
+  stack.clear();
+
+  if (is_slice_output == false) {
+    auto reshape_op = make_operator<ReshapeOperator>(
+        self.device().index(), self.scalar_type());
+
+    auto shape = slice_op->GetOutputs()[0].sizes().vec();
+    shape.erase(shape.begin() + dim);
+    stack.push_back(IValue(slice_op->GetOutputs()[0]));
+    stack.push_back(IValue(shape));
+    auto reshape_out = out.call_ComputeOutputShape(reshape_op, stack);
+    out_tensor = reshape_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+    stack.clear();
+  }
+  return out;
+}
+
 void SelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();

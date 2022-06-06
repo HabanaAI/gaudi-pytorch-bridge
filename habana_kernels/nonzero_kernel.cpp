@@ -90,6 +90,33 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
   return output_shape;
 }
 
+OutputShapeInfRetType NonZeroOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+
+  auto out_shape = NonZeroOperator::compute_output_shape(self);
+  std::vector<int64_t> shape_tensor_shape = {5};
+  OutputShapeInfRetType out;
+
+  auto metaData = TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+
+  auto metaData2 = TensorMetaData(
+      shape_tensor_shape,
+      HabanaOperator::CalculateStrides(
+          shape_tensor_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+
+  out.AddOutputTensor(metaData);
+  out.AddOutputTensor(metaData2);
+
+  return out;
+}
+
 void NonZeroOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

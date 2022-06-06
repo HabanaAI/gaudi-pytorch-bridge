@@ -285,6 +285,9 @@ class SelectOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       int64_t& dim);
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 // ScatterNdONNX operator
