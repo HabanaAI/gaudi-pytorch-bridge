@@ -89,7 +89,7 @@ class event {
     event_ids_.emplace_back(std::move(event_id));
   }
 
-  /*! \brief Invokes synEventMapTensorBase with its synEventHandle, recipe and
+  /*! \brief Invokes synEventMapTensor with its synEventHandle, recipe and
    * tensor \param recipe_handle recipe from which the event will be signaled
    *  \param tensor_info External tensor information
    */

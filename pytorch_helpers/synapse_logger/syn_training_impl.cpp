@@ -53,13 +53,13 @@ SYN_API_PTR(synStreamSynchronize);
 SYN_API_PTR(synStreamQuery);
 SYN_API_PTR(synEventCreate);
 SYN_API_PTR(synEventDestroy);
-SYN_API_PTR(synEventMapTensorBase);
+SYN_API_PTR(synEventMapTensor);
 SYN_API_PTR(synEventRecord);
 SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunch);
-SYN_API_PTR(synLaunchWithExternalEventsBase);
+SYN_API_PTR(synLaunchWithExternalEvents);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -120,13 +120,13 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synStreamQuery);
   SYN_API_INIT_PTR(synEventCreate);
   SYN_API_INIT_PTR(synEventDestroy);
-  SYN_API_INIT_PTR(synEventMapTensorBase);
+  SYN_API_INIT_PTR(synEventMapTensor);
   SYN_API_INIT_PTR(synEventRecord);
   SYN_API_INIT_PTR(synEventQuery);
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
   SYN_API_INIT_PTR(synLaunch);
-  SYN_API_INIT_PTR(synLaunchWithExternalEventsBase);
+  SYN_API_INIT_PTR(synLaunchWithExternalEvents);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -370,7 +370,7 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
   return status;
 }
 
-synStatus SYN_API_CALL synEventMapTensorBase(
+synStatus SYN_API_CALL synEventMapTensor(
     synEventHandle* eventHandle,
     size_t numOfEvents,
     const synLaunchTensorInfo* launchTensorsInfo,
@@ -383,7 +383,7 @@ synStatus SYN_API_CALL synEventMapTensorBase(
       ARG(recipeHandle));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synEventMapTensorBase,
+      lib_synapse::synEventMapTensor,
       eventHandle,
       numOfEvents,
       launchTensorsInfo,
@@ -482,7 +482,7 @@ synStatus SYN_API_CALL synLaunch(
   return status;
 }
 
-synStatus SYN_API_CALL synLaunchWithExternalEventsBase(
+synStatus SYN_API_CALL synLaunchWithExternalEvents(
     const synStreamHandle streamHandle,
     const synLaunchTensorInfo* launchTensorsInfo,
     uint32_t numberOfTensors,
@@ -505,7 +505,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEventsBase(
       ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunchWithExternalEventsBase,
+      lib_synapse::synLaunchWithExternalEvents,
       streamHandle,
       launchTensorsInfo,
       numberOfTensors,

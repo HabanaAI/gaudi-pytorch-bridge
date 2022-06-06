@@ -81,9 +81,9 @@ void event::stream_wait_event(stream& stream, const uint32_t flags) {
 void event::map_event_to_tensor(
     const synRecipeHandle recipe_handle,
     synLaunchTensorInfo* tensor_info) {
-  auto status = synEventMapTensorBase(&handle_, 1, tensor_info, recipe_handle);
+  auto status = synEventMapTensor(&handle_, 1, tensor_info, recipe_handle);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("synEventMapTensorBase failed with: ", status);
+    PT_SYNHELPER_FATAL("synEventMapTensor failed with: ", status);
   }
   is_partial_ = true;
 }

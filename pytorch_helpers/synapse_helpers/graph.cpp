@@ -437,7 +437,7 @@ synapse_error_o graph::launch(
         std::back_inserter(event_handles),
         [](shared_event& event) -> synEventHandle { return *event; });
 
-    status = synLaunchWithExternalEventsBase(
+    status = synLaunchWithExternalEvents(
         compute_stream,
         inputs_and_outputs_info.data(),
         inputs_and_outputs_info.size(),
