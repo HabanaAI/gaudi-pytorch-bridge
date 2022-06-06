@@ -105,7 +105,7 @@ TEST_F(HpuOpTest, replication_pad2d_input4d_out_zero_pad) {
 }
 
 TEST_F(HpuOpTest, replication_pad1d_backward_2dinput) {
-  GenerateInputs(2, {{1024, 1024}, {1024, 1041}});
+  GenerateInputs(2, {{14, 14}, {14, 31}});
   std::vector<int64_t> pad_size = {{15, 2}};
   auto expected = torch::replication_pad1d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -115,7 +115,7 @@ TEST_F(HpuOpTest, replication_pad1d_backward_2dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad1d_backward_3dinput) {
-  GenerateInputs(2, {{24, 24, 24}, {24, 24, 29}});
+  GenerateInputs(2, {{8, 4, 4}, {8, 4, 9}});
   std::vector<int64_t> pad_size = {{4, 1}};
   auto expected = torch::replication_pad1d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -125,7 +125,7 @@ TEST_F(HpuOpTest, replication_pad1d_backward_3dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad2d_backward_3dinput) {
-  GenerateInputs(2, {{8, 112, 112}, {8, 128, 129}});
+  GenerateInputs(2, {{1, 8, 8}, {1, 24, 25}});
   std::vector<int64_t> pad_size = {{2, 15, 14, 2}};
   auto expected = torch::replication_pad2d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -135,7 +135,7 @@ TEST_F(HpuOpTest, replication_pad2d_backward_3dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad2d_backward_4dinput) {
-  GenerateInputs(2, {{8, 24, 24, 24}, {8, 24, 33, 29}});
+  GenerateInputs(2, {{1, 2, 14, 14}, {1, 2, 23, 19}});
   std::vector<int64_t> pad_size = {{1, 4, 4, 5}};
   auto expected = torch::replication_pad2d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -145,7 +145,7 @@ TEST_F(HpuOpTest, replication_pad2d_backward_4dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad3d_backward_4dinput) {
-  GenerateInputs(2, {{8, 24, 24, 32}, {8, 28, 32, 39}});
+  GenerateInputs(2, {{1, 3, 2, 4}, {1, 7, 10, 11}});
   std::vector<int64_t> pad_size = {{2, 5, 6, 2, 3, 1}};
   auto expected = torch::replication_pad3d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -155,7 +155,7 @@ TEST_F(HpuOpTest, replication_pad3d_backward_4dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad3d_backward_5dinput) {
-  GenerateInputs(2, {{8, 4, 24, 24, 32}, {8, 4, 28, 32, 39}});
+  GenerateInputs(2, {{1, 1, 2, 2, 4}, {1, 1, 6, 10, 11}});
   std::vector<int64_t> pad_size = {{3, 4, 5, 3, 1, 3}};
   auto expected = torch::replication_pad3d_backward(
       GetCpuInput(1), GetCpuInput(0), pad_size);
@@ -165,7 +165,7 @@ TEST_F(HpuOpTest, replication_pad3d_backward_5dinput) {
 }
 
 TEST_F(HpuOpTest, replication_pad1d_backward_2dinput_out) {
-  GenerateInputs(2, {{1024, 1024}, {1024, 1041}});
+  GenerateInputs(2, {{14, 14}, {14, 31}});
   std::vector<int64_t> pad_size = {{15, 2}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -178,7 +178,7 @@ TEST_F(HpuOpTest, replication_pad1d_backward_2dinput_out) {
 }
 
 TEST_F(HpuOpTest, replication_pad1d_backward_3dinput_out) {
-  GenerateInputs(2, {{24, 24, 24}, {24, 24, 29}});
+  GenerateInputs(2, {{2, 4, 24}, {2, 4, 29}});
   std::vector<int64_t> pad_size = {{4, 1}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -191,7 +191,7 @@ TEST_F(HpuOpTest, replication_pad1d_backward_3dinput_out) {
 }
 
 TEST_F(HpuOpTest, replication_pad2d_backward_3dinput_out) {
-  GenerateInputs(2, {{8, 112, 112}, {8, 128, 129}});
+  GenerateInputs(2, {{1, 6, 6}, {1, 22, 23}});
   std::vector<int64_t> pad_size = {{2, 15, 14, 2}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -204,7 +204,7 @@ TEST_F(HpuOpTest, replication_pad2d_backward_3dinput_out) {
 }
 
 TEST_F(HpuOpTest, replication_pad2d_backward_4dinput_out) {
-  GenerateInputs(2, {{8, 24, 24, 24}, {8, 24, 33, 29}});
+  GenerateInputs(2, {{1, 4, 4, 4}, {1, 4, 13, 9}});
   std::vector<int64_t> pad_size = {{1, 4, 4, 5}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -217,7 +217,7 @@ TEST_F(HpuOpTest, replication_pad2d_backward_4dinput_out) {
 }
 
 TEST_F(HpuOpTest, replication_pad3d_backward_4dinput_out) {
-  GenerateInputs(2, {{8, 24, 24, 32}, {8, 28, 32, 39}});
+  GenerateInputs(2, {{1, 2, 2, 8}, {1, 6, 10, 15}});
   std::vector<int64_t> pad_size = {{2, 5, 6, 2, 3, 1}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
@@ -230,7 +230,7 @@ TEST_F(HpuOpTest, replication_pad3d_backward_4dinput_out) {
 }
 
 TEST_F(HpuOpTest, replication_pad3d_backward_5dinput_out) {
-  GenerateInputs(2, {{8, 4, 24, 24, 32}, {8, 4, 28, 32, 39}});
+  GenerateInputs(2, {{1, 1, 2, 2, 6}, {1, 1, 6, 10, 13}});
   std::vector<int64_t> pad_size = {{3, 4, 5, 3, 1, 3}};
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
