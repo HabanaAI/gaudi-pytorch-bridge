@@ -65,7 +65,7 @@ def process(args):
                         except:
                             pass
                     #print(bd)
-        device_list.append((re.sub('[\W\_]','',b1['device']),'( Model: '+re.sub('[\W\_]','',b1['model'])+'; batchsize: '+ '256' + ')', b1['world_size']))
+        device_list.append((re.sub('[\W\_]','',b1['device']),'( Model: '+re.sub('[\W\_]','',b1['model'])+'; batchsize: '+ b1['batch_size'] + ')', b1['world_size']))
 
 
         #writing data into respective csv file
