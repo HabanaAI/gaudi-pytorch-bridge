@@ -2502,7 +2502,7 @@ multinomial.out:
   guid: random_multinomial_fwd
   op_frontend: LazyRandomMultiOut
   op_backend: MultinomialIntSeedInput
-  schema_args: "(Tensor self, int num_samples, bool replacement, int seed,  Tensor(a!) out) -> Tensor"
+  schema_args: "(Tensor self, int num_samples, bool replacement, int seed,  Tensor(a!) out) -> Tensor(a!)"
 
 mv.out:
   force_default: false

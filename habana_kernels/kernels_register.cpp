@@ -5898,8 +5898,8 @@ TORCH_LIBRARY(hpu, m) {
       "nonzero(Tensor self, Tensor? nonzero_input_shape_tensor) -> (Tensor, Tensor)");
   m.def(
       "index_put(Tensor self, Tensor where_tensor, Tensor shape_tensor, Tensor value, Tensor value_upd_dim, Tensor zero_shape_tensor, bool accumulate=False) -> Tensor");
-  m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
-  m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
+  m.def("mul_out(Tensor self, Tensor other, Tensor(a!) out) -> Tensor(a!)");
+  m.def("div_out(Tensor self, Tensor other, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "bitwise_and_Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)");
   m.def(
@@ -5915,57 +5915,57 @@ TORCH_LIBRARY(hpu, m) {
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
-      "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
-  m.def("arange_out_ds(Tensor shape, Tensor result) -> Tensor(a!)");
+      "arange_out(Scalar start, Scalar end, Scalar step, Tensor(a!) out) -> Tensor(a!)");
+  m.def("arange_out_ds(Tensor shape, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "arange_out_ds_ht(Tensor host, Tensor result, Tensor result_shape) -> Tensor(a!)");
-  m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
+      "arange_out_ds_ht(Tensor host, Tensor(a!) out, Tensor out_shape) -> Tensor(a!)");
+  m.def("diag_out(Tensor self, int diagonal, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
+      "randperm_out(int n, Generator? generator, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "randperm_out_ds(Tensor idst, Generator? generator, Tensor output) -> Tensor(a!)");
+      "randperm_out_ds(Tensor idst, Generator? generator, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "randperm_out_ds_ht(Tensor ht, Tensor st, Generator? generator, Tensor output) -> Tensor(a!)");
   m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
-  m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
+  m.def("habana_d2d_memcpy(Tensor self) -> Tensor");
   m.def(
-      "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");
+      "habanaOptimizerSparseSgd(Tensor gradients, Tensor(a!) weights_in, Tensor(b!) moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "habanaOptimizerSparseAdagrad(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor, Tensor)");
+      "habanaOptimizerSparseAdagrad(Tensor gradients, Tensor(a!) weights_in, Tensor(b!) moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor(a!), Tensor(b!))");
   m.def("cast(Tensor self, Scalar type) -> Tensor(a)");
   m.def(
-      "embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) -> (Tensor)");
+      "embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) -> Tensor");
   m.def(
-      "embedding_bag_sum_bwd_out(Tensor out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int kernel_mode) -> (Tensor)");
+      "embedding_bag_sum_bwd_out(Tensor(a!) out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int kernel_mode) -> Tensor(a!)");
   m.def(
-      "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor[] weights_in, Tensor[] variances_in, Tensor epoch_num, Tensor learning_rate, float wd, float lrd, float eps) -> Tensor(a!)");
+      "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] variances_in, Tensor epoch_num, Tensor(c!) learning_rate, float wd, float lrd, float eps) -> ()");
   m.def(
-      "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor[] weights_in, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
+      "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
   m.def(
-      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> Tensor(a!)");
+      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
   m.def(
-      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor[] weight_vec, Tensor[] exp_avg_vec, Tensor[] exp_avg_sq_vec, Tensor lr_t, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> (Tensor[])");
+      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
   m.def(
-      "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor[] updated_ema, Tensor decay) -> (Tensor[])");
+      "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(
-      "fused_norm_(Tensor[] grad, Tensor max_norm, float norm_type) -> (Tensor[])");
+      "fused_norm_(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor");
   m.def(
-      "fused_norm_lazy(Tensor[] grad, Tensor max_norm, float norm_type) -> (Tensor[])");
+      "fused_norm_lazy(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor");
   m.def(
-      "habanaOptimizerLambFusedNorm(Tensor[] grad, float max_norm, Tensor clip_norm) -> (Tensor)");
+      "habanaOptimizerLambFusedNorm(Tensor[] grad, float max_norm, Tensor clip_norm) -> Tensor");
   m.def(
-      "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta2, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
+      "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
-      "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
+      "habanaOptimizerLambPhase2(Tensor(a!)[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def(
       "batched_nms(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold, Tensor shape_tensor1, Tensor shape_tensor2, int max_classes) -> (Tensor, Tensor)");
   m.def(
-      "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> (Tensor)");
+      "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> Tensor");
   m.def(
-      "roi_align_bwd(Tensor inputs, Tensor rois, Tensor n_rois, Tensor input_shape, int sr, float ss, bool aligned) -> (Tensor)");
+      "roi_align_bwd(Tensor inputs, Tensor rois, Tensor n_rois, Tensor input_shape, int sr, float ss, bool aligned) -> Tensor");
   m.def(
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def(
@@ -5976,8 +5976,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("restride(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("permute_weight(Tensor self, int[] size) -> (Tensor)");
   m.def("permuted_weight_restride(Tensor self, int[] size) -> (Tensor)");
-  m.def("control_edge_other_(Tensor self, Tensor(a!) other) -> Tensor(a!)");
-  m.def("control_edge_(Tensor(a!) self)-> Tensor(a!)");
+  m.def("control_edge_other_(Tensor self, Tensor(a) other) -> Tensor(a)");
+  m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
       "hpu::native_batch_norm_training(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
@@ -6011,7 +6011,7 @@ TORCH_LIBRARY(hpu, m) {
       "instance_norm(Tensor input, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
       "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
-  m.def("view(Tensor input, Tensor shape) -> (Tensor)");
+  m.def("view(Tensor input, Tensor shape) -> Tensor");
   m.def(
       "slice(Tensor input, Tensor shape, Tensor step,  Tensor start) -> (Tensor)");
   m.def(
@@ -6026,11 +6026,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)");
   m.def(
-      "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> (Tensor)");
+      "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> Tensor");
   m.def(
-      "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> (Tensor)");
+      "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");
   m.def(
-      "hpu::_fused_dropout(Tensor input, float p, Tensor seed) -> (Tensor, Tensor)");
+      "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
