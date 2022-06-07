@@ -516,3 +516,29 @@ TEST_F(LazyBasicKernelTest, noncontiguous) {
   auto hB = hA.as_strided({1, 2, 2, 2}, {8, 1, 4, 2});
   EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, unsqeezeTest) {
+  auto x = torch::randn({4});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::unsqueeze(x, 1);
+  auto hB = torch::unsqueeze(hx, 1);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, unsqeezeCmptOpTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
+  auto x = torch::randn({4});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::unsqueeze(x, 1);
+  auto hB = torch::unsqueeze(hx, 1);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

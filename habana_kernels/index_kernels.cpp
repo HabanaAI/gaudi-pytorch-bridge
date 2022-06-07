@@ -3320,6 +3320,25 @@ std::vector<int64_t> UnsqueezeOperator::compute_output_shape(
   return out_shape;
 }
 
+OutputShapeInfRetType UnsqueezeOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto input = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+
+  auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
+
+  auto metaData = TensorMetaData(
+      shape,
+      HabanaOperator::CalculateStrides(shape, input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(metaData);
+
+  return out;
+}
+
 void UnsqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
