@@ -308,6 +308,9 @@ class ScatterNdONNXOperator : public HabanaOperator {
 
  protected:
   c10::ScalarType scalarType_;
+
+ private:
+  bool isInputValid(torch::jit::Stack& inputs);
 };
 
 // ScatterND operator

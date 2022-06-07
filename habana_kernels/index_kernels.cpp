@@ -1489,6 +1489,29 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   }
 }
 
+bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
+  auto inpSize = inputs[0].toTensor().sizes().vec();
+  auto indxSize = inputs[1].toTensor().sizes().vec();
+  int indxRank = indxSize.size();
+  int indxFCD = indxSize[indxRank - 1];
+  int32_t totalIndices = 1;
+  int32_t totalScatters = 1;
+
+  for (int i = 0; i < indxRank - 1; i++) {
+    totalIndices *= std::max(indxSize[i], 1L);
+  }
+
+  for (int i = 0; i < indxFCD; i++) {
+    totalScatters *= std::max(inpSize[i], 1L);
+  }
+
+  if (totalIndices > totalScatters) {
+    return false;
+  }
+
+  return true;
+}
+
 void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -1504,6 +1527,8 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       (indices.numel() / indices.sizes().vec()[1]) <= inp.numel(),
       "number of indices should be less than of self");
+  TORCH_CHECK(
+      isInputValid(inputs) == true, 'Invalid inputs for scatter_nd_onnx');
 
   auto shape = DimVector(inp.sizes());
   auto output = habana_helpers::createPTTensor(
