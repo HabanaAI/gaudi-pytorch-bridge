@@ -2118,3 +2118,19 @@ TEST_F(LazyDynamicShapesTest, ReshapeTest) {
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicShapesTest, squeezeCmptOpTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
+  auto x = torch::randn({4});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x);
+  auto hB = torch::squeeze(hx);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

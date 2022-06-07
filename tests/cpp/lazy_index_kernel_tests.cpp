@@ -490,3 +490,13 @@ TEST_F(LazyIndexKernelTest, SelectNDimsTest) {
 
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
+
+TEST_F(LazyIndexKernelTest, squeezeTest) {
+  auto x = torch::randn({4});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x);
+  auto hB = torch::squeeze(hx);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
