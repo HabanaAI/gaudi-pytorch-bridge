@@ -13,19 +13,6 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillArgMinMaxParams(
-    const at::Stack& stack,
-    size_t& size) {
-  PARAMS_STUB(ns_Reduction::Params);
-  auto r_dim = stack.at(1).isNone() ? 0 : stack.at(1).toInt();
-  auto ndim = stack.at(0).toTensor().dim();
-  r_dim = c10::maybe_wrap_dim(r_dim, ndim, true);
-  auto dim = stack.at(1).isNone() ? 0 : ndim - 1 - r_dim;
-
-  params->reductionDimension = dim;
-  return params;
-}
-
 sizes_vec ArgMinMaxOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
 

@@ -501,17 +501,8 @@ amin.out:
   guid:  reduce_min_fwd
   op_template: reduction
 
-aminmax:
-  force_default: false
-  custom_output_shape: AminmaxOutputShape
-  custom_fill_params: FillArgMinMaxParams
-  dtypes: [Float, BFloat16, Int, Char]
-  op_backend: Aminmax
-  out_ids: [0, 0]
-
 aminmax.out:
   custom_output_shape: AminmaxOutputShape
-  custom_fill_params: FillArgMinMaxParams
   dtypes: [Float, BFloat16, Int, Char]
   op_backend: Aminmax
 
