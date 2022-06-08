@@ -953,16 +953,18 @@ void DynamicBucketInfo::CalculateLocalHistoricPerTensor(
 
     // Check if input recieved is lower than already stored,
     // If yes replace the input stored with recieved
-    if (isMin && y_min(current_vals, local_vals)) {
+    if (isMin) {
       for (auto curr_vals_local{current_vals.begin()};
            curr_vals_local != current_vals.end();
            curr_vals_local++) {
-        // if value on a dim is 1, then skip updating for that dim
+        // if value on a dim is 1, then skip comparison for that dim
         if (curr_vals_local->second == 1) {
           curr_vals_local->second = local_vals.at(curr_vals_local->first);
         }
       }
-      local_history_tensor_shapes_.at(tensor_idx) = current_vals;
+      if (y_min(current_vals, local_vals)) {
+        local_history_tensor_shapes_.at(tensor_idx) = current_vals;
+      }
     }
     // Check if input recieved is higher than already stored,
     // If yes replace the input stored with recieved
