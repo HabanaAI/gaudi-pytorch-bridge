@@ -850,7 +850,7 @@ void LaunchSyncTensorsGraph(
           "Removing JIT IR Graph with :: key ",
           hlexec.GetGraphHash(),
           ", graph_index ",
-          visualize::GetGraphIndex(hlexec.GetGraphHash()),
+          hlexec.GetGraphIndex(hlexec.GetGraphHash()),
           " from  the JIT Cache");
       LazyGraphCache::GetLazyCache().RemoveGraph(hlexec.GetGraphHash());
     }

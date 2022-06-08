@@ -272,6 +272,7 @@ class HlExec {
     return mp_g_;
   }
 
+  static size_t GetGraphIndex(size_t hash);
   size_t GetGraphHash() {
     return m_g_hash_;
   }

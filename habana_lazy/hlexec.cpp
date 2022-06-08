@@ -65,7 +65,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
+  auto graphIndex = GetGraphIndex(m_g_hash_);
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(c10::hpu::getCurrentHPUStream());
@@ -267,7 +267,7 @@ void HlExec::GetOrCreate(
         "JIT Cache disabled :: key ",
         m_g_hash_,
         ", graph_index ",
-        visualize::GetGraphIndex(m_g_hash_));
+        GetGraphIndex(m_g_hash_));
     ConstructJITGraph();
     return;
   }
@@ -281,7 +281,7 @@ void HlExec::GetOrCreate(
         "JIT Cache miss :: key ",
         m_g_hash_,
         ", graph_index ",
-        visualize::GetGraphIndex(m_g_hash_));
+        GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache miss");
     // Cache miss handling
     // ===================
@@ -292,7 +292,7 @@ void HlExec::GetOrCreate(
         "JIT Cache hit :: key ",
         m_g_hash_,
         ", graph_index ",
-        visualize::GetGraphIndex(m_g_hash_));
+        GetGraphIndex(m_g_hash_));
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     mp_g_ = mp_g_and_meta_data_->get_cached_graph();
     HABANA_ASSERT(mp_g_ != nullptr);
@@ -320,6 +320,25 @@ void HlExec::GetOrCreate(
           "Optimized Path JIT Cache miss :: key ", optimized_lazy_eager_key);
     }
   }
+}
+
+size_t HlExec::GetGraphIndex(size_t hash) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_VISUALIZE_GRAPH_INDEX)) {
+    return visualize::GetGraphIndex(hash);
+  }
+  static std::unordered_map<size_t, size_t> s_graphIndexMap;
+  static size_t s_graphIndex;
+  static std::mutex s_mutex;
+  std::lock_guard<std::mutex> guard(s_mutex);
+  size_t graphIndex = hash;
+  if (s_graphIndexMap.count(hash) == 0) {
+    s_graphIndexMap[hash] = s_graphIndex;
+    graphIndex = s_graphIndex;
+    s_graphIndex++;
+  } else {
+    graphIndex = s_graphIndexMap[hash];
+  }
+  return graphIndex;
 }
 
 /*

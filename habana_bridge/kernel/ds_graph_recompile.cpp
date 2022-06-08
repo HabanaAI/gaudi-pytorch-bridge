@@ -15,6 +15,7 @@
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/visualize.h"
@@ -108,7 +109,7 @@ bool habana::CompileGraphWithRange(
         "JIT_IR_Graph_BEGIN\n", mp_g_->toString(), "JIT_IR_Graph_END");
 
     size_t graphKey{rvpsh->get_graph_key()};
-    size_t graphIndex{visualize::GetGraphIndex(graphKey)};
+    size_t graphIndex{habana_lazy::exec::HlExec::GetGraphIndex(graphKey)};
     std::string graphName{rvpsh->get_graph_name()};
     std::string opStr{rvpsh->get_op_strs()};
     std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
