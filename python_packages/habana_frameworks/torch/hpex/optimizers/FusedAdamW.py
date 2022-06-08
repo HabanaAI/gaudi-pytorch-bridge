@@ -53,6 +53,14 @@ class FusedAdamW(Optimizer):
                     state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
         htcore.mark_step()
 
+    def step_wrap(step_func):
+        def wrap_(*args, **kwargs):
+            result = step_func(*args, **kwargs)
+            htcore.mark_step()
+            return result
+        return wrap_
+
+    @step_wrap
     def step(self, closure: Callable = None):
         """
         Performs a single optimization step.
