@@ -1487,6 +1487,21 @@ frac.out:
   dtypes: [BFloat16, Float]
   op_backend: Frac
 
+frexp.Tensor:
+  dtypes: [Float, BFloat16]
+  custom_output_shape: FrexpOutputShape
+  op_frontend: LazyFrexp
+  op_backend: Frexp
+  force_default: false
+  guid: frexp
+  out_ids: [0,0]
+
+frexp.Tensor_out:
+  custom_output_shape: FrexpOutputShape
+  dtypes: [Float, BFloat16]
+  guid: frexp
+  op_backend: Frexp
+
 fmod.Scalar:
   force_default: false
   dtypes: [BFloat16, Float, Int]
