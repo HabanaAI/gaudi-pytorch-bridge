@@ -37,9 +37,9 @@ def isGaudi(device):
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
-import habana_dataloader.habana_dl_app
 class SSDDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
+        import habana_dataloader.habana_dl_app
         dataset = kwargs.get('dataset', args[0])
         self.batch_size = kwargs.get('batch_size')
         num_workers = kwargs.get('num_workers')
@@ -92,6 +92,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
             label_out = label
 
         return img.contiguous(), img_id, img_size, bbox_out, label_out
+
 class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
@@ -122,9 +123,8 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 from .aeon_transformers import HabanaAeonTransforms
                 from .aeon_manifest import generate_aeon_manifest
                 import habana_dataloader.habana_dl_app
+
                 self._aeon_dl_handle_vars(keyword_args)
-                if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
-                    raise ValueError("HabanaDataLoader supports only ImageFolder as dataset")
                 torch_transforms = self.dataset.transform
                 aeon_data_dir = self.dataset.root
 
@@ -143,9 +143,6 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
             elif isGaudi2(self.DeviceType):
 
                 self._media_dl_handle_vars(keyword_args)
-                if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
-                    raise ValueError(
-                        "MediaDataLoader supports only ImageFolder as dataset")
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
                 num_instances=_get_world_size()
@@ -293,6 +290,7 @@ def _is_coco_dataset(dataset):
         except:
             return False
         return False
+
 class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get("dataset", args[0])
