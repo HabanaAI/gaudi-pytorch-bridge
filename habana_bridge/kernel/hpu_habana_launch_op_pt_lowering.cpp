@@ -105,6 +105,10 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     return;
   }
+  if (syn_graph_ptr->is_empty()) {
+    PT_BRIDGE_DEBUG("Empty synapse graph. Skip UpdateSynapsePermutations.");
+    return;
+  }
   auto tinfos = cur_rvalpsh->dtensorinfos;
   if (!tinfos) {
     PT_BRIDGE_DEBUG("empty cur_rvalpsh->dtensorinfos, nothing to update");
