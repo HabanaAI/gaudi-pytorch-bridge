@@ -325,6 +325,15 @@ class tensor final {
   bool is_host_to_device_tensor() const {
     return tensor_type_ == HOST_TO_DEVICE_TENSOR;
   }
+
+  void set_intermediate_shape_tensor() {
+    is_intermediate_shape_ = true;
+  }
+
+  bool is_intermediate_shape_tensor() const {
+    return is_intermediate_shape_;
+  }
+
   synTensorType tensor_type() const {
     return tensor_type_;
   };
@@ -430,6 +439,7 @@ class tensor final {
   bool placeholder_{false};
   bool is_persistent_{false};
   bool is_external_{false};
+  bool is_intermediate_shape_{false};
 
   shared_memory_section memory_section_{nullptr};
   synGraphHandle graph_{nullptr};

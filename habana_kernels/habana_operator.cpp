@@ -318,6 +318,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
       shape_tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR);
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input, graph, false, shape_tensor_type, "", host_ptr);
+  syn_shape_input.set_intermediate_shape_tensor();
   p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   if (!graph.is_dry_run()) {
     PT_DYNAMIC_SHAPE_DEBUG(

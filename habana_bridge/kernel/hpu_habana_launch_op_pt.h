@@ -439,9 +439,19 @@ class HabanaLaunchOpPT {
   void RestoreInputTensorMetadata();
   void UpdateOutputs();
   void UpdateOutputs(RecipeValueSpec& rv);
+  void validateOutputShapeNonDynamic(
+      const HabanaOperatorPtr& HabanaKernel,
+      const OutputShapeInfRetType& output_shape_handle,
+      const std::string& opname);
+  void validateOutputShapeDynamic(
+      const HabanaOperatorPtr& HabanaKernel,
+      const OutputShapeInfRetType& output_shape_handle,
+      const std::string& opname);
   void validateOutputShape(
       const HabanaOperatorPtr& HabanaKernel,
-      const OutputShapeInfRetType& output_shape_handle);
+      const OutputShapeInfRetType& output_shape_handle,
+      const synapse_helpers::graph& syn_graph,
+      const std::string& opname);
 
   // --------------------
 

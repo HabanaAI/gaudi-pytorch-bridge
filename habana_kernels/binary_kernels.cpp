@@ -56,11 +56,38 @@ habana::OutputShapeInfRetType habana::BinaryOperator::ComputeOutputShape(
   auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
 
   OutputShapeInfRetType out;
-  out.AddOutputTensor(TensorMetaData(
-      shape_out,
-      HabanaOperator::CalculateStrides(shape_out, arg1.suggest_memory_format()),
-      arg1.scalar_type(),
-      arg1.suggest_memory_format()));
+
+  auto memory_format = at::MemoryFormat::Contiguous;
+  if ((arg1.suggest_memory_format() == at::MemoryFormat::ChannelsLast) ||
+      (arg2.suggest_memory_format() == at::MemoryFormat::ChannelsLast)) {
+    memory_format = at::MemoryFormat::ChannelsLast;
+  }
+
+  // For cases where 2nd argument to a binary op is a scalar (e.g. a = b + 5),
+  // but gets converted to a tensor (by dispatcher or bridge) before reaching
+  // kernel we need to cast 2nd argument to same type as 1st argument.
+  if (arg1.dtype() == c10::ScalarType::BFloat16 &&
+      arg1.dtype() != arg2.dtype()) {
+    auto castOp = make_operator<CastOperator>(
+        this->p_context_->device_id_, "cast_f32_to_bf16");
+    torch::jit::Stack stack = {IValue(arg2), IValue(c10::ScalarType::BFloat16)};
+    // Cast Input is pushed in to Syn Input
+    (void)out.call_ComputeOutputShape(castOp, stack);
+    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
+    out.AddOutputTensor(TensorMetaData(
+        shape_out,
+        HabanaOperator::CalculateStrides(shape_out, memory_format),
+        c10::ScalarType::BFloat16,
+        memory_format));
+  } else {
+    auto shape_out = BinaryOperator::compute_output_shape(arg1, arg2);
+    out.AddOutputTensor(TensorMetaData(
+        shape_out,
+        HabanaOperator::CalculateStrides(
+            shape_out, arg1.suggest_memory_format()),
+        arg1.scalar_type(),
+        arg1.suggest_memory_format()));
+  }
   return out;
 }
 
@@ -239,11 +266,11 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   // For cases where 2nd argument to a binary op is a scalar (e.g. a = b + 5),
   // but gets converted to a tensor (by dispatcher or bridge) before reaching
   // kernel we need to cast 2nd argument to same type as 1st argument.
-  std::string node_type = "cast_f32_to_bf16";
-  auto castOp =
-      make_operator<CastOperator>(this->p_context_->device_id_, node_type);
   if (arg1.dtype() == c10::ScalarType::BFloat16 &&
       arg1.dtype() != arg2.dtype()) {
+    std::string node_type = "cast_f32_to_bf16";
+    auto castOp =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     castOp->SetSynapseInput(arg2_syn_tensor);
     torch::jit::Stack stack = {IValue(arg2), IValue(c10::ScalarType::BFloat16)};
     castOp->AllocateAndAddSynapseNode(
