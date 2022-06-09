@@ -201,9 +201,9 @@ void stream_event_manager::enqueue_wait_event(
       std::dec);
 
   wait_for_future(device_address);
+  std::lock_guard<std::mutex> lock_guard(mut_);
   shared_event event;
   {
-    std::lock_guard<std::mutex> lock_guard(mut_);
     auto it = events_by_addr_.find(device_address);
     if (it != events_by_addr_.end()) {
       event = it->second;
@@ -228,9 +228,10 @@ void stream_event_manager::enqueue_wait_event(
     stream& stream) {
   PT_SYNHELPER_DEBUG(
       "stream ", stream, " waits for event mapped to id ", event_id);
+
+  std::lock_guard<std::mutex> lock_guard(mut_);
   shared_event event;
   {
-    std::lock_guard<std::mutex> lock_guard(mut_);
     auto it = events_by_str_.find(event_id);
     if (it != events_by_str_.end()) {
       event = it->second;
