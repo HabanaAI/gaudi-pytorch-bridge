@@ -51,6 +51,28 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
+TEST_F(LazyIndexKernelTest, IndexCopyInplaceTest_2) {
+  auto index_copy = [](int64_t dim) {
+    torch::Tensor x = torch::zeros({5, 5});
+    torch::Tensor h_x = x.to(torch::kHPU);
+    torch::Tensor source = torch::tensor(
+        {{1, 2, 3, 4, 5},
+         {6, 7, 8, 9, 10},
+         {11, 12, 13, 14, 15},
+         {16, 17, 18, 19, 20},
+         {21, 22, 23, 24, 25}},
+        torch::dtype(torch::kFloat));
+    torch::Tensor h_source = source.to(torch::kHPU);
+    torch::Tensor index = torch::tensor({0, 4, 2, 3, 1});
+    torch::Tensor h_index = index.to(torch::kHPU);
+    x.index_copy_(dim, index, source);
+    h_x.index_copy_(dim, h_index, h_source);
+    EXPECT_EQ(allclose(x, h_x.to(torch::kCPU)), true);
+  };
+  index_copy(1);
+  index_copy(0);
+}
+
 TEST_F(LazyIndexKernelTest, Onehot) {
   auto onehot = [](std::string device, int64_t num_classes) {
     auto t = (torch::arange(20) % 4).view({4, 5}).to(device);

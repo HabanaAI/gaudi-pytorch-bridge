@@ -3064,6 +3064,31 @@ Tensor& index_fill_hpu_lazy_(
   }
 }
 
+Tensor& index_copy_hpu_lazy_(
+    Tensor& self,
+    int64_t dim,
+    const Tensor& index,
+    const Tensor& value) {
+  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  if (dim_ == 0) {
+    return index_put_hpu_lazy_(self, {index}, value, false);
+  } else {
+    std::vector<int64_t> permute_dims(self.dim());
+    std::iota(permute_dims.begin(), permute_dims.end(), 0);
+    auto temp = permute_dims[self.dim() - dim_ - 1];
+    permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
+    permute_dims[self.dim() - 1] = temp;
+    auto permuted_self = permute_hpu_lazy(self, permute_dims);
+    auto permuted_value = permute_hpu_lazy(value, permute_dims);
+    permuted_self =
+        index_put_hpu_lazy_(permuted_self, {index}, permuted_value, false);
+    permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
+    LazyOp<at::Tensor&> k{
+        "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
+    return k.call(self);
+  }
+}
+
 Tensor& masked_scatter_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,

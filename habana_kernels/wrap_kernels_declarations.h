@@ -307,6 +307,11 @@ struct hpu_wrap {
       int64_t dim,
       const at::Tensor& index,
       const at::Scalar& value);
+  static at::Tensor& index_copy_(
+      at::Tensor& self,
+      int64_t dim,
+      const at::Tensor& index,
+      const at::Tensor& value);
   static at::Tensor slice(
       const at::Tensor& self,
       int64_t dim,

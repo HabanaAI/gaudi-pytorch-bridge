@@ -1234,6 +1234,20 @@ Tensor& hpu_wrap::index_fill_(
     return index_fill_hpu_lazy_(self, dim, index, value);
   }
 };
+
+Tensor& hpu_wrap::index_copy_(
+    Tensor& self,
+    int64_t dim,
+    const Tensor& index,
+    const Tensor& value) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return index_copy_hpu_lazy_(self, dim, index, value);
+  } else {
+    HABANA_ASSERT(0 && "index_copy_ is not implemented for eager mode");
+    return index_copy_hpu_lazy_(self, dim, index, value);
+  }
+};
+
 Tensor gather2d_hpu_wrap(
     const Tensor& input,
     const Tensor& indices,
