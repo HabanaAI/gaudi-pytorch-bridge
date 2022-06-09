@@ -243,12 +243,16 @@ class HabanaLaunchOpPT {
   IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map;
   std::shared_ptr<RecipeArgumentSpec> cur_rargpsh{nullptr};
 
+  // Output shape inference map
+  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+
   // caching :: end
 
   bool enable_caching_{true};
   bool watch_tensor_flag_{false};
   bool enable_tensor_dump_{false};
   bool refine_ds_enabled_{false};
+  bool enable_fast_shape_inf_{false};
   int tensor_dump_numel_{0};
 
   uint64_t cur_ds_token_{0};
@@ -343,13 +347,14 @@ class HabanaLaunchOpPT {
       size_t g_index);
   void SetSynapseGraphName(const std::string& name, size_t g_index);
   void SetOpName(const std::string& name);
-  void ProcessPersistentNodeOutput(
+  PtTensorInfoShared ProcessPersistentNodeOutput(
       const IValPtrShared& ivpsh,
       const ValPtr& vp,
       const synapse_helpers::tensor& out_syntensor);
-  void ProcessSynapseOutputs(
+  int64_t ProcessSynapseOutputs(
       const HabanaOperatorPtr& habana_op,
-      torch::jit::Node* node);
+      torch::jit::Node* node,
+      OutputShapeInfRetType& outputs);
   void ProcessStridedInsertAtOutput(
       torch::jit::Node*,
       HabanaOperatorPtr,
@@ -358,7 +363,12 @@ class HabanaLaunchOpPT {
       const OutputMetaDataVector& outputs_metadata);
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
-      torch::jit::Node* node);
+      torch::jit::Node* node,
+      std::vector<size_t>& intermediate_shape_tensors,
+      std::vector<size_t>& inputs_shape_tensors);
+  void ProcessShapeTensorsCS(
+      const OutputShapeInfRetType& output,
+      std::vector<IdxTensorTup>& intermediate_shape_tensor_cs);
   void handlePrimNodes(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
@@ -429,6 +439,7 @@ class HabanaLaunchOpPT {
   }
 
   void CompileSynapseGraph();
+
   void UpdateSynapsePermutations();
   void ConstructPatchingTable();
   void DumpTensors_pre(RecipeValueSpec& rv);
@@ -458,7 +469,7 @@ class HabanaLaunchOpPT {
 
   // --------------------
 
-  // Dynamic shape specific parts
+  // Dynamic shape specific functions
   size_t current_bucket_id_{};
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
@@ -496,6 +507,58 @@ class HabanaLaunchOpPT {
     }
     RestoreInputTensorMetadata();
   }
+
+  // Fast shape inference specific functions.
+  // Currently fast shape inference is realized through a pass which works in
+  // hybrid mode. This hybrid shape inference pass uses ComputeOutputShape
+  // for JIT OPs whenever possible, otherwise falls back to
+  // AllocateAndAddSynapseNode for the output shape computation.
+ private:
+  synapse_helpers::tensor& allocate_synapse_tensor(
+      at::Tensor& pt_tensor,
+      const HabanaOperatorPtr& habana_op,
+      synapse_helpers::graph& syn_graph);
+
+  torch::jit::Stack create_stack_for_node(
+      const torch::jit::Node* node,
+      bool& flag,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+  void create_synapse_input(
+      CValPtr valIn,
+      const HabanaOperatorPtr& hpuOp,
+      synapse_helpers::graph& syn_graph,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+  void create_synapse_inputs(
+      torch::jit::Node* node,
+      const HabanaOperatorPtr& habana_op,
+      synapse_helpers::graph& syn_graph,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+
+  int64_t get_output_tensors_count(
+      const HabanaOperatorPtr& habana_op,
+      synapse_helpers::graph& syn_graph);
+
+  OutputMetaDataVector populate_node_output_metadata(torch::jit::Node* node);
+  void print_stack(torch::jit::Stack& st);
+  void print_val_to_ival_map(
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+  void print_graph_outputs(
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+  void process_outputs(
+      const HabanaOperatorPtr& habana_op,
+      torch::jit::Node* node,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
+      std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
+  void print_tidx_to_tensor_map(
+      const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
+
+  void visit_prim_node(
+      const torch::jit::Node* node,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+
+  void RunHybridSif(
+      std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
+  // --------------------
 };
 
 } // namespace habana

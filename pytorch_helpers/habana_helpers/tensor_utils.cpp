@@ -54,10 +54,20 @@ std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
 }
 
 std::string habana_helpers::DebugString(const IVal& a) {
+  std::stringstream O;
   if (a.isTensor()) {
-    return habana_helpers::DebugString(a.toTensor());
+    O << habana_helpers::DebugString(a.toTensor());
+  } else if (a.isTensorList()) {
+    O << "[" << '\n';
+    auto tList = a.toTensorList();
+    for (auto t : tList) {
+      O << habana_helpers::DebugString(t) << '\n';
+    }
+    O << "]";
+  } else {
+    O << " non tensor: " << a;
   }
-  return std::string("Non tensor");
+  return O.str();
 }
 
 std::string habana_helpers::DebugString(const IValPtrShared& a) {

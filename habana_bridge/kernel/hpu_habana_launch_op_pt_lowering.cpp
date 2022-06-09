@@ -494,6 +494,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
     rv.set_graph_key(graph_key);
     rv.set_graph_name(GetSynapseGraphName());
     rv.set_op_strs(cur_rargpsh->get_op_strs());
+    rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
   }
 }
 

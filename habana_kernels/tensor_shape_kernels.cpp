@@ -242,16 +242,16 @@ OutputShapeInfRetType CatOutOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto tensors = inputs[0].toTensorVector();
   auto dim_ = inputs[1].toInt();
-  auto out = inputs[2].toTensor();
 
   // Convert "c10::List<at::Tensor>" to "at::TensorList"
   auto out_shape = CatOutOperator::compute_output_shape(tensors, dim_);
 
   auto metaData = TensorMetaData(
       out_shape,
-      HabanaOperator::CalculateStrides(out_shape, out.suggest_memory_format()),
-      out.scalar_type(),
-      out.suggest_memory_format());
+      HabanaOperator::CalculateStrides(
+          out_shape, tensors[0].suggest_memory_format()),
+      tensors[0].scalar_type(),
+      tensors[0].suggest_memory_format());
   OutputShapeInfRetType out_dup;
   out_dup.AddOutputTensor(metaData);
   out_dup.AddDupTensor(metaData);

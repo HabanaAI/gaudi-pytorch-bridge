@@ -33,6 +33,8 @@
 
 #include "habana_kernels/hccl_kernels.h"
 
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+
 namespace {
 template <typename T>
 std::vector<int64_t> ptr_array_indices(
@@ -212,8 +214,9 @@ RecipeValueSpec::~RecipeValueSpec() {
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
-  O << "---- recipe details :: begin" << '\n';
-  O << " <id : " << v.id << "> "
+  O << '\n'
+    << "---- recipe details :: begin" << '\n'
+    << " <id : " << v.id << "> "
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << ">"
@@ -253,6 +256,20 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     for (auto& a : *v.dtensorinfos) {
       O << idx++ << " : ";
       O << *a << '\n';
+    }
+  }
+  if (!v.sif_tidx_to_tinfo_map.empty()) {
+    O << "sif_tidx_to_tinfo_map #" << v.sif_tidx_to_tinfo_map.size() << "::";
+    O << '\n';
+    std::vector<size_t> tidx_vec;
+    for (auto const& p : v.sif_tidx_to_tinfo_map) {
+      tidx_vec.emplace_back(p.first);
+    }
+
+    std::sort(tidx_vec.begin(), tidx_vec.end());
+    for (auto const& idx : tidx_vec) {
+      O << "sif_tidx : " << idx << " -> " << *(v.sif_tidx_to_tinfo_map.at(idx))
+        << '\n';
     }
   }
   O << "---- recipe details :: end" << '\n';
@@ -548,28 +565,62 @@ void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
-    const habana::IdShapeMap& m_actual_shapes) {
+    const habana::IdShapeMap& m_actual_shapes,
+    std::optional<
+        std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
+        tidx_to_tensor_map_opt) {
   PT_BRIDGE_BEGIN;
+  bool enable_fast_shape_inf =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
   if (dynamic_graph) {
-    for (size_t i = 0; i < dtensorinfos->size(); ++i) {
-      auto& ti = *(dtensorinfos->at(i));
-      auto tensor_id = ti.get_tensor_id();
-      HABANA_ASSERT(m_actual_shapes.count(tensor_id));
-      auto dims = m_actual_shapes.at(tensor_id).get_dims();
-      auto syn_shape = ti.get_shape();
+    if (enable_fast_shape_inf) {
+      for (auto& tensors : sif_tidx_to_tinfo_map) {
+        auto tensor_idx = tensors.first;
+        auto& ti = tensors.second;
 
-      // If there is no change in the new shape values, then
-      // do not set the same shape, recalculate strides, etc
-      if (dims == syn_shape) {
-        continue;
-      }
+        // PT_TEST_DEBUG_TH("Working on tensor index : ", tensor_idx);
 
-      std::vector<int64_t> strides(dims.size(), 1);
-      for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
-        strides[i - 1] *= dims[i] * strides[i];
+        HABANA_ASSERT(
+            tidx_to_tensor_map_opt != std::nullopt,
+            "nullopt passed as tidx_to_tensor_map_opt");
+        const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map =
+            tidx_to_tensor_map_opt->get();
+
+        HABANA_ASSERT(
+            tidx_to_tensor_map.count(tensor_idx),
+            "Tensor index ",
+            tensor_idx,
+            " is missing from the computed tidx_to_tensor_map");
+        auto new_sizes = tidx_to_tensor_map.at(tensor_idx).sizes().vec();
+
+        std::vector<int64_t> strides(new_sizes.size(), 1);
+        for (int64_t i = (int64_t)new_sizes.size() - 1; i > 0; i--) {
+          strides[i - 1] *= new_sizes[i] * strides[i];
+        }
+        ti->set_shape(new_sizes);
+        ti->set_strides(strides);
       }
-      ti.set_shape(dims);
-      ti.set_strides(strides);
+    } else {
+      for (size_t i = 0; i < dtensorinfos->size(); ++i) {
+        auto& ti = *(dtensorinfos->at(i));
+        auto tensor_id = ti.get_tensor_id();
+        HABANA_ASSERT(m_actual_shapes.count(tensor_id));
+        auto dims = m_actual_shapes.at(tensor_id).get_dims();
+        auto syn_shape = ti.get_shape();
+
+        // If there is no change in the new shape values, then
+        // do not set the same shape, recalculate strides, etc
+        if (dims == syn_shape) {
+          continue;
+        }
+
+        std::vector<int64_t> strides(dims.size(), 1);
+        for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
+          strides[i - 1] *= dims[i] * strides[i];
+        }
+        ti.set_shape(dims);
+        ti.set_strides(strides);
+      }
     }
   }
 

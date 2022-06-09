@@ -18,10 +18,18 @@ using IdShapeMap = std::unordered_map<uint64_t, habana_helpers::TensorShape>;
 
 class ShapeInfTensorId {
  public:
-  int64_t next() {
+  int64_t read_and_increment() {
     auto value = unique_id;
     unique_id++;
     return value;
+  }
+
+  int64_t get() {
+    return unique_id;
+  }
+
+  void increment(int64_t val) {
+    unique_id += val;
   }
 
   void reset() {
@@ -116,12 +124,20 @@ class ShapeInference {
     return m_shape_info->m_pass;
   }
 
-  static void ResetSifThreadId() {
+  static void ResetSifTensorId() {
     sif_tensor_id.reset();
   }
 
-  static int64_t NextSifThreadId() {
-    return sif_tensor_id.next();
+  static int64_t ReadAndIncrementSifTensorId() {
+    return sif_tensor_id.read_and_increment();
+  }
+
+  static int64_t GetSifTensorId() {
+    return sif_tensor_id.get();
+  }
+
+  static void IncrementSifTensorId(int64_t cnt = 1) {
+    sif_tensor_id.increment(cnt);
   }
 
  private:

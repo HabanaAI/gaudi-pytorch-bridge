@@ -31,27 +31,18 @@ using namespace habana_lazy;
 class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode();
-
     SetSeed();
-
     DisableCpuFallback();
-
     SetDynamicMode();
-
     DisableDynamicPassFallback();
-
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
     habana::RecipeCacheLRU::get_cache().clear();
   }
 
   void TearDown() override {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
     UnsetDynamicMode();
-
     RestoreDynamicPassFallback();
-
     RestoreMode();
   }
 };
@@ -86,6 +77,49 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AddAddDivSub) {
     torch::Tensor add_out2_cpu = torch::add(C, add_out1_cpu, 3.4);
     torch::Tensor div_out3_cpu = torch::div(add_out2_cpu, 6);
     torch::Tensor out_cpu = torch::sub(div_out3_cpu, D);
+
+    EXPECT_EQ(allclose(out.to(torch::kCPU), out_cpu, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+// Test Add Add Div Sub Cat Relu
+TEST_F(LazyDynamicComputeOutputShapesTest, DISABLED_AddAddDivSubCatRelu) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  const int H = 8;
+  const int C = 4;
+  const int N = 2;
+
+  std::vector<int> in_sizes{8, 16, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+    const std::vector<int64_t> dimentions{N, C, H, W};
+    torch::Tensor A = torch::randn(dimentions);
+    torch::Tensor B = torch::randn(dimentions);
+    torch::Tensor C = torch::randn(dimentions);
+    torch::Tensor D = torch::randn(dimentions);
+    torch::Tensor E = torch::randn(dimentions);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor hD = D.to(torch::kHPU);
+    torch::Tensor hE = E.to(torch::kHPU);
+    torch::Tensor add_out1 = torch::add(hA, hB, 2.3);
+    torch::Tensor add_out2 = torch::add(hC, add_out1, 3.4);
+    torch::Tensor div_out3 = torch::div(add_out2, 6);
+    torch::Tensor sub_out4 = torch::sub(div_out3, hD);
+    torch::Tensor cat_out5 = torch::cat({sub_out4, hE}, 3);
+    torch::Tensor out = torch::relu(cat_out5);
+
+    torch::Tensor add_out1_cpu = torch::add(A, B, 2.3);
+    torch::Tensor add_out2_cpu = torch::add(C, add_out1_cpu, 3.4);
+    torch::Tensor div_out3_cpu = torch::div(add_out2_cpu, 6);
+    torch::Tensor sub_out4_cpu = torch::sub(div_out3_cpu, D);
+    torch::Tensor cat_out5_cpu = torch::cat({sub_out4_cpu, E}, 3);
+    torch::Tensor out_cpu = torch::relu(cat_out5_cpu);
 
     EXPECT_EQ(allclose(out.to(torch::kCPU), out_cpu, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");

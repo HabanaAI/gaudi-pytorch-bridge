@@ -225,7 +225,10 @@ struct RecipeValueSpec {
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
-      const habana::IdShapeMap& m_actual_shapes);
+      const habana::IdShapeMap& m_actual_shapes,
+      std::optional<
+          std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
+          tidx_to_tensor_map_opt = std::nullopt);
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
@@ -340,6 +343,7 @@ struct RecipeValueSpec {
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
+  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   uint64_t workspace_size;
 
   uint64_t htensor_wbuff = 0;

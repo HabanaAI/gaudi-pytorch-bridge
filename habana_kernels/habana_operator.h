@@ -141,6 +141,13 @@ using IdxTensorTup = std::tuple<int32_t, at::Tensor>;
 using OutputShapeInfRetTypePtr = std::shared_ptr<OutputShapeInfRetType>;
 class OutputShapeInfRetType {
  public:
+  OutputShapeInfRetType(bool flag = false) : empty_flag(flag) {}
+  bool empty() {
+    return empty_flag;
+  }
+  void set_empty(bool flag = true) {
+    empty_flag = flag;
+  }
   void AddOutputTensor(const TensorMetaData& data);
   void AddIntermediateTensor(const TensorMetaData& data);
   void AddShapeTensor(const TensorMetaData& data);
@@ -162,6 +169,10 @@ class OutputShapeInfRetType {
       HabanaOperatorPtr kernel,
       torch::jit::Stack& inputs);
 
+  const std::vector<OutputShapeInfRetTypePtr> GetKernelOutputs() const {
+    return kernel_outputs;
+  }
+
  private:
   void AddTensor(const TensorMetaData& data, std::vector<IdxTensorTup>& v);
   std::vector<IdxTensorTup> output_tensors;
@@ -169,6 +180,7 @@ class OutputShapeInfRetType {
   std::vector<IdxTensorTup> dup_tensors;
 
   std::vector<OutputShapeInfRetTypePtr> kernel_outputs;
+  bool empty_flag{false};
 };
 
 //

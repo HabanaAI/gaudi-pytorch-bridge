@@ -477,7 +477,8 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
 habana::OutputShapeInfRetType habana::HabanaOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  return {};
+  OutputShapeInfRetType ret(true);
+  return ret;
 }
 
 void habana::HabanaOperator::AddNodeToSynapseGraph(
@@ -547,7 +548,7 @@ habana::HabanaOperator::~HabanaOperator() = default;
 void habana::OutputShapeInfRetType::AddTensor(
     const TensorMetaData& data,
     std::vector<IdxTensorTup>& v) {
-  auto sif_tensor_id_ = habana::ShapeInference::NextSifThreadId();
+  auto sif_tensor_id_ = habana::ShapeInference::ReadAndIncrementSifTensorId();
   auto tensor = habana_helpers::nonPersistentTensor(
       data.sizes, data.strides, data.mf, scalarTypeToTypeMeta(data.dtype));
 

@@ -64,7 +64,7 @@ torch::jit::Stack habana::CreateInputStack(
 void habana::PrintStack(torch::jit::Stack& st) {
   PT_BRIDGE_DEBUG("aten_inputs #", st.size(), "::");
   for (size_t idx = 0; idx < st.size(); idx++) {
-    habana_helpers::DebugString(st.at(idx));
+    PT_BRIDGE_DEBUG(habana_helpers::DebugString(st.at(idx)));
   }
 }
 
