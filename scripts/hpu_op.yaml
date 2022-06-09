@@ -3383,7 +3383,7 @@ trunc_:
 uniform_:
   custom_fill_params: FillUniformParams
   dtypes: [BFloat16, Float, Int]
-  guid: random_uniform_fwd
+  guid: philox_random_uniform
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
   legacy_eager: true
