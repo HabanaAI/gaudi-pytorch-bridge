@@ -709,7 +709,8 @@ void HbLazyTensor::SyncTensorsGraph(
         lazyFrontEndInfo,
         out_hb_lazy_tensor);
   } else {
-    SyncTensorsGraphInternal(tensors, lazyFrontEndInfo, async);
+    SyncTensorsGraphInternal(
+        tensors, lazyFrontEndInfo, out_hb_lazy_tensor, async);
   }
 }
 
@@ -732,7 +733,11 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
-    auto tensors = GetLiveTensors(device);
+    std::vector<HbLazyTensor> tensors{};
+    if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
+          lazy_front_end_info->get_optimized_lazy_eager_key())) {
+      tensors = GetLiveTensors(device);
+    }
     SyncTensorsGraph(&tensors, lazy_front_end_info, out_hb_lazy_tensor, async);
   }
 }
@@ -882,6 +887,7 @@ void LaunchSyncTensorsGraph(
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
+    std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
   if (!(*tensors).size())
@@ -892,7 +898,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   context->JoinPendingLaunchThread();
 
   std::vector<int> indices = {};
-  indices = CollectSyncTensors(*tensors);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazyFrontEndInfo &&
+      lazyFrontEndInfo->get_optimized_lazy_eager_key()) {
+    *tensors = out_hb_lazy_tensor;
+    for (int i = 0; i < (int)out_hb_lazy_tensor.size(); i++) {
+      indices.emplace_back(i);
+    }
+  } else {
+    indices = CollectSyncTensors(*tensors);
+  }
 
   if (indices.empty()) {
     // Nothing to do, return without trying to execute an empty graph
@@ -995,7 +1009,10 @@ void HbLazyTensor::SyncTensorsGraphInternalOptimized(
     std::vector<HbLazyTensor> out_hb_lazy_tensor) {
   PT_LAZY_TRACE;
   std::vector<int> indices = {};
-  indices = CollectSyncTensorsOptimized(*tensors, out_hb_lazy_tensor);
+  *tensors = out_hb_lazy_tensor;
+  for (int i = 0; i < (int)out_hb_lazy_tensor.size(); i++) {
+    indices.emplace_back(i);
+  }
 
   torch::jit::Stack stack =
       PrepareInputStack(tensors, indices, input_values, true);

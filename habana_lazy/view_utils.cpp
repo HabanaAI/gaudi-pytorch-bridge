@@ -368,6 +368,8 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
       // note: this strided insert will be executed lazily after the execution
       // of collectives
       strided_insert_hpu_lazy(t, t, false);
+      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+      context->isLazyViewPresent = true;
     } else {
       // check for updated version
       t_updated = get_recent_base_tensor(t);

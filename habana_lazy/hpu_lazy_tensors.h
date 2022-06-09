@@ -335,6 +335,7 @@ class HbLazyTensor {
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
+      std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false);
   static void SyncTensorsGraphInternalOptimized(
       std::vector<HbLazyTensor>* tensors,

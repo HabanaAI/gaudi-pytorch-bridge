@@ -268,19 +268,23 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call not_Tuple_Of_Tensor :: ", m_symbol.toQualString());
-    viewUpdateInputs();
+    bool isView = false;
+    isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+    if (is_optimized_lazy_eager_supported(isView, context->isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
+
+    context->isLazyViewPresent = false;
 
     return HandleLazy(infoToBackEnd);
   }
@@ -498,13 +502,15 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
-    viewUpdateInputs();
+    bool isView = false;
+    isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+    if (is_optimized_lazy_eager_supported(isView, context->isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -513,12 +519,15 @@ class LazyOp {
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
+    context->isLazyViewPresent = false;
+
     return HandleLazy(infoToBackEnd);
   }
 
-  void viewUpdateInputs() {
+  bool viewUpdateInputs() {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     size_t idx = 0;
+    bool is_view = false;
     for (auto ival : m_inputs) {
       if (ival.isTensor()) {
         auto t = ival.toTensor();
@@ -532,12 +541,16 @@ class LazyOp {
           if (it != context->orig_tensor_map.end()) {
             m_inputs[idx] = it->second;
           } else {
-            HbLazyTensorViews::HandleViews(t, hl_t);
+            if (HbLazyTensorViews::HandleViews(t, hl_t)) {
+              is_view = true;
+            }
           }
         }
       }
       idx++;
     }
+
+    return is_view;
   }
 
   void HandleViewsInplace(
@@ -1067,6 +1080,15 @@ class LazyOp {
     m_scalar_type = scalar_type;
   }
 
+  inline bool is_optimized_lazy_eager_supported(
+      bool is_view,
+      bool is_lazy_view_present) {
+    return (
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) == 1 && !is_view &&
+        !is_lazy_view_present);
+  }
+
   // JIT IR Cache key calculation for optimized lazy eager
   size_t calculate_optimized_lazy_eager_key() {
     size_t optimized_key = static_cast<uint32_t>(m_symbol);
@@ -1118,16 +1140,9 @@ class LazyOp {
               optimized_key, at::IValue::hash(torch::jit::IValue()));
         }
       } else if (input.isTensorList()) {
-        const auto& tensors = input.toTensorVector();
-        for (const auto& t : tensors) {
-          update_hash_key_for_tensor(t, optimized_key);
-          if (optimized_key == 0) {
-            break;
-          }
-        }
-        if (optimized_key == 0) {
-          break;
-        }
+        // Not handled so returning null key
+        optimized_key = 0;
+        break;
       } else if (isMetadataCandidate(input)) {
         // Not handled so returning null key
         optimized_key = 0;

@@ -288,6 +288,7 @@ class HbExecutionContext {
   void JoinPendingLaunchThread();
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
+  bool isLazyViewPresent = false;
 
  private:
   GraphPtr mp_g;
