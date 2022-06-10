@@ -188,20 +188,8 @@ device::device(
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) > 0) {
-    uint64_t total_memory, free_memory;
-    auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
-    if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_FATAL(
-          "Cannot obtain device memory size for allocation of global ws buffer");
-    }
-
-    // in case of simulator, there might not be 4GB of memory available, so as a
-    // fallback solution workspace_buffer_ will be allocated to 70% of free
-    // memory on the given device
-    size_t global_workspace_size = get_workspace_size();
-    auto req_size = free_memory > global_workspace_size ? global_workspace_size
-                                                        : 0.7 * free_memory;
-    workspace_buffer_ = get_workspace_buffer(req_size);
+    const size_t global_workspace_size = get_workspace_size();
+    workspace_buffer_ = get_workspace_buffer(global_workspace_size);
 
     PT_SYNHELPER_DEBUG(
         "Allocating static workspace at ",
