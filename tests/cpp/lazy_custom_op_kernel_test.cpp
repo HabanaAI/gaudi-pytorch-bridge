@@ -222,7 +222,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
       .check("custom_op::custom_gelu")
       ->run(*hlexec->get_graph());
 
-  bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
+  bool equal = results_cpu.cpu().allclose(result.to(torch::kCPU));
   EXPECT_TRUE(equal);
 }
 

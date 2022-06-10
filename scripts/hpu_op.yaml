@@ -1210,43 +1210,6 @@ eq.Tensor_out:
   legacy_eager: true
   type_promotion: true
 
-eq_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: equal_fwd
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-eq_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: equal_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-eq.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: equal_fwd
-  op_frontend: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
-eq.Tensor:
-  force_default: false
-  broadcast: true
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: equal_fwd
-  op_frontend: LazyCmp
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
 erf:
   force_default: false
   dtypes: [BFloat16, Float]
@@ -1461,56 +1424,6 @@ ge.Tensor_out:
   guid: greater_equal_fwd
   type_promotion: true
 
-grid_sampler_2d:
-  custom_fill_params: FillGridSamplerParams
-  custom_output_shape: GridSampler2dOutputShape
-  dtypes: [BFloat16, Float]
-  guid: grid_sampler_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
-  synapse_layouts:
-  - [WHCN, AWHN]
-  - [WHCN]
-  out_ids: [0]
-
-ge_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_equal_fwd
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-ge_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_equal_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-ge.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_equal_fwd
-  op_frontend: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
-ge.Tensor:
-  force_default: false
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_equal_fwd
-  op_frontend: LazyCmp
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
 gelu.out:
   dtypes: [BFloat16, Float]
   op_backend: Gelu
@@ -1554,6 +1467,19 @@ glu_backward.grad_input:
   op_backend: GluBwd
   scalar_ids: [2]
 
+grid_sampler_2d:
+  custom_fill_params: FillGridSamplerParams
+  custom_output_shape: GridSampler2dOutputShape
+  dtypes: [BFloat16, Float]
+  guid: grid_sampler_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, AWHN]
+  - [WHCN]
+  out_ids: [0]
+
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
@@ -1565,43 +1491,6 @@ gt.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   type_promotion: true
-
-gt_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_fwd
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-gt_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-gt.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_fwd
-  op_frontend: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
-gt.Tensor:
-  force_default: false
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: greater_fwd
-  op_frontend: LazyCmp
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
 
 hardshrink:
   force_default: false
@@ -1796,43 +1685,6 @@ le.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
   type_promotion: true
-
-le_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_equal_fwd
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-le_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_equal_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-le.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_equal_fwd
-  op_frontend: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
-le.Tensor:
-  force_default: false
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_equal_fwd
-  op_frontend: LazyCmp
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
 
 leaky_relu_backward.grad_input:
   custom_fill_params: FillLeakyReluBackwardParams
@@ -2109,43 +1961,6 @@ lt.Tensor_out:
   guid: less_fwd
   type_promotion: true
 
-lt_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-lt_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_fwd
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-lt.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_fwd
-  op_frontend: LazyCmp
-  scalar_ids: [1]
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
-lt.Tensor:
-  force_default: false
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  guid: less_fwd
-  op_frontend: LazyCmp
-  out_ids: [0]
-  op_backend: CompareOp
-  type_promotion: true
-  legacy_eager: true
-
 max.dim_max:
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
@@ -2382,41 +2197,6 @@ ne.Scalar_out:
   scalar_ids: [1]
   op_backend: NE
   type_promotion: true
-
-ne_.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_backend: NE
-  scalar_ids: [1]
-  inplace_ids: [0]
-  type_promotion: true
-
-ne_.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_backend: NE
-  inplace_ids: [0]
-  type_promotion: true
-
-ne.Scalar:
-  force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_frontend: LazyCmp
-  op_backend: NE
-  scalar_ids: [1]
-  out_ids: [0]
-  type_promotion: true
-  legacy_eager: true
-
-ne.Tensor:
-  force_default: false
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_frontend: LazyCmp
-  op_backend: NE
-  out_ids: [0]
-  type_promotion: true
-  legacy_eager: true
 
 neg.out:
   dtypes: [BFloat16, Float, Int]

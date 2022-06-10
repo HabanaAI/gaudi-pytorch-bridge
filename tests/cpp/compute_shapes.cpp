@@ -33,7 +33,8 @@ TEST_F(ComputeShapes, sigmoid) {
   EXPECT_TRUE(at::allclose(at::sigmoid(cpu_in), at::sigmoid(hpu_in).cpu()));
 }
 
-TEST_F(ComputeShapes, ge) {
+// Disabled due to SW-92670
+TEST_F(ComputeShapes, DISABLED_ge) {
   auto cpu_in1 = torch::randn({42}).to(at::kBFloat16);
   auto cpu_in2 = torch::randn({2, 42});
 

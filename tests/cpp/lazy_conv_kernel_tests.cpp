@@ -183,7 +183,6 @@ TEST_F(LazyConvKernelTest, ConvReluSynapsePermutationTest2) {
     EXPECT_EQ(allclose(tHabanaW1cpu, weight_tensor1, 0.01, 0.01), true);
 
     tHabanaW1 = weight_tensor1.to(torch::kHPU);
-    EXPECT_EQ(allclose(tHabanaW1, weight_tensor1, 0.01, 0.01), true);
     auto weight_hb_tensor = GetHbLazyTensor(tHabanaW1);
     auto hb_wight_data = weight_hb_tensor.GetHbLazyTensorData().value();
     auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(hb_wight_data);
