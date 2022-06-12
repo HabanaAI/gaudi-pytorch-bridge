@@ -1116,7 +1116,9 @@ void RecipeValueSpec::launch(
           "Remove tensor ",
           ti.tensorName,
           " address ",
+          std::hex,
           ti.pTensorAddress,
+          std::dec,
           " from outDevPtr since it is an external tensor");
       outDevPtr.erase(
           std::remove(outDevPtr.begin(), outDevPtr.end(), ti.pTensorAddress),

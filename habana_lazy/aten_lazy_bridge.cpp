@@ -86,7 +86,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   PT_LAZY_DEBUG(
       "op: ", ir_op.toQualString(), " ir value: ", ir_value.ToString());
   if (IsCollective(ir_op)) {
-    PT_LAZY_DEBUG("Collective op output requested, triggering a mark_step");
+    PT_LAZY_DEBUG("step marker due to collective op output request");
     HbLazyTensor::StepMarker({});
   }
 

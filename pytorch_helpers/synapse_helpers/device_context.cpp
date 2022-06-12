@@ -241,7 +241,7 @@ hcclResult_t device_context::prepare_stream(
     synStreamHandle stream_handle,
     synapse_helpers::device_ptr input_address) {
   PT_DISTRIBUTED_DEBUG(
-      "Calling device_context::acquire_copy_stream(stream_handle=",
+      "Calling device_context::prepare_stream(stream_handle=",
       stream_handle,
       ", input_address=",
       input_address,
@@ -270,7 +270,7 @@ hcclResult_t device_context::submit_events(
     synapse_helpers::device_ptr output_address,
     const synapse_helpers::event_done_callback& done_callback) {
   PT_DISTRIBUTED_DEBUG(
-      "Calling device_context::acquire_copy_stream(stream_handle=",
+      "Calling device_context::submit_events(stream_handle=",
       stream_handle,
       ", output_address=",
       output_address,
