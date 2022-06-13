@@ -11,10 +11,12 @@
 #pragma once
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/torch.h>
 
@@ -198,3 +200,17 @@ std::shared_ptr<torch::jit::Graph> CreateJITGraph();
 torch::jit::Stack createStack(std::vector<at::Tensor>&& list);
 
 } // namespace habana_lazy_test
+
+namespace jit_ir_test {
+nlohmannV340::json read_json(std::string input_json);
+std::string get_jit_graph(nlohmannV340::json json_);
+at::Tensor create_empty_tensor(
+    const std::vector<int64_t>& tshape,
+    c10::TensorOptions& tensor_options,
+    bool is_shape_tensor = false);
+std::map<std::string, c10::ScalarType> create_tensor_dtype_map(
+    const at::ArrayRef<torch::jit::Value*>& inputs);
+std::vector<at::Tensor> get_input_tensors(
+    const std::map<std::string, std::string>& shapes_map,
+    std::map<std::string, c10::ScalarType> tensor_dtype_map);
+} // namespace jit_ir_test

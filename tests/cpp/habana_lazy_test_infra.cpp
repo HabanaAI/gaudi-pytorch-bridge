@@ -119,3 +119,83 @@ uint64_t EnvHelper::InitSeed() {
   return seed;
 }
 } // namespace habana_lazy_test
+
+namespace jit_ir_test {
+nlohmannV340::json read_json(std::string input_json) {
+  std::ifstream infile(input_json);
+  std::stringstream is;
+  is << infile.rdbuf();
+  infile.close();
+  auto json_file_ = nlohmannV340::json::parse(is);
+  return json_file_;
+}
+
+std::string get_jit_graph(nlohmannV340::json json_) {
+  std::stringstream graph_string;
+  auto jit_it_vec = json_[0]["000000000"]["compilations"][0]["jit ir graph"];
+  std::copy(
+      jit_it_vec.begin(),
+      jit_it_vec.end(),
+      std::ostream_iterator<std::string>(graph_string, "\n"));
+  return graph_string.str();
+}
+
+at::Tensor create_empty_tensor(
+    const std::vector<int64_t>& tshape,
+    c10::TensorOptions& tensor_options,
+    bool is_shape_tensor) {
+  if (is_shape_tensor) {
+    auto pt_tensor = habana_lazy::empty_hpu_lazy(
+        tshape, tensor_options, c10::nullopt, false, SHAPE_TENSOR);
+    return pt_tensor;
+  }
+  auto pt_tensor = at::empty(tshape, tensor_options);
+  return pt_tensor;
+}
+
+std::map<std::string, c10::ScalarType> create_tensor_dtype_map(
+    const at::ArrayRef<torch::jit::Value*>& inputs) {
+  std::map<std::string, c10::ScalarType> tensor_dtype_map;
+  for (int i = 0; i < inputs.size(); i++) {
+    auto tp = inputs[i]->type()->cast<torch::jit::TensorType>();
+    std::string name = std::to_string(i) + "_" + inputs[i]->debugName();
+    tensor_dtype_map[name] = *tp->scalarType();
+  }
+  return tensor_dtype_map;
+}
+
+std::vector<at::Tensor> get_input_tensors(
+    const std::map<std::string, std::string>& shapes_map,
+    std::map<std::string, c10::ScalarType> tensor_dtype_map) {
+  std::vector<at::Tensor> input_tensors;
+  for (auto& input : shapes_map) {
+    bool is_shape_tensor = false;
+    std::string input_shape(input.second);
+    std::string shape_str = " shape tensor";
+    std::string::size_type shape_tensor_pos = (input_shape).find(shape_str);
+
+    if (shape_tensor_pos != std::string::npos) {
+      input_shape.erase(shape_tensor_pos, shape_str.length());
+      is_shape_tensor = true;
+    }
+    input_shape.erase(
+        remove(input_shape.begin(), input_shape.end(), '['), input_shape.end());
+    input_shape.erase(
+        remove(input_shape.begin(), input_shape.end(), ']'), input_shape.end());
+
+    std::vector<int64_t> tensor_shape;
+    std::stringstream ss(input_shape);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+      tensor_shape.push_back(stoi(item));
+    }
+
+    auto tensor_options = torch::TensorOptions().device("hpu").dtype(
+        tensor_dtype_map[input.first]);
+    auto pt_tensor =
+        create_empty_tensor(tensor_shape, tensor_options, is_shape_tensor);
+    input_tensors.push_back(pt_tensor);
+  }
+  return input_tensors;
+}
+} // namespace jit_ir_test
