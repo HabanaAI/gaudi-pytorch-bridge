@@ -3391,6 +3391,57 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+std::vector<int64_t> OneHotOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t num_classes) {
+  std::vector<int64_t> out_shape = self.sizes().vec();
+  out_shape.push_back(num_classes);
+  return out_shape;
+}
+
+void OneHotOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "OneHot operator expects 2 inputs: tensor to fill with on/off values and num_classes");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+
+  auto input = inputs[0].toTensor();
+  auto num_classes = inputs[1].toInt();
+  auto shape = OneHotOperator::compute_output_shape(input, num_classes);
+  OutputMetaDataVector inter_op_metadata(1);
+  auto output = habana_helpers::createPTTensor(
+      input,
+      shape,
+      input.options(),
+      input.suggest_memory_format(),
+      c10::ScalarType::Float,
+      inter_op_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, inter_op_metadata.at(0));
+  ns_OneHotKernel::Params params;
+  params.axis = 0;
+  params.depth = num_classes;
+  params.on_value = 1.0;
+  params.off_value = 0.0;
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  std::string node_type1 = "cast_f32_to_i32";
+  Stack stack;
+  // Create cast operator
+  auto floatToIntOp =
+      make_operator<CastOperator>(this->p_context_->device_id_, node_type1);
+  floatToIntOp->SetSynapseInput(p_context_->syn_outputs_[0]);
+
+  // Build Params for the graph
+  stack = {IValue(p_context_->pt_outputs_[0]), IValue(c10::ScalarType::Int)};
+
+  floatToIntOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+  p_context_->syn_outputs_[0] = std::move(floatToIntOp->GetSynOutputs()[0]);
+  p_context_->pt_outputs_[0] = std::move(floatToIntOp->GetOutputs()[0]);
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::index_select", KERNEL_FN(IndexSelectOperator))
@@ -3413,4 +3464,5 @@ static auto& KernelRegistry =
         .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
         .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator))
         .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
-        .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator));
+        .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator))
+        .add("aten::one_hot", KERNEL_FN(OneHotOperator));

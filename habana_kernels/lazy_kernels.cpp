@@ -6176,10 +6176,28 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   if (num_classes == -1) {
     num_classes = self.max().item().toLong() + 1;
   }
+  Tensor ret;
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(const Tensor& self, int64_t num_classes)
+        : LazyOp<at::Tensor>("aten::one_hot", {self, num_classes}, {}, {}, -1),
+          m_self(self),
+          m_num_classes(num_classes) {}
 
-  shape.push_back(num_classes);
-  Tensor ret = at::zeros(shape, self.options());
-  ret.scatter_(-1, self.unsqueeze(-1), 1);
+    at::Tensor get_result_overrideable() override {
+      auto shape = OneHotOperator::compute_output_shape(m_self, m_num_classes);
+      auto res = empty_hpu_lazy(
+          shape,
+          m_self.options().dtype(c10::ScalarType::Long),
+          m_self.suggest_memory_format(),
+          false);
+      return res;
+    }
+
+    at::Tensor m_self;
+    int64_t m_num_classes;
+  };
+  Kernel k{self, num_classes};
+  ret = k.call();
   return ret;
 }
 
