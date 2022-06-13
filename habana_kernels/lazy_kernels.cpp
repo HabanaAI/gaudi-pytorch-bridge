@@ -5648,13 +5648,6 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
     return self;
   }
 
-  if (self.dim() > SYN_MAX_TENSOR_DIM) {
-    // squeeze gc guid supports max output tensor dim of 5
-    // use reshape guid instead
-    auto out_shape = SelectOperator::compute_output_shape(self, dim);
-    return view_hpu_lazy(self, out_shape);
-  }
-
   auto out = at::native::squeeze(self, dim);
   if (is_fallback_original_op(self, out)) {
     auto hb_result = GetHbLazyTensor(out);

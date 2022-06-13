@@ -3482,8 +3482,7 @@ at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
   // Use strided view for the following cases:
   // 1. ZST
   // 2. self.dim() >=5
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) && self.dim() &&
-      (self.dim() < SYN_MAX_TENSOR_DIM)) {
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) && self.dim()) {
     // expand_dims gc guid supports max output tensor dim of 5
     return unsqueeze_hpu_lazy(self, dim);
   } else {
