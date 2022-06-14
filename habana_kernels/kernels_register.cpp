@@ -361,12 +361,8 @@ Tensor hpu_wrap::_s_where(
   }
 }
 Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
-  auto res_dtype = at::result_type(self, other);
-  // Use result type after type promo to decide on fallback
-  if ((res_dtype == at::ScalarType::Byte) ||
-      (res_dtype == at::ScalarType::Char)) {
-    FALLBACK_IF_UNSUPPORTED_OP2_O(mul_, PARAMS2(self, other), Tensor)
-  }
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul_, PARAMS1(self, other), PARAMS2(self, other), Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_tensor_hpu_lazy_(self, other);
@@ -375,12 +371,8 @@ Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor hpu_wrap::mul(const Tensor& self, const Tensor& other) {
-  auto res_dtype = at::result_type(self, other);
-  // Use result type after type promo to decide on fallback
-  if ((res_dtype == at::ScalarType::Byte) ||
-      (res_dtype == at::ScalarType::Char)) {
-    FALLBACK_IF_UNSUPPORTED_OP2_O(mul, PARAMS2(self, other), Tensor)
-  }
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul, PARAMS1(self, other), PARAMS2(self, other), Tensor)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_tensor_hpu_lazy(self, other);
@@ -393,12 +385,8 @@ Tensor& hpu_wrap::mul_out(
     const Tensor& self,
     const Tensor& other,
     Tensor& out) {
-  auto res_dtype = at::result_type(self, other);
-  // Use result type after type promo to decide on fallback
-  if ((res_dtype == at::ScalarType::Byte) ||
-      (res_dtype == at::ScalarType::Char)) {
-    FALLBACK_IF_UNSUPPORTED_OP2(mul_out, PARAMS2(self, other, out))
-  }
+  FALLBACK_IF_UNSUPPORTED_OP(
+      mul_out, PARAMS1(out, self, other), PARAMS2(self, other, out))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_out_hpu_lazy(out, self, other);
@@ -408,12 +396,7 @@ Tensor& hpu_wrap::mul_out(
 };
 
 Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
-  auto res_dtype = at::result_type(self, other);
-  // Use result type after type promo to decide on fallback
-  if ((res_dtype == at::ScalarType::Byte) ||
-      (res_dtype == at::ScalarType::Char)) {
-    FALLBACK_IF_UNSUPPORTED_OP2_O(mul, PARAMS2(self, other), Scalar)
-  }
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul, PARAMS1(self), PARAMS2(self, other), Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_scalar_hpu_lazy(self, other);
@@ -423,12 +406,8 @@ Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
   }
 };
 Tensor& hpu_wrap::mul_(Tensor& self, const Scalar& other) {
-  auto res_dtype = at::result_type(self, other);
-  // Use result type after type promo to decide on fallback
-  if ((res_dtype == at::ScalarType::Byte) ||
-      (res_dtype == at::ScalarType::Char)) {
-    FALLBACK_IF_UNSUPPORTED_OP2_O(mul_, PARAMS2(self, other), Scalar)
-  }
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul_, PARAMS1(self), PARAMS2(self, other), Scalar)
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return mul_scalar_hpu_lazy_(self, other);
