@@ -542,3 +542,20 @@ TEST_F(LazyBasicKernelTest, unsqeezeCmptOpTest) {
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyBasicKernelTest, simultaneousinplaceoutOpTest) {
+  auto a = torch::randn({2, 3});
+  auto ha = a.to(torch::kHPU);
+
+  auto b = torch::randn({3, 2});
+  auto hb = b.to(torch::kHPU);
+
+  auto a_transpose = a.transpose(0, 1);
+  torch::ge_outf(a_transpose, b, a_transpose);
+
+  // hpu
+  auto ha_transpose = ha.transpose(0, 1);
+  torch::ge_outf(ha_transpose, hb, ha_transpose);
+
+  EXPECT_EQ(allclose(a_transpose, ha_transpose.cpu(), 0.001, 0.001), true);
+}

@@ -18,9 +18,6 @@ class LazyBinaryInplaceKernelTest : public habana_lazy_test::LazyTest {};
 
 // Also validates ComputeOutputShape for MulInplace
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
@@ -37,7 +34,6 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 // Also validates ComputeOutputShape for MulInplaceScalar

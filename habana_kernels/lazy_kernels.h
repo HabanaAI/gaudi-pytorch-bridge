@@ -539,35 +539,6 @@ class LazyOp {
     }
   }
 
-  void viewUpdateInputsInplace(const at::Tensor& self) {
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
-    size_t idx = 0;
-    for (auto ival : m_inputs) {
-      if (ival.isTensor()) {
-        auto t = ival.toTensor();
-        if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
-          auto hl_t = GetHbLazyTensor(t);
-
-          // if it is base tensor, use the most recent version else check if
-          // it is a view
-          auto id = hl_t.getTensorUniqueId();
-          auto it = context->orig_tensor_map.find(id);
-          if (it != context->orig_tensor_map.end()) {
-            m_inputs[idx] = it->second;
-          } else {
-            // add view node for all the inputs except self of out variant
-            // this is because, view of out variant is handled as a write to an
-            // empty tensor followed by strided insert
-            if (is_inplace(m_symbol) || (!t.is_same(self))) {
-              HbLazyTensorViews::HandleViews(t, hl_t);
-            }
-          }
-        }
-      }
-      idx++;
-    }
-  }
-
   void HandleViewsInplace(
       const at::Tensor& self,
       habana_lazy::HbLazyTensor& hl_self) {
@@ -578,10 +549,13 @@ class LazyOp {
       // out variant needs storage as it is a graph input
       out_t = empty_hpu_lazy(
           self.sizes(), self.options(), self.suggest_memory_format(), true);
-      for (size_t idx = 0; idx < m_inputs.size(); idx++) {
+      for (size_t idx = m_inputs.size() - 1; idx >= 0; idx--) {
         auto t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
           m_inputs[idx] = out_t;
+          // break after first update because we can cases like torch.ge(a, b,
+          // out = a). In this case need to replace only out = a case
+          break;
         }
       }
     }
@@ -713,7 +687,7 @@ class LazyOp {
     PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
 
     // Handle views or fetch updated tensor for all the inputs
-    viewUpdateInputsInplace(self);
+    viewUpdateInputs();
 
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
