@@ -173,7 +173,6 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   min = start > end ? end : start;
   abs_del = std::abs(step);
   depth = std::ceil((max - min) / abs_del);
-  depth = depth == 0 ? 1 : depth;
   return depth;
 }
 
