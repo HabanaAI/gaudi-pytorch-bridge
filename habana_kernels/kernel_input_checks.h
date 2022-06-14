@@ -41,6 +41,8 @@ class OpAttributeCheck {
     if (instance == NULL) {
       instance = new OpAttributeCheck();
     }
+    instance->arg_position = 1;
+    instance->is_valid = true;
     return instance;
   }
 
@@ -150,10 +152,7 @@ class OpAttributeCheck {
   }
 
   bool get_status() {
-    bool attr_check_status = is_valid;
-    arg_position = 1;
-    is_valid = true;
-    return attr_check_status;
+    return is_valid;
   }
 };
 
