@@ -1795,15 +1795,7 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
       IValue(reduction)};
   check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
 
-  int64_t sz = (int64_t)(self.sizes().size());
-
-  if (sz >= 5) {
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        binary_cross_entropy_with_logits,
-        PARAMS2(self, target, weight, pos_weight, reduction))
-  }
-
-  FALLBACK_IF_UNSUPPORTED_OP(
+  FALLBACK_IF_UNSUPPORTED_OP1(
       binary_cross_entropy_with_logits,
       PARAMS1(
           self,
