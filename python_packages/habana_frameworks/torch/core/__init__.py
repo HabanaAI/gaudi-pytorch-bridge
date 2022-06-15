@@ -45,9 +45,12 @@ add_module_orig = torch.nn.modules.Module.add_module
 @wraps(torch.nn.modules.Module.add_module)
 def wrap_add_module(self, name, module):
     if isinstance(module, torch.nn.Module):
-        module.custom_name = name
-        module.register_forward_pre_hook(pre_fwd_hook)
-        module.register_forward_hook(post_fwd_hook)
+        try:
+            module.custom_name = name
+            module.register_forward_pre_hook(pre_fwd_hook)
+            module.register_forward_hook(post_fwd_hook)
+        except (RuntimeError):
+            pass
     add_module_orig(self, name, module)
 
 torch.nn.modules.Module.add_module = wrap_add_module
@@ -56,9 +59,12 @@ module_set_attr_orig = torch.nn.Module.__setattr__
 @wraps(torch.nn.Module.__setattr__)
 def wrap_set_attr(self, name: str, value: Union[torch.Tensor, 'torch.nn.Module']) -> None:
     if isinstance(value, torch.nn.Module):
-        value.custom_name = name
-        value.register_forward_pre_hook(pre_fwd_hook)
-        value.register_forward_hook(post_fwd_hook)
+        try:
+            value.custom_name = name
+            value.register_forward_pre_hook(pre_fwd_hook)
+            value.register_forward_hook(post_fwd_hook)
+        except (RuntimeError):
+            pass
     module_set_attr_orig(self, name, value)
 
 torch.nn.Module.__setattr__ = wrap_set_attr
