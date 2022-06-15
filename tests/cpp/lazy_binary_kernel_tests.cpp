@@ -979,27 +979,37 @@ TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-/* ToDo enable AddFwdWithScalar, Here in this test Scalar is added as constant
- * tensor in Jit stack input during allocateAndAddSynapeNode. Hence during
- * compute shape validation, Constant node is not seen and Validation fails with
- * mismatch in number of kernels.
- */
-// Also validates ComputeOutputShape for GUID mult_fwd_f32, Constant and
-// add_fwd_f32
-TEST_F(LazyBinaryKernelTest, DISABLED_AddFwdF32WithScalar) {
+// Also validates ComputeOutputShape for GUID mult_fwd_f32/bf16/i32,
+// Constant_f32/bf16/i32 and add_fwd_f32/bf16/i32 with second argument as scalar
+TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
-  // test case for result = add(tensor, scalar, alpha)
-  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  Scalar B = 3.0;
-  Scalar alpha = 2.0;
+  auto fn = [](c10::ScalarType tensor_type) {
+    // test case for result = add(tensor, scalar, alpha)
+    PT_TEST_DEBUG(
+        "PTI_DBG: AddFwdWithScalar called for -- ", tensor_type, " ----\n");
+    torch::Tensor A =
+        torch::randn({2, 2}, torch::requires_grad(false)).to(tensor_type);
+    Scalar B = 3.0;
+    Scalar alpha = 2.0;
 
-  torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor out_hpu = torch::add(hA, B, alpha);
-  torch::Tensor out_cpu = torch::add(A, B, alpha);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor out_hpu = torch::add(hA, B, alpha);
+    torch::Tensor out_cpu = torch::add(A, B, alpha);
 
-  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+    EXPECT_EQ(
+        allclose(
+            out_hpu.to(torch::kFloat32).to(torch::kCPU),
+            out_cpu.to(torch::kFloat32),
+            0.001,
+            0.001),
+        true);
+  };
+
+  fn(torch::kFloat32);
+  fn(torch::kBFloat16);
+  fn(torch::kInt32);
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }

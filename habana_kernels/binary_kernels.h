@@ -108,6 +108,8 @@ class BinaryOperatorWithAlpha : public BinaryOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
