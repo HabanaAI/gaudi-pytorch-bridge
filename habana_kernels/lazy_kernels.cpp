@@ -1581,24 +1581,11 @@ Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
 
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-
-  // Check result data type
-  auto res_dtype = at::result_type(self, other);
-  auto other_cast = other;
-  // If other is CPU tensor of size 0D and double data type
-  // cast it to expected result data type tensor
-  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
-      other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = get_tensor_for_scalar(
-        other.item().toFloat(), other.options().dtype(res_dtype));
-  }
-
-  LazyBinaryOp<at::Tensor> k{
-      "aten::div",
-      {self, other_cast},
-      {},
-      {BinaryOperator::compute_output_shape(self, other_cast)}};
-  return k.call();
+  // The auto code gen way of implementing div with rounding mode is
+  // more comprehensive. Hence use this op without specific mode
+  // to realize normal div
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return HpuOp::div(self, other, mode);
 }
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& out,

@@ -1127,13 +1127,13 @@ cumsum_:
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char, Byte]
   guid: div
   op_backend: DivRoundModeOperator
 
 div.Scalar_mode:
   force_default: false
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char, Byte]
   guid: div
   op_backend: DivRoundModeOperator
   out_ids: [0]
@@ -1142,7 +1142,7 @@ div.Scalar_mode:
 
 div_.Scalar_mode:
   force_default: false
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char, Byte]
   guid: div
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
@@ -1152,7 +1152,7 @@ div_.Scalar_mode:
 div.Tensor_mode:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char, Byte]
   guid: div
   op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
@@ -1161,7 +1161,7 @@ div.Tensor_mode:
 div_.Tensor_mode:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Int, Char, Byte]
   guid: div
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
