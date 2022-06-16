@@ -496,7 +496,6 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
 
 OutputShapeInfRetType SpatialConv3DOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
-  at::Tensor bias;
   at::Tensor input = inputs[0].toTensor();
   at::Tensor weight = inputs[1].toTensor();
   const auto stride = inputs[3].toIntList().vec();
@@ -505,11 +504,6 @@ OutputShapeInfRetType SpatialConv3DOperator::ComputeOutputShape(
   const bool transposed = inputs[6].toBool();
   const auto output_padding = inputs[7].toIntList().vec();
   const int64_t groups = inputs[8].toInt();
-
-  // bias input is optional, it can either be a Tensor or should be None
-  if (inputs[2].isTensor()) {
-    bias = inputs[2].toTensor();
-  }
 
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
@@ -656,7 +650,6 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
 
 OutputShapeInfRetType SpatialConvOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
-  at::Tensor bias;
   at::Tensor input = inputs[0].toTensor();
   at::Tensor weight = inputs[1].toTensor();
   const auto stride = inputs[3].toIntList().vec();
@@ -665,11 +658,6 @@ OutputShapeInfRetType SpatialConvOperator::ComputeOutputShape(
   const bool transposed = inputs[6].toBool();
   // const auto output_padding = inputs[7].toIntList().vec();
   const int64_t groups = inputs[8].toInt();
-
-  // bias input is optional, it can either be a Tensor or should be None
-  if (inputs[2].isTensor()) {
-    bias = inputs[2].toTensor();
-  }
 
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
@@ -878,52 +866,54 @@ OutputShapeInfRetType ConvOperator::ComputeOutputShape(
       }
     } else {
       OutputShapeInfRetType out;
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-        // reshape bias to match to NCHW output format
-        auto reshapeOp = make_operator<ReshapeOperator>(
+      auto computeOutputShapeReshapeOp = [&]() {
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+          // reshape bias to match to NCHW output format
+          auto reshapeOp = make_operator<ReshapeOperator>(
+              this->p_context_->device_id_, input.scalar_type());
+          int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
+          c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+          // Jit Stack for Reshape
+          std::vector<c10::IValue> stackReshape;
+          stackReshape.emplace_back(IValue(bias));
+          stackReshape.emplace_back(IValue(shape));
+          auto reshapeOp_out =
+              out.call_ComputeOutputShape(reshapeOp, stackReshape);
+          bias = std::get<1>(reshapeOp_out.GetOutputTensor(0));
+        }
+      };
+
+      auto computeOutputShapeAddOp = [&](OutputShapeInfRetType& scOp_out) {
+        auto addOp = make_operator<AddOperator>(
             this->p_context_->device_id_, input.scalar_type());
-        int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
-        c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
-        // Jit Stack for Reshape
-        std::vector<c10::IValue> stackReshape;
-        stackReshape.emplace_back(IValue(bias));
-        stackReshape.emplace_back(IValue(shape));
-        auto reshapeOp_out =
-            out.call_ComputeOutputShape(reshapeOp, stackReshape);
-        bias = std::get<1>(reshapeOp_out.GetOutputTensor(0));
-      }
+        // Jit Stack for Add
+        Scalar alphaValue = 1.0;
+        torch::jit::Stack stack;
+        stack.emplace_back(IValue(std::get<1>(scOp_out.GetOutputTensor(0))));
+        stack.emplace_back(IValue(bias));
+        stack.emplace_back(IValue(alphaValue));
+        auto addOp_out = out.call_ComputeOutputShape(addOp, stack);
+        auto out_tensor = addOp_out.GetOutputTensor(0);
+        out.MoveToOutput(std::move(out_tensor));
+      };
 
       if (is_conv_3d) {
         auto scOp = make_operator<SpatialConv3DOperator>(
             this->p_context_->device_id_, input.scalar_type());
         auto scOp_out = out.call_ComputeOutputShape(scOp, inputs);
-        auto addOp = make_operator<AddOperator>(
-            this->p_context_->device_id_, input.scalar_type());
-        // Jit Stack for Add
-        Scalar alphaValue = 1.0;
-        torch::jit::Stack stack;
-        stack.emplace_back(IValue(std::get<1>(scOp_out.GetOutputTensor(0))));
-        stack.emplace_back(IValue(bias));
-        stack.emplace_back(IValue(alphaValue));
-        auto addOp_out = out.call_ComputeOutputShape(addOp, stack);
-        auto out_tensor = addOp_out.GetOutputTensor(0);
-        out.MoveToOutput(std::move(out_tensor));
+        // Reshape Op, Transpose bias tensor
+        computeOutputShapeReshapeOp();
+        // Add Op, Add bias tensor
+        computeOutputShapeAddOp(scOp_out);
         return out;
       } else {
         auto scOp = make_operator<SpatialConvOperator>(
             this->p_context_->device_id_, input.scalar_type());
         auto scOp_out = out.call_ComputeOutputShape(scOp, inputs);
-        auto addOp = make_operator<AddOperator>(
-            this->p_context_->device_id_, input.scalar_type());
-        // Jit Stack for Add
-        Scalar alphaValue = 1.0;
-        torch::jit::Stack stack;
-        stack.emplace_back(IValue(std::get<1>(scOp_out.GetOutputTensor(0))));
-        stack.emplace_back(IValue(bias));
-        stack.emplace_back(IValue(alphaValue));
-        auto addOp_out = out.call_ComputeOutputShape(addOp, stack);
-        auto out_tensor = addOp_out.GetOutputTensor(0);
-        out.MoveToOutput(std::move(out_tensor));
+        // Reshape Op, Transpose bias tensor
+        computeOutputShapeReshapeOp();
+        // Add Op, Add bias tensor
+        computeOutputShapeAddOp(scOp_out);
         return out;
       }
     }

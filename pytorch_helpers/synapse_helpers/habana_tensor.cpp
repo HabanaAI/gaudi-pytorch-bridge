@@ -175,6 +175,7 @@ tensor::tensor(tensor&& other) noexcept
       placeholder_{other.placeholder_},
       is_persistent_{other.is_persistent_},
       is_external_{other.is_external_},
+      is_intermediate_shape_(other.is_intermediate_shape_),
       memory_section_{std::move(other.memory_section_)},
       graph_{other.graph_},
       is_const_{other.is_const_},
@@ -204,6 +205,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   placeholder_ = other.placeholder_;
   is_persistent_ = other.is_persistent_;
   is_external_ = other.is_external_;
+  is_intermediate_shape_ = other.is_intermediate_shape_;
   memory_section_ = std::move(other.memory_section_);
   graph_ = other.graph_;
   is_const_ = other.is_const_;

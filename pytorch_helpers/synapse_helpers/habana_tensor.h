@@ -367,6 +367,7 @@ class tensor final {
         (is_persistent() ? ", persistent" : ", non-persistent"),
         (is_placeholder() ? ", placeholder" : ""),
         (is_external() ? ", external" : ", non-external"),
+        (is_intermediate_shape_tensor() ? ", intermediate shape tensor" : ""),
         offset_,
         total_size_bytes_);
   }
@@ -511,6 +512,9 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
                                         : ", non-persistent, ")
              << (tensor.is_placeholder() ? "placeholder, " : "")
              << (tensor.is_external() ? ", external" : ", non-external")
+             << (tensor.is_intermediate_shape_tensor()
+                     ? ", intermediate shape tensor"
+                     : "")
              << ", tensor type=" << tensor.tensor_type_
              << ", offset=" << tensor.offset_
              << ", size=" << tensor.total_size_bytes_ << '\n'
