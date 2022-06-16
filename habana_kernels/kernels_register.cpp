@@ -2805,15 +2805,8 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
       at::Tensor input,
       int64_t dim,
       c10::optional<at::ScalarType> dtype) {
-    at::Tensor result;
-    if ((input.scalar_type() != c10::ScalarType::BFloat16) &&
-        (input.scalar_type() != c10::ScalarType::Float)) {
-      Tensor converted =
-          dtype.has_value() ? input.toType(dtype.value()) : input;
-      result = hpu_wrap::_softmax(converted, dim, false);
-    } else {
-      result = hpu_wrap::_softmax(input, dim, false);
-    }
+    Tensor converted = dtype.has_value() ? input.toType(dtype.value()) : input;
+    auto result = hpu_wrap::_softmax(converted, dim, false);
     ctx->save_for_backward({result, input});
     ctx->saved_data["dim"] = dim;
     return result;
