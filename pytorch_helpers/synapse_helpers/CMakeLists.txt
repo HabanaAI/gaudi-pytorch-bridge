@@ -39,6 +39,8 @@ foreach (FLAVOR abi11)
     tensor_builder_base.cpp)
 
   target_include_directories(${TARGET_NAME}
+     PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${TARGET_NAME}
      PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${TARGET_NAME}
      PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -57,7 +59,6 @@ foreach (FLAVOR abi11)
 endforeach ()
 
 target_link_libraries(pytorch_synapse_helpers_abi11 PUBLIC
- Synapse
  absl::strings
  absl::optional
  absl::flags
@@ -68,7 +69,7 @@ set_target_properties(pytorch_synapse_helpers_abi11 PROPERTIES SUFFIX ".so")
 target_compile_features(pytorch_synapse_helpers_abi11 PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(pytorch_synapse_helpers_abi11 PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 target_compile_definitions(pytorch_synapse_helpers_abi11 PUBLIC GENERIC_HELPERS)
-target_link_libraries(pytorch_synapse_helpers_abi11 PUBLIC Synapse)
+target_link_libraries(pytorch_synapse_helpers_abi11 PUBLIC pytorch_synapse_shim)
 separate_debug_symbols(pytorch_synapse_helpers_abi11)
 
 export(TARGETS pytorch_synapse_helpers_abi11

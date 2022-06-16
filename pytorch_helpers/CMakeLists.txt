@@ -27,7 +27,7 @@ if (BUILD_DIST)
  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
+ add_subdirectory(synapse_shim)
  add_subdirectory(synapse_helpers)
  add_subdirectory(habana_helpers)
 
@@ -40,6 +40,7 @@ else ()
 
  add_subdirectory(cmake/absl_abi98)
  add_subdirectory(cmake/absl_abi11)
+ add_subdirectory(synapse_shim)
  add_subdirectory(synapse_helpers)
  add_subdirectory(habana_helpers)
 
