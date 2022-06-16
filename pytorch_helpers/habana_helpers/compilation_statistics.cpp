@@ -124,7 +124,9 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
         UNSET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
       }
     }
-    path += std::string("/") + std::string(id) + ".json";
+    std::string node_id =
+        std::getenv("ID") ? (std::string("_") + std::getenv("ID")) : "";
+    path += std::string("/") + std::string(id) + node_id + ".json";
     result = std::unique_ptr<CompilationStatistics>(
         new CompilationStatistics{path, global_count});
   } else {
