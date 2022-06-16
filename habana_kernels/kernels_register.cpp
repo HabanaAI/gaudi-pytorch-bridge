@@ -3853,30 +3853,6 @@ Tensor& optimizer_adagrad_hpu_wrap(
 
   return lr;
 }
-Tensor hpu_wrap::ones_like(
-    const Tensor& self,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<c10::MemoryFormat> memory_format) {
-  FALLBACK_IF_UNSUPPORTED_OP(
-      ones_like,
-      PARAMS1(self),
-      PARAMS2(self, dtype, layout, device, pin_memory, memory_format))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return ones_like_hpu_lazy(
-        self, dtype, layout, device, pin_memory, memory_format);
-  } else {
-    at::TensorOptions options = at::TensorOptions()
-                                    .dtype(dtype)
-                                    .layout(layout)
-                                    .pinned_memory(pin_memory)
-                                    .device(device);
-    return ones_like_hpu(self, options, memory_format);
-  }
-}
 
 void optimizer_ema_hpu_wrap(
     const TensorList& model_inputs,

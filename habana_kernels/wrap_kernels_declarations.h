@@ -746,13 +746,6 @@ struct hpu_wrap {
   static at::Tensor neg(const at::Tensor& self);
   static at::Tensor sin(const at::Tensor& self);
   static at::Tensor cos(const at::Tensor& self);
-  static at::Tensor ones_like(
-      const at::Tensor& self,
-      c10::optional<at::ScalarType> dtype,
-      c10::optional<at::Layout> layout,
-      c10::optional<at::Device> device,
-      c10::optional<bool> pin_memory,
-      c10::optional<at::MemoryFormat> memory_format);
   static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
   static at::Tensor _log_softmax(
       const at::Tensor& self,

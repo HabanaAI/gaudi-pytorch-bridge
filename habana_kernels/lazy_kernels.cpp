@@ -6660,28 +6660,6 @@ Tensor fused_norm_hpu_lazy(
   return result;
 }
 
-at::Tensor ones_like_hpu_lazy(
-    const Tensor& self,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<c10::MemoryFormat> memory_format) {
-  // Note that currently we are not lowering parameters as per the ones_like
-  // schema. This works for the ones_like usage in MNIST (where it is used
-  // only for filling grad_out tensor with 1's), but we may need to revisit
-  // this in future.
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> op(
-      "aten::ones_like",
-      {self, dtype, layout, device, pin_memory, memory_format},
-      {1, 2, 3, 4, 5},
-      {},
-      0);
-  return op.call();
-}
-
 Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
   PT_LAZY_TRACE;
 
