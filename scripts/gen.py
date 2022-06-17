@@ -121,6 +121,7 @@ _TYPE_NSMAP = {
     "Storage": "at::Storage",
     "IntList": "at::IntList",
     "IntArrayRef": "at::IntArrayRef",
+    "OptionalIntArrayRef" : "at::OptionalIntArrayRef",
     "ArrayRef": "at::ArrayRef",
     "Generator": "at::Generator",
     "Layout": "at::Layout",

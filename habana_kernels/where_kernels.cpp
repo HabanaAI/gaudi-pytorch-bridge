@@ -177,4 +177,4 @@ Tensor where_tensor_hpu(
 }
 
 static auto& KernelRegistry =
-    habana::KernelRegistry().add("aten::_s_where", KERNEL_FN(WhereOperator));
+    habana::KernelRegistry().add("aten::where.self", KERNEL_FN(WhereOperator));

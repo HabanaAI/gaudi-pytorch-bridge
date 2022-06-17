@@ -30,7 +30,7 @@
 #include <memory>
 #include <vector>
 
-using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 #define DATATYPE_OF_INDEX c10::ScalarType::Long
 

@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, nansum_4d_2d_keepdim) {
+TEST_F(HpuOpTest, DISABLED_nansum_4d_2d_keepdim) {
   GenerateInputs(1, {{2, 3, 4, 5}});
   const std::vector<int64_t> dim{0, 2};
 
@@ -51,7 +51,7 @@ TEST_F(HpuOpTest, nansum_4d_4d_reduce_dim_out) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, nansum_4d_3d_reduce_dim) {
+TEST_F(HpuOpTest, DISABLED_nansum_4d_3d_reduce_dim) {
   GenerateInputs(1, {{3, 6, 5, 4}});
   const std::vector<int64_t> dim{3, 1, 0};
 

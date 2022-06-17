@@ -12,7 +12,7 @@
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
-using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 at::Tensor& copy_hpu_(
     at::Tensor& self,

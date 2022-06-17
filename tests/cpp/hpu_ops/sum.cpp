@@ -12,7 +12,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, sum_4d_2d_keepdim) {
+TEST_F(HpuOpTest, DISABLED_sum_4d_2d_keepdim) {
   GenerateInputs(1, {{2, 3, 4, 5}});
   const std::vector<int64_t> dim{-2, 0};
 
@@ -66,7 +66,7 @@ TEST_F(HpuOpTest, sum_4d_2d_Int) {
   Compare(expected, result.to("hpu"));
 }
 
-TEST_F(HpuOpTest, sum_4d_3d_reduce_dim) {
+TEST_F(HpuOpTest, DISABLED_sum_4d_3d_reduce_dim) {
   GenerateInputs(1, {{3, 6, 5, 4}});
   const std::vector<int64_t> dim{3, 1, 0};
 

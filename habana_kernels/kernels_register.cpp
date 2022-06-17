@@ -343,7 +343,7 @@ Tensor hpu_wrap::rsub(
 
   return rsub_scalar_hpu(self, other, alpha);
 };
-Tensor hpu_wrap::_s_where(
+Tensor hpu_wrap::where(
     const Tensor& condition,
     const Tensor& self,
     const Tensor& other) {
@@ -1946,6 +1946,91 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
   }
 }
 
+std::tuple<Tensor, Tensor> hpu_wrap::_weight_norm_interface(
+    const Tensor& v_in,
+    const Tensor& g_in,
+    int64_t dim) {
+  /*
+  NOTE:
+  We use the CPU implementation that follows the "non-fused" (ie., assumes
+  can_use_fused=0) path.
+  */
+  TORCH_CHECK(
+      v_in.device() == g_in.device(),
+      "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
+      "on ",
+      v_in.device(),
+      " and g_in is on ",
+      g_in.device());
+  auto v = v_in.contiguous();
+  auto g = g_in.contiguous();
+  // align with cuda behavior, keep norm in 'Float' when g is 'BFloat16'
+  const auto dtype = (g.scalar_type() == at::ScalarType::BFloat16)
+      ? at::ScalarType::Float
+      : g.scalar_type();
+  auto norm = at::norm_except_dim(v.to(dtype), 2, dim);
+  // Double-differentiable primitive ops
+  // at::native::norm_except_dim would probably be fine as well.
+  return std::make_tuple(v * (g / norm), norm);
+}
+
+std::tuple<Tensor, Tensor> hpu_wrap::_weight_norm_interface_backward(
+    const Tensor& grad_w,
+    const Tensor& saved_v,
+    const Tensor& saved_g,
+    const Tensor& saved_norms,
+    int64_t dim) {
+  /*
+  NOTE: Implementation taken as such from
+  pytorch/aten/src/ATen/native/WeightNorm.cpp
+  */
+  // In Functions.cpp, the HardshrinkBackward object supplies
+  // "grad.contiguous()" as the first argument, so grad_w should be contiguous
+  // here. All these checks should succeed:
+  TORCH_CHECK(grad_w.is_contiguous(), "grad_w must be contiguous");
+  TORCH_CHECK(saved_v.is_contiguous(), "saved_v must be contiguous");
+  TORCH_CHECK(saved_g.is_contiguous(), "saved_g must be contiguous");
+  TORCH_CHECK(saved_norms.is_contiguous(), "saved_norms must be contiguous");
+
+  int64_t last_dim = saved_v.dim() - 1;
+  int64_t last_size = saved_v.size(last_dim);
+
+  // Like weight_norm_fused_backward, weight_norm_differentiable_backward should
+  // only ever be called through a WeightNormFusedBackward object, so we expect
+  // that dim == 0 || dim == saved_v.size(-1)
+  TORCH_CHECK(
+      dim == 0 || dim == last_dim,
+      "Expected dim to be the first or last dimension");
+
+  // saved_g and saved_norms are already shaped to broadcast over the correct
+  // dimensions
+
+  // ...but saved_norms might be Float when saved_g and saved_v are half.
+  // To consider:  saved_norms.to(..., True /*non_blocking*/);
+  auto norms = saved_norms.to(saved_g.scalar_type());
+
+  std::vector<int64_t> bcast_size(saved_v.dim(), 1);
+
+  // Analytic backward path using differentiable primitive ops
+  if (dim == 0) {
+    bcast_size[0] = saved_v.size(0);
+    auto per_dim_sums =
+        (grad_w * saved_v).view({saved_v.size(0), -1}).sum(1).view(bcast_size);
+    auto grad_v = (saved_g / norms) *
+        (grad_w - saved_v * (per_dim_sums / (norms * norms)));
+    auto grad_g = per_dim_sums / norms;
+    return std::make_tuple(grad_v, grad_g);
+  } else { // dim == last_dim
+    bcast_size[last_dim] = last_size;
+    auto per_dim_sums =
+        (grad_w * saved_v).view({-1, last_size}).sum(0).view(bcast_size);
+    auto grad_v = (saved_g / norms) *
+        (grad_w - saved_v * (per_dim_sums / (norms * norms)));
+    auto grad_g = per_dim_sums / norms;
+    return std::make_tuple(grad_v, grad_g);
+  }
+}
+
 std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm(
     const Tensor& input,
     IntArrayRef normalized_shape,
@@ -3321,24 +3406,25 @@ Tensor hpu_wrap::tanh_backward(const Tensor& grad_in, const Tensor& input) {
       tanh_backward, PARAMS1(grad_in, input), PARAMS2(grad_in, input))
   return tanh_backward_hpu(grad_in, input);
 };
-Tensor hpu_wrap::gelu(const Tensor& self) {
-  PT_OP_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP(gelu, PARAMS1(self), PARAMS2(self))
+Tensor hpu_wrap::gelu(const Tensor& self, c10::string_view sv) {
+  FALLBACK_IF_UNSUPPORTED_OP(gelu, PARAMS1(self), PARAMS2(self, sv))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gelu_hpu_lazy(self);
+    return gelu_hpu_lazy(self, sv);
 
   } else {
     return gelu_hpu(self);
   }
 };
-Tensor hpu_wrap::gelu_backward(const Tensor& grad, const Tensor& self) {
-  PT_OP_TRACE;
+Tensor hpu_wrap::gelu_backward(
+    const Tensor& grad,
+    const Tensor& self,
+    c10::string_view sv) {
   FALLBACK_IF_UNSUPPORTED_OP(
-      gelu_backward, PARAMS1(grad, self), PARAMS2(grad, self))
+      gelu_backward, PARAMS1(grad, self), PARAMS2(grad, self, sv))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gelu_backward_hpu_lazy(grad, self);
+    return gelu_backward_hpu_lazy(grad, self, sv);
 
   } else {
     return gelu_backward_hpu(grad, self);

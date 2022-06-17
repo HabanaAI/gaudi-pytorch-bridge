@@ -112,19 +112,32 @@ void HbLazyTensorImpl::shallow_copy_from(
   const_cast<HbLazyTensorImpl*>(this)->refresh_contiguous();
 }
 
-at::IntArrayRef HbLazyTensorImpl::sizes() const {
+at::IntArrayRef HbLazyTensorImpl::sizes_custom() const {
   HABANA_ASSERT(m_size_initialized);
-  return c10::TensorImpl::sizes();
+  return sizes_default();
 }
 
-int64_t HbLazyTensorImpl::dim() const {
+int64_t HbLazyTensorImpl::dim_custom() const {
   HABANA_ASSERT(m_size_initialized);
-  return c10::TensorImpl::dim();
+  return dim_default();
 }
 
-int64_t HbLazyTensorImpl::numel() const {
+int64_t HbLazyTensorImpl::numel_custom() const {
   HABANA_ASSERT(m_size_initialized);
-  return compute_numel();
+  // HACK
+  int64_t n = 1;
+  for (const auto& i : sizes()) {
+    n *= i;
+  }
+  return n;
+  return numel_default();
+}
+
+bool HbLazyTensorImpl::is_contiguous_custom(
+    at::MemoryFormat memory_format) const {
+  // Only check that the storage is already contiguous.
+  // HABANA_ASSERT(is_contiguous_);
+  return is_contiguous_default(memory_format);
 }
 
 inline int64_t HbLazyTensorImpl::compute_numel() const {
@@ -133,17 +146,6 @@ inline int64_t HbLazyTensorImpl::compute_numel() const {
     n *= i;
   }
   return n;
-}
-
-bool HbLazyTensorImpl::is_contiguous(at::MemoryFormat memory_format) const {
-  // Only check that the storage is already contiguous.
-  // HABANA_ASSERT(is_contiguous_);
-  return c10::TensorImpl::is_contiguous(memory_format);
-}
-
-int64_t HbLazyTensorImpl::size(int64_t d) const {
-  HABANA_ASSERT(m_size_initialized);
-  return c10::TensorImpl::size(d);
 }
 
 void HbLazyTensorImpl::ComputeArrayStrides(

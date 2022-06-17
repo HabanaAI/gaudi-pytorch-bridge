@@ -706,6 +706,7 @@ __ilshift__.Tensor:
   inplace_ids: [0]
 
 bitwise_left_shift.Scalar_Tensor:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: mult_fwd
@@ -733,6 +734,7 @@ bitwise_left_shift.Tensor_out:
   type_promotion: true
 
 bitwise_left_shift.Tensor_Scalar:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: mult_fwd
@@ -742,6 +744,7 @@ bitwise_left_shift.Tensor_Scalar:
   scalar_ids: [1]
 
 bitwise_left_shift.Tensor_Scalar_out:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: mult_fwd
@@ -758,6 +761,7 @@ bitwise_left_shift_.Tensor:
   inplace_ids: [0]
 
 bitwise_left_shift_.Tensor_Scalar:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: mult_fwd
@@ -821,6 +825,7 @@ __irshift__.Tensor:
   inplace_ids: [0]
 
 bitwise_right_shift.Scalar_Tensor:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: div
@@ -848,6 +853,7 @@ bitwise_right_shift.Tensor_out:
   type_promotion: true
 
 bitwise_right_shift.Tensor_Scalar:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: div
@@ -857,6 +863,7 @@ bitwise_right_shift.Tensor_Scalar:
   scalar_ids: [1]
 
 bitwise_right_shift.Tensor_Scalar_out:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: div
@@ -873,6 +880,7 @@ bitwise_right_shift_.Tensor:
   inplace_ids: [0]
 
 bitwise_right_shift_.Tensor_Scalar:
+  force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: div
@@ -916,6 +924,7 @@ clamp:
   legacy_eager: true
 
 clamp.Tensor:
+  force_default: false
   dtypes: [BFloat16, Float, Int]
   op_backend: clampTensor
   out_ids: [0]
@@ -1903,6 +1912,7 @@ lerp_.Tensor:
   inplace_ids: [0]
 
 linalg_cross:
+  force_default: false
   dtypes: [BFloat16, Float, Int]
   op_backend: LinAlgCross
   out_ids: [0]
@@ -2374,13 +2384,7 @@ nansum:
   op_backend: Nansum
   out_ids: [0]
 
-nansum.dim_IntList:
-  custom_output_shape: NanSumIntListOutputShape
-  dtypes: [Float]
-  op_backend: NansumList
-  out_ids: [0]
-
-nansum.IntList_out:
+nansum.out:
   custom_output_shape: NanSumIntListOutputShape
   dtypes: [Float]
   op_backend: NansumList
@@ -3294,10 +3298,6 @@ sqrt_:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   inplace_ids: [0]
-
-square.out:
-  dtypes: [BFloat16, Float, Int, Short]
-  op_backend: Square
 
 sub.Tensor:
   force_default: false

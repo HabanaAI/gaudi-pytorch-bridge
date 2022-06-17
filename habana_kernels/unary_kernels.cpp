@@ -728,7 +728,7 @@ void GeluOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 1,
+      (inputs.size() == 1 || inputs.size() == 2),
       "Incorrect size of inputs expected for Gelu operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -891,8 +891,10 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
   auto grad = inputs[0].toTensor();
   auto self = inputs[1].toTensor();
   at::ScalarType scalar_type = self.scalar_type();
-
-  if (inputs.size() == 2) {
+  auto is_sv = false;
+  if (inputs.size() == 3)
+    is_sv = !inputs[2].isTensor();
+  if (inputs.size() == 2 || is_sv) {
     // x^3 implemented as x*x*x. Identity node used to create aliased tensor
     // since GC/TPC does not like giving same tensor as both inputs to a
     // binary op

@@ -1455,7 +1455,7 @@ Tensor where_tensor_hpu_lazy(
     const Tensor& other) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k(
-      "aten::_s_where",
+      "aten::where",
       {condition, self, other},
       {},
       {},
@@ -2082,7 +2082,7 @@ Tensor& masked_fill_hpu_lazy_(
   // TODO revisit once strided mem copy feature is mature
 
   LazyOp<Tensor> where_op(
-      "aten::_s_where",
+      "aten::where",
       {mask, value, self},
       {},
       {},
@@ -6387,15 +6387,18 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   return tanh_out_hpu(out, self);
 }
 
-Tensor gelu_hpu_lazy(const Tensor& self) {
+Tensor gelu_hpu_lazy(const Tensor& self, c10::string_view sv) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::gelu", {self}};
+  LazyOp<at::Tensor> k{"aten::gelu", {self, sv}};
   return k.call();
 }
 
-Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
+Tensor gelu_backward_hpu_lazy(
+    const Tensor& grad,
+    const Tensor& self,
+    c10::string_view sv) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::gelu_backward", {grad, self}};
+  LazyOp<at::Tensor> k{"aten::gelu_backward", {grad, self, sv}};
   return k.call();
 }
 

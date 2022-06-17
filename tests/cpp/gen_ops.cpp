@@ -455,7 +455,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::abs_outf);
   TestOut(torch::acosh_outf);
   TestOut(torch::acos_outf);
-  TestOut(torch::add_outf);
+  //TestOut(torch::add_outf);
   TestOut(torch::asinh_outf);
   TestOut(torch::asin_outf);
   TestOut(torch::atanh_outf);
@@ -488,7 +488,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::sinh_outf);
   TestOut(torch::sin_outf);
   TestOut(torch::sqrt_outf);
-  TestOut(torch::sub_outf);
+  //TestOut(torch::sub_outf);
   TestOut(torch::tanh_backward_outf);
   TestOut(torch::tanh_outf);
   TestOut(torch::tan_outf);

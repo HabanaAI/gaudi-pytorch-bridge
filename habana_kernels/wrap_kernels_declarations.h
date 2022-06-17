@@ -364,7 +364,7 @@ struct hpu_wrap {
   static at::Tensor bmm(const at::Tensor& self, const at::Tensor& mat2);
   static at::Tensor dot(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor mv(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor _s_where(
+  static at::Tensor where(
       const at::Tensor& condition,
       const at::Tensor& self,
       const at::Tensor& other);
@@ -454,6 +454,16 @@ struct hpu_wrap {
       bool train,
       double eps,
       ::std::array<bool, 3> output_mask);
+  static ::std::tuple<at::Tensor, at::Tensor> _weight_norm_interface(
+      const at::Tensor& v_in,
+      const at::Tensor& g_in,
+      int64_t dim);
+  static ::std::tuple<at::Tensor, at::Tensor> _weight_norm_interface_backward(
+      const at::Tensor& grad_w,
+      const at::Tensor& saved_v,
+      const at::Tensor& saved_g,
+      const at::Tensor& saved_norms,
+      int64_t dim);
   static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> native_layer_norm(
       const at::Tensor& input,
       at::IntArrayRef normalized_shape,
@@ -724,10 +734,13 @@ struct hpu_wrap {
   static at::Tensor tanh_backward(
       const at::Tensor& grad_in,
       const at::Tensor& input);
-  static at::Tensor gelu(const at::Tensor& self);
+  static at::Tensor gelu(
+      const at::Tensor& self,
+      c10::string_view approximate = "none");
   static at::Tensor gelu_backward(
       const at::Tensor& grad,
-      const at::Tensor& self);
+      const at::Tensor& self,
+      c10::string_view approximate = "none");
 
   static at::Tensor& erf_(at::Tensor& self);
   static at::Tensor erf(const at::Tensor& self);
@@ -826,26 +839,27 @@ struct hpu_wrap {
   static at::Tensor& bitwise_not_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor upsample_nearest2d(
       const at::Tensor& input,
-      c10::optional<at::IntArrayRef> output_size,
+      at::OptionalIntArrayRef output_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor upsample_nearest2d_backward(
       const at::Tensor& grad_output,
-      c10::optional<at::IntArrayRef> output_size,
+      at::OptionalIntArrayRef output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor upsample_nearest3d(
       const at::Tensor& input,
-      c10::optional<at::IntArrayRef> output_size,
+      at::OptionalIntArrayRef output_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor upsample_nearest3d_backward(
       const at::Tensor& grad_output,
-      c10::optional<at::IntArrayRef> output_size,
+      at::OptionalIntArrayRef output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor remainder(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor remainder(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor& remainder_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor& remainder_(at::Tensor& self, const at::Scalar& other);
+
   static at::Tensor& remainder_out(
       const at::Tensor& self,
       const at::Tensor& other,

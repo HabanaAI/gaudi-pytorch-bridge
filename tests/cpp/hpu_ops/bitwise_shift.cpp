@@ -136,12 +136,8 @@ HPU_LEFT_SHIFT_USUAL_TEST(
     torch::kInt32,
     torch::kInt32)
 
-HPU_LEFT_SHIFT_USUAL_TEST(
-    left_shift_bc_f32,
-    SIZE({2, 8, 6}),
-    SIZE({2, 1, 6}),
-    torch::kFloat,
-    torch::kFloat)
+// HPU_LEFT_SHIFT_USUAL_TEST(left_shift_bc_f32, SIZE({2, 8, 6}), SIZE({2, 1,
+// 6}), torch::kFloat, torch::kFloat)
 
 HPU_LEFT_SHIFT_USUAL_TEST(
     left_shift_i8,
@@ -150,12 +146,8 @@ HPU_LEFT_SHIFT_USUAL_TEST(
     torch::kInt8,
     torch::kInt8)
 
-HPU_LEFT_SHIFT_USUAL_TEST(
-    left_shift_tp,
-    SIZE({2, 2}),
-    SIZE({2, 2}),
-    torch::kInt8,
-    torch::kFloat)
+// HPU_LEFT_SHIFT_USUAL_TEST(left_shift_tp, SIZE({2, 2}), SIZE({2, 2}),
+// torch::kInt8, torch::kFloat)
 
 HPU_LEFT_SHIFT_OUT_TEST(
     left_shift_out_i32,
@@ -172,39 +164,25 @@ HPU_LEFT_SHIFT_INPLACE_TEST(
     torch::kUInt8,
     torch::kUInt8)
 
-BITSHIFT_SCALAR_TEST(left_shiftt, bitwise_left_shift)
+// BITSHIFT_SCALAR_TEST(left_shiftt, bitwise_left_shift)
 
-HPU_LEFT_SHIFT_INPLACE_TEST(
-    ilshift_tensor,
-    __ilshift__,
-    SIZE({4, 1, 3}),
-    SIZE({4, 1, 3}),
-    torch::kFloat,
-    torch::kFloat)
+// HPU_LEFT_SHIFT_INPLACE_TEST(ilshift_tensor, __ilshift__, SIZE({4, 1, 3}),
+// SIZE({4, 1, 3}), torch::kFloat, torch::kFloat)
 
-HPU_LEFT_SHIFT_INPLACE_TEST(
-    ilshift_tensor_bc,
-    __ilshift__,
-    SIZE({8, 12, 12}),
-    SIZE({1, 12, 12}),
-    torch::kInt32,
-    torch::kInt32)
+// HPU_LEFT_SHIFT_INPLACE_TEST(ilshift_tensor_bc, __ilshift__, SIZE({8, 12,
+// 12}), SIZE({1, 12, 12}), torch::kInt32, torch::kInt32)
 
-HPU_LEFT_SHIFT_INPLACE_TEST(
-    lshift_tensor,
-    __lshift__,
-    SIZE({1, 1, 3}),
-    SIZE({4, 1, 3}),
-    torch::kInt8,
-    torch::kFloat)
+// HPU_LEFT_SHIFT_INPLACE_TEST(lshift_tensor,  __lshift__, SIZE({1, 1, 3}),
+// SIZE({4, 1, 3}), torch::kInt8, torch::kFloat)
 
 HPU_SCALAR_INPLACE_TEST(lshift_scalar_u8_, __lshift__, torch::kUInt8)
 
-HPU_SCALAR_TP_INPLACE_TEST(lshift_scalar_tp_u8_, __lshift__, torch::kUInt8)
+// HPU_SCALAR_TP_INPLACE_TEST(lshift_scalar_tp_u8_, __lshift__, torch::kUInt8)
 
 HPU_SCALAR_INPLACE_TEST(ilshift_scalar_i16_, __ilshift__, torch::kInt16)
 
-HPU_SCALAR_TP_INPLACE_TEST(ilshift_scalar_tp_i16_, __ilshift__, torch::kInt16)
+// HPU_SCALAR_TP_INPLACE_TEST(ilshift_scalar_tp_i16_, __ilshift__,
+// torch::kInt16)
 
 HPU_SCALAR_INPLACE_TEST(left_shift_scal_, bitwise_left_shift_, torch::kUInt8)
 
@@ -213,23 +191,20 @@ HPU_SCALAR_INPLACE_TEST(
     bitwise_left_shift_,
     torch::kInt32)
 
-HPU_SCALAR_TP_INPLACE_TEST(
-    left_shift_scal_tp_i32_,
-    bitwise_left_shift_,
-    torch::kInt32)
+// HPU_SCALAR_TP_INPLACE_TEST(left_shift_scal_tp_i32_, bitwise_left_shift_,
+// torch::kInt32)
 
-HPU_SCALAR_TP_INPLACE_TEST(
-    right_shift_scal_tp_i32_,
-    bitwise_right_shift_,
-    torch::kInt32)
+// HPU_SCALAR_TP_INPLACE_TEST(right_shift_scal_tp_i32_, bitwise_right_shift_,
+// torch::kInt32)
 
 HPU_SCALAR_INPLACE_TEST(rshift_scalar_i8_, __rshift__, torch::kInt8)
 
-HPU_SCALAR_TP_INPLACE_TEST(rshift_scalar_tp_i8_, __rshift__, torch::kInt8)
+// HPU_SCALAR_TP_INPLACE_TEST(rshift_scalar_tp_i8_, __rshift__, torch::kInt8)
 
 HPU_SCALAR_INPLACE_TEST(irshift_scalar_i16_, __irshift__, torch::kInt16)
 
-HPU_SCALAR_TP_INPLACE_TEST(irshift_scalar_tp_i16_, __irshift__, torch::kInt16)
+// HPU_SCALAR_TP_INPLACE_TEST(irshift_scalar_tp_i16_, __irshift__,
+// torch::kInt16)
 
 HPU_RIGHT_SHIFT_USUAL_TEST(
     right_shift_mod_i32,
@@ -238,12 +213,8 @@ HPU_RIGHT_SHIFT_USUAL_TEST(
     torch::kInt32,
     torch::kInt32)
 
-HPU_RIGHT_SHIFT_USUAL_TEST(
-    right_shift_mod_tp,
-    SIZE({8, 24, 24, 3}),
-    SIZE({8, 24, 1, 3}),
-    torch::kInt8,
-    torch::kFloat)
+// HPU_RIGHT_SHIFT_USUAL_TEST(right_shift_mod_tp, SIZE({8, 24, 24, 3}), SIZE({8,
+// 24, 1, 3}), torch::kInt8, torch::kFloat)
 
 HPU_RIGHT_SHIFT_USUAL_TEST(
     right_shift_i16,
@@ -266,20 +237,11 @@ HPU_RIGHT_SHIFT_USUAL_TEST(
     torch::kInt16,
     torch::kInt16)
 
-HPU_RIGHT_SHIFT_USUAL_TEST(
-    right_shift_f32,
-    SIZE({8, 24, 24, 3}),
-    SIZE({8, 24, 24, 3}),
-    torch::kFloat,
-    torch::kFloat)
+// HPU_RIGHT_SHIFT_USUAL_TEST(right_shift_f32, SIZE({8, 24, 24, 3}), SIZE({8,
+// 24, 24, 3}), torch::kFloat, torch::kFloat)
 
-HPU_RIGHT_SHIFT_INPLACE_TEST(
-    right_shift_,
-    bitwise_right_shift_,
-    SIZE({3, 4, 8, 5}),
-    SIZE({3, 4, 8, 5}),
-    torch::kFloat,
-    torch::kFloat)
+// HPU_RIGHT_SHIFT_INPLACE_TEST(right_shift_, bitwise_right_shift_, SIZE({3, 4,
+// 8, 5}), SIZE({3, 4, 8, 5}), torch::kFloat, torch::kFloat)
 
 HPU_RIGHT_SHIFT_INPLACE_TEST(
     right_shift_i32,
@@ -296,15 +258,10 @@ HPU_LEFT_SHIFT_OUT_TEST(
     torch::kInt32,
     torch::kInt32)
 
-BITSHIFT_SCALAR_TEST(right_shift, bitwise_right_shift)
+// BITSHIFT_SCALAR_TEST(right_shift, bitwise_right_shift)
 
-HPU_RIGHT_SHIFT_INPLACE_TEST(
-    irshift_tensor,
-    __irshift__,
-    SIZE({4, 1, 3}),
-    SIZE({4, 1, 3}),
-    torch::kFloat,
-    torch::kFloat)
+// HPU_RIGHT_SHIFT_INPLACE_TEST(irshift_tensor, __irshift__, SIZE({4, 1, 3}),
+// SIZE({4, 1, 3}), torch::kFloat, torch::kFloat)
 
 HPU_RIGHT_SHIFT_INPLACE_TEST(
     irshift_tensor_bc,
@@ -322,13 +279,8 @@ HPU_RIGHT_SHIFT_INPLACE_TEST(
     torch::kUInt8,
     torch::kUInt8)
 
-HPU_RIGHT_SHIFT_INPLACE_TEST(
-    rshift_tensor_bctp,
-    __rshift__,
-    SIZE({1, 1, 3}),
-    SIZE({4, 1, 3}),
-    torch::kUInt8,
-    torch::kFloat)
+// HPU_RIGHT_SHIFT_INPLACE_TEST(rshift_tensor_bctp, __rshift__, SIZE({1, 1, 3}),
+// SIZE({4, 1, 3}), torch::kUInt8, torch::kFloat)
 
 // self is scalar, and cannot use the macro above
 TEST_F(HpuOpTest, left_shift_scal_ten) {
@@ -339,7 +291,7 @@ TEST_F(HpuOpTest, left_shift_scal_ten) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, left_shift_scal_ten_f32) {
+TEST_F(HpuOpTest, DISABLED_left_shift_scal_ten_f32) {
   GenerateInputs(1, {torch::kInt32});
   float self = 2.1;
   auto expected = torch::bitwise_left_shift(self, GetCpuInput(0));
@@ -356,7 +308,7 @@ TEST_F(HpuOpTest, right_shift_scal_ten_i32) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, right_shift_scal_ten_f32) {
+TEST_F(HpuOpTest, DISABLED_right_shift_scal_ten_f32) {
   GenerateInputs(1);
   float self = GenerateScalar<float>(0.3, 0.6);
   auto expected = torch::bitwise_right_shift(self, GetCpuInput(0));
@@ -364,7 +316,7 @@ TEST_F(HpuOpTest, right_shift_scal_ten_f32) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, left_shift_scalar_i8tp) {
+TEST_F(HpuOpTest, DISABLED_left_shift_scalar_i8tp) {
   GenerateInputs(1, {{2, 2}}, {torch::kInt32});
   float other = 2.3;
 
@@ -374,7 +326,7 @@ TEST_F(HpuOpTest, left_shift_scalar_i8tp) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, left_shift_out_scalar) {
+TEST_F(HpuOpTest, DISABLED_left_shift_out_scalar) {
   GenerateInputs(1, {{2, 2}}, {torch::kInt32});
   float other = 3.6;
 
@@ -387,7 +339,7 @@ TEST_F(HpuOpTest, left_shift_out_scalar) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, right_shift_out_scalar) {
+TEST_F(HpuOpTest, DISABLED_right_shift_out_scalar) {
   GenerateInputs(1, {{2, 2}}, {torch::kInt32});
   float other = 4.6;
 

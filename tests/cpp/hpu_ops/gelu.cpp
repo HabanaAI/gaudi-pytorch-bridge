@@ -64,8 +64,8 @@ TEST_F(HpuOpTest, gelu_out_float) {
 
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::gelu_outf(GetCpuInput(0), expected);
-  torch::gelu_outf(GetHpuInput(0), result);
+  torch::gelu_outf(GetCpuInput(0), "none", expected);
+  torch::gelu_outf(GetHpuInput(0), "none", result);
 
   Compare(expected, result);
 }
@@ -82,8 +82,8 @@ TEST_F(HpuOpTest, gelu_out_bfloat) {
 
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::gelu_outf(GetCpuInput(0), expected);
-  torch::gelu_outf(GetHpuInput(0), result);
+  torch::gelu_outf(GetCpuInput(0), "none", expected);
+  torch::gelu_outf(GetHpuInput(0), "none", result);
 
   Compare(expected, result, 1e-2, 1e-2);
 }
@@ -96,8 +96,8 @@ TEST_F(HpuOpTest, gelu_backwardout_float) {
 
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::gelu_backward_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::gelu_backward_outf(GetHpuInput(0), GetHpuInput(1), result);
+  torch::gelu_backward_outf(GetCpuInput(0), GetCpuInput(1), "none", expected);
+  torch::gelu_backward_outf(GetHpuInput(0), GetHpuInput(1), "none", result);
 
   Compare(expected, result);
 }
@@ -114,8 +114,8 @@ TEST_F(HpuOpTest, gelu_backwardout_bfloat) {
 
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::gelu_backward_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::gelu_backward_outf(GetHpuInput(0), GetHpuInput(1), result);
+  torch::gelu_backward_outf(GetCpuInput(0), GetCpuInput(1), "none", expected);
+  torch::gelu_backward_outf(GetHpuInput(0), GetHpuInput(1), "none", result);
 
   Compare(expected, result, 1e-2, 1e-2);
 }

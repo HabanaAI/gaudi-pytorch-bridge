@@ -13,7 +13,7 @@
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
 
-using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 #define HPU_LAZY_FUNC_DECL(op_code) \
   at::Tensor op_code##_hpu_lazy(const at::Tensor& self);
@@ -661,10 +661,11 @@ at::Tensor hardsigmoid_backward_hpu_lazy(
 
 at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
 at::Tensor& tanh_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-at::Tensor gelu_hpu_lazy(const at::Tensor& self);
+at::Tensor gelu_hpu_lazy(const at::Tensor& self, c10::string_view sv);
 at::Tensor gelu_backward_hpu_lazy(
     const at::Tensor& grad,
-    const at::Tensor& self);
+    const at::Tensor& self,
+    c10::string_view sv);
 at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
 at::Tensor& reciprocal_hpu_lazy_(at::Tensor& self);
 at::Tensor reciprocal_hpu_lazy(const at::Tensor& self);

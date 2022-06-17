@@ -66,9 +66,6 @@ def _load_habana_module(library_list):
     if habana_modules_directory is None:
         raise Exception("Cannot find Habana modules")
 
-    if "HABANA_PROFILE" not in os.environ:
-        os.environ["HABANA_PROFILE"] = "profile_api"
-
     print("Loading Habana modules from {}".format(habana_modules_directory))
     for module in library_list:
         torch.ops.load_library(
