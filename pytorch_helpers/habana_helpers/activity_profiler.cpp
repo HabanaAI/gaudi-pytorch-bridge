@@ -18,6 +18,7 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "Config.h"
 #include "libkineto.h"
+#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #pragma GCC diagnostic pop
 
 namespace habana {
@@ -374,6 +375,9 @@ class ProfilerSession : public libkineto::IActivityProfilerSession {
 
  private:
   void doStart() {
+    // Necessary to initialize the device to use synapse api calls
+    HABANAGuardImpl h;
+    h.getDevice();
     auto hpu_start_time = nowNanos(CLOCK_MONOTONIC_RAW) / 1000;
     auto wall_start_time = nowNanos(CLOCK_REALTIME) / 1000;
     parser_ = std::make_unique<HpuTraceParser>(
