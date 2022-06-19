@@ -278,6 +278,8 @@ class HlExec {
 
   void set_graph(GraphPtr p_g) {
     mp_g_ = p_g;
+    mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>();
+    mp_g_and_meta_data_->set_cached_graph(mp_g_);
   }
 
   void set_lazy_front_end_info(
