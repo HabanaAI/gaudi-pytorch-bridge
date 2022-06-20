@@ -30,6 +30,8 @@
 #include <memory>
 #include <vector>
 
+using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+
 #define DATATYPE_OF_INDEX c10::ScalarType::Long
 
 // This prefix indicates no TPC kernel exists, but op name with

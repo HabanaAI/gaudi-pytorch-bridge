@@ -12,6 +12,8 @@
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
+using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+
 at::Tensor& copy_hpu_(
     at::Tensor& self,
     const at::Tensor& src,
@@ -156,20 +158,20 @@ at::Tensor& remainder_scalar_hpu_out(
     at::Tensor& result);
 at::Tensor upsample_nearest2d_hpu(
     const at::Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest2d_backward_hpu(
     const at::Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest3d_hpu(
     const at::Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest3d_backward_hpu(
     const at::Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor convolution_hpu(

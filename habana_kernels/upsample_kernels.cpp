@@ -180,7 +180,7 @@ ns_ResizeKernel::Params synapse_resize_params_builder(
     ResizeInterpolationMode_t interp_mode,
     ResizeNearestMode_t nearest_modetype,
     ResizeCoordinateTransformationMode_t coord_mode,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors,
     const bool is_upsample_3d = false) {
   ns_ResizeKernel::Params resize_params{};
@@ -559,7 +559,7 @@ Tensor upsample_backward_op_hpu(
 
 Tensor upsample_nearest2d_hpu(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_KERNEL_BEGIN;
   // Create the operator
@@ -579,7 +579,7 @@ Tensor upsample_nearest2d_hpu(
 
 Tensor upsample_nearest3d_hpu(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_KERNEL_BEGIN;
   // Create the operator
@@ -599,7 +599,7 @@ Tensor upsample_nearest3d_hpu(
 
 Tensor upsample_nearest2d_backward_hpu(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_KERNEL_BEGIN;
@@ -624,7 +624,7 @@ Tensor upsample_nearest2d_backward_hpu(
 
 Tensor upsample_nearest3d_backward_hpu(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_KERNEL_BEGIN;

@@ -6190,7 +6190,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
 
 Tensor upsample_nearest2d_hpu_lazy(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;
   Tensor input_cast = input;
@@ -6236,7 +6236,7 @@ Tensor upsample_nearest2d_hpu_lazy(
 
 Tensor upsample_nearest2d_backward_hpu_lazy(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;
@@ -6298,7 +6298,7 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
 
 Tensor upsample_nearest3d_hpu_lazy(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;
   Tensor input_cast = input;
@@ -6344,7 +6344,7 @@ Tensor upsample_nearest3d_hpu_lazy(
 
 Tensor upsample_nearest3d_backward_hpu_lazy(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;

@@ -3570,7 +3570,7 @@ std::vector<at::Tensor> hpu_wrap::split(
 
 Tensor hpu_wrap::upsample_nearest2d(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   FALLBACK_IF_UNSUPPORTED_OP_O(
       upsample_nearest2d,
@@ -3587,7 +3587,7 @@ Tensor hpu_wrap::upsample_nearest2d(
 
 Tensor hpu_wrap::upsample_nearest2d_backward(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   FALLBACK_IF_UNSUPPORTED_OP_O(
@@ -3607,7 +3607,7 @@ Tensor hpu_wrap::upsample_nearest2d_backward(
 
 Tensor hpu_wrap::upsample_nearest3d(
     const Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   FALLBACK_IF_UNSUPPORTED_OP_O(
       upsample_nearest3d,
@@ -3624,7 +3624,7 @@ Tensor hpu_wrap::upsample_nearest3d(
 
 Tensor hpu_wrap::upsample_nearest3d_backward(
     const Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   FALLBACK_IF_UNSUPPORTED_OP_O(

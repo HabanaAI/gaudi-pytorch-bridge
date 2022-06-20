@@ -28,12 +28,12 @@ class UpsampleOperator : public HabanaOperator {
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
   static std::vector<int64_t> compute_output_shape(
       std::vector<int64_t> shape_in,
-      c10::optional<at::IntArrayRef> output_size,
+      OptionalIntArrayRef output_size,
       c10::optional<at::ArrayRef<double>> scales,
       c10::MemoryFormat memory_format);
   static std::vector<int64_t> compute_output_shape(
       std::vector<int64_t> shape_in,
-      c10::optional<at::IntArrayRef> output_size,
+      OptionalIntArrayRef output_size,
       c10::optional<at::ArrayRef<double>> scales);
 };
 

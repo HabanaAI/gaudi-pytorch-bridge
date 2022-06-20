@@ -13,6 +13,8 @@
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
 
+using OptionalIntArrayRef = c10::optional<at::IntArrayRef>;
+
 #define HPU_LAZY_FUNC_DECL(op_code) \
   at::Tensor op_code##_hpu_lazy(const at::Tensor& self);
 #define HPU_LAZY_FUNC_DECL_INPLACE(op_code) \
@@ -143,20 +145,20 @@ at::Tensor pow_scalar_tensor_hpu_lazy(
 at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor upsample_nearest2d_hpu_lazy(
     const at::Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest2d_backward_hpu_lazy(
     const at::Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest3d_hpu_lazy(
     const at::Tensor& input,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor upsample_nearest3d_backward_hpu_lazy(
     const at::Tensor& grad_output,
-    c10::optional<at::IntArrayRef> output_size,
+    OptionalIntArrayRef output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor convolution_hpu_lazy(
