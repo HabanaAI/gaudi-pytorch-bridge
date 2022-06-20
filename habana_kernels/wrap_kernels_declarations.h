@@ -903,7 +903,7 @@ void optimizer_ema_hpu_wrap(
     const at::TensorList& model_inputs,
     at::TensorList& updated_ema,
     const at::Tensor& decay);
-at::Tensor& optimizer_sgd_hpu_wrap(
+void optimizer_sgd_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::Tensor& lr,

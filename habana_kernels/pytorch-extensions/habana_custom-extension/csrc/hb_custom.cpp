@@ -200,7 +200,7 @@ void optimizer_fused_adagrad(
       gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
 }
 
-extern at::Tensor& optimizer_sgd_hpu_wrap(
+extern void optimizer_sgd_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::Tensor& lr,
@@ -220,8 +220,7 @@ void optimizer_fused_sgd(
   at::TensorList gradients(gradient_vec);
   at::TensorList weights(weight_vec);
 
-  auto out =
-      optimizer_sgd_hpu_wrap(gradients, weights, lr, wd, mom, damp, nesterov);
+  optimizer_sgd_hpu_wrap(gradients, weights, lr, wd, mom, damp, nesterov);
 }
 
 extern at::Tensor& optimizer_sgd_momentum_hpu_wrap(

@@ -54,7 +54,6 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1) {
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();

@@ -787,7 +787,7 @@ at::Tensor& optimizer_adagrad_hpu_lazy(
     const float wd,
     const float lrd,
     const float epsilon);
-at::Tensor& optimizer_sgd_hpu_lazy(
+void optimizer_sgd_hpu_lazy(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::Tensor& lr,

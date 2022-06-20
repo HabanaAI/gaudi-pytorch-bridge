@@ -3999,7 +3999,7 @@ void optimizer_ema_hpu_wrap(
   return;
 }
 
-Tensor& optimizer_sgd_hpu_wrap(
+void optimizer_sgd_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
     at::Tensor& lr,
@@ -4014,8 +4014,6 @@ Tensor& optimizer_sgd_hpu_wrap(
   } else {
     optimizer_sgd_hpu(gradients, weights, lr, wd, mom, damp, nesterov);
   }
-
-  return lr;
 }
 
 Tensor& optimizer_sgd_momentum_hpu_wrap(

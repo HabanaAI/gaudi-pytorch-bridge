@@ -468,7 +468,7 @@ Tensor& optimizer_adagrad_hpu_lazy(
   return lr;
 }
 
-Tensor& optimizer_sgd_hpu_lazy(
+void optimizer_sgd_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,
     at::Tensor& lr,
@@ -478,29 +478,14 @@ Tensor& optimizer_sgd_hpu_lazy(
     const bool nesterov) {
   PT_LAZY_TRACE;
 
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hlweight, weights[i], true);
-  }
+  LazyOptimizationOp<void> loo(
+      "hpu::habanaOptimizerFusedSGD",
+      {gradients, weights, lr, wd, mom, damp, nesterov},
+      {3, 4, 5, 6}, // metadata_indices
+      {} // out_shapes
+  );
 
-  ir::NodePtr node = std::make_shared<ir::OptimizerFusedSGD>(
-      gradients, weights, lr, wd, mom, damp, nesterov);
-
-  int64_t out_index = 0;
-
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
-    ir::Value& out1 = hlweight.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hlweight.GetDevice(),
-        hlweight.GetSizes(),
-        hlweight.dtype_optional(),
-        out_index++);
-  }
-
-  flush_op(lr);
-  return lr;
+  loo.call(weights);
 }
 
 Tensor& optimizer_sgd_momentum_hpu_lazy(
