@@ -683,7 +683,7 @@ void optimizer_ema_hpu_lazy(
     const at::TensorList& model_inputs,
     at::TensorList& updated_ema,
     const at::Tensor& decay);
-at::Tensor& optimizer_adagrad_hpu_lazy(
+void optimizer_adagrad_hpu_lazy(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::TensorList& variances,

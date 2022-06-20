@@ -99,4 +99,3 @@ class FusedAdagrad(Optimizer):
                 group["lr_decay"],
                 group["eps"],
             )
-        return loss

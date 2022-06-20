@@ -192,7 +192,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp_WtView) {
   TensorList hlweights(hwts);
   TensorList hlvars(hvar);
 
-  auto t = optimizer_adagrad_hpu_wrap(
+  optimizer_adagrad_hpu_wrap(
       hlgradients, hlweights, hlvars, hepoch_num, hlr, 0.1, 0.1, 0.01);
 
   // Sample optimizer+forward graph

@@ -307,7 +307,7 @@ void optimizer_lamb_phase2_hpu_lazy(
   lo.call(weights);
 }
 
-Tensor& optimizer_adagrad_hpu_lazy(
+void optimizer_adagrad_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,
     TensorList& variances,
@@ -318,34 +318,11 @@ Tensor& optimizer_adagrad_hpu_lazy(
     const float epsilon) {
   PT_LAZY_TRACE;
 
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hlweight, weights[i], true);
+  LazyOptimizationOp<void> loo(
+      "hpu::habanaOptimizerFusedAdagrad",
+      {gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon});
 
-    auto hlvariance = GetHbLazyTensor(variances[i]);
-    updateDstDependencies(hlvariance, variances[i], true);
-  }
-
-  ir::NodePtr node = std::make_shared<ir::OptimizerFusedAdagrad>(
-      gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
-
-  int64_t out_index = 0;
-  HABANA_ASSERT(weights.size() == variances.size());
-  for (size_t i = 0; i < weights.size(); i++) {
-    HbLazyTensorViews::CustomKernelAddNodeInplace(weights[i], node, out_index);
-
-    auto hlvariance = GetHbLazyTensor(variances[i]);
-    ir::Value& out2 = hlvariance.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hlvariance.GetDevice(),
-        hlvariance.GetSizes(),
-        hlvariance.dtype_optional(),
-        out_index++);
-  }
-
-  flush_op(lr);
-  return lr;
+  loo.call(weights, variances, ADAGRAD);
 }
 
 void optimizer_sgd_hpu_lazy(

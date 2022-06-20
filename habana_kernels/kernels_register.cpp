@@ -5378,7 +5378,7 @@ Tensor fused_norm_hpu_wrap(
     return fused_norm_hpu(grad, max_norm, norm_type);
   }
 }
-Tensor& optimizer_adagrad_hpu_wrap(
+void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
     TensorList& variances,
@@ -5413,8 +5413,6 @@ Tensor& optimizer_adagrad_hpu_wrap(
     optimizer_adagrad_hpu(
         gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
   }
-
-  return lr;
 }
 
 void optimizer_ema_hpu_wrap(
