@@ -118,13 +118,15 @@ int64_t HbLazyTensorImpl::dim() const {
 
 int64_t HbLazyTensorImpl::numel() const {
   HABANA_ASSERT(m_size_initialized);
-  // HACK
+  return compute_numel();
+}
+
+inline int64_t HbLazyTensorImpl::compute_numel() const {
   int64_t n = 1;
   for (const auto& i : sizes()) {
     n *= i;
   }
   return n;
-  return c10::TensorImpl::numel();
 }
 
 bool HbLazyTensorImpl::is_contiguous(at::MemoryFormat memory_format) const {
@@ -178,6 +180,9 @@ void HbLazyTensorImpl::SetupSizeProperties() {
       }
     }
     m_size_initialized = true;
+    // initialize numel at tensor impl constructor. This enables using numel
+    // caching.
+    numel_ = compute_numel();
   }
 }
 

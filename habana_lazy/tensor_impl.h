@@ -57,6 +57,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   int64_t dim() const override;
 
   int64_t numel() const override;
+  inline int64_t compute_numel() const;
 
   bool is_contiguous(at::MemoryFormat memory_format) const override;
 
