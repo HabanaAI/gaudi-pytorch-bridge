@@ -2926,8 +2926,7 @@ Tensor index_put_hpu_lazy(
       return result;
     }
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-      indices_in[0].scalar_type() == c10::ScalarType::Bool) {
+  if (indices_in[0].scalar_type() == c10::ScalarType::Bool) {
     TensorList indices_in_list(indices_vec);
     indices_vec = HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
     at::TensorList indices = indices_vec;

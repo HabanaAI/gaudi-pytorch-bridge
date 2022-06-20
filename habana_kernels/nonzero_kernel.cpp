@@ -91,8 +91,7 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   auto elements = self.numel();
-  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == true) &&
-      (self.dim() <= 4)) {
+  if ((self.dim() <= 4)) {
     elements = 1;
     auto last_dim_rounded = round_dims(self, 64);
     for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
@@ -146,8 +145,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       "output_metadata expected to be vector of size 2");
 
   auto self = inputs[0].toTensor();
-  if ((GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == false) ||
-      (self.dim() > 4)) {
+  if (self.dim() > 4) {
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
     auto cordinates_of_true = habana_helpers::createPTTensor(
