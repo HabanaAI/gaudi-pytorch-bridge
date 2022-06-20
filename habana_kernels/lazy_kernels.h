@@ -976,24 +976,6 @@ class LazyOp {
     }
   }
 
-  template <typename N = NodeConstruct>
-  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
-    ir::ValueList values;
-    std::vector<at::Tensor> input_pt_vec;
-    ir::MetaData metadata;
-
-    create_inputs(values, input_pt_vec, metadata, false);
-    auto node = ir::Node::Create(m_symbol, values);
-
-    if (metadata.size()) {
-      node->SetMetaData(metadata);
-    }
-
-    node->AddInputPtTensors(input_pt_vec);
-
-    return node;
-  }
-
  protected:
   // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
   // between tensors that are calculated by HPU to tensors that are calculated
@@ -1015,6 +997,24 @@ class LazyOp {
   template <typename N = NodeConstruct>
   std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
     return m_node;
+  }
+
+  template <typename N = NodeConstruct>
+  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
+    ir::ValueList values;
+    std::vector<at::Tensor> input_pt_vec;
+    ir::MetaData metadata;
+
+    create_inputs(values, input_pt_vec, metadata, false);
+    auto node = ir::Node::Create(m_symbol, values);
+
+    if (metadata.size()) {
+      node->SetMetaData(metadata);
+    }
+
+    node->AddInputPtTensors(input_pt_vec);
+
+    return node;
   }
 
   std::vector<at::IValue>& get_inputs() {

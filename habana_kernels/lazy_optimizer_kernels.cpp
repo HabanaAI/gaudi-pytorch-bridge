@@ -409,28 +409,23 @@ void optimizer_lamb_phase2_hpu_lazy(
     const int use_lamb) {
   PT_LAZY_TRACE;
 
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hl_weights = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hl_weights, weights[i], true);
-  }
-
   auto nstep_t = at::tensor(-step).to(c10::kHPU, true);
 
-  // Build Params for the graph
-  ir::NodePtr node = std::make_shared<ir::OptimizerFusedLambPhase2>(
-      weights,
-      adam_norm,
-      weight_norm,
-      adam_step,
-      trust_ratio,
-      nstep_t,
-      weight_decay,
-      use_lamb);
-
-  int64_t out_index = 0;
-  for (size_t i = 0; i < weights.size(); i++) {
-    HbLazyTensorViews::CustomKernelAddNodeInplace(weights[i], node, out_index);
-  }
+  LazyOp<void> lo(
+      "hpu::habanaOptimizerLambPhase2",
+      {weights,
+       adam_norm,
+       weight_norm,
+       adam_step,
+       trust_ratio,
+       nstep_t,
+       weight_decay,
+       use_lamb},
+      {6, 7}, // metadata_indices
+      {} // out_shapes
+  );
+  ArrayRef outTensorList(weights);
+  lo.call(outTensorList);
 }
 
 Tensor& optimizer_adagrad_hpu_lazy(
