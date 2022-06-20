@@ -801,23 +801,6 @@ class LazyOp {
         input.isNone();
   }
 
-  // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
-  // between tensors that are calculated by HPU to tensors that are calculated
-  // by CPU.
-  // Run it by adding the env var PT_SBS with one of the enum values described
-  // here: debug_utils.h :: SBSModes
-  // See more here:
-  // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
-  void runSBS(
-      const at::TensorList results,
-      const std::vector<at::IValue>& preallocated_stack =
-          std::vector<at::IValue>()) {
-    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
-      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
-      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
-    }
-  }
-
   template <typename T = ReturnType>
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
   get_result() {
@@ -874,11 +857,6 @@ class LazyOp {
       return empty_hpu_lazy(
           t.sizes(), t.options(), t.suggest_memory_format(), false);
     }
-  }
-
-  template <typename N = NodeConstruct>
-  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
-    return m_node;
   }
 
   void create_inputs(
@@ -1017,6 +995,28 @@ class LazyOp {
   }
 
  protected:
+  // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
+  // between tensors that are calculated by HPU to tensors that are calculated
+  // by CPU.
+  // Run it by adding the env var PT_SBS with one of the enum values described
+  // here: debug_utils.h :: SBSModes
+  // See more here:
+  // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
+  void runSBS(
+      const at::TensorList results,
+      const std::vector<at::IValue>& preallocated_stack =
+          std::vector<at::IValue>()) {
+    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
+      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
+    }
+  }
+
+  template <typename N = NodeConstruct>
+  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
+    return m_node;
+  }
+
   std::vector<at::IValue>& get_inputs() {
     return m_inputs;
   }

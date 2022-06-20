@@ -7,10 +7,10 @@
  *
  ******************************************************************************
  */
-#include "habana_kernels/lazy_kernels.h"
+
+#include "lazy_optimizer_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/optimizer.h"
-#include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/view_utils.h"
 
 using namespace at;
