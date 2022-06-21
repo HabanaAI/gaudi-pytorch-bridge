@@ -2010,6 +2010,38 @@ void SliceOperator::ValidateSliceInputs(
   }
 }
 
+OutputShapeInfRetType SliceOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  int64_t dim, start, end, step;
+  std::vector<int64_t> shape;
+
+  bool have_shape_tensor = inputs[2].isTensor();
+  if (have_shape_tensor) {
+    shape = inputs[1].toTensor().sizes().vec();
+  } else {
+    dim = inputs[1].toInt();
+    start = inputs[2].toInt();
+    end = inputs[3].toInt();
+    step = inputs[4].toInt();
+    shape = compute_output_shape(self, dim, start, end, step);
+  }
+
+  auto metaData = TensorMetaData(
+      shape,
+      HabanaOperator::CalculateStrides(shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(metaData);
+
+  if (!have_shape_tensor) {
+    out.AddShapeTensor(metaData);
+  }
+
+  return out;
+}
+
 void SliceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

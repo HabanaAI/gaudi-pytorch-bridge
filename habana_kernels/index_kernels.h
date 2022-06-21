@@ -70,6 +70,9 @@ class SliceOperator : public HabanaOperator {
       std::vector<int64_t>& out_shape,
       std::vector<int64_t>& step,
       std::vector<int64_t>& start);
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 //

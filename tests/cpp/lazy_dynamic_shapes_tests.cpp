@@ -2134,3 +2134,24 @@ TEST_F(LazyDynamicShapesTest, squeezeCmptOpTest) {
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicShapesTest, SliceTest_CmptOtShp) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  int64_t start_index = 0;
+  int64_t end = 8;
+  int64_t step = 1;
+
+  auto h_out = torch::slice(h_a, dim, start_index, end, step);
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::slice(a, dim, start_index, end, step);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
