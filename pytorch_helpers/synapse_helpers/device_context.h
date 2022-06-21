@@ -73,7 +73,6 @@ class device_context : std::enable_shared_from_this<device_context> {
   hcclResult_t free(void* address);
 
   hcclResult_t lock_address(void* const address, void** device_address_ptr);
-  hcclResult_t unlock_address(void* const address);
 
   hcclResult_t prepare_stream(
       synStreamHandle stream_handle,
@@ -103,8 +102,6 @@ class device_context : std::enable_shared_from_this<device_context> {
   // Device ID currently selected using set_device().
   synapse_helpers::device_handle device_;
   std::map<synStreamHandle, synapse_helpers::stream*> stream_objects_{};
-  std::map<const void*, std::unique_ptr<synapse_helpers::device_ptr_lock>>
-      addresses_locks_{};
 };
 
 } // namespace hccl_integration

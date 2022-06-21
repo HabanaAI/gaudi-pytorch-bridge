@@ -488,27 +488,29 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
 
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
-    void* tensor_address;
     synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
-    deviceCtxt->lock_address(tensors[i].data_ptr(), &tensor_address);
 
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
     auto func = [fn = fn,
                  tensor = tensors[i],
-                 tensor_address = tensor_address,
                  comm = comms[i],
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
                  tensor_storage_ptr = tensor_storage_ptr,
                  peerRank = peerRank,
                  pr = pr]() mutable {
-      hcclResult_t hccl_result =
-          fn(tensor, tensor_address, *comm, collective_stream, peerRank);
-      TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+      hcclResult_t hccl_result = hcclSuccess;
+      {
+        void* tensor_address;
+        deviceCtxt->lock_address(tensor.data_ptr(), &tensor_address);
+        hccl_result =
+            fn(tensor, tensor_address, *comm, collective_stream, peerRank);
+        TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+      }
       deviceCtxt->submit_events(collective_stream, tensor_storage_ptr);
       pr->set_value(hccl_result == hcclSuccess);
       return true;
@@ -561,8 +563,6 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
     auto deviceCtxt = deviceCtxts[i];
-    void* input_address;
-    void* output_address;
     synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
@@ -570,29 +570,33 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
     deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
-    deviceCtxt->lock_address(in_view_vec[i].data_ptr(), &input_address);
-    deviceCtxt->lock_address(out_view_vec[i].data_ptr(), &output_address);
 
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
     auto func = [fn = fn,
                  input = in_view_vec[i],
                  output = out_view_vec[i],
-                 input_address = input_address,
-                 output_address = output_address,
                  comm = comms[i],
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
                  output_storage_ptr = output_storage_ptr,
                  pr = pr]() mutable {
-      hcclResult_t hccl_result =
-          fn(input,
-             output,
-             input_address,
-             output_address,
-             *comm,
-             collective_stream);
-      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      hcclResult_t hccl_result = hcclSuccess;
+      {
+        void* input_address;
+        void* output_address;
+        deviceCtxt->lock_address(input.data_ptr(), &input_address);
+        deviceCtxt->lock_address(output.data_ptr(), &output_address);
+        hccl_result =
+            fn(input,
+               output,
+               input_address,
+               output_address,
+               *comm,
+               collective_stream);
+        TORCH_CHECK(
+            hcclSuccess == hccl_result, "Collective call returned error");
+      }
       deviceCtxt->submit_events(collective_stream, output_storage_ptr);
       pr->set_value(hccl_result == hcclSuccess);
       return true;

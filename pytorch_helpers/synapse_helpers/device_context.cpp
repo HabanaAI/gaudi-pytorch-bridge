@@ -148,29 +148,7 @@ hcclResult_t device_context::lock_address(
   synapse_helpers::device_ptr_lock locked{device->lock_addresses(
       reinterpret_cast<synapse_helpers::device_ptr>(address))};
   auto locked_address = reinterpret_cast<void*>(locked.at(0));
-
-  addresses_locks_[locked_address] =
-      absl::make_unique<synapse_helpers::device_ptr_lock>(std::move(locked));
-
   *device_address = locked_address;
-  return hcclSuccess;
-}
-
-hcclResult_t device_context::unlock_address(void* const device_address) {
-  std::lock_guard<std::mutex> guard{access_mutex_};
-  PT_DISTRIBUTED_DEBUG(
-      "Calling device_context::unlock_address(device_address=",
-      device_address,
-      ")");
-
-  if ((addresses_locks_.find(device_address) == addresses_locks_.end()) ||
-      addresses_locks_.at(device_address) == nullptr) {
-    PT_DISTRIBUTED_FATAL(
-        "Device address ", device_address, " has not been locked!");
-    return hcclInvalidArgument;
-  }
-
-  addresses_locks_[device_address] = nullptr;
   return hcclSuccess;
 }
 
