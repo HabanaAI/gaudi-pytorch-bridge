@@ -526,32 +526,47 @@ class LazyOp {
     return HandleLazy(infoToBackEnd);
   }
 
-  bool viewUpdateInputs() {
+  bool viewUpdateInputsProcessSingleTensor(at::Tensor& t, size_t& idx) {
+    bool is_view = false;
     auto context = habana_lazy_executor.getDeviceExecutionContext();
+    if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
+      auto hl_t = GetHbLazyTensor(t);
+
+      // if it is base tensor, use the most recent version else check if
+      // it is a view
+      auto id = hl_t.getTensorUniqueId();
+      auto it = context->viewContext.orig_tensor_map.find(id);
+      if (it != context->viewContext.orig_tensor_map.end()) {
+        m_inputs[idx] = it->second;
+      } else {
+        if (HbLazyTensorViews::HandleViews(t, hl_t)) {
+          is_view = true;
+        }
+      }
+    } // if (t.defined() && (
+
+    return is_view;
+  }
+
+  bool viewUpdateInputs() {
     size_t idx = 0;
     bool is_view = false;
     for (auto ival : m_inputs) {
       if (ival.isTensor()) {
         auto t = ival.toTensor();
-        if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
-          auto hl_t = GetHbLazyTensor(t);
-
-          // if it is base tensor, use the most recent version else check if
-          // it is a view
-          auto id = hl_t.getTensorUniqueId();
-          auto it = context->viewContext.orig_tensor_map.find(id);
-          if (it != context->viewContext.orig_tensor_map.end()) {
-            m_inputs[idx] = it->second;
-          } else {
-            if (HbLazyTensorViews::HandleViews(t, hl_t)) {
-              is_view = true;
-            }
+        is_view = viewUpdateInputsProcessSingleTensor(t, idx);
+      } else if (ival.isTensorList()) {
+        auto tl = ival.toTensorVector();
+        for (size_t i = 0; i < tl.size(); ++i) {
+          auto& t = tl[i];
+          if (viewUpdateInputsProcessSingleTensor(t, idx)) {
+            is_view = true;
           }
-        }
+        } // for( size_t
       }
+
       idx++;
     }
-
     return is_view;
   }
 
@@ -993,46 +1008,6 @@ class LazyOp {
   }
 
  protected:
-  // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
-  // between tensors that are calculated by HPU to tensors that are calculated
-  // by CPU.
-  // Run it by adding the env var PT_SBS with one of the enum values described
-  // here: debug_utils.h :: SBSModes
-  // See more here:
-  // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
-  void runSBS(
-      const at::TensorList results,
-      const std::vector<at::IValue>& preallocated_stack =
-          std::vector<at::IValue>()) {
-    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
-      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
-      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
-    }
-  }
-
-  template <typename N = NodeConstruct>
-  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
-    return m_node;
-  }
-
-  template <typename N = NodeConstruct>
-  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
-    ir::ValueList values;
-    std::vector<at::Tensor> input_pt_vec;
-    ir::MetaData metadata;
-
-    create_inputs(values, input_pt_vec, metadata, false);
-    auto node = ir::Node::Create(m_symbol, values);
-
-    if (metadata.size()) {
-      node->SetMetaData(metadata);
-    }
-
-    node->AddInputPtTensors(input_pt_vec);
-
-    return node;
-  }
-
   std::vector<at::IValue>& get_inputs() {
     return m_inputs;
   }
@@ -1177,6 +1152,46 @@ class LazyOp {
 
     create_inputs(values, input_pt_vec, metadata, true);
     return values;
+  }
+
+  // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
+  // between tensors that are calculated by HPU to tensors that are calculated
+  // by CPU.
+  // Run it by adding the env var PT_SBS with one of the enum values described
+  // here: debug_utils.h :: SBSModes
+  // See more here:
+  // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
+  void runSBS(
+      const at::TensorList results,
+      const std::vector<at::IValue>& preallocated_stack =
+          std::vector<at::IValue>()) {
+    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
+      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
+      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
+    }
+  }
+
+  template <typename N = NodeConstruct>
+  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
+    return m_node;
+  }
+
+  template <typename N = NodeConstruct>
+  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
+    ir::ValueList values;
+    std::vector<at::Tensor> input_pt_vec;
+    ir::MetaData metadata;
+
+    create_inputs(values, input_pt_vec, metadata, false);
+    auto node = ir::Node::Create(m_symbol, values);
+
+    if (metadata.size()) {
+      node->SetMetaData(metadata);
+    }
+
+    node->AddInputPtTensors(input_pt_vec);
+
+    return node;
   }
 
  private:
