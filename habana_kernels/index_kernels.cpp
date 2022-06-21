@@ -1540,6 +1540,30 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+habana::OutputShapeInfRetType ScatterNdOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+
+  auto inp = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto grouped_indices = inputs[2].toTensor();
+  auto update_locations = inputs[3].toTensor();
+  auto updates = inputs[4].toTensor();
+
+  auto shape = inp.sizes();
+
+  auto tensor_meta_data = TensorMetaData(
+      shape.vec(),
+      HabanaOperator::CalculateStrides(shape, inp.suggest_memory_format()),
+      inp.scalar_type(),
+      inp.suggest_memory_format());
+
+  out.AddOutputTensor(tensor_meta_data);
+  out.AddShapeTensor(tensor_meta_data);
+
+  return out;
+}
+
 void ScatterNdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,

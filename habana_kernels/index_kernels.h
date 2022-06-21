@@ -332,6 +332,9 @@ class ScatterNdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
  protected:
   c10::ScalarType scalarType_;
 };
