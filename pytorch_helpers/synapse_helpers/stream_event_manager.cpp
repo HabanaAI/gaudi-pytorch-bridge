@@ -45,11 +45,18 @@ void stream_event_manager::add_future(
 
 void stream_event_manager::wait_for_future(device_ptr device_address) {
   PT_SYNHELPER_TRACE;
-  std::lock_guard<std::mutex> lock(future_mut_);
-  auto found = future_by_addr_.find(device_address);
-  if (found != future_by_addr_.end()) {
-    HABANA_ASSERT(found->second.valid());
-    found->second.wait();
+  absl::flat_hash_map<device_ptr, std::future<bool>>::iterator it;
+  {
+    std::lock_guard<std::mutex> lock(future_mut_);
+    it = future_by_addr_.find(device_address);
+    if (it == future_by_addr_.end()) {
+      return;
+    }
+  }
+  HABANA_ASSERT(it->second.valid());
+  it->second.wait();
+  {
+    std::lock_guard<std::mutex> lock(future_mut_);
     future_by_addr_.erase(device_address);
   }
 }
