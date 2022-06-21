@@ -4618,33 +4618,6 @@ Tensor sum_dim_IntList_hpu_lazy(
   return kernel.call();
 }
 
-Tensor& sum_out_hpu_lazy(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-  at::Tensor self_updated_dtype = self;
-
-  if (dtype.has_value() &&
-      (dtype.value() != self_updated_dtype.scalar_type())) {
-    self_updated_dtype = self.to(dtype.value());
-  }
-  /* for non-floating types, tpc supports only int dtype for sum */
-  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
-    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
-  }
-
-  LazyOp<at::Tensor&> k(
-      "aten::sum",
-      {self_updated_dtype, dim, keepdim, dtype, out},
-      {},
-      {ReduceOperator::compute_output_shape(self_updated_dtype, dim, keepdim)});
-
-  return k.call(out);
-}
-
 Tensor mean_dim_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
@@ -4658,16 +4631,6 @@ Tensor mean_dim_hpu_lazy(
       {1, 2, 3}, // metadata_indices
       {ReduceOperator::compute_output_shape(self, dim, keepdim)});
   return k.call();
-}
-Tensor& mean_dim_out_hpu_lazy(
-    Tensor& output,
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP2_O(
-      mean, PARAMS2(self, dim, keepdim, dtype, output), out)
 }
 
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
@@ -4761,36 +4724,6 @@ Tensor prod_dim_hpu_lazy(
           self.options().dtype(dtype),
           self.suggest_memory_format(),
           false);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
-}
-
-Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-
-  if (!dtype.has_value()) {
-    dtype = self.scalar_type();
-  }
-
-  vector_of_inputs = {self, dtype};
-  using T = at::Tensor;
-
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::prod", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dtype = inputs[1].toScalarType();
-      return empty_hpu_lazy(
-          {}, self.options().dtype(dtype), self.suggest_memory_format(), false);
     }
   };
 

@@ -546,46 +546,6 @@ void SumDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-Tensor& sum_IntList_out_hpu(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype,
-    Tensor& output) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self),
-      IValue(dim),
-      IValue(keepdim),
-      IValue(dtype),
-      IValue(output)};
-  // Create the operator
-  SumDimOutOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return output;
-}
-
 void MeanDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor output;
   inputs.insert(inputs.begin(), IValue(output));
@@ -717,47 +677,6 @@ void MeanDimOutOperator::AllocateAndAddSynapseNode(
   }
 
   ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-}
-Tensor& mean_dim_out_hpu(
-    Tensor& output,
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_mean_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(output),
-      IValue(self),
-      IValue(dim),
-      IValue(keepdim),
-      IValue(dtype)};
-  // Create the operator
-  MeanDimOutOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Add nodes to the graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return output;
 }
 
 void ProdDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1008,93 +927,6 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
   // Create the operator
   MeanOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Add nodes to the graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
-void ProdOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for Prod operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for Prod operator");
-
-  Tensor self = inputs[0].toTensor();
-  Tensor output = habana_helpers::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      at::MemoryFormat::Contiguous,
-      output_metadata.at(0).persistent);
-  auto ndim = self.dim();
-  int64_t data[HABANA_DIM_MAX];
-  for (int i = 0; i < ndim; i++) {
-    data[i] = i;
-  }
-  IntArrayRef dim(data, ndim);
-  bool keepdim = false;
-
-  inputs.insert(inputs.begin(), IValue(output));
-  inputs.insert(inputs.begin() + 2, IValue(dim));
-  inputs.insert(inputs.begin() + 3, IValue(keepdim));
-
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-}
-
-void ProdOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  Tensor self = inputs[0].toTensor();
-  Tensor output;
-  auto ndim = self.dim();
-  int64_t data[HABANA_DIM_MAX];
-  for (int i = 0; i < ndim; i++) {
-    data[i] = i;
-  }
-  IntArrayRef dim(data, ndim);
-  bool keepdim = false;
-
-  inputs.insert(inputs.begin(), IValue(output));
-  inputs.insert(inputs.begin() + 2, IValue(dim));
-  inputs.insert(inputs.begin() + 3, IValue(keepdim));
-  ReduceOperator::SetPTOutputs(inputs);
-}
-
-Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_prod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  if (self.dim() == 0) {
-    PT_KERNEL_END;
-    return self;
-  }
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
-  // Create the operator
-  ProdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1793,8 +1625,6 @@ static auto& KernelRegistry =
         .add("aten::mean.dim", KERNEL_FN(MeanDimOperator))
         .add("hpu::sum_dim_IntList", KERNEL_FN(SumDimOperator))
         .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))
-        .add("aten::sum.IntList_out", KERNEL_FN(SumDimOutOperator))
-        .add("aten::prod", KERNEL_FN(ProdOperator))
         .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator))
         .add("aten::prod.dim_Int", KERNEL_FN(ProdDimOperator))
         .add("aten::any.out", KERNEL_FN(AnyDimOutOperator))

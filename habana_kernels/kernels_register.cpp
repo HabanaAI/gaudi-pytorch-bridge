@@ -3638,37 +3638,6 @@ Tensor hpu_wrap::sum(
     return sum_dim_IntList_hpu(self, dim, keepdim, dtype);
   }
 };
-Tensor& hpu_wrap::sum_out(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype,
-    Tensor& output) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "sum_out:",
-      "self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      "keepdim=",
-      to_string(keepdim),
-      " dtype=",
-      to_string(dtype),
-      " output=",
-      to_string(output));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      sum,
-      PARAMS1(output, self),
-      PARAMS2(self, dim, keepdim, dtype, output),
-      IntList_out)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sum_out_hpu_lazy(self, dim, keepdim, dtype, output);
-  } else {
-    return sum_IntList_out_hpu(self, dim, keepdim, dtype, output);
-  }
-};
 
 Tensor hpu_wrap::cumsum(
     const Tensor& self,
@@ -3718,37 +3687,6 @@ Tensor hpu_wrap::mean(
     return mean_dim_hpu(self, dim, keepdim, dtype);
   }
 };
-Tensor& hpu_wrap::mean_out(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype,
-    Tensor& output) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "mean_out:",
-      "self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      "keepdim=",
-      to_string(keepdim),
-      " dtype=",
-      to_string(dtype),
-      " output=",
-      to_string(output));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      mean_out,
-      PARAMS1(output, self),
-      PARAMS2(self, dim, keepdim, dtype, output))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mean_dim_out_hpu_lazy(output, self, dim, keepdim, dtype);
-
-  } else {
-    return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
-  }
-};
 Tensor hpu_wrap::sum(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_OP_TRACE;
   PT_OP_INFO("sum :", " self=", to_string(self), " dtype=", to_string(dtype));
@@ -3771,18 +3709,6 @@ Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
 
   } else {
     return mean_hpu(self, dtype);
-  }
-};
-Tensor hpu_wrap::prod(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO("prod :", " self=", to_string(self), " dtype=", to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP(prod, PARAMS1(self), PARAMS2(self, dtype))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return prod_hpu_lazy(self, dtype);
-
-  } else {
-    return prod_hpu(self, dtype);
   }
 };
 Tensor hpu_wrap::prod(

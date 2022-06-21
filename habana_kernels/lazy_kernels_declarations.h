@@ -474,19 +474,7 @@ at::Tensor sum_dim_IntList_hpu_lazy(
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor& sum_out_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype,
-    at::Tensor& output);
 at::Tensor mean_dim_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
-at::Tensor& mean_dim_out_hpu_lazy(
-    at::Tensor& output,
     const at::Tensor& self,
     at::IntArrayRef dim,
     bool keepdim,
@@ -501,9 +489,6 @@ at::Tensor prod_dim_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim,
-    c10::optional<at::ScalarType> dtype);
-at::Tensor prod_hpu_lazy(
-    const at::Tensor& self,
     c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
     const at::Tensor& self,

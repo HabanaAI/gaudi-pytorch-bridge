@@ -524,19 +524,7 @@ at::Tensor sum_dim_IntList_hpu(
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor& sum_IntList_out_hpu(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype,
-    at::Tensor& output);
 at::Tensor mean_dim_hpu(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
-at::Tensor& mean_dim_out_hpu(
-    at::Tensor& output,
     const at::Tensor& self,
     at::IntArrayRef dim,
     bool keepdim,
@@ -549,9 +537,6 @@ at::Tensor prod_dim_hpu(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim,
-    c10::optional<at::ScalarType> dtype);
-at::Tensor prod_hpu(
-    const at::Tensor& self,
     c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu(
     const at::Tensor& self,
