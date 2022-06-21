@@ -144,6 +144,7 @@ class OpAttributeCheck {
                 input,
                 " This op will fallback to CPU");
             is_valid &= false;
+            break;
           }
         }
       }
