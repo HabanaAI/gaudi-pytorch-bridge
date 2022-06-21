@@ -821,33 +821,6 @@ TEST_F(LazyUnaryKernelTest, Isnan) {
   EXPECT_TRUE(allclose(hout.to(torch::kInt8), cpu_out.to(torch::kInt8)));
 }
 
-TEST_F(LazyUnaryKernelTest, Silu) {
-  const std::vector<int64_t> dimentions{7, 3};
-  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
-  auto hinput = input_tensor.to(torch::kHPU);
-
-  auto hresult = torch::silu(hinput);
-  auto hout = hresult.to(torch::kCPU);
-
-  auto cpu_out = torch::silu(input_tensor);
-  EXPECT_TRUE(allclose(hout, cpu_out));
-}
-
-TEST_F(LazyUnaryKernelTest, SiluBwd) {
-  const std::vector<int64_t> dimentions{7, 3};
-  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
-  auto grad = torch::randn(dimentions, torch::requires_grad(false));
-
-  auto hinput = input_tensor.to(torch::kHPU);
-  auto hgrad = grad.to(torch::kHPU);
-
-  auto hresult = torch::silu_backward(hgrad, hinput);
-  auto hout = hresult.to(torch::kCPU);
-
-  auto cpu_out = torch::silu_backward(grad, input_tensor);
-  EXPECT_TRUE(allclose(hout, cpu_out));
-}
-
 TEST_F(LazyUnaryKernelTest, SinTest) {
   auto A = torch::randn({4, 5});
   auto hA = A.to(torch::kHPU);

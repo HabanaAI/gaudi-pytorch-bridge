@@ -4462,20 +4462,6 @@ Tensor hpu_wrap::silu(const Tensor& self) {
   return silu_hpu(self);
 };
 
-Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "silu_backward :", " grad=", to_string(self), " self=", to_string(self));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      silu_backward, PARAMS1(grad, self), PARAMS2(grad, self))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return silu_backward_hpu_lazy(grad, self);
-  } else {
-    HABANA_ASSERT(0 && "silu_backward not implemented for eager mode");
-    return silu_backward_hpu_lazy(grad, self);
-  }
-};
-
 Tensor hpu_wrap::round(const Tensor& self) {
   PT_OP_TRACE;
   PT_OP_INFO("round :", " self=", to_string(self));

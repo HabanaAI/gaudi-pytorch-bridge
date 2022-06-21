@@ -40,8 +40,40 @@ TEST_F(HpuOpTest, silu_out) {
   auto expected = torch::empty({0}, dtype);
   auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::silu_out(expected, GetCpuInput(0));
-  torch::silu_out(result, GetHpuInput(0));
+  torch::silu_outf(GetCpuInput(0), expected);
+  torch::silu_outf(GetHpuInput(0), result);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, silu_bwd) {
+  GenerateInputs(2);
+
+  auto expected = torch::silu_backward(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::silu_backward(GetHpuInput(0), GetHpuInput(1));
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, silu_bwd_bfloat16) {
+  GenerateInputs(2, torch::kBFloat16);
+
+  auto expected = torch::silu_backward(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::silu_backward(GetHpuInput(0), GetHpuInput(1));
+
+  Compare(expected, result, 0.1, 0.1);
+}
+
+TEST_F(HpuOpTest, silu_bwd_out) {
+  GenerateInputs(2);
+
+  torch::ScalarType dtype = torch::kFloat;
+  auto expected = torch::empty({0}, dtype);
+  auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
+
+  expected =
+      torch::silu_backward_outf(GetCpuInput(0), GetCpuInput(1), expected);
+  result = torch::silu_backward_outf(GetHpuInput(0), GetHpuInput(1), result);
 
   Compare(expected, result);
 }

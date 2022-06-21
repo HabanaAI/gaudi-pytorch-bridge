@@ -26,9 +26,6 @@ struct hpu_wrap {
       int64_t steps,
       at::Tensor& out);
   static at::Tensor silu(const at::Tensor& self);
-  static at::Tensor silu_backward(
-      const at::Tensor& grad,
-      const at::Tensor& self);
   static at::Tensor isnan(const at::Tensor& self);
   static at::Tensor empty(
       at::IntArrayRef size,

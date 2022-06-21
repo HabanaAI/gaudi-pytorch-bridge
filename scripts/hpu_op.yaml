@@ -3321,6 +3321,10 @@ silu.out:
   dtypes: [BFloat16, Float]
   op_backend: Silu
 
+silu_backward.grad_input:
+  dtypes: [BFloat16, Float]
+  op_backend: SiluBackward
+
 sin:
   force_default: false
   dtypes: [BFloat16, Float]
