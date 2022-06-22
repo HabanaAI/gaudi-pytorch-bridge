@@ -6335,10 +6335,21 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
 Tensor habana_nms_hpu_lazy(
     const Tensor& boxes,
     const Tensor& scores,
-    float iou_threshold,
-    float score_threshold) {
+    float iou_threshold) {
   PT_LAZY_TRACE;
   habana_lazy::SyncAccThreadPool();
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NMS_USING_BNMS_CGUID)) {
+    auto options = scores.options();
+    auto indices_tensor = empty_hpu_lazy(
+        scores.sizes(),
+        options.dtype(torch::kInt32),
+        scores.suggest_memory_format(),
+        true);
+    indices_tensor = zero_hpu_lazy(indices_tensor);
+    return batched_nms_hpu_lazy(boxes, scores, indices_tensor, iou_threshold);
+  }
+
   // Ensuring that the boxes and scores input to nms is always FP32
   // This is required because when batched_nms is called
   // it calls torch.ops.torhchvision.nms which is visible
@@ -6350,7 +6361,6 @@ Tensor habana_nms_hpu_lazy(
   // not run on BF16 which is used by NMS internally
   // Consider removing this FP32 restriction once complex guid
   // implementation for NMS is in place
-
   Tensor boxes_cast = boxes;
   Tensor scores_cast = scores;
   if (boxes.scalar_type() == c10::ScalarType::BFloat16) {
@@ -6413,6 +6423,7 @@ Tensor habana_nms_hpu_lazy(
   std::vector<int64_t> box_id_out_shape{scores.sizes()[0]};
   std::vector<int64_t> valid_box_id_out_shape{1};
   std::vector<int64_t> shape_tensor_shape{5};
+  float score_threshold{-std::numeric_limits<float>::max()};
   HabanaNMSLazy k(
       {boxes_cast, scores_cast, Scalar(iou_threshold), Scalar(score_threshold)},
       {box_id_out_shape, valid_box_id_out_shape, shape_tensor_shape});

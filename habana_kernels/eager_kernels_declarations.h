@@ -763,8 +763,7 @@ at::Tensor& optimizer_sgd_momentum_hpu(
 at::Tensor habana_nms_hpu(
     const at::Tensor& scores,
     const at::Tensor& boxes,
-    float iou_threshold,
-    float score_threshold);
+    float iou_threshold);
 at::Tensor silu_hpu(const at::Tensor& self);
 at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats);
 at::Tensor& linspace_out_hpu(

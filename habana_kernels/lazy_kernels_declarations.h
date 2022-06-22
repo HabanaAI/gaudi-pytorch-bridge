@@ -669,8 +669,7 @@ std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu_lazy(
 at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& boxes,
     const at::Tensor& scores,
-    float iou_threshold,
-    float score_threshold);
+    float iou_threshold);
 at::Tensor batched_nms_hpu_lazy(
     const at::Tensor& boxes,
     const at::Tensor& scores,

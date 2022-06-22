@@ -5,6 +5,11 @@
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "synapse_helpers/env_flags.h"
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "habana_kernels/wrap_kernels_declarations_12.h"
+#else
+#include "habana_kernels/wrap_kernels_declarations_13.h"
+#endif
 
 using namespace habana_lazy;
 
@@ -23,9 +28,7 @@ TEST(NMSTest, NmsSmall) {
   auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1);
   torch::Tensor hboxes = new_boxes.to(torch::kHPU);
 
-  auto nms_boxid = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
-      ? habana_nms_hpu_lazy(hboxes, hscores, 0.2, 0.0)
-      : habana_nms_hpu(hboxes, hscores, 0.2, 0.0);
+  auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 0.2);
   auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kLong);
   bool equal = ref.allclose(nms_boxid.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);

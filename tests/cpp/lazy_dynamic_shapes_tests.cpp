@@ -25,6 +25,11 @@
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "habana_kernels/wrap_kernels_declarations_12.h"
+#else
+#include "habana_kernels/wrap_kernels_declarations_13.h"
+#endif
 
 using namespace habana_lazy;
 
@@ -1271,8 +1276,6 @@ void compute_iou(
 
 TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
   torch::manual_seed(0);
-  float score_th = 0.1;
-  float score_inc = 0.2;
 
   auto num_boxes = 10;
   auto num_boxes_fixed = 8;
@@ -1280,59 +1283,46 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
   torch::Tensor scores = torch::rand({num_boxes});
   torch::Tensor boxes_fixed = torch::rand({num_boxes_fixed, 4}) * 256;
 
-  while (score_th < 1.0) {
-    auto num_expected_boxes{0};
-    for (size_t i = 0; i < num_boxes; i++) {
-      float score = scores[i].item<float>();
-      if (score > score_th) {
-        num_expected_boxes++;
-      }
-    }
-    if (num_expected_boxes) {
-      torch::Tensor hscores = scores.to(torch::kHPU);
+  auto num_expected_boxes{num_boxes};
+  if (num_expected_boxes) {
+    torch::Tensor hscores = scores.to(torch::kHPU);
 
-      // Generate boxes of random sizes
-      torch::Tensor boxes_variable = torch::rand({num_boxes_variable, 4}) * 256;
-      torch::Tensor boxes = torch::cat({boxes_fixed, boxes_variable}, 0);
+    // Generate boxes of random sizes
+    torch::Tensor boxes_variable = torch::rand({num_boxes_variable, 4}) * 256;
+    torch::Tensor boxes = torch::cat({boxes_fixed, boxes_variable}, 0);
 
-      // Ensure x1 > x0 and y1 > y0
-      auto tlist = boxes.split(2, 1);
-      tlist[1] = tlist[1] + tlist[0];
-      auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-      // PRINT_TENSOR_WITH_DATA(valid_boxes);
+    // Ensure x1 > x0 and y1 > y0
+    auto tlist = boxes.split(2, 1);
+    tlist[1] = tlist[1] + tlist[0];
+    auto valid_boxes = torch::cat({tlist[0], tlist[1]}, 1);
+    // PRINT_TENSOR_WITH_DATA(valid_boxes);
 
-      // Compute the iou scores
-      // std::vector<std::vector<float>> iou_vec_2d;
-      // iou_vec_2d.reserve(num_boxes-1);
-      // compute_iou(valid_boxes, iou_vec_2d);
+    // Compute the iou scores
+    // std::vector<std::vector<float>> iou_vec_2d;
+    // iou_vec_2d.reserve(num_boxes-1);
+    // compute_iou(valid_boxes, iou_vec_2d);
 
-      torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
+    torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
 
-      auto nms_boxid = habana_nms_hpu_lazy(hboxes, hscores, 1.0, score_th);
-      auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-      TORCH_CHECK(
-          nms_boxid_c.dim() == 1,
-          "Expecting a 1D tensor, got ",
-          boxes.dim(),
-          "D tensor");
-      PT_TEST_DEBUG(
-          "With score threshold=",
-          score_th,
-          ", num_expected_boxes=",
-          num_expected_boxes,
-          ", got ",
-          nms_boxid_c.sizes()[0]);
-      auto equal = (nms_boxid_c.sizes()[0] == num_expected_boxes);
-      EXPECT_EQ(equal, true);
-    }
-    score_th += score_inc;
+    auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
+    auto nms_boxid_c = nms_boxid.to(torch::kCPU);
+    TORCH_CHECK(
+        nms_boxid_c.dim() == 1,
+        "Expecting a 1D tensor, got ",
+        boxes.dim(),
+        "D tensor");
+    PT_TEST_DEBUG(
+        "num_expected_boxes=",
+        num_expected_boxes,
+        ", got ",
+        nms_boxid_c.sizes()[0]);
+    auto equal = (nms_boxid_c.sizes()[0] == num_expected_boxes);
+    EXPECT_EQ(equal, true);
   }
 }
 
 TEST_F(LazyDynamicShapesTest, NmsSmall) {
   torch::manual_seed(0);
-  float score_th = 0.5;
-  float score_inc = 0.2;
 
   auto num_boxes_cur = 8;
   auto num_boxes_var = 2;
@@ -1343,13 +1333,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
     PRINT_TENSOR_WITH_DATA(boxes_cur);
     PRINT_TENSOR_WITH_DATA(scores_cur);
 
-    auto num_expected_boxes{0};
-    for (size_t i = 0; i < num_boxes_cur; i++) {
-      float score = scores_cur[i].item<float>();
-      if (score > score_th) {
-        num_expected_boxes++;
-      }
-    }
+    auto num_expected_boxes{num_boxes_cur};
 
     if (num_expected_boxes) {
       torch::Tensor hscores = scores_cur.to(torch::kHPU);
@@ -1367,7 +1351,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
 
       torch::Tensor hboxes = valid_boxes.to(torch::kHPU);
 
-      auto nms_boxid = habana_nms_hpu_lazy(hboxes, hscores, 1.0, score_th);
+      auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
       auto nms_boxid_c = nms_boxid.to(torch::kCPU);
       TORCH_CHECK(
           nms_boxid_c.dim() == 1,
@@ -1377,9 +1361,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
       // PRINT_TENSOR_WITH_DATA(scores_cur);
       // PRINT_TENSOR_WITH_DATA(nms_boxid_c);
       PT_TEST_DEBUG(
-          "With score threshold=",
-          score_th,
-          ", num_expected_boxes=",
+          "num_expected_boxes=",
           num_expected_boxes,
           ", got ",
           nms_boxid_c.sizes()[0]);
@@ -1394,9 +1376,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
     scores_cur = torch::cat({scores_cur, scores_new}, 0);
     num_boxes_cur += num_boxes_var;
   }
-  // while (score_th < 1.0) {
-  // score_th += score_inc;
-  //}
 }
 
 TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {

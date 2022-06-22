@@ -426,8 +426,7 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
 at::Tensor habana_nms_hpu(
     const at::Tensor& boxes,
     const at::Tensor& scores,
-    float iou_threshold,
-    float score_threshold) {
+    float iou_threshold) {
   PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = scores.scalar_type();
   std::string node_type =
@@ -437,6 +436,7 @@ at::Tensor habana_nms_hpu(
   size_t device_id = scores.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{boxes, scores};
+  float score_threshold{-std::numeric_limits<float>::max()};
   std::vector<c10::IValue> stack = {
       IValue(boxes),
       IValue(scores),

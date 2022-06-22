@@ -356,11 +356,6 @@ void optimizer_ResourceApplyMomentum_hpu_wrap(
     at::TensorList& params_momentum_buffer_list,
     const at::TensorList& d_p_list,
     const float momentum);
-at::Tensor habana_nms_hpu_wrap(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    float iou_threshold,
-    float score_threshold);
 at::Tensor batched_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,

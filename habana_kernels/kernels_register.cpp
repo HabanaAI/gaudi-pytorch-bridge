@@ -1968,35 +1968,9 @@ Tensor torchvision_nms_hpu_wrap(
       to_string(iou_threshold));
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return habana_nms_hpu_lazy(
-        boxes, scores, iou_threshold, -std::numeric_limits<float>::max());
+    return habana_nms_hpu_lazy(boxes, scores, iou_threshold);
   } else {
-    return habana_nms_hpu(
-        boxes, scores, iou_threshold, -std::numeric_limits<float>::max());
-  }
-}
-
-Tensor habana_nms_hpu_wrap(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    float iou_threshold,
-    float score_threshold) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " habana_nms:",
-      " boxes=",
-      to_string(boxes),
-      "scores=",
-      to_string(scores),
-      "iou_threshold=",
-      to_string(iou_threshold),
-      "score_threshold=",
-      to_string(score_threshold));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return habana_nms_hpu_lazy(boxes, scores, iou_threshold, score_threshold);
-  } else {
-    return habana_nms_hpu(boxes, scores, iou_threshold, score_threshold);
+    return habana_nms_hpu(boxes, scores, iou_threshold);
   }
 }
 
