@@ -3695,13 +3695,6 @@ std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
   return at::native::unbind(self, dim);
 }
 
-Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
-  PT_OP_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP(stack, PARAMS1(tensors[0]), PARAMS2(tensors, dim))
-
-  return at::native::stack(tensors, dim);
-}
-
 Tensor hpu_wrap::alias(const at::Tensor& self) {
   return hpu_wrap::as_strided(
       self, self.sizes(), self.strides(), self.storage_offset());
