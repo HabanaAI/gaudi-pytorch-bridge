@@ -3468,7 +3468,12 @@ Tensor hpu_wrap::alias(const at::Tensor& self) {
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
 
-  return at::native::_unsafe_view(self, size);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return view_hpu_lazy(self, size);
+
+  } else {
+    return view_hpu(self, size);
+  }
 }
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
