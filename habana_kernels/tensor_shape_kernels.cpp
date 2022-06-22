@@ -281,7 +281,6 @@ void CatOutOperator::AllocateAndAddSynapseNode(
           output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(out);
   p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cend());
-  p_context_->pt_inputs_.erase(p_context_->pt_inputs_.cend());
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
