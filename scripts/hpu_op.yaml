@@ -2365,9 +2365,9 @@ pow.Tensor_Tensor_out:
   type_promotion: true
 
 prelu:
-  dtypes: [BFloat16, Float, Int]
-  guid: prelu_fwd
+  dtypes: [BFloat16, Float]
   out_ids: [0]
+  op_backend: Prelu
 
 prod.int_out:
   dtypes: [BFloat16, Float]

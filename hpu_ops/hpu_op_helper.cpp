@@ -31,7 +31,7 @@ std::string to_string(const at::IValue& ival) {
     } else if (s.isIntegral(false)) {
       oss << s.toLong();
     } else if (s.isBoolean()) {
-      oss << s.toBool();
+      oss << std::boolalpha << s.toBool();
     }
   } else if (ival.isString()) {
     oss << ival.toStringRef();

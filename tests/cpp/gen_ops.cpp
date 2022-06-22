@@ -419,7 +419,8 @@ class GenOps : public HpuOpTestUtil {
 
 TEST_F(GenOps, Fns) {
   // clang-format off
-  TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
+  TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {4}});
+  TestFnCustomSizes(torch::prelu, {{5, 7}, {7}});
   TestFnCustomSizes(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, int64_t, int64_t, bool)>(torch::grid_sampler_2d), {{2, 3, 4, 4}, {2, 3, 3, 2}});
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, const torch::Scalar&)>(torch::rsub));
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t)>(torch::logcumsumexp));
