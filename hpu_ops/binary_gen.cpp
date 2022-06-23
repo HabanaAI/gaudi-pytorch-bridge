@@ -137,8 +137,10 @@ void ForeachBinary::AddNode(
       syn_out(i) = std::move(out[0]);
     }
   } else {
-    const auto& other_scalar = stack[1].toScalar();
     for (auto i = 0u; i < selfs.size(); ++i) {
+      const auto& other_scalar = stack[1].isScalar()
+          ? stack[1].toScalar()
+          : stack[1].toListRef()[i].toScalar();
       const auto& self = selfs[i];
       const auto& result_type = at::result_type(self, other_scalar);
       auto other = ConstantHelper(graph, other_scalar, result_type);

@@ -72,8 +72,8 @@ template <>
   const auto& stack = get_inputs();
   const auto& list1 = stack.at(0).toTensorList();
 
-  if (stack.at(1).isTensorList()) {
-    const auto& list2 = stack.at(1).toTensorList();
+  if (stack.at(1).isList()) {
+    const auto& list2 = stack.at(1).toList();
     TORCH_CHECK(
         list1.size() == list2.size(),
         "List1 size: ",
@@ -82,9 +82,16 @@ template <>
         list2.size());
     for (auto i = 0u; i < list1.size(); ++i) {
       at::Tensor t1 = list1[i];
-      at::Tensor t2 = list2[i];
-      auto dtype = at::result_type(t1, t2);
-      auto sizes = at::infer_size(t1.sizes(), t2.sizes());
+      at::ScalarType dtype;
+      std::vector<int64_t> sizes;
+      if (list2[i].isTensor()) {
+        at::Tensor t2 = list2[i].toTensor();
+        dtype = at::result_type(t1, t2);
+        sizes = at::infer_size(t1.sizes(), t2.sizes());
+      } else {
+        dtype = at::result_type(t1, list2[i].toScalar());
+        sizes = t1.sizes().vec();
+      }
       tensors.emplace_back(habana_lazy::empty_hpu_lazy(
           sizes, dtype, t1.suggest_memory_format()));
     }

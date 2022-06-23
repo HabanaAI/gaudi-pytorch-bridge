@@ -18,6 +18,13 @@ _foreach_add.Scalar:
   op_frontend: ForeachBinaryFE
   out_ids: [0]
 
+_foreach_add.ScalarList:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
+  guid: add_fwd
+  op_backend: ForeachBinary
+  op_frontend: ForeachBinaryFE
+  out_ids: [0]
+
 _foreach_add.List:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd

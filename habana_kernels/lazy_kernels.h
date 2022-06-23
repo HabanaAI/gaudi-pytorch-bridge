@@ -732,7 +732,9 @@ class LazyOp {
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isDevice() || input.isIntList() ||
         input.isDoubleList() || input.isBoolList() || input.isString() ||
-        input.isNone();
+        input.isNone() ||
+        (input.isList() &&
+         !input.toList().elementType()->cast<at::TensorType>());
   }
 
   template <typename T = ReturnType>

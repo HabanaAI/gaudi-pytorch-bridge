@@ -65,3 +65,28 @@ TEST_F(HpuOpTest, foreach_add_list) {
     Compare(exp[i], res[i]);
   }
 }
+
+TEST_F(HpuOpTest, foreach_add_scalarlist) {
+  static constexpr int n = 5;
+  std::vector<at::Tensor> cpu_in;
+  std::vector<at::Tensor> hpu_in;
+  std::vector<std::vector<long>> sizes = {
+      {4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}};
+  std::vector<torch::ScalarType> dtypes = {
+      at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16};
+  std::vector<torch::Scalar> s = {7, 3.141, 2., -100, -0.001};
+
+  for (int i = 0; i < n; ++i) {
+    GenerateInputs(1, {sizes[i]}, {dtypes[i]});
+
+    cpu_in.push_back(GetCpuInput(0));
+    hpu_in.push_back(GetHpuInput(0));
+  }
+
+  auto exp = _foreach_add(cpu_in, s);
+  auto res = _foreach_add(hpu_in, s);
+
+  for (int i = 0; i < n; ++i) {
+    Compare(exp[i], res[i]);
+  }
+}
