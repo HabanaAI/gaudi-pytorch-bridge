@@ -309,13 +309,6 @@ class PTFuncLog {
   }
 };
 
-class PTOpTrace {
- public:
-  PTOpTrace();
-  ~PTOpTrace();
-  void increment_compound_ops();
-};
-
 #define HABANA_CHECK_MSG(cond, ...) \
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
@@ -488,10 +481,7 @@ class PTOpTrace {
   };                                                       \
   PTFuncLog ptFuncLogger(PNAME, NAME, isDebug);
 
-#define PT_OP_TRACE() PTOpTrace pt_op_trace;
-
 #define PT_LAZY_TRACE \
-  PT_OP_TRACE()       \
   PT_MOD_TRACE(PtLogger::ModuleMask::LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_BRIDGE_TRACE \
   PT_MOD_TRACE(PtLogger::ModuleMask::BRIDGE, __PRETTY_FUNCTION__, __FUNCTION__)

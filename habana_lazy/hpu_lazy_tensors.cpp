@@ -716,7 +716,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
-  DebugHelper::getInstance().resetCurrentAccumulatedOps();
+  StageSubmission::getInstance().resetCurrentAccumulatedOps();
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
@@ -1192,7 +1192,7 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   PT_LAZY_TRACE;
   PT_IRGRAPH_DEBUG("step marker due to host step marker");
   PT_LAZY_DEBUG("step marker due to host step marker");
-  DebugHelper::getInstance().resetStageSubmissionFlow();
+  StageSubmission::getInstance().resetStageSubmissionFlow();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
     StepMarker(device_str, nullptr, {}, true);

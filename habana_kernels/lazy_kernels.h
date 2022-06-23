@@ -17,6 +17,7 @@
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/sbs_runner.h"
 #include "habana_lazy/view_utils.h"

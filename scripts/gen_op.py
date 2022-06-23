@@ -535,6 +535,7 @@ def get_return_type_str(t, orig_sig):
 
 def generate_entry_debug_code(t, fname, params):
     # Emits debug code for a given intercepted function.
+    code = "  PT_OP_TRACE;\n"
     code = "  PT_LAZY_TRACE;\n"
     code += '  PT_LAZY_DEBUG("LazyOp {} :"'.format(fname)
     for p in params:
