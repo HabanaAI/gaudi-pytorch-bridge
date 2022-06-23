@@ -18,6 +18,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/python_utils.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/stream.h"
 
@@ -38,6 +39,9 @@ void stream_event_manager::add_future(
   auto found = future_by_addr_.find(device_address);
   if (found != future_by_addr_.end()) {
     HABANA_ASSERT(found->second.valid());
+    // Release GIL if going to wait. This thread might already acquired GIL and
+    // the second thread will be waiting
+    AutoNoGIL gil_release;
     found->second.wait();
   }
   future_by_addr_[device_address] = std::move(fut);
@@ -54,7 +58,12 @@ void stream_event_manager::wait_for_future(device_ptr device_address) {
     }
   }
   HABANA_ASSERT(it->second.valid());
-  it->second.wait();
+  // Release GIL if going to wait. This thread might already acquired GIL and
+  // the second thread will be waiting
+  {
+    AutoNoGIL gil_release;
+    it->second.wait();
+  }
   {
     std::lock_guard<std::mutex> lock(future_mut_);
     future_by_addr_.erase(device_address);

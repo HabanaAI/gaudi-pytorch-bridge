@@ -1,3 +1,15 @@
+/******************************************************************************
+ * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #pragma once
 
 #include <condition_variable>
@@ -25,8 +37,6 @@ class ThreadPool {
       -> std::future<typename std::result_of<F(Args...)>::type>;
   void joinAllThreads();
   std::thread::id get_id(size_t worker);
-  std::atomic<bool> has_work{false};
-  bool m_stop;
   ~ThreadPool();
 
  private:
@@ -34,6 +44,8 @@ class ThreadPool {
   std::queue<std::function<void()>> m_tasks;
   // synchronization
   std::mutex m_queueMutex;
+  std::condition_variable m_condition;
+  bool m_stop;
 };
 
 // add new work item to the pool
@@ -47,13 +59,15 @@ auto ThreadPool::enqueue(F&& f, Args&&... args)
 
   std::future<return_type> res = task->get_future();
   {
+    std::lock_guard<std::mutex> lock(m_queueMutex);
+
     // don't allow enqueueing after stopping the pool
     if (m_stop)
       throw std::runtime_error("enqueue on stopped ThreadPool");
 
     m_tasks.emplace([task]() { (*task)(); });
-    has_work.store(true);
   }
+  m_condition.notify_one();
   return res;
 }
 

@@ -38,12 +38,14 @@ target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_B
 #find_library(PTPY_LIB "libtorch_python.so"
 #  HINTS "${TORCH_DIR}/lib/")
 #message("Pytorch Python Path: ${PTPY_LIB}")
+find_package(Python COMPONENTS Interpreter Development)
 
 file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
 
 execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(test_pt_integration PRIVATE
+  "${Python_LIBRARIES}"
   "${TORCH_LIBRARIES}"
   habana_pytorch_plugin
   habana_serialization

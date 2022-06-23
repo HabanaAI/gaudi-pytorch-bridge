@@ -359,6 +359,7 @@ class HbContextArena {
   static HbContextArena* Get();
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
+  std::weak_ptr<Data>& GetTensorDataPtrFromHbContext(Data* data);
   std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
   void MarkStep(const c10::Device& device);
   std::recursive_mutex& GetMutex() {

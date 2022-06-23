@@ -177,6 +177,7 @@ target_link_libraries(habana_pytorch_plugin
 )
 
   target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
+  target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR})
 if (DEFINED ENV{KINETO_ROOT})
   target_include_directories(habana_pytorch_plugin PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
 else()

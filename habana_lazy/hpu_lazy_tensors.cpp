@@ -51,10 +51,14 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
   context->RegisterTensor(data);
 }
 
-void HbContextArena::UnregisterTensor(Data* data) {
-  std::lock_guard<std::recursive_mutex> lock(GetMutex());
+std::weak_ptr<Data>& HbContextArena::GetTensorDataPtrFromHbContext(Data* data) {
   HbContext* devctx = GetHbContext(data->device);
-  devctx->tensors_data.erase(data->unique_id);
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
+  return devctx->tensors_data[data->unique_id];
+}
+
+void HbContextArena::UnregisterTensor(Data* data) {
+  HbContext* devctx = GetHbContext(data->device);
   // UnRegister from execution context as well, we can merge these two contexts
   // later
   auto device_id = data->device.index();
@@ -87,6 +91,14 @@ void HbContextArena::UnregisterTensor(Data* data) {
         context->viewTableSize());
   }
   context->UnregisterTensor(data);
+  // The weak ptr in tensors_data is reset before acquiring the m_mtx,
+  // release_resources will acquire GIL and it may conflict with m_mtx. So first
+  // free the resources and then acquire m_mtx and then free erase from
+  // tensors_data
+  auto tData = GetTensorDataPtrFromHbContext(data);
+  tData.reset();
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
+  devctx->tensors_data.erase(data->unique_id);
 }
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
