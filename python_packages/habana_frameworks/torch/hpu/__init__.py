@@ -6,10 +6,12 @@ from habana_frameworks.torch import _hpu_C
 from typing import Optional, Union
 from ._utils import _get_device_index
 from .memory import *
+from .streams import *
 _device_t = Union[torch.device, str, int, None]
 _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
+import os
 
 def init() -> None:
     r"""Initialize PyTorch's HPU state.  You may need to call
@@ -91,3 +93,11 @@ def synchronize() -> None:
     r"""Waits for all kernels in all streams on a HPU device to complete."""
     init()
     return _hpu_C.synchronize_device()
+
+def set_sync_debug_mode(debug_mode) -> None:
+    r"""Enable/Disable Asynchronous Streams for debug.
+     Args:
+        debug_mode: True/False
+    ."""
+    os.environ['PT_ENABLE_HABANA_STREAMASYNC'] = str(debug_mode)
+

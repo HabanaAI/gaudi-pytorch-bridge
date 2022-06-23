@@ -123,5 +123,28 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return mem_stat_str;
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
+  py::class_<HPUStream>(m, "HPUStream");
+  m.def("get_stream", [](bool isHighPriorityStream, int device) {
+    HPUStream stream = getStreamFromPool(isHighPriorityStream, device);
+    return stream;
+  });
+  m.def("query", [](HPUStream stream) {
+    bool finished = stream.query();
+    return finished;
+  });
+  m.def("synchronize", [](HPUStream stream) {
+    stream.synchronize(); // TBD: release GIL  ?
+  });
+  m.def("get_current_stream", []() {
+    HPUStream stream = getCurrentHPUStream();
+    return stream;
+  });
+  m.def("set_current_stream", [](HPUStream stream) {
+    setCurrentHPUStream(stream);
+  });
+  m.def("get_default_stream", []() {
+    HPUStream stream = getDefaultHPUStream();
+    return stream;
+  });
   m.doc() = "This module registers hpu backend.";
 }
