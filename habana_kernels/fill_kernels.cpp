@@ -171,7 +171,3 @@ Tensor& masked_fill_scalar_hpu_(
 
   return masked_fill_hpu_(self, mask, value_tensor);
 }
-
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "aten::fill_.Scalar",
-    KERNEL_FN_GLOBAL(ConstantOutOperator));

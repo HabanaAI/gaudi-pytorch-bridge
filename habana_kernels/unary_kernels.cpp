@@ -2340,22 +2340,7 @@ Tensor cumsum_hpu(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::elu", KERNEL_FN(EluOperator))
-        .add("aten::elu_", KERNEL_FN(EluOperator))
-        .add("aten::leaky_relu", KERNEL_FN(LeakyReluOperator))
-        .add("aten::leaky_relu_", KERNEL_FN_ARG(LeakyReluOperator, true))
-        .add("aten::leaky_relu_backward", KERNEL_FN(LeakyReluBackwardOperator))
-        .add("aten::hardsigmoid", KERNEL_FN(HardsigmoidOperator))
-        .add("aten::hardsigmoid_", KERNEL_FN_ARG(HardsigmoidOperator, true))
-        .add(
-            "aten::hardsigmoid_backward",
-            KERNEL_FN(HardsigmoidBackwardOperator))
-        .add("aten::abs", KERNEL_FN(AbsOperator))
-        .add("aten::abs_", KERNEL_FN(AbsInplaceOperator))
         .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
-        .add("aten::neg", KERNEL_FN(NegOperator))
-        .add("aten::reciprocal", KERNEL_FN(ReciprocalOperator))
-        .add("aten::reciprocal_", KERNEL_FN(ReciprocalInplaceOperator))
         .add("aten::gelu", KERNEL_FN(GeluOperator))
         .add("aten::gelu_backward", KERNEL_FN(GeluBackwardOperator))
         .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))

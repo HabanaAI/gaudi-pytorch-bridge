@@ -449,8 +449,9 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor& div_scalar_hpu_(
     Tensor& self,
-    const Scalar& other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+    const Scalar&
+        other) { // TODO: Add test by using an extension module for new op
+  // at python level
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -554,7 +555,10 @@ Tensor& add_scalar_hpu_(
  * @param alpha - optional input
  * self -= alpha * other
  ************************************************************************/
-Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, const Scalar& alpha) {
+Tensor& sub_tensor_hpu_(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -855,7 +859,5 @@ static auto& KernelRegistry =
         .add("aten::mul_.Scalar", KERNEL_FN(MulInplaceOperator))
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator))
-        .add("aten::addcmul_", KERNEL_FN(AddcmulInplaceOperator))
-        .add("aten::addcdiv_", KERNEL_FN(AddcdivInplaceOperator))
         .add("aten::div_.Tensor", KERNEL_FN(DivInplaceOperator))
         .add("aten::div_.Scalar", KERNEL_FN(DivInplaceOperator));

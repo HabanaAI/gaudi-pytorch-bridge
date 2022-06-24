@@ -32,8 +32,8 @@
 #include "habana_kernels/topk_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
-#include "synapse_helpers/tensor_builder_base.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
 using namespace habana;
@@ -1731,7 +1731,8 @@ Tensor& index_put_hpu_(
   }
   if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
       (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
-      at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put_)>::call(self, indices_list, value, accumulate);
+    at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put_)>::call(
+        self, indices_list, value, accumulate);
     PT_KERNEL_END;
     return self;
   }
@@ -2887,7 +2888,11 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
  * @param step - step value of the sequence
  ************************************************************************/
 
-Tensor& arange_hpu(Tensor& output, const Scalar& start, const Scalar& end, const Scalar& step) {
+Tensor& arange_hpu(
+    Tensor& output,
+    const Scalar& start,
+    const Scalar& end,
+    const Scalar& step) {
   PT_KERNEL_BEGIN;
 
   // resizing the output as it is coming as empty from model
@@ -3092,7 +3097,7 @@ Tensor index_hpu(const at::Tensor& input, TensorList indices) {
     for (size_t i = 0; i < tensorlist.size(); i++) {
       indices_list.push_back(c10::make_optional(tensorlist[i]));
     }
-    FALLBACK_IF_UNSUPPORTED_OP2_O(index, PARAMS2(input, indices_list),Tensor)
+    FALLBACK_IF_UNSUPPORTED_OP2_O(index, PARAMS2(input, indices_list), Tensor)
   }
 
   // if there is only 1 indices tensor, then operation is equivalent to gather
@@ -3239,7 +3244,6 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   // if set
   HABANA_ASSERT((!return_inverse) && "return_inverse not supported in unique2");
   HABANA_ASSERT((!return_counts) && "return_counts not supported in unique2");
-
 
   // The first output tensor contains unique elements.
   // The second output tensor contains the number of unique elements.
@@ -3521,7 +3525,6 @@ static auto& KernelRegistry =
         .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
         .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
-        .add("aten::linspace.out", KERNEL_FN(LinspaceOutOperator))
         .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
         .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator))
         .add("aten::one_hot", KERNEL_FN(OneHotOperator));

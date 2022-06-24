@@ -1559,7 +1559,6 @@ static auto& KernelRegistry =
         .add("aten::mm", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("aten::mv", KERNEL_FN_DROP_ARG2(MvOperator))
-        .add("aten::dot", KERNEL_FN_DROP_ARG2(DotOperator))
         .add("aten::addmm", KERNEL_FN(AddmmOperator))
         .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))
         .add("aten::bmm", KERNEL_FN(BmmOperator))

@@ -48,26 +48,6 @@ at::Tensor& set_hpu_lazy_(
     at::IntArrayRef size,
     at::IntArrayRef stride);
 at::Tensor view_hpu_lazy(const at::Tensor& self, at::IntArrayRef size);
-at::Tensor addcmul_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& tensor1,
-    const at::Tensor& tensor2,
-    const at::Scalar& alpha);
-at::Tensor& addcmul_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& tensor1,
-    const at::Tensor& tensor2,
-    const at::Scalar& alpha);
-at::Tensor addcdiv_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& tensor1,
-    const at::Tensor& tensor2,
-    const at::Scalar& alpha);
-at::Tensor& addcdiv_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& tensor1,
-    const at::Tensor& tensor2,
-    const at::Scalar& alpha);
 at::Tensor add_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -311,7 +291,6 @@ at::Tensor& batch_gemm_out_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mat2);
 at::Tensor batch_gemm_hpu_lazy(const at::Tensor& self, const at::Tensor& mat2);
-at::Tensor dot_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor mv_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
 at::Tensor mse_loss_forward_hpu_lazy(
@@ -626,39 +605,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool descending);
-at::Tensor elu_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& alpha,
-    const at::Scalar& scale,
-    const at::Scalar& input_scale);
-at::Tensor& elu_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& alpha,
-    const at::Scalar& scale,
-    const at::Scalar& input_scale);
-at::Tensor& leaky_relu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& negative_slope);
-at::Tensor leaky_relu_backward_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& negative_slope,
-    bool self_is_result);
-at::Tensor leaky_relu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& negative_slope);
-at::Tensor leaky_relu_backward(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    at::Scalar negative_slope,
-    bool self_is_result);
-
-at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& self);
-at::Tensor hardsigmoid_hpu_lazy(const at::Tensor& self);
-at::Tensor hardsigmoid_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self);
-
 at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
 at::Tensor& tanh_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
 at::Tensor gelu_hpu_lazy(const at::Tensor& self, c10::string_view sv);
@@ -667,13 +613,8 @@ at::Tensor gelu_backward_hpu_lazy(
     const at::Tensor& self,
     c10::string_view sv);
 at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
-at::Tensor& reciprocal_hpu_lazy_(at::Tensor& self);
-at::Tensor reciprocal_hpu_lazy(const at::Tensor& self);
 at::Tensor& reciprocal_out_hpu_lazy(at::Tensor& result, const at::Tensor& self);
-at::Tensor abs_hpu_lazy(const at::Tensor& input);
-at::Tensor& abs_hpu_lazy_(at::Tensor& self);
 at::Tensor isfinite_hpu_lazy(const at::Tensor& self);
-at::Tensor neg_hpu_lazy(const at::Tensor& self);
 at::Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_lazy(
@@ -820,21 +761,11 @@ at::Tensor isnan_hpu_lazy(const at::Tensor& self);
 at::Tensor silu_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& self);
-at::Tensor& linspace_out_hpu_lazy(
-    const at::Scalar& start,
-    const at::Scalar& end,
-    int64_t steps,
-    at::Tensor& out);
 at::Tensor cumsum_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     c10::optional<at::ScalarType> dtype);
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims);
-at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal);
-at::Tensor& diag_hpu_lazy_out(
-    const at::Tensor& self,
-    int64_t diagonal,
-    at::Tensor& out);
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,
     int64_t root_rank,

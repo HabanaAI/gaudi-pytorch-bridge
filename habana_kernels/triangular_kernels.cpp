@@ -245,8 +245,3 @@ at::Tensor& diag_hpu_out(
   PT_KERNEL_END;
   return result;
 }
-
-static auto& KernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::diag", KERNEL_FN(DiagOperator))
-        .add("hpu::diag_out", KERNEL_FN(DiagOutOperator));

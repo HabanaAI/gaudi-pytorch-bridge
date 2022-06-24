@@ -24,4 +24,14 @@ void Fill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(broadcast[0]);
 }
 
+void FillScalar::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto other = stack.at(1).toScalar();
+  const auto& outshape = self.sizes();
+  auto result = ConstantHelper(graph, other, ScalarType(), outshape, 0);
+  syn_out(0) = std::move(result);
+}
+
 } // namespace habana

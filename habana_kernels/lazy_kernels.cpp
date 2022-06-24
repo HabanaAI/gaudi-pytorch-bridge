@@ -1352,72 +1352,6 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   return out;
 }
 
-Tensor addcmul_hpu_lazy(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{
-      "aten::addcmul",
-      {self, tensor1, tensor2, alpha},
-      {},
-      {AddcmulOperator::compute_output_shape(self, tensor1, tensor2)}};
-  return k.call();
-}
-Tensor& addcmul_hpu_lazy_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  if (!tensor1.is_same(tensor2)) {
-    auto mul_out = mul_tensor_hpu_lazy(tensor1, tensor2);
-    add_tensor_hpu_lazy_(self, mul_out, alpha);
-  } else {
-    // implement addcmul_ as add_(pow(tensor1,2), alpha)
-    auto temp = torch::pow(tensor1, 2.0);
-    add_tensor_hpu_lazy_(self, temp, alpha);
-  }
-
-  flush_op(self);
-  return self;
-}
-Tensor addcdiv_hpu_lazy(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{
-      "aten::addcdiv",
-      {self, tensor1, tensor2, alpha},
-      {},
-      {AddcmulOperator::compute_output_shape(self, tensor1, tensor2)}};
-  return k.call();
-}
-
-Tensor& addcdiv_hpu_lazy_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  auto alpha_double = alpha.toDouble();
-  if (alpha_double == 1.0) {
-    LazyOp<at::Tensor&> op{"aten::addcdiv_", {self, tensor1, tensor2, alpha}};
-    return op.call(self);
-  } else {
-    auto div_out = div_tensor_hpu_lazy(tensor1, tensor2);
-    auto alpha_tensor = get_tensor_for_scalar(alpha_double, div_out.options());
-    auto mul_out = mul_tensor_hpu_lazy(alpha_tensor, div_out);
-    auto out = add_tensor_hpu_lazy_(self, mul_out, 1.0);
-  }
-
-  flush_op(self);
-  return self;
-}
-
 Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
@@ -3695,12 +3629,6 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
       vector_of_inputs,
       {},
       {BmmOperator::compute_output_shape(self, mat2)}};
-  return k.call();
-}
-
-Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::dot", {self, other}, {}, {{}}};
   return k.call();
 }
 
@@ -6085,82 +6013,10 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
-at::Tensor elu_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& alpha,
-    const at::Scalar& scale,
-    const at::Scalar& input_scale) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::elu", {self, alpha, scale, input_scale}};
-  return k.call();
-}
-
-at::Tensor& elu_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& alpha,
-    const at::Scalar& scale,
-    const at::Scalar& input_scale) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::elu_", {self, alpha, scale, input_scale}};
-  return k.call(self);
-}
-
-at::Tensor& leaky_relu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& negative_slope) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::leaky_relu_", {self, negative_slope}};
-  return k.call(self);
-}
-
-at::Tensor leaky_relu_backward_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& negative_slope,
-    bool self_is_result) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{
-      "aten::leaky_relu_backward",
-      {grad_output, self, negative_slope, self_is_result},
-      {2, 3}};
-  return k.call();
-}
-
-at::Tensor leaky_relu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& negative_slope) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::leaky_relu", {self, negative_slope}};
-  return k.call();
-}
-
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k("aten::flip", {self, dims});
   return k.call();
-}
-
-at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k(
-      "aten::diag",
-      {self, diagonal},
-      {},
-      {DiagOperator::compute_output_shape(self, diagonal)});
-  return k.call();
-}
-
-at::Tensor& diag_hpu_lazy_out(
-    const at::Tensor& self,
-    int64_t diagonal,
-    at::Tensor& out) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> k(
-      "hpu::diag_out",
-      {self, diagonal, out},
-      {},
-      {DiagOutOperator::compute_output_shape(self, diagonal)});
-  return k.call(out);
 }
 
 at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
@@ -6410,26 +6266,6 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
   return result;
 }
 
-at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::hardsigmoid_", {self}};
-  return k.call(self);
-}
-
-Tensor hardsigmoid_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::hardsigmoid", {input}};
-  return k.call();
-}
-
-Tensor hardsigmoid_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::hardsigmoid_backward", {grad_output, self}};
-  return k.call();
-}
-
 Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(0);
@@ -6457,18 +6293,6 @@ Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
   return neg_out_hpu(result, input);
 }
 
-Tensor& reciprocal_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::reciprocal_", {self}};
-  return k.call(self);
-}
-
-Tensor reciprocal_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::reciprocal", {self}};
-  return k.call();
-}
-
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(0);
@@ -6482,23 +6306,6 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
   return k_.call();
 }
 
-Tensor abs_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::abs", {input}};
-  return k.call();
-}
-
-Tensor& abs_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::abs_", {self}};
-  return k.call(self);
-}
-
-Tensor neg_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::neg", {self}};
-  return k.call();
-}
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   Scalar out;
@@ -7112,30 +6919,6 @@ Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
   auto& result = k.call(out);
   CONVERT_1D_TO_0D(self, result)
   return result;
-}
-
-Tensor& linspace_out_hpu_lazy(
-    const Scalar& start,
-    const Scalar& end,
-    int64_t steps,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-
-  Scalar temp_end = end;
-
-  // Handle start==end case, change the end value and
-  // hence convert to start != end, by changing end variable.
-  if (start.toFloat() == temp_end.toFloat()) {
-    steps = 1;
-    auto tmp = end.toFloat();
-    tmp++;
-    temp_end = Scalar(tmp);
-  }
-
-  std::vector<int64_t> out_shape = {steps};
-  LazyOp<at::Tensor&> k(
-      "aten::linspace", {start, temp_end, steps, out}, {}, {out_shape});
-  return k.call(out);
 }
 
 Tensor cumsum_hpu_lazy(

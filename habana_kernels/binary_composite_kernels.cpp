@@ -228,8 +228,3 @@ Tensor addcdiv_hpu(
   PT_KERNEL_END;
   return out.at(0);
 }
-
-static auto& KernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::addcmul", KERNEL_FN(AddcmulOperator))
-        .add("aten::addcdiv", KERNEL_FN(AddcdivOperator));

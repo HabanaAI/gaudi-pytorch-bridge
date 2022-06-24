@@ -368,6 +368,18 @@ _foreach_zero_:
   inplace_ids: [0]
   op_backend: ForeachZero
 
+abs:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: abs_fwd
+  out_ids: [0]
+
+abs_:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: abs_fwd
+  inplace_ids: [0]
+
 abs.out:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
@@ -410,12 +422,48 @@ add.out:
   op_backend: BinaryWithAlpha
   use_meta: true
 
+addcdiv:
+  force_default: false
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float]
+  guid: div
+  op_backend: AddCOpOut
+  scalar_ids: [3]
+  out_ids: [0]
+
+addcdiv_:
+  force_default: false
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float]
+  guid: div
+  op_backend: AddCOpOut
+  scalar_ids: [3]
+  inplace_ids: [0]
+
 addcdiv.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
   guid: div
   op_backend: AddCOpOut
   scalar_ids: [3]
+
+addcmul:
+  force_default: false
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: mult_fwd
+  op_backend: AddCOpOut
+  scalar_ids: [3]
+  out_ids: [0]
+
+addcmul_:
+  force_default: false
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: mult_fwd
+  op_backend: AddCOpOut
+  scalar_ids: [3]
+  inplace_ids: [0]
 
 addcmul.out:
   custom_output_shape: AddCOpsOutputShape
@@ -1141,6 +1189,20 @@ cumsum_:
   guid: cumsum_fwd
   inplace_ids: [0]
 
+diag:
+  force_default: false
+  custom_output_shape: DiagOutShape
+  dtypes: [BFloat16, Float]
+  out_ids: [0]
+  custom_fill_params: FillDiagParams
+  op_backend: Diag
+
+diag.out:
+  custom_output_shape: DiagOutShape
+  dtypes: [BFloat16, Float]
+  custom_fill_params: FillDiagParams
+  op_backend: Diag
+
 div.out_mode:
   custom_output_shape: BinaryOutputShape
   dtypes: [Float, BFloat16, Int, Char, Byte]
@@ -1182,11 +1244,37 @@ div_.Tensor_mode:
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
 
+dot:
+  custom_output_shape: DotOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: Dot
+  out_ids: [0]
+
 dot.out:
   force_default: false
   custom_output_shape: DotOutputShape
   dtypes: [BFloat16, Float]
   op_backend: Dot
+
+elu:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: elu_fwd
+  tpc_param:
+    name: ns_EluKernel::Params
+    params:
+    - [1, float]
+  out_ids: [0]
+
+elu_:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: elu_fwd
+  tpc_param:
+    name: ns_EluKernel::Params
+    params:
+    - [1, float]
+  inplace_ids: [0]
 
 elu.out:
   dtypes: [BFloat16, Float]
@@ -1369,8 +1457,14 @@ eye.m_out:
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
+fill_.Scalar:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  op_backend: FillScalar
+  inplace_ids: [0]
+  scalar_ids: [1]
+
 fill_.Tensor:
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   op_backend: Fill
   inplace_ids: [0]
 
@@ -1667,6 +1761,27 @@ hardsigmoid_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: hard_sigmoid_bwd
 
+hardsigmoid:
+  force_default: false
+  custom_fill_params: FillHardSigmoidParams
+  dtypes: [BFloat16, Float]
+  guid: hard_sigmoid_fwd
+  out_ids: [0]
+
+hardsigmoid_:
+  force_default: false
+  custom_fill_params: FillHardSigmoidParams
+  dtypes: [BFloat16, Float]
+  guid: hard_sigmoid_fwd
+  inplace_ids: [0]
+
+hardsigmoid_backward:
+  force_default: false
+  custom_fill_params: FillHardSigmoidParams
+  dtypes: [BFloat16, Float]
+  guid: hard_sigmoid_bwd
+  out_ids: [0]
+
 hardswish:
   dtypes: [BFloat16, Float]
   guid: hard_swish_fwd
@@ -1869,6 +1984,33 @@ leaky_relu_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: leakyrelu_bwd
 
+leaky_relu_backward:
+  force_default: false
+  custom_fill_params: FillLeakyReluBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: leakyrelu_bwd
+  out_ids: [0]
+
+leaky_relu:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: leakyrelu_fwd
+  out_ids: [0]
+  tpc_param:
+    name: ns_LeakyReluKernel::Params
+    params:
+    - [1, double]
+
+leaky_relu_:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: leakyrelu_fwd
+  inplace_ids: [0]
+  tpc_param:
+    name: ns_LeakyReluKernel::Params
+    params:
+    - [1, double]
+
 leaky_relu.out:
   dtypes: [BFloat16, Float]
   guid: leakyrelu_fwd
@@ -1927,6 +2069,11 @@ linalg_cross:
 linalg_cross.out:
   dtypes: [BFloat16, Float, Int]
   op_backend: LinAlgCross
+
+linspace.out:
+  dtypes: [BFloat16, Float, Int]
+  op_backend: LinspaceOut
+  custom_output_shape: LinspaceOutputShape
 
 log.out:
   dtypes: [BFloat16, Float]
@@ -2454,6 +2601,12 @@ neg_:
   guid: neg_fwd
   inplace_ids: [0]
 
+neg:
+  dtypes: [BFloat16, Float, Int]
+  guid: neg_fwd
+  force_default: false
+  out_ids: [0]
+
 nll_loss_backward:
   force_default: false
   legacy_eager: true
@@ -2696,6 +2849,18 @@ random_.to:
   op_frontend: LazyTensorSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
+
+reciprocal:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: reciprocal_fwd
+  out_ids: [0]
+
+reciprocal_:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: reciprocal_fwd
+  inplace_ids: [0]
 
 reciprocal.out:
   dtypes: [BFloat16, Float]
