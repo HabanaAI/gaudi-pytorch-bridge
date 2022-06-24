@@ -77,6 +77,8 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*version_counter=*/version_counter,
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
   impl.get()->SetupSizeProperties();
+  impl->refresh_numel();
+  impl->refresh_contiguous();
   return impl;
 }
 
@@ -90,6 +92,8 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*version_counter=*/std::move(version_counter),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
   impl.get()->SetupSizeProperties();
+  impl->refresh_numel();
+  impl->refresh_contiguous();
   return impl;
 }
 
@@ -104,6 +108,8 @@ void HbLazyTensorImpl::shallow_copy_from(
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change());
   hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+  const_cast<HbLazyTensorImpl*>(this)->refresh_numel();
+  const_cast<HbLazyTensorImpl*>(this)->refresh_contiguous();
 }
 
 at::IntArrayRef HbLazyTensorImpl::sizes() const {
