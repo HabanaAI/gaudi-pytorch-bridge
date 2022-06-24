@@ -78,3 +78,6 @@ def _dump_dynamic_shape_memory_stat() -> None:
 
 def _is_enabled_synapse_layout_handling() -> bool:
     return _debug_C.is_enabled_synapse_layout_handling()
+
+def clear_dynamic_bucket_recipe_info() -> None:
+    return _debug_C.clear_dynamic_bucket_recipe_info()

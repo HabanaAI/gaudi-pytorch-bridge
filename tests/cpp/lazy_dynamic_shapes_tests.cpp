@@ -395,6 +395,56 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
+  int A = 4;
+  const int C = 3;
+  std::vector<int> in_sizes{6, 8, 10};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
+    torch::Tensor c1 = torch::randn({C, B, A}, torch::requires_grad(false));
+
+    torch::Tensor c4 = torch::add(c0, c1);
+    torch::Tensor c5 = torch::mul(c0, c1);
+    torch::Tensor c6 = torch::mul(c4, c5);
+    torch::Tensor c7 = torch::relu(c6);
+
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c1.shape : ", c1.sizes(), " c1.strides : ", c1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c7.shape : ", c7.sizes(), " c7.strides : ", c7.strides());
+
+    torch::Tensor h0 = c0.to(torch::kHPU);
+    torch::Tensor h1 = c1.to(torch::kHPU);
+    torch::Tensor h4 = torch::add(h0, h1);
+    torch::Tensor h5 = torch::mul(h0, h1);
+    torch::Tensor h6 = torch::mul(h4, h5);
+    torch::Tensor h7 = torch::relu(h6);
+    torch::Tensor h7_c = h7.to(torch::kCPU);
+
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h1.shape : ", h1.sizes(), " h1.strides : ", h1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h7.shape : ", h7.sizes(), " h7.strides : ", h7.strides());
+
+    EXPECT_EQ(allclose(c7, h7_c, 0.01, 0.01), true);
+
+    habana::ClearDynamicBucketRecipeInfo();
+
+    EXPECT_EQ(habana::RecipeCacheLRU::get_cache().empty(), true);
+    EXPECT_EQ(habana::DynamicBucketInfoMap::get_instance().empty(), true);
+
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
   int A = 50;
   const int C = 30;

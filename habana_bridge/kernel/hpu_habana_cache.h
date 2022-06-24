@@ -534,6 +534,7 @@ class DynamicBucketInfoMap {
   size_t HistSize() const;
   static void DumpBucketMemoryStat();
   static void DumpHistoryMemoryStat();
+  void clear();
 
  private:
   DynamicBucketInfoMap() = default;
@@ -560,4 +561,5 @@ class DynamicBucketInfoMap {
   }
 };
 
+void ClearDynamicBucketRecipeInfo();
 } // namespace habana

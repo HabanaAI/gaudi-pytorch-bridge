@@ -1480,6 +1480,10 @@ size_t DynamicBucketInfoMap::HistSize() const {
   return size;
 }
 
+void DynamicBucketInfoMap::clear() {
+  map_.clear();
+}
+
 size_t RecipeCacheLRU::Size() const {
   size_t size = 0;
   for (auto const& [recipeArgumentSpec, recipeValueSpec] : list_) {
@@ -1629,4 +1633,8 @@ std::shared_ptr<RecipeValueSpec> DiskCache::Find(
   return nullptr;
 }
 
+void ClearDynamicBucketRecipeInfo() {
+  RecipeCacheLRU::get_cache().clear();
+  DynamicBucketInfoMap::get_instance().clear();
+}
 } // namespace habana

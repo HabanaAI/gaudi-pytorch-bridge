@@ -139,5 +139,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("is_enabled_synapse_layout_handling", []() {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
   });
+  m.def("clear_dynamic_bucket_recipe_info", []() {
+    habana::ClearDynamicBucketRecipeInfo();
+  });
   m.doc() = "This module registers hpu host debug API";
 }
