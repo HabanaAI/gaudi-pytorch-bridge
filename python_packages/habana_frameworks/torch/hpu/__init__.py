@@ -7,6 +7,7 @@ from typing import Optional, Union
 from ._utils import _get_device_index
 from .memory import *
 from .streams import *
+from .graphs import *
 _device_t = Union[torch.device, str, int, None]
 _initialized = False
 _tls = threading.local()

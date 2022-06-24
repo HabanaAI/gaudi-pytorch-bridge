@@ -11,6 +11,7 @@
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 
@@ -146,5 +147,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     HPUStream stream = getDefaultHPUStream();
     return stream;
   });
+
+  py::class_<at::hpu::HPUGraph>(m, "HPUGraph");
+  m.def("init_graph", []() { return new at::hpu::HPUGraph(); });
+  m.def(
+      "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
+  m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });
+  m.def("replay", [](at::hpu::HPUGraph& graph) { graph.replay(); });
   m.doc() = "This module registers hpu backend.";
 }

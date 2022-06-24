@@ -69,6 +69,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_bridge/passes/hpu_habana_persistence_marker_pass.cpp
   pytorch_helpers/habana_helpers/activity_profiler.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
+  pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp
   pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
   pytorch_helpers/habana_helpers/logging.cpp
