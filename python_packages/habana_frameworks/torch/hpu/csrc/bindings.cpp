@@ -148,8 +148,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return stream;
   });
 
-  py::class_<at::hpu::HPUGraph>(m, "HPUGraph");
-  m.def("init_graph", []() { return new at::hpu::HPUGraph(); });
+  py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
   m.def(
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
   m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });

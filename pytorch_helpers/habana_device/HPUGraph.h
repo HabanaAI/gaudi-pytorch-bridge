@@ -9,6 +9,9 @@
  */
 #pragma once
 #include "HPUStream.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/ir.h"
+#include "torch/csrc/jit/ir/ir.h"
 
 namespace at {
 namespace hpu {
@@ -24,6 +27,12 @@ struct HPUGraph {
  protected:
   // Stream on which capture began
   c10::hpu::HPUStream capture_stream_;
+  std::mutex mutex_;
+  bool capturing_ = false;
+  std::shared_ptr<torch::jit::Graph> graph_;
+  habana_lazy::ir::ValueList input_vals_;
+  habana_lazy::ir::ValueList output_vals_;
+  std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_;
 };
 
 } // namespace hpu

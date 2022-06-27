@@ -26,12 +26,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
   });
-  m.def(
-      "run_saved_model",
-      [](const std::string& device_str) {
-        habana_lazy::HbLazyTensor::RunSavedGraph(device_str);
-      },
-      py::arg("device_str") = "");
+
   m.def(
       "enable_eliminate_common_subexpression",
       [](const bool flag) {

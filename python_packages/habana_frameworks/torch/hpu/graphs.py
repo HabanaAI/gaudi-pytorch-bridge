@@ -12,7 +12,7 @@ class HPUGraph(object):
         This API is in beta and may change in future releases.
     """
     def __init__(self):
-        self.hpu_graph = _hpu_C.init_graph()
+        self.hpu_graph = _hpu_C.HPUGraph()
 
     def capture_begin(self):
         r"""

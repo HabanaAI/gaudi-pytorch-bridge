@@ -236,7 +236,6 @@ class HbLazyTensor {
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
-      bool use_cached_graph,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false);
@@ -252,8 +251,12 @@ class HbLazyTensor {
   static void InitiateBucketRefinement();
   static void SetDynamicMode();
 
-  static void RunSavedGraph(const std::string& device_str);
-  static void ExecuteCachedGraph();
+  static void ExecuteCachedGraph(
+      std::shared_ptr<torch::jit::Graph> graph,
+      ir::ValueList& input_vals,
+      ir::ValueList& output_vals,
+      std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+      bool is_cached);
 
   static void* lazyTensorDataPtr(const at::Tensor& t);
 

@@ -679,24 +679,19 @@ void HbLazyTensor::SyncTensorsGraph(
 
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
-    bool use_cached_graph = false,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
   StageSubmission::getInstance().resetCurrentAccumulatedOps();
-  if (use_cached_graph) {
-    ExecuteCachedGraph();
-  } else {
-    // For optimized lazy eager, use the output tensors as it is while
-    // for normal eager and Lazy, prepare tensors from live tensors
-    std::vector<HbLazyTensor> tensors = out_hb_lazy_tensor;
-    if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
-          lazy_front_end_info->get_optimized_lazy_eager_key())) {
-      tensors = GetLiveTensors(device);
-    }
-    SyncTensorsGraph(&tensors, lazy_front_end_info, async);
+  // For optimized lazy eager, use the output tensors as it is while
+  // for normal eager and Lazy, prepare tensors from live tensors
+  std::vector<HbLazyTensor> tensors = out_hb_lazy_tensor;
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
+        lazy_front_end_info->get_optimized_lazy_eager_key())) {
+    tensors = GetLiveTensors(device);
   }
+  SyncTensorsGraph(&tensors, lazy_front_end_info, async);
 }
 
 std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
@@ -1049,7 +1044,12 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   context->clear();
 }
 
-void HbLazyTensor::ExecuteCachedGraph() {
+void HbLazyTensor::ExecuteCachedGraph(
+    GraphPtr graph,
+    ir::ValueList& input_vals,
+    ir::ValueList& output_vals,
+    std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+    bool is_cached) {
   PT_LAZY_TRACE;
   exec::HlExec hlexec{};
 
@@ -1057,14 +1057,7 @@ void HbLazyTensor::ExecuteCachedGraph() {
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size.
-  HbExecutionContext* context =
-      habana_lazy_executor.getDeviceExecutionContext(0);
-
-  HABANA_ASSERT(context->m_is_cached == true);
-
-  auto& input_vals = context->getInputs();
-  auto& output_vals = context->getOutputs();
-  auto hb_lazy_tensors = context->getHbLazyTensors();
+  HABANA_ASSERT(is_cached == true);
 
   stack.reserve(std::max(input_vals.size(), output_vals.size()));
 
@@ -1079,17 +1072,17 @@ void HbLazyTensor::ExecuteCachedGraph() {
   }
 
   // Fetch graph from device context
-  hlexec.set_graph(context->getGraph());
+  hlexec.set_graph(graph);
 
   // Launch the execution
   hlexec.Launch(stack);
 
-  HABANA_ASSERT(stack.size() == hb_lazy_tensors.size());
+  HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
   size_t i = 0;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
-    HbLazyTensor out_tensor = hb_lazy_tensors[i++];
+    HbLazyTensor out_tensor = hblazy_tensors[i++];
     out_tensor.SetTensorData(st);
   }
 }
@@ -1213,7 +1206,6 @@ void HbLazyTensor::StepMarker(
   }
   HbLazyTensor::SyncLiveTensorsGraph(
       &device,
-      /* is_cached*/ false,
       lazy_front_end_info,
       out_hb_lazy_tensor,
       async);
@@ -1233,15 +1225,6 @@ void HbLazyTensor::SetDynamicMode() {
   if (switch_dynamic_mode) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
   }
-}
-
-void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
-  c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(&device, true);
-  HbLazyTensor::MarkStep(device);
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      device.index());
-  context->MarkAllTensorsExecuted(device);
 }
 
 void* HbLazyTensor::lazyTensorDataPtr(const at::Tensor& t) {

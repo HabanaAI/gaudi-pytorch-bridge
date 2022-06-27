@@ -10,9 +10,6 @@ def _set_dynamic_mode() -> None:
 def _set_module_name(name="") -> None:
     _debug_C.set_module_name(name)
 
-def _run_saved_model(device_name="") -> None:
-    _debug_C.run_saved_model(device_name)
-
 def _enable_eliminate_common_subexpression(flag) -> None:
     _debug_C.enable_eliminate_common_subexpression(flag)
 
