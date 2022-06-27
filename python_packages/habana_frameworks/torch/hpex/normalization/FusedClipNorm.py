@@ -11,27 +11,24 @@ class FusedClipNorm:
 
         self.fused_clip_norm = _hpex_C.fused_norm
 
-        # params = list(filter(lambda p: p.grad is not None, parameters))
-        self.params = []
-        self.norm_list = []
         self.norm_type = 2.0
-        self.norm_list_inited = False
         super(FusedClipNorm, self).__init__()
 
     def clip_norm(self, parameters):
-        if not self.norm_list_inited:
-            if isinstance(parameters, torch.Tensor):
-                self.params = [parameters]
+        norm_list = []
+        if isinstance(parameters, torch.Tensor):
+            if parameters.grad is not None:
+                norm_list = [parameters.grad]
+        else:
             for p in parameters:
                 if p.grad is not None:
-                    self.params.append(p)
-            for p in self.params:
-                self.norm_list.append(p.grad)
-            self.norm_list_inited = True
+                    norm_list.append(p.grad)
+        if len(norm_list) == 0:
+            return torch.tensor(0.)
 
         with torch.no_grad():
             total_norm = self.fused_clip_norm(
-                self.norm_list, self.max_norm_t, self.norm_type
+                norm_list, self.max_norm_t, self.norm_type
             )
 
         htcore.mark_step()
