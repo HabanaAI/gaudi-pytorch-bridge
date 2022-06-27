@@ -7001,6 +7001,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned) {
+  PT_OP_TRACE;
   PT_LAZY_TRACE;
   // Assuming outshape to be NCHW
   std::vector<int64_t> out_shape{
@@ -7040,6 +7041,7 @@ at::Tensor roi_align_bwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned) {
+  PT_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> out_shape = {bs, ch, h, w};
   auto input_shape = empty_hpu_lazy(

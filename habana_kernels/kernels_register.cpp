@@ -136,6 +136,7 @@ Tensor hpu_wrap::as_strided(
   // tensor transfers
   // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self), PARAMS2(self, size,
   // stride, storage_offset))
+  PT_OP_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return as_strided_hpu_lazy(self, size, stride, storage_offset);
@@ -959,6 +960,7 @@ Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
+  PT_OP_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return embedding_bag_sum_hpu_lazy(
         input, indices, offsets, valid_count, kernel_mode);
@@ -975,6 +977,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
+  PT_OP_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
         out, input, indices, offsets, valid_count, kernel_mode);
@@ -2968,6 +2971,7 @@ Tensor hpu_wrap::empty(
     c10::optional<Device> device,
     c10::optional<bool> pin_memory,
     c10::optional<MemoryFormat> optional_memory_format) {
+  PT_OP_TRACE;
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))
                                   .layout(std::move(layout))
@@ -3209,6 +3213,7 @@ at::Tensor hpu_wrap::elu(
     const at::Scalar& alpha,
     const at::Scalar& scale,
     const at::Scalar& input_scale) {
+  PT_OP_TRACE;
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
@@ -3758,6 +3763,7 @@ const at::Tensor& hpu_wrap::as_strided_(
   // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self)
   //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
   //  storage_offset);
+  PT_OP_TRACE;
 
   return as_strided_hpu_lazy_(self, size, stride, storage_offset);
 }
@@ -4539,7 +4545,6 @@ at::Tensor roi_align_fwd_wrap(
     int64_t output_w,
     int64_t sampling_ratio,
     bool aligned) {
-  PT_OP_TRACE;
   int mode = 0;
   // rois from torchvision are of shape {K, 5} where 1st column contain the
   // index of corresponding element in the batch, whereas remaining columns
@@ -4574,7 +4579,6 @@ at::Tensor roi_align_bwd_wrap(
     int64_t w,
     int64_t sampling_ratio,
     bool aligned) {
-  PT_OP_TRACE;
   static_cast<void>(output_h);
   static_cast<void>(output_w);
   // Refer to comment in roi_align_fwd_wrap for same operations
