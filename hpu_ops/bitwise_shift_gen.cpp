@@ -70,21 +70,6 @@ ScalarTypeConversion<at::Tensor>::ScalarTypeConversion(
 }
 
 template <>
-ScalarTypeConversion<at::Tensor&>::ScalarTypeConversion(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
-  auto x = get_inputs();
-  if (x[index_of_self].isScalar()) {
-    ScalarTypeConvert(x, index_of_self, index_of_other);
-  } else {
-    ScalarTypeConvert(x, index_of_other, index_of_self);
-  }
-  set_inputs(x);
-}
-
-template <>
 at::Tensor ScalarTypeConversion<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   if (inputs.at(index_of_self).isScalar()) {
@@ -98,44 +83,4 @@ at::Tensor ScalarTypeConversion<at::Tensor>::get_result_overrideable() {
   }
 }
 
-template <>
-at::Tensor& ScalarTypeConversion<at::Tensor&>::get_result_overrideable() {
-  return LazyOp<at::Tensor&>::get_result_overrideable();
-}
-
-void BitwiseShift::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  auto outshape = BinaryOutputShape(stack)[0];
-  if (c10::isFloatingType(ScalarType())) {
-    auto pow2 = BuildOp(
-        graph,
-        "pow2_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(1)},
-        {{stack[index_of_other].isScalar()
-              ? 1
-              : stack_tensor(stack, index_of_other).sizes(),
-          ScalarType()}});
-
-    auto div_mul = BuildOp(
-        graph,
-        guid_,
-        {syn_in(0), pow2[0].get()},
-        {{outshape, ScalarType(), 0}}); // geting guid from yaml
-
-    syn_out(0) = std::move(div_mul[0]);
-  } else {
-    auto shifted = BuildOp(
-        graph,
-        "bitshift_fwd_i32",
-        {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), 0}},
-        params.get(),
-        size);
-
-    syn_out(0) = std::move(shifted[0]);
-  }
-}
 } // namespace habana
