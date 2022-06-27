@@ -349,6 +349,19 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   auto indexes = inputs[2].toTensor();
   auto iou = inputs[3].toScalar();
   auto max_classes = inputs[6].toScalar().toInt();
+  // Add a check for validating shape tensor 2 sizes which can come wrong
+  // in case if LOCAL_HISTORIC min is used. Explained below:
+  // ITR1: Scores 1; shape_tensor 2 = 1*81 ; MIN {Scores = 1; shape tensor 2 =
+  // 81
+  // ITR2: Scores 3; shape_tensor 3 = 3*81= 243 ; MIN {Scores = 3; shape
+  // tensor 2 = 81.
+  // Here above in itr 2 score is 3 since 1 is considered
+  // broadcast and rejected but since shape tensor 2 is 81 its not rejected,
+  // although calculation is wrong.
+  auto shape_tensor_2_size = inputs[5].toTensor().sizes()[0];
+  TORCH_CHECK(
+      (scores.sizes()[0] * max_classes) == shape_tensor_2_size,
+      "Shape tensor 2 calculation mismatch for batched_nms");
 
   auto box_id_out = habana_helpers::createPTTensor(
       indexes,
