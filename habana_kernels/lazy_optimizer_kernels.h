@@ -35,6 +35,24 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
+      std::vector<at::Tensor>& tVector) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    const auto& node = LazyOp<T>::create_node();
+
+    const auto noOfTensor = tVector.size();
+
+    int64_t out_index = 0;
+    for (size_t i = 0; i < noOfTensor; ++i) {
+      auto hl_result1 = GetHbLazyTensor(tVector[i]);
+
+      updateDstDependencies(hl_result1, tVector[i], true);
+      HbLazyTensorViews::CustomKernelAddNodeInplace(
+          tVector[i], node, out_index);
+    }
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
@@ -46,20 +64,8 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       auto hl_result1 = GetHbLazyTensor(tList1[i]);
 
       updateDstDependencies(hl_result1, tList1[i], true);
-
-      ir::Value& out1 = hl_result1.CurrentIrValue();
-      out1.SetNode(
-          node,
-          hl_result1.GetDevice(),
-          hl_result1.GetSizes(),
-          hl_result1.dtype_optional(),
-          out_index++);
-
-      context->MarkTensorStatus(
-          hl_result1.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+      HbLazyTensorViews::CustomKernelAddNodeInplace(tList1[i], node, out_index);
     }
-    LazyOp<T>::runSBS(tList1);
-    flush_op(tList1);
   }
 
   template <typename T = ReturnType>

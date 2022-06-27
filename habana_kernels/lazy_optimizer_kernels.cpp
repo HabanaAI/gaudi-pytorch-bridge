@@ -424,8 +424,7 @@ void optimizer_lamb_phase2_hpu_lazy(
       {6, 7}, // metadata_indices
       {} // out_shapes
   );
-  ArrayRef outTensorList(weights);
-  lo.call(outTensorList);
+  lo.call(weights);
 }
 
 Tensor& optimizer_adagrad_hpu_lazy(
