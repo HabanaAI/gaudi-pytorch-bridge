@@ -246,6 +246,9 @@ struct RecipeValueSpec {
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr);
   void launch(
       synapse_helpers::hpuStream_t hpu_stream,
+      synEventHandle event_handle,
+      synapse_helpers::hpuStream_t event_stream,
+      bool event_flag,
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr = nullptr);

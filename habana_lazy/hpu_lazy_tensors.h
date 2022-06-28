@@ -238,21 +238,29 @@ class HbLazyTensor {
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false,
-      bool collect_sync_tensors = true);
+      bool collect_sync_tensors = true,
+      synEventHandle event_handle = nullptr,
+      synapse_helpers::hpuStream_t event_stream = 0,
+      bool event_flag = false);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
-      bool async = false);
+      bool async = false,
+      synEventHandle event_handle = nullptr,
+      synapse_helpers::hpuStream_t event_stream = 0,
+      bool event_flag = false);
 
   static void StepMarker(
       const std::string& device_str = {},
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info =
           nullptr,
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
-      bool async =
-          false /* Wait for launch thread to finish for internal MS */);
+      bool async = false /* Wait for launch thread to finish for internal MS */,
+      synEventHandle event_handle = nullptr,
+      synapse_helpers::hpuStream_t event_stream = 0,
+      bool event_flag = false);
   static void StepMarkerBind(const std::string& device_str = {});
   static void StepMarkerFinish();
   static void InitiateBucketRefinement();
@@ -333,7 +341,10 @@ class HbLazyTensor {
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false,
-      bool collect_sync_tensors = true);
+      bool collect_sync_tensors = true,
+      synEventHandle event_handle = nullptr,
+      synapse_helpers::hpuStream_t event_stream = 0,
+      bool event_flag = false);
   static bool switch_dynamic_mode;
 };
 

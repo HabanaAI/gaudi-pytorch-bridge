@@ -241,6 +241,11 @@ class HabanaLaunchOpPT {
   // user stream info
   synapse_helpers::hpuStream_t hpu_stream;
 
+  // user event handle
+  synEventHandle event_handle;
+  synapse_helpers::hpuStream_t event_stream;
+  bool event_flag = false;
+
   // Making the cache eviction policy as lru as default
 
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
@@ -450,7 +455,11 @@ class HabanaLaunchOpPT {
   void ConstructPatchingTable();
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
-  void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
+  void ExecuteSynapseGraph(
+      synapse_helpers::hpuStream_t hpu_stream,
+      synEventHandle event_handle,
+      synapse_helpers::hpuStream_t event_stream,
+      bool event_flag);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();

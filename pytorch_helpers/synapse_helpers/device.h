@@ -258,7 +258,8 @@ class device {
   void register_producer_on_stream(
       std::vector<device_ptr>&& bound_addresses,
       stream& stream,
-      event_done_callback done_cb);
+      event_done_callback done_cb,
+      synEventHandle event_handle = {nullptr});
 
   void register_producer_on_stream(
       std::vector<device_ptr>&& bound_addresses,
@@ -408,6 +409,26 @@ class device {
     }
   }
 
+  // since we have 2 cache for event this is required
+  void add_user_event(synEventHandle handle, bool flag) {
+    std::unique_lock<std::mutex> lock(event_mutex_);
+    user_event_flag_map_[handle] = flag;
+  }
+
+  void remove_user_event(synEventHandle handle) {
+    std::unique_lock<std::mutex> lock(event_mutex_);
+    auto it = user_event_flag_map_.find(handle);
+    if (it != user_event_flag_map_.end())
+      user_event_flag_map_.erase(it);
+  }
+
+  bool get_user_event_flag(synEventHandle handle) {
+    std::unique_lock<std::mutex> lock(event_mutex_);
+    auto it = user_event_flag_map_.find(handle);
+    HABANA_ASSERT(it != user_event_flag_map_.end());
+    return user_event_flag_map_[handle];
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -472,6 +493,8 @@ class device {
   // compute stream counter
   std::atomic<uint32_t> compute_stream_index_{0};
 
+  std::unordered_map<synEventHandle, bool> user_event_flag_map_;
+  std::mutex event_mutex_;
   // private inline method
   inline bool copy_data_to_device_(
       void* cpu_data,

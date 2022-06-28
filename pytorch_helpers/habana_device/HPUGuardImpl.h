@@ -183,23 +183,123 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   // Event-related functions
+  static unsigned int get_hpu_flag(const at::EventFlag flag) {
+    // Maps PyTorch's Event::Flag to HPU flag
+    unsigned int hpu_flag = 1; // Enable timing
+    switch (flag) {
+      case at::EventFlag::PYTORCH_DEFAULT:
+        hpu_flag = 0;
+        break;
+      case at::EventFlag::BACKEND_DEFAULT:
+        hpu_flag = 1;
+        break;
+      default:
+        TORCH_CHECK(false, "event received unknown flag");
+    }
+    return hpu_flag;
+  }
+
+  void createEvent(synEventHandle& handle, const at::EventFlag flag) const {
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
+    unsigned int hpu_flag = get_hpu_flag(flag);
+    if (hpu_flag) {
+      handle = dev.get_time_event_handle_cache().get_free_handle();
+    } else {
+      handle = dev.get_event_handle_cache().get_free_handle();
+    }
+    dev.add_user_event(handle, hpu_flag);
+  }
+
+  void destroyEvent(void* event, UNUSED const at::DeviceIndex device_index)
+      const noexcept override {
+    if (!event)
+      return;
+    synEventHandle handle = static_cast<synEventHandle>(event);
+    if (handle) {
+      PT_DEVICE_DEBUG("Event:: removing the handle", handle);
+      auto& dev = synapse_helpers::HPURegistrar::get_device();
+      if (dev.get_user_event_flag(handle)) {
+        dev.get_time_event_handle_cache().release_handle(handle);
+      } else {
+        dev.get_event_handle_cache().release_handle(handle);
+      }
+      dev.remove_user_event(handle);
+    }
+  }
+
   void record(
-      UNUSED void** event,
-      UNUSED const at::Stream& stream,
-      UNUSED const at::DeviceIndex device_index,
-      UNUSED const at::EventFlag flag) const override {
-    TORCH_CHECK(false, "HABANA backend doesn't support events.");
+      void** event,
+      const at::Stream& stream,
+      const at::DeviceIndex device_index,
+      const at::EventFlag flag) const override {
+    TORCH_CHECK(
+        device_index == -1 || device_index == stream.device_index(),
+        "Event device index ",
+        device_index,
+        " does not match recording stream's device index ",
+        stream.device_index(),
+        ".");
+    synEventHandle handle = static_cast<synEventHandle>(*event);
+    HPUStream hpu_stream{stream};
+
+    // Creates the event (lazily)
+    if (!handle) {
+      synEventHandle syn_handle{};
+      createEvent(syn_handle, flag);
+      handle = syn_handle;
+    }
+
+    *event = handle;
+    if (stream == c10::hpu::getCurrentHPUStream()) {
+      bool async =
+          (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
+           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
+      habana_lazy::HbLazyTensor::StepMarker(
+          {},
+          nullptr,
+          {},
+          async,
+          handle,
+          hpu_stream.stream(),
+          get_hpu_flag(flag));
+    } else {
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      auto status = synEventRecord(
+          handle, device.get_compute_stream(hpu_stream.stream()));
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL("synEventRecord failed ", status);
+      }
+    }
   }
-  void block(UNUSED void* event, UNUSED const at::Stream& stream)
-      const override {
-    TORCH_CHECK(false, "HABANA backend doesn't support events.")
+
+  void block(void* event, const at::Stream& stream) const override {
+    if (!event)
+      return;
+    synEventHandle handle = static_cast<synEventHandle>(event);
+    habana_lazy::HbLazyTensor::StepMarkerFinish();
+    HPUStream hpu_stream{stream};
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto status = synStreamWaitEvent(
+        device.get_compute_stream(hpu_stream.stream()), handle, 0);
+    if (synStatus::synSuccess != status) {
+      PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+    }
   }
-  bool queryEvent(UNUSED void* event) const override {
-    TORCH_CHECK(false, "HABANA backend doesn't support events.")
+
+  // May be called from any device
+  bool queryEvent(void* event) const override {
+    if (!event)
+      return true;
+    synEventHandle handle = static_cast<synEventHandle>(event);
+    auto status = synEventQuery(handle);
+    if (status == synSuccess) {
+      return true;
+    } else {
+      PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+    }
+
+    return false;
   }
-  void destroyEvent(
-      UNUSED void* event,
-      UNUSED const at::DeviceIndex device_index) const noexcept override {}
 
   // Stream-related functions
   bool queryStream(const at::Stream& stream) const override {

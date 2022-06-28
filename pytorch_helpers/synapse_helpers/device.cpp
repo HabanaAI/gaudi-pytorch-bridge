@@ -415,6 +415,8 @@ void device::cleanup() {
     PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
   }
   synapse_helpers::memstats_dump(*this, "Stats after cleanup.");
+  stream_compute_.clear();
+  user_event_flag_map_.clear();
 }
 
 device::~device() {
@@ -936,8 +938,10 @@ void device::add_wait_event_on_stream(
 void device::register_producer_on_stream(
     std::vector<device_ptr>&& bound_addresses,
     stream& stream,
-    event_done_callback done_cb) {
-  sem_.add_producer(std::move(bound_addresses), stream, std::move(done_cb));
+    event_done_callback done_cb,
+    synEventHandle event_handle) {
+  sem_.add_producer(
+      std::move(bound_addresses), stream, std::move(done_cb), event_handle);
 }
 
 void device::submit_future(device_ptr device_addr, std::future<bool> fut) {

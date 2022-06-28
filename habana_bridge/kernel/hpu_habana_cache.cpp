@@ -1072,6 +1072,9 @@ void RecipeValueSpec::PrintDebugInfo(
 
 void RecipeValueSpec::launch(
     synapse_helpers::hpuStream_t hpu_stream,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag,
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
@@ -1231,10 +1234,27 @@ void RecipeValueSpec::launch(
     auto cleanup_callback = [resource_holder]() mutable {
       resource_holder.reset();
     };
-    // regsiter an event on the compute
-    device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, cleanup_callback);
 
+    // if event is a timer event, use this handle to record the event
+    // dont use it for launch
+    if (event_flag) {
+      // regsiter an event on the compute
+      device.register_producer_on_stream(
+          std::move(outDevPtr), stream_handle, cleanup_callback, nullptr);
+      // now record the timer_event
+      if (event_handle) {
+        auto& ev_stream_handle = device.get_compute_stream(event_stream);
+        auto status = synEventRecord(event_handle, ev_stream_handle);
+        if (synStatus::synSuccess != status) {
+          PT_LAZY_FATAL("synEventRecord failed ", status);
+        }
+      }
+    } else {
+      // this case will happen only if there is direct launch or via set stream
+      // or event record with record stream and current stream are same
+      device.register_producer_on_stream(
+          std::move(outDevPtr), stream_handle, cleanup_callback, event_handle);
+    }
     // Launch collective ops
     HABANA_ASSERT(
         collective_kernels_info.empty() ||

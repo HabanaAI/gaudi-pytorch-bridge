@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #pragma once
+#include <synapse_api.h>
 #include <synapse_helpers/device.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
@@ -16,7 +17,6 @@
 #include "habana_kernels/habana_operator.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
-
 namespace habana_lazy {
 
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
@@ -226,6 +226,30 @@ struct OptimizedJITGraphAndMetaData {
     return hpu_stream;
   }
 
+  void SetEventHandle(synEventHandle handle) {
+    event_handle = handle;
+  }
+
+  synEventHandle GetEventHandle() {
+    return event_handle;
+  }
+
+  void SetEventRecordStream(synapse_helpers::hpuStream_t stream) {
+    event_stream = stream;
+  }
+
+  synapse_helpers::hpuStream_t GetEventRecordStream() {
+    return event_stream;
+  }
+
+  void SetEventFlag(bool flag) {
+    event_flag = flag;
+  }
+
+  bool GetEventFlag() {
+    return event_flag;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -242,6 +266,9 @@ struct OptimizedJITGraphAndMetaData {
   bool is_control_edge_processing_required = false;
   bool is_syn_graph_empty{false};
   synapse_helpers::hpuStream_t hpu_stream = 0;
+  synEventHandle event_handle{nullptr};
+  synapse_helpers::hpuStream_t event_stream = 0;
+  bool event_flag = false;
 };
 
 /**

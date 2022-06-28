@@ -27,8 +27,8 @@
 #include <thread>
 #include <unordered_set>
 
+#include "pytorch_helpers/habana_device/HPUEvent.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 using namespace habana_lazy;
 
@@ -60,9 +60,9 @@ TEST(TestStream, CopyAndMoveTest) {
   synapse_helpers::hpuStream_t hpu_stream;
 
   // Tests that copying works as expected and preserves the stream
-  at::hpu::HPUStream copyStream = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream copyStream = c10::hpu::getStreamFromPool();
   {
-    auto s = at::hpu::getStreamFromPool();
+    auto s = c10::hpu::getStreamFromPool();
     device_id = s.device_index();
     hpu_stream = s.stream();
 
@@ -76,9 +76,9 @@ TEST(TestStream, CopyAndMoveTest) {
   ASSERT_EQ_HPU(copyStream.stream(), hpu_stream);
 
   // Tests that moving works as expected and preserves the stream
-  at::hpu::HPUStream moveStream = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream moveStream = c10::hpu::getStreamFromPool();
   {
-    auto s = at::hpu::getStreamFromPool();
+    auto s = c10::hpu::getStreamFromPool();
     device_id = s.device_index();
     hpu_stream = s.stream();
 
@@ -100,29 +100,29 @@ TEST(TestStream, GetAndSetTest) {
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
-  at::hpu::HPUStream myStream = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream myStream = c10::hpu::getStreamFromPool();
 
   // Sets and gets
-  at::hpu::setCurrentHPUStream(myStream);
-  at::hpu::HPUStream curStream = at::hpu::getCurrentHPUStream();
+  c10::hpu::setCurrentHPUStream(myStream);
+  c10::hpu::HPUStream curStream = c10::hpu::getCurrentHPUStream();
 
   ASSERT_EQ_HPU(myStream, curStream);
 
   // Gets, sets, and gets default stream
-  at::hpu::HPUStream defaultStream = at::hpu::getDefaultHPUStream();
-  at::hpu::setCurrentHPUStream(defaultStream);
-  curStream = at::hpu::getCurrentHPUStream();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
+  c10::hpu::setCurrentHPUStream(defaultStream);
+  curStream = c10::hpu::getCurrentHPUStream();
 
   ASSERT_NE_HPU(defaultStream, myStream);
   ASSERT_EQ_HPU(curStream, defaultStream);
 }
 
-void thread_fun(at::optional<at::hpu::HPUStream>& cur_thread_stream) {
-  auto new_stream = at::hpu::getStreamFromPool();
-  at::hpu::HPUStream cur_stream = at::hpu::getCurrentHPUStream();
-  at::hpu::HPUStream default_stream = at::hpu::getDefaultHPUStream();
-  at::hpu::setCurrentHPUStream(new_stream);
-  cur_thread_stream = {at::hpu::getCurrentHPUStream()};
+void thread_fun(at::optional<c10::hpu::HPUStream>& cur_thread_stream) {
+  auto new_stream = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
+  c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
+  c10::hpu::setCurrentHPUStream(new_stream);
+  cur_thread_stream = {c10::hpu::getCurrentHPUStream()};
   ASSERT_EQ_HPU(*cur_thread_stream, new_stream);
 }
 
@@ -134,15 +134,15 @@ TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
-  at::optional<at::hpu::HPUStream> s0, s1;
+  at::optional<c10::hpu::HPUStream> s0, s1;
 
   std::thread t0{thread_fun, std::ref(s0)};
   std::thread t1{thread_fun, std::ref(s1)};
   t0.join();
   t1.join();
 
-  at::hpu::HPUStream cur_stream = at::hpu::getCurrentHPUStream();
-  at::hpu::HPUStream default_stream = at::hpu::getDefaultHPUStream();
+  c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
+  c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
 
   if (device.type() == synDeviceGaudi) {
     ASSERT_EQ_HPU(cur_stream, default_stream);
@@ -165,10 +165,10 @@ TEST(TestStream, StreamPoolTest) {
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
-  std::vector<at::hpu::HPUStream> streams{};
+  std::vector<c10::hpu::HPUStream> streams{};
   for (const auto i : c10::irange(200)) {
     (void)i;
-    streams.emplace_back(at::hpu::getStreamFromPool());
+    streams.emplace_back(c10::hpu::getStreamFromPool());
   }
 
   std::unordered_set<synapse_helpers::hpuStream_t> stream_set{};
@@ -191,34 +191,34 @@ TEST(TestStream, DISABLED_Use2StreamForadd) {
   if (num_hpus == 0)
     return;
 
-  at::hpu::HPUStream compute1 = at::hpu::getStreamFromPool();
-  at::hpu::HPUStream compute2 = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
 
   /*default stream */
   torch::Tensor tensor_D = torch::randn({200, 300});
   torch::Tensor tHabana_D = tensor_D.to(torch::kHPU);
   auto outHabana_D = torch::add(tHabana_D, 4.0);
 
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   torch::Tensor tensor_A = torch::randn({200, 300});
   torch::Tensor tensor_B = torch::randn({200, 300});
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
 
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
 
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute2);
+  c10::hpu::setCurrentHPUStream(compute2);
   auto outHabana_B = torch::add(tHabana_B, 4.0);
 
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
   auto out_D = torch::add(tensor_D, 4.0);
-  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 0, 0);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_D.allclose(outHabana_D.to(torch::kCPU), 0, 0);
+  equal = out_D.allclose(outHabana_D.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
 }
 
@@ -231,48 +231,46 @@ TEST(TestStream, ForceUseDefaultStream) {
     return;
 
   SET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM, true, 1);
-  at::hpu::HPUStream compute1 = at::hpu::getStreamFromPool();
-  at::hpu::HPUStream compute2 = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
 
   /*default stream */
   torch::Tensor tensor_D = torch::randn({200, 300});
   torch::Tensor tHabana_D = tensor_D.to(torch::kHPU);
   auto outHabana_D = torch::add(tHabana_D, 4.0);
 
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   torch::Tensor tensor_A = torch::randn({200, 300});
   torch::Tensor tensor_B = torch::randn({200, 300});
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
 
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
 
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute2);
+  c10::hpu::setCurrentHPUStream(compute2);
   auto outHabana_B = torch::add(tHabana_B, 4.0);
 
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
   auto out_D = torch::add(tensor_D, 4.0);
-  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 0, 0);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_D.allclose(outHabana_D.to(torch::kCPU), 0, 0);
+  equal = out_D.allclose(outHabana_D.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
   UNSET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM);
-  std::cout << "unset flag" << GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM)
-            << std::endl;
 }
 
 void thread_fun_add(bool& result) {
-  auto new_stream = at::hpu::getStreamFromPool();
-  at::hpu::setCurrentHPUStream(new_stream);
+  auto new_stream = c10::hpu::getStreamFromPool();
+  c10::hpu::setCurrentHPUStream(new_stream);
   torch::Tensor tensor_A = torch::randn({200, 300});
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
   auto out_A = torch::add(tensor_A, 4.0);
-  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   result = equal;
 }
 
@@ -295,8 +293,8 @@ TEST(TestStream, DISABLED_MultithreadStreamAddOP) {
 }
 
 void kernel_add(torch::Tensor in_tensor, torch::Tensor& outtensor) {
-  auto new_stream = at::hpu::getStreamFromPool();
-  at::hpu::setCurrentHPUStream(new_stream);
+  auto new_stream = c10::hpu::getStreamFromPool();
+  c10::hpu::setCurrentHPUStream(new_stream);
   outtensor = torch::add(in_tensor, 4.0);
   HbLazyTensor::StepMarker({});
 }
@@ -322,8 +320,8 @@ TEST(TestStream, DISABLED_MultithreadStreamKernelAdd) {
 
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
-  bool equal1 = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
-  bool equal2 = out_B.allclose(outHabana_B.to(torch::kCPU), 0, 0);
+  bool equal1 = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
+  bool equal2 = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal1, true);
   EXPECT_EQ(equal2, true);
 }
@@ -336,26 +334,26 @@ TEST(TestStream, TestStreamQuery) {
   if (num_hpus == 0)
     return;
 
-  at::hpu::HPUStream compute1 = at::hpu::getStreamFromPool();
-  at::hpu::HPUStream compute2 = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
 
   PT_TEST_DEBUG("stream query for stream1", compute1.query());
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   torch::Tensor tensor_A = torch::randn({200, 300});
   torch::Tensor tensor_B = torch::randn({200, 300});
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
   PT_TEST_DEBUG("stream query for stream1", compute1.query());
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute2);
+  c10::hpu::setCurrentHPUStream(compute2);
   auto outHabana_B = torch::add(tHabana_B, 4.0);
   PT_TEST_DEBUG("stream query for stream2", compute2.query());
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
-  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 0, 0);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
   PT_TEST_DEBUG("stream query for stream1", compute1.query());
 }
@@ -368,29 +366,384 @@ TEST(TestStream, TestStreamSynchronize) {
   if (num_hpus == 0)
     return;
 
-  at::hpu::HPUStream defaultStream = at::hpu::getDefaultHPUStream();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
   defaultStream.synchronize();
-  at::hpu::HPUStream compute1 = at::hpu::getStreamFromPool();
-  at::hpu::HPUStream compute2 = at::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
 
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   torch::Tensor tensor_A = torch::randn({200, 300});
   torch::Tensor tensor_B = torch::randn({200, 300});
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
   PT_TEST_DEBUG("STREAM:: synchronize stream1");
   compute1.synchronize();
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
-  at::hpu::setCurrentHPUStream(compute2);
+  c10::hpu::setCurrentHPUStream(compute2);
   auto outHabana_B = torch::add(tHabana_B, 4.0);
   PT_TEST_DEBUG("STREAM:: synchronize stream2");
   compute2.synchronize();
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
-  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 0, 0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 0, 0);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
   compute2.synchronize();
+}
+
+// simple HPUEvent Syncs with nops
+TEST(TestStream, HPUEventSyncTest) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  const auto stream = c10::hpu::getStreamFromPool();
+  at::hpu::HPUEvent event;
+
+  ASSERT_TRUE(event.query());
+
+  event.recordOnce(stream);
+
+  const auto wait_stream0 = c10::hpu::getStreamFromPool();
+  const auto wait_stream1 = c10::hpu::getStreamFromPool();
+
+  event.block(wait_stream0);
+  event.block(wait_stream1);
+
+  wait_stream0.synchronize();
+  ASSERT_TRUE(event.query());
+}
+
+/// block and wait, instead of event sycn
+TEST(TestStream, TestEventblockandwait) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
+
+  at::hpu::HPUEvent event1;
+  c10::hpu::setCurrentHPUStream(compute1);
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  c10::hpu::setCurrentHPUStream(compute1);
+  auto outHabana_A = torch::add(tHabana_A, 4.0);
+  event1.record(compute1);
+  event1.block(compute2);
+  torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
+  c10::hpu::setCurrentHPUStream(compute2);
+  auto outHabana_B = torch::add(tHabana_B, 4.0);
+  compute2.synchronize();
+  auto out_A = torch::add(tensor_A, 4.0);
+  auto out_B = torch::add(tensor_B, 4.0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(TestStream, TestEventblockandwait_1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
+
+  at::hpu::HPUEvent event1;
+  torch::Tensor t1_cpu = torch::randn({2000, 3000});
+  torch::Tensor t2_cpu = torch::randn({3000, 6000});
+  torch::Tensor t1 = t1_cpu.to(torch::kHPU);
+  torch::Tensor t2 = t2_cpu.to(torch::kHPU);
+  torch::Tensor tres = torch::matmul(t1, t2);
+  event1.record(defaultStream);
+  c10::hpu::setCurrentHPUStream(compute1);
+  torch::Tensor t3 = torch::matmul(t1, t2);
+  c10::hpu::setCurrentHPUStream(defaultStream);
+  event1.block(compute1);
+  t1.add_(2);
+  torch::Tensor tres_cpu = tres.to(torch::kCPU);
+  torch::Tensor t3_cpu = t3.to(torch::kCPU);
+  bool equal = tres_cpu.allclose(t3_cpu, 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(TestStream, TestEventblockOnDifferentStream) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
+
+  at::hpu::HPUEvent event1;
+  torch::Tensor t1_cpu = torch::randn({200, 300});
+  torch::Tensor t2_cpu = torch::randn({300, 600});
+  torch::Tensor t1 = t1_cpu.to(torch::kHPU);
+  torch::Tensor t2 = t2_cpu.to(torch::kHPU);
+  torch::Tensor tres = torch::matmul(t1, t2);
+  event1.record(compute1);
+  torch::Tensor t3 = torch::matmul(t1, t2);
+  event1.block(defaultStream);
+  t1.add_(2);
+  defaultStream.synchronize();
+  torch::Tensor tres_cpu = tres.to(torch::kCPU);
+  torch::Tensor t3_cpu = t3.to(torch::kCPU);
+  bool equal = tres_cpu.allclose(t3_cpu, 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+}
+
+/// multiple events and using sync
+TEST(TestStream, TestMultipleRecordEvent) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream compute2 = c10::hpu::getStreamFromPool();
+
+  at::hpu::HPUEvent event1;
+  at::hpu::HPUEvent event2;
+  at::hpu::HPUEvent event3;
+  c10::hpu::setCurrentHPUStream(compute1);
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  c10::hpu::setCurrentHPUStream(compute1);
+  auto outHabana_A = torch::add(tHabana_A, 4.0);
+  event1.record(compute1);
+  event2.record(compute1);
+  event3.record(compute1);
+  event3.block(compute2);
+  torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
+  c10::hpu::setCurrentHPUStream(compute2);
+  auto outHabana_B = torch::add(tHabana_B, 4.0);
+  compute2.synchronize();
+  auto out_A = torch::add(tensor_A, 4.0);
+  auto out_B = torch::add(tensor_B, 4.0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+  equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+  // compute2.synchronize();
+}
+
+// get the event execution time
+TEST(TestStream, TestTimerEvents) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+
+  // timer events
+  at::hpu::HPUEvent start_event(1);
+  at::hpu::HPUEvent stop_event(1);
+  c10::hpu::setCurrentHPUStream(compute1);
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  c10::hpu::setCurrentHPUStream(compute1);
+  start_event.record(compute1);
+  auto outHabana_A = torch::add(tHabana_A, 4.0);
+  stop_event.record(compute1);
+  compute1.synchronize();
+  PT_TEST_DEBUG("elapsed time", start_event.elapsed_time(stop_event));
+  auto out_A = torch::add(tensor_A, 4.0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+}
+
+// get the event execution time
+TEST(TestStream, TestTimerEventsDifferentStream) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
+
+  // timer events
+  at::hpu::HPUEvent start_event(1);
+  at::hpu::HPUEvent stop_event(1);
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
+  start_event.record(compute1);
+  auto outHabana_A = torch::add(tHabana_A, 4.0);
+  c10::hpu::setCurrentHPUStream(compute1);
+  auto outHabana_B = torch::add(tHabana_B, 4.0);
+  stop_event.record(defaultStream);
+  compute1.synchronize();
+  defaultStream.synchronize();
+  PT_TEST_DEBUG("elapsed time", start_event.elapsed_time(stop_event));
+  auto out_A = torch::add(tensor_A, 4.0);
+  bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
+  EXPECT_EQ(equal, true);
+}
+
+// get the event empty ops
+TEST(TestStream, TestEventsEmptyOPS) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  at::hpu::HPUEvent event1;
+  at::hpu::HPUEvent event2;
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  event1.record();
+  event2.record();
+  event1.synchronize();
+}
+
+// get the event empty ops
+TEST(TestStream, TestEventsTimerEmptyOPS) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  at::hpu::HPUEvent event_start(1);
+  at::hpu::HPUEvent event_end(1);
+  torch::Tensor tensor_A = torch::randn({200, 300});
+  torch::Tensor tensor_B = torch::randn({200, 300});
+  event_start.record();
+  event_end.record();
+  PT_TEST_DEBUG("elapsed time", event_start.elapsed_time(event_end));
+}
+
+TEST(TestStream, TestEventsTimerWithDifferentStream) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
+  at::hpu::HPUEvent event_start(1);
+  at::hpu::HPUEvent event_end(1);
+  event_start.record(compute1);
+  event_end.record(defaultStream);
+  PT_TEST_DEBUG("elapsed time", event_start.elapsed_time(event_end));
+}
+
+TEST(TestStream, TestEventWaitBlock_WAR) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
+  at::hpu::HPUEvent event1;
+
+  torch::Tensor tA_h = torch::zeros({4000, 2000}).to(torch::kHPU);
+  torch::Tensor tB_h = torch::ones({4000, 2000}).to(torch::kHPU);
+  torch::Tensor tC_h = torch::empty_like(tA_h);
+  torch::Tensor tD_h = torch::empty_like(tA_h);
+
+  c10::hpu::setCurrentHPUStream(compute1);
+  tC_h = tA_h + tB_h;
+
+  c10::hpu::setCurrentHPUStream(default_s);
+  event1.record(compute1);
+  event1.block(default_s);
+  tD_h = tC_h.to(torch::dtype(torch::kBFloat16));
+
+  torch::Tensor cpu_tensor = tD_h.cpu();
+  PT_TEST_DEBUG("tensor::", cpu_tensor);
+}
+
+TEST(TestStream, TestEventWaitBlock_11) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
+  at::hpu::HPUEvent event1;
+  at::hpu::HPUEvent event2;
+
+  torch::Tensor tA_h = torch::zeros({4, 2}).to(torch::kHPU);
+  torch::Tensor tB_h = torch::ones({4, 2}).to(torch::kHPU);
+  torch::Tensor tC_h = torch::empty_like(tA_h);
+  torch::Tensor tD_h = torch::empty_like(tA_h);
+
+  c10::hpu::setCurrentHPUStream(compute1);
+  tC_h = tA_h + tB_h;
+
+  event1.record(compute1);
+  event1.block(default_s);
+  c10::hpu::setCurrentHPUStream(default_s);
+  tC_h = tC_h + 1;
+  event2.record(default_s);
+  event2.block(compute1);
+  c10::hpu::setCurrentHPUStream(compute1);
+  tD_h = tC_h.to(torch::dtype(torch::kBFloat16));
+
+  torch::Tensor cpu_tensor = tD_h.cpu();
+  PT_TEST_DEBUG("tensor::", cpu_tensor);
+}
+
+TEST(TestStream, HPUGuardEventSyncTest) {
+  habana::HABANAGuardImpl guard;
+  guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  const auto stream = c10::hpu::getStreamFromPool();
+
+  void* event = nullptr;
+  guard.record(&event, stream.unwrap(), 0, at::EventFlag::PYTORCH_DEFAULT);
+
+  const auto wait_stream0 = c10::hpu::getStreamFromPool();
+  const auto wait_stream1 = c10::hpu::getStreamFromPool();
+  PT_TEST_DEBUG("query:", guard.queryEvent(event));
+  guard.block(event, wait_stream0.unwrap());
+  guard.block(event, wait_stream1.unwrap());
+
+  wait_stream0.synchronize();
+  PT_TEST_DEBUG("query:", guard.queryEvent(event));
+  guard.destroyEvent(event, 0);
 }

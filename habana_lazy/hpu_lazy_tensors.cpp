@@ -657,7 +657,10 @@ void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     bool async,
-    bool collect_sync_tensors) {
+    bool collect_sync_tensors,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag) {
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   context->executing_tids.clear();
   context->executing_tids.reserve(tensors->size());
@@ -668,16 +671,34 @@ void HbLazyTensor::SyncTensorsGraph(
     context->executing_tids.emplace_back(t.getTensorUniqueId());
   }
   SyncTensorsGraphInternal(
-      tensors, lazyFrontEndInfo, async, collect_sync_tensors);
+      tensors,
+      lazyFrontEndInfo,
+      async,
+      collect_sync_tensors,
+      event_handle,
+      event_stream,
+      event_flag);
 }
 
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
-    bool async) {
+    bool async,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag) {
   PT_LAZY_TRACE;
   if (StageSubmission::getInstance().getCurrentAccumulatedOps() == 0) {
+    // if the accumulated op is empty, then just record the event
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
+    if (event_handle) {
+      auto status =
+          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      if (synStatus::synSuccess != status) {
+        PT_LAZY_FATAL("synEventRecord failed ", status);
+      }
+    }
     return;
   }
   StageSubmission::getInstance().resetCurrentAccumulatedOps();
@@ -689,7 +710,23 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     tensors = HbContextArena::Get()->GetLiveTensors(device);
   }
   if (tensors.size()) {
-    SyncTensorsGraph(&tensors, lazy_front_end_info, async, false);
+    SyncTensorsGraph(
+        &tensors,
+        lazy_front_end_info,
+        async,
+        false,
+        event_handle,
+        event_stream,
+        event_flag);
+  } else {
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
+    if (event_handle) {
+      auto status =
+          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      if (synStatus::synSuccess != status) {
+        PT_LAZY_FATAL("synEventRecord failed ", status);
+      }
+    }
   }
 }
 
@@ -819,7 +856,10 @@ void LaunchSyncTensorsGraph(
     std::string lazyOpName,
     size_t optimizedLazyEagerKey,
     bool isOptimizedLazyEager,
-    const c10::hpu::HPUStream& stream) {
+    const c10::hpu::HPUStream& stream,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = true;
@@ -833,6 +873,8 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetOpName(lazyOpName);
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
     optimized_path_jit_ir_and_mdata->SetHPUStream(stream);
+    optimized_path_jit_ir_and_mdata->SetEventHandle(event_handle);
+    optimized_path_jit_ir_and_mdata->SetEventRecordStream(event_stream);
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
 
     try {
@@ -854,7 +896,7 @@ void LaunchSyncTensorsGraph(
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   } else {
     try {
-      hlexec.Launch(stack, stream);
+      hlexec.Launch(stack, stream, event_handle, event_stream, event_flag);
       if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
         PT_LAZY_DEBUG(
@@ -887,7 +929,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     bool async,
-    bool collect_sync_tensors) {
+    bool collect_sync_tensors,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag) {
   PT_LAZY_TRACE;
   if (!(*tensors).size())
     return;
@@ -922,6 +967,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // Nothing to do, return without trying to execute an empty graph
     context->MarkTensorsExecuted(device, context->executing_tids);
     context->executing_tids.clear();
+    // if the accumulated op is empty, then just record the event
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
+    if (event_handle) {
+      auto status =
+          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      if (synStatus::synSuccess != status) {
+        PT_LAZY_FATAL("synEventRecord failed ", status);
+      }
+    }
     return;
   }
 
@@ -1030,7 +1084,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
               lazy_op_name,
               optimized_lazy_eager_key,
               isOptimizedLazyEager,
-              c10::hpu::getCurrentHPUStream());
+              c10::hpu::getCurrentHPUStream(),
+              event_handle,
+              event_stream,
+              event_flag);
     } else {
       context->m_launch_thread_handle = std::async(
           std::launch::async,
@@ -1045,7 +1102,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           lazy_op_name,
           optimized_lazy_eager_key,
           isOptimizedLazyEager,
-          c10::hpu::getCurrentHPUStream());
+          c10::hpu::getCurrentHPUStream(),
+          event_handle,
+          event_stream,
+          event_flag);
     }
   } else {
     LaunchSyncTensorsGraph(
@@ -1059,7 +1119,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         lazy_op_name,
         optimized_lazy_eager_key,
         isOptimizedLazyEager,
-        c10::hpu::getCurrentHPUStream());
+        c10::hpu::getCurrentHPUStream(),
+        event_handle,
+        event_stream,
+        event_flag);
   }
 
   // clear the context
@@ -1097,7 +1160,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   hlexec.set_graph(graph);
 
   // Launch the execution
-  hlexec.Launch(stack, c10::hpu::getCurrentHPUStream());
+  hlexec.Launch(stack, c10::hpu::getCurrentHPUStream(), {}, 0, 0);
 
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
@@ -1196,7 +1259,7 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   StageSubmission::getInstance().resetStageSubmissionFlow();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
-    StepMarker(device_str, nullptr, {}, true);
+    StepMarker(device_str, nullptr, {}, true, nullptr, false);
   } else {
     StepMarker(device_str);
   }
@@ -1212,7 +1275,10 @@ void HbLazyTensor::StepMarker(
     const std::string& device_str,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
-    bool async) {
+    bool async,
+    synEventHandle handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag) {
   PT_LAZY_TRACE;
   if (!synapse_helpers::HPURegistrar::isInitialized()) {
     // Nothing to do
@@ -1238,7 +1304,10 @@ void HbLazyTensor::StepMarker(
       &device,
       lazy_front_end_info,
       out_hb_lazy_tensor,
-      async);
+      async,
+      handle,
+      event_stream,
+      event_flag);
   if (!async) {
     context->JoinPendingLaunchThread();
   }
