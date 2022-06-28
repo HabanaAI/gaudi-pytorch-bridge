@@ -81,3 +81,6 @@ def _is_enabled_synapse_layout_handling() -> bool:
 
 def clear_dynamic_bucket_recipe_info() -> None:
     return _debug_C.clear_dynamic_bucket_recipe_info()
+
+def _is_enabled_lazy_collectives() -> bool:
+    return _debug_C.is_enabled_lazy_collectives()

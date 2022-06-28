@@ -30,6 +30,7 @@ htdebug._dump_synapse_recipe_memory_stat()
 htdebug._dump_dynamic_shape_memory_stat()
 
 print(htdebug._is_enabled_synapse_layout_handling())
+print(htdebug._is_enabled_lazy_collectives())
 
 from habana_frameworks.torch.utils import profiler as htprofiler
 htprofiler._setup_profiler()
