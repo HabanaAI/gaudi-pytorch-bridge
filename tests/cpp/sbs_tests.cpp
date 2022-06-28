@@ -600,7 +600,9 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
         !habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
       h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-      IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
+        IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+      }
     }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -1059,7 +1061,9 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   auto B = A.permute({0, 2, 3, 1});
   auto out = B.add(0.5);
   auto hB = hA.permute({0, 2, 3, 1});
-  IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
+    IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
+  }
   auto hOut = hB.add(0.5);
   UpdateOpCounters();
   auto hOut_cpu = hOut.to(torch::kCPU);
