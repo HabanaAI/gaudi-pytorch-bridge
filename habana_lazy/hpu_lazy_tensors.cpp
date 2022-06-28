@@ -1236,9 +1236,17 @@ void HbLazyTensor::StepMarker(
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
+  if (!synapse_helpers::HPURegistrar::isInitialized()) {
+    // Nothing to do
+    PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");
+    return;
+  }
   c10::Device device = GetDeviceOrCurrent(device_str);
   if (!device.is_hpu()) {
-    // Nothing to do
+    PT_LAZY_DEBUG(
+        "Could get hpu device device_str = \"",
+        device_str,
+        "\", skipping StepMarker");
     return;
   }
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
