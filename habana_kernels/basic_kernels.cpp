@@ -654,9 +654,8 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
+    synapse_helpers::tensor& output_tensor = p_context_->syn_inputs_[1];
+    p_context_->syn_outputs_.emplace_back(output_tensor);
     p_context_->pt_outputs_.emplace_back(output);
   } else {
     output =
