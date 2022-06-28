@@ -104,6 +104,37 @@ uint32_t active_recipe_counter::get_count() {
   return counter_state_;
 }
 
+void CheckDynamicMinMaxPolicyOrder() {
+  const std::string MANDATE_POLICY_ORDER = "3,1";
+
+  std::string min_policy_seq =
+      GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER);
+  std::string max_policy_seq =
+      GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER);
+
+  bool min_check = min_policy_seq.size() >= MANDATE_POLICY_ORDER.size() &&
+      0 ==
+          min_policy_seq.compare(
+              min_policy_seq.size() - MANDATE_POLICY_ORDER.size(),
+              MANDATE_POLICY_ORDER.size(),
+              MANDATE_POLICY_ORDER);
+  bool max_check = max_policy_seq.size() >= MANDATE_POLICY_ORDER.size() &&
+      0 ==
+          max_policy_seq.compare(
+              max_policy_seq.size() - MANDATE_POLICY_ORDER.size(),
+              MANDATE_POLICY_ORDER.size(),
+              MANDATE_POLICY_ORDER);
+
+  if (!min_check) {
+    PT_DYNAMIC_SHAPE_FATAL(
+        "Incorrect PT_HPU_DYNAMIC_MIN_POLICY_ORDER specified. Policy should end with \"3,1\".");
+  }
+  if (!max_check) {
+    PT_DYNAMIC_SHAPE_FATAL(
+        "Incorrect PT_HPU_DYNAMIC_MAX_POLICY_ORDER specified. Policy should end with \"3,1\".");
+  }
+}
+
 device::device(
     std::shared_ptr<session> synapse_session,
     synDeviceId device_id,
@@ -182,6 +213,8 @@ device::device(
   enable_memory_defragmentation_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION);
   enable_memory_defrag_info_ = GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO);
+
+  CheckDynamicMinMaxPolicyOrder();
 
   // Create the refinement thread
   habana::RefinementEngine::GetEngine().Initialize();
