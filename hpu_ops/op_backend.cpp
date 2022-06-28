@@ -56,19 +56,17 @@ OpBackend::OpBackend(
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
-const synapse_helpers::tensor OpBackend::m_null =
-    synapse_helpers::tensor::create_placeholder(0, {}, {});
-
 synTensor OpBackend::syn_in(int index) {
   if (isMetaMode()) {
-    return m_null.get();
+    return nullptr;
   }
   return p_context_->syn_inputs_.at(index).ref().get();
 }
 
 synapse_helpers::tensor& OpBackend::syn_out(int index) {
   if (isMetaMode()) {
-    return const_cast<synapse_helpers::tensor&>(m_null);
+    static auto ph = synapse_helpers::tensor::create_placeholder(0, {}, {});
+    return ph;
   }
   return p_context_->syn_outputs_.at(index);
 }
@@ -419,9 +417,6 @@ const synapse_helpers::tensor& OpBackend::CreateShapeTensorInput(
     at::ScalarType dtype,
     at::IntArrayRef sizes,
     synTensorType shape_tensor_type) {
-  if (isMetaMode()) {
-    return m_null;
-  }
   auto st = habana_helpers::create_shape_tensor(
       GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
   m_shape_tensors.emplace_back(std::move(st));
@@ -565,9 +560,11 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   }
 
   std::vector<synTensor> input;
-  input.emplace_back(op->CreateShapeTensorInput(
-                           graph, valtype, constant_outshape, SHAPE_TENSOR)
-                         .get());
+  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
+    input.emplace_back(op->CreateShapeTensorInput(
+                             graph, valtype, constant_outshape, SHAPE_TENSOR)
+                           .get());
+  }
 
   auto constant = BuildNode(
       op,
@@ -605,8 +602,10 @@ synapse_helpers::tensor OpBackend::BuildReshape(
         the definition.
   */
   std::vector<synTensor> inputs = {syn_in};
-  inputs.emplace_back(
-      op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
+  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
+    inputs.emplace_back(
+        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
+  }
 
   auto reshape = BuildNode(
       op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});

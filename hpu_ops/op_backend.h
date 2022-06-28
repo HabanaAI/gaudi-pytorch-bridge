@@ -253,7 +253,6 @@ class OpBackend : public HabanaOperator {
   // For shape inference of outputs/intermediates
   bool m_meta_mode = false;
   OutputShapeInfRetType m_meta;
-  static const synapse_helpers::tensor m_null;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
