@@ -2747,6 +2747,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
           current_dbipsh_->GetRecipeKeyForBucket(
               graph_input_info.current_bucket_id),
           0);
+      current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
       RestoreInputTensorMetadata();
       handle_pass_exception(graph_input_info, p);
     }
@@ -2782,6 +2783,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         current_dbipsh_->GetRecipeKeyForBucket(
             graph_input_info.current_bucket_id),
         0);
+    current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
   }
 }
 

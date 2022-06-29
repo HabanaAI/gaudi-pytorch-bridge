@@ -16,6 +16,7 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+#include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -94,6 +95,8 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       std::string,
       uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
+  void LogRecipeMemory(std::shared_ptr<habana::RecipeValueSpec>, uint64_t)
+      override{};
   void LogLaunchBase(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
   void LogLaunchPerf(uint64_t, uint64_t, uint64_t) override{};
@@ -234,6 +237,13 @@ void CompilationStatistics::LogSelectedRecipe(
     uint64_t signature,
     uint64_t step) {
   json_file_[GetStep(step)]["selected recipe"] = signature;
+}
+
+void CompilationStatistics::LogRecipeMemory(
+    std::shared_ptr<habana::RecipeValueSpec> cur_rvalpsh,
+    uint64_t step) {
+  json_file_[GetStep(step)]["recipe memory size"] =
+      cur_rvalpsh->recipe->get_recipe_host_mem_size();
 }
 
 void CompilationStatistics::LogLaunchBase(uint64_t ns, uint64_t step) {

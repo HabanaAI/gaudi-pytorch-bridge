@@ -129,6 +129,9 @@ class CompilationStatistics {
   virtual void LogLaunchBase(uint64_t ns, uint64_t step = 0);
   virtual void LogLaunch(uint64_t ns, uint64_t step = 0);
   virtual void LogLaunchPerf(uint64_t base_ns, uint64_t ns, uint64_t step = 0);
+  virtual void LogRecipeMemory(
+      std::shared_ptr<habana::RecipeValueSpec> cur_rvalpsh,
+      uint64_t step = 0);
 
   /**
    * @brief Adds refine compilation details
