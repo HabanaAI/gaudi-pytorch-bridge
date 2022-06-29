@@ -291,7 +291,7 @@ void CatOutOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &kernel_dim,
       sizeof(kernel_dim),
-      std::move(guid_));
+      guid_);
 }
 
 void CatOutOperator::SetPTOutput(const Tensor& out) {

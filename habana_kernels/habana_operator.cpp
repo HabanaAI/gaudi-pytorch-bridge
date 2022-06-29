@@ -531,7 +531,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       std::move(syn_outputs),
       params,
       params_size,
-      std::move(guid_),
+      guid_,
       nullptr,
       input_layouts.data(),
       output_layouts.data());

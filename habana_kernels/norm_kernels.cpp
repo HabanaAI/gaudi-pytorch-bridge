@@ -1489,7 +1489,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      std::move(guid_));
+      guid_);
   // Add Reshape node for output tensor to graph -
   // output.view(input.sizes().vec())
   auto reshape_op_out = make_operator<ReshapeOperator>(
@@ -1770,7 +1770,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      std::move(guid_));
+      guid_);
 
   // Add Reshape nodes for output tensors to graph
   auto reshape_op_grad_in =

@@ -972,8 +972,7 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         synInput0.get(), synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    graph.add_node(
-        std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
+    graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
   } else {
     auto output = habana_helpers::createPTTensor(
         self,
@@ -992,8 +991,7 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         synInput0.get(), synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    graph.add_node(
-        std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
+    graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
   }
 }
 
