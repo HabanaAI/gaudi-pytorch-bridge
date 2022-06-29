@@ -98,6 +98,10 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     const std::string& op_strs)
     : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
   hash_code = graph_hash_code;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    ComputePermutationHashCode(input_refs);
+    hash_code = at::hash_combine(hash_code, perm_hash_code);
+  }
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
