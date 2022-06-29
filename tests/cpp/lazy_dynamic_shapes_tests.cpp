@@ -707,6 +707,48 @@ TEST_F(LazyDynamicShapesTest, ProdTest) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, ProdDimIntTest) {
+  auto prod_test = [](std::vector<int64_t> input_shape,
+                      int64_t dim,
+                      bool keepdim,
+                      c10::ScalarType dtype) {
+    auto input = torch::randn(input_shape);
+    auto input_h = input.to(torch::kHPU);
+
+    torch::Tensor hOut = at::empty_like(input_h, dtype);
+    torch::Tensor out_cpu = at::empty_like(input, dtype);
+    torch::prod_outf(input, dim, keepdim, dtype, out_cpu);
+    torch::prod_outf(input_h, dim, keepdim, dtype, hOut);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  };
+
+  prod_test({3, 5, 2, 3}, /*dim*/ 1, /*keepdim*/ true, /*dtype*/ torch::kFloat);
+  prod_test({3, 5, 2, 8}, /*dim*/ 1, /*keepdim*/ true, /*dtype*/ torch::kFloat);
+  prod_test(
+      {3, 5, 2, 11}, /*dim*/ 1, /*keepdim*/ true, /*dtype*/ torch::kFloat);
+}
+
+TEST_F(LazyDynamicShapesTest, AllDimTest) {
+  auto all_test =
+      [](std::vector<int64_t> input_shape, int64_t dim, bool keepdim) {
+        torch::ScalarType dtype = torch::kBool;
+        auto input = torch::randn(input_shape).to(dtype);
+        auto input_h = input.to(torch::kHPU);
+
+        torch::Tensor hOut = at::empty_like(input_h);
+        torch::Tensor out_cpu = at::empty_like(input);
+        torch::all_out(out_cpu, input, dim, keepdim);
+        torch::all_out(hOut, input_h, dim, keepdim);
+
+        EXPECT_EQ(allclose(hOut.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+      };
+
+  all_test({12, 32}, /*dim*/ 0, /*keepdim*/ true);
+  all_test({12, 40}, /*dim*/ 0, /*keepdim*/ true);
+  all_test({12, 45}, /*dim*/ 0, /*keepdim*/ true);
+}
+
 TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest) {
   int N = 1;
   int C = 4;
