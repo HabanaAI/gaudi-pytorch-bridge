@@ -1514,15 +1514,13 @@ bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
 habana::OutputShapeInfRetType ScatterNdONNXOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto inp = inputs[0].toTensor();
-  auto shape_out = DimVector(inp.sizes());
+  auto shape_out = inp.sizes().vec();
 
   OutputShapeInfRetType out;
   // output tensor
   out.AddOutputTensor(TensorMetaData(
-      std::vector(shape_out.begin(), shape_out.end()),
-      HabanaOperator::CalculateStrides(
-          std::vector(shape_out.begin(), shape_out.end()),
-          inp.suggest_memory_format()),
+      shape_out,
+      HabanaOperator::CalculateStrides(shape_out, inp.suggest_memory_format()),
       inp.scalar_type(),
       inp.suggest_memory_format()));
   return out;
