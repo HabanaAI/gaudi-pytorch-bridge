@@ -78,16 +78,6 @@ class FusedLamb(Optimizer):
         self.use_lamb = use_lamb
         self.device = self.param_groups[0]["params"][0].device
 
-        # State initialization
-        for group in self.param_groups:
-            for p in group["params"]:
-                state = self.state[p]
-                if len(state) == 0:
-                    # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
-                    # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
-
     def zero_grad(self):
         if self.set_grad_none:
             for group in self.param_groups:
@@ -154,6 +144,13 @@ class FusedLamb(Optimizer):
                 if p.grad is None:
                     continue
                 state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    # Exponential moving average of gradient values
+                    state['exp_avg'] = torch.zeros(p.data.shape).to(self.device)
+                    # Exponential moving average of squared gradient values
+                    state['exp_avg_sq'] = torch.zeros(p.data.shape).to(self.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
