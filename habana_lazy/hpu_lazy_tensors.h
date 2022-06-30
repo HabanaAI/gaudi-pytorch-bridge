@@ -132,6 +132,9 @@ struct HbLazyFrontEndInfoToBackend {
   }
 
  private:
+  // The value 0 of optimized_lazy_eager_key is used to indicate the unhandled
+  // cases in optimized lazy eager so that no cache entry is prepared in
+  // optimized lazy cache for such cases.
   size_t optimized_lazy_eager_key = 0;
   std::string op_name = getHabanaLazyGraphName();
   bool is_optimized_lazy_eager = false;
@@ -233,7 +236,6 @@ class HbLazyTensor {
   static void SyncTensorsGraph(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
-      std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false);
 
   static void SyncTensorsGraphOptimized(
@@ -335,13 +337,11 @@ class HbLazyTensor {
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
-      std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false);
   static void SyncTensorsGraphInternalOptimized(
       std::vector<HbLazyTensor>* tensors,
       std::vector<ir::Value>& input_values,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
-      std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
   static bool switch_dynamic_mode;
 };
 

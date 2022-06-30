@@ -698,19 +698,14 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
 void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
-    std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   if (lazyFrontEndInfo && lazyFrontEndInfo->get_is_optimized_lazy_eager()) {
     std::lock_guard<std::recursive_mutex> lock(
         HbContextArena::Get()->GetMutex());
     SyncTensorsGraphInternalOptimized(
-        tensors,
-        lazyFrontEndInfo->get_input_values(),
-        lazyFrontEndInfo,
-        out_hb_lazy_tensor);
+        tensors, lazyFrontEndInfo->get_input_values(), lazyFrontEndInfo);
   } else {
-    SyncTensorsGraphInternal(
-        tensors, lazyFrontEndInfo, out_hb_lazy_tensor, async);
+    SyncTensorsGraphInternal(tensors, lazyFrontEndInfo, async);
   }
 }
 
@@ -733,12 +728,14 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
-    std::vector<HbLazyTensor> tensors{};
+    // For optimized lazy eager, use the output tensors as it is while
+    // for normal eager and Lazy, prepare tensors from live tensors
+    std::vector<HbLazyTensor> tensors = out_hb_lazy_tensor;
     if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
           lazy_front_end_info->get_optimized_lazy_eager_key())) {
       tensors = GetLiveTensors(device);
     }
-    SyncTensorsGraph(&tensors, lazy_front_end_info, out_hb_lazy_tensor, async);
+    SyncTensorsGraph(&tensors, lazy_front_end_info, async);
   }
 }
 
@@ -887,7 +884,6 @@ void LaunchSyncTensorsGraph(
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
-    std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
   if (!(*tensors).size())
@@ -900,8 +896,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   std::vector<int> indices = {};
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazyFrontEndInfo &&
       lazyFrontEndInfo->get_optimized_lazy_eager_key()) {
-    *tensors = out_hb_lazy_tensor;
-    for (int i = 0; i < (int)out_hb_lazy_tensor.size(); i++) {
+    for (int i = 0; i < (int)(*tensors).size(); i++) {
       indices.emplace_back(i);
     }
   } else {
@@ -1005,12 +1000,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 void HbLazyTensor::SyncTensorsGraphInternalOptimized(
     std::vector<HbLazyTensor>* tensors,
     std::vector<ir::Value>& input_values,
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
-    std::vector<HbLazyTensor> out_hb_lazy_tensor) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
   PT_LAZY_TRACE;
+  if (!(*tensors).size())
+    return;
+
   std::vector<int> indices = {};
-  *tensors = out_hb_lazy_tensor;
-  for (int i = 0; i < (int)out_hb_lazy_tensor.size(); i++) {
+  for (int i = 0; i < (int)(*tensors).size(); i++) {
     indices.emplace_back(i);
   }
 
