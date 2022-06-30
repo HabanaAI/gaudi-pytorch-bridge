@@ -1627,7 +1627,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   }
   // allow permutation only for output tensors
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     for (auto ti : output_tensorinfo_map) {
       auto ival = ti.first;
       auto iter = pt_to_synapse_tensors.find(ival);
@@ -2374,7 +2375,6 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
       ConstructPatchingTable();
-      UpdateSynapsePermutations();
     } catch (std::exception& e) {
       error_str = e.what();
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -2723,7 +2723,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
       ConstructPatchingTable();
-      UpdateSynapsePermutations();
       ExecuteSynapseGraph(hpu_stream);
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
@@ -2760,7 +2759,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     BuildSynapseGraph(syn_graph);
     CompileSynapseGraph();
     ConstructPatchingTable();
-    UpdateSynapsePermutations();
     ExecuteSynapseGraph(hpu_stream);
   }
   if (!try_catch_fail) {

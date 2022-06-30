@@ -78,12 +78,7 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
   //<< rargpsh1->graphHashCode() << '\n';
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    // When Synapse new DL enabled, we store input permutation during
-    // RecipeArgumentSpec constructor, hence graphHashCode & hashCode won't be
-    // equal
-    EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh1->hashCode());
-  }
+  EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh1->hashCode());
 
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
       std::make_shared<habana::RecipeArgumentSpec>(
