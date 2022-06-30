@@ -80,6 +80,7 @@ synStatus PartialEventEmulation::synTensorGetExternal(
 }
 
 bool UsePartialEventEmulation() {
-  static bool flag{getenv("TF_NO_EMULATE_SIGNALING_FROM_ENCAP_OP") == nullptr};
+  static bool flag{
+      std::string_view(getenv("PT_EMULATE_SIGNALING_FROM_ENCAP_OP")) == "true"};
   return flag;
 }
