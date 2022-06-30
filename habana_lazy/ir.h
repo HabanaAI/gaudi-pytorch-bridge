@@ -249,7 +249,7 @@ class MetaData {
     if (v.isInt()) {
       return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
     } else if (v.isString()) {
-      return at::hash_combine(h, at::get_hash(v.toString()));
+      return at::hash_combine(h, at::get_hash(v.toStringView()));
     } else if (v.isBool()) {
       return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toBool())));
     } else if (v.isScalar()) {
