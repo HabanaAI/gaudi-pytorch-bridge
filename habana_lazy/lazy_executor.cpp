@@ -49,6 +49,7 @@ void HbExecutionContext::MarkTensorExecuting(std::shared_ptr<Data> data) {
 
 void HbExecutionContext::JoinPendingLaunchThread() {
   PT_LAZY_TRACE;
+
   if (m_launch_thread_handle.valid()) {
     if (std::this_thread::get_id() !=
         SingleTonExecThreadPool::getInstance().get_id(0)) {
@@ -70,6 +71,19 @@ void HbExecutionContext::JoinPendingLaunchThread() {
       }
     }
   }
+
+  /*
+  if ((m_launch_thread_handle.valid() &&
+       (std::this_thread::get_id() !=
+        SingleTonExecThreadPool::getInstance().get_id(0)))) {
+    while (SingleTonExecThreadPool::getInstance().has_work.load()) {
+      if (SingleTonExecThreadPool::getInstance().m_stop ||
+          !SingleTonExecThreadPool::getInstance().has_work.load()) {
+        return;
+      }
+    }
+  }
+  */
 }
 
 void HbExecutionContext::MarkTensorExecuted(std::shared_ptr<Data> data) {

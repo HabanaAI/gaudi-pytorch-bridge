@@ -555,27 +555,6 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
 }
 
 /************************************************************************
- * @brief Returns indices of tensors corresponding to tensors with valid IR
- * values
- ************************************************************************/
-std::vector<int> HbLazyTensor::CollectSyncTensorsOptimized(
-    const std::vector<HbLazyTensor>& tensors,
-    std::vector<HbLazyTensor>& out_hb_lazy_tensor) {
-  PT_LAZY_TRACE;
-  std::vector<int> indices = {};
-  for (size_t i = 0; i < tensors.size(); ++i) {
-    int64_t tensor_unique_id = tensors[i].getTensorUniqueId();
-    for (size_t j = 0; j < out_hb_lazy_tensor.size(); j++) {
-      if (tensor_unique_id == out_hb_lazy_tensor[j].getTensorUniqueId()) {
-        indices.push_back(i);
-        break;
-      }
-    }
-  }
-  return indices;
-}
-
-/************************************************************************
  * @brief Computes post order list of NodePtrs. This function should be
  *executed at the trigger points. The output would be consumed during the
  *conversion of lazy IR to JIT IR.
@@ -709,22 +688,7 @@ void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     bool async) {
-  if (lazyFrontEndInfo && lazyFrontEndInfo->get_is_optimized_lazy_eager()) {
-    std::lock_guard<std::recursive_mutex> lock(
-        HbContextArena::Get()->GetMutex());
-    SyncTensorsGraphInternalOptimized(
-        tensors, lazyFrontEndInfo->get_input_values(), lazyFrontEndInfo);
-  } else {
-    SyncTensorsGraphInternal(tensors, lazyFrontEndInfo, async);
-  }
-}
-
-void HbLazyTensor::SyncTensorsGraphOptimized(
-    std::vector<HbLazyTensor>* tensors,
-    std::vector<ir::Value>& input_values,
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  SyncTensorsGraphInternalOptimized(tensors, input_values, lazyFrontEndInfo);
+  SyncTensorsGraphInternal(tensors, lazyFrontEndInfo, async);
 }
 
 void HbLazyTensor::SyncLiveTensorsGraph(
@@ -749,7 +713,17 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 }
 
-at::Tensor HbLazyTensor::Process0DTensor(std::shared_ptr<Data>& d) {
+std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
+  std::stringstream strbuff;
+  std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
+  std::cout << "JIT IR graph\n";
+  jit_graph->dump();
+  std::string str = strbuff.str();
+  std::cout.rdbuf(oldbuff);
+  return str;
+}
+
+at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   TORCH_CHECK(d->tensor_data.has_value(), "Empty tensor optional");
   at::Tensor pt_tensor = d->tensor_data.value();
 
@@ -764,12 +738,12 @@ at::Tensor HbLazyTensor::Process0DTensor(std::shared_ptr<Data>& d) {
   return pt_tensor;
 }
 
-torch::jit::Stack HbLazyTensor::PrepareInputStack(
+torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices,
     habana_lazy::ir::ValueList& inputs,
     bool is_OptimizedLazyEager UNUSED,
-    habana_lazy::ir::NodePtrList* ptr_post_order) {
+    habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
   torch::jit::Stack stack;
@@ -854,11 +828,17 @@ void PostLaunch(
 }
 
 void LaunchSyncTensorsGraph(
-    std::vector<HbLazyTensor> tensors_ptr,
+    std::vector<HbLazyTensor>& tensors_ptr,
     std::vector<int> indices,
     exec::HlExec hlexec,
     torch::jit::Stack stack,
-    std::vector<at::Tensor> retained_tensor_list) {
+    std::vector<at::Tensor> retained_tensor_list,
+    bool async,
+    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+        optimized_path_jit_ir_and_mdata,
+    std::string lazyOpName,
+    size_t optimizedLazyEagerKey,
+    bool isOptimizedLazyEager) {
   PT_LAZY_TRACE;
 
   std::vector<HbLazyTensor>* tensors = &tensors_ptr;
@@ -866,28 +846,55 @@ void LaunchSyncTensorsGraph(
   // Launch the execution
   std::exception_ptr launch_except = nullptr;
   bool exception = false;
-  try {
-    hlexec.Launch(stack);
-    if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
-      // The graph was not compiled. Remove the JIT graph from the cache
-      PT_LAZY_DEBUG(
-          "Removing JIT IR Graph with :: key ",
-          hlexec.GetGraphHash(),
-          ", graph_index ",
-          hlexec.GetGraphIndex(hlexec.GetGraphHash()),
-          " from  the JIT Cache");
-      LazyGraphCache::GetLazyCache().RemoveGraph(hlexec.GetGraphHash());
+  if (isOptimizedLazyEager) {
+    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
+    optimized_path_jit_ir_and_mdata->SetOpName(lazyOpName);
+    optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
+    optimized_path_jit_ir_and_mdata->SetHPUStream(
+        c10::hpu::getCurrentHPUStream());
+    habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
+
+    try {
+      habanaLoweringOp.run(stack);
+      if (optimized_path_jit_ir_and_mdata->get_syn_graph_empty_flag() == true) {
+        // The graph was not compiled. Remove the JIT graph from the cache
+        // To Do - To incorporate the Graph index change
+        PT_LAZY_DEBUG(
+            "Removing Optimized JIT IR Graph with :: key ",
+            optimizedLazyEagerKey,
+            " from the Optimized JIT Cache");
+        OptimizedLazyGraphCache::GetOptimizedLazyCache().RemoveGraph(
+            optimizedLazyEagerKey);
+      }
+    } catch (...) {
+      launch_except = std::current_exception();
+      exception = true;
     }
-  } catch (...) {
-    launch_except = std::current_exception();
-    exception = true;
+    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
+  } else {
+    try {
+      hlexec.Launch(stack);
+      if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
+        // The graph was not compiled. Remove the JIT graph from the cache
+        PT_LAZY_DEBUG(
+            "Removing JIT IR Graph with :: key ",
+            hlexec.GetGraphHash(),
+            ", graph_index ",
+            visualize::GetGraphIndex(hlexec.GetGraphHash()),
+            " from  the JIT Cache");
+        LazyGraphCache::GetLazyCache().RemoveGraph(hlexec.GetGraphHash());
+      }
+    } catch (...) {
+      launch_except = std::current_exception();
+      exception = true;
+    }
   }
 
   PostLaunch(tensors, stack, indices, retained_tensor_list, exception);
 
   // Rethrow exception in case exception occuured during launch
   if (exception) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
+    if (async &&
         (std::this_thread::get_id() ==
          SingleTonExecThreadPool::getInstance().get_id(0))) {
       auto device = (*tensors)[0].GetDevice();
@@ -909,7 +916,16 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
-  context->JoinPendingLaunchThread();
+  bool isOptimizedLazyEager = false;
+  size_t optimized_lazy_eager_key = 0;
+  if (lazyFrontEndInfo) {
+    optimized_lazy_eager_key = lazyFrontEndInfo->get_optimized_lazy_eager_key();
+    // To check if it is Optimized Lazy Cached graph
+    isOptimizedLazyEager = lazyFrontEndInfo->get_is_optimized_lazy_eager();
+  }
+  if (!isOptimizedLazyEager) {
+    context->JoinPendingLaunchThread();
+  }
 
   std::vector<int> indices = {};
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazyFrontEndInfo &&
@@ -928,45 +944,66 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     return;
   }
 
-  auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
-
-  torch::jit::Stack stack = PrepareInputStack(
-      tensors, indices, po_data.inputs, false, &po_data.post_order);
-
+  torch::jit::Stack stack;
+  habana_lazy::ir::PostOrderData po_data;
+  std::vector<uint64_t> executing_indices{};
   exec::HlExec hlexec{};
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      optimized_path_jit_ir_and_mdata;
+  std::string lazy_op_name{};
 
-  hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
+  if (isOptimizedLazyEager) {
+    HABANA_ASSERT(lazyFrontEndInfo != nullptr);
+    lazy_op_name = lazyFrontEndInfo->get_lazy_op_name();
+    optimized_path_jit_ir_and_mdata =
+        habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache()
+            .GetOptimizedJITGraphAndMetaData(optimized_lazy_eager_key);
+    PT_LAZY_DEBUG(
+        "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);
+    PT_IRGRAPH_DEBUG(
+        DumpGraph(optimized_path_jit_ir_and_mdata->get_cached_graph()));
+    context->JoinPendingLaunchThread();
+    std::vector<ir::Value>& input_values = lazyFrontEndInfo->get_input_values();
+    stack = PrepareInputStack(tensors, indices, input_values, true);
+  } else {
+    po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
+    stack = PrepareInputStack(
+        tensors, indices, po_data.inputs, false, &po_data.post_order);
 
-  hlexec.GetOrCreate(po_data, stack);
-  // This is the logic to remove outputs of control edges that are dangling from
-  // the outputs of JIT graph We dont want to alter graph execution, so removing
-  // after graph is already prepared. Also we DO want that the tensors of this
-  // node are marked processed, as they would have through output stack So we do
-  // all the markings before entering execution
-  bool remove_control_edge_outputs = true;
-  if (remove_control_edge_outputs) {
-    int vec_index = 0;
-    int num_outputs = po_data.outputs.size();
-    for (int i = 0; i < num_outputs; i++) {
-      auto ir_value = po_data.outputs[vec_index];
-      auto data = ir_value.m_data_ptr.lock();
-      if (ir_value.mp_node->is_control_edge() && data->version == 0) {
-        auto& tensor = (*tensors)[i];
+    hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
 
-        ir::Value val = tensor.createIrValueFromData();
-        tensor.AssignIrValue(val);
-        context->MarkTensorExecuted(data);
-        po_data.outputs.erase(po_data.outputs.begin() + vec_index);
-        indices.erase(indices.begin() + vec_index);
-        hlexec.get_graph()->eraseOutput(vec_index);
-      } else {
-        vec_index++;
+    hlexec.GetOrCreate(po_data, stack);
+
+    // This is the logic to remove outputs of control edges that are dangling
+    // from
+    // the outputs of JIT graph We dont want to alter graph execution, so
+    // removing after graph is already prepared. Also we DO want that the
+    // tensors of this node are marked processed, as they would have through
+    // output stack So we do all the markings before entering execution
+    bool remove_control_edge_outputs = true;
+    if (remove_control_edge_outputs) {
+      int vec_index = 0;
+      int num_outputs = po_data.outputs.size();
+      for (int i = 0; i < num_outputs; i++) {
+        auto ir_value = po_data.outputs[vec_index];
+        auto data = ir_value.m_data_ptr.lock();
+        if (ir_value.mp_node->is_control_edge() && data->version == 0) {
+          auto& tensor = (*tensors)[i];
+
+          ir::Value val = tensor.createIrValueFromData();
+          tensor.AssignIrValue(val);
+          context->MarkTensorExecuted(data);
+          po_data.outputs.erase(po_data.outputs.begin() + vec_index);
+          indices.erase(indices.begin() + vec_index);
+          hlexec.get_graph()->eraseOutput(vec_index);
+        } else {
+          vec_index++;
+        }
       }
     }
+    // Dump the JIT graph with PT_IRGRAPH_DEBUG
+    PT_IRGRAPH_DEBUG(DumpGraph(hlexec.get_graph()));
   }
-
-  // Dump the JIT graph with PT_IRGRAPH_DEBUG
-  PT_IRGRAPH_DEBUG(hlexec.DumpGraph());
 
   // Remove any tensor_data held at output, this will reduce the memory
   // pressure
@@ -1001,111 +1038,28 @@ void HbLazyTensor::SyncTensorsGraphInternal(
             std::vector<int>(indices),
             exec::HlExec(hlexec),
             torch::jit::Stack(stack),
-            context->m_retained_tensor_list);
+            context->m_retained_tensor_list,
+            async,
+            optimized_path_jit_ir_and_mdata,
+            lazy_op_name,
+            optimized_lazy_eager_key,
+            isOptimizedLazyEager);
   } else {
     LaunchSyncTensorsGraph(
         *tensors,
         std::vector<int>(indices),
         exec::HlExec(hlexec),
         torch::jit::Stack(stack),
-        context->m_retained_tensor_list);
+        context->m_retained_tensor_list,
+        async,
+        optimized_path_jit_ir_and_mdata,
+        lazy_op_name,
+        optimized_lazy_eager_key,
+        isOptimizedLazyEager);
   }
 
   // clear the context
   context->clear();
-}
-
-void HbLazyTensor::SyncTensorsGraphInternalOptimized(
-    std::vector<HbLazyTensor>* tensors,
-    std::vector<ir::Value>& input_values,
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo) {
-  PT_LAZY_TRACE;
-  if (!(*tensors).size())
-    return;
-
-  std::vector<int> indices = {};
-  for (int i = 0; i < (int)(*tensors).size(); i++) {
-    indices.emplace_back(i);
-  }
-
-  torch::jit::Stack stack =
-      PrepareInputStack(tensors, indices, input_values, true);
-
-  HABANA_ASSERT(lazyFrontEndInfo != nullptr);
-
-  size_t optimized_lazy_eager_key =
-      lazyFrontEndInfo->get_optimized_lazy_eager_key();
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      optimized_path_jit_ir_and_mdata =
-          habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache()
-              .GetOptimizedJITGraphAndMetaData(optimized_lazy_eager_key);
-  PT_LAZY_DEBUG(
-      "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);
-
-  // Dump the JIT graph with PT_LAZY_DEBUG
-  // PT_LAZY_DEBUG(hlexec.DumpGraph());
-
-  // Remove any tensor_data held at output, this will reduce the memory
-  // pressure
-  for (auto idx : indices) {
-    auto out_tensor = (*tensors)[idx];
-    out_tensor.SetTensorData(at::Tensor());
-    // clear IR values corresponding to sync tensors
-    out_tensor.ClearAndAssignNewIrValue();
-  }
-  auto device = (*tensors)[0].GetDevice();
-  auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
-  // clear IR values corresponding to unexecuted view outputs
-  for (auto& t : context->viewContext.hb_tensors_out_view) {
-    ir::Value val = t.createIrValueFromData();
-    t.resetVersionCounter();
-    t.AssignIrValue(val);
-  }
-
-  // Save po_data input and output to context for perf mode
-  if (context->m_is_cached == false) {
-    context->saveInputsAndOutputs(
-        input_values, input_values, *tensors, indices);
-    context->m_is_cached = true;
-  }
-
-  // TODO : remove this env variable use
-  // This is temporarily done to deactivate code in synapse helpers for lazy
-  // mode kernel registration We will move to using shape utilities instead and
-  // not do env variable based check anymore
-  // We have short-circuited certain utilities in synapse helpers, we need to
-  // remove that code
-  // TODO : Not seting this would cause the synapse graph creation set to
-  // dry run. Hence not setting this would cause synpase graph to be not be
-  // created. This needs to be optimized.
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
-
-  optimized_path_jit_ir_and_mdata->SetOpName(
-      lazyFrontEndInfo->get_lazy_op_name());
-  optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
-  optimized_path_jit_ir_and_mdata->SetHPUStream(
-      c10::hpu::getCurrentHPUStream());
-  habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
-  std::exception_ptr launch_except;
-  bool exception = false;
-
-  try {
-    habanaLoweringOp.run(stack);
-  } catch (...) {
-    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception.");
-    launch_except = std::current_exception();
-    exception = true;
-  }
-
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
-
-  PostLaunch(
-      tensors, stack, indices, context->m_retained_tensor_list, exception);
-
-  // Rethrow exception in case exception occuured during launch
-  if (exception) {
-    std::rethrow_exception(launch_except);
-  }
 }
 
 void HbLazyTensor::ExecuteCachedGraph() {
@@ -1264,7 +1218,10 @@ void HbLazyTensor::StepMarker(
     return;
   }
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  context->JoinPendingLaunchThread();
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
+        lazy_front_end_info->get_optimized_lazy_eager_key())) {
+    context->JoinPendingLaunchThread();
+  }
   HbLazyTensor::SyncLiveTensorsGraph(
       &device,
       /* is_cached*/ false,

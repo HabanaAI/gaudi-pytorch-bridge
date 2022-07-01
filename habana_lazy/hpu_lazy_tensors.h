@@ -207,7 +207,6 @@ class HbLazyTensor {
   c10::optional<at::Tensor> GetHbLazyTensorDataForMedia();
 
   // Static methods
-  static at::Tensor Process0DTensor(std::shared_ptr<Data>& d);
   static void MarkStep(const c10::Device& device);
   // Retrieves the PyTorch CPU tensors behind the Habana Lazy tensors IR
   // operations. All the tensors must be on the same device.
@@ -221,9 +220,6 @@ class HbLazyTensor {
   ir::Value CreateTensorNode() const;
   static std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
-  static std::vector<int> CollectSyncTensorsOptimized(
-      const std::vector<HbLazyTensor>& tensors,
-      std::vector<HbLazyTensor>& out_hb_lazy_tensor);
   static ir::PostOrderData RunPostOrder(
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
@@ -237,11 +233,6 @@ class HbLazyTensor {
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false);
-
-  static void SyncTensorsGraphOptimized(
-      std::vector<HbLazyTensor>* tensors,
-      std::vector<ir::Value>& input_values,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
@@ -328,20 +319,10 @@ class HbLazyTensor {
   }
 
   void ClearAndAssignNewIrValue();
-  static torch::jit::Stack PrepareInputStack(
-      std::vector<HbLazyTensor>* tensors,
-      std::vector<int>& indices,
-      habana_lazy::ir::ValueList& inputs,
-      bool is_OptimizedLazyEager,
-      habana_lazy::ir::NodePtrList* ptr_post_order = nullptr);
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false);
-  static void SyncTensorsGraphInternalOptimized(
-      std::vector<HbLazyTensor>* tensors,
-      std::vector<ir::Value>& input_values,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr);
   static bool switch_dynamic_mode;
 };
 

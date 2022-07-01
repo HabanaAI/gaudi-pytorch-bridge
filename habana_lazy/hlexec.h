@@ -258,16 +258,6 @@ class HlExec {
    */
   void Launch(torch::jit::Stack& stack);
 
-  std::string DumpGraph() {
-    std::stringstream strbuff;
-    std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
-    std::cout << "JIT IR graph\n";
-    mp_g_->dump();
-    std::string str = strbuff.str();
-    std::cout.rdbuf(oldbuff);
-    return str;
-  }
-
   GraphPtr get_graph() {
     return mp_g_;
   }

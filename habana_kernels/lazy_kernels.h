@@ -335,65 +335,27 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type
-  HandleOptimizedLazyEager(
-      T results,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
-    PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
-    int i = 0;
-    const auto& out_shapes = m_out_shapes;
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
-
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        out_shapes.size() == std::tuple_size<T>::value);
-
-    std::vector<HbLazyTensor> hl_tensors;
-    std::vector<at::Tensor> tensors;
-    tensors.reserve(std::tuple_size<T>::value);
-    for_each_in_tuple(
-        results,
-        [&i, &hl_tensors, &tensors, out_shapes, context](const auto& result) {
-          auto hl_result = GetHbLazyTensor(result);
-          hl_tensors.push_back(hl_result);
-          tensors.push_back(result);
-          const auto& out_shape = out_shapes.at(i);
-          if (result.sizes() != out_shape) {
-            auto impl = hl_result.getAttachedTensorImpl();
-            THHTensor_resizeNd(
-                impl, out_shape.size(), out_shape.data(), nullptr);
-            result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
-          }
-          context->MarkTensorStatus(
-              hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-          ++i;
-        });
-    std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
-    runSBS(tensors);
-    HbLazyTensor::SyncTensorsGraphOptimized(
-        &hl_tensors, input_values, info_to_lazy_backend);
-    return results;
-  }
-
-  template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
       T results) {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
-    viewUpdateInputs();
+    bool isView = false;
+    isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
     // Temporarily disabled the switch - To Do
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) && false) {
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent) &&
+        false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
 
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      if (IsOptimizedLazyEagerCached) {
-        return HandleOptimizedLazyEager(results, infoToBackEnd);
-      }
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
     return HandleLazy(results, infoToBackEnd);
@@ -682,59 +644,30 @@ class LazyOp {
 
   // For inplace/out variants
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
-  HandleOptimizedLazyEager(
-      at::Tensor& self,
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
-    PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
-    auto hl_self = GetHbLazyTensor(self);
-    // numel == 0 is the correct check, need the size check until pytorch
-    // fixes
-    // it properly
-    // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
-    if (self.sizes() != out_shape) {
-      auto impl = hl_self.getAttachedTensorImpl();
-      THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
-      self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
-    }
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
-    context->MarkTensorStatus(
-        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-    std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
-    std::vector<HbLazyTensor> hl_tensors = {hl_self};
-    runSBS(self);
-    HbLazyTensor::SyncTensorsGraphOptimized(
-        &hl_tensors, input_values, info_to_lazy_backend);
-    return self;
-  }
-
-  // For inplace/out variants
-  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
+    bool isView = false;
 
     // Handle views or fetch updated tensor for all the inputs
-    viewUpdateInputs();
+    isView = viewUpdateInputs();
 
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
     // Temporarily disabled the switch - To Do
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) && false) {
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent) &&
+        false) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
 
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      if (IsOptimizedLazyEagerCached) {
-        return HandleOptimizedLazyEager(self, infoToBackEnd);
-      }
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
     return HandleLazy(self, infoToBackEnd);
@@ -775,34 +708,6 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
-  HandleOptimizedLazyEager(
-      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
-    PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
-    const at::Tensor& self = get_inputs().at(0).toTensor();
-    auto hl_self = GetHbLazyTensor(self);
-
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
-    if (self.sizes() != out_shape) {
-      auto impl = hl_self.getAttachedTensorImpl();
-      THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
-      self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
-    }
-
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
-    context->MarkTensorStatus(
-        hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-    std::vector<ir::Value> input_values = prepare_lazy_eager_input_values();
-    std::vector<HbLazyTensor> hl_tensors = {hl_self};
-    runSBS(self);
-    HbLazyTensor::SyncTensorsGraphOptimized(
-        &hl_tensors, input_values, info_to_lazy_backend);
-    return self;
-  }
-
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call() {
     PT_LAZY_DEBUG("Lazy Call Inplace :: ", m_symbol.toQualString());
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -817,9 +722,7 @@ class LazyOp {
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
 
       infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      if (IsOptimizedLazyEagerCached) {
-        return HandleOptimizedLazyEager(infoToBackEnd);
-      }
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
     return HandleLazy(infoToBackEnd);
@@ -1208,6 +1111,8 @@ class LazyOp {
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {
+      // To Do - To always use the front end tensor for key calculation as it
+      // might be problematic to use backend internal tensor while pipelining.
       auto val = hl_tensor->GetIrValue();
       std::shared_ptr<Data> d = val.m_data_ptr.lock();
       torch::jit::IValue hl_tensor_ivalue = d->tensor_data;
@@ -1229,6 +1134,14 @@ class LazyOp {
                 optimized_key, static_cast<size_t>(lazy_layout_format));
           }
         }
+      } else {
+        optimized_key = at::hash_combine(optimized_key, (size_t)t.dim());
+        optimized_key = at::hash_combine(
+            optimized_key, static_cast<size_t>(t.scalar_type()));
+        optimized_key = at::hash_combine(
+            optimized_key, static_cast<size_t>(t.suggest_memory_format()));
+        optimized_key = at::hash_combine(
+            optimized_key, (size_t)hl_tensor->GetTensorLayout());
       }
       if (!(val.mp_node->is_input())) {
         optimized_key = 0;

@@ -177,7 +177,11 @@ void flush_op(
   SBSDebug::getInstance().IncreaseOpsAndTensors(tensors.size());
 
   if (m_flush_op) {
-    HbLazyTensor::StepMarker({}, lazy_front_end_info, out_hb_lazy_tensor);
+    bool async =
+        (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
+         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
+    HbLazyTensor::StepMarker(
+        {}, lazy_front_end_info, out_hb_lazy_tensor, async);
   } else if (m_random_flush) {
     flushWithMarkStep();
   } else if (StageSubmission::getInstance().isExceededMaxAccumlatedSize()) {
