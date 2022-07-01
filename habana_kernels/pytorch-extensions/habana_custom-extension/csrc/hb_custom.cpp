@@ -222,7 +222,7 @@ void optimizer_fused_sgd(
   optimizer_sgd_hpu_wrap(gradients, weights, lr, wd, mom, damp, nesterov);
 }
 
-extern at::Tensor& optimizer_sgd_momentum_hpu_wrap(
+void optimizer_sgd_momentum_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::TensorList& momentum,
@@ -247,7 +247,7 @@ void optimizer_fused_sgd_momentum(
   at::TensorList weights(weight_vec);
   at::TensorList momentum(momentum_vec);
 
-  auto out = optimizer_sgd_momentum_hpu_wrap(
+  optimizer_sgd_momentum_hpu_wrap(
       gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
 }
 

@@ -5468,7 +5468,7 @@ void optimizer_sgd_hpu_wrap(
   }
 }
 
-Tensor& optimizer_sgd_momentum_hpu_wrap(
+void optimizer_sgd_momentum_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
     TensorList& momentum,
@@ -5508,8 +5508,6 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
     optimizer_sgd_momentum_hpu(
         gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
   }
-
-  return lr;
 }
 
 Tensor optimizer_lamb_fused_norm_hpu_wrap(

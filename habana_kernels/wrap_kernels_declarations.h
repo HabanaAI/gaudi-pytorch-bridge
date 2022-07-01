@@ -942,7 +942,7 @@ void optimizer_sgd_hpu_wrap(
     const float mom,
     const float damp,
     const bool nesterov);
-at::Tensor& optimizer_sgd_momentum_hpu_wrap(
+void optimizer_sgd_momentum_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::TensorList& momentum,
