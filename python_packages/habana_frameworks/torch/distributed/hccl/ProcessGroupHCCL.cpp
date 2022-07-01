@@ -778,15 +778,30 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
             input.numel(),
             " data_type :: ",
             getHCCLDataType(input.scalar_type()));
-        return hcclReduce(
-            send_buffer,
-            recv_buffer,
-            input.numel(),
-            getHCCLDataType(input.scalar_type()),
-            getHCCLReduceOp(reduceOp),
-            root,
-            hccl_comm,
-            stream);
+        hcclResult_t hccl_result{hcclSuccess};
+        size_t num_elements = input.numel();
+        size_t element_size =
+            c10::elementSize(getInternalScalarType(input.scalar_type()));
+        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t data_offset = 0;
+        while (num_elements > 0) {
+          size_t num_elements_in_current_chunk =
+              (num_elements > chunk_size) ? chunk_size : num_elements;
+          hccl_result = hcclReduce(
+              send_buffer + data_offset,
+              recv_buffer + data_offset,
+              num_elements_in_current_chunk,
+              getHCCLDataType(input.scalar_type()),
+              getHCCLReduceOp(reduceOp),
+              root,
+              hccl_comm,
+              stream);
+          TORCH_CHECK(
+              hcclSuccess == hccl_result, "Collective call returned error");
+          data_offset += num_elements_in_current_chunk * element_size;
+          num_elements -= num_elements_in_current_chunk;
+        }
+        return hccl_result;
       });
 
   PT_DISTRIBUTED_END;
