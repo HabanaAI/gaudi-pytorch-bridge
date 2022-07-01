@@ -60,6 +60,14 @@ void HbExecutionContext::JoinPendingLaunchThread() {
         m_launch_thread_handle.get();
       } catch (std::exception& e) {
       }
+      if (m_launch_thread_exception_handler) {
+        try {
+          std::rethrow_exception(m_launch_thread_exception_handler);
+        } catch (const std::exception& e) {
+          m_launch_thread_exception_handler = nullptr;
+          PT_BRIDGE_FATAL("Exception in Launch thread...\n", e.what());
+        }
+      }
     }
   }
 }

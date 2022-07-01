@@ -854,7 +854,7 @@ void LaunchSyncTensorsGraph(
   std::vector<HbLazyTensor>* tensors = &tensors_ptr;
 
   // Launch the execution
-  std::exception_ptr launch_except;
+  std::exception_ptr launch_except = nullptr;
   bool exception = false;
   try {
     hlexec.Launch(stack);
@@ -877,6 +877,14 @@ void LaunchSyncTensorsGraph(
 
   // Rethrow exception in case exception occuured during launch
   if (exception) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
+        (std::this_thread::get_id() ==
+         SingleTonExecThreadPool::getInstance().get_id(0))) {
+      auto device = (*tensors)[0].GetDevice();
+      auto context =
+          habana_lazy_executor.getDeviceExecutionContext(device.index());
+      context->m_launch_thread_exception_handler = launch_except;
+    }
     std::rethrow_exception(launch_except);
   }
 }

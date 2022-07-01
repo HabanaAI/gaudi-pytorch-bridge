@@ -286,6 +286,8 @@ class HbExecutionContext {
   // Handle for the launch thread, only one thread is alive at a time.
   std::future<void> m_launch_thread_handle;
   void JoinPendingLaunchThread();
+  std::exception_ptr m_launch_thread_exception_handler = nullptr;
+
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
   bool isLazyViewPresent = false;
