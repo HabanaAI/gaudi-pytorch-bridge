@@ -93,6 +93,93 @@ class SSDDataLoader(torch.utils.data.DataLoader):
 
         return img.contiguous(), img_id, img_size, bbox_out, label_out
 
+class SSDMediaDataLoader(torch.utils.data.DataLoader):
+    def __init__(self, *args, **kwargs):
+        dataset = kwargs.get('dataset', args[0])
+        self._media_ssd_dl_handle_vars(kwargs)
+        root = dataset.img_folder
+        annotate_file = dataset.annotate_file
+        transform = dataset.transform
+        num_instances = 1
+        instance_id = 0
+
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+        pipeline = HPUMediaPipe(a_torch_transforms=transform, a_root=root, a_annotation_file=annotate_file, a_batch_size=self.batch_size,
+                                a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
+                                a_num_instances=num_instances, a_instance_id=instance_id, a_model_ssd=True, a_device="hpu")
+
+        from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUSsdPytorchIterator
+        self.iterator = HPUSsdPytorchIterator(mediapipe=pipeline)
+        print(f"Running with Habana media DataLoader with num_instances = {num_instances}, instance_id = {instance_id}.")
+
+
+    def __iter__(self):
+        return iter(self.iterator)
+
+    def __len__(self):
+        return len(self.iterator)
+
+    def _media_ssd_dl_handle_vars(self, kwargs):
+
+        self.batch_size = kwargs.get('batch_size')
+        self.shuffle = kwargs.get('shuffle')
+
+        sampler = kwargs.get('sampler', None)
+        if self.shuffle == False:
+            if isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle == True):
+                self.shuffle = True
+                print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
+        if sampler != None:
+            print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
+
+        self._enforce_value_for_arg(kwargs, 'batch_sampler', None)
+
+        num_workers = kwargs.get('num_workers', 0)
+        if num_workers != 0:
+            print("Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ", num_workers)
+
+        self._enforce_value_for_arg(kwargs, 'collate_fn', None)
+
+        # ignored pin_memory
+
+        if 'drop_last' in kwargs:
+            self.drop_last = kwargs.get('drop_last')
+            if self.drop_last == False:
+                print("Warning: MediaDataLoader got drop_last: False, round up of last batch will be done")
+            else:
+                print("MediaDataLoader got drop_last: ", self.drop_last)
+        else:
+            print("Warning: MediaDataLoader using drop_last: False, round up of last batch will be done")
+            self.drop_last = False
+
+        self._enforce_value_for_arg(kwargs, 'timeout', 0)
+        self._enforce_value_for_arg(kwargs, 'worker_init_fn', None)
+        self._enforce_value_for_arg(kwargs, 'multiprocessing_context', None)
+        self._enforce_value_for_arg(kwargs, 'generator', None)
+
+        if 'prefetch_factor' in kwargs:
+            self.prefetch_factor = kwargs.get('prefetch_factor')
+            if self.prefetch_factor < 1:
+                print("Warning: prefetch_factor < 1 is not supported by MediaDataLoader, updating to 1")
+                self.prefetch_factor = 1
+            elif self.prefetch_factor > 3:
+                print("Warning: prefetch_factor updated from ", self.prefetch_factor, " to 3")
+                self.prefetch_factor = 3
+            else:
+                print("MediaDataLoader got prefetch_factor ", self.prefetch_factor)
+        else:
+            self.prefetch_factor = 3
+            print("Warning: MediaDataLoader using prefetch_factor 3")
+
+        self._enforce_value_for_arg(kwargs, 'persistent_workers', False)
+
+    def _enforce_value_for_arg(self, kwargs, var_name, expected_value, allow_default=True):
+        if not allow_default and kwargs.get(var_name) is None:
+            raise ValueError(f"'{var_name}' is supported only as {expected_value}")
+        # In case the value was not sent, it will be 'None'
+        if kwargs.get(var_name) is not None and kwargs.get(var_name) != expected_value:
+            raise ValueError(f"'{var_name}' is supported only as {expected_value}")
+
 class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
@@ -161,7 +248,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         except (ValueError, ImportError) as e:
             print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
             self.fallback_activated = True
-            super(HabanaDataLoader, self).__init__(*args, **kwargs)
+            super(ResnetDataLoader, self).__init__(*args, **kwargs)
 
     def __len__(self):
         if self.fallback_activated:
@@ -291,6 +378,14 @@ def _is_coco_dataset(dataset):
             return False
         return False
 
+def _is_hpumediapipe_available():
+    try:
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+        return True
+    except (ImportError) as e:
+        print(f"import HPUMediaPipe error: {str(e)}")
+        return False
+
 class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get("dataset", args[0])
@@ -298,7 +393,28 @@ class HabanaDataLoader:
         if isinstance(dataset, torchvision.datasets.ImageFolder):
             dataloader_type = ResnetDataLoader
         elif _is_coco_dataset(dataset):
-            dataloader_type = SSDDataLoader
+            self.DeviceType = htexp._get_device_type()
+            print("HabanaDataLoader device type ", self.DeviceType)
+
+            self.aeon_fallback_activated = False
+            if 'PT_HPU_MEDIA_PIPE' in os.environ:
+                self.aeon_fallback_activated = os.getenv('PT_HPU_MEDIA_PIPE').lower() in ('false', '0', 'f')
+
+            # Try aeon when HPUMediaPipe is not available
+            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
+                num_instances = _get_world_size()
+                if _is_hpumediapipe_available() == False:
+                    print("Fallback to aeon dataloader")
+                    self.aeon_fallback_activated = True
+                elif num_instances > 1:
+                    print("Fallback to aeon dataloader as world_size is ", num_instances)
+                    self.aeon_fallback_activated = True
+
+            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
+                dataloader_type = SSDDataLoader
+            elif isGaudi2(self.DeviceType):
+                dataloader_type = SSDMediaDataLoader
+
         try:
             self.dataloader = dataloader_type(*args, **kwargs)
 
