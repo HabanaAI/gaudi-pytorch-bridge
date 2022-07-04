@@ -248,7 +248,9 @@ std::vector<std::string> names(
 std::vector<std::string> names(
     const std::deque<synapse_helpers::tensor_or_ref>&);
 
-std::string name_suffix_from_type(const c10::ScalarType pt_type);
+std::string name_suffix_from_type(
+    const c10::ScalarType pt_type,
+    bool use_int64 = false);
 
 at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 
@@ -302,4 +304,6 @@ bool is_supported_type(c10::ScalarType type);
 c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
 bool is_shape_tensor(synTensorType shape_tensor);
 std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
+
+at::Tensor downcast_to_int_if_needed(const at::Tensor& in);
 } // namespace habana_helpers

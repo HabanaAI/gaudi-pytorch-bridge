@@ -26,6 +26,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/unary_kernels.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
@@ -1380,7 +1381,7 @@ Tensor clamp_hpu(
 
   std::vector<at::Tensor> pt_inputs;
   std::vector<c10::IValue> stack;
-  if (self.scalar_type() == ScalarType::Long) {
+  if (habana_helpers::is_downcast_to_int_needed(self.scalar_type())) {
     auto self_i32 = habana_helpers::cast_tensor_to_integer(self);
     pt_inputs = {self_i32};
     stack = {IValue(self_i32), IValue(min), IValue(max)};
@@ -1392,7 +1393,7 @@ Tensor clamp_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     std::vector<at::Tensor> outputs;
-    if (self.scalar_type() == ScalarType::Long) {
+    if (habana_helpers::is_downcast_to_int_needed(self.scalar_type())) {
       auto output = at::empty(
           self.sizes(),
           self.options().dtype(c10::ScalarType::Int),
@@ -1412,15 +1413,15 @@ Tensor clamp_hpu(
     Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  std::vector<at::Tensor> outputs = Op.GetOutputs();
+  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
   if (self.scalar_type() == ScalarType::Long) {
-    auto output = habana_helpers::cast_tensor_to_long(out.at(0));
+    auto output = habana_helpers::cast_tensor_to_long(outputs.front());
     PT_KERNEL_END;
     return output;
   } else {
     PT_KERNEL_END;
-    return out.at(0);
+    return outputs.front();
   }
 }
 

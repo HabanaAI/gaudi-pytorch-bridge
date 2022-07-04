@@ -621,7 +621,8 @@ synapse_error_o graph::launch(
 }
 
 synapse_error_v<std::string> graph::name_suffix_from_type(
-    const synDataType type) {
+    const synDataType type,
+    bool use_int64) {
   std::string kernel_suffix{};
   if (type == synDataType::syn_type_float) {
     kernel_suffix = "f32";
@@ -637,6 +638,15 @@ synapse_error_v<std::string> graph::name_suffix_from_type(
     kernel_suffix = "i16";
   } else if (type == synDataType::syn_type_int32) {
     kernel_suffix = "i32";
+  } else if (type == synDataType::syn_type_int64) {
+    if (use_int64) {
+      kernel_suffix = "i64";
+    } else {
+      // Temporary solution: To use autocast feature from complex guid, we need
+      // to call _i32 version of the kernel, but pass i64 tensors. Instead of
+      // changing guid names in every op implementation, it was changed here.
+      kernel_suffix = "i32";
+    }
   } else if (type == synDataType::syn_type_bf16) {
     kernel_suffix = "bf16";
   } else {

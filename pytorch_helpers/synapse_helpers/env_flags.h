@@ -411,6 +411,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRAPH_RUNNING_HASH, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING, bool, false);
 
+// Enable int64 support
+ENV_STRUCT_DEFINITION(PT_ENABLE_INT64_SUPPORT, bool, false);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

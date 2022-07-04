@@ -35,13 +35,14 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // ======== gaudi ========
 
   // cast
-  // fr/to f32 bf16 i8 i16 i32 u8
-  // f32     *    X  X   -   X  -
-  // bf16    X    *  -   -   -  -
-  // i8      X    X  *   X   X  -
-  // i16     -    -  X   *   X  -
-  // i32     X    X  X   X   *  X
-  // u8      X    -  -   -   X  *
+  // fr/to f32 bf16 i8 i16 i32 i64 u8
+  // f32     *    X  X   -   X   -  -
+  // bf16    X    *  -   -   -   -  -
+  // i8      X    X  *   X   X   -  -
+  // i16     -    -  X   *   X   -  -
+  // i32     X    X  X   X   *   X  X
+  // i64     -    -  -   -   X   *  -
+  // u8      X    -  -   -   X   -  *
 
   // clang-format off
 #define OK  CastStage {}
@@ -53,13 +54,14 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32   u8
-      /* from  f32 */ LineT{  OK,   OK,  OK, I32,  OK, I32 },
-      /* from bf16 */ LineT{  OK,   OK, F32, F32, F32, F32 },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32 },
-      /* from  i16 */ LineT{ I32,  I32,  OK,  OK,  OK, I32 },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK },
-      /* from   u8 */ LineT{  OK,  F32, I32, I32,  OK,  OK },
+      //              to:    f32  bf16   i8  i16  i32  i64   u8
+      /* from  f32 */ LineT{  OK,   OK,  OK, I32,  OK, I32, I32 },
+      /* from bf16 */ LineT{  OK,   OK, F32, F32, F32, F32, F32 },
+      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32, I32 },
+      /* from  i16 */ LineT{ I32,  I32,  OK,  OK,  OK, I32, I32 },
+      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
+      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32 },
+      /* from   u8 */ LineT{  OK,  F32, I32, I32,  OK, I32,  OK },
       // clang-format on
   };
 
@@ -70,14 +72,15 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // ======== gaudi2 ========
 
   // cast
-  // fr/to f32 bf16 i8 i16 i32 u8 f16
-  // f32     *    X  X   X   X  X   X
-  // bf16    X    *  X   X   X  X   X
-  // i8      X    X  *   X   X  X   X
-  // i16     X    X  -   *   X  -   X
-  // i32     X    X  X   X   *  X   X
-  // u8      X    X  X   -   X  *   X
-  // f16     X    X  X   X   X  X   *
+  // fr/to f32 bf16 i8 i16 i32 i64 u8 f16
+  // f32     *    X  X   X   X   -  X   X
+  // bf16    X    *  X   X   X   -  X   X
+  // i8      X    X  *   X   X   -  X   X
+  // i16     X    X  -   *   X   -  -   X
+  // i32     X    X  X   X   *   X  X   X
+  // i64     -    -  -   -   X   *  -   -
+  // u8      X    X  X   -   X   -  *   X
+  // f16     X    X  X   X   X   -  X   *
 
   // clang-format off
 #define OK  CastStage {}
@@ -88,14 +91,15 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi2 = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32   u8  f16
-      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32,  OK },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK,  OK,  OK },
-      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
+      //              to:    f32  bf16   i8  i16  i32  i64   u8  f16
+      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32, I32,  OK },
+      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK,  OK },
+      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32, I32 },
+      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK, I32,  OK,  OK },
+      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
       // clang-format on
   };
 
@@ -142,14 +146,15 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // ======== gaudi3 ========
 
   // cast
-  // fr/to f32 bf16 i8 i16 i32 u8 f16
-  // f32     *    X  X   X   X  X   X
-  // bf16    X    *  X   X   X  X   X
-  // i8      X    X  *   X   X  X   X
-  // i16     X    X  -   *   X  -   X
-  // i32     X    X  X   X   *  X   X
-  // u8      X    X  X   -   X  *   X
-  // f16     X    X  X   X   X  X   *
+  // fr/to f32 bf16 i8 i16 i32 i64 u8 f16
+  // f32     *    X  X   X   X   -  X   X
+  // bf16    X    *  X   X   X   -  X   X
+  // i8      X    X  *   X   X   -  X   X
+  // i16     X    X  -   *   X   -  -   X
+  // i32     X    X  X   X   *   X  X   X
+  // i64     -    -  -   -   X   *  -   -
+  // u8      X    X  X   -   X   -  *   X
+  // f16     X    X  X   X   X   -  X   *
 
   // clang-format off
 #define OK  CastStage {}
@@ -160,14 +165,15 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi3 = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32   u8  f16
-      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32,  OK },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
-      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK,  OK,  OK },
-      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK },
+      //              to:    f32  bf16   i8  i16  i32  i64   u8  f16
+      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32, I32,  OK },
+      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK,  OK },
+      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32, I32 },
+      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK, I32,  OK,  OK },
+      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
       // clang-format on
   };
 
@@ -196,6 +202,13 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   return cast_stage_matrix[cast_types.from_][cast_types.to_];
 }
 
+auto get_cast_type_for_long() {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+    return CastType::i64;
+  }
+  return CastType::i32;
+}
+
 } // namespace
 
 std::ostream& operator<<(std::ostream& os, const CastType& obj) {
@@ -222,8 +235,9 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
     case at::ScalarType::Short:
       return CastType::i16;
     case at::ScalarType::Int:
-    case at::ScalarType::Long:
       return CastType::i32;
+    case at::ScalarType::Long:
+      return get_cast_type_for_long();
     case at::ScalarType::Byte:
       return CastType::u8;
     default:
@@ -250,6 +264,8 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::Short;
     case CastType::i32:
       return at::ScalarType::Int;
+    case CastType::i64:
+      return at::ScalarType::Long;
     case CastType::u8:
       return at::ScalarType::Byte;
     default:

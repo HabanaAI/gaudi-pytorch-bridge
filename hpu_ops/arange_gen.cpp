@@ -179,8 +179,10 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, inputs);
     const bool is_cast_not_required =
-        (c10::isFloatingType(out_tensor.scalar_type()) ||
-         out_tensor.scalar_type() == c10::ScalarType::Int);
+        c10::isFloatingType(out_tensor.scalar_type()) ||
+        out_tensor.scalar_type() == c10::ScalarType::Int ||
+        (out_tensor.scalar_type() == c10::ScalarType::Long &&
+         GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT));
     auto scalar_type =
         is_cast_not_required ? out_tensor.scalar_type() : c10::ScalarType::Int;
     auto range_guid = is_cast_not_required ? guid_ : "range_i32";

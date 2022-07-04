@@ -260,7 +260,7 @@ static inline size_t calculate_nbytes(
     size_t num_bytes,
     const caffe2::TypeMeta d_type) {
   auto s_type = c10::typeMetaToScalarType(d_type);
-  if (s_type == c10::ScalarType::Long) {
+  if (habana_helpers::is_downcast_to_int_needed(s_type)) {
     PT_LAZY_DEBUG("GetNBytes() called for tensor with dtype 'Long'!");
     // As our allocation is for 'Int'
     num_bytes /= 2;

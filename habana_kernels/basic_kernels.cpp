@@ -20,6 +20,8 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
+
 #include <habana_device/PinnedMemoryAllocator.h>
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
@@ -152,7 +154,9 @@ static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
 
   // No direct support for Long in device
   bool same_type = (src_in.scalar_type() == dst.scalar_type());
-  auto src = ((src_in.scalar_type() != c10::ScalarType::Long) || same_type)
+  auto src =
+      (!habana_helpers::is_downcast_to_int_needed(src_in.scalar_type()) ||
+       same_type)
       ? src_in
       : habana_helpers::cast_tensor_to_integer(src_in);
   auto src_iter = d2d_copy_supported_casts.find(src.scalar_type());

@@ -818,7 +818,8 @@ Tensor process_generic_tensor_binary_op(
     const std::string& node_guid) {
   for (auto i = 0u; i < stack.size(); i++) {
     if (stack[i].isTensor()) {
-      if (stack[i].toTensor().scalar_type() == c10::ScalarType::Long) {
+      if (habana_helpers::is_downcast_to_int_needed(
+              stack[i].toTensor().scalar_type())) {
         auto dst = habana_helpers::cast_tensor_to_integer(stack[i].toTensor());
         // overwrite original tensor with corresponding casted tensor
         pt_inputs[i] = dst;

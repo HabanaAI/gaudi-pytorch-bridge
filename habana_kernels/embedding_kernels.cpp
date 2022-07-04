@@ -491,13 +491,13 @@ OutputShapeInfRetType EmbeddingOperator::ComputeOutputShape(
  */
 Tensor embedding_hpu(
     const Tensor& weight,
-    const Tensor& indices,
+    const Tensor& indices_in,
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
   PT_KERNEL_BEGIN;
 
-  auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
   at::ScalarType scalar_type = weight.scalar_type();
   std::string node_type =
       "embedding_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -510,14 +510,14 @@ Tensor embedding_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(weight),
-      IValue(indices_int),
+      IValue(indices),
       IValue(padding_idx),
       IValue(scale_grad_by_freq),
       IValue(sparse)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{weight, indices_int};
+  std::vector<at::Tensor> pt_inputs{weight, indices};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     auto size = indices.sizes().vec();
@@ -773,13 +773,13 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
  */
 Tensor embedding_dense_backward_hpu(
     const Tensor& grad,
-    const Tensor& indices,
+    const Tensor& indices_in,
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
   PT_KERNEL_BEGIN;
 
-  auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
   at::ScalarType scalar_type = grad.scalar_type();
   std::string node_type = "embedding_dense_bwd_" +
       habana_helpers::name_suffix_from_type(scalar_type);
@@ -793,14 +793,14 @@ Tensor embedding_dense_backward_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(grad),
-      IValue(indices_int),
+      IValue(indices),
       IValue(num_weights),
       IValue(padding_idx),
       IValue(scale_grad_by_freq)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{grad, indices_int};
+  std::vector<at::Tensor> pt_inputs{grad, indices};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     auto grad_weight = at::empty(
@@ -864,25 +864,25 @@ valid_count_indices
 **********************************************************/
 Tensor embedding_bag_sum_hpu(
     const Tensor& input,
-    const Tensor& indices,
-    const Tensor& offsets,
-    const Tensor& valid_count,
+    const Tensor& indices_in,
+    const Tensor& offsets_in,
+    const Tensor& valid_count_in,
     int64_t kernel_mode) {
   PT_KERNEL_BEGIN;
 
   // Convert index tensor from 0D to 1D if required
-  if (indices.dim() == 0) {
-    SET_SIZE_STRIDE_1D(indices);
+  if (indices_in.dim() == 0) {
+    SET_SIZE_STRIDE_1D(indices_in);
   }
 
   // Convert offsets tensor from 0D to 1D if required
-  if (offsets.dim() == 0) {
-    SET_SIZE_STRIDE_1D(offsets);
+  if (offsets_in.dim() == 0) {
+    SET_SIZE_STRIDE_1D(offsets_in);
   }
 
-  auto indices_i32 = habana_helpers::cast_tensor_to_integer(indices);
-  auto offsets_i32 = habana_helpers::cast_tensor_to_integer(offsets);
-  auto valid_count_i32 = habana_helpers::cast_tensor_to_integer(valid_count);
+  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
+  auto offsets = habana_helpers::downcast_to_int_if_needed(offsets_in);
+  auto valid_count = habana_helpers::downcast_to_int_if_needed(valid_count_in);
 
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type;
@@ -907,16 +907,15 @@ Tensor embedding_bag_sum_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      input, indices_i32, offsets_i32, valid_count_i32};
+  std::vector<at::Tensor> pt_inputs{input, indices, offsets, valid_count};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(input),
-      IValue(indices_i32),
-      IValue(offsets_i32),
-      IValue(valid_count_i32),
+      IValue(indices),
+      IValue(offsets),
+      IValue(valid_count),
       IValue(kernel_mode)};
   OutputMetaDataVector output_metadata(1);
   output_metadata.at(0).persistent = true;

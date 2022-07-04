@@ -274,41 +274,36 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
  * @brief Kernel implementation for torch.nonzero operator
  * @param self - Input tensor
  ************************************************************************/
-Tensor nonzero_hpu(const Tensor& self) {
+Tensor nonzero_hpu(const Tensor& self_in) {
   PT_KERNEL_BEGIN;
 
-  at::ScalarType scalar_type = self.scalar_type();
-  auto input_shape = self.sizes();
+  at::ScalarType scalar_type = self_in.scalar_type();
+  auto input_shape = self_in.sizes();
   int dimensions = input_shape.size();
 
   // Output required of type Int64
-  if (self.numel() == 0) {
+  if (self_in.numel() == 0) {
     auto shape = DimVector{0, dimensions};
     auto output = habana_helpers::createPTTensor(
-        self,
+        self_in,
         shape,
-        self.options(),
-        self.suggest_memory_format(),
+        self_in.options(),
+        self_in.suggest_memory_format(),
         c10::ScalarType::Long,
         true);
     PT_KERNEL_END;
     return output;
   }
-  Tensor self_in = self;
-  // Long not supported for lt and gt operator
-  // casting to int
-  if (scalar_type == ScalarType::Long) {
-    self_in = habana_helpers::cast_tensor_to_integer(self);
-  }
+  auto self = habana_helpers::downcast_to_int_if_needed(self_in);
   std::string node_type =
       "non_zero_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // Create the operator
-  NonZeroOperator Op(device_id, self_in.scalar_type());
-  std::vector<at::Tensor> pt_inputs{self_in};
-  std::vector<c10::IValue> stack = {IValue(self_in)};
+  NonZeroOperator Op(device_id, self.scalar_type());
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {IValue(self)};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
 

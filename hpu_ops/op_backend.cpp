@@ -12,11 +12,23 @@
  */
 
 #include "op_backend.h"
+#include <c10/core/ScalarType.h>
 #include "habana_helpers/cast_sequence.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_op_helper.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+
+namespace {
+auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
+  const auto srcStr = habana_helpers::name_suffix_from_type(src, true);
+  const auto dstStr = habana_helpers::name_suffix_from_type(dst, true);
+  const auto guid = "cast_" + srcStr + "_to_" + dstStr;
+  HABANA_ASSERT(
+      srcStr != dstStr, guid, " cannot be used, from=", src, " to=", dst);
+  return guid;
+}
+} // namespace
 
 namespace habana {
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
@@ -574,11 +586,8 @@ synapse_helpers::tensor OpBackend::BuildCast(
     c10::optional<int> final_result_index,
     bool stochastic_rounding_override,
     int sr_seed) {
-  const auto& from_str = habana_helpers::name_suffix_from_type(from);
-  const auto& to_str = habana_helpers::name_suffix_from_type(to);
-  const auto& guid = "cast_" + from_str + "_to_" + to_str;
-  HABANA_ASSERT(
-      from_str != to_str, guid, " cannot be used, from=", from, " to=", to);
+  // Verify from and to types correctness
+  BuildCastGuid(from, to);
 
   // We want either 1 or 0 as results and not the entire i8 range as a bool
   // output.
@@ -605,17 +614,17 @@ synapse_helpers::tensor OpBackend::BuildCast(
       habana_helpers::DataTypeToCastType(from),
       habana_helpers::DataTypeToCastType(to)};
 
-  auto cast_sequence = habana_helpers::get_cast_sequence(cast_types);
+  const auto cast_sequence = habana_helpers::get_cast_sequence(cast_types);
 
   synTensor* input = &syn_in;
   std::vector<synapse_helpers::tensor> casts;
   casts.reserve(cast_sequence.size());
   for (size_t i = 0; i < cast_sequence.size(); ++i) {
-    auto src = habana_helpers::CastTypeToDataType(cast_sequence.at(i).from_);
-    auto dst = habana_helpers::CastTypeToDataType(cast_sequence.at(i).to_);
-    const auto& cast_guid = "cast_" +
-        habana_helpers::name_suffix_from_type(src) + "_to_" +
-        habana_helpers::name_suffix_from_type(dst);
+    const auto src =
+        habana_helpers::CastTypeToDataType(cast_sequence.at(i).from_);
+    const auto dst =
+        habana_helpers::CastTypeToDataType(cast_sequence.at(i).to_);
+    const auto cast_guid = BuildCastGuid(src, dst);
 
     c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
 
@@ -667,12 +676,15 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     c10::optional<int> final_result_index) {
-  const at::ScalarType& valtype =
+  at::ScalarType valtype =
       force_type.has_value() ? force_type.value() : val.type();
 
   ns_ConstantKernel::Params params{};
   if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
     get<int>(params.constant) = val.to<int>();
+    if (habana_helpers::is_downcast_to_int_needed(valtype)) {
+      valtype = c10::ScalarType::Int;
+    }
   } else {
     get<float>(params.constant) = val.to<float>();
   }

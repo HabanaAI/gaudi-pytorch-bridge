@@ -92,6 +92,8 @@ inline uint32_t size_of_syn_data_type(synDataType dataType) {
     case syn_type_float: // alias to syn_type_single
     case syn_type_int32: // 32-bit integer
       return 4;
+    case syn_type_int64: // 64-bit integer
+      return 8;
     default:
       return -1; // invalid
   }

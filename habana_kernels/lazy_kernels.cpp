@@ -286,7 +286,7 @@ at::Tensor preProcessIfLongorDouble(
   c10::ScalarType new_type = src.scalar_type();
   // We need to cast data on CPU before copying if there is some unsupported
   // type
-  if (src.scalar_type() == c10::ScalarType::Long) {
+  if (habana_helpers::is_downcast_to_int_needed(src.scalar_type())) {
     validateDownCast<long, int>(src, c10::ScalarType::Int);
     processed_tensor_cpu = src.to(c10::ScalarType::Int);
     processed = true;
@@ -301,7 +301,7 @@ at::Tensor preProcessIfLongorDouble(
   }
   if (processed) {
     auto hl_tensor = GetOrCreateHbLazyTensor(dst, dst.device());
-    if (dst.scalar_type() == c10::ScalarType::Long ||
+    if (habana_helpers::is_downcast_to_int_needed(dst.scalar_type()) ||
         dst.scalar_type() == c10::ScalarType::Double) {
       hl_tensor.setTensorOriginalType(old_type);
       hl_tensor.SetScalarType(c10::make_optional(new_type));
@@ -578,8 +578,9 @@ Tensor& copy_hpu_lazy_D2D(
   only way to make progress is to just do a normal D2D so that the
   target will also be the same as source, and when we want to pull this
   out to CPU, the D2H will handle the type conversion */
-  bool no_conversion = (self.scalar_type() == c10::ScalarType::Long) ||
-      (self.scalar_type() == c10::ScalarType::Double) ||
+  bool no_conversion =
+      habana_helpers::is_downcast_to_int_needed(self.scalar_type()) ||
+      self.scalar_type() == c10::ScalarType::Double ||
       src.scalar_type() == self.scalar_type();
 
   if (no_conversion && hb_tensor.IsExecutionInProgress()) {
@@ -3291,14 +3292,11 @@ Tensor index_put_frontend_impl_hpu_lazy(
         self.scalar_type() != c10::ScalarType::BFloat16 &&
         self.scalar_type() != c10::ScalarType::Long &&
         self.scalar_type() != c10::ScalarType::Int) {
-      auto out_type = (self.scalar_type() == c10::ScalarType::Long)
-          ? (c10::ScalarType::Int)
-          : self.scalar_type();
       LazyOp<at::Tensor> k_{
           "hpu::cast",
-          {scatter_nd_out, out_type},
+          {scatter_nd_out, self.scalar_type()},
           {scatter_nd_out.sizes().vec()},
-          out_type};
+          self.scalar_type()};
       return k_.call();
     }
     return scatter_nd_out;
@@ -3339,11 +3337,11 @@ Tensor index_put_frontend_impl_hpu_lazy(
         self.scalar_type() != c10::ScalarType::BFloat16 &&
         self.scalar_type() != c10::ScalarType::Long &&
         self.scalar_type() != c10::ScalarType::Int) {
-      auto out_type = (self.scalar_type() == c10::ScalarType::Long)
-          ? (c10::ScalarType::Int)
-          : self.scalar_type();
       LazyOp<at::Tensor> k_{
-          "hpu::cast", {result, out_type}, {result.sizes().vec()}, out_type};
+          "hpu::cast",
+          {result, self.scalar_type()},
+          {result.sizes().vec()},
+          self.scalar_type()};
       return k_.call();
     }
     return result;
@@ -5559,7 +5557,8 @@ Tensor empty_hpu_lazy(
 
   // Dont allocate 8 bytes for double/long as we are anyway going to cast at
   // CPU and then copy to device @ 4byts per element
-  type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
+  type = habana_helpers::is_downcast_to_int_needed(type) ? c10::ScalarType::Int
+                                                         : type;
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   auto new_dtype = scalarTypeToTypeMeta(type);
 

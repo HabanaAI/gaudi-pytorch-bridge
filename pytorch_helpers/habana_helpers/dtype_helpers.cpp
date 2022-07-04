@@ -14,6 +14,7 @@
 #include "dtype_helpers.h"
 #include <ATen/native/TypeProperties.h>
 #include "logging.h"
+#include "synapse_helpers/env_flags.h"
 
 namespace habana_helpers {
 
@@ -164,9 +165,9 @@ c10::ScalarType DTypeHelper::get_common_dtype(
         : common_type;
   }
 
-  if (!int64_support) {
-    common_type = common_type == c10::ScalarType::Long ? c10::ScalarType::Int
-                                                       : common_type;
+  if (!int64_support &&
+      habana_helpers::is_downcast_to_int_needed(common_type)) {
+    common_type = c10::ScalarType::Int;
   }
   return common_type;
 }
@@ -291,4 +292,10 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
       ? dtype_helper.get_result_dtype()
       : dtype_helper.get_common_dtype(double_support, int64_support);
 }
+
+bool is_downcast_to_int_needed(at::ScalarType dtype) {
+  return !GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
+      dtype == at::ScalarType::Long;
+}
+
 } // namespace habana_helpers

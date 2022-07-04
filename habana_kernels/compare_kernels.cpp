@@ -25,6 +25,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/passes/transform_graph.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 using namespace torch;
 using namespace habana;
@@ -325,7 +326,8 @@ Tensor compare_op_hpu(
     const std::string& node_guid) {
   for (auto i = 0u; i < stack.size(); i++) {
     if (stack[i].isTensor()) {
-      if (stack[i].toTensor().scalar_type() == c10::ScalarType::Long) {
+      if (habana_helpers::is_downcast_to_int_needed(
+              stack[i].toTensor().scalar_type())) {
         auto dst = habana_helpers::cast_tensor_to_integer(stack[i].toTensor());
         // overwrite original tensor with corresponding casted tensor
         pt_inputs[i] = dst;
@@ -635,7 +637,7 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
     SET_SIZE_STRIDE_1D(self_in);
   }
   auto self = self_in;
-  if (self.scalar_type() == c10::ScalarType::Long) {
+  if (habana_helpers::is_downcast_to_int_needed(self.scalar_type())) {
     self = habana_helpers::cast_tensor_to_integer(self_in);
   } else if (self.scalar_type() == c10::ScalarType::Char) {
     // Char & Bool are both treated as I8 on Habana device. This cosmetic dtype

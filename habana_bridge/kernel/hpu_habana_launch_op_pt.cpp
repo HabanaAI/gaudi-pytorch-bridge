@@ -53,6 +53,7 @@
 
 #include "hpu_ops/hpu_op_helper.h"
 
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/util/jitgraph_utils.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -959,13 +960,13 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
 IValPtrShared castConstantTensor(IValPtrShared ival) {
   auto tensor = ival->toTensor();
   auto dtype = tensor.scalar_type();
-  bool cast = dtype == c10::ScalarType::Long || dtype == c10::ScalarType::Double
-      ? true
-      : false;
-  c10::ScalarType dst_type = dtype;
+
+  const bool cast = habana_helpers::is_downcast_to_int_needed(dtype) ||
+      dtype == c10::ScalarType::Double;
   if (cast) {
-    dst_type = dtype == c10::ScalarType::Long ? c10::ScalarType::Int
-                                              : c10::ScalarType::Float;
+    const auto dst_type = dtype == c10::ScalarType::Long
+        ? c10::ScalarType::Int
+        : c10::ScalarType::Float;
     tensor = tensor.to(dst_type);
   }
   auto new_tensor = tensor.to(c10::kHPU);

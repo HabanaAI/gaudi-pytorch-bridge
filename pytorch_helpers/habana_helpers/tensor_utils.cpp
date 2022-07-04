@@ -34,7 +34,18 @@
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
+#include "dtype_helpers.h"
+
 using namespace torch;
+
+namespace {
+auto get_synapse_type_for_long() {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+    return synDataType::syn_type_int64;
+  }
+  return synDataType::syn_type_int32;
+}
+} // namespace
 
 std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   std::stringstream O;
@@ -244,7 +255,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(
         {c10::ScalarType::Char, synDataType::syn_type_int8},
         {c10::ScalarType::Short, synDataType::syn_type_int16},
         {c10::ScalarType::Int, synDataType::syn_type_int32},
-        {c10::ScalarType::Long, synDataType::syn_type_int32},
+        {c10::ScalarType::Long, get_synapse_type_for_long()},
         {c10::ScalarType::Float, synDataType::syn_type_float},
         {c10::ScalarType::Half, synDataType::syn_type_fp16},
         {c10::ScalarType::Double, synDataType::syn_type_float},
@@ -354,11 +365,7 @@ Tensor habana_helpers::GenerateAndCopyTensorToHPU(
 }
 
 bool habana_helpers::alwaysAllocOnDevice() {
-  static std::once_flag flag;
-  static bool allocOnDevice;
-  std::call_once(flag, [&]() {
-    allocOnDevice = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
-  });
+  static bool allocOnDevice = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
   return allocOnDevice;
 }
 at::Tensor habana_helpers::nonPersistentTensor(
@@ -1452,9 +1459,10 @@ std::vector<std::string> habana_helpers::names(
 }
 
 std::string habana_helpers::name_suffix_from_type(
-    const c10::ScalarType pt_type) {
+    const c10::ScalarType pt_type,
+    bool use_int64) {
   auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
-      pytorch_to_synapse_type(pt_type));
+      pytorch_to_synapse_type(pt_type), use_int64);
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
           string_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(string_or_error);
@@ -1919,4 +1927,10 @@ std::vector<int64_t> habana_helpers::calculate_strides(
     }
   }
   return strides;
+}
+
+at::Tensor habana_helpers::downcast_to_int_if_needed(const at::Tensor& in) {
+  return habana_helpers::is_downcast_to_int_needed(in.scalar_type())
+      ? habana_helpers::cast_tensor_to_integer(in)
+      : in;
 }

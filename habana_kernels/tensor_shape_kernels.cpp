@@ -27,6 +27,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace torch;
@@ -167,19 +168,20 @@ void CatOperator::AllocateAndAddSynapseNode(
 Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   PT_KERNEL_BEGIN;
 
-  size_t device_id = in_tensors[0].device().index();
+  const size_t device_id = in_tensors[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = in_tensors[0].scalar_type();
-  std::string node_type = "concat";
+  const auto orig_scalar_type = in_tensors[0].scalar_type();
+  const std::string node_type = "concat";
   std::vector<at::Tensor> pt_inputs;
   // Create operator
-  at::ScalarType mod_scalar_type = in_tensors[0].scalar_type();
+  auto mod_scalar_type = in_tensors[0].scalar_type();
 
   // Assign Tensor Inputs to the Operator
   std::vector<c10::IValue> stack;
   std::vector<at::Tensor> tensors;
   for (unsigned i = 0; i < in_tensors.size(); i++) {
-    if (in_tensors[i].scalar_type() == c10::ScalarType::Long) {
+    if (habana_helpers::is_downcast_to_int_needed(
+            in_tensors[i].scalar_type())) {
       tensors.push_back(habana_helpers::cast_tensor_to_integer(in_tensors[i]));
       pt_inputs.push_back(tensors[i]);
       mod_scalar_type = tensors[i].scalar_type();
@@ -228,17 +230,17 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
     Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  std::vector<at::Tensor> outputs = Op.GetOutputs();
+  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
 
-  Tensor cast_out, temp;
-  if (scalar_type == c10::ScalarType::Long) {
-    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  Tensor output;
+  if (orig_scalar_type == c10::ScalarType::Long) {
+    output = habana_helpers::cast_tensor_to_long(outputs.front());
   } else {
-    cast_out = out.at(0);
+    output = std::move(outputs.front());
   }
   PT_KERNEL_END;
-  return cast_out;
+  return output;
 }
 
 int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
@@ -1124,20 +1126,21 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
  * memory, but only creates a new view on the existing tensor where a dimension
  * of size one is expanded to a larger size by setting the stride to 0. "
  ************************************************************************/
-Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
+Tensor expand_hpu(const Tensor& self_in, IntArrayRef size, bool implicit) {
   PT_KERNEL_BEGIN;
 
-  auto scalar_type = in_self.scalar_type();
-  std::string node_type = "broadcast";
+  const auto orig_scalar_type = self_in.scalar_type();
+  const std::string node_type = "broadcast";
 
-  size_t device_id = in_self.device().index();
+  const size_t device_id = self_in.device().index();
   Tensor self;
-  if (in_self.scalar_type() == c10::ScalarType::Long) {
-    self = habana_helpers::cast_tensor_to_integer(in_self);
+  if (habana_helpers::is_downcast_to_int_needed(self_in.scalar_type())) {
+    self = habana_helpers::cast_tensor_to_integer(self_in);
   } else {
-    self = in_self;
+    self = self_in;
   }
-  BroadcastOperator Op(device_id, scalar_type);
+
+  BroadcastOperator Op(device_id, orig_scalar_type);
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
@@ -1166,17 +1169,17 @@ Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
   // compile and execute the graph
   Op.Compile(graph);
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  std::vector<at::Tensor> outputs = Op.GetOutputs();
+  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
 
-  Tensor cast_out;
-  if (in_self.scalar_type() == c10::ScalarType::Long) {
-    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  Tensor out;
+  if (orig_scalar_type == c10::ScalarType::Long) {
+    out = habana_helpers::cast_tensor_to_long(outputs.front());
   } else {
-    cast_out = out.at(0);
+    out = std::move(outputs.front());
   }
   PT_KERNEL_END;
-  return cast_out;
+  return out;
 }
 
 void SplitWithSizeOperator::AllocateAndAddSynapseNode(

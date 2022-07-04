@@ -26,6 +26,7 @@ namespace habana_helpers {
   ENTRY(  i8)                                 \
   ENTRY( i16)                                 \
   ENTRY( i32)                                 \
+  ENTRY( i64)                                 \
   ENTRY(  u8)                                 \
   ENTRY(  f8)                                 \
   ENTRY(fp16)

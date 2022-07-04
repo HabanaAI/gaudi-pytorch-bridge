@@ -50,7 +50,7 @@ void CumsumHabanaOperator::AddNode(
   at::ScalarType dtype =
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
 
-  if (dtype == at::ScalarType::Long) {
+  if (habana_helpers::is_downcast_to_int_needed(dtype)) {
     dtype = at::ScalarType::Int;
   }
 

@@ -83,4 +83,6 @@ class DTypeHelper {
   c10::ScalarType result_dtype_ = c10::ScalarType::Undefined;
 };
 
+bool is_downcast_to_int_needed(c10::ScalarType dtype);
+
 } // namespace habana_helpers

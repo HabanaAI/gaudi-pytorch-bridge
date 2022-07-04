@@ -26,10 +26,33 @@
 
 using namespace torch;
 
+namespace {
+using CastMap =
+    std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>;
+
+void insert_long_casts(CastMap& map) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+    map.insert(
+        {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i64_to_f32"});
+    map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i64"});
+  } else {
+    map.insert(
+        {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i32_to_f32"});
+    map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"});
+  }
+}
+} // namespace
+
 at::ScalarType habana_helpers::getInternalDtype(at::ScalarType dtype) {
   switch (dtype) {
-    case at::kLong:
+    case at::kLong: {
+      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+        return dtype;
+      }
       return at::kInt;
+    }
     case at::kDouble:
       return at::kFloat;
     case at::kBool:
@@ -38,13 +61,13 @@ at::ScalarType habana_helpers::getInternalDtype(at::ScalarType dtype) {
       return dtype;
   }
 }
+
 /**
  * @brief Prepare cast map for current platform
  **/
-static std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
-get_platform_cast_map() {
+static auto get_platform_cast_map() {
   // initialize with g1
-  std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string> cast_map{
+  CastMap cast_map{
       {{c10::ScalarType::Char, c10::ScalarType::Bool}, "cast_identity"},
       {{c10::ScalarType::Bool, c10::ScalarType::Char}, "cast_identity"},
       {{c10::ScalarType::Float, c10::ScalarType::Float}, "cast_identity"},
@@ -72,13 +95,7 @@ get_platform_cast_map() {
       {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
       {{c10::ScalarType::Int, c10::ScalarType::BFloat16}, "cast_i32_to_bf16"},
       {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
-      // c10::Long dtype is treated as Int for Synapse tensors,
-      // therefore we are casting from i32 to f32
-      {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i32_to_f32"},
       {{c10::ScalarType::Float, c10::ScalarType::Int}, "cast_f32_to_i32"},
-      // c10::Long dtype is treated as Int for Synapse tensors,
-      // therefore we are casting to i32 from f32
-      {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"},
       {{c10::ScalarType::BFloat16, c10::ScalarType::Float}, "cast_bf16_to_f32"},
       {{c10::ScalarType::Float, c10::ScalarType::BFloat16}, "cast_f32_to_bf16"},
       {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
@@ -90,6 +107,9 @@ get_platform_cast_map() {
       {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
       {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
   };
+
+  insert_long_casts(cast_map);
+
   auto type{synapse_helpers::HPURegistrar::get_device().type()};
   switch (type) {
     case synDeviceGaudi2:
