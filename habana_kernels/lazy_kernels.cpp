@@ -567,14 +567,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // Handle views and lhs slice
       auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
       if (is_view == false) {
-        if (!hlresult.CurrentIrValue().IsHpuInputNode()) {
-          // add control edge to avoid GC error " writing to already
-          // registered graph output"
-          updateDstDependencies(hlresult, self, true);
-        }
-
         AddMemcpy(src_updated, self);
-        updateDstDependencies(hlresult, self);
       }
     }
   } else {
@@ -1122,6 +1115,16 @@ const Tensor& as_strided_hpu_lazy_(
 void AddMemcpy(const Tensor& src, Tensor& dst) {
   auto hl_dst = GetOrCreateHbLazyTensor(dst);
   auto hl_src = GetHbLazyTensor(src);
+  // add control edge to avoid GC error " writing to already
+  // registered graph output"
+
+  // Add a control edge for habana_d2d_memcpy_other second input
+  // as it may cause wrong order of execution, as shown below -
+  //   z = add(x, i)
+  //   x' = habana_d2d_memcpy_other(y, x)
+  // Here, x is an input, but habana_d2d_memcpy_other actually updates
+  // x and hence should come after add with a control edge
+  updateDstDependencies(hl_dst, dst, true);
 
   auto copy_node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
@@ -2082,7 +2085,6 @@ Tensor& masked_fill_hpu_lazy_(
   Tensor where_out = where_op.call();
   // add a control edge as we add a loop using d2d copy back to self
   auto hl_self = GetOrCreateHbLazyTensor(self);
-  updateDstDependencies(hl_self, self, true);
   // Adding memcpy to copy the output back to self as this is an inplace op
   AddMemcpy(where_out, self);
   return self;
@@ -2150,7 +2152,6 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   LazyOp<at::Tensor, ir::ScatterAdd> k{node, {self, dim_, index, src}};
   auto result = k.call();
   auto hl_self = GetOrCreateHbLazyTensor(self);
-  updateDstDependencies(hl_self, self, true);
   // Create MemCopy operator to copy value into self
   AddMemcpy(result, self);
   return self;

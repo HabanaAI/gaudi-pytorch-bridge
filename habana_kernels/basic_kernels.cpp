@@ -723,6 +723,29 @@ OutputShapeInfRetType DummyOperator::ComputeOutputShape(
 /*************************************************************************
  * @brief Kernel implementation for dummy, used for graph ordering
  ************************************************************************/
+OutputShapeInfRetType DummyOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  OutputShapeInfRetType out;
+  if (inputs.size() == 2) {
+    auto output = inputs[1].toTensor();
+    out.AddOutputTensor(TensorMetaData(
+        output.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            output.sizes(), output.suggest_memory_format()),
+        output.scalar_type(),
+        output.suggest_memory_format()));
+  } else {
+    out.AddOutputTensor(TensorMetaData(
+        self.sizes().vec(),
+        HabanaOperator::CalculateStrides(
+            self.sizes(), self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format()));
+  }
+  return out;
+}
+
 void DummyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
