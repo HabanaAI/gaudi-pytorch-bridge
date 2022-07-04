@@ -13,39 +13,13 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUStream.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
-/** @brief This data structure is used to encapsulate dtype promotion rules for
- *OPs with 2 inputs.
- * @param key: dtype tensor1, dtype tensor2
- * @param value: dtype promoted tensor
- **/
-const std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
-    habana_helpers::promote_dtype{
-        // clang-format off
-        {{c10::ScalarType::Char,      c10::ScalarType::Int},        c10::ScalarType::Int},
-        {{c10::ScalarType::Int,       c10::ScalarType::Char},       c10::ScalarType::Int},
-        {{c10::ScalarType::Byte,      c10::ScalarType::Int},        c10::ScalarType::Int},
-        {{c10::ScalarType::Int,       c10::ScalarType::Byte},       c10::ScalarType::Int},
-        {{c10::ScalarType::Float,     c10::ScalarType::Int},        c10::ScalarType::Float},
-        {{c10::ScalarType::Int,       c10::ScalarType::Float},      c10::ScalarType::Float},
-        {{c10::ScalarType::BFloat16,  c10::ScalarType::Float},      c10::ScalarType::Float},
-        {{c10::ScalarType::Float,     c10::ScalarType::BFloat16},   c10::ScalarType::Float},
-        {{c10::ScalarType::Byte,      c10::ScalarType::Float},      c10::ScalarType::Float},
-        {{c10::ScalarType::Byte,      c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
-        {{c10::ScalarType::Float,     c10::ScalarType::Byte},       c10::ScalarType::Float},
-        {{c10::ScalarType::Float,     c10::ScalarType::Char},       c10::ScalarType::Float},
-        {{c10::ScalarType::BFloat16,  c10::ScalarType::Char},       c10::ScalarType::BFloat16},
-        {{c10::ScalarType::Char,      c10::ScalarType::Float},      c10::ScalarType::Float},
-        {{c10::ScalarType::Char,      c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
-        {{c10::ScalarType::Int,       c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
-        {{c10::ScalarType::BFloat16,  c10::ScalarType::Int},        c10::ScalarType::BFloat16},
-        // clang-format on
-    };
 
 /** @brief This data structure is used to map src & dst (for a cast) to
  *corresponding cast node guid.
@@ -107,7 +81,7 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
  **/
 void habana_helpers::type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
-    int& pos,
+    int& position_of_promoted_tensor,
     c10::ScalarType& dst_dtype) {
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
     auto tensor1 = inputs[0].toTensor();
@@ -126,15 +100,25 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
         : tensor2.scalar_type();
     type1 = (type1 == c10::ScalarType::Double) ? c10::ScalarType::Float : type1;
     type2 = (type2 == c10::ScalarType::Double) ? c10::ScalarType::Float : type2;
-    // Generate key using input dtype(s)
-    std::pair<ScalarType, ScalarType> type{type1, type2};
-    // Check if we have this key to find the dtype to which smaller dtype
-    // tensor should be promoted to
-    auto iter = habana_helpers::promote_dtype.find(type);
-    if (iter != habana_helpers::promote_dtype.end()) {
-      dst_dtype = iter->second;
-      // pos = position of tensor to be promoted (smaller dytpe)
-      pos = (type.first == dst_dtype) ? 1 : 0;
+
+    habana_helpers::DTypeHelper dtype_helper;
+    dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
+        .set_promote_to_common_type(true)
+        .build();
+    dst_dtype = dtype_helper.get_result_dtype();
+
+    // Temporary W/A. The result dtype is converted from double to float and
+    // from int64 to int32.
+    dst_dtype =
+        (dst_dtype == c10::ScalarType::Long) ? c10::ScalarType::Int : dst_dtype;
+    dst_dtype = (dst_dtype == c10::ScalarType::Double) ? c10::ScalarType::Float
+                                                       : dst_dtype;
+
+    // pos = position of tensor to be promoted (smaller dtype)
+    if (type1 != dst_dtype) {
+      position_of_promoted_tensor = 0;
+    } else if (type2 != dst_dtype) {
+      position_of_promoted_tensor = 1;
     }
   }
 }

@@ -11,16 +11,8 @@
 #include "../habana_kernels/lazy_kernels_declarations.h"
 #include "div_mod_util.h"
 #include "generated/hpu_op.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
-
-// TODO: Need to fetch pytorch default type dynamically
-// pytorch default type and handle other types as default type
-// Default pytorch dtype is assumed to be c10::ScalarType::Float
-// here.
-#define PYTORCH_DEFAULT_TYPE c10::ScalarType::Float
-
-// Except bfloat16, all other types are computed in following type
-#define COMMON_COMPUTATION_TYPE_TPC c10::ScalarType::Float
 
 // For use in div_rounding_mode
 #define StrModeTrue ""
@@ -55,28 +47,18 @@ at::Tensor LazyDiv<at::Tensor>::get_result_overrideable() {
   auto inputs = LazyOp<at::Tensor>::get_inputs();
   auto self = inputs[0].toTensor();
   auto other = inputs[1].toTensor();
+
   c10::optional<std::string> rounding_mode =
       inputs[2].toOptional<std::string>();
-  // If types of both Tensors are same, then first Tensor's type is used.
-  // This was required since this this case, the call  to
-  // type_promotion_for_two_tensor_inputs(...) does not change the
-  // result_dtype's existing value.
-  c10::ScalarType result_dtype = inputs[0].toTensor().scalar_type();
 
-  // TODO: Take this type promo code to a separate function to avoid
-  // duplicattion
-  int pos = -1;
-  habana_helpers::type_promotion_for_two_tensor_inputs(
-      inputs, pos, result_dtype);
-
-  // In true mode, div of integral types results in default type
   const std::string strRroundingMode = rounding_mode.value_or(StrModeTrue);
-  if ((strRroundingMode == StrModeTrue) and
-      (c10::isIntegralType(result_dtype, true))) {
-    // TODO: default type is assumed to be Float,
-    // need to check using APIs
-    result_dtype = PYTORCH_DEFAULT_TYPE;
-  }
+  auto promote_int_to_float = strRroundingMode == StrModeTrue;
+  habana_helpers::DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs[0], &inputs[1]})
+      .set_promote_to_common_type(true)
+      .set_promote_int_to_float(promote_int_to_float)
+      .build();
+  c10::ScalarType result_dtype = dtype_helper.get_result_dtype();
 
   auto shape_out = BinaryOperator::compute_output_shape(self, other);
 
@@ -142,11 +124,14 @@ void DivRoundModeOperator::AddNode(
     return;
   } else { // if (isIntegralType(final_result_type, true))
 
-    // Computation is always done in float
-    const at::ScalarType& computation_type =
-        (c10::ScalarType::BFloat16 == final_result_type)
-        ? c10::ScalarType::BFloat16
-        : COMMON_COMPUTATION_TYPE_TPC;
+    // Computation is always done in float or bfloat16
+    habana_helpers::DTypeHelper dtype_helper;
+    dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
+        .set_promote_to_common_type(true)
+        .set_promote_int_to_float(true)
+        .build();
+
+    at::ScalarType computation_type = dtype_helper.get_result_dtype();
     const std::string opStringSuffix =
         "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 

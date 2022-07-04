@@ -733,7 +733,8 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   // Make regular 0D tensors 1D
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
   bool is_shape_tensor = impl && impl->isShapeTensor();
-  if (pt_tensor.dim() == 0) {
+  if (pt_tensor.dim() == 0 &&
+      !pt_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
     TORCH_CHECK(is_shape_tensor == false, "0D shape tensor encountered");
     pt_tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
   }

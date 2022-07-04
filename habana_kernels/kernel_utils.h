@@ -33,15 +33,12 @@
       ? CAST_ROUND_HALF_NE                                      \
       : CAST_ROUND_ZERO;
 namespace habana_helpers {
-extern const std::
-    map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
-        promote_dtype;
 extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
     cast_map;
 
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
-    int& pos,
+    int& position_of_promoted_tensor,
     c10::ScalarType& dst_dtype);
 
 std::vector<int64_t> compute_broadcast_shape(

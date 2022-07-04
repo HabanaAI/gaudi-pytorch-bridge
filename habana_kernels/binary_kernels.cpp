@@ -14,6 +14,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -119,15 +120,11 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
     if (arg1.scalar_type() == arg2.scalar_type()) {
       final_out_dtype = arg1.scalar_type();
     } else {
-      // Generate key using input dtype(s)
-      std::pair<ScalarType, ScalarType> type{
-          arg1.scalar_type(), arg2.scalar_type()};
       // Check if we have this key to find the dtype to which smaller dtype
       // tensor should be promoted to
-      auto iter = habana_helpers::promote_dtype.find(type);
-      if (iter != habana_helpers::promote_dtype.end()) {
-        final_out_dtype = iter->second;
-      }
+      int pos = -1;
+      habana_helpers::type_promotion_for_two_tensor_inputs(
+          inputs, pos, final_out_dtype);
     }
     // Cast Input tensor to Int tensor
     std::string node1_type = (arg1.scalar_type() == c10::ScalarType::Int)

@@ -9,6 +9,7 @@
  */
 
 #include "op_backend.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_op_helper.h"
 
@@ -71,59 +72,16 @@ synapse_helpers::tensor& OpBackend::syn_out(int index) {
   return p_context_->syn_outputs_.at(index);
 }
 
-static c10::ScalarType get_promoted_type(
-    const at::Tensor& t,
-    at::Scalar s,
-    bool promote_int_to_float) {
-  if (promote_int_to_float and c10::isIntegralType(t.scalar_type(), true) and
-      s.isIntegral(true)) {
-    return at::get_default_dtype_as_scalartype();
-  }
-  return at::result_type(t, s);
-}
-
-static c10::ScalarType get_promoted_type(
-    at::Scalar s,
-    const at::Tensor& t,
-    bool promote_int_to_float) {
-  if (promote_int_to_float and c10::isIntegralType(t.scalar_type(), true) and
-      s.isIntegral(true)) {
-    return at::get_default_dtype_as_scalartype();
-  }
-  return at::result_type(s, t);
-}
-
-static c10::ScalarType get_promoted_type(
-    const at::Tensor& t1,
-    const at::Tensor& t2,
-    bool promote_int_to_float) {
-  if (promote_int_to_float and c10::isIntegralType(t1.scalar_type(), true) and
-      c10::isIntegralType(t2.scalar_type(), true)) {
-    return at::get_default_dtype_as_scalartype();
-  }
-  return at::result_type(t1, t2);
-}
-
 c10::ScalarType OpBackend::ComputePromotedScalarType(
     const at::Stack& stack,
     bool update) {
-  c10::ScalarType result_type = c10::ScalarType::Undefined;
-
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_promote_type or m_promote_int_to_float);
-  if (stack.at(0).isTensor()) {
-    const auto& self = stack.at(0).toTensor();
-    if (stack.at(1).isTensor()) {
-      result_type = get_promoted_type(
-          self, stack.at(1).toTensor(), m_promote_int_to_float);
-    } else {
-      result_type = get_promoted_type(
-          self, stack.at(1).toScalar(), m_promote_int_to_float);
-    }
-  } else {
-    const auto& self = stack.at(0).toScalar();
-    result_type =
-        get_promoted_type(self, stack.at(1).toTensor(), m_promote_int_to_float);
-  }
+  habana_helpers::DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
+      .set_promote_to_common_type(m_promote_type)
+      .set_promote_int_to_float(m_promote_int_to_float)
+      .build();
+  c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
   if (update) {
     m_scalar_type = result_type;

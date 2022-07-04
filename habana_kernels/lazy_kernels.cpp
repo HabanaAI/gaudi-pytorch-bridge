@@ -440,11 +440,9 @@ at::Tensor get_tensor_for_scalar(
       alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
     } else {
       auto cpu_tensor = at::tensor(alpha).to(options.dtype());
-      auto sizes = cpu_tensor.sizes();
-
       // Create HPU Lazy Tensor
-      alpha_tensor = empty_hpu_lazy(sizes, options, c10::nullopt, true);
-      alpha_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+      alpha_tensor = empty_hpu_lazy({}, options, c10::nullopt, true);
+      alpha_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
 
       bool processed = false;
       cpu_tensor =
@@ -457,8 +455,7 @@ at::Tensor get_tensor_for_scalar(
           hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
       auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
       auto hb_internal_tensor = hb_tensor_data.value();
-      hb_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-          cpu_tensor.sizes());
+      hb_internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
 
       // Copy scalar cpu tensor to hpu tensor list
       // Actual Copy is done during JIT graph creation/lowering
@@ -1378,31 +1375,19 @@ Tensor add_tensor_hpu_lazy(
     const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto alpha_double = alpha.toDouble();
-
-  // Check result data type
-  auto res_dtype = at::result_type(self, other);
-  auto other_cast = other;
-  // If other is CPU tensor of size 0D and double data type
-  // cast it to expected result data type tensor
-  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
-      other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = get_tensor_for_scalar(
-        other.item().toDouble(), other.options().dtype(res_dtype));
-  }
-
   if (alpha_double != 1.0) {
     at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other_cast.options());
+        get_tensor_for_scalar(alpha_double, other.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = mul_tensor_hpu_lazy(other_cast, alpha_tensor);
+    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
     return add_tensor_hpu_lazy(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<at::Tensor> k{
         "aten::add",
-        {self, other_cast, alpha},
+        {self, other, alpha},
         {},
-        {BinaryOperator::compute_output_shape(self, other_cast)}};
+        {BinaryOperator::compute_output_shape(self, other)}};
     return k.call();
   }
 }
@@ -1469,30 +1454,11 @@ Tensor where_tensor_hpu_lazy(
 
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-
-  /*
-   * Added special check for scalar data promotion for bfloat16 tensor
-   * and double scalar. This is must needed for transfomer model.
-   * at::result_type check is causing regression on resnet model.
-   * auto res_dtype = at::result_type(self, other);
-   *
-   * ToDo: Add more generic fix for scalar data type promotion.
-   */
-
-  auto other_cast = other;
-  // If self tensor is bfloat16 other tensor is CPU tensor of size 0D and double
-  // data type, Cast other tensor to bfloat16 data type tensor.
-  if (self.scalar_type() == c10::ScalarType::BFloat16 &&
-      other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
-      other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = other.to(c10::ScalarType::BFloat16);
-  }
-
   LazyBinaryOp<at::Tensor> k{
       "aten::mul",
-      {self, other_cast},
+      {self, other},
       {},
-      {BinaryOperator::compute_output_shape(self, other_cast)}};
+      {BinaryOperator::compute_output_shape(self, other)}};
   return k.call();
 }
 
@@ -1545,24 +1511,12 @@ Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
 
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+  // The auto code gen way of implementing div with rounding mode is
+  // more comprehensive. Hence use this op without specific mode
+  // to realize normal div
 
-  // Check result data type
-  auto res_dtype = at::result_type(self, other);
-  auto other_cast = other;
-  // If other is CPU tensor of size 0D and double data type
-  // cast it to expected result data type tensor
-  if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
-      other.scalar_type() == c10::ScalarType::Double) {
-    other_cast = get_tensor_for_scalar(
-        other.item().toDouble(), other.options().dtype(res_dtype));
-  }
-
-  LazyBinaryOp<at::Tensor> k{
-      "aten::div",
-      {self, other_cast},
-      {},
-      {BinaryOperator::compute_output_shape(self, other_cast)}};
-  return k.call();
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return HpuOp::div(self, other, mode);
 }
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& out,
@@ -5258,7 +5212,8 @@ void InitSizesAndStrides(
   } else if ((5 == tensor_size.size()) && mem_format.has_value()) {
     at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
         tensor_size, CalculateStrides5d(tensor_size, mem_format.value()));
-  } else {
+  } else if (
+      size.has_value() && (size.value().size() != 1 || size.value()[0] != 0)) {
     at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(tensor_size);
   }
 }
