@@ -447,7 +447,7 @@ habana::OutputShapeInfRetType ConstantOutOperator::ComputeOutputShape(
       output.scalar_type(),
       output.suggest_memory_format());
   habana::OutputShapeInfRetType out;
-  out.AddDupTensor(tensor_meta_data);
+  out.AddOutputTensor(tensor_meta_data);
   out.AddShapeTensor(tensor_meta_data);
   return out;
 }

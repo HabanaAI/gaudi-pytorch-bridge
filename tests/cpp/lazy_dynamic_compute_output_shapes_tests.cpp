@@ -233,3 +233,15 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Conv2DTransposeBiasTest) {
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicComputeOutputShapesTest, Fill) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  torch::Tensor A = torch::randn({20});
+  torch::Tensor hA = A.to(torch::kHPU);
+  auto hout = hA.fill_(1.0);
+  auto out = hout.to(torch::kCPU);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
