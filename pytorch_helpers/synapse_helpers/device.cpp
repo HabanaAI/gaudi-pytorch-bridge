@@ -25,6 +25,7 @@
 #include "habana_bridge/kernel/refinement_engine.h"
 
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/devmem_logger.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
@@ -94,6 +95,14 @@ bool active_recipe_counter::is_zero() {
 uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   if (counter_state_ > 0) {
+    // NOTE: This is a common blocking flow for recipe execution.
+    // Due to its blocking nature, and in many cases like mark_step(),
+    // there is a possibility that in background it has been already
+    // holding GIL lock.
+    // Hence it is essential here that we release the GIL lock
+    // before entering to wait state, so that other threads can
+    // acquire GIL lock and proceed.
+    AutoNoGIL gil_release;
     cv_.wait_for(cond_lock, std::chrono::milliseconds(100));
   }
   return counter_state_;
