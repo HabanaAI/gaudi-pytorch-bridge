@@ -452,7 +452,8 @@ at::Tensor get_tensor_for_scalar(
           hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
       auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
       auto hb_internal_tensor = hb_tensor_data.value();
-      hb_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+      hb_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
+          cpu_tensor.sizes());
 
       // Copy scalar cpu tensor to hpu tensor list
       // Actual Copy is done during JIT graph creation/lowering

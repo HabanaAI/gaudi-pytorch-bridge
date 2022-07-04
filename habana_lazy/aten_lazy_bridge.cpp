@@ -34,8 +34,11 @@ at::Tensor AtenFromHbLazyTensor(
     c10::optional<c10::MemoryFormat> mem_format) {
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto storage_size = scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize();
-  c10::IntArrayRef shape_size = size.has_value() ? size.value() : 0;
-  storage_size *= c10::multiply_integers(shape_size);
+  if (size.has_value()) {
+    storage_size *= c10::multiply_integers(size.value());
+  } else {
+    storage_size = 0;
+  }
   auto lazy_storage =
       c10::Storage(c10::make_intrusive<HbLazyStorageImpl>(storage_size));
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
