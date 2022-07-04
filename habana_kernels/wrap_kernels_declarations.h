@@ -149,6 +149,7 @@ struct hpu_wrap {
   static at::Tensor& mul_(at::Tensor& self, const at::Scalar& other);
   static at::Tensor div(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor& div_out(
+
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& result);
@@ -165,12 +166,25 @@ struct hpu_wrap {
   static at::Tensor pow(const at::Scalar& other, const at::Tensor& self);
   static at::Tensor maximum(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor minimum(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor gt(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor gt(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor& eq_out(
+
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& output);
+  static at::Tensor eq(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor eq(const at::Tensor& self, const at::Scalar& other);
+  static at::Tensor ne(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor ne(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor all(const at::Tensor& self);
   static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
+  static at::Tensor lt(const at::Tensor& self, const at::Scalar& other);
+  static at::Tensor lt(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor ge(const at::Tensor& self, const at::Scalar& other);
+  static at::Tensor ge(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor le(const at::Tensor& self, const at::Scalar& other);
+  static at::Tensor le(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor convolution_overrideable(
       const at::Tensor& input,
       const at::Tensor& weight,

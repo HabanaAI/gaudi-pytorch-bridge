@@ -661,6 +661,20 @@ Tensor hpu_wrap::minimum(const Tensor& self, const Tensor& other) {
   return minimum_hpu(self, other);
 };
 
+Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      gt, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  return gt_tensor_hpu(self, other);
+};
+
+Tensor hpu_wrap::gt(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(gt, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  return gt_scalar_hpu(self, other);
+};
 Tensor& hpu_wrap::eq_out(
     const Tensor& self,
     const Tensor& other,
@@ -673,6 +687,77 @@ Tensor& hpu_wrap::eq_out(
       Tensor_out)
 
   return eq_tensor_out_hpu(output, self, other);
+};
+Tensor hpu_wrap::eq(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      eq, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  return eq_tensor_hpu(self, other);
+};
+Tensor hpu_wrap::eq(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(eq, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  return eq_tensor_scalar_hpu(self, other);
+};
+Tensor hpu_wrap::lt(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(lt, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  return lt_scalar_hpu(self, other);
+};
+Tensor hpu_wrap::lt(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      lt, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  return lt_tensor_hpu(self, other);
+};
+Tensor hpu_wrap::ge(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(ge, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  return ge_scalar_hpu(self, other);
+};
+Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      ge, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  return ge_tensor_hpu(self, other);
+};
+Tensor hpu_wrap::le(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(le, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  return le_scalar_hpu(self, other);
+};
+Tensor hpu_wrap::le(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      le, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  return le_tensor_hpu(self, other);
+};
+Tensor hpu_wrap::ne(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(ne, PARAMS1(self), PARAMS2(self, other), Scalar)
+  /* This code will be exercised only in legacy eager mode. The following code
+   * is used to replace the graph transformation based ne op implementation */
+  Scalar c = 0.0;
+  Tensor e = hpu_wrap::eq(self, other);
+  return hpu_wrap::eq(e, c);
+};
+Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      ne, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+  /* This code will be exercised only in legacy eager mode. The following code
+   * is used to replace the graph transformation based ne op implementation */
+  Scalar c = 0.0;
+  Tensor e = hpu_wrap::eq(self, other);
+  return hpu_wrap::eq(e, c);
 };
 
 Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {

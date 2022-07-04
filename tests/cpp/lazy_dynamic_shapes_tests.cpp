@@ -1844,7 +1844,9 @@ void runIndexPutDynamicTestBool(int N, bool acc) {
   torch::Tensor out_cpu =
       torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
 
-  EXPECT_EQ(allclose(out_cpu, out_hpu.cpu(), 0, 0), true);
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
 }
 
 void runIndexPutDynamicTestInt(int N, int mask_size, bool acc) {
@@ -1867,7 +1869,9 @@ void runIndexPutDynamicTestInt(int N, int mask_size, bool acc) {
   torch::Tensor out_cpu =
       torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
 
-  EXPECT_EQ(allclose(out_cpu, out_hpu.cpu(), 0, 0), true);
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTest) {
@@ -1930,7 +1934,9 @@ void runIndexPutDynamicTestBoolVect(
   torch::Tensor out_cpu =
       torch::index_put(input_cpu, {mask_cpu}, values_cpu, acc);
 
-  EXPECT_EQ(allclose(out_cpu, out_hpu.cpu(), 0, 0), true);
+  auto hpu_out_to_cpu = out_hpu.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_cpu, out_hpu, 0, 0), true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNC) {
