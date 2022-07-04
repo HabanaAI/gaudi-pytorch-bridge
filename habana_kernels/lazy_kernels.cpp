@@ -509,6 +509,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
       GetOrCreateHbLazyTensor(src_updated, src_updated.device());
+  if (hb_tensor.IsExecutionInProgress()) {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    context->JoinPendingLaunchThread();
+  }
   auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
   auto layout_format = hb_tensor.GetTensorLayout();
   hlresult.SetTensorLayout(layout_format);
