@@ -75,6 +75,11 @@
 
 // ****************************************************************************
 
+// default HCCL slicing for collectives. Update this in env to override it
+// recommended values {AllReduce, ReduceScatter, AllGather : 128};
+//                    {Reduce : 16}
+#define DEFAULT_HCCL_SLICE_SIZE_MB 16
+
 namespace env_flags {
 // List of environment flags in the form:
 // - name of the structure is identical with environment variable name
@@ -228,7 +233,10 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_HCL_STREAM, bool, true);
 ENV_STRUCT_DEFINITION(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT, unsigned, 1000);
 ENV_STRUCT_DEFINITION(PT_HABANA_DMA_COPY_RETRY_DELAY, unsigned, 10);
 ENV_STRUCT_DEFINITION(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT, unsigned long, 0);
-ENV_STRUCT_DEFINITION(PT_HCCL_SLICE_SIZE_MB, unsigned, 16);
+ENV_STRUCT_DEFINITION(
+    PT_HCCL_SLICE_SIZE_MB,
+    unsigned,
+    DEFAULT_HCCL_SLICE_SIZE_MB);
 ENV_STRUCT_DEFINITION(PT_HPU_INITIAL_WORKSPACE_SIZE, unsigned long, 0);
 ENV_STRUCT_DEFINITION(PT_HABANA_POOL_SIZE, unsigned long, 24);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_STRATEGY, unsigned, 5);

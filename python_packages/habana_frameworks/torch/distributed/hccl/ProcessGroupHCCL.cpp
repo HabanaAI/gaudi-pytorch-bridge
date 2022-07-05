@@ -68,6 +68,14 @@ std::map<ReduceOp, hcclRedOp_t> hcclOp = {
     {ReduceOp::PRODUCT, hcclProd},
 };
 
+typedef enum {
+  collectiveAllReduce = 0,
+  collectiveReduce = 1,
+  collectiveAllGather = 2,
+  collectiveReduceScatter = 3,
+  collectiveNone
+} collectiveKind_t;
+
 hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
   try {
     return hcclOp.at(reduceOp);
@@ -76,8 +84,24 @@ hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
   }
 }
 
-size_t getHCCLSliceSizeMB() {
-  static const size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
+size_t getHCCLSliceSize(collectiveKind_t kind) {
+  size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
+  if (slice_size != DEFAULT_HCCL_SLICE_SIZE_MB) {
+    // user has set slicing for tuning
+    return slice_size * 1024 * 1024;
+  }
+
+  // hccl slicing is static for now and will get updated once SIMB is enabled
+  switch (kind) {
+    case collectiveAllReduce:
+    case collectiveReduceScatter:
+      slice_size = 128;
+      break;
+    case collectiveReduce:
+    case collectiveAllGather:
+      slice_size = 16;
+      break;
+  }
   return slice_size * 1024 * 1024;
 }
 
@@ -732,7 +756,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
         size_t num_elements = input.numel();
         size_t element_size =
             c10::elementSize(getInternalScalarType(input.scalar_type()));
-        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t chunk_size =
+            getHCCLSliceSize(collectiveAllReduce) / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -757,7 +782,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
               stream);
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset += num_elements_in_current_chunk * element_size;
+          data_offset =
+              data_offset + (num_elements_in_current_chunk * element_size);
           num_elements -= num_elements_in_current_chunk;
         }
         return hccl_result;
@@ -812,7 +838,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
         size_t num_elements = input.numel();
         size_t element_size =
             c10::elementSize(getInternalScalarType(input.scalar_type()));
-        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t chunk_size = getHCCLSliceSize(collectiveReduce) / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -828,7 +854,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
               stream);
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset += num_elements_in_current_chunk * element_size;
+          data_offset =
+              data_offset + (num_elements_in_current_chunk * element_size);
           num_elements -= num_elements_in_current_chunk;
         }
         return hccl_result;
@@ -996,14 +1023,29 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        auto work = hcclAllGather(
-            send_buffer,
-            recv_buffer,
-            numel,
-            tensor_data_type,
-            hccl_comm,
-            stream);
-        return work;
+        hcclResult_t hccl_result{hcclSuccess};
+        size_t element_size =
+            c10::elementSize(getInternalScalarType(input.scalar_type()));
+        size_t chunk_size =
+            getHCCLSliceSize(collectiveAllGather) / element_size;
+        size_t data_offset = 0;
+        while (numel > 0) {
+          size_t num_elements_in_current_chunk =
+              (numel > chunk_size) ? chunk_size : numel;
+          hccl_result = hcclAllGather(
+              send_buffer + data_offset,
+              recv_buffer + data_offset,
+              num_elements_in_current_chunk,
+              tensor_data_type,
+              hccl_comm,
+              stream);
+          TORCH_CHECK(
+              hcclSuccess == hccl_result, "Collective call returned error");
+          data_offset =
+              data_offset + (num_elements_in_current_chunk * element_size);
+          numel -= num_elements_in_current_chunk;
+        }
+        return hccl_result;
       });
   // Record even for outputFlattened on ncclStream
   for (size_t i = 0; i < outputTensors.size(); ++i) {
