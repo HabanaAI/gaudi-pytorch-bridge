@@ -276,6 +276,10 @@ HostDataType HbInternalTensorImpl::get_host_dt_type() const {
   return dt_type_;
 }
 
+ShapeTensorStruct& HbInternalTensorImpl::get_shape_struct() {
+  return shape_tensor_struct_;
+}
+
 template <typename T>
 void HbInternalTensorImpl::get_host_data(std::vector<T>& data) {
   uint64_t host_ptr = reinterpret_cast<uint64_t>(host_ptr_);

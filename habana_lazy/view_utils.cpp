@@ -96,18 +96,21 @@ Tensor add_strided_insert_node(
     bool is_flush) {
   auto mf = orig_t.suggest_memory_format();
   ir::NodePtr node;
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Frontend orig tensor = ",
+      orig_t.sizes().vec(),
+      " insert tensor = ",
+      insert_t.sizes().vec());
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Frontend Strided_insert strides = ",
+      strides.vec(),
+      " offset = ",
+      offset);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
                             (mf == c10::MemoryFormat::ChannelsLast3d))
         ? "hpu::strided_insert_cl_ds"
         : "hpu::strided_insert_ds";
-
-    auto out_stride_st = empty_hpu_lazy(
-        strides,
-        orig_t.options(),
-        c10::MemoryFormat::Contiguous,
-        false,
-        SHAPE_TENSOR);
 
     std::vector<int64_t> offset_vec = {offset};
     IntArrayRef offset_ref(offset_vec.data(), offset_vec.size());
@@ -118,8 +121,13 @@ Tensor add_strided_insert_node(
         false,
         SHAPE_TENSOR);
 
+    auto lazy_ten = GetHbLazyTensor(offset_st);
+    auto tensor_offset_st = lazy_ten.CurrentTensorAttached().value();
+    auto impl_st = habana_lazy::GetHbInternalTensorImpl(tensor_offset_st);
+    HABANA_ASSERT(impl_st, "impl_st is invalid");
+    impl_st->get_shape_struct().set_strides_tensor_shape(strides.vec());
     node = std::make_shared<ir::StridedInsert>(
-        orig_t, insert_t, out_stride_st, offset_st, node_str);
+        orig_t, insert_t, offset_st, node_str);
   } else {
     std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
                             (mf == c10::MemoryFormat::ChannelsLast3d))

@@ -174,6 +174,15 @@ synapse_helpers::tensor create_shape_tensor(
     const std::string& name = std::string(),
     void* host_ptr = nullptr);
 
+synapse_helpers::tensor create_shape_tensor(
+    const c10::IntArrayRef& input_shapes,
+    synDeviceId syn_device,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    const std::string& name = std::string(),
+    void* host_ptr = nullptr);
+
 /**
 @brief This function can be used to create an intermediate
        synapse_helper tensor of required shape and synDataType

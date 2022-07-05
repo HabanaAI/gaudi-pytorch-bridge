@@ -349,6 +349,17 @@ class HabanaOperator {
       void* host_ptr = nullptr);
 
   //
+  // Method to add a single shape tensor to graph builder context, also
+  // populates the context params -- this is needed when we need the address of
+  // syn_tensor being created
+  virtual synapse_helpers::tensor& AllocateSynapseShapeTensor(
+      synapse_helpers::graph& graph,
+      const at::IntArrayRef& input_shapes,
+      synDeviceId syn_device,
+      synTensorType shape_tensor_type = SHAPE_TENSOR,
+      void* host_ptr = nullptr);
+
+  //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
   virtual synapse_helpers::tensor_or_ref& SetSynapseInput(

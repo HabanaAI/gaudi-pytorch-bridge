@@ -193,7 +193,7 @@ class StridedInsertOperator : public habana::HabanaOperator {
   bool verifyViewMemoryAccess(
       at::Tensor& real,
       at::Tensor& view,
-      at::Tensor& strides,
+      c10::IntArrayRef& strides,
       at::Tensor& offset);
 };
 
@@ -237,7 +237,7 @@ class StridedViewOperator : public habana::HabanaOperator {
   bool verifyViewMemoryAccess(
       at::Tensor& real,
       at::Tensor& view,
-      at::Tensor& strides,
+      c10::IntArrayRef& strides,
       at::Tensor& offset);
 };
 

@@ -86,6 +86,50 @@ enum class HostDataType {
   FLOAT_T = 4
 };
 
+struct ShapeTensorStruct {
+  bool contains_data = false;
+  std::vector<int64_t> strides{};
+  std::vector<int64_t> stride_ratio{};
+  int64_t offset = 0;
+
+  void set_strides_tensor_shape(std::vector<int64_t> input_strides) {
+    contains_data = true;
+    int len = input_strides.size();
+    for (int i = 0; i < len; i++) {
+      strides.push_back(input_strides[i]);
+    }
+  }
+
+  void set_offset_tensor_shape(int64_t offset_value) {
+    contains_data = true;
+    offset = offset_value;
+  }
+
+  void set_stride_ratio(std::vector<int64_t> ratios) {
+    contains_data = true;
+    int len = ratios.size();
+    for (int i = 0; i < len; i++) {
+      stride_ratio.push_back(ratios[i]);
+    }
+  }
+
+  bool has_shape_tensor_data() {
+    return contains_data;
+  }
+
+  std::vector<int64_t> get_stride_ratios() {
+    return stride_ratio;
+  }
+
+  int64_t get_offset() {
+    return offset;
+  }
+
+  std::vector<int64_t> get_stride_shape() {
+    return strides;
+  }
+};
+
 // Habana internal TensorImpl
 class HbInternalTensorImpl : public c10::TensorImpl {
  public:
@@ -147,6 +191,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   void get_host_data(std::vector<T>& data);
   /*template <typename T>
   void set_min_max(const std::vector<T>& min, const std::vector<T>& max);*/
+  ShapeTensorStruct& get_shape_struct();
 
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
@@ -162,6 +207,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   size_t el_size_;
   int id_;
   HostDataType dt_type_;
+  ShapeTensorStruct shape_tensor_struct_;
 };
 
 } // namespace habana_lazy

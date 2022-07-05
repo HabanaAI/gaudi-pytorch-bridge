@@ -680,6 +680,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
     syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
+    PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
     return syn_tensor;
   }
 
@@ -697,6 +698,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
+  PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
   return syn_tensor;
 }
 
@@ -763,6 +765,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
         absl::get<synapse_helpers::tensor>(std::move(variant));
     syn_tensor.set_pt_info(
         tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+    PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
     return syn_tensor;
   }
 
@@ -810,6 +813,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(
       tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+  PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
   return syn_tensor;
 }
 
@@ -870,6 +874,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
         absl::get<synapse_helpers::tensor>(std::move(variant));
     syn_tensor.set_pt_info(
         tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+    PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
     return syn_tensor;
   }
 
@@ -909,6 +914,115 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(
       tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+  PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
+  return syn_tensor;
+}
+
+synapse_helpers::tensor habana_helpers::create_shape_tensor(
+    const IntArrayRef& input_shapes,
+    synDeviceId syn_device,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    const std::string& name,
+    void* host_ptr) {
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    tensor_id =
+        habana::ShapeInference::UpdateShapeInfo(graph, input_shapes.vec());
+  }
+
+  if (graph.is_dry_run()) {
+    // For dry run mode, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(
+        syn_device,
+        input_shapes.vec(),
+        calculate_strides(input_shapes.vec()),
+        persistent,
+        name,
+        shape_tensor_type);
+  }
+
+  std::vector<int64_t> min, max;
+  if (graph.is_dynamic_graph()) {
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
+  }
+
+  if (min.size() && max.size() && (min != max)) {
+    // if the min represents the max value and if the max represents the min
+    // value, swap them during tensor creation
+    if (min > max) {
+      std::swap(min, max);
+    }
+    auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+        synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+    auto builder = synapse_helpers::tensor_builder(
+                       input_shapes, synDataType::syn_type_uint32)
+                       .with_dynamic_shape(dynamic_shape);
+    switch (shape_tensor_type) {
+      case SHAPE_TENSOR:
+        builder.mark_shape_tensor();
+        break;
+      case DEVICE_SHAPE_TENSOR:
+        builder.mark_device_shape_tensor();
+        builder.mark_persistence(persistent);
+        break;
+      case INPUT_DESCRIBING_SHAPE_TENSOR:
+        builder.mark_input_describing_shape_tensor();
+        break;
+      case HOST_TO_DEVICE_TENSOR:
+        builder.mark_host_to_device_tensor(host_ptr);
+        break;
+      default:
+        HABANA_ASSERT(0 && "Invalid shape_tensor_type");
+        break;
+    }
+    auto variant = builder.build(
+        synapse_helpers::HPURegistrar::get_device(syn_device),
+        graph.get_graph_handle());
+    synapse_helpers::tensor syn_tensor =
+        absl::get<synapse_helpers::tensor>(std::move(variant));
+    // GC requires strides to be 0 for shape tensors though this should not
+    // affect our tensor shape patching.
+    syn_tensor.set_pt_info(
+        input_shapes.vec(), calculate_strides(input_shapes.vec()));
+    PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor ", syn_tensor);
+    return syn_tensor;
+  }
+  uint64_t syn_offset = 0;
+  auto builder = synapse_helpers::tensor_builder(
+                     input_shapes, synDataType::syn_type_uint32)
+                     .set_offset(syn_offset);
+  switch (shape_tensor_type) {
+    case SHAPE_TENSOR:
+      builder.mark_shape_tensor();
+      break;
+    case DEVICE_SHAPE_TENSOR:
+      builder.mark_device_shape_tensor();
+      builder.mark_persistence(persistent);
+      break;
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+      builder.mark_input_describing_shape_tensor();
+      break;
+    case HOST_TO_DEVICE_TENSOR:
+      builder.mark_host_to_device_tensor(host_ptr);
+      break;
+    default:
+      HABANA_ASSERT(0 && "Invalid shape_tensor_type");
+      break;
+  }
+  if (!name.empty()) {
+    builder.use_suffix(name);
+  }
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(syn_device),
+      graph.get_graph_handle());
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(
+      input_shapes.vec(), calculate_strides(input_shapes.vec()));
+  PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor ", syn_tensor);
   return syn_tensor;
 }
 
@@ -980,7 +1094,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     // affect our tensor shape patching.
     syn_tensor.set_pt_info(
         tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
-
+    PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor ", syn_tensor);
     return syn_tensor;
   }
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
@@ -1015,7 +1129,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(
       tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
-
+  PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor ", syn_tensor);
   return syn_tensor;
 }
 
@@ -1112,6 +1226,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
   syn_tensor.set_pt_info(tensor.pt_shape(), tensor.pt_strides());
+  PT_DYNAMIC_SHAPE_DEBUG("duplicate_tensor_in_memory_section ", syn_tensor);
   return syn_tensor;
 }
 
@@ -1166,6 +1281,8 @@ synapse_helpers::tensor habana_helpers::
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
   syn_tensor.set_pt_info(sizes, strides);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "duplicate_tensor_in_memory_section_with_size ", syn_tensor);
   return syn_tensor;
 }
 
