@@ -2533,7 +2533,9 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
         eps);
 
   } else {
-    return batch_norm_hpu(
+    HABANA_ASSERT(
+        0 && "batch_norm forward not implemented for legacy eager mode");
+    return batch_norm_hpu_lazy(
         input,
         weight,
         bias,
@@ -2617,9 +2619,10 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
         train,
         eps,
         output_mask);
-
   } else {
-    return batch_norm_bwd_hpu(
+    HABANA_ASSERT(
+        0 && "batch_norm backward not implemented for legacy eager mode");
+    return batch_norm_bwd_hpu_lazy(
         grad_out,
         input,
         weight,
@@ -6029,7 +6032,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? residual_add, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::native_batch_norm_rmv_new(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
+  m.def(
+      "hpu::native_batch_norm_backward_new(Tensor input, Tensor? grad_out, Tensor? weight, Tensor? mean, Tensor? invistd, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def(

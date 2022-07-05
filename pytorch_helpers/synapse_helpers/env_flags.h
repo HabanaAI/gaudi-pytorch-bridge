@@ -334,6 +334,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK, bool, true);
 
 // MultiUser stream - flag to force all ops to default stream
 ENV_STRUCT_DEFINITION(PT_HPU_FORCE_USE_DEFAULT_STREAM, bool, false);
+// New BN implementation - Jira SW-89734
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_NEW_BN, bool, false);
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

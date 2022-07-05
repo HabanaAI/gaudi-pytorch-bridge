@@ -12,6 +12,22 @@
 #include "habana_kernels/index_kernels.h"
 namespace habana {
 
+class BNFwdTPCRetIndex {
+ public:
+  constexpr static char Output = 0;
+  constexpr static char SavedMean = 1;
+  constexpr static char SavedIStd = 2;
+  constexpr static char RunningMean = 3;
+  constexpr static char RunningVar = 3;
+};
+
+class BNBwdTPCRetIndex {
+ public:
+  constexpr static char Output = 0;
+  constexpr static char BiasGrad = 1;
+  constexpr static char WeightGrad = 2;
+};
+
 class BatchNormForwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormForwardOperator node_type differs for training and eval
@@ -183,7 +199,9 @@ class BatchNormInfOperator : public habana::HabanaOperator {
  public:
   // Used in eval mode
   BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("bn_fwd_inf") {
+      : HabanaOperator(
+            "batch_norm_inf_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     // assign layouts for input and output tensors
@@ -528,4 +546,157 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
       c10::MemoryFormat mf);
 };
 
+/////////////////////////////////////////New BN
+class BatchNormForwardRmvOperatorNew : public habana::HabanaOperator {
+ public:
+  // Used in training mode
+  BatchNormForwardRmvOperatorNew(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "batch_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+  }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+
+  void preProcessInputs(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
+
+ private:
+  at::Tensor create_or_return_tensor_bn(
+      synapse_helpers::graph& graph,
+      const at::Tensor& input,
+      uint size,
+      at::Device device,
+      int syn_index);
+  at::Tensor create_or_return_pt_tensor_bn(
+      const at::Tensor& input,
+      uint size,
+      at::Device device);
+
+  c10::ScalarType scalarType_;
+  std::vector<synapse_helpers::tensor_or_ref> tensors_;
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<at::Tensor> pt_outputs;
+  std::vector<at::Tensor> pre_inputs;
+};
+
+class BatchNormBackwardOperatorNew : public habana::HabanaOperator {
+ public:
+  // NOTE: BatchNormBackwardOperator node_type differs for training and eval
+  BatchNormBackwardOperatorNew(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "batch_norm_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    // {input, grad, mean, istd, weight}
+    resize_done = false;
+    preprocessing_done = false;
+  }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata);
+
+  void preProcessInputs(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
+
+  torch::jit::Stack& GetInputstack() {
+    return input_stack;
+  };
+
+  bool CheckResizeDone() {
+    return resize_done;
+  };
+
+  void SetResizeDone() {
+    resize_done = true;
+  };
+
+  bool CheckProprocessingDone() {
+    return preprocessing_done;
+  }
+
+  void SetProprocessingDone() {
+    preprocessing_done = true;
+  };
+
+ private:
+  void create_opt_input_tensor_bn_bwd(
+      synapse_helpers::graph& graph,
+      const at::Tensor& input,
+      uint size,
+      at::Device device,
+      int syn_index);
+
+  c10::ScalarType scalarType_;
+  std::vector<at::Tensor> pt_inputs;
+  torch::jit::Stack input_stack;
+  std::vector<at::Tensor> pre_inputs;
+  bool resize_done;
+  bool preprocessing_done;
+};
+
+/////////////////////////////////////////
 } // namespace habana
