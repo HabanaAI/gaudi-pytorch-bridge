@@ -75,6 +75,41 @@ Tensor hpu_wrap::_pin_memory(
     c10::optional<at::Device> device) {
   return pin_memory_hpu(self, device);
 };
+/*
+ PT1.12 introduced a change in linear() to use addmm instead of matmul
+ in case of 3d input. This caused a perf regression on HPU. In order to
+ circumvent this regression we register linear() ( a compound op) so that
+ it gets dispatched as such to HPU. We use essentially the same linear()
+ impl. as in PyTorch but removing the PT1.12 change and other code not
+ relevant to HPU. Ref. aten/src/ATen/native/Linear.cpp
+ Ref. https://jira.habana-labs.com/browse/SW-93519 for details.
+*/
+Tensor hpu_wrap::linear(
+    const Tensor& input,
+    const Tensor& weight,
+    const c10::optional<Tensor>& bias_opt) {
+  PT_KERNEL_DEBUG(
+      "HpuOp linear:",
+      " input=",
+      to_string(input),
+      " weight=",
+      to_string(weight),
+      " bias_opt=",
+      to_string(bias_opt));
+  auto bias = bias_opt.has_value()
+      ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
+      : c10::MaybeOwned<Tensor>::owned(c10::in_place);
+
+  if (input.dim() == 2 && bias->defined()) {
+    // Fused op is marginally faster.
+    return at::addmm(*bias, input, weight.t());
+  }
+  auto output = at::matmul(input, weight.t());
+  if (bias->defined()) {
+    output.add_(*bias);
+  }
+  return output;
+}
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_OP_TRACE;

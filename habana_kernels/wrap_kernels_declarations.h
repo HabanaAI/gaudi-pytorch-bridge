@@ -882,6 +882,10 @@ struct hpu_wrap {
   static at::Tensor _pin_memory(
       const at::Tensor& self,
       c10::optional<c10::Device> device);
+  static at::Tensor linear(
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      const c10::optional<at::Tensor>& bias);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>
