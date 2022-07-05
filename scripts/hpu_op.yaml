@@ -2493,16 +2493,16 @@ multinomial:
   guid: random_multinomial_fwd
   out_ids: [0]
   op_frontend: LazyRandomMulti
-  op_backend: MultinomialIntSeedInput
-  schema_args: "(Tensor self, int num_samples, bool replacement=False, int seed=0) -> Tensor"
+  op_backend: Multinomial
+  schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed) -> Tensor"
 
 multinomial.out:
   dtypes: [BFloat16, Float]
   custom_output_shape: MultinomialOutputShape
   guid: random_multinomial_fwd
   op_frontend: LazyRandomMultiOut
-  op_backend: MultinomialIntSeedInput
-  schema_args: "(Tensor self, int num_samples, bool replacement, int seed,  Tensor(a!) out) -> Tensor(a!)"
+  op_backend: Multinomial
+  schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
 mv.out:
   force_default: false
