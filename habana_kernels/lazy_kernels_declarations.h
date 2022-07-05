@@ -272,13 +272,6 @@ at::Tensor& masked_select_out_hpu_lazy(
     at::Tensor& out);
 at::Tensor nonzero_hpu_lazy(const at::Tensor& self);
 at::Tensor& nonzero_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
-at::Tensor slice_backward_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& grad_output,
-    int64_t dim,
-    int64_t start,
-    int64_t end,
-    int64_t step);
 at::Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2);
 at::Tensor addmm_hpu_lazy(
     const at::Tensor& self,

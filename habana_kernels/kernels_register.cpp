@@ -5879,49 +5879,6 @@ Tensor hpu_wrap::adaptive_avg_pool2d(
   return AdaptiveAvgPool2DFunction::apply(input, output_size);
 };
 
-struct SliceFunction : public torch::autograd::Function<SliceFunction> {
-  static at::Tensor forward(
-      AutogradContext* ctx,
-      at::Tensor self,
-      int64_t dim,
-      c10::optional<int64_t> start,
-      c10::optional<int64_t> end,
-      int64_t step) {
-    at::Tensor result;
-
-    // handle optional parameters
-    int64_t start_val = start.has_value() ? start.value() : 0;
-    int64_t end_val = end.has_value() ? end.value() : INT64_MAX;
-
-    ctx->save_for_backward({self});
-    ctx->saved_data["dim"] = dim;
-    ctx->saved_data["start"] = start_val;
-    ctx->saved_data["end"] = end_val;
-    ctx->saved_data["step"] = step;
-    result = slice_hpu_lazy(self, dim, start, end, step);
-    return result;
-  }
-  static variable_list backward(
-      AutogradContext* ctx,
-      variable_list grad_output) {
-    at::Tensor result;
-    variable_list saved_vars = ctx->get_saved_variables();
-    result = slice_backward_hpu_lazy(
-        saved_vars[0],
-        grad_output[0],
-        ctx->saved_data["dim"].toInt(),
-        ctx->saved_data["start"].toInt(),
-        ctx->saved_data["end"].toInt(),
-        ctx->saved_data["step"].toInt());
-    return {
-        result,
-        torch::Tensor(),
-        torch::Tensor(),
-        torch::Tensor(),
-        torch::Tensor()};
-  }
-};
-
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -5941,8 +5898,9 @@ Tensor hpu_wrap::slice(
       to_string(end),
       "step=",
       to_string(step));
+
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return SliceFunction::apply(self, dim, start, end, step);
+    return slice_hpu_lazy(self, dim, start, end, step);
   } else {
     return slice_hpu(self, dim, start, end, step);
   }
