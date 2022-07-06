@@ -58,7 +58,12 @@ void HbExecutionContext::JoinPendingLaunchThread() {
       // create an exception. Ignore the exception as the wait is already
       // over.
       try {
-        m_launch_thread_handle.get();
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+          SingleTonExecThreadPool::work();
+        } else {
+          m_launch_thread_handle.get();
+        }
       } catch (std::exception& e) {
       }
       if (m_launch_thread_exception_handler) {
@@ -71,19 +76,6 @@ void HbExecutionContext::JoinPendingLaunchThread() {
       }
     }
   }
-
-  /*
-  if ((m_launch_thread_handle.valid() &&
-       (std::this_thread::get_id() !=
-        SingleTonExecThreadPool::getInstance().get_id(0)))) {
-    while (SingleTonExecThreadPool::getInstance().has_work.load()) {
-      if (SingleTonExecThreadPool::getInstance().m_stop ||
-          !SingleTonExecThreadPool::getInstance().has_work.load()) {
-        return;
-      }
-    }
-  }
-  */
 }
 
 void HbExecutionContext::MarkTensorExecuted(std::shared_ptr<Data> data) {

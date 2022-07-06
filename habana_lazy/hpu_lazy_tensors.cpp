@@ -117,7 +117,10 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   // Live tensor collection is not allowed if the launch thread execution is in
   // progeress.
-  HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
+    HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
+  }
   context->executing_tids.clear();
   auto fn = [&](HbContext* devctx) {
     context->executing_tids.reserve(devctx->tensors_data.size());

@@ -23,6 +23,8 @@
 #include <thread>
 #include <vector>
 
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
+
 namespace habana_helpers {
 
 /**
@@ -38,6 +40,8 @@ class ThreadPool {
   void joinAllThreads();
   std::thread::id get_id(size_t worker);
   ~ThreadPool();
+  bool m_stop;
+  std::atomic<bool> has_work{false};
 
  private:
   std::vector<std::thread> m_workers;
@@ -45,7 +49,6 @@ class ThreadPool {
   // synchronization
   std::mutex m_queueMutex;
   std::condition_variable m_condition;
-  bool m_stop;
 };
 
 // add new work item to the pool
@@ -59,15 +62,26 @@ auto ThreadPool::enqueue(F&& f, Args&&... args)
 
   std::future<return_type> res = task->get_future();
   {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+          (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
+      std::lock_guard<std::mutex> lock(m_queueMutex);
+      // don't allow enqueueing after stopping the pool
+      if (m_stop)
+        throw std::runtime_error("enqueue on stopped ThreadPool");
 
-    // don't allow enqueueing after stopping the pool
-    if (m_stop)
-      throw std::runtime_error("enqueue on stopped ThreadPool");
+      m_tasks.emplace([task]() { (*task)(); });
+    } else {
+      if (m_stop)
+        throw std::runtime_error("enqueue on stopped ThreadPool");
 
-    m_tasks.emplace([task]() { (*task)(); });
+      m_tasks.emplace([task]() { (*task)(); });
+      has_work.store(true);
+    }
   }
-  m_condition.notify_one();
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
+    m_condition.notify_one();
+  }
   return res;
 }
 

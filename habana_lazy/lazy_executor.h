@@ -47,6 +47,15 @@ class SingleTonExecThreadPool {
     return thread_pool_obj;
   }
 
+  static void work() {
+    while (getInstance().has_work.load()) {
+      if (getInstance().m_stop || !getInstance().has_work.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
  private:
   SingleTonExecThreadPool() = default;
   SingleTonExecThreadPool(const SingleTonExecThreadPool&) = delete;

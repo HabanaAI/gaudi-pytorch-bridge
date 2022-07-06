@@ -23,16 +23,34 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
       for (;;) {
         std::function<void()> task;
         {
-          std::unique_lock<std::mutex> lock(this->m_queueMutex);
-          this->m_condition.wait(
-              lock, [this] { return this->m_stop || !this->m_tasks.empty(); });
-          if (this->m_stop && this->m_tasks.empty())
-            return;
-          task = std::move(this->m_tasks.front());
-          this->m_tasks.pop();
+          if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+              (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+            while (!this->has_work.load()) {
+              if (this->m_stop && !this->has_work.load()) {
+                return;
+              }
+            }
+            if (this->m_stop && !this->has_work.load())
+              return;
+            task = std::move(this->m_tasks.front());
+            this->m_tasks.pop();
+          } else {
+            std::unique_lock<std::mutex> lock(this->m_queueMutex);
+            this->m_condition.wait(lock, [this] {
+              return this->m_stop || !this->m_tasks.empty();
+            });
+            if (this->m_stop && this->m_tasks.empty())
+              return;
+            task = std::move(this->m_tasks.front());
+            this->m_tasks.pop();
+          }
         }
 
         task();
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+          this->has_work.store(false);
+        }
       }
     });
 }
