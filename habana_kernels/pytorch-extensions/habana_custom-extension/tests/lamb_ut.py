@@ -188,44 +188,60 @@ if __name__ == "__main__":
     d1, d2, lr = 2, 1024, 0.001
 
     u = torch.rand(d1, d2)
+    t = torch.rand(d1, d2)
     v = u.clone()
-    print('input ::\n{}'.format(u))
+    w = t.clone()
+    print('input u ::\n{}'.format(u))
+    print('input w ::\n{}'.format(w))
 
     x = u.detach().to(habana)
     x.requires_grad = True
+    s = t.detach().to(habana)
+    s.requires_grad = True
 
     # Compute loss
-    loss_x = x.sum()
+    loss_x = (x+s).sum()
 
     # Compute gradients of the parameters w.r.t. the loss
     loss_x.backward()
 
     # Modify the parameters by subtracting the gradient
     optim_x = FusedLamb([x], lr=lr)
+    optim_x.add_param_group({'params': s})
 
     print('before lamb_habana.step x ::\n{}'.format(x.to(cpu)))
+    print('before lamb_habana.step s ::\n{}'.format(s.to(cpu)))
     optim_x.step()
     print('after  lamb_habana.step x ::\n{}'.format(x.to(cpu)))
+    print('after  lamb_habana.step s ::\n{}'.format(s.to(cpu)))
 
     y = v.detach().to(habana)
     y.requires_grad = True
+    z = w.detach().to(habana)
+    z.requires_grad = True
 
     # Compute loss
-    loss_y = y.sum()
+    loss_y = (y+z).sum()
 
     # Compute gradients of the parameters w.r.t. the loss
     loss_y.backward()
 
     # Modify the parameters by subtracting the gradient
     optim_y = TorchNVLAMB([y], lr=0.001)
+    optim_y.add_param_group({'params': z})
 
     print('before NVlamb.step y ::\n{}'.format(y.to(cpu)))
+    print('before NVlamb.step z ::\n{}'.format(z.to(cpu)))
     optim_y.step()
     print('after NVLamb.step y ::\n{}'.format(y.to(cpu)))
+    print('after NVLamb.step z ::\n{}'.format(z.to(cpu)))
 
     x_cpu = x.to(cpu)
+    s_cpu = s.to(cpu)
     y_cpu = y.to(cpu)
+    z_cpu = z.to(cpu)
 
-    comp = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
+    comp1 = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
+    comp2 = np.allclose(s_cpu.detach().numpy(), z_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
 
-    print('Optimizer output match :: {}'.format(comp))
+    print('Optimizer output match :: {}'.format(comp1 and comp2))
