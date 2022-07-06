@@ -518,9 +518,20 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
 
     if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
       func();
+      if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+      }
     } else {
       JobThreadHCCL::getInstance()->addJob(std::move(func));
       deviceCtxt->submit_future(tensor_storage_ptr, std::move(fut));
+      if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
+        deviceCtxt->synchronize_output(tensor_storage_ptr);
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+      }
     }
   }
   return work;
@@ -604,9 +615,20 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 
     if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
       func();
+      if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+      }
     } else {
       JobThreadHCCL::getInstance()->addJob(std::move(func));
       deviceCtxt->submit_future(output_storage_ptr, std::move(fut));
+      if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
+        deviceCtxt->synchronize_output(output_storage_ptr);
+        synStatus syn_result = synSuccess;
+        syn_result = synStreamSynchronize(collective_stream);
+        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+      }
     }
   }
 
