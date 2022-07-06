@@ -39,7 +39,7 @@ class PartialEventEmulation {
       const synRecipeHandle recipeHandle,
       uint32_t numOfExternalTensors,
       uint64_t* tensorIds);
-  synStatus synLaunchWithExternalEventsBase(
+  synStatus synLaunchWithExternalEvents(
       const synStreamHandle streamHandle,
       const synLaunchTensorInfo* launchTensorsInfoExt,
       const uint32_t numberOfTensors,
@@ -48,7 +48,7 @@ class PartialEventEmulation {
       synEventHandle* eventHandleList,
       const uint32_t numberOfEvents,
       uint32_t flags);
-  synStatus synEventMapTensorBase(
+  synStatus synEventMapTensor(
       synEventHandle* eventHandle,
       size_t numOfEvents,
       const synLaunchTensorInfo* launchTensorsInfo,

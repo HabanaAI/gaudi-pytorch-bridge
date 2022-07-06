@@ -87,8 +87,8 @@
   visitor(synProfilerGetCurrentTimeNS);       \
   visitor(synProfilerAddCustomMeasurement);   \
   visitor(synTensorExtExtractExecutionOrder); \
-  visitor(synEventMapTensorBase);             \
-  visitor(synLaunchWithExternalEventsBase);   \
+  visitor(synEventMapTensor);                 \
+  visitor(synLaunchWithExternalEvents);       \
   visitor(synTensorSetExternal);              \
   visitor(synTensorGetExternal);              \
   visitor(synTensorAssignToSection);          \
@@ -104,8 +104,6 @@
   visitor(synConstTensorCreate);              \
   visitor(synDestroyTensor);                  \
   visitor(synTensorSetAllowPermutation);      \
-  visitor(synEventMapTensor);                 \
-  visitor(synLaunchWithExternalEvents);       \
   visitor(synTensorGetHostPtr);
 
 #define DECL_SYN_FN(func)                       \
