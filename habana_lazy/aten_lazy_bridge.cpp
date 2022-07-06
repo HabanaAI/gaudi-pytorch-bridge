@@ -91,8 +91,9 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
   auto id = hl_t.getTensorUniqueId();
-  if (context->orig_tensor_map.find(id) != context->orig_tensor_map.end()) {
-    impl = GetHbLazyTensorImpl(context->orig_tensor_map[id]);
+  if (context->viewContext.orig_tensor_map.find(id) !=
+      context->viewContext.orig_tensor_map.end()) {
+    impl = GetHbLazyTensorImpl(context->viewContext.orig_tensor_map[id]);
   }
 
   auto hl_t_updated = impl->tensor();

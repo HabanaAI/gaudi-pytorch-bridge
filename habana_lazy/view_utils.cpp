@@ -87,8 +87,9 @@ Tensor HbLazyTensorViews::get_base_tensor(const Tensor& self) {
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   // handle multi level views
-  while (context->view_table.find(id) != context->view_table.end()) {
-    out = context->view_table[id].base;
+  while (context->viewContext.view_table.find(id) !=
+         context->viewContext.view_table.end()) {
+    out = context->viewContext.view_table[id].base;
     id = GetHbLazyTensor(out).getTensorUniqueId();
   }
 
@@ -100,8 +101,8 @@ const Tensor& HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
   auto id = GetHbLazyTensor(self).getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto it = context->orig_tensor_map.find(id);
-  if (it != context->orig_tensor_map.end()) {
+  auto it = context->viewContext.orig_tensor_map.find(id);
+  if (it != context->viewContext.orig_tensor_map.end()) {
     return it->second;
   }
 
@@ -113,8 +114,8 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
   bool is_view = false;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_t.getTensorUniqueId();
-  auto it = context->view_table.find(id);
-  if (it != context->view_table.end()) {
+  auto it = context->viewContext.view_table.find(id);
+  if (it != context->viewContext.view_table.end()) {
     StrideParams& params = it->second;
 
     // pick the most recent version
@@ -369,7 +370,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
       // of collectives
       strided_insert_hpu_lazy(t, t, false);
       auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      context->isLazyViewPresent = true;
+      context->viewContext.isLazyViewPresent = true;
     } else {
       // check for updated version
       t_updated = get_recent_base_tensor(t);
@@ -395,9 +396,9 @@ bool HbLazyTensorViews::HandleViewsD2D(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hlresult = GetHbLazyTensor(dst);
   auto id = hlresult.getTensorUniqueId();
-  auto it = context->view_table.find(id);
+  auto it = context->viewContext.view_table.find(id);
 
-  if (it != context->view_table.end()) {
+  if (it != context->viewContext.view_table.end()) {
     is_view = true;
 
     StrideParams* params_ptr = &it->second;
@@ -419,7 +420,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
           recent_orig_t, src, params_ptr->strides, params_ptr->offset);
 
       // update orig tensor map
-      context->orig_tensor_map[orig_t_id] = out;
+      context->viewContext.orig_tensor_map[orig_t_id] = out;
     }
   }
 
@@ -445,16 +446,16 @@ void HbLazyTensorViews::updateViewTable(
   auto storage = params.parent.storage();
   result.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
 
-  context->view_table[id] = params;
+  context->viewContext.view_table[id] = params;
 }
 
 StrideParams& HbLazyTensorViews::getViewTableParams(HbLazyTensor& hl_view_t) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
-  auto it = context->view_table.find(id);
+  auto it = context->viewContext.view_table.find(id);
   TORCH_CHECK(
-      it != context->view_table.end(),
+      it != context->viewContext.view_table.end(),
       "incorrect tensor id for view table access ",
       id);
   return it->second;
@@ -608,9 +609,9 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hl_weight = GetHbLazyTensor(weight);
   auto id = hl_weight.getTensorUniqueId();
-  auto it = context->view_table.find(id);
+  auto it = context->viewContext.view_table.find(id);
 
-  if (it == context->view_table.end()) {
+  if (it == context->viewContext.view_table.end()) {
     ir::Value& out5 = hl_weight.CurrentIrValue();
     out5.SetNode(
         node,

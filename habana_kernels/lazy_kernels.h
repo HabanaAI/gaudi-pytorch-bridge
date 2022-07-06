@@ -276,7 +276,8 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-    if (is_optimized_lazy_eager_supported(isView, context->isLazyViewPresent)) {
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -284,7 +285,7 @@ class LazyOp {
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
-    context->isLazyViewPresent = false;
+    context->viewContext.isLazyViewPresent = false;
 
     return HandleLazy(infoToBackEnd);
   }
@@ -510,7 +511,8 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-    if (is_optimized_lazy_eager_supported(isView, context->isLazyViewPresent)) {
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
@@ -519,7 +521,7 @@ class LazyOp {
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
-    context->isLazyViewPresent = false;
+    context->viewContext.isLazyViewPresent = false;
 
     return HandleLazy(infoToBackEnd);
   }
@@ -537,8 +539,8 @@ class LazyOp {
           // if it is base tensor, use the most recent version else check if
           // it is a view
           auto id = hl_t.getTensorUniqueId();
-          auto it = context->orig_tensor_map.find(id);
-          if (it != context->orig_tensor_map.end()) {
+          auto it = context->viewContext.orig_tensor_map.find(id);
+          if (it != context->viewContext.orig_tensor_map.end()) {
             m_inputs[idx] = it->second;
           } else {
             if (HbLazyTensorViews::HandleViews(t, hl_t)) {
@@ -601,8 +603,8 @@ class LazyOp {
     auto hl_self = GetHbLazyTensor(self);
 
     auto id = hl_self.getTensorUniqueId();
-    auto is_self_view =
-        context->view_table.find(id) != context->view_table.end();
+    auto is_self_view = context->viewContext.view_table.find(id) !=
+        context->viewContext.view_table.end();
 
     std::vector<at::IValue> sbs_stack;
     // special handling for self tensor

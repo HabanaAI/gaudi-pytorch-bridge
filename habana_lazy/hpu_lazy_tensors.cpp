@@ -75,29 +75,29 @@ void HbContextArena::UnregisterTensor(Data* data) {
   std::lock_guard<std::recursive_mutex> lock(GetMutex());
 
   // clear the entry in view tables
-  auto it = context->orig_tensor_map.find(data->unique_id);
-  if (it != context->orig_tensor_map.end()) {
+  auto it = context->viewContext.orig_tensor_map.find(data->unique_id);
+  if (it != context->viewContext.orig_tensor_map.end()) {
     PT_VIEWTABLE_DEBUG(
         "unregister tensor: clearing orig_tensor_map entry ", data->unique_id);
-    context->orig_tensor_map.erase(it);
+    context->viewContext.orig_tensor_map.erase(it);
     PT_VIEWTABLE_DEBUG(
         "[unregister tensor] Mem_stat.  ",
         " orig_tensor_map map size: ",
-        context->orig_tensor_map.size(),
+        context->viewContext.orig_tensor_map.size(),
         ", total bytes: ",
-        context->tensorMapSize());
+        context->viewContext.tensorMapSize());
   }
-  auto view_it = context->view_table.find(data->unique_id);
-  if (view_it != context->view_table.end()) {
+  auto view_it = context->viewContext.view_table.find(data->unique_id);
+  if (view_it != context->viewContext.view_table.end()) {
     PT_VIEWTABLE_DEBUG(
         "unregister tensor: clearing view_table entry ", data->unique_id);
-    context->view_table.erase(view_it);
+    context->viewContext.view_table.erase(view_it);
     PT_VIEWTABLE_DEBUG(
         "[unregister tensor] Mem_stat.  ",
         " view_table map size: ",
-        context->view_table.size(),
+        context->viewContext.view_table.size(),
         ", total bytes: ",
-        context->viewTableSize());
+        context->viewContext.viewTableSize());
   }
   devctx->tensors_data.erase(data->unique_id);
 }
@@ -124,11 +124,12 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
         // exclude the views
         auto ir_value = hl_t.CurrentIrValue();
         if ((ir_value && ir_value.mp_node->is_input() == false) &&
-            (context->view_table.find(id) != context->view_table.end() ||
-             (context->orig_tensor_map.find(id) !=
-              context->orig_tensor_map.end()))) {
+            (context->viewContext.view_table.find(id) !=
+                 context->viewContext.view_table.end() ||
+             (context->viewContext.orig_tensor_map.find(id) !=
+              context->viewContext.orig_tensor_map.end()))) {
           // book keep view tensors to clear the ir nodes after mark step
-          context->hb_tensors_out_view.emplace_back(hl_t);
+          context->viewContext.hb_tensors_out_view.emplace_back(hl_t);
         } else {
           // TODO: SW-69618 JIT optimization passes are failing for
           // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
@@ -838,7 +839,7 @@ void PostLaunch(
   SBSDebug::getInstance().CompareTensors(*tensors);
 
   retained_tensor_list.clear();
-  context->hb_tensors_out_view.clear();
+  context->viewContext.hb_tensors_out_view.clear();
 
   // Restore the optimizations which are cleared forcefully in getlivetensors
   exec::OptPassCfg::GetInstance()->RestoreOptPass();
@@ -971,7 +972,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   // clear IR values corresponding to unexecuted view outputs
-  for (auto& t : context->hb_tensors_out_view) {
+  for (auto& t : context->viewContext.hb_tensors_out_view) {
     ir::Value val = t.createIrValueFromData();
     t.resetVersionCounter();
     t.AssignIrValue(val);
@@ -1047,7 +1048,7 @@ void HbLazyTensor::SyncTensorsGraphInternalOptimized(
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
   // clear IR values corresponding to unexecuted view outputs
-  for (auto& t : context->hb_tensors_out_view) {
+  for (auto& t : context->viewContext.hb_tensors_out_view) {
     ir::Value val = t.createIrValueFromData();
     t.resetVersionCounter();
     t.AssignIrValue(val);
@@ -1159,8 +1160,8 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   auto dst_id = dest->getTensorUniqueId();
 
   // if src is a view, create an entry in view table for dst as well
-  auto it = context->view_table.find(src_id);
-  if (it != context->view_table.end()) {
+  auto it = context->viewContext.view_table.find(src_id);
+  if (it != context->viewContext.view_table.end()) {
     StrideParams params = it->second;
 
     // avoid circular links. Example:
@@ -1169,7 +1170,7 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     auto parent_id = GetHbLazyTensor(params.parent).getTensorUniqueId();
 
     if (dst_id != parent_id) {
-      context->view_table[dst_id] = params;
+      context->viewContext.view_table[dst_id] = params;
     } else {
       // evaluate the tensor
       auto aten_t = AtenFromHbLazyTensor(
@@ -1182,17 +1183,17 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
 
   // if src has an updated version, create an entry in orig_tensor_map for the
   // destination
-  auto ori_tensor_map_it = context->orig_tensor_map.find(src_id);
-  if (ori_tensor_map_it != context->orig_tensor_map.end()) {
+  auto ori_tensor_map_it = context->viewContext.orig_tensor_map.find(src_id);
+  if (ori_tensor_map_it != context->viewContext.orig_tensor_map.end()) {
     auto updated_base = ori_tensor_map_it->second;
-    context->orig_tensor_map[dst_id] = updated_base;
+    context->viewContext.orig_tensor_map[dst_id] = updated_base;
 
     PT_VIEWTABLE_DEBUG(
         "[hbcopyTensor] Mem_stat.  ",
         " orig_tensor_map map size: ",
-        context->orig_tensor_map.size(),
+        context->viewContext.orig_tensor_map.size(),
         ", total bytes: ",
-        context->tensorMapSize());
+        context->viewContext.tensorMapSize());
   }
 
   // We can add stuff related to view tensors later

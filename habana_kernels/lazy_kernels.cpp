@@ -128,15 +128,15 @@ void dumpViewTableMemoryStat() {
 
   PT_VIEWTABLE_DEBUG(
       "[ViewTable MemStats] #view_table map size: ",
-      context->view_table.size(),
+      context->viewContext.view_table.size(),
       ", total bytes: ",
-      context->viewTableSize());
+      context->viewContext.viewTableSize());
 
   PT_VIEWTABLE_DEBUG(
       "[ViewTable MemStats] #orig_tensor_map map size: ",
-      context->orig_tensor_map.size(),
+      context->viewContext.orig_tensor_map.size(),
       ", total bytes: ",
-      context->tensorMapSize());
+      context->viewContext.tensorMapSize());
 }
 
 void flushWithMarkStep() {
@@ -356,8 +356,9 @@ void strided_insert_hpu_lazy(
   auto id = hl_self.getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto it = context->view_table.find(id);
-  TORCH_CHECK(it != context->view_table.end(), "incorrect tensor id");
+  auto it = context->viewContext.view_table.find(id);
+  TORCH_CHECK(
+      it != context->viewContext.view_table.end(), "incorrect tensor id");
   StrideParams* params_ptr = &it->second;
 
   // pick the most recent version
@@ -372,7 +373,7 @@ void strided_insert_hpu_lazy(
 
   // update orig tensor map
   auto param_id = GetHbLazyTensor(params_ptr->base).getTensorUniqueId();
-  context->orig_tensor_map[param_id] = out;
+  context->viewContext.orig_tensor_map[param_id] = out;
 
   PT_VIEWTABLE_DEBUG("orig tensor map entry created for ", param_id);
   return;
@@ -393,8 +394,8 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
     // as_strided ops fall back not possible if there are as_strided ops in the
     // sequence.
     auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
-    auto it = context->view_table.find(self_id);
-    while (it != context->view_table.end()) {
+    auto it = context->viewContext.view_table.find(self_id);
+    while (it != context->viewContext.view_table.end()) {
       StrideParams* params_ptr = &it->second;
       if (params_ptr->optype == kStridedOpDefault) {
         is_fallback = false;
@@ -402,7 +403,7 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
       }
 
       auto parent_id = GetHbLazyTensor(params_ptr->parent).getTensorUniqueId();
-      it = context->view_table.find(parent_id);
+      it = context->viewContext.view_table.find(parent_id);
     }
     return is_fallback;
   } else {
@@ -580,8 +581,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     auto id = GetHbLazyTensor(self).getTensorUniqueId();
-    auto it = context->view_table.find(id);
-    if (it != context->view_table.end()) {
+    auto it = context->viewContext.view_table.find(id);
+    if (it != context->viewContext.view_table.end()) {
       // add strided insert at the cast output
       at::TensorOptions options = src.options().dtype(self.scalar_type());
       auto src_cast = empty_hpu_lazy(
@@ -1264,8 +1265,8 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   // The above sequence can be compressed to v2 = view(a, out_size2)
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto self_id = hl_self.getTensorUniqueId();
-  auto it = context->view_table.find(self_id);
-  if (it != context->view_table.end()) {
+  auto it = context->viewContext.view_table.find(self_id);
+  if (it != context->viewContext.view_table.end()) {
     StrideParams* params_ptr = &it->second;
     if (params_ptr->optype == kStridedOpView) {
       self = params_ptr->parent;
@@ -1498,8 +1499,8 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   // place variant
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = GetHbLazyTensor(out).getTensorUniqueId();
-  auto it = context->view_table.find(id);
-  if (it != context->view_table.end()) {
+  auto it = context->viewContext.view_table.find(id);
+  if (it != context->viewContext.view_table.end()) {
     auto orig_out = out;
     auto temp = mul_tensor_hpu_lazy(self, other);
     Tensor temp_cast = temp;
@@ -6510,9 +6511,9 @@ Tensor fused_norm_hpu_lazy(
     auto grad_t = grad[i];
     auto hlgrad = GetHbLazyTensor(grad_t);
     auto id = hlgrad.getTensorUniqueId();
-    auto it = context->view_table.find(id);
+    auto it = context->viewContext.view_table.find(id);
 
-    if (it == context->view_table.end()) {
+    if (it == context->viewContext.view_table.end()) {
       ir::Value& out1 = hlgrad.CurrentIrValue();
       out1.SetNode(
           node_unpack,

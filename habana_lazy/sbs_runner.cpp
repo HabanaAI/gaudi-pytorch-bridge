@@ -449,8 +449,9 @@ at::Tensor SBSRunner::prepareTensorToCPU(
   auto id = hb_tensor.getTensorUniqueId();
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-  auto it = context->view_table.find(id);
-  if (it != context->view_table.end()) // we need to sync view tensors
+  auto it = context->viewContext.view_table.find(id);
+  if (it !=
+      context->viewContext.view_table.end()) // we need to sync view tensors
   {
     PT_LAZY_DEBUG(
         "SBSRunner::",

@@ -13,10 +13,105 @@
 #include <utility>
 
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
+
+enum StridedOPType {
+  kStridedOpDefault = 0,
+  kStridedOpView,
+  kStridedOpSlice,
+  kStridedOpTranspose,
+  kStridedOpT,
+  kStridedOpPermute,
+  kStridedOpSqueeze,
+  kStridedOpUnsqueeze,
+  kStridedOpExpand
+};
+
+struct StridedOpSliceParams {
+  int64_t dim;
+  c10::optional<int64_t> start;
+  c10::optional<int64_t> end;
+  int64_t step;
+};
+
+struct StridedOpTransposeParams {
+  int64_t dim0_;
+  int64_t dim1_;
+};
+
+struct StridedOpSqueezeParams {
+  int64_t dim;
+};
+
+struct StridedOpExpandParams {
+  bool implicit = false;
+};
+
+union OpParams {
+  StridedOpSliceParams slice_param;
+  StridedOpTransposeParams transpose_param;
+  StridedOpSqueezeParams squeeze_param;
+  StridedOpExpandParams expand_param;
+  OpParams(){};
+};
+
+struct StrideParams {
+  // storing the tensor helps to retain extend the lifetime of tensor until all
+  // the views have expired
+  // base is used as node input for torch.as_strided. For rest of the view like
+  // ops like view, select, slice, transpose etc we should the parent. This is
+  // because only for as_strided the following relation holds true b =
+  // torch.as_strided(a) c = as_strided(b) this is same as c = as_strided(a)
+  // with the composite stride, size and offset params
+  at::Tensor base;
+  at::Tensor parent;
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
+  int64_t offset;
+  int64_t parent_id;
+  StridedOPType optype;
+  OpParams params;
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += sizes.size() * sizeof(decltype(sizes)::value_type);
+    size += strides.size() * sizeof(decltype(strides)::value_type);
+    return size;
+  }
+};
+
+class StridedViewContext {
+ public:
+  size_t viewTableSize() const {
+    size_t size = sizeof(view_table);
+    size += sizeof(decltype(view_table)::key_type) * view_table.size();
+
+    for (auto const& entry : view_table) {
+      size += entry.second.Size();
+    }
+    return size;
+  }
+
+  size_t tensorMapSize() const {
+    size_t size = sizeof(orig_tensor_map);
+    size += orig_tensor_map.size() *
+        (sizeof(decltype(orig_tensor_map)::key_type) +
+         sizeof(decltype(orig_tensor_map)::mapped_type));
+
+    return size;
+  }
+
+  // maps tensor id corresponding to as_strided's o/p with its i/p stride params
+  std::unordered_map<int64_t, StrideParams> view_table;
+  // maintains most recent version of the original tensor map
+  std::unordered_map<int64_t, at::Tensor> orig_tensor_map;
+
+  // view tensors that occurs as graph outputs
+  std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
+  bool isLazyViewPresent = false;
+};
 
 class HbLazyTensorViews {
   /* Currently stateless, based on need in future can change access of
