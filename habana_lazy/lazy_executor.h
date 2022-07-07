@@ -25,8 +25,8 @@ using GraphPtr = std::shared_ptr<Graph>;
 namespace habana_lazy {
 
 struct HashFn {
-  std::size_t operator()(const std::pair<float, at::ScalarType>& pair) const {
-    return std::hash<float>()(pair.first) ^
+  std::size_t operator()(const std::pair<double, at::ScalarType>& pair) const {
+    return std::hash<double>()(pair.first) ^
         std::hash<float>()((float)pair.second);
   }
 };
@@ -34,8 +34,8 @@ struct HashFn {
 class EqualFn {
  public:
   bool operator()(
-      const std::pair<float, at::ScalarType>& a,
-      const std::pair<float, at::ScalarType>& b) const {
+      const std::pair<double, at::ScalarType>& a,
+      const std::pair<double, at::ScalarType>& b) const {
     return a.first == b.first && a.second == b.second;
   }
 };
@@ -185,7 +185,7 @@ class HbExecutionContext {
   bool m_is_cached = false;
 
   std::unordered_map<
-      std::pair<float, at::ScalarType>,
+      std::pair<double, at::ScalarType>,
       at::Tensor,
       HashFn,
       EqualFn>

@@ -24,7 +24,7 @@ LazyCmp<at::Tensor>::LazyCmp(
     auto other = x[1].toScalar();
     auto dtype = at::result_type(self, other);
     auto other_tensor = habana_lazy::get_tensor_for_scalar(
-        other.toFloat(), self.options().dtype(dtype));
+        other.toDouble(), self.options().dtype(dtype));
     x[1] = c10::IValue(other_tensor);
     set_inputs(x);
   }

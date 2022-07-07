@@ -67,7 +67,7 @@ std::vector<int64_t> CalculateStrides5d(
     c10::MemoryFormat format);
 
 at::Tensor get_tensor_for_scalar(
-    float alpha,
+    double alpha,
     const at::TensorOptions& options = {});
 
 void flush_op(
@@ -1027,7 +1027,7 @@ class LazyOp {
           // C++ or Python number.
           auto dtype = tensor.scalar_type();
           tinput = get_tensor_for_scalar(
-              tensor.item().toFloat(), at::TensorOptions().dtype(dtype));
+              tensor.item().toDouble(), at::TensorOptions().dtype(dtype));
         } else {
           // Use non_blocking .to()
           tinput = tensor.to(c10::kHPU, true);

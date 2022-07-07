@@ -422,7 +422,7 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
  * is in Int/Float
  */
 at::Tensor get_tensor_for_scalar(
-    float alpha,
+    double alpha,
     const at::TensorOptions& options) {
   at::Tensor alpha_tensor;
 
@@ -1353,13 +1353,13 @@ Tensor& addcdiv_hpu_lazy_(
     const Tensor& tensor2,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto alpha_float = alpha.toFloat();
-  if (alpha_float == 1.0) {
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double == 1.0) {
     LazyOp<at::Tensor&> op{"aten::addcdiv_", {self, tensor1, tensor2, alpha}};
     return op.call(self);
   } else {
     auto div_out = div_tensor_hpu_lazy(tensor1, tensor2);
-    auto alpha_tensor = get_tensor_for_scalar(alpha_float, div_out.options());
+    auto alpha_tensor = get_tensor_for_scalar(alpha_double, div_out.options());
     auto mul_out = mul_tensor_hpu_lazy(alpha_tensor, div_out);
     auto out = add_tensor_hpu_lazy_(self, mul_out, 1.0);
   }
@@ -1373,7 +1373,7 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto alpha_float = alpha.toFloat();
+  auto alpha_double = alpha.toDouble();
 
   // Check result data type
   auto res_dtype = at::result_type(self, other);
@@ -1383,12 +1383,12 @@ Tensor add_tensor_hpu_lazy(
   if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
       other.scalar_type() == c10::ScalarType::Double) {
     other_cast = get_tensor_for_scalar(
-        other.item().toFloat(), other.options().dtype(res_dtype));
+        other.item().toDouble(), other.options().dtype(res_dtype));
   }
 
-  if (alpha_float != 1.0) {
+  if (alpha_double != 1.0) {
     at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_float, other_cast.options());
+        get_tensor_for_scalar(alpha_double, other_cast.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
     auto mul_out = mul_tensor_hpu_lazy(other_cast, alpha_tensor);
@@ -1418,7 +1418,7 @@ Tensor& add_scalar_hpu_lazy_(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
 
   return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
@@ -1428,10 +1428,10 @@ Tensor& add_tensor_hpu_lazy_(
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto alpha_float = alpha.toFloat();
-  if (alpha_float != 1.0) {
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
     at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_float, other.options());
+        get_tensor_for_scalar(alpha_double, other.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
     auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
@@ -1534,8 +1534,7 @@ Tensor mul_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
 
 Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
-
-  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
   LazyOp<at::Tensor&> k("aten::mul_", {self, other_tensor});
   return k.call(self);
 }
@@ -1551,7 +1550,7 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   if (other.device().type() == c10::DeviceType::CPU && other.dim() == 0 &&
       other.scalar_type() == c10::ScalarType::Double) {
     other_cast = get_tensor_for_scalar(
-        other.item().toFloat(), other.options().dtype(res_dtype));
+        other.item().toDouble(), other.options().dtype(res_dtype));
   }
 
   LazyBinaryOp<at::Tensor> k{
@@ -1584,7 +1583,7 @@ Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 Tensor div_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
 
-  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
   LazyOp<at::Tensor> k{"aten::div", {self, other_tensor}};
   return k.call();
 }
