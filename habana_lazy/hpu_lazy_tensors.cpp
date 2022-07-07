@@ -65,15 +65,6 @@ void HbContextArena::UnregisterTensor(Data* data) {
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
 
-  context->UnregisterTensor(data);
-  // The weak ptr in tensors_data is reset before acquiring the m_mtx,
-  // release_resources will acquire GIL and it may conflict with m_mtx. So first
-  // free the resources and then acquire m_mtx and then free erase from
-  // tensors_data
-  auto tData = GetTensorDataPtrFromHbContext(data);
-  tData.reset();
-  std::lock_guard<std::recursive_mutex> lock(GetMutex());
-
   // clear the entry in view tables
   auto it = context->viewContext.orig_tensor_map.find(data->unique_id);
   if (it != context->viewContext.orig_tensor_map.end()) {
@@ -99,6 +90,14 @@ void HbContextArena::UnregisterTensor(Data* data) {
         ", total bytes: ",
         context->viewContext.viewTableSize());
   }
+  context->UnregisterTensor(data);
+  // The weak ptr in tensors_data is reset before acquiring the m_mtx,
+  // release_resources will acquire GIL and it may conflict with m_mtx. So first
+  // free the resources and then acquire m_mtx and then free erase from
+  // tensors_data
+  auto tData = GetTensorDataPtrFromHbContext(data);
+  tData.reset();
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
   devctx->tensors_data.erase(data->unique_id);
 }
 
