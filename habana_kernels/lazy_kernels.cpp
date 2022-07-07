@@ -419,6 +419,31 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
   }
 }
 
+at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
+  const auto& context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+  const auto& t =
+      empty_hpu_lazy({}, scalar_tensor.options(), c10::nullopt, true);
+  t.unsafeGetTensorImpl()->set_wrapped_number(true);
+
+  bool processed = false;
+  const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
+
+  // Mark as input
+  HbLazyTensor hb_tensor = GetHbLazyTensor(t);
+  setTensorAsInputNode(hb_tensor);
+  context->MarkTensorStatus(
+      hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
+
+  auto internal_tensor = hb_tensor.GetHbLazyTensorData().value();
+  internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
+
+  // Actual Copy is done during JIT graph creation/lowering
+  context->copy_scalar_to_hpu_tensor_list.emplace_back(tensor, internal_tensor);
+
+  return t;
+}
+
 /**
  * Returns a tensor for a scalar value.
  * In case of 64b dtypes such as Long/Double it returns a tensor
@@ -439,28 +464,8 @@ at::Tensor get_tensor_for_scalar(
     if (false == GET_ENV_FLAG_NEW(PT_HPU_SCALAR_H2D_COPY_MULTIPLE)) {
       alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
     } else {
-      auto cpu_tensor = at::tensor(alpha).to(options.dtype());
-      // Create HPU Lazy Tensor
-      alpha_tensor = empty_hpu_lazy({}, options, c10::nullopt, true);
-      alpha_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
-
-      bool processed = false;
-      cpu_tensor =
-          preProcessIfLongorDouble(cpu_tensor, alpha_tensor, processed);
-
-      // Create Storage
-      auto hb_tensor = GetOrCreateHbLazyTensor(alpha_tensor);
-      setTensorAsInputNode(hb_tensor);
-      context->MarkTensorStatus(
-          hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
-      auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
-      auto hb_internal_tensor = hb_tensor_data.value();
-      hb_internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
-
-      // Copy scalar cpu tensor to hpu tensor list
-      // Actual Copy is done during JIT graph creation/lowering
-      auto copy_tensors = std::make_pair(cpu_tensor, hb_internal_tensor);
-      context->copy_scalar_to_hpu_tensor_list.push_back(copy_tensors);
+      alpha_tensor =
+          append_to_batch_h2d_list(at::tensor(alpha).to(options.dtype()));
     }
 
     // Add to scalar value to device tensor cache
@@ -4755,7 +4760,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     }
   };
   // use gen to create a seed and forward it to the op
-  auto seed = habana::get_seed_tensor_hpu(gen);
+  auto seed = habana::get_seed_tensor_hpu(gen, true);
   FusedDropout op(self, p, seed);
   return op.call();
 }

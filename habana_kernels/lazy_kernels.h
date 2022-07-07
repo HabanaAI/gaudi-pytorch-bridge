@@ -30,6 +30,7 @@ namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
 at::Tensor permute_wt_hpu(const at::Tensor& self);
 void AddMemcpy(const at::Tensor& src, at::Tensor& dst);
+at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor);
 void updateDstDependencies(
     habana_lazy::HbLazyTensor& hl_dst,
     const at::Tensor& dst,
