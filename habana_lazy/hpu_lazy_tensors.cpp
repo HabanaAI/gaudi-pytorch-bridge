@@ -65,40 +65,49 @@ void HbContextArena::UnregisterTensor(Data* data) {
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
 
-  // clear the entry in view tables
-  auto it = context->viewContext.orig_tensor_map.find(data->unique_id);
-  if (it != context->viewContext.orig_tensor_map.end()) {
-    PT_VIEWTABLE_DEBUG(
-        "unregister tensor: clearing orig_tensor_map entry ", data->unique_id);
-    context->viewContext.orig_tensor_map.erase(it);
-    PT_VIEWTABLE_DEBUG(
-        "[unregister tensor] Mem_stat.  ",
-        " orig_tensor_map map size: ",
-        context->viewContext.orig_tensor_map.size(),
-        ", total bytes: ",
-        context->viewContext.tensorMapSize());
-  }
-  auto view_it = context->viewContext.view_table.find(data->unique_id);
-  if (view_it != context->viewContext.view_table.end()) {
-    PT_VIEWTABLE_DEBUG(
-        "unregister tensor: clearing view_table entry ", data->unique_id);
-    context->viewContext.view_table.erase(view_it);
-    PT_VIEWTABLE_DEBUG(
-        "[unregister tensor] Mem_stat.  ",
-        " view_table map size: ",
-        context->viewContext.view_table.size(),
-        ", total bytes: ",
-        context->viewContext.viewTableSize());
-  }
   context->UnregisterTensor(data);
   // The weak ptr in tensors_data is reset before acquiring the m_mtx,
   // release_resources will acquire GIL and it may conflict with m_mtx. So first
   // free the resources and then acquire m_mtx and then free erase from
-  // tensors_data
+  // tensors_data. tensors holded in viewEntryTensor/strideParams will be erased
+  // once lock scope is over.
   auto tData = GetTensorDataPtrFromHbContext(data);
+  auto unique_id = data->unique_id;
   tData.reset();
-  std::lock_guard<std::recursive_mutex> lock(GetMutex());
-  devctx->tensors_data.erase(data->unique_id);
+  at::Tensor viewEntryTensor;
+  StrideParams strideParams;
+  {
+    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    devctx->tensors_data.erase(unique_id);
+
+    // clear the entry in view tables
+    auto it = context->viewContext.orig_tensor_map.find(unique_id);
+    if (it != context->viewContext.orig_tensor_map.end()) {
+      PT_VIEWTABLE_DEBUG(
+          "unregister tensor: clearing orig_tensor_map entry ", unique_id);
+      viewEntryTensor = it->second;
+      context->viewContext.orig_tensor_map.erase(it);
+      PT_VIEWTABLE_DEBUG(
+          "[unregister tensor] Mem_stat.  ",
+          " orig_tensor_map map size: ",
+          context->viewContext.orig_tensor_map.size(),
+          ", total bytes: ",
+          context->viewContext.tensorMapSize());
+    }
+    auto view_it = context->viewContext.view_table.find(unique_id);
+    if (view_it != context->viewContext.view_table.end()) {
+      PT_VIEWTABLE_DEBUG(
+          "unregister tensor: clearing view_table entry ", unique_id);
+      strideParams = view_it->second;
+      context->viewContext.view_table.erase(view_it);
+      PT_VIEWTABLE_DEBUG(
+          "[unregister tensor] Mem_stat.  ",
+          " view_table map size: ",
+          context->viewContext.view_table.size(),
+          ", total bytes: ",
+          context->viewContext.viewTableSize());
+    }
+  }
 }
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
