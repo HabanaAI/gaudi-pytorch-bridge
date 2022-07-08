@@ -31,8 +31,7 @@ static void updateAtensorView(
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   auto hb_tensor = habana_lazy::GetHbLazyTensor(old_tensor);
   auto tensor_id = hb_tensor.getTensorUniqueId();
-  auto tensor_id_itr = context->viewContext.view_table.find(tensor_id);
-  if (tensor_id_itr != context->viewContext.view_table.end()) {
+  if (context->viewContext.GetViewTableEntry(tensor_id) != nullptr) {
     habana_lazy::strided_insert_hpu_lazy(old_tensor, new_tensor);
   }
 }

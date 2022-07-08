@@ -85,32 +85,56 @@ struct StrideParams {
 class StridedViewContext {
  public:
   size_t viewTableSize() const {
-    size_t size = sizeof(view_table);
-    size += sizeof(decltype(view_table)::key_type) * view_table.size();
+    return m_view_table.size();
+  }
 
-    for (auto const& entry : view_table) {
+  size_t viewTableBytes() const {
+    size_t size = sizeof(m_view_table);
+    size += sizeof(decltype(m_view_table)::key_type) * viewTableSize();
+
+    for (auto const& entry : m_view_table) {
       size += entry.second.Size();
     }
     return size;
   }
 
   size_t tensorMapSize() const {
-    size_t size = sizeof(orig_tensor_map);
-    size += orig_tensor_map.size() *
-        (sizeof(decltype(orig_tensor_map)::key_type) +
-         sizeof(decltype(orig_tensor_map)::mapped_type));
+    return m_orig_tensor_map.size();
+  }
+
+  size_t tensorMapBytes() const {
+    size_t size = sizeof(m_orig_tensor_map);
+    size += tensorMapSize() *
+        (sizeof(decltype(m_orig_tensor_map)::key_type) +
+         sizeof(decltype(m_orig_tensor_map)::mapped_type));
 
     return size;
   }
 
-  // maps tensor id corresponding to as_strided's o/p with its i/p stride params
-  std::unordered_map<int64_t, StrideParams> view_table;
-  // maintains most recent version of the original tensor map
-  std::unordered_map<int64_t, at::Tensor> orig_tensor_map;
+  std::recursive_mutex& GetViewTableMutex() {
+    return m_view_table_mtx;
+  }
+
+  void AddViewTableEntry(int64_t tensor_id, StrideParams params);
+  void DelViewTableEntry(int64_t tensor_id);
+  // std::optional<StrideParams> GetViewTableEntry(int64_t tensor_id);
+  StrideParams* GetViewTableEntry(int64_t tensor_id);
+
+  void AddViewTensorMapEntry(int64_t tensor_id, at::Tensor tensor);
+  void DelViewTensorMapEntry(int64_t tensor_id);
+  c10::optional<at::Tensor> GetViewTensorMapEntry(int64_t tensor_id);
 
   // view tensors that occurs as graph outputs
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
   bool isLazyViewPresent = false;
+
+ private:
+  std::recursive_mutex m_view_table_mtx;
+
+  // maps tensor id corresponding to as_strided's o/p with its i/p stride params
+  std::unordered_map<int64_t, StrideParams> m_view_table;
+  // maintains most recent version of the original tensor map
+  std::unordered_map<int64_t, at::Tensor> m_orig_tensor_map;
 };
 
 class HbLazyTensorViews {
@@ -175,9 +199,9 @@ class HbLazyTensorViews {
       bool is_update_view,
       c10::optional<at::Tensor> out);
   static void updateViewTable(at::Tensor& result, StrideParams& params);
-  static StrideParams& getViewTableParams(HbLazyTensor& hl_view_t);
+  static StrideParams* getViewTableParams(HbLazyTensor& hl_view_t);
   static at::Tensor get_base_tensor(const at::Tensor& self);
-  static const at::Tensor& get_recent_base_tensor(const at::Tensor& self);
+  static const at::Tensor get_recent_base_tensor(const at::Tensor& self);
   static void CustomKernelAddNodeInplace(
       const at::Tensor& self,
       habana_lazy::ir::NodePtr node,

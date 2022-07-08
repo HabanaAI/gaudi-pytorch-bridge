@@ -91,11 +91,15 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
   auto id = hl_t.getTensorUniqueId();
-  if (context->viewContext.orig_tensor_map.find(id) !=
-      context->viewContext.orig_tensor_map.end()) {
-    impl = GetHbLazyTensorImpl(context->viewContext.orig_tensor_map[id]);
+  {
+    std::lock_guard<std::recursive_mutex> view_table_lock(
+        context->viewContext.GetViewTableMutex());
+    c10::optional<at::Tensor> base_tensor =
+        context->viewContext.GetViewTensorMapEntry(id);
+    if (base_tensor != c10::nullopt) {
+      impl = GetHbLazyTensorImpl(base_tensor.value());
+    }
   }
-
   auto hl_t_updated = impl->tensor();
   // if producer is collective, mark step
   const auto& ir_value = hl_t_updated.GetIrValue();

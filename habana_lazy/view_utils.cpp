@@ -21,6 +21,73 @@ using namespace habana;
 using namespace at;
 
 namespace habana_lazy {
+
+void StridedViewContext::AddViewTableEntry(
+    int64_t tensor_id,
+    StrideParams params) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  m_view_table[tensor_id] = params;
+}
+
+void StridedViewContext::DelViewTableEntry(int64_t tensor_id) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  auto view_it = m_view_table.find(tensor_id);
+  if (view_it != m_view_table.end()) {
+    m_view_table.erase(view_it);
+
+    PT_VIEWTABLE_DEBUG(
+        "[unregister tensor] clearied view_table entry ",
+        tensor_id,
+        "Mem_stat.  ",
+        " view_table map size: ",
+        viewTableSize(),
+        ", total bytes: ",
+        viewTableBytes());
+  }
+}
+
+StrideParams* StridedViewContext::GetViewTableEntry(int64_t tensor_id) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  auto it = m_view_table.find(tensor_id);
+  if (it != m_view_table.end()) {
+    return &it->second;
+  }
+  return nullptr;
+}
+
+void StridedViewContext::AddViewTensorMapEntry(
+    int64_t tensor_id,
+    at::Tensor tensor) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  m_orig_tensor_map[tensor_id] = tensor;
+}
+
+void StridedViewContext::DelViewTensorMapEntry(int64_t tensor_id) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  auto it = m_orig_tensor_map.find(tensor_id);
+  if (it != m_orig_tensor_map.end()) {
+    m_orig_tensor_map.erase(it);
+    PT_VIEWTABLE_DEBUG(
+        "[unregister tensor] clearing orig_tensor_map entry ",
+        tensor_id,
+        "Mem_stat.  ",
+        " orig_tensor_map map size: ",
+        tensorMapSize(),
+        ", total bytes: ",
+        tensorMapBytes());
+  }
+}
+
+c10::optional<at::Tensor> StridedViewContext::GetViewTensorMapEntry(
+    int64_t tensor_id) {
+  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  auto it = m_orig_tensor_map.find(tensor_id);
+  if (it != m_orig_tensor_map.end()) {
+    return it->second;
+  }
+  return c10::nullopt;
+}
+
 Tensor add_strided_insert_node(
     const Tensor& orig_t,
     const Tensor& insert_t,
@@ -87,23 +154,24 @@ Tensor HbLazyTensorViews::get_base_tensor(const Tensor& self) {
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   // handle multi level views
-  while (context->viewContext.view_table.find(id) !=
-         context->viewContext.view_table.end()) {
-    out = context->viewContext.view_table[id].base;
+  StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+  while (params_ptr != nullptr) {
+    out = params_ptr->base;
     id = GetHbLazyTensor(out).getTensorUniqueId();
+    params_ptr = context->viewContext.GetViewTableEntry(id);
   }
 
   return out;
 }
 
-const Tensor& HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
+const Tensor HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
   /* Fetch the most recent version of base from orig tensor map*/
   auto id = GetHbLazyTensor(self).getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto it = context->viewContext.orig_tensor_map.find(id);
-  if (it != context->viewContext.orig_tensor_map.end()) {
-    return it->second;
+  auto base_t = context->viewContext.GetViewTensorMapEntry(id);
+  if (base_t != c10::nullopt) {
+    return base_t.value();
   }
 
   return self;
@@ -114,10 +182,17 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
   bool is_view = false;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_t.getTensorUniqueId();
-  auto it = context->viewContext.view_table.find(id);
-  if (it != context->viewContext.view_table.end()) {
-    StrideParams& params = it->second;
-
+  StrideParams params;
+  StrideParams* params_ptr = nullptr;
+  {
+    std::lock_guard<std::recursive_mutex> view_table_lock(
+        context->viewContext.GetViewTableMutex());
+    params_ptr = context->viewContext.GetViewTableEntry(id);
+    if (params_ptr != nullptr) {
+      params = *params_ptr;
+    }
+  }
+  if (params_ptr != nullptr) {
     // pick the most recent version
     // use base if it is as_strided op else use the parent
     auto parent_or_base =
@@ -396,31 +471,33 @@ bool HbLazyTensorViews::HandleViewsD2D(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hlresult = GetHbLazyTensor(dst);
   auto id = hlresult.getTensorUniqueId();
-  auto it = context->viewContext.view_table.find(id);
 
-  if (it != context->viewContext.view_table.end()) {
-    is_view = true;
+  {
+    std::lock_guard<std::recursive_mutex> view_table_lock(
+        context->viewContext.GetViewTableMutex());
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+    if (params_ptr != nullptr) {
+      is_view = true;
 
-    StrideParams* params_ptr = &it->second;
+      // get the base tensor
+      // check for most recent version of the original tensor
+      auto orig_t = get_base_tensor(params_ptr->base);
+      auto orig_t_id = GetHbLazyTensor(orig_t).getTensorUniqueId();
 
-    // get the base tensor
-    // check for most recent version of the original tensor
-    auto orig_t = get_base_tensor(params_ptr->base);
-    auto orig_t_id = GetHbLazyTensor(orig_t).getTensorUniqueId();
+      auto src_parent = get_base_tensor(src);
+      auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
 
-    auto src_parent = get_base_tensor(src);
-    auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
+      // the id check avoids a cycle with strided insert node
+      // scenario t1_h[i - 1] += 1. Here the output of the add can be used
+      // directly instead of performing one more strided insert
+      if (src_parent_id != orig_t_id) {
+        auto recent_orig_t = get_recent_base_tensor(orig_t);
+        auto out = add_strided_insert_node(
+            recent_orig_t, src, params_ptr->strides, params_ptr->offset);
 
-    // the id check avoids a cycle with strided insert node
-    // scenario t1_h[i - 1] += 1. Here the output of the add can be used
-    // directly instead of performing one more strided insert
-    if (src_parent_id != orig_t_id) {
-      auto recent_orig_t = get_recent_base_tensor(orig_t);
-      auto out = add_strided_insert_node(
-          recent_orig_t, src, params_ptr->strides, params_ptr->offset);
-
-      // update orig tensor map
-      context->viewContext.orig_tensor_map[orig_t_id] = out;
+        // update orig tensor map
+        context->viewContext.AddViewTensorMapEntry(orig_t_id, out);
+      }
     }
   }
 
@@ -445,20 +522,19 @@ void HbLazyTensorViews::updateViewTable(
       params.offset);
   auto storage = params.parent.storage();
   result.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
-
-  context->viewContext.view_table[id] = params;
+  context->viewContext.AddViewTableEntry(id, params);
 }
 
-StrideParams& HbLazyTensorViews::getViewTableParams(HbLazyTensor& hl_view_t) {
+StrideParams* HbLazyTensorViews::getViewTableParams(HbLazyTensor& hl_view_t) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
-  auto it = context->viewContext.view_table.find(id);
+  std::lock_guard<std::recursive_mutex> view_table_lock(
+      context->viewContext.GetViewTableMutex());
+  StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
   TORCH_CHECK(
-      it != context->viewContext.view_table.end(),
-      "incorrect tensor id for view table access ",
-      id);
-  return it->second;
+      params_ptr != nullptr, "incorrect tensor id for view table access ", id);
+  return params_ptr;
 }
 
 Tensor HbLazyTensorViews::add_view_lazy(
@@ -609,9 +685,7 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hl_weight = GetHbLazyTensor(weight);
   auto id = hl_weight.getTensorUniqueId();
-  auto it = context->viewContext.view_table.find(id);
-
-  if (it == context->viewContext.view_table.end()) {
+  if (context->viewContext.GetViewTableEntry(id) == nullptr) {
     ir::Value& out5 = hl_weight.CurrentIrValue();
     out5.SetNode(
         node,

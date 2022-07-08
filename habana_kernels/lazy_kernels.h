@@ -498,12 +498,17 @@ class LazyOp {
       // if it is base tensor, use the most recent version else check if
       // it is a view
       auto id = hl_t.getTensorUniqueId();
-      auto it = context->viewContext.orig_tensor_map.find(id);
-      if (it != context->viewContext.orig_tensor_map.end()) {
-        m_inputs[idx] = it->second;
-      } else {
-        if (HbLazyTensorViews::HandleViews(t, hl_t)) {
-          is_view = true;
+      {
+        std::lock_guard<std::recursive_mutex> view_table_lock(
+            context->viewContext.GetViewTableMutex());
+        c10::optional<at::Tensor> base_tensor =
+            context->viewContext.GetViewTensorMapEntry(id);
+        if (base_tensor != c10::nullopt) {
+          m_inputs[idx] = base_tensor;
+        } else {
+          if (HbLazyTensorViews::HandleViews(t, hl_t)) {
+            is_view = true;
+          }
         }
       }
     } // if (t.defined() && (
@@ -581,8 +586,7 @@ class LazyOp {
     auto hl_self = GetHbLazyTensor(self);
 
     auto id = hl_self.getTensorUniqueId();
-    auto is_self_view = context->viewContext.view_table.find(id) !=
-        context->viewContext.view_table.end();
+    auto is_self_view = (context->viewContext.GetViewTableEntry(id) != nullptr);
 
     std::vector<at::IValue> sbs_stack;
     // special handling for self tensor
