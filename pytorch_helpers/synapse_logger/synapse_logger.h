@@ -38,7 +38,7 @@ enum ErrorLevel { S_ERROR = 0, S_INFO = 1, S_TRACE = 2 };
 namespace synapse_logger {
 
 constexpr std::array<const char*, 3> slog_levels = {{"ERROR", "INFO", "TRACE"}};
-const int enabled_slog_level = S_INFO;
+
 constexpr const char* get_slog_level(ErrorLevel level) {
   return synapse_logger::slog_levels[level];
 }
@@ -47,8 +47,10 @@ inline bool is_status_success(synStatus status) {
   return (synSuccess == status);
 }
 
+int get_slog_level_config();
+
 #define SLOG(level)                                                 \
-  if (synapse_logger::enabled_slog_level >= level)                  \
+  if (synapse_logger::get_slog_level_config() >= level)             \
   (level <= S_ERROR ? std::cerr : std::clog)                        \
       << "synapse_logger " << synapse_logger::get_slog_level(level) \
       << ". pid=" << getpid() << " at " << __FILE__ << ":" << __LINE__ << " "
@@ -276,7 +278,12 @@ class SynapseLogger {
   std::unordered_map<synStreamHandle, stream_deque> transfers_;
   synDeviceId last_acquired_id_{SYN_DEVICE_ID_UNASSIGNED};
   std::atomic_bool eager_flush_{true};
-  std::atomic_bool lazy_open_{false};
+
+  // By default enable lazy_open_, to avoid creating unnecessary files with 0
+  // bytes refer [SW-90294] for details Until a proper fix from TPC fuser, keep
+  // it enabled.
+  std::atomic_bool lazy_open_{true};
+
   std::atomic_bool use_null_backend_{false};
   std::atomic_bool optimize_trace_{false};
   static void command_signal_handler(int);

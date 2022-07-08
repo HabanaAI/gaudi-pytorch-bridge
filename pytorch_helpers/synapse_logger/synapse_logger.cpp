@@ -57,6 +57,12 @@ void checked_dlclose(void* lib_handle) {
 
 namespace synapse_logger {
 
+std::atomic_int enabled_slog_level(S_ERROR);
+
+int get_slog_level_config() {
+  return enabled_slog_level.load();
+}
+
 std::unique_ptr<void, void (&)(void*)> dlopen_or_die(
     const char* name,
     int flag) {
@@ -135,6 +141,7 @@ void SynapseLogger::lazy_open() {
 static std::once_flag lazy_init_flag{};
 
 void SynapseLogger::dump_trace_info() {
+  std::call_once(lazy_init_flag, &SynapseLogger::lazy_open, logger);
   std::lock_guard<std::mutex> lock{log_lock_};
   if (optimize_trace_) {
     for (long unsigned int i = 0; i < trace_info.payload.size(); i++) {
@@ -339,6 +346,11 @@ void SynapseLogger::command(absl::string_view cmd) {
     transfers_.clear();
   } else if (cmd_name == "disable_mask") {
     disable_mask();
+  } else if (cmd_name == "disable_log") {
+    synapse_logger::enabled_slog_level.store(S_ERROR);
+
+  } else if (cmd_name == "enable_log") {
+    synapse_logger::enabled_slog_level.store(S_INFO);
   } else {
     SLOG(S_ERROR) << "Unknown command " << cmd_name << ".\n";
     return;
