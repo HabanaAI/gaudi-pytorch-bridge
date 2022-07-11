@@ -39,7 +39,13 @@ extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
     int& position_of_promoted_tensor,
+    c10::ScalarType& compute_dtype,
     c10::ScalarType& dst_dtype);
+
+void type_promotion_for_two_tensor_inputs(
+    std::vector<at::IValue>& inputs,
+    int& position_of_promoted_tensor,
+    c10::ScalarType& compute_dtype);
 
 std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,

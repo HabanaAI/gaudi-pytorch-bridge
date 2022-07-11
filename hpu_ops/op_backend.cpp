@@ -9,6 +9,7 @@
  */
 
 #include "op_backend.h"
+#include "habana_helpers/cast_sequence.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_op_helper.h"
@@ -478,17 +479,39 @@ synapse_helpers::tensor OpBackend::BuildCast(
       "_to_" + habana_helpers::name_suffix_from_type(to);
   HABANA_ASSERT(from != to, guid, " cannot be used.");
 
-  ns_CastKernel::Params params{};
-  SET_CAST_ROUNDING_MODE(guid);
-  NodeAttr castnode{
-      guid,
-      {syn_in},
-      {{sizes, to, final_result_index}},
-      &params,
-      sizeof(params)};
-  auto cast = BuildNode(op, graph, std::move(castnode));
+  habana_helpers::CastTypes cast_types{
+      habana_helpers::DataTypeToCastType(from),
+      habana_helpers::DataTypeToCastType(to)};
 
-  return std::move(cast.at(0));
+  auto cast_sequence = habana_helpers::get_cast_sequence(cast_types);
+
+  synTensor* input = &syn_in;
+  std::vector<synapse_helpers::tensor> casts;
+  casts.reserve(cast_sequence.size());
+  for (size_t i = 0; i < cast_sequence.size(); ++i) {
+    auto src = habana_helpers::CastTypeToDataType(cast_sequence.at(i).from_);
+    auto dst = habana_helpers::CastTypeToDataType(cast_sequence.at(i).to_);
+    const auto& cast_guid = "cast_" +
+        habana_helpers::name_suffix_from_type(src) + "_to_" +
+        habana_helpers::name_suffix_from_type(dst);
+
+    ns_CastKernel::Params params{};
+    SET_CAST_ROUNDING_MODE(cast_guid);
+    auto is_last = (i + 1) == cast_sequence.size();
+    auto output_index = is_last ? final_result_index : c10::nullopt;
+    NodeAttr castnode{
+        cast_guid,
+        {*input},
+        {{sizes, dst, output_index}},
+        &params,
+        sizeof(params)};
+    auto cast = BuildNode(op, graph, std::move(castnode));
+    casts.emplace_back(std::move(cast.at(0)));
+    input = &casts.back().get();
+  }
+
+  HABANA_ASSERT(!casts.empty(), "Empty vector of casts.");
+  return std::move(casts.back());
 }
 
 synapse_helpers::tensor OpBackend::BuildConstant(

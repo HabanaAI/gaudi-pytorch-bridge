@@ -1375,7 +1375,8 @@ Tensor add_tensor_hpu_lazy(
         "aten::add",
         {self, other, alpha},
         {},
-        {BinaryOperator::compute_output_shape(self, other)}};
+        {BinaryOperator::compute_output_shape(self, other)},
+        -1};
     return k.call();
   }
 }
@@ -1446,7 +1447,8 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
       "aten::mul",
       {self, other},
       {},
-      {BinaryOperator::compute_output_shape(self, other)}};
+      {BinaryOperator::compute_output_shape(self, other)},
+      -1};
   return k.call();
 }
 

@@ -82,6 +82,7 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
 void habana_helpers::type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
     int& position_of_promoted_tensor,
+    c10::ScalarType& compute_dtype,
     c10::ScalarType& dst_dtype) {
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
     auto tensor1 = inputs[0].toTensor();
@@ -92,35 +93,44 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
       // in such cases we will not try type promotion.
       return;
     }
-    auto type1 = (tensor1.scalar_type() == c10::ScalarType::Long)
-        ? c10::ScalarType::Int
-        : tensor1.scalar_type();
-    auto type2 = (tensor2.scalar_type() == c10::ScalarType::Long)
-        ? c10::ScalarType::Int
-        : tensor2.scalar_type();
-    type1 = (type1 == c10::ScalarType::Double) ? c10::ScalarType::Float : type1;
-    type2 = (type2 == c10::ScalarType::Double) ? c10::ScalarType::Float : type2;
-
     habana_helpers::DTypeHelper dtype_helper;
     dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
         .set_promote_to_common_type(true)
         .build();
-    dst_dtype = dtype_helper.get_result_dtype();
+    compute_dtype = dst_dtype = dtype_helper.get_result_dtype();
 
     // Temporary W/A. The result dtype is converted from double to float and
     // from int64 to int32.
-    dst_dtype =
-        (dst_dtype == c10::ScalarType::Long) ? c10::ScalarType::Int : dst_dtype;
-    dst_dtype = (dst_dtype == c10::ScalarType::Double) ? c10::ScalarType::Float
-                                                       : dst_dtype;
+    auto type1 = tensor1.scalar_type();
+    auto type2 = tensor2.scalar_type();
+    type1 = (type1 == c10::ScalarType::Long) ? c10::ScalarType::Int : type1;
+    type2 = (type2 == c10::ScalarType::Long) ? c10::ScalarType::Int : type2;
+    type1 = (type1 == c10::ScalarType::Double) ? c10::ScalarType::Float : type1;
+    type2 = (type2 == c10::ScalarType::Double) ? c10::ScalarType::Float : type2;
+
+    compute_dtype = (compute_dtype == c10::ScalarType::Long)
+        ? c10::ScalarType::Int
+        : compute_dtype;
+    compute_dtype = (compute_dtype == c10::ScalarType::Double)
+        ? c10::ScalarType::Float
+        : compute_dtype;
 
     // pos = position of tensor to be promoted (smaller dtype)
-    if (type1 != dst_dtype) {
+    if (type1 != compute_dtype) {
       position_of_promoted_tensor = 0;
-    } else if (type2 != dst_dtype) {
+    } else if (type2 != compute_dtype) {
       position_of_promoted_tensor = 1;
     }
   }
+}
+
+void habana_helpers::type_promotion_for_two_tensor_inputs(
+    std::vector<at::IValue>& inputs,
+    int& position_of_promoted_tensor,
+    c10::ScalarType& compute_dtype) {
+  c10::ScalarType dst_dtype = c10::ScalarType::Undefined;
+  return type_promotion_for_two_tensor_inputs(
+      inputs, position_of_promoted_tensor, compute_dtype, dst_dtype);
 }
 
 /**

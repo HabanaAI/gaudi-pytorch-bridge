@@ -32,17 +32,20 @@ static auto BuildBinary(
     const std::vector<at::ScalarType>& dtypes,
     at::ScalarType result_type,
     at::optional<at::Scalar> alpha,
-    int out_index) {
+    int out_index,
+    bool add_casts) {
   std::unique_ptr<synapse_helpers::tensor> constant;
   std::vector<synapse_helpers::tensor> mul, cast;
 
-  for (auto i = 0u; i < inputs.size(); ++i) {
-    if (result_type == dtypes[i]) {
-      continue;
+  if (add_casts) {
+    for (auto i = 0u; i < inputs.size(); ++i) {
+      if (result_type == dtypes[i]) {
+        continue;
+      }
+      cast.push_back(OpBackend::BuildCast(
+          op, graph, inputs[i], sizes[i], dtypes[i], result_type));
+      inputs[i] = cast.back().get();
     }
-    cast.push_back(OpBackend::BuildCast(
-        op, graph, inputs[i], sizes[i], dtypes[i], result_type));
-    inputs[i] = cast.back().get();
   }
 
   if (alpha.has_value() and alpha.value().toFloat() != 1.) {
@@ -108,7 +111,8 @@ void BinaryWithAlpha::AddNode(
       {self_type, other_type},
       result_type,
       alpha,
-      0);
+      0,
+      !IsTypePromotion());
 
   syn_out(0) = std::move(op[0]);
 }
@@ -133,7 +137,8 @@ void ForeachBinary::AddNode(
           {self.scalar_type(), other.scalar_type()},
           result_type,
           alpha,
-          i);
+          i,
+          true);
       syn_out(i) = std::move(out[0]);
     }
   } else {
@@ -153,7 +158,8 @@ void ForeachBinary::AddNode(
           {self.scalar_type(), result_type},
           result_type,
           c10::nullopt,
-          i);
+          i,
+          true);
       syn_out(i) = std::move(out[0]);
     }
   }
@@ -183,7 +189,8 @@ void RSubScalarOperator::AddNode(
       {self.scalar_type(), result_type},
       result_type,
       alpha,
-      0);
+      0,
+      !IsTypePromotion());
 
   syn_out(0) = std::move(result[0]);
 }

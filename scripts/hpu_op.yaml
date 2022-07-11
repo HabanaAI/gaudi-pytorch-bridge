@@ -2308,11 +2308,13 @@ maximum:
   guid: max_fwd
   out_ids: [0]
   legacy_eager: true
+  type_promotion: true
 
 maximum.out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
+  type_promotion: true
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool2d_with_indices.out:
@@ -2417,11 +2419,13 @@ minimum:
   guid: min_fwd
   out_ids: [0]
   legacy_eager: true
+  type_promotion: true
 
 minimum.out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
+  type_promotion: true
 
 mish:
   force_default: false
@@ -3449,6 +3453,7 @@ sub.Tensor:
   op_backend: BinaryWithAlpha
   out_ids: [0]
   scalar_ids: [2]
+  type_promotion: true
 
 sub.Scalar:
   force_default: false
@@ -3459,6 +3464,7 @@ sub.Scalar:
   scalar_ids: [1, 2]
   legacy_eager: true
   out_ids: [0]
+  type_promotion: true
 
 sub_.Tensor:
   force_default: false
@@ -3469,6 +3475,7 @@ sub_.Tensor:
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   legacy_eager: true
+  type_promotion: true
 
 sub_.Scalar:
   force_default: false
@@ -3480,6 +3487,7 @@ sub_.Scalar:
   legacy_eager: true
   type_promotion: true
   inplace_ids: [0]
+  type_promotion: true
 
 sub.out:
   broadcast: true
@@ -3487,6 +3495,7 @@ sub.out:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
+  type_promotion: true
 
 take:
   dtypes:

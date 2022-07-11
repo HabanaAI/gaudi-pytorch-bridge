@@ -134,8 +134,16 @@ class OpBackend : public HabanaOperator {
     m_promote_type = true;
   }
 
+  bool IsTypePromotion() const {
+    return m_promote_type;
+  }
+
   void PromoteIntToFloat() {
     m_promote_int_to_float = true;
+  }
+
+  bool IsPromoteIntToFloat() const {
+    return m_promote_int_to_float;
   }
 
   void SetFillParams(

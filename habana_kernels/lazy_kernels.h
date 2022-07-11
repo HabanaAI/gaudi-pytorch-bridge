@@ -1208,18 +1208,28 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     auto inputs = LazyOp<T>::get_inputs();
 
     int pos = -1;
-    c10::ScalarType dst_dtype = c10::ScalarType::Float;
+    c10::ScalarType compute_dtype = c10::ScalarType::Undefined;
     habana_helpers::type_promotion_for_two_tensor_inputs(
-        inputs, pos, dst_dtype);
-    if (pos != -1) {
-      auto tensor_promote = inputs[pos].toTensor();
+        inputs, pos, compute_dtype, dst_dtype_);
+
+    auto inputs_updated = false;
+    for (size_t i = 0; i < 2; ++i) {
+      auto tensor_promote = inputs[i].toTensor();
+      if (compute_dtype == tensor_promote.scalar_type()) {
+        continue;
+      }
+
+      inputs_updated = true;
       auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
-          tensor_promote.options().dtype(dst_dtype).device(at::kHPU),
+          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
-      inputs[pos] = self;
+      inputs[i] = self;
+    }
+
+    if (inputs_updated) {
       LazyOp<T>::set_inputs(inputs);
     }
 
@@ -1233,13 +1243,13 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
 
-    c10::ScalarType dst_dtype = self.scalar_type();
+    dst_dtype_ = self.scalar_type();
     at::Tensor other = inputs.at(1).toTensor();
 
     if (self.scalar_type() != other.scalar_type()) {
       at::Tensor casted_other = empty_hpu_lazy(
           other.sizes(),
-          other.options().dtype(dst_dtype).device(at::kHPU),
+          other.options().dtype(dst_dtype_).device(at::kHPU),
           other.suggest_memory_format(),
           false);
       copy_hpu_lazy_(casted_other, other, true);
@@ -1249,6 +1259,11 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
     return LazyOp<T>::call(self);
   }
+
+ private:
+  c10::ScalarType dst_dtype_ = c10::ScalarType::Undefined;
+
+  ReturnType get_result_overrideable() override;
 };
 
 } // namespace habana_lazy

@@ -109,4 +109,26 @@ template <>
 at::Tensor& PromoteIntToFloat<at::Tensor&>::get_result_overrideable() {
   return LazyOp<at::Tensor&>::get_result_overrideable();
 }
+
+template <>
+at::Tensor LazyBinaryOp<at::Tensor>::get_result_overrideable() {
+  const auto& inputs = LazyOp<at::Tensor>::get_inputs();
+  const auto& self = inputs.at(0).toTensor();
+
+  const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
+      ? self.sizes()
+      : LazyOp<at::Tensor>::get_out_shapes().at(0);
+
+  return empty_hpu_lazy(
+      outshape,
+      self.options().device(c10::kHPU).dtype(dst_dtype_),
+      self.suggest_memory_format(),
+      false);
+}
+
+template <>
+at::Tensor& LazyBinaryOp<at::Tensor&>::get_result_overrideable() {
+  return LazyOp<at::Tensor&>::get_result_overrideable();
+}
+
 } // namespace habana_lazy
