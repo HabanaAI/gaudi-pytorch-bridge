@@ -55,14 +55,14 @@ StrideParams* StridedViewContext::GetViewTableEntry(int64_t tensor_id) {
   return nullptr;
 }
 
-void StridedViewContext::AddViewTensorMapEntry(
+void StridedViewContext::AddOrigTensorMapEntry(
     int64_t tensor_id,
     at::Tensor tensor) {
   std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
   m_orig_tensor_map[tensor_id] = tensor;
 }
 
-void StridedViewContext::DelViewTensorMapEntry(int64_t tensor_id) {
+void StridedViewContext::DelOrigTensorMapEntry(int64_t tensor_id) {
   std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
   auto it = m_orig_tensor_map.find(tensor_id);
   if (it != m_orig_tensor_map.end()) {
@@ -78,7 +78,7 @@ void StridedViewContext::DelViewTensorMapEntry(int64_t tensor_id) {
   }
 }
 
-c10::optional<at::Tensor> StridedViewContext::GetViewTensorMapEntry(
+c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
     int64_t tensor_id) {
   std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
   auto it = m_orig_tensor_map.find(tensor_id);
@@ -169,7 +169,7 @@ const Tensor HbLazyTensorViews::get_recent_base_tensor(const Tensor& self) {
   auto id = GetHbLazyTensor(self).getTensorUniqueId();
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto base_t = context->viewContext.GetViewTensorMapEntry(id);
+  auto base_t = context->viewContext.GetOrigTensorMapEntry(id);
   if (base_t != c10::nullopt) {
     return base_t.value();
   }
@@ -496,7 +496,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
             recent_orig_t, src, params_ptr->strides, params_ptr->offset);
 
         // update orig tensor map
-        context->viewContext.AddViewTensorMapEntry(orig_t_id, out);
+        context->viewContext.AddOrigTensorMapEntry(orig_t_id, out);
       }
     }
   }

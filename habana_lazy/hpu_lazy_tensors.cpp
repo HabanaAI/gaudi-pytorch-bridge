@@ -84,8 +84,8 @@ void HbContextArena::UnregisterTensor(Data* data) {
     // clear the entry in view tables
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
-    viewEntryTensor = context->viewContext.GetViewTensorMapEntry(unique_id);
-    context->viewContext.DelViewTensorMapEntry(unique_id);
+    viewEntryTensor = context->viewContext.GetOrigTensorMapEntry(unique_id);
+    context->viewContext.DelOrigTensorMapEntry(unique_id);
     auto* params_ptr = context->viewContext.GetViewTableEntry(unique_id);
     if (params_ptr != nullptr) {
       strideParams = *params_ptr;
@@ -120,7 +120,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
         auto ir_value = hl_t.CurrentIrValue();
         if ((ir_value && ir_value.mp_node->is_input() == false) &&
             ((context->viewContext.GetViewTableEntry(id) != nullptr) ||
-             (context->viewContext.GetViewTensorMapEntry(id) !=
+             (context->viewContext.GetOrigTensorMapEntry(id) !=
               c10::nullopt))) {
           // book keep view tensors to clear the ir nodes after mark step
           context->viewContext.hb_tensors_out_view.emplace_back(hl_t);
@@ -1127,9 +1127,9 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     // if src has an updated version, create an entry in orig_tensor_map for the
     // destination
     auto ori_tensor_map_val =
-        context->viewContext.GetViewTensorMapEntry(src_id);
+        context->viewContext.GetOrigTensorMapEntry(src_id);
     if (ori_tensor_map_val != c10::nullopt) {
-      context->viewContext.AddViewTensorMapEntry(
+      context->viewContext.AddOrigTensorMapEntry(
           dst_id, ori_tensor_map_val.value());
       PT_VIEWTABLE_DEBUG(
           "[hbcopyTensor] Mem_stat.  ",

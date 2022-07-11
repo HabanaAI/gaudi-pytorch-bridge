@@ -502,7 +502,7 @@ class LazyOp {
         std::lock_guard<std::recursive_mutex> view_table_lock(
             context->viewContext.GetViewTableMutex());
         c10::optional<at::Tensor> base_tensor =
-            context->viewContext.GetViewTensorMapEntry(id);
+            context->viewContext.GetOrigTensorMapEntry(id);
         if (base_tensor != c10::nullopt) {
           m_inputs[idx] = base_tensor;
         } else {

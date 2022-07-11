@@ -120,9 +120,9 @@ class StridedViewContext {
   // std::optional<StrideParams> GetViewTableEntry(int64_t tensor_id);
   StrideParams* GetViewTableEntry(int64_t tensor_id);
 
-  void AddViewTensorMapEntry(int64_t tensor_id, at::Tensor tensor);
-  void DelViewTensorMapEntry(int64_t tensor_id);
-  c10::optional<at::Tensor> GetViewTensorMapEntry(int64_t tensor_id);
+  void AddOrigTensorMapEntry(int64_t tensor_id, at::Tensor tensor);
+  void DelOrigTensorMapEntry(int64_t tensor_id);
+  c10::optional<at::Tensor> GetOrigTensorMapEntry(int64_t tensor_id);
 
   // view tensors that occurs as graph outputs
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;

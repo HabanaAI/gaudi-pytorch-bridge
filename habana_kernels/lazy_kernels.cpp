@@ -377,7 +377,7 @@ void strided_insert_hpu_lazy(
 
   // update orig tensor map
   auto param_id = GetHbLazyTensor(params_ptr->base).getTensorUniqueId();
-  context->viewContext.AddViewTensorMapEntry(param_id, out);
+  context->viewContext.AddOrigTensorMapEntry(param_id, out);
 
   PT_VIEWTABLE_DEBUG("orig tensor map entry created for ", param_id);
   return;

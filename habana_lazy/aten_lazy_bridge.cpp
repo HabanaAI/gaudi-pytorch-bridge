@@ -95,7 +95,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
     c10::optional<at::Tensor> base_tensor =
-        context->viewContext.GetViewTensorMapEntry(id);
+        context->viewContext.GetOrigTensorMapEntry(id);
     if (base_tensor != c10::nullopt) {
       impl = GetHbLazyTensorImpl(base_tensor.value());
     }
