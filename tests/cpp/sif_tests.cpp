@@ -310,3 +310,63 @@ TEST_F(SifTest, DISABLED_Reshape_Cat_Relu_Conv2DTransposeBias_Test) {
   }
   validate_shape_end();
 }
+
+TEST_F(SifTest, AllReduce_Test) {
+  validate_shape_start();
+
+  std::vector<int> in_sizes{16, 24, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto v1 = A.view(-1);
+    auto v2 = A.view(-1);
+    auto grad1 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto grad2 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+
+    auto hA = A.to(torch::kHPU);
+    auto hv1 = hA.view(-1);
+    auto hv2 = hA.view(-1);
+    auto hgrad1 = grad1.to(torch::kHPU);
+    auto hgrad2 = grad2.to(torch::kHPU);
+
+    v1.mul_(grad1);
+    v2.mul_(grad2);
+
+    hv1.mul_(hgrad1);
+    hv2.mul_(hgrad2);
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+  validate_shape_end();
+}
+
+TEST_F(SifTest, AllReduceWithControlEdge_Test) {
+  validate_shape_start();
+
+  std::vector<int> in_sizes{16, 24, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto b = torch::relu(A);
+    auto v1 = A.view(-1);
+    auto v2 = A.view(-1);
+    auto grad1 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto grad2 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+
+    auto hA = A.to(torch::kHPU);
+    auto hB = torch::relu(hA);
+    auto hv1 = hA.view(-1);
+    auto hv2 = hA.view(-1);
+    auto hgrad1 = grad1.to(torch::kHPU);
+    auto hgrad2 = grad2.to(torch::kHPU);
+
+    v1.mul_(grad1);
+    v2.mul_(grad2);
+
+    hv1.mul_(hgrad1);
+    hv2.mul_(hgrad2);
+
+    HbLazyTensor::StepMarker({});
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+  validate_shape_end();
+}
