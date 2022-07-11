@@ -81,6 +81,9 @@ synStatus PartialEventEmulation::synTensorGetExternal(
 
 bool UsePartialEventEmulation() {
   static bool flag{
-      std::string_view(getenv("PT_EMULATE_SIGNALING_FROM_ENCAP_OP")) == "true"};
+      std::string_view(
+          getenv("PT_HPU_EMULATE_SIGNALING_FROM_ENCAP_OP") == NULL
+              ? "false"
+              : getenv("PT_HPU_EMULATE_SIGNALING_FROM_ENCAP_OP")) == "true"};
   return flag;
 }
