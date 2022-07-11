@@ -565,10 +565,14 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
 
   if (refine_ds_enabled_) {
     // Initiate recipe execution time collection
-    InitiateSynlaunchTimeCapture(rv);
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      InitiateSynlaunchTimeCapture(rv);
+    }
     // Add the jit_ir_graph to current_dbipsh_
     current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph);
-    current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
+    }
   }
 
   PT_BRIDGE_DEBUG(

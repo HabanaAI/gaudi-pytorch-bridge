@@ -1973,25 +1973,21 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
     auto& syn_device = synapse_helpers::HPURegistrar::get_device();
-    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
-      if (time_event_handle_cache.get_total_events_count() <
-          synapse_helpers::event_handle_cache::
-              get_num_events_high_watermark()) {
-        rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
-            syn_device.get_cached_time_event_handle(),
-            syn_device.get_cached_time_event_handle(),
-            static_cast<synStreamHandle>(
-                syn_device.get_compute_stream(hpu_stream)));
-        current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
-      } else {
-        PT_BRIDGE_WARN(
-            "High water mark for synapse events ",
-            synapse_helpers::event_handle_cache::
-                get_num_events_high_watermark(),
-            " reached, will not create any time event");
-        rv.time_slot_ = nullptr;
-      }
+    auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
+    if (time_event_handle_cache.get_total_events_count() <
+        synapse_helpers::event_handle_cache::get_num_events_high_watermark()) {
+      rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
+          syn_device.get_cached_time_event_handle(),
+          syn_device.get_cached_time_event_handle(),
+          static_cast<synStreamHandle>(
+              syn_device.get_compute_stream(hpu_stream)));
+      current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
+    } else {
+      PT_BRIDGE_WARN(
+          "High water mark for synapse events ",
+          synapse_helpers::event_handle_cache::get_num_events_high_watermark(),
+          " reached, will not create any time event");
+      rv.time_slot_ = nullptr;
     }
   }
   PT_BRIDGE_END;
@@ -2007,12 +2003,17 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
       auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
       auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
       auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
+      // We are dropping the recipie but keeping the bucket
+      /*
       auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
       if ((dropped_dbi == current_dbipsh_) &&
           dropped_bid < current_bucket_id_) {
         current_bucket_id_ -= 1;
         dsi_bucket_id = current_bucket_id_;
       }
+      */
+      static_cast<void>(dsi_bucket_id);
+      dropped_dbi->ResetSynapseRecipePtr(dropped_val);
     }
   }
 }
@@ -2168,7 +2169,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       {
         std::lock_guard<std::mutex> lg(current_dbipsh_->get_refine_mutex());
         // Initiate recipe execution time collection
-        InitiateSynlaunchTimeCapture(rv);
+        if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+          InitiateSynlaunchTimeCapture(rv);
+        }
       }
 
       rv.launch(

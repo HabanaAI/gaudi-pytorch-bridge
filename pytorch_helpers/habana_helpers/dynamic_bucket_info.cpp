@@ -1262,6 +1262,12 @@ void DynamicBucketInfo::UpdateRunTimes() {
     // Ignore the first launch runtime
     if (!buckets_[bucket_id].IsFirstLaunch())
       input_history_.hist_items_[input_hist_idx].run_time_ = t_ns;
+    TORCH_CHECK(
+        bucket_id < buckets_.size(),
+        "invalid bucket index access in UpdateRunTimes at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     buckets_[bucket_id].UpdateRunTime(t_ns);
     cumu_run_time_stat_.Update(t_ns);
     run_time_q_.pop_front();
@@ -1269,6 +1275,12 @@ void DynamicBucketInfo::UpdateRunTimes() {
 }
 
 bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
+  TORCH_CHECK(
+      bucket < buckets_.size(),
+      "Invalid bucket index access in NeedRunTimeSlot ",
+      __FILE__,
+      " : ",
+      __LINE__);
   return bucket < buckets_.size() && buckets_[bucket].GetKeepRunTime();
 }
 

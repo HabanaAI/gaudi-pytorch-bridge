@@ -1,6 +1,7 @@
 
 #include "misc_utils.h"
 #include <ATen/Tensor.h>
+#include "habana_helpers/logging.h"
 
 namespace habana {
 
@@ -19,6 +20,15 @@ bool IsHostMemoryThresholdReached() {
     uint64_t host_memory_threshold_bytes =
         (totalram_bytes * host_memory_threshold_percent) / 100;
     if (host_memory_used_bytes > host_memory_threshold_bytes) {
+      static bool warned_once = false;
+      if (!warned_once) {
+        warned_once = true;
+        PT_BRIDGE_WARN(
+            "Cache eviction started HostMemoryThresholdReached host_memory_used_bytes = ",
+            host_memory_used_bytes,
+            "host_memory_threshold_bytes",
+            host_memory_threshold_bytes);
+      }
       return true;
     }
   }

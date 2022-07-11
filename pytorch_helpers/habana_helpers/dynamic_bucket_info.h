@@ -319,6 +319,9 @@ class Bucket {
     return O.str();
   }
 
+  void ResetSynapseRecipePtr() {
+    rvpwk_.reset();
+  }
   void SetSynapseRecipePtr(std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
     rvpwk_ = rvpsh;
   }
@@ -495,6 +498,12 @@ class DynamicBucketInfo {
   void UpdateCompileTime(uint64_t t_ns, uint64_t bucket_idx) {
     cumu_compile_time_stat_.Update(t_ns);
     cumu_compile_count_++;
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in UpdateCompileTime at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     buckets_.at(bucket_idx).UpdateCompileTime(t_ns);
   }
   bool NeedRunTimeSlot(uint64_t bucket_idx);
@@ -503,15 +512,39 @@ class DynamicBucketInfo {
       uint64_t bucket);
   void UpdateRunTimes();
   uint64_t GetTime(uint64_t bucket_idx) const {
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in GetTime at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     return buckets_.at(bucket_idx).GetTime();
   };
   uint64_t GetTimeBase(uint64_t bucket_idx) const {
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in GetTimeBase at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     return buckets_.at(bucket_idx).GetTimeBase();
   };
   size_t GetRecipeKeyForBucket(size_t bucket_idx) {
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in GetRecipeKeyForBucket at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     return buckets_.at(bucket_idx).GetRecipeKey();
   };
   void SetRecipeKeyForBucket(size_t bucket_idx, size_t key) {
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in SetRecipeKeyForBucket at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     buckets_.at(bucket_idx).SetRecipeKey(key);
   };
   void SetMinPolicy(DynamicDimsPolicy policy) {
@@ -566,17 +599,47 @@ class DynamicBucketInfo {
     recipe_bucket_map.erase(dropped_recipe);
     return bid;
   }
+  size_t ResetSynapseRecipePtr(
+      std::shared_ptr<habana::RecipeValueSpec>& dropped_recipe) {
+    auto bid = recipe_bucket_map[dropped_recipe];
+    TORCH_CHECK(
+        bid < buckets_.size(),
+        "invalid bucket index access in ResetSynapseRecipePtr at ",
+        __FILE__,
+        " : ",
+        __LINE__);
+    buckets_.at(bid).ResetSynapseRecipePtr();
+    return bid;
+  }
   void SetSynapseRecipePtr(
       size_t bidx,
       std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
     recipe_bucket_map[rvpsh] = bidx;
+    TORCH_CHECK(
+        bidx < buckets_.size(),
+        "invalid bucket index access in SetSynapseRecipePtr at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     buckets_.at(bidx).SetSynapseRecipePtr(rvpsh);
   }
   std::shared_ptr<habana::RecipeValueSpec> GetSynapseRecipePtr(size_t bidx) {
+    TORCH_CHECK(
+        bidx < buckets_.size(),
+        "invalid bucket index access in GetSynapseRecipePtr at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     return buckets_.at(bidx).GetSynapseRecipePtr();
   }
   void IncrementHitCount(size_t bucket_idx) {
     cumu_hit_count_++;
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in IncrementHitCount at ",
+        __FILE__,
+        " : ",
+        __LINE__);
     buckets_.at(bucket_idx).IncrementHitCount();
   }
 
