@@ -432,30 +432,50 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     // auto out = src;
     auto hl_t = GetHbLazyTensor(t);
 
-    auto is_view = HandleViews(t, hl_t);
+    /* special handling for deep speed where all reduce happens on a view*/
+    auto id = hl_t.getTensorUniqueId();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     auto t_updated = t;
-    if (is_view) {
-      hl_t = GetHbLazyTensor(t);
-      std::vector<HbLazyTensor> tensors = {hl_t};
-      // TODO SW-74972 Need to add duplicate removal functionality within
-      // syncTensorsGraph before moving it outside the for loop
-      HbLazyTensor::SyncTensorsGraph(&tensors);
+    StrideParams* params_ptr = nullptr;
+    {
+      std::lock_guard<std::recursive_mutex> view_table_lock(
+          context->viewContext.GetViewTableMutex());
+      params_ptr = context->viewContext.GetViewTableEntry(id);
+    }
 
-      // the storage offset of view output is always 0 as per the definition of
-      // strided_view kernel set it to 0 before initiating collectives. Refer
-      // test case in test_hpu_views_distributed.py
-      t_updated.unsafeGetTensorImpl()->set_storage_offset(0);
+    if (params_ptr != nullptr) {
+      auto base = get_recent_base_tensor(params_ptr->base);
 
-      // note: this strided insert will be executed lazily after the execution
-      // of collectives
-      strided_insert_hpu_lazy(t, t, false);
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      context->viewContext.isLazyViewPresent = true;
+      if (t_updated.is_contiguous()) {
+        // optimization for contiguous views
+        TORCH_CHECK(
+            GetHbLazyTensor(base).CurrentIrValue().IsHpuInputNode(),
+            "base tensor is expected to be an input node");
+        auto storage = base.storage();
+        t_updated.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
+      } else {
+        HandleViews(t, hl_t);
+
+        hl_t = GetHbLazyTensor(t);
+        std::vector<HbLazyTensor> tensors = {hl_t};
+        // TODO SW-74972 Need to add duplicate removal functionality within
+        // syncTensorsGraph before moving it outside the for loop
+        HbLazyTensor::SyncTensorsGraph(&tensors);
+
+        // the storage offset of view output is always 0 as per the definition
+        // of strided_view kernel set it to 0 before initiating collectives.
+        // Refer test case in test_hpu_views_distributed.py
+        t_updated.unsafeGetTensorImpl()->set_storage_offset(0);
+
+        // note: this strided insert will be executed lazily after the execution
+        // of collectives
+        strided_insert_hpu_lazy(t, t, false);
+        context->viewContext.isLazyViewPresent = true;
+      }
     } else {
       // check for updated version
       t_updated = get_recent_base_tensor(t);
     }
-
     out_vec.emplace_back(t_updated);
   }
   return out_vec;
