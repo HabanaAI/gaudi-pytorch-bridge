@@ -122,12 +122,10 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_index = c10::nullopt) {
-  if (input.size() != 3) { // use shape tensor input when weight is none
-
-    if (graph.is_dynamic_graph()) {
-      input.emplace_back(
-          op->CreateShapeTensorInput(graph, dtype, size, SHAPE_TENSOR).get());
-    }
+  // This helper function is used only when weight is none
+  if (graph.is_dynamic_graph()) {
+    input.emplace_back(
+        op->CreateShapeTensorInput(graph, dtype, outshape, SHAPE_TENSOR).get());
   }
   return NllLoss(op, graph, input, outshape, params, size, final_index);
 }
@@ -274,11 +272,10 @@ void NllLossBwd::AddNode(
   } else { // weight is not none
     auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
 
-    auto nll_loss = NllLossBwdFunc(
+    auto nll_loss = NllLoss(
         this,
         graph,
         {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
-        dtype,
         outshape,
         params,
         size,
@@ -313,11 +310,10 @@ void NllLoss2DBwd::AddNode(
     } else { // weight is not none
       auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
 
-      output = NllLossBwdFunc(
+      output = NllLoss(
           this,
           graph,
           {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
-          dtype,
           outshape,
           params,
           size,
@@ -335,11 +331,10 @@ void NllLoss2DBwd::AddNode(
     } else { // weight is not none
       auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
 
-      auto nll_loss = NllLossBwdFunc(
+      auto nll_loss = NllLoss(
           this,
           graph,
           {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
-          dtype,
           loss_shape,
           params,
           size);
