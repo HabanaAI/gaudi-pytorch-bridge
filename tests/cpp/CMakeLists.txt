@@ -42,10 +42,22 @@ find_package(Python COMPONENTS Interpreter Development)
 
 file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
 
+find_library(PYTHON3_LIB python3)
+if(NOT PYTHON3_LIB)
+  message(STATUS "python3 library not found!!!")
+  # NOTE: Currently depending on python3.8 exclusively, in case version upgrade
+  # please change accordingly
+  find_library(PYTHON3_LIB python3.8)
+endif()
+
+if(NOT PYTHON3_LIB)
+  message(FATAL_ERROR  "This ENV does not have python3 or python3.8 lib, which is essential!!!")
+endif()
+
 execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(test_pt_integration PRIVATE
-  "${Python_LIBRARIES}"
+  "${PYTHON3_LIB}"
   "${TORCH_LIBRARIES}"
   habana_pytorch_plugin
   habana_serialization
