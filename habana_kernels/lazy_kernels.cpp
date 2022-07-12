@@ -4752,7 +4752,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     }
   };
   // use gen to create a seed and forward it to the op
-  auto seed = habana::get_seed_tensor_hpu(gen, true);
+  auto seed = habana::get_seed_tensor_hpu(gen);
   FusedDropout op(self, p, seed);
   return op.call();
 }

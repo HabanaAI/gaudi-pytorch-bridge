@@ -38,17 +38,10 @@ uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
   return generator->random();
 }
 
-at::Tensor get_seed_tensor_hpu(
-    const c10::optional<Generator>& gen,
-    bool batched_h2d) {
+at::Tensor get_seed_tensor_hpu(const c10::optional<Generator>& gen) {
   int seed = get_seed_hpu(gen);
   at::Tensor seed_tensor = at::tensor(seed);
-
-  if (batched_h2d) {
-    return habana_lazy::append_to_batch_h2d_list(seed_tensor);
-  }
-
-  return seed_tensor.to(at::kHPU);
+  return habana_lazy::append_to_batch_h2d_list(seed_tensor);
 }
 
 } // namespace habana
