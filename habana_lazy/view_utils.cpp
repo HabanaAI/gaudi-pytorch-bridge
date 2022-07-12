@@ -343,14 +343,19 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     // use the actual out tensor provided by the inplace op
     result = out_t.value();
   } else {
-    result = empty_strided_hpu_lazy(
-        size,
-        stride,
-        self_.options(),
-        false,
-        DATA_TENSOR,
-        storage_offset,
-        self);
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_INFERENCE_MODE)) {
+      result = empty_strided_hpu_lazy(
+          size,
+          stride,
+          self_.options(),
+          false,
+          DATA_TENSOR,
+          storage_offset,
+          self);
+    } else {
+      result = empty_strided_hpu_lazy(
+          size, stride, self_.options(), false, DATA_TENSOR, storage_offset);
+    }
   }
 
   StrideParams params;
