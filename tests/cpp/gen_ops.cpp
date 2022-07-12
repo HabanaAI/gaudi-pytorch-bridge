@@ -455,7 +455,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::abs_outf);
   TestOut(torch::acosh_outf);
   TestOut(torch::acos_outf);
-  //TestOut(torch::add_outf);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::add_outf));
   TestOut(torch::asinh_outf);
   TestOut(torch::asin_outf);
   TestOut(torch::atanh_outf);
@@ -479,7 +479,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::mse_loss_outf, torch::Reduction::Reduction::None);
   TestOut(torch::neg_outf);
   TestOut(torch::reciprocal_outf);
-  //TestOut(torch::round_outf);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, torch::Tensor&)>(torch::round_outf));
   TestOut(torch::rsqrt_outf);
   TestOut(torch::sgn_outf);
   TestOut(torch::sigmoid_backward_outf);
@@ -488,7 +488,7 @@ TEST_F(GenOps, Fns) {
   TestOut(torch::sinh_outf);
   TestOut(torch::sin_outf);
   TestOut(torch::sqrt_outf);
-  //TestOut(torch::sub_outf);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::sub_outf));
   TestOut(torch::tanh_backward_outf);
   TestOut(torch::tanh_outf);
   TestOut(torch::tan_outf);
