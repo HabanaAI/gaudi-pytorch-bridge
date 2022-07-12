@@ -784,13 +784,16 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
       tensors,
       tensors,
       [root = opts.rootRank * tensors.size() + opts.rootTensor,
-       reduceOp = opts.reduceOp](
+       reduceOp = opts.reduceOp,
+       this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce with input_address :: ",
             send_buffer,
@@ -865,7 +868,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   auto work = collective(
       inputTensors,
       outputTensors,
-      [numRanks = getSize(), rank = getRank()](
+      [numRanks = getSize(), rank = getRank(), this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -876,6 +879,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
         size_t rank_offset = count *
             c10::elementSize(getInternalScalarType(input.scalar_type()));
         auto type = getHCCLDataType(input.scalar_type());
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] alltoall with input_address :: ",
             send_buffer,
@@ -1092,13 +1097,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
   auto work = collective(
       inputFlattened,
       outputTensors,
-      [reduceOp = opts.reduceOp](
+      [reduceOp = opts.reduceOp, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         // Wait for event on input
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce_scatter with input_address :: ",
