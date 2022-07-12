@@ -50,6 +50,8 @@ std::string to_string(const at::IValue& ival) {
       oss << at::IntArrayRef(ival.toIntVector());
     } else if (ival.isDoubleList()) {
       oss << ival.toDoubleVector();
+    } else if (ival.isBoolList()) {
+      oss << ival.toBoolList().vec(); // toBoolVector is unavailable
     }
   } else if (ival.isNone()) {
     oss << "None";
