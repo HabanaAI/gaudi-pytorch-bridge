@@ -550,7 +550,7 @@ def get_return_type_str(t, orig_sig):
 def generate_entry_debug_code(t, fname, params):
     # Emits debug code for a given intercepted function.
     code = "  PT_OP_TRACE;\n"
-    code += '  PT_KERNEL_DEBUG("HpuOp {} :"'.format(fname)
+    code += '  PT_OP_INFO("HpuOp {} :"'.format(fname)
     for p in params:
         ptype = param_type(p)
         pname = param_name(p)

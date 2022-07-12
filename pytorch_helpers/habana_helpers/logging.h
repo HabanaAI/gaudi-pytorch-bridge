@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <logging.h>
 #include <synapse_helpers/runtime_tracing.h>
 #include <iostream>
 #include <sstream>
@@ -183,6 +184,7 @@ class PtLogger {
   }
   PtLogger() {
     loadMask();
+    CREATE_LOGGER("PYTORCH_HPU_OPS", "pytorch_plugin.log", 1000 * 1000 * 10, 3);
   }
 
  public:
@@ -195,6 +197,10 @@ class PtLogger {
     }
 
     return instance;
+  }
+
+  spdlog::logger* GetOpLogger() {
+    return spdlog::get("PYTORCH_HPU_OPS").get();
   }
 
   void refresh() {
@@ -569,6 +575,13 @@ class PTFuncLog {
       " :: ",                     \
       __VA_ARGS__)
 
+#define PT_OP_INFO(...)                                        \
+  {                                                            \
+    const auto& logger = PtLogger::getLogger()->GetOpLogger(); \
+    if (logger->should_log(spdlog::level::info)) {             \
+      logger->info("{}", c10::str(__VA_ARGS__));               \
+    }                                                          \
+  }
 // End of logging macros
 
 template <
