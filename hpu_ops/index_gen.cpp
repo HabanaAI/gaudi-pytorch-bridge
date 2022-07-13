@@ -194,34 +194,6 @@ void IndexHabanaOperator::AddNode(
   synapse_helpers::tensor& arg2_syn_tensor =
       std::move(cat_indices->GetSynOutputs()[0]);
 
-  if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float &&
-      self.scalar_type() != c10::ScalarType::BFloat16) {
-    // i8/i16/i32 -> f32
-    const auto dtype = c10::ScalarType::Float;
-    std::string cast_guid = "cast_" +
-        habana_helpers::name_suffix_from_type(ScalarType()) + "_to_" +
-        habana_helpers::name_suffix_from_type(dtype);
-    auto castOp =
-        BuildOp(graph, cast_guid, {syn_in(0)}, {{self.sizes().vec(), dtype}});
-
-    auto indexOp = BuildOp(
-        graph,
-        "gather_nd_mxnet_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-        {castOp[0].get(), arg2_syn_tensor.get()},
-        {{shape, dtype}});
-
-    auto out_type = (self.scalar_type() == c10::ScalarType::Long)
-        ? (c10::ScalarType::Int)
-        : self.scalar_type();
-    std::string cast_guid_2 = "cast_" +
-        habana_helpers::name_suffix_from_type(dtype) + "_to_" +
-        habana_helpers::name_suffix_from_type(out_type);
-    castOp =
-        BuildOp(graph, cast_guid_2, {indexOp[0].get()}, {{shape, out_type, 0}});
-    syn_out(0) = std::move(castOp[0]);
-    return;
-  }
   auto indexOp = BuildOp(
       graph,
       "gather_nd_mxnet_fwd_" +
