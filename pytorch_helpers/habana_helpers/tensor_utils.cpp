@@ -746,6 +746,24 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     for (size_t d = max.size() - 1; d > 0; --d) {
       max_stride[d - 1] = max_stride[d] * max[d];
     }
+
+    std::vector<uint8_t> permutation;
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      if (hb_weight_impl) {
+        permutation = hb_weight_impl->GetMemoryPermutation();
+        if (!permutation.empty()) {
+          PT_LAZY_DEBUG(
+              "Setting permutation to tensor: ",
+              name,
+              " id: ",
+              tensor_id,
+              " permutation: ",
+              VecToString(permutation));
+        }
+      }
+    }
+
     auto builder =
         synapse_helpers::tensor_builder(
             max,
@@ -753,7 +771,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
             .mark_persistence(persistent)
             .mark_external(external)
-            .with_dynamic_shape(dynamic_shape);
+            .with_dynamic_shape(dynamic_shape)
+            .with_permutation(permutation);
     if (!name.empty()) {
       builder.use_suffix(name);
     }

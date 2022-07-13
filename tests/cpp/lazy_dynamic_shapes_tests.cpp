@@ -54,6 +54,9 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {
 
     RestoreMode();
   }
+
+ public:
+  void DynamicShapeTest2(bool with_mark_step);
 };
 
 // Graph :
@@ -168,7 +171,15 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
 //                            |
 //                           out
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest2WithMarkStep) {
+  DynamicShapeTest2(true);
+}
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest2NoMarkStep) {
+  DynamicShapeTest2(false);
+}
+
+void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -225,6 +236,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     auto h_bn_out = std::get<0>(h_bn_outs);
     auto bn_out = std::get<0>(bn_outs);
     // relu_out = relu(bn_out)
+    if (with_mark_step) {
+      HbLazyTensor::StepMarker({});
+    }
     torch::Tensor h_relu_out = torch::relu(h_bn_out);
     torch::Tensor relu_out = torch::relu(bn_out);
     // out = add(relu_out, x)

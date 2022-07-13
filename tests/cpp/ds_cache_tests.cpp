@@ -78,7 +78,7 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
   //<< rargpsh1->graphHashCode() << '\n';
-  EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh1->hashCode());
+  EXPECT_EQ(rargpsh1->graphWithPermuteHashCode(), rargpsh1->hashCode());
 
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
       std::make_shared<habana::RecipeArgumentSpec>(

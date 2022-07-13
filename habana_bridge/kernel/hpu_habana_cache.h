@@ -99,6 +99,10 @@ struct RecipeArgumentSpec {
       return ret;
     }
 
+    if (hash_code == graph_with_permute_hash_code) {
+      return ret;
+    }
+
     ret &= (cas == arg.cas);
     return ret;
   }
@@ -121,6 +125,10 @@ struct RecipeArgumentSpec {
 
   size_t dynamicHashCode() const {
     return dynamic_hash_code;
+  }
+
+  size_t graphWithPermuteHashCode() const {
+    return graph_with_permute_hash_code;
   }
 
   std::string get_op_strs() {
@@ -147,6 +155,7 @@ struct RecipeArgumentSpec {
   size_t offset_hash_code{0};
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
+  size_t graph_with_permute_hash_code{0};
 };
 
 // Hash functor for RecipeArgumentSpec
