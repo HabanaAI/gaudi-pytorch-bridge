@@ -52,7 +52,7 @@ inline std::vector<const char*> getSynapseLayoutFormat(
     HABANA_ASSERT(
         layout != toLayoutStr.end(),
         "Unknown layout in getSynapseLayoutFormat");
-    layouts[i] = layout->second;
+    layouts.push_back(layout->second);
   }
   return layouts;
 }

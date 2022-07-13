@@ -123,8 +123,7 @@ class AvgPool2dOperator : public HabanaOperator {
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

@@ -521,9 +521,11 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       kernel_meta_data_.synapse_output_layout);
 
   HABANA_ASSERT(
-      input_layouts.empty() || input_layouts.size() == syn_inputs.size());
+      input_layouts.empty() || input_layouts.size() >= syn_inputs.size(),
+      "Missing layouts for inputs");
   HABANA_ASSERT(
-      output_layouts.empty() || output_layouts.size() == syn_outputs.size());
+      output_layouts.empty() || output_layouts.size() >= syn_outputs.size(),
+      "Missing layouts for outputs");
 
   graph.add_node(
       std::move(syn_inputs),
@@ -532,8 +534,8 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       params_size,
       guid_,
       nullptr,
-      input_layouts.data(),
-      output_layouts.data());
+      input_layouts.empty() ? nullptr : input_layouts.data(),
+      output_layouts.empty() ? nullptr : output_layouts.data());
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {

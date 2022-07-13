@@ -462,6 +462,13 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
       op->kernel_meta_data_.synapse_output_layout);
 
+  HABANA_ASSERT(
+      input_layouts.empty() || input_layouts.size() >= node_attr.inputs.size(),
+      "Missing layouts for inputs");
+  HABANA_ASSERT(
+      output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
+      "Missing layouts for outputs");
+
   auto result = graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),
@@ -469,8 +476,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       node_attr.param_size,
       node_attr.guid,
       nullptr,
-      input_layouts.data(),
-      output_layouts.data());
+      input_layouts.empty() ? nullptr : input_layouts.data(),
+      output_layouts.empty() ? nullptr : output_layouts.data());
+
   HABANA_ASSERT(
       ok(result),
       "Adding ",
