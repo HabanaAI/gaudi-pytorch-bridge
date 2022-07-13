@@ -33,8 +33,8 @@ class FusedLamb(Optimizer):
             calculating running averages of gradient. (default: True)
         set_grad_none (bool, optional): whether set grad to None when zero_grad()
             method is called. (default: True)
-        max_grad_norm (float, optional): value used to clip global grad norm
-            (default: 1.0)
+        max_grad_norm (float, optional): value used to clip global grad norm.
+            If set to None, prior gradient clipping is disabled. (default: 1.0)
         use_lamb (boolean, optional): Apply adaptive learning rate to 0.0
             weight decay parameter (default: False)
 
@@ -100,20 +100,23 @@ class FusedLamb(Optimizer):
         if closure is not None:
             loss = closure()
 
-        grad_list_norm = []
-        for group in self.param_groups:
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                grad = p.grad.data
-                if grad.is_sparse:
-                    raise RuntimeError(
-                        "Lamb does not support sparse gradients, consider SparseAdam instad."
-                    )
-                grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
-
         max_grad_norm = self.defaults["max_grad_norm"]
-        clip_global_grad_norm = _hpex_C.fused_lamb_norm(grad_list_norm, max_grad_norm)
+        if max_grad_norm is not None:
+            grad_list_norm = []
+            for group in self.param_groups:
+                for p in group["params"]:
+                    if p.grad is None:
+                        continue
+                    grad = p.grad.data
+                    if grad.is_sparse:
+                        raise RuntimeError(
+                            "Lamb does not support sparse gradients, consider SparseAdam instead."
+                        )
+                    grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
+
+            clip_global_grad_norm = _hpex_C.fused_lamb_norm(grad_list_norm, max_grad_norm)
+        else:
+            clip_global_grad_norm = torch.tensor([1.0], dtype=torch.float32, device='hpu:0')
 
         for group in self.param_groups:
             bias_correction = 1 if group["bias_correction"] else 0
