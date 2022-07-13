@@ -83,6 +83,9 @@ def stream(stream) -> StreamContext:
         stream (Stream): selected stream. This manager is a no-op if it's
             ``None``.
     """
+    if stream is None:
+        return StreamContext(None)
+
     return StreamContext(stream.stream)
 
 def set_stream(in_stream):

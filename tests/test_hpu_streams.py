@@ -118,7 +118,12 @@ def testIf():
 
     # breakpoint()
 
+def test_stream_none():
+    print('TEST: stream_none - START')
+    ht.hpu.stream(None)
+
 if __name__ == "__main__":
+    test_stream_none()
     testAddFwdBwd()
     testIf()
     ht.hpu.set_sync_debug_mode(True)
