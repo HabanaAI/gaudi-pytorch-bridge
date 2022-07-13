@@ -1167,17 +1167,6 @@ void RecipeValueSpec::launch(
       }
     }
 
-    // Remove collective kernels ouptut from outDevPtr since collective will be
-    // the producer of these tensors, don't register them on compute event
-    for (const auto& collective : collective_kernels_info) {
-      for (const auto& output : collective->output_tensor_infos) {
-        outDevPtr.erase(
-            std::remove(
-                outDevPtr.begin(), outDevPtr.end(), output->get_buffer_syn()),
-            outDevPtr.end());
-      }
-    }
-
     std::vector<synapse_helpers::shared_event> ext_events;
     for (auto external_idx : external_tensor_info_indexes) {
       synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
@@ -1201,10 +1190,10 @@ void RecipeValueSpec::launch(
     }
 
     auto& recipe_counter = device.get_active_recipe_counter();
+    recipe_counter.increase();
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     {
       synapse_helpers::TimeScope ts(std::move(time_slot_));
-      recipe_counter.increase();
       if (recipe) {
         auto&& error_optional{synapse_helpers::graph::launch(
             device,
@@ -1229,20 +1218,25 @@ void RecipeValueSpec::launch(
       }
     }
 
+    // register events for external tensors on compute
+    for (size_t i = 0; i < ext_events.size(); ++i) {
+      device.register_producer_on_stream(stream_handle, ext_events.at(i));
+    }
+
     // Use wrapper for resources that must survive async part of the compute.
     struct ResourceHolder {
       std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
       std::vector<at::Tensor> output_tensors_;
       std::vector<at::Tensor> input_tensors_;
       std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+      synapse_helpers::active_recipe_counter* recipe_counter_ptr;
     };
-
-    // register events for external tensors on compute
-    for (size_t i = 0; i < ext_events.size(); ++i) {
-      device.register_producer_on_stream(stream_handle, ext_events.at(i));
-    }
-
-    auto resource_holder = std::make_shared<ResourceHolder>();
+    auto resource_holder = std::shared_ptr<ResourceHolder>(
+        new ResourceHolder(), [](ResourceHolder* resource_holder) {
+          resource_holder->recipe_counter_ptr->decrease_and_notify();
+          PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
+          delete resource_holder;
+        });
     // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
     // corresponding recipe is finished on stream
     const auto& recipe_ptr = recipe;
@@ -1250,14 +1244,19 @@ void RecipeValueSpec::launch(
     resource_holder->input_tensors_ = ptRefs;
     resource_holder->output_tensors_ = outPtRefs;
     resource_holder->address_lock = std::move(address_lock);
+    resource_holder->recipe_counter_ptr = &recipe_counter;
     // ResourceHolder could be used directly as callback, if we would only
     // implement operator(), but copying of ResourceHolder would result in
     // copying of all shared_ptr stored inside (including std::vector). To make
     // sharing more lightweight we hide ResourceHolder behind one shared_ptr.
     // This indirection allows us to maintain only one shared reference.
-    auto collective_cleanup_callback = [resource_holder]() mutable {
+    auto cleanup_callback = [resource_holder]() mutable {
       resource_holder.reset();
     };
+    // regsiter an event on the compute
+    device.register_producer_on_stream(
+        std::move(outDevPtr), stream_handle, cleanup_callback);
+
     // Launch collective ops
     HABANA_ASSERT(
         collective_kernels_info.empty() ||
@@ -1268,17 +1267,8 @@ void RecipeValueSpec::launch(
       HABANA_ASSERT(collective);
       PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
       collective->RunCollective(
-          kernel_info->input_tensor_infos, true, collective_cleanup_callback);
+          kernel_info->input_tensor_infos, true, cleanup_callback);
     }
-
-    auto cleanup_callback = [resource_holder, &recipe_counter]() mutable {
-      resource_holder.reset();
-      recipe_counter.decrease_and_notify();
-    };
-
-    // regsiter an event on the compute
-    device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, cleanup_callback);
 
   } else {
     std::vector<synapse_helpers::shared_event> ext_events;
