@@ -44,6 +44,12 @@ else ()
 endif ()
 
 find_package(Torch REQUIRED)
+
+get_property(torch_flags TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS)
+if(NOT "${torch_flags}" STREQUAL "")
+  add_compile_options("${torch_flags}")
+endif()
+
 add_subdirectory(cmake/json)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
