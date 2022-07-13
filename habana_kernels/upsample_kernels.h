@@ -35,6 +35,8 @@ class UpsampleOperator : public HabanaOperator {
       std::vector<int64_t> shape_in,
       OptionalIntArrayRef output_size,
       c10::optional<at::ArrayRef<double>> scales);
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 // Upsample Backward Operator
@@ -57,6 +59,8 @@ class UpsampleBackwardOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 class UpsampleNearest2dOperator : public UpsampleOperator {

@@ -279,3 +279,93 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Fill) {
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicComputeOutputShapesTest, SiluBwdTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  const int C = 16;
+  const int N = 16;
+  int H = 16;
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+
+    auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    auto grad = torch::randn({N, C, H, W}, torch::requires_grad(false));
+
+    auto hinput = input_tensor.to(torch::kHPU);
+    auto hgrad = grad.to(torch::kHPU);
+
+    auto hresult = torch::silu_backward(hgrad, hinput);
+    auto hout = hresult.to(torch::kCPU);
+
+    auto cpu_out = torch::silu_backward(grad, input_tensor);
+
+    EXPECT_EQ(allclose(hout, cpu_out, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  int count = -1;
+  auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
+    torch::Tensor tensor = torch::randn(in_sizes, torch::requires_grad(false));
+    torch::Tensor tHabana = tensor.to(torch::kHPU);
+    std::array<double, 2> scale_array = {2.0, 2.0};
+    c10::ArrayRef<double> scale_factors = scale_array;
+    auto outHabana = torch::upsample_nearest2d(tHabana, {}, scale_factors);
+    auto out = torch::upsample_nearest2d(tensor, {}, scale_factors);
+    bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+    EXPECT_EQ(equal, true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", count, " ----\n");
+  };
+  upsample_test({1, 1, 2, 3});
+  upsample_test({1, 1, 4, 7});
+  upsample_test({1, 1, 6, 12});
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
+  torch::manual_seed(0);
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
+  int count = -1;
+  auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
+    auto mat1 = torch::randn(in_sizes);
+    auto mat1_h = mat1.to(torch::kHPU);
+    mat1.set_requires_grad(true);
+    std::array<double, 2> scales = {2.0, 3.0};
+    c10::optional<c10::ArrayRef<double>> scale_factors = scales;
+    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+
+    auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
+    auto grad_out = torch::ones_like(out);
+    auto grad_out_h = grad_out.to(torch::kHPU);
+    out.backward(grad_out);
+    auto grad_mat1 = mat1.grad();
+
+    torch::Tensor grad_mat1_h;
+
+    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+        grad_out_h, out_size, in_sizes, scale_factors);
+    bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
+    EXPECT_EQ(equal1, true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", count, " ----\n");
+  };
+  upsample_test({1, 1, 2, 3});
+  upsample_test({1, 1, 4, 7});
+  upsample_test({1, 1, 6, 12});
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

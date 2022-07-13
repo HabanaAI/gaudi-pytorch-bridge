@@ -215,6 +215,9 @@ class SiluBackwardOperator : public UnaryBackwardOperator {
       : UnaryBackwardOperator(device_id, NULL_GUID) {
     static_cast<void>(scalarType);
   }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

@@ -215,6 +215,43 @@ ns_ResizeKernel::Params synapse_resize_params_builder(
   return resize_params;
 }
 
+OutputShapeInfRetType UpsampleOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto input = inputs[0].toTensor();
+
+  c10::optional<IntArrayRef> output_size;
+  c10::optional<at::ArrayRef<double>> scales;
+  auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
+  output_size = output_size1.has_value()
+      ? c10::make_optional(ArrayRef<int64_t>(output_size1.value()))
+      : c10::nullopt;
+  auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
+  scales = scales1.has_value()
+      ? c10::make_optional(ArrayRef<double>(scales1.value()))
+      : c10::nullopt;
+
+  // TPC kernel runs only ChannelLast or ChannelLast3d format
+  // TPC kernel supports only 4D or 5D Tensor
+  auto is_input_5d = is_tensor_5d(input.sizes().vec());
+  // Set ChannelLast for 4D Tensor or ChannelLast 5D Tensor
+  auto tpc_memory_format = is_input_5d ? c10::MemoryFormat::ChannelsLast3d
+                                       : c10::MemoryFormat::ChannelsLast;
+  std::vector<int64_t> shape_out = compute_output_shape(
+      input.sizes().vec(), output_size, scales, tpc_memory_format);
+
+  OutputShapeInfRetType out;
+  auto tensor_meta_data = TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(
+          shape_out, input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+  out.AddOutputTensor(tensor_meta_data);
+  out.AddShapeTensor(tensor_meta_data);
+
+  return out;
+}
+
 void UpsampleOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -278,6 +315,27 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
+}
+
+OutputShapeInfRetType UpsampleBackwardOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_output = inputs[0].toTensor();
+  std::vector<int64_t> grad_out_shape;
+  if (inputs[2].isTensor()) {
+    grad_out_shape = inputs[2].toTensor().sizes().vec();
+  } else {
+    grad_out_shape = inputs[2].toIntVector();
+  }
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      grad_out_shape,
+      HabanaOperator::CalculateStrides(
+          grad_out_shape, grad_output.suggest_memory_format()),
+      grad_output.scalar_type(),
+      grad_output.suggest_memory_format()));
+
+  return out;
 }
 
 void UpsampleBackwardOperator::AllocateAndAddSynapseNode(

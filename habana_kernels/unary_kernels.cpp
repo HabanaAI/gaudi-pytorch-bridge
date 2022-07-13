@@ -2075,6 +2075,20 @@ Tensor silu_hpu(const Tensor& self) {
   return out;
 }
 
+OutputShapeInfRetType SiluBackwardOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  int out_index = inputs.size() - 1;
+  auto output = inputs[out_index].toTensor();
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      output.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          output.sizes(), output.suggest_memory_format()),
+      output.scalar_type(),
+      output.suggest_memory_format()));
+  return out;
+}
+
 void SiluBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
