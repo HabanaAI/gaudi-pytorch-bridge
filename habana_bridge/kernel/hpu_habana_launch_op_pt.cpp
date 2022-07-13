@@ -1362,7 +1362,8 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
   auto lowering_kernels = HabanaKernel->GetKernels();
   auto output_shape_kernels = output_shape_handle.GetKernels();
   HABANA_ASSERT(
-      lowering_kernels.size() == output_shape_kernels.size(),
+      std::dynamic_pointer_cast<OpBackend>(HabanaKernel) or
+          lowering_kernels.size() == output_shape_kernels.size(),
       "Node: ",
       opname,
       " number of sub kernels mismatch in shape ineference, expected: ",
