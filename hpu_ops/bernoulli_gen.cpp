@@ -43,14 +43,13 @@ void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   size_t size = 0;
   auto params = FillParams(stack, size);
+  auto dest_type = ScalarType();
+  dest_type = ScalarType() == c10::ScalarType::Float ? c10::ScalarType::Int
+                                                     : c10::ScalarType::Short;
   auto op = BuildOp(
-      graph,
-      guid_,
-      {p->get()},
-      {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
-  syn_out(0) = std::move(op[0]);
+      graph, guid_, {p->get()}, {{outshape, dest_type}}, params.get(), size);
+  auto castOp =
+      CastHelper(graph, op.at(0).get(), outshape, dest_type, ScalarType(), 0);
+  syn_out(0) = std::move(castOp);
 }
-
 } // namespace habana
