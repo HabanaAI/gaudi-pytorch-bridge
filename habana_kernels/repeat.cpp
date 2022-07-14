@@ -162,34 +162,36 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
       "Input arg4 expected to be tensor for repeat-interleave operator");
 
   auto input = inputs[0].toTensor();
-  auto repeats_ht = inputs[1].toTensor();
   auto dim = inputs[2].toInt();
   auto out_shape = inputs[3].toTensor();
 
-  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
-  auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
-  HABANA_ASSERT(impl);
-  TORCH_CHECK(
-      impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
-      "Incorrect datatype of HOST");
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    auto repeats_ht = inputs[1].toTensor();
+    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+    auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
+    HABANA_ASSERT(impl);
+    TORCH_CHECK(
+        impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
+        "Incorrect datatype of HOST");
 
-  // set min/max for repeats_ht, this min/max is used only for memory
-  // allocations by synapse (not for actual compilation), therefore we can set
-  // only last element of ht to out_shape (rest of elements set to 0). Recall
-  // that out_shape is computed by summing elements in ht.
-  if (habana::ShapeInference::GetCurrentPass() ==
-      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    auto size_tensor = input.sizes().vec()[dim];
-    std::vector<int32_t> d(size_tensor, 0);
-    d[size_tensor - 1] = out_shape.sizes()[dim];
-    impl->set_min<int32_t>(d);
-  } else if (
-      habana::ShapeInference::GetCurrentPass() ==
-      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-    auto size_tensor = input.sizes().vec()[dim];
-    std::vector<int32_t> d(size_tensor, 0);
-    d[size_tensor - 1] = out_shape.sizes()[dim];
-    impl->set_max<int32_t>(d);
+    // set min/max for repeats_ht, this min/max is used only for memory
+    // allocations by synapse (not for actual compilation), therefore we can set
+    // only last element of ht to out_shape (rest of elements set to 0). Recall
+    // that out_shape is computed by summing elements in ht.
+    if (habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+      auto size_tensor = input.sizes().vec()[dim];
+      std::vector<int32_t> d(size_tensor, 0);
+      d[size_tensor - 1] = out_shape.sizes()[dim];
+      impl->set_min<int32_t>(d);
+    } else if (
+        habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+      auto size_tensor = input.sizes().vec()[dim];
+      std::vector<int32_t> d(size_tensor, 0);
+      d[size_tensor - 1] = out_shape.sizes()[dim];
+      impl->set_max<int32_t>(d);
+    }
   }
 
   ns_RepeatKernelGaudiTF::Params params;

@@ -553,12 +553,16 @@ TEST_F(LazyTensorShapeKernelTest, Repeat) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, RepeatInlv) {
-  auto test = [](std::vector<int64_t> rpt_vals, int64_t dim) {
+  auto test = [](std::vector<int64_t> rpt_vals, int64_t dim, int64_t out_sz) {
     auto A = torch::randn({4, 5});
     auto rpt = torch::tensor(rpt_vals);
     auto hrpt = rpt.to(torch::kHPU);
     auto hA = A.to(torch::kHPU);
-    if (dim != -1) {
+    if (dim != -1 && out_sz != -1) {
+      auto hOut = hA.repeat_interleave(hrpt, dim, out_sz);
+      auto Out = A.repeat_interleave(rpt, dim, out_sz);
+      EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+    } else if (dim != -1) {
       auto hOut = hA.repeat_interleave(hrpt, dim);
       auto Out = A.repeat_interleave(rpt, dim);
       EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
@@ -568,9 +572,10 @@ TEST_F(LazyTensorShapeKernelTest, RepeatInlv) {
       EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
     }
   };
-  test({2}, -1);
-  test({2, 3, 1, 2}, 0);
-  test({2, 3, 1, 2, 3}, 1);
+  test({2}, -1, -1);
+  test({2, 3, 1, 2}, 0, -1);
+  test({2, 3, 1, 2, 3}, 1, -1);
+  test({2, 1, 3, 1}, 0, 7);
 }
 
 TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {

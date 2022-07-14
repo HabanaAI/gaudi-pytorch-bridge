@@ -4803,7 +4803,15 @@ at::Tensor repeat_inlv_hpu_lazy(
   int64_t out_size;
   // repeats can only by "long" or "int", if long, cast to int because synapse
   // cannot handle long tensors
-  auto repeats_cpu = repeats.to("cpu").to(torch::kInt32);
+  bool need_h2d_tensor = false;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+      !output_size.has_value()) {
+    need_h2d_tensor = true;
+  }
+  at::Tensor repeats_cpu;
+  if (need_h2d_tensor) {
+    repeats_cpu = repeats.to("cpu").to(torch::kInt32);
+  }
   if (output_size.has_value()) {
     out_size = output_size.value();
   } else {
@@ -4817,23 +4825,27 @@ at::Tensor repeat_inlv_hpu_lazy(
       repeats.options().layout_opt(),
       repeats.options().device_opt(),
       repeats.options().pinned_memory_opt());
-  auto repeats_tensor = empty_hpu_lazy(
-      repeats.sizes(),
-      repeats.options().dtype(c10::ScalarType::Int),
-      repeats.suggest_memory_format(),
-      false,
-      HOST_TO_DEVICE_TENSOR);
-  auto hl_params_shape = GetOrCreateHbLazyTensor(repeats_tensor, c10::kHPU);
 
-  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-  habana_lazy::HbInternalTensorImpl* impl =
-      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-  HABANA_ASSERT(impl);
-  impl->set_host_data(
-      repeats_cpu.data_ptr(),
-      repeats_cpu.sizes()[0],
-      sizeof(int32_t),
-      HostDataType::INT32_T);
+  at::Tensor repeats_tensor;
+  if (need_h2d_tensor) {
+    repeats_tensor = empty_hpu_lazy(
+        repeats.sizes(),
+        repeats.options().dtype(c10::ScalarType::Int),
+        repeats.suggest_memory_format(),
+        false,
+        HOST_TO_DEVICE_TENSOR);
+    auto hl_params_shape = GetOrCreateHbLazyTensor(repeats_tensor, c10::kHPU);
+
+    auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+    habana_lazy::HbInternalTensorImpl* impl =
+        habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+    HABANA_ASSERT(impl);
+    impl->set_host_data(
+        repeats_cpu.data_ptr(),
+        repeats_cpu.sizes()[0],
+        sizeof(int32_t),
+        HostDataType::INT32_T);
+  }
 
   auto output_shape =
       RepeatInlvOperator::compute_output_shape(input, 0, out_size);
@@ -4843,12 +4855,21 @@ at::Tensor repeat_inlv_hpu_lazy(
       input.suggest_memory_format(),
       false,
       SHAPE_TENSOR);
-  LazyOp<at::Tensor> k{
-      "hpu::repeat_inlv",
-      {input, repeats_tensor, 0, output_shape_tensor},
-      {2},
-      {output_shape}};
-  return k.call();
+  if (need_h2d_tensor) {
+    LazyOp<at::Tensor> k{
+        "hpu::repeat_inlv",
+        {input, repeats_tensor, 0, output_shape_tensor},
+        {2},
+        {output_shape}};
+    return k.call();
+  } else {
+    LazyOp<at::Tensor> k{
+        "hpu::repeat_inlv",
+        {input, repeats, 0, output_shape_tensor},
+        {2},
+        {output_shape}};
+    return k.call();
+  }
 }
 
 Tensor sum_dim_IntList_hpu_lazy(
