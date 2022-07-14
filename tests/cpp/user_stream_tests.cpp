@@ -127,7 +127,7 @@ void thread_fun(at::optional<at::hpu::HPUStream>& cur_thread_stream) {
 }
 
 // Ensures streams are thread local
-TEST(TestStream, MultithreadGetAndSetTest) {
+TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -183,7 +183,7 @@ TEST(TestStream, StreamPoolTest) {
   ASSERT_TRUE(hasDuplicates);
 }
 
-TEST(TestStream, Use2StreamForadd) {
+TEST(TestStream, DISABLED_Use2StreamForadd) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
