@@ -6087,9 +6087,6 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 } // namespace ops
 } // namespace vision
 
-// Registration for all non-custom/aten ops are auto-generated and can be
-// found in habana_kernels/aten_hpu_type_default.cpp.
-
 TORCH_LIBRARY(hpu, m) {
   m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");
   m.def(

@@ -97,8 +97,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/cast_sequence.cpp
   pytorch_helpers/serialize/export.cpp
   pytorch_helpers/util/jitgraph_utils.cpp
-  
-  habana_kernels/aten_hpu_type_default.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_out_kernels.cpp
@@ -188,34 +186,21 @@ target_link_libraries(habana_pytorch_plugin
     -lstdc++fs
 )
 
-  target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
-  target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR})
-add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.cpp
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.h
-                   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen.py
-                     --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/ops/
-                   MAIN_DEPENDENCY scripts/gen.py
-                   DEPENDS
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-                     ${TORCH_INSTALL_PREFIX}/include/ATen/ops/
-)
+target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.cpp
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_folder=${CMAKE_SOURCE_DIR}/hpu_ops/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
+                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
                    MAIN_DEPENDENCY scripts/gen_op.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
+                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
 )
