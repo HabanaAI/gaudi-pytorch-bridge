@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/linspace.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -49,7 +49,7 @@ std::shared_ptr<void> LinspaceRangeParams(
 void LinspaceOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = LinspaceOutputShape(stack)[0];
+  auto outshape = LinspaceOutputShape(stack, true)[0];
 
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/hardtanh.h"
 
 namespace habana {
 template <typename ScalarType>

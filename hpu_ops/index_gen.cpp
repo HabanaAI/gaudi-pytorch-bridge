@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/gather.h"
+#include "generated/index.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -16,10 +17,8 @@
 namespace habana {
 
 FALLBACK_CHECK(
-    index_tensor_tensor_fallback,
-    const at::Tensor& self,
+    IndexFallbackCheck,
     const c10::List<c10::optional<at::Tensor>>& indices) {
-  static_cast<void>(self);
   at::Stack stack = {indices};
   c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
   for (auto input : indices_in) {

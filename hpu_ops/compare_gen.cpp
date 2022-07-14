@@ -8,7 +8,13 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/eq.h"
+#include "generated/ge.h"
+#include "generated/gt.h"
+#include "generated/le.h"
+#include "generated/lt.h"
+#include "generated/ne.h"
+
 namespace habana {
 template <>
 LazyCmp<at::Tensor>::LazyCmp(
@@ -34,13 +40,13 @@ template <>
 at::Tensor LazyCmp<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
-  auto shape = BinaryOutputShape(inputs)[0];
+  auto shape = BinaryOutputShape(inputs, false)[0];
   return habana_lazy::empty_hpu_lazy(
       shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
 }
 
 void CompareOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = BinaryOutputShape(stack)[0];
+  auto outshape = BinaryOutputShape(stack, true)[0];
   auto result =
       BuildOp(graph, guid_, {syn_in(0), syn_in(1)}, {{outshape, at::kBool, 0}});
 

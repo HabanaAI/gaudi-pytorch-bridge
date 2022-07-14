@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/median.h"
 #include "hpu_op_helper.h"
 #include "median_slice_util.h"
 #include "topk_util.h"
@@ -83,7 +83,7 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       0 /*median variant*/,
       false);
 
-  auto output_shape = MedianOutputShape(stack)[0];
+  auto output_shape = MedianOutputShape(stack, true)[0];
   auto median_output = ReshapeHelper(
       graph, median_value[0].get(), output_shape, ScalarType(), 0);
   syn_out(0) = std::move(median_output);
@@ -146,7 +146,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(0) = std::move(median_value[0]);
     syn_out(1) = std::move(median_index[0]);
   } else {
-    auto output_shape = MediandimOutputShape(stack)[0];
+    auto output_shape = MediandimOutputShape(stack, true)[0];
     auto reshaped_median_value = ReshapeHelper(
         graph, median_value[0].get(), output_shape, ScalarType(), 0);
 

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/round.h"
 
 namespace habana {
 std::shared_ptr<void> FillRoundParams(const at::Stack& stack, size_t& size) {

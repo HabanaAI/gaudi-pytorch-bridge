@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/linalg_cross.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

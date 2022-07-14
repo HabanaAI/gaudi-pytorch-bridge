@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/any.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_op_helper.h"
 #include "reduction_template.h"
@@ -35,8 +35,8 @@ template <>
 at::Tensor AnyOutputType<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
-  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs)[0]
-                                 : AllAnyOutputShape(inputs)[0];
+  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs, false)[0]
+                                 : AllAnyOutputShape(inputs, false)[0];
   return habana_lazy::empty_hpu_lazy(
       shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
 }

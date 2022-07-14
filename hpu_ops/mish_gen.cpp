@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/mish.h"
+#include "generated/mish_backward.h"
 namespace habana {
 
 void Mish::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

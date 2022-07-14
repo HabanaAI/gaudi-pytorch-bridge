@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/dot.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

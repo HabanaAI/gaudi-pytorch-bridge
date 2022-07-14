@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/mm.h"
 #include "hpu_op_helper.h"
 namespace habana {
 sizes_vec MmOutputShape(const at::Stack& stack, bool) {

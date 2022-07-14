@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/normal.h"
 
 namespace habana {
 std::shared_ptr<void> FillNormalParams(const at::Stack& stack, size_t& size) {

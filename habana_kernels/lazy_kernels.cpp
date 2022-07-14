@@ -68,7 +68,6 @@
 #include "habana_lazy/view.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
-#include "hpu_ops/generated/hpu_op.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -1432,7 +1431,7 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   // to realize normal div
 
   c10::optional<c10::string_view> mode = c10::nullopt;
-  return HpuOp::div(self, other, mode);
+  return torch::div(self, other, mode);
 }
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& out,

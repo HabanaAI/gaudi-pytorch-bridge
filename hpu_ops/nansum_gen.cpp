@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/nansum.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "reduction_template.h"
 
@@ -40,7 +40,7 @@ void NansumList::AddNode(
 
   bool keepdim = stack.at(2).toBool();
 
-  auto new_shape = NanSumIntListOutputShape(stack)[0];
+  auto new_shape = NanSumIntListOutputShape(stack, true)[0];
 
   auto guid =
       guidReducesum + habana_helpers::name_suffix_from_type(ScalarType());

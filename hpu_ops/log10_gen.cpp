@@ -7,7 +7,8 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/_foreach_log10.h"
+#include "generated/log10.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

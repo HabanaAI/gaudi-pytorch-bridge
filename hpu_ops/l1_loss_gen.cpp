@@ -8,9 +8,8 @@
  ******************************************************************************
  */
 
-#include <utility>
-
-#include "generated/hpu_op.h"
+#include "generated/l1_loss.h"
+#include "generated/l1_loss_backward.h"
 
 namespace habana {
 

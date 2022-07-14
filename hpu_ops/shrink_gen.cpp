@@ -7,7 +7,8 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/hardshrink.h"
+#include "generated/softshrink.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

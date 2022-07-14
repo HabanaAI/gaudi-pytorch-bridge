@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/addmm.h"
 
 namespace habana {
 
@@ -36,7 +36,7 @@ sizes_vec AddMMOutshape(const at::Stack& stack, bool) {
 }
 
 void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = AddMMOutshape(stack)[0];
+  auto outshape = AddMMOutshape(stack, true)[0];
 
   auto mat1 = stack_tensor(stack, 1);
   auto mat2 = stack_tensor(stack, 2);

@@ -9,7 +9,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/bernoulli.h"
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {

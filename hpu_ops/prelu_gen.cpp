@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/prelu.h"
 
 namespace habana {
 void Prelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

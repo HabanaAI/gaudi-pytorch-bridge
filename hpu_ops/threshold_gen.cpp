@@ -7,30 +7,12 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/threshold.h"
+#include "generated/threshold_backward.h"
 
 namespace habana {
 
-FALLBACK_CHECK(
-    threshold_backward_fallback,
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& threshold) {
-  static_cast<void>(grad_output);
-  static_cast<void>(self);
-  // Threshold values other than 0 are not supported
-  return threshold.toDouble() == 0;
-};
-
-FALLBACK_CHECK(
-    threshold_backward_out_fallback,
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& threshold,
-    const at::Tensor& grad_input) {
-  static_cast<void>(grad_output);
-  static_cast<void>(self);
-  static_cast<void>(grad_input);
+FALLBACK_CHECK(ThresholdBackwardFallback, const at::Scalar& threshold) {
   // Threshold values other than 0 are not supported
   return threshold.toDouble() == 0;
 };

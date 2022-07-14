@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/lerp.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -26,7 +26,7 @@ sizes_vec LerpOutputShape(const at::Stack& stack, bool) {
 }
 
 void Lerp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = LerpOutputShape(stack)[0];
+  auto outshape = LerpOutputShape(stack, true)[0];
   auto sub_outshape = at::infer_size(
       stack_tensor(stack, 0).sizes(), stack_tensor(stack, 1).sizes());
 

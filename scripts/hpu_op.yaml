@@ -50,6 +50,9 @@ __rshift__.Tensor:
   guid: bitshift_fwd
   inplace_ids: [0]
 
+_copy_from_and_resize:
+  override_fn: _copy_from_and_resize_lazy
+
 _foreach_abs:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
@@ -469,10 +472,11 @@ acosh_:
   inplace_ids: [0]
 
 add.out:
+  broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_backend: BinaryWithAlpha
-  use_meta: true
+  type_promotion: true
 
 addcdiv:
   force_default: false
@@ -585,7 +589,6 @@ all:
   guid: all_fwd
   out_ids: [0]
   op_frontend: LazyAll
-  legacy_eager: true
 
 all.all_out:
   custom_output_shape: AllAnyOutputShape
@@ -721,7 +724,6 @@ bernoulli:
   dtypes: [BFloat16, Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyIntSeed
-  legacy_eager: true
   op_backend: Bernoulli
   out_ids: [0]
   schema_args: "(Tensor self, *, int seed) -> Tensor"
@@ -732,7 +734,6 @@ bernoulli_.float:
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: LazyIntSeed
-  legacy_eager: true
   op_backend: Bernoulli
   schema_args: "(Tensor(a!) self, float p=0.5, *, int seed) -> Tensor(a!)"
 
@@ -779,7 +780,6 @@ bitwise_and.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
-  legacy_eager: true
 
 bitwise_left_shift.Scalar_Tensor:
   force_default: false
@@ -845,7 +845,6 @@ bitwise_not:
 bitwise_not.out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
-  legacy_eager: true
 
 bitwise_not_:
   force_default: false
@@ -857,7 +856,6 @@ bitwise_or.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
-  legacy_eager: true
 
 bitwise_right_shift.Scalar_Tensor:
   force_default: false
@@ -918,7 +916,6 @@ bitwise_xor.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
-  legacy_eager: true
 
 ceil:
   force_default: false
@@ -946,7 +943,6 @@ clamp:
   dtypes: [BFloat16, Float, Int]
   op_frontend: LazyClamp
   out_ids: [0]
-  legacy_eager: true
 
 clamp.Tensor:
   force_default: false
@@ -959,7 +955,6 @@ clamp_:
   dtypes: [BFloat16, Float, Int]
   op_frontend: LazyClamp
   inplace_ids: [0]
-  legacy_eager: true
 
 clamp_.Tensor:
   force_default: false
@@ -1017,7 +1012,6 @@ clamp_min:
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   out_ids: [0]
-  legacy_eager: true
 
 clamp_min.Tensor:
   force_default: false
@@ -1095,7 +1089,6 @@ cos:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: cos_fwd
-  legacy_eager: true
   out_ids: [0]
 
 cos.out:
@@ -1281,7 +1274,6 @@ eq.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
-  legacy_eager: true
   type_promotion: true
 
 eq_.Scalar:
@@ -1308,7 +1300,6 @@ eq.Scalar:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 eq.Tensor:
   force_default: false
@@ -1319,21 +1310,18 @@ eq.Tensor:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 erf:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: erf_fwd
   out_ids: [0]
-  legacy_eager: true
 
 erf_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: erf_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 erf.out:
   dtypes: [BFloat16, Float]
@@ -1364,14 +1352,12 @@ exp:
   guid: exp_fwd
   out_ids: [0]
   force_default: false
-  legacy_eager: true
 
 exp_:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
   inplace_ids: [0]
   force_default: false
-  legacy_eager: true
 
 exp.out:
   dtypes: [BFloat16, Float]
@@ -1442,7 +1428,6 @@ floor:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: floor_fwd
-  legacy_eager: true
   out_ids: [0]
 
 floor.out:
@@ -1454,7 +1439,6 @@ floor_:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 floor_divide.out:
   custom_output_shape: BinaryOutputShape
@@ -1607,7 +1591,6 @@ ge.Scalar:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 ge.Tensor:
   force_default: false
@@ -1618,7 +1601,6 @@ ge.Tensor:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 gelu.out:
   dtypes: [BFloat16, Float]
@@ -1699,7 +1681,6 @@ gt.Scalar:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 gt.Tensor:
   force_default: false
@@ -1710,7 +1691,6 @@ gt.Tensor:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 hardshrink:
   force_default: false
@@ -1870,19 +1850,24 @@ hypot.out:
 
 hypot_:
   force_default: false
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   op_backend: Hypot
   inplace_ids: [0]
 
 index.Tensor:
   custom_output_shape: IndexOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
-  fallback_check: index_tensor_tensor_fallback
+  fallback_check: [IndexFallbackCheck, indices]
   guid: index
   op_backend: IndexHabanaOperator
   op_frontend: LazyIndex
   schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
   out_ids: [0]
+
+kl_div:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  override_fn: kl_div_hpu_lazy
 
 l1_loss:
   force_default: false
@@ -1951,7 +1936,6 @@ le.Scalar:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 le.Tensor:
   force_default: false
@@ -1962,7 +1946,6 @@ le.Tensor:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 leaky_relu_backward.grad_input:
   custom_fill_params: FillLeakyReluBackwardParams
@@ -2069,14 +2052,12 @@ log:
   dtypes: [BFloat16, Float]
   guid: log_fwd
   out_ids: [0]
-  legacy_eager: true
 
 log_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: log_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 log1p:
   force_default: false
@@ -2119,14 +2100,12 @@ log2:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
   out_ids: [0]
-  legacy_eager: true
 
 log2_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: log2_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 logaddexp:
   force_default: false
@@ -2184,7 +2163,6 @@ _log_softmax:
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
   out_ids: [0]
-  legacy_eager: true
 
 _log_softmax.out:
   dtypes: [BFloat16, Float]
@@ -2296,7 +2274,6 @@ lt.Scalar:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 lt.Tensor:
   force_default: false
@@ -2307,7 +2284,6 @@ lt.Tensor:
   out_ids: [0]
   op_backend: CompareOp
   type_promotion: true
-  legacy_eager: true
 
 max.dim_max:
   custom_output_shape: MinMaxOutputShape
@@ -2322,7 +2298,6 @@ maximum:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
   out_ids: [0]
-  legacy_eager: true
   type_promotion: true
 
 maximum.out:
@@ -2438,7 +2413,6 @@ minimum:
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
   out_ids: [0]
-  legacy_eager: true
   type_promotion: true
 
 minimum.out:
@@ -2572,7 +2546,6 @@ ne.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   type_promotion: true
-  legacy_eager: true
 
 ne.Tensor:
   force_default: false
@@ -2582,12 +2555,10 @@ ne.Tensor:
   op_backend: NE
   out_ids: [0]
   type_promotion: true
-  legacy_eager: true
 
 neg.out:
   dtypes: [BFloat16, Float, Int]
   guid: neg_fwd
-  legacy_eager: true
 
 neg_:
   force_default: false
@@ -2603,7 +2574,6 @@ neg:
 
 nll_loss_backward:
   force_default: false
-  legacy_eager: true
   custom_fill_params: FillNllLossBwdParams
   custom_output_shape: NllLossBwdOutputShape
   dtypes:
@@ -2618,7 +2588,6 @@ nll_loss_backward:
 
 nll_loss_forward:
   force_default: false
-  legacy_eager: true
   custom_fill_params: FillNllLossFwdParams
   custom_output_shape: NllLossFwdOutputShape
   dtypes:
@@ -2630,7 +2599,6 @@ nll_loss_forward:
   out_ids: [0,0]
 
 nll_loss2d_backward:
-  legacy_eager: true
   custom_fill_params: FillNllLossBwdParams
   custom_output_shape: NllLossBwdOutputShape
   dtypes:
@@ -2647,7 +2615,6 @@ nll_loss2d_backward:
   - [WHCN]
 
 nll_loss2d_forward:
-  legacy_eager: true
   custom_fill_params: FillNllLossFwdParams
   custom_output_shape: NllLossFwdOutputShape
   dtypes:
@@ -2719,7 +2686,6 @@ normal_:
   guid: random_normal_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
-  legacy_eager: true
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
 
@@ -2744,7 +2710,6 @@ pow_.Scalar:
   force_default: false
   guid: pow_fwd
   inplace_ids: [0]
-  legacy_eager: true
   scalar_ids: [1]
   type_promotion: true
 
@@ -2754,7 +2719,6 @@ pow_.Tensor:
   force_default: false
   guid: pow_fwd
   inplace_ids: [0]
-  legacy_eager: true
   type_promotion: true
 
 pow.Scalar:
@@ -2778,7 +2742,6 @@ pow.Tensor_Scalar:
   dtypes: [BFloat16, Float]
   force_default: false
   guid: pow_fwd
-  legacy_eager: true
   out_ids: [0]
   op_backend: PowOp
   scalar_ids: [1]
@@ -2797,7 +2760,6 @@ pow.Tensor_Tensor:
   dtypes: [BFloat16, Float]
   force_default: false
   guid: pow_fwd
-  legacy_eager: true
   out_ids: [0]
   type_promotion: true
 
@@ -2865,19 +2827,16 @@ reciprocal_:
 reciprocal.out:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
-  legacy_eager: true
 
 relu:
   dtypes: [BFloat16, Float]
   guid: relu_fwd
   out_ids: [0]
-  legacy_eager: true
 
 relu_:
   dtypes: [BFloat16, Float]
   guid: relu_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 reflection_pad1d:
   force_default: false
@@ -2972,7 +2931,6 @@ remainder.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
   out_ids: [0]
-  legacy_eager: true
   type_promotion: true
   broadcast: true
 
@@ -2981,7 +2939,6 @@ remainder.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
   out_ids: [0]
-  legacy_eager: true
   scalar_ids: [1]
   type_promotion: true
 
@@ -2990,7 +2947,6 @@ remainder_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
   inplace_ids: [0]
-  legacy_eager: true
   type_promotion: true
   broadcast: true
 
@@ -2999,7 +2955,6 @@ remainder_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
   inplace_ids: [0]
-  legacy_eager: true
   scalar_ids: [1]
   type_promotion: true
 
@@ -3013,7 +2968,6 @@ remainder.Scalar_Tensor:
 remainder.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
-  legacy_eager: true
   type_promotion: true
   broadcast: true
 
@@ -3021,7 +2975,6 @@ remainder.Scalar_out:
   force_default: false
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
-  legacy_eager: true
   scalar_ids: [1]
   type_promotion: true
 
@@ -3124,7 +3077,6 @@ round:
   dtypes: [BFloat16, Float]
   guid: round_fwd
   out_ids: [0]
-  legacy_eager: true
 
 round_:
   force_default: false
@@ -3132,7 +3084,6 @@ round_:
   dtypes: [BFloat16, Float]
   guid: round_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 round.out:
   custom_fill_params: FillRoundParams
@@ -3170,14 +3121,12 @@ rsqrt:
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
   out_ids: [0]
-  legacy_eager: true
 
 rsqrt_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
   inplace_ids: [0]
-  legacy_eager: true
 
 rsqrt.out:
   dtypes: [BFloat16, Float]
@@ -3196,7 +3145,6 @@ rsub.Scalar:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
-  legacy_eager: true
   op_backend: RSubScalarOperator
   out_ids: [0]
   scalar_ids: [1, 2]
@@ -3209,7 +3157,6 @@ scatter.src:
     index: [Int]
   op_backend: ScatterOperator
   out_ids: [0]
-  legacy_eager: true
 
 scatter_.src:
   force_default: false
@@ -3219,7 +3166,6 @@ scatter_.src:
     index: [Int]
   op_backend: ScatterOperator
   inplace_ids: [0]
-  legacy_eager: true
 
 scatter.src_out:
   dtypes:
@@ -3244,7 +3190,6 @@ scatter_.value:
     index: [Int]
   op_backend: ScatterOperator
   inplace_ids: [0]
-  legacy_eager: true
 
 scatter.value_out:
   dtypes:
@@ -3278,7 +3223,6 @@ sigmoid:
   dtypes: [BFloat16, Float]
   guid: sigmoid_fwd
   out_ids: [0]
-  legacy_eager: true
 
 sigmoid_:
   force_default: false
@@ -3291,7 +3235,6 @@ sigmoid_backward:
   force_default: false
   guid: sigmoid_bwd
   out_ids: [0]
-  legacy_eager: true
 
 sigmoid_backward.grad_input:
   dtypes: [BFloat16, Float]
@@ -3344,7 +3287,6 @@ sin:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: sin_fwd
-  legacy_eager: true
   out_ids: [0]
 
 sin.out:
@@ -3459,7 +3401,6 @@ sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   out_ids: [0]
-  legacy_eager: true
 
 sqrt.out:
   dtypes: [BFloat16, Float]
@@ -3488,7 +3429,6 @@ sub.Scalar:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
-  legacy_eager: true
   out_ids: [0]
   type_promotion: true
 
@@ -3500,7 +3440,6 @@ sub_.Tensor:
   inplace_ids: [0]
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
-  legacy_eager: true
   type_promotion: true
 
 sub_.Scalar:
@@ -3510,7 +3449,6 @@ sub_.Scalar:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
-  legacy_eager: true
   type_promotion: true
   inplace_ids: [0]
   type_promotion: true
@@ -3520,7 +3458,6 @@ sub.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
-  scalar_ids: [2]
   type_promotion: true
 
 sum.IntList_out:
@@ -3562,12 +3499,10 @@ tanh:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
   out_ids: [0]
-  legacy_eager: true
 
 tanh.out:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
-  legacy_eager: true
 
 tanh_:
   force_default: false
@@ -3604,15 +3539,14 @@ threshold.out:
 threshold_backward:
   force_default: false
   dtypes: [BFloat16, Float]
-  fallback_check: threshold_backward_fallback
+  fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
   out_ids: [1]
-  legacy_eager: true
   op_backend: ThresholdBackward
 
 threshold_backward.grad_input:
   dtypes: [BFloat16, Float]
-  fallback_check: threshold_backward_out_fallback
+  fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
 
 trace:
@@ -3682,7 +3616,6 @@ uniform_:
   guid: philox_random_uniform
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
-  legacy_eager: true
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 

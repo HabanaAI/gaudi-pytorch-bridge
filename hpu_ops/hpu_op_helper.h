@@ -71,6 +71,11 @@ inline float& get<float>(fint_t& u) {
   const size_t& params_size = sizeof(structname);         \
   auto params = std::make_shared<structname>()
 
+#define REGISTER_HPU_BACKEND(op, backendclass)              \
+  add(op, [](const int device_id, c10::ScalarType type) {   \
+    return std::make_shared<backendclass>(device_id, type); \
+  })
+
 #define HPU_OP_BACKEND(op)                                            \
   struct op : OpBackend {                                             \
     op(int device_id,                                                 \
@@ -104,7 +109,7 @@ inline float& get<float>(fint_t& u) {
 #define FILL_PARAMS_DECL(fn) \
   std::shared_ptr<void> fn(const at::Stack&, size_t&);
 
-#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool = false);
+#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool);
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes) \
   const static SupportedDtypes fn##_supported_dtypes supported_dtypes;
@@ -159,17 +164,15 @@ inline float& get<float>(fint_t& u) {
   }
 
 #define FALLBACK_IF_UNSUPPORTED_INPUTS(check_fn, op, args...)              \
-  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                               \
+  if (ABSL_PREDICT_FALSE(!check_fn)) {                                     \
     return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(op)>::call( \
         args);                                                             \
   }
 
 #define FALLBACK_IF_UNSUPPORTED_INPUTS2(check_fn, op, overload, args...)     \
-  if (ABSL_PREDICT_FALSE(!check_fn(args))) {                                 \
+  if (ABSL_PREDICT_FALSE(!check_fn)) {                                       \
     return at::native::                                                      \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(op, overload)>::call(args); \
   }
 
-#define FALLBACK_CHECK(check_fn, signature...)          \
-  extern const std::function<bool(signature)> check_fn; \
-  const std::function<bool(signature)> check_fn = [](signature)
+#define FALLBACK_CHECK(fn, args...) bool fn(args...)

@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/tril.h"
+#include "generated/triu.h"
 
 namespace habana {
 std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
