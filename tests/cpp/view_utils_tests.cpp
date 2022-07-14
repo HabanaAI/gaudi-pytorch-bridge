@@ -128,7 +128,7 @@ TEST(ViewUtilsTest, IsAliasNonZeroOpViews) {
   EXPECT_TRUE(cpu_out == hpu_out);
 }
 
-TEST(ViewUtilsTest, DISABLED_IsAliasSliceOnChlastInput) {
+TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
   bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);

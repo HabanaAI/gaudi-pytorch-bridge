@@ -193,7 +193,7 @@ TEST_F(LazyLossKernelTest, NllLossFwdTest) {
   EXPECT_EQ(allclose(output_cpu, output_hpu), true);
 }
 
-TEST_F(LazyLossKernelTest, DISABLED_NllLoss2dNHWCFwdTest) {
+TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
   torch::Tensor input =
       torch::randn({12, 5, 190, 162}, torch::requires_grad(true)); // nchw
   torch::Tensor hinput = input.to(

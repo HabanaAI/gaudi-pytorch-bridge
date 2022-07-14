@@ -414,7 +414,7 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest2) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyTensorShapeKernelTest, DISABLED_TransposeTestCL) {
+TEST_F(LazyTensorShapeKernelTest, TransposeTestCL) {
   torch::Tensor A = torch::randn({8, 224, 224, 3}, torch::requires_grad(false))
                         .contiguous(c10::MemoryFormat::ChannelsLast);
   torch::Tensor hA = A.to(torch::kHPU);
@@ -642,7 +642,7 @@ TEST_F(LazyTensorShapeKernelTest, SplitTest6D) {
 }
 
 // Test case to check the split with ChannelLast mem format.
-TEST_F(LazyTensorShapeKernelTest, DISABLED_SplitViewContgCLTest) {
+TEST_F(LazyTensorShapeKernelTest, SplitViewContgCLTest) {
   double rtol = 1e-03;
   double atol = 1e-03;
 

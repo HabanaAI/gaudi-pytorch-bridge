@@ -1006,7 +1006,7 @@ TEST_F(GraphOptimizeTest, ConvCatConv) {
   auto out = outConv3.to(torch::kCPU);
 }
 
-TEST_F(GraphOptimizeTest, DISABLED_CatTest) {
+TEST_F(GraphOptimizeTest, CatTest) {
   auto input_tensor0 = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   torch::Tensor tHabanaX0 = input_tensor0.to(

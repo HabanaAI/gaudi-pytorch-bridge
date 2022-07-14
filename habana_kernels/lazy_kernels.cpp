@@ -502,7 +502,6 @@ at::Tensor get_tensor_for_scalar(
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
-  auto is_5d_tensor = self.dim() == 5;
   if (!habana_helpers::is_supported_type(self.scalar_type())) {
     // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
     // would fallback to cpu for unsupported dtypes
@@ -532,7 +531,6 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
   auto layout_format = hb_tensor.GetTensorLayout();
   hlresult.SetTensorLayout(layout_format);
-  bool permuted = false;
   /* We can't create a long/double target in the device. Even a cast will not
     work as these data types are not available within the device. The only way
     to make progress is to just do a normal D2D so that the target will also
@@ -545,50 +543,26 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     // wait Else , If we already have storage in dst, add memcopy node to lazy
     // graph and we want to copy to existing tensor and not a new one
     // Kernel expects us to pass dst as second input in that case
-    auto result_data = hlresult.CurrentTensorData();
-    auto src_data = hb_tensor.CurrentTensorData();
-    if (copy_transpose_valid(self, src)) {
-      permuted = true;
-      if (is_5d_tensor) {
-        int64_t dim_chl_pos[] = {
-            LayoutFormatWithDepthDims::N,
-            LayoutFormatWithDepthDims::D,
-            LayoutFormatWithDepthDims::H,
-            LayoutFormatWithDepthDims::W,
-            LayoutFormatWithDepthDims::C};
-        at::IntArrayRef chl_pos = dim_chl_pos;
-        self = permute_cl_hpu_lazy(src, chl_pos);
-      } else {
-        int64_t dim_chl_pos[] = {
-            LayoutFormatDims::N,
-            LayoutFormatDims::H,
-            LayoutFormatDims::W,
-            LayoutFormatDims::C};
-        at::IntArrayRef chl_pos = dim_chl_pos;
-        self = permute_cl_hpu_lazy(src, chl_pos);
-      }
-    } else if (!permuted) {
-      auto src_id = hb_tensor.getTensorUniqueId();
-      auto dst_id = hlresult.getTensorUniqueId();
-      if (src_id == dst_id) {
-        return self;
-      }
+    auto src_id = hb_tensor.getTensorUniqueId();
+    auto dst_id = hlresult.getTensorUniqueId();
+    if (src_id == dst_id) {
+      return self;
+    }
 
-      // graph cycle happens in squad 8x with view table mechanism
-      // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
-      // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
-      auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
-      auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
+    // graph cycle happens in squad 8x with view table mechanism
+    // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
+    // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
+    auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
+    auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
 
-      if (src_parent_id == dst_id) {
-        return self;
-      }
+    if (src_parent_id == dst_id) {
+      return self;
+    }
 
-      // Handle views and lhs slice
-      auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
-      if (is_view == false) {
-        AddMemcpy(src_updated, self);
-      }
+    // Handle views and lhs slice
+    auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
+    if (is_view == false) {
+      AddMemcpy(src_updated, self);
     }
   } else {
     node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
@@ -828,6 +802,23 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   return self;
 }
 
+void calculate_size_stride_cl(
+    int64_t dim,
+    std::vector<int64_t>& size,
+    std::vector<int64_t>& stride,
+    std::vector<int64_t>& permute_dims) {
+  std::iota(permute_dims.begin(), permute_dims.end(), -1);
+  // prepare the permute params to channels first.
+  permute_dims[0] = 0;
+  permute_dims[1] = dim - 1;
+  auto temp = size[1];
+  for (int i = 1; i < dim - 1; i++) {
+    size[i] = size[i + 1];
+  }
+  size[dim - 1] = temp;
+  habana_helpers::recalc_strides(stride, size);
+}
+
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
@@ -942,6 +933,20 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
         internal_tensor_from_copy.storage().data_ptr());
   }
 
+  if ((self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast ||
+       self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) &&
+      (self.dim() == 4 || self.dim() == 5)) {
+    auto dim = self.dim();
+    auto size = self.sizes().vec();
+    auto stride = self.strides().vec();
+    std::vector<int64_t> permute_dims(dim);
+    calculate_size_stride_cl(dim, size, stride, permute_dims);
+
+    self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+    self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
+        size, stride);
+    self = permute_hpu_lazy(self, permute_dims);
+  }
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   flush_op(self);

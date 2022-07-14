@@ -14,7 +14,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_scale_CL) {
+TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale_CL) {
   GenerateInputs(1, {{1, 9, 3, 4}});
   std::vector<int64_t> size = {6, 12};
   c10::optional<double> scale_h = 2.0;
@@ -26,7 +26,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_scale_CL) {
       scale_h,
       scale_w);
   auto result = torch::upsample_nearest2d(
-      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast),
+      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
       size,
       scale_h,
       scale_w);
@@ -46,14 +46,15 @@ TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_fwd_size_CL) {
+TEST_F(HpuOpTest, upsample_nearest2d_fwd_size_CL) {
   GenerateInputs(1, {{2, 7, 3, 4}});
   std::vector<int64_t> size = {10, 17};
 
   auto expected = torch::upsample_nearest2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast), size);
   auto result = torch::upsample_nearest2d(
-      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast), size);
+                    GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast), size)
+                    .to("hpu");
   Compare(expected, result);
 }
 
@@ -153,7 +154,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_bwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_bwd_out_CL) {
+TEST_F(HpuOpTest, upsample_nearest2d_bwd_out_CL) {
   GenerateInputs(1, {{2, 28, 64, 64}});
   std::vector<int64_t> out_size = {64, 64};
   std::vector<int64_t> input_size = {2, 28, 16, 32};
@@ -170,7 +171,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_nearest2d_bwd_out_CL) {
       c10::nullopt,
       expected);
   torch::upsample_nearest2d_backward_outf(
-      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast),
+      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
       out_size,
       input_size,
       c10::nullopt,

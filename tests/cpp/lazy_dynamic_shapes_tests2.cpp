@@ -51,7 +51,7 @@ class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {
   }
 };
 
-TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlastInput) {
+TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -66,7 +66,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlastInput) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast3dInput) {
+TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -97,7 +97,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, DISABLED_SelectOnChlast3dInput) {
+TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -146,7 +146,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast) {
+TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -154,17 +154,17 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast) {
     torch::Tensor A =
         torch::randn({N, C, H, W}).contiguous(c10::MemoryFormat::ChannelsLast);
     auto hA = A.to(torch::kHPU);
-    auto B = A.view(-1);
+    auto B = A.reshape(A.sizes());
     B.add_(0.5);
     // hpu
-    auto hB = hA.view(-1);
+    auto hB = hA.reshape(hA.sizes());
     hB.add_(0.5);
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
+TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast3d) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -172,10 +172,10 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
     torch::Tensor A = torch::randn({N, C, D, H, W})
                           .contiguous(c10::MemoryFormat::ChannelsLast3d);
     auto hA = A.to(torch::kHPU);
-    auto B = A.view(-1);
+    auto B = A.reshape(A.sizes());
     B.add_(0.5);
     // hpu
-    auto hB = hA.view(-1);
+    auto hB = hA.view(hA.sizes());
     hB.add_(0.5);
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(A, hA.cpu()), true);

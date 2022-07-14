@@ -15,7 +15,7 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 // forward variants
-TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_fwd_scale_CL) {
+TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 3, 4}});
   std::vector<double> scale_factor = {1.999, 2.999};
 
@@ -24,8 +24,9 @@ TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_fwd_scale_CL) {
       c10::nullopt,
       /*align_corner*/ false,
       scale_factor);
+
   auto result = torch::upsample_bicubic2d(
-      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast),
+      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
       c10::nullopt,
       /*align_corner*/ false,
       scale_factor);

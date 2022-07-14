@@ -42,7 +42,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
 }
 */
 
-TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest_channelLast) {
+TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest_channelLast) {
   torch::Tensor tensor =
       torch::randn({2, 3, 4, 5}).to(c10::MemoryFormat::ChannelsLast);
   torch::Tensor tHabana = tensor.to(torch::kHPU);
@@ -80,7 +80,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
   upsample_test({1, 1, 4, 7});
 }
 
-TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleBackwardTest_channelLast) {
+TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
   torch::manual_seed(0);
   auto upsample_test = [](c10::IntArrayRef size1) {
     auto mat1 = torch::randn(size1).to(c10::MemoryFormat::ChannelsLast);
@@ -153,7 +153,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest3D) {
   EXPECT_EQ(equal, true);
 }
 
-TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest3D_channelLast) {
+TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest3D_channelLast) {
   torch::Tensor tensor =
       torch::randn({5, 1, 7, 2, 3}).to(c10::MemoryFormat::ChannelsLast3d);
   torch::Tensor tHabana = tensor.to(torch::kHPU);

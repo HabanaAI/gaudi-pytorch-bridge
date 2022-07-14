@@ -39,7 +39,7 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
-TEST_F(LazyNormKernelTest, DISABLED_InstanceNormChLast) {
+TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
       torch::arange(240, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 2}, c10::MemoryFormat::ChannelsLast);
@@ -127,7 +127,7 @@ TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dFwdBwd) {
       true);
 }
 
-TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dChLastFwdBwd) {
+TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }
@@ -140,9 +140,10 @@ TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dChLastFwdBwd) {
   auto input_tensor = torch::randn(
       {batch_dim, channel_dim, depth_dim, height_dim, width_dim},
       torch::dtype(torch::kFloat).requires_grad(true));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU)
-                               .contiguous(c10::MemoryFormat::ChannelsLast3d)
-                               .detach();
+  torch::Tensor tHabanaX =
+      input_tensor.contiguous(c10::MemoryFormat::ChannelsLast3d)
+          .to(torch::kHPU)
+          .detach();
   tHabanaX.requires_grad_(true);
 
   at::Tensor weight = torch::randn(
@@ -372,7 +373,7 @@ TEST_F(LazyNormKernelTest, BatchNorm7DForwardExecute) {
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
 }
 
-TEST_F(LazyNormKernelTest, DISABLED_BatchNorm5DChannelsLastForwardExecute) {
+TEST_F(LazyNormKernelTest, BatchNorm5DChannelsLastForwardExecute) {
   auto input_tensor =
       torch::randn(
           {8, 3, 10, 10, 4}, torch::dtype(torch::kFloat).requires_grad(false))
