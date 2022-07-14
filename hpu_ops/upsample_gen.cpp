@@ -12,6 +12,8 @@
 #include "generated/upsample_linear1d_backward.h"
 #include "generated/upsample_nearest1d.h"
 #include "generated/upsample_nearest1d_backward.h"
+#include "generated/upsample_nearest2d.h"
+#include "generated/upsample_nearest2d_backward.h"
 #include "generated/upsample_nearest3d.h"
 #include "generated/upsample_nearest3d_backward.h"
 #include "synapse_helpers/layout_utils.h"
@@ -384,7 +386,9 @@ sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  std::vector<int64_t> outshape = stack.at(2).toIntVector();
+  std::vector<int64_t> outshape = stack.at(2).isTensor()
+      ? stack_tensor(stack, 2).sizes().vec()
+      : stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
   if (!habana_lazy::isDeviceInLoweringMode() ||
@@ -777,12 +781,16 @@ static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
     std::swap(trans_params.permutation[1], trans_params.permutation[2]);
     std::swap(trans_params.permutation[2], trans_params.permutation[3]);
   }
+  auto dtype = op->ScalarType();
+  if (dtype == c10::ScalarType::Byte) {
+    dtype = c10::ScalarType::Float;
+  }
   return OpBackend::BuildNode(
       op,
       graph,
       {"transpose",
        std::move(input),
-       {{outshape, op->ScalarType(), final_index}},
+       {{outshape, dtype, final_index}},
        &trans_params,
        sizeof(trans_params)});
 }
@@ -795,12 +803,20 @@ static std::vector<synapse_helpers::tensor> Resize(
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_index = c10::nullopt) {
+  auto dtype = op->ScalarType();
+  if (dtype == c10::ScalarType::Byte) {
+    dtype = c10::ScalarType::Float;
+  }
+  auto guid = op->GetGuid();
+  guid = guid.substr(0, guid.find_last_of('_') + 1) +
+      habana_helpers::name_suffix_from_type(dtype);
+
   return OpBackend::BuildNode(
       op,
       graph,
-      {op->GetGuid(),
+      {guid,
        std::move(input),
-       {{outshape, op->ScalarType(), final_index}},
+       {{outshape, dtype, final_index}},
        params.get(),
        size});
 }
@@ -823,12 +839,16 @@ static std::vector<synapse_helpers::tensor> Slice(
     slice_params.ends[i] = outshape[(input_size - i - 1)];
     slice_params.steps[i] = 1;
   }
+  auto dtype = op->ScalarType();
+  if (dtype == c10::ScalarType::Byte) {
+    dtype = c10::ScalarType::Float;
+  }
   return OpBackend::BuildNode(
       op,
       graph,
       {"slice",
        std::move(input),
-       {{outshape, op->ScalarType(), final_index}},
+       {{outshape, dtype, final_index}},
        &slice_params,
        sizeof(slice_params)});
 }
@@ -840,7 +860,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncOldLayout(
     enum modes upsample_mode,
     bool isForward,
     std::vector<synTensor> input,
-    const at::IntArrayRef shape_in,
     c10::IValue out_size,
     bool align_corners,
     c10::IValue scales,
@@ -848,10 +867,12 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncOldLayout(
     double scale_h,
     double scale_d,
     const at::IntArrayRef outshape,
-    const int variant_type) {
+    const at::Tensor self_tensor) {
+  auto variant_type = self_tensor.dim();
+  auto shape_in = self_tensor.sizes().vec();
   std::vector<int64_t> out_shape_temp;
   // Transpose MemLayout
-  if (variant_type == 3) { // 1D - N,C,W to N,W,C
+  if (self_tensor.dim() == 3) { // 1D - N,C,W to N,W,C
     out_shape_temp = {shape_in[0], shape_in[2], shape_in[1]};
   } else if (variant_type == 5) { // 3D - N,C,D,H,W to N,D,H,W,C
     out_shape_temp = {
@@ -938,7 +959,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     enum modes upsample_mode,
     bool isForward,
     std::vector<synTensor> input,
-    const at::IntArrayRef shape_in,
     c10::IValue out_size,
     bool align_corners,
     c10::IValue scales,
@@ -946,11 +966,26 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     double scale_h,
     double scale_d,
     const at::IntArrayRef outshape,
-    const int variant_type) {
+    const at::Tensor self_tensor) {
+  auto variant_type = self_tensor.dim();
+  auto shape_in = self_tensor.sizes().vec();
   std::vector<int64_t> out_shape_temp(shape_in.begin(), shape_in.end());
-  std::vector<synTensor> reshaped_input(std::move(input));
-  std::vector<synapse_helpers::tensor> reshape;
 
+  std::vector<synapse_helpers::tensor> reshape;
+  std::unique_ptr<synapse_helpers::tensor> cast;
+  if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+    // u8 to f32
+    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+        op,
+        graph,
+        input[0],
+        shape_in,
+        c10::ScalarType::Byte,
+        c10::ScalarType::Float));
+    input = {cast->get()};
+    op->SetScalarType(c10::ScalarType::Float);
+  }
+  std::vector<synTensor> reshaped_input(std::move(input));
   // Reshape - 1D varaints only
   // N,C,W to N,C,H,W where H=2
   if (variant_type == 3) {
@@ -977,11 +1012,12 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     if (variant_type == 3) { // 1D
       out_shape_temp.at(3) = outshape.at(2);
     } else if (variant_type == 5) { // 3D
-      out_shape_temp.at(1) = outshape.at(1);
       out_shape_temp.at(2) = outshape.at(2);
       out_shape_temp.at(3) = outshape.at(3);
+      out_shape_temp.at(4) = outshape.at(4);
     }
   }
+
   size_t size = 0;
   const auto& params = FillResizeParams(
       variant_type,
@@ -993,7 +1029,9 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       scale_h,
       scale_d,
       align_corners);
-  auto final_index_for_resize = modifyInputWithOutputWidth || variant_type == 3
+  auto final_index_for_resize = modifyInputWithOutputWidth ||
+          variant_type == 3 ||
+          self_tensor.scalar_type() == c10::ScalarType::Byte
       ? c10::optional<int>()
       : c10::optional<int>(0);
   auto resize = Resize(
@@ -1013,7 +1051,11 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       slice_shape = {shape_in[0], shape_in[1], 1 /*H*/, outshape.at(2)};
     }
     auto final_index_for_slice =
-        variant_type == 3 ? c10::optional<int>() : c10::optional<int>(0);
+        (variant_type == 3 ||
+         self_tensor.scalar_type() == c10::ScalarType::Byte)
+        ? c10::optional<int>()
+        : c10::optional<int>(0);
+
     resize = Slice(
         op,
         graph,
@@ -1026,8 +1068,30 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
   // Reshape - 1D variants only
   // N,C,H,W to N,C,W where H=2
   if (variant_type == 3) {
+    c10::optional<int> final_result_index = {0};
+    if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+      final_result_index = c10::nullopt;
+    }
     resize.front() = OpBackend::BuildReshape(
-        op, graph, resize[0].get(), outshape, op->ScalarType(), 0);
+        op,
+        graph,
+        resize[0].get(),
+        outshape,
+        op->ScalarType(),
+        final_result_index);
+  }
+  if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+    // f32 to u8
+    std::vector<synapse_helpers::tensor> result;
+    result.emplace_back(OpBackend::BuildCast(
+        op,
+        graph,
+        resize[0].get(),
+        outshape,
+        c10::ScalarType::Float,
+        c10::ScalarType::Byte,
+        0));
+    return result;
   }
   return resize;
 }
@@ -1039,7 +1103,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     enum modes upsample_mode,
     bool isForward,
     std::vector<synTensor> input,
-    const at::IntArrayRef shape_in,
     c10::IValue out_size,
     bool align_corners,
     c10::IValue scales,
@@ -1047,9 +1110,12 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     double scale_h,
     double scale_d,
     const at::IntArrayRef outshape,
-    const int variant_type) {
+    const at::Tensor self_tensor) {
   PT_LAZY_DEBUG(__FUNCTION__);
   std::vector<synapse_helpers::tensor> output;
+  op->CreateShapeTensorInput(
+      graph, op->ScalarType(), outshape, input, SHAPE_TENSOR);
+
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     output = UpsampleCommonFuncSynapseLayout(
         op,
@@ -1057,7 +1123,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
         upsample_mode,
         isForward,
         input,
-        shape_in,
         out_size,
         align_corners,
         scales,
@@ -1065,7 +1130,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
         scale_h,
         scale_d,
         outshape,
-        variant_type);
+        self_tensor);
   }
   //! PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
   else {
@@ -1075,7 +1140,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
         upsample_mode,
         isForward,
         input,
-        shape_in,
         out_size,
         align_corners,
         scales,
@@ -1083,7 +1147,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
         scale_h,
         scale_d,
         outshape,
-        variant_type);
+        self_tensor);
   }
   return output;
 }
@@ -1093,8 +1157,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output_shape = UpsampleLinear1DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = stack.at(2).toBool();
   auto scales = stack.at(3);
@@ -1109,7 +1172,6 @@ void UpsampleLinear1DFwdOperator::AddNode(
       linear, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
-      shape_in,
       out_size,
       align_corners,
       scales,
@@ -1117,8 +1179,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim() /*variant_type - 1D*/
-  );
+      self_tensor);
 
   syn_out(0) = std::move(result.at(0));
 }
@@ -1127,8 +1188,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output_shape = UpsampleLinear1DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = stack.at(3).toBool();
   auto scales = stack.at(4);
@@ -1143,7 +1203,6 @@ void UpsampleLinear1DBwdOperator::AddNode(
       linear, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
-      shape_in,
       out_size,
       align_corners,
       scales,
@@ -1151,8 +1210,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim() /*variant_type - 1D*/
-  );
+      self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 1D Nearest function
@@ -1160,8 +1218,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output_shape = UpsampleNearest1DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = false;
   auto scales = stack.at(2);
@@ -1176,7 +1233,6 @@ void UpsampleNearest1DFwdOperator::AddNode(
       nearest, /*upsample_mode*/
       true, /*isForward*/
       {syn_in(0)},
-      shape_in,
       out_size,
       align_corners,
       scales,
@@ -1184,8 +1240,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim() /*variant_type - 1D*/
-  );
+      self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 1D Nearest function
@@ -1193,8 +1248,7 @@ void UpsampleNearest1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output_shape = UpsampleNearest1DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = false;
   auto scales = stack.at(3);
@@ -1209,7 +1263,6 @@ void UpsampleNearest1DBwdOperator::AddNode(
       nearest, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
-      shape_in,
       out_size,
       align_corners,
       scales,
@@ -1217,17 +1270,82 @@ void UpsampleNearest1DBwdOperator::AddNode(
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
       output_shape,
-      self.dim() /*variant_type - 1D*/
-  );
+      self_tensor);
   syn_out(0) = std::move(result.at(0));
+}
+// FrontEnd
+template <>
+LazyUpsample<at::Tensor>::LazyUpsample(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  auto x = get_inputs();
+  auto self = x[0].toTensor();
+  auto outshape = UpsampleNearest2DBwdOutputShape(x)[0];
+  auto outshape_st = habana_lazy::empty_hpu_lazy(
+      outshape,
+      self.options(),
+      self.suggest_memory_format(),
+      false,
+      SHAPE_TENSOR);
+
+  x[2] = c10::IValue(outshape_st);
+  set_inputs(x);
+}
+
+template <>
+at::Tensor LazyUpsample<at::Tensor>::get_result_overrideable() {
+  return LazyOp<at::Tensor>::get_result_overrideable();
+}
+
+template struct LazyUpsample<at::Tensor>;
+//  AddNode 2D Nearest function
+void UpSampleNearest2DOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto outshape = ComputeOutputShapes(stack)[0];
+  auto self = stack_tensor(stack, 0);
+  std::vector<synTensor> input{syn_in(0)};
+  std::unique_ptr<synapse_helpers::tensor> cast;
+  c10::optional<int> final_index = 0;
+  this->CreateShapeTensorInput(
+      graph, ScalarType(), outshape, input, SHAPE_TENSOR);
+  if (self.scalar_type() == c10::ScalarType::Byte) {
+    // u8 to f32
+    cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
+        graph,
+        input[0],
+        self.sizes().vec(),
+        c10::ScalarType::Byte,
+        c10::ScalarType::Float));
+    input = {cast->get()};
+    this->SetScalarType(c10::ScalarType::Float);
+    final_index = c10::nullopt;
+  }
+
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+
+  auto resize = Resize(this, graph, input, outshape, params, size, final_index);
+  if (self.scalar_type() == c10::ScalarType::Byte) {
+    // f32 to u8
+    resize[0] = CastHelper(
+        graph,
+        resize[0].get(),
+        outshape,
+        c10::ScalarType::Float,
+        c10::ScalarType::Byte,
+        0);
+  }
+  syn_out(0) = std::move(resize.at(0));
 }
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output_shape = UpsampleNearest3DFwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(2);
@@ -1240,13 +1358,13 @@ void UpSampleNearest3DFwdOperator::AddNode(
     scale_w = !scales.isScalar() ? scales.toDoubleVector().at(2)
                                  : stack.at(4).toDouble();
   }
+  std::vector<synTensor> input = {syn_in(0)};
   auto result = UpsampleCommonFunc(
       this,
       graph,
       nearest, /*upsample_mode*/
       true, /*isForward*/
-      {syn_in(0)},
-      shape_in,
+      input,
       out_size,
       false, /*align_corners*/
       scales,
@@ -1254,8 +1372,7 @@ void UpSampleNearest3DFwdOperator::AddNode(
       scale_h,
       scale_d,
       output_shape,
-      self.dim() /*variant_type - 3D*/
-  );
+      self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
 // AddNode BWD 3D Nearest function
@@ -1264,8 +1381,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
     const at::Stack& stack) {
   // outshape
   auto output_shape = UpsampleNearest3DBwdOutputShape(stack)[0];
-  auto self = stack.at(0).toTensor();
-  auto shape_in = self.sizes();
+  auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
   auto scales = stack.at(3);
@@ -1278,13 +1394,13 @@ void UpSampleNearest3DBwdOperator::AddNode(
     scale_w = !scales.isScalar() ? scales.toDoubleVector().at(2)
                                  : stack.at(5).toDouble();
   }
+  std::vector<synTensor> input = {syn_in(0)};
   auto result = UpsampleCommonFunc(
       this,
       graph,
       nearest, /*upsample_mode*/
       false, /*isForward*/
-      {syn_in(0)},
-      shape_in,
+      input,
       out_size,
       false, /*align_corners*/
       scales,
@@ -1292,8 +1408,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
       scale_h,
       scale_d,
       output_shape,
-      self.dim() /*variant_type - 3D*/
-  );
+      self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
 } // namespace habana

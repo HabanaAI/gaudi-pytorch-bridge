@@ -259,7 +259,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
 
     torch::Tensor grad_mat1_h;
 
-    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+    grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, in_sizes, scale_factors);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);

@@ -72,7 +72,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
     c10::ArrayRef<double> scale_factors = scales;
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
-    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+    grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, size1, scale_factors);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);
@@ -98,7 +98,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
     c10::ArrayRef<double> scale_factors = scales;
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
-    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+    grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, size1, scale_factors);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);
@@ -129,7 +129,7 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
 
     torch::Tensor grad_mat1_h;
 
-    grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
+    grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, size1, scale_factors);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);

@@ -75,24 +75,6 @@ at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
 at::Tensor floor_divide_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
-at::Tensor upsample_nearest2d_hpu_lazy(
-    const at::Tensor& input,
-    OptionalIntArrayRef output_size,
-    c10::optional<at::ArrayRef<double>> scale_factors);
-at::Tensor upsample_nearest2d_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    OptionalIntArrayRef output_size,
-    at::IntArrayRef input_size,
-    c10::optional<at::ArrayRef<double>> scale_factors);
-at::Tensor upsample_nearest3d_hpu_lazy(
-    const at::Tensor& input,
-    OptionalIntArrayRef output_size,
-    c10::optional<at::ArrayRef<double>> scale_factors);
-at::Tensor upsample_nearest3d_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    OptionalIntArrayRef output_size,
-    at::IntArrayRef input_size,
-    c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor convolution_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

@@ -1574,124 +1574,6 @@ std::vector<at::Tensor> hpu_wrap::split(
   return hpu_wrap::split_with_sizes(self, split_sizes, dim);
 }
 
-Tensor hpu_wrap::upsample_nearest2d(
-    const Tensor& input,
-    OptionalIntArrayRef output_size,
-    c10::optional<at::ArrayRef<double>> scale_factors) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "upsample_nearest2d :",
-      " input=",
-      to_string(input),
-      " output_size=",
-      to_string(output_size),
-      " scale_factors=",
-      to_string(scale_factors));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      upsample_nearest2d,
-      PARAMS1(input),
-      PARAMS2(input, output_size, scale_factors),
-      vec)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return upsample_nearest2d_hpu_lazy(input, output_size, scale_factors);
-  } else {
-    return upsample_nearest2d_hpu(input, output_size, scale_factors);
-  }
-};
-
-Tensor hpu_wrap::upsample_nearest2d_backward(
-    const Tensor& grad_output,
-    OptionalIntArrayRef output_size,
-    at::IntArrayRef input_size,
-    c10::optional<at::ArrayRef<double>> scale_factors) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "upsample_nearest2d_backward :",
-      " grad_output=",
-      to_string(grad_output),
-      " output_size=",
-      to_string(output_size),
-      " input_size=",
-      to_string(input_size),
-      " scale_factors=",
-      to_string(scale_factors));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      upsample_nearest2d_backward,
-      PARAMS1(grad_output),
-      PARAMS2(grad_output, output_size, input_size, scale_factors),
-      vec)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return upsample_nearest2d_backward_hpu_lazy(
-        grad_output, output_size, input_size, scale_factors);
-  } else {
-    return upsample_nearest2d_backward_hpu(
-        grad_output, output_size, input_size, scale_factors);
-  }
-};
-
-Tensor hpu_wrap::upsample_nearest3d(
-    const Tensor& input,
-    OptionalIntArrayRef output_size,
-    c10::optional<at::ArrayRef<double>> scale_factors) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "upsample_nearest3d :",
-      " input=",
-      to_string(input),
-      " output_size=",
-      to_string(output_size),
-      " scale_factors=",
-      to_string(scale_factors));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      upsample_nearest3d,
-      PARAMS1(input),
-      PARAMS2(input, output_size, scale_factors),
-      vec)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return upsample_nearest3d_hpu_lazy(input, output_size, scale_factors);
-  } else {
-    return upsample_nearest3d_hpu(input, output_size, scale_factors);
-  }
-};
-
-Tensor hpu_wrap::upsample_nearest3d_backward(
-    const Tensor& grad_output,
-    OptionalIntArrayRef output_size,
-    at::IntArrayRef input_size,
-    c10::optional<at::ArrayRef<double>> scale_factors) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "upsample_nearest3d_backward :",
-      " grad_output=",
-      to_string(grad_output),
-      " output_size=",
-      to_string(output_size),
-      " input_size=",
-      to_string(input_size),
-      " scale_factors=",
-      to_string(scale_factors));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      upsample_nearest3d_backward,
-      PARAMS1(grad_output),
-      PARAMS2(grad_output, output_size, input_size, scale_factors),
-      vec)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return upsample_nearest3d_backward_hpu_lazy(
-        grad_output, output_size, input_size, scale_factors);
-  } else {
-    return upsample_nearest3d_backward_hpu(
-        grad_output, output_size, input_size, scale_factors);
-  }
-};
-
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& gradients,
@@ -2799,8 +2681,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::repeat_ht(Tensor self, Tensor repeats_shape, Tensor result_shape) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
-  m.def(
-      "upsample_nearest2d_backward(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor");
   m.def(
       "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)");
   m.def(

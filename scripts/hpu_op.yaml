@@ -5524,7 +5524,7 @@ upsample_linear1d_backward.vec:
 upsample_nearest1d:
   force_default: false
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5534,7 +5534,7 @@ upsample_nearest1d:
 
 upsample_nearest1d.out:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5544,7 +5544,7 @@ upsample_nearest1d.out:
 upsample_nearest1d.vec:
   force_default: false
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5555,7 +5555,7 @@ upsample_nearest1d.vec:
 upsample_nearest1d_backward:
   force_default: false
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5565,7 +5565,7 @@ upsample_nearest1d_backward:
 
 upsample_nearest1d_backward.grad_input:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5575,7 +5575,7 @@ upsample_nearest1d_backward.grad_input:
 upsample_nearest1d_backward.vec:
   force_default: false
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5587,7 +5587,8 @@ upsample_nearest2d:
   force_default: false
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  op_backend: UpSampleNearest2DOperator
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5600,7 +5601,8 @@ upsample_nearest2d:
 upsample_nearest2d.out:
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  op_backend: UpSampleNearest2DOperator
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5613,7 +5615,9 @@ upsample_nearest2d_backward:
   force_default: false
   custom_fill_params: FillNearestBwdParams
   custom_output_shape: UpsampleNearest2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  op_backend: UpSampleNearest2DOperator
+  op_frontend: LazyUpsample
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5622,11 +5626,13 @@ upsample_nearest2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  schema_args: "(Tensor grad_output, int[]? output_size, Tensor input_size, float? scale_h=None, float? scale_w=None) -> Tensor"
 
 upsample_nearest2d_backward.grad_input:
   custom_fill_params: FillNearestBwdParams
   custom_output_shape: UpsampleNearest2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  op_backend: UpSampleNearest2DOperator
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5635,9 +5641,20 @@ upsample_nearest2d_backward.grad_input:
   - [WHCN, WHCN]
   - [WHCN]
 
+upsample_nearest3d:
+  force_default: false
+  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  dtypes: [BFloat16, Float, Byte]
+  guid: resize_fwd
+  op_backend: UpSampleNearest3DFwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+
 upsample_nearest3d.out:
   custom_output_shape: UpsampleNearest3DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
   synapse_layouts:
@@ -5646,7 +5663,7 @@ upsample_nearest3d.out:
 
 upsample_nearest3d_backward:
   custom_output_shape: UpsampleNearest3DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   force_default: false
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
@@ -5657,9 +5674,61 @@ upsample_nearest3d_backward:
 
 upsample_nearest3d_backward.grad_input:
   custom_output_shape: UpsampleNearest3DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_nearest2d_backward.vec:
+  force_default: false
+  custom_fill_params: FillNearestBwdParams
+  custom_output_shape: UpsampleNearest2DBwdOutputShape
+  op_backend: UpSampleNearest2DOperator
+  op_frontend: LazyUpsample
+  dtypes: [BFloat16, Float, Byte]
+  guid: resize_bwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  schema_args: "(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor"
+
+upsample_nearest2d.vec:
+  force_default: false
+  custom_fill_params: FillNearestFwdParams
+  custom_output_shape: UpsampleNearest2DFwdOutputShape
+  op_backend: UpSampleNearest2DOperator
+  dtypes: [BFloat16, Float, Byte]
+  guid: resize_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+
+upsample_nearest3d.vec:
+  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  dtypes: [BFloat16, Float, Byte]
+  guid: resize_fwd
+  op_backend: UpSampleNearest3DFwdOperator
+  out_ids: [0]
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_nearest3d_backward.vec:
+  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  dtypes: [BFloat16, Float, Byte]
+  guid: resize_bwd
+  op_backend: UpSampleNearest3DBwdOperator
+  out_ids: [0]
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]

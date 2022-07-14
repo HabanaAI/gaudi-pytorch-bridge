@@ -704,21 +704,3 @@ Tensor upsample_nearest3d_backward_hpu(
   PT_KERNEL_END;
   return grad_input;
 }
-
-static auto& UnsampleKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "aten::upsample_nearest2d.vec",
-            KERNEL_FN(UpsampleNearest2dOperator))
-        .add(
-            "aten::upsample_nearest2d_backward.vec",
-            KERNEL_FN(UpsampleNearest2dBackwardOperator))
-        .add(
-            "hpu::upsample_nearest2d_backward",
-            KERNEL_FN(UpsampleNearest2dBackwardOperator))
-        .add(
-            "aten::upsample_nearest3d.vec",
-            KERNEL_FN(UpsampleNearest3dOperator))
-        .add(
-            "aten::upsample_nearest3d_backward.vec",
-            KERNEL_FN(UpsampleNearest3dBackwardOperator));

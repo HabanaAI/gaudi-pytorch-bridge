@@ -277,24 +277,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t split_size,
       int64_t dim);
-  static at::Tensor upsample_nearest2d(
-      const at::Tensor& input,
-      at::OptionalIntArrayRef output_size,
-      c10::optional<at::ArrayRef<double>> scale_factors);
-  static at::Tensor upsample_nearest2d_backward(
-      const at::Tensor& grad_output,
-      at::OptionalIntArrayRef output_size,
-      at::IntArrayRef input_size,
-      c10::optional<at::ArrayRef<double>> scale_factors);
-  static at::Tensor upsample_nearest3d(
-      const at::Tensor& input,
-      at::OptionalIntArrayRef output_size,
-      c10::optional<at::ArrayRef<double>> scale_factors);
-  static at::Tensor upsample_nearest3d_backward(
-      const at::Tensor& grad_output,
-      at::OptionalIntArrayRef output_size,
-      at::IntArrayRef input_size,
-      c10::optional<at::ArrayRef<double>> scale_factors);
   static bool is_pinned(
       const at::Tensor& self,
       c10::optional<c10::Device> device);

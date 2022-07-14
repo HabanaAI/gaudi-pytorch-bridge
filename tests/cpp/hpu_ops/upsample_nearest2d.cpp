@@ -34,7 +34,7 @@ TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale_CL) {
 }
 
 TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale) {
-  GenerateInputs(1, {{1, 9, 3, 4}});
+  GenerateInputs(1, {{1, 9, 3, 4}}, torch::kByte);
   std::vector<int64_t> size = {6, 12};
   c10::optional<double> scale_h = 2.0;
   c10::optional<double> scale_w = 3.0;
@@ -68,7 +68,7 @@ TEST_F(HpuOpTest, upsample_nearest2d_fwd_size) {
 }
 
 TEST_F(HpuOpTest, upsample_nearest2d_bwd_scale_zero) {
-  GenerateInputs(1, {{2, 7, 3, 4}});
+  GenerateInputs(1, {{2, 7, 3, 4}}, torch::kByte);
   std::vector<double> scale_factor = {0.99, 0.7};
 
   auto expected = torch::upsample_nearest2d(GetCpuInput(0), {}, scale_factor);

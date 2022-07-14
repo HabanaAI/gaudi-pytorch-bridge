@@ -30,7 +30,7 @@ TEST_F(HpuOpTest, upsample_nearest3d_fwd_out) {
 }
 
 TEST_F(HpuOpTest, upsample_nearest3d_fwd_scale) {
-  GenerateInputs(1, {{2, 7, 3, 4, 5}});
+  GenerateInputs(1, {{2, 7, 3, 4, 5}}, torch::kByte);
   std::vector<double> scale_factor = {0.99, 0.7, 1.2};
 
   auto expected = torch::upsample_nearest3d(GetCpuInput(0), {}, scale_factor);
