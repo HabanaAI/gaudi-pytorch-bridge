@@ -1006,10 +1006,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   // Save po_data input and output to context for perf mode
-  if (context->m_is_cached == false) {
+  if (context->getCapturing()) {
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
-    context->m_is_cached = true;
   }
 
   if (async) {

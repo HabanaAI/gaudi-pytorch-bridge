@@ -46,15 +46,29 @@ void HPUGraph::capture_end() {
   }
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
-  /*flush graph to capture in the end */
-  habana_lazy::HbLazyTensor::StepMarkerBind("");
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+
+  /* Set graph capture mode on */
+  context->setCapturing(true);
+
+  /*flush graph to capture in the end */
+  habana_lazy::HbLazyTensor::StepMarkerBind("");
+  context->JoinPendingLaunchThread();
   graph_ = context->getGraph();
   input_vals_ = context->getInputs();
   output_vals_ = context->getOutputs();
   hblazy_tensors_ = context->getHbLazyTensors();
+  PT_DEVICE_DEBUG("GRAPH:: captured graph ");
+  PT_DEVICE_DEBUG((graph_ ? (graph_->dump(), "") : "null graph"));
+  PT_DEVICE_DEBUG("GRAPH:: captured input size ", input_vals_.size());
+  PT_DEVICE_DEBUG("GRAPH:: captured output size ", output_vals_.size());
+  PT_DEVICE_DEBUG(
+      "GRAPH:: captured hblazy_tensors_ size ", hblazy_tensors_.size());
   capturing_ = false;
+
+  /* Set graph capture mode off */
+  context->setCapturing(false);
 }
 
 void HPUGraph::replay() {

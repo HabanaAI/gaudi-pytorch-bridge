@@ -143,6 +143,14 @@ class HbExecutionContext {
     return mp_g;
   }
 
+  void setCapturing(bool capture) {
+    m_capturing_graph = capture;
+  }
+
+  bool getCapturing() {
+    return m_capturing_graph;
+  }
+
   void saveInputsAndOutputs(
       ir::ValueList inputVals,
       ir::ValueList outputVals,
@@ -191,8 +199,6 @@ class HbExecutionContext {
   // cleanly
   std::vector<at::Tensor> m_retained_tensor_list;
 
-  bool m_is_cached = false;
-
   std::unordered_map<
       std::pair<double, at::ScalarType>,
       at::Tensor,
@@ -218,6 +224,7 @@ class HbExecutionContext {
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
+  bool m_capturing_graph{false};
 };
 
 class HbExecutionContextArena {
