@@ -205,10 +205,13 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   // return a dummy storage if it isnt allocated yet
   // its a bit dangerous and we need to ensure storage calls are made only after
   // backend memory allocation for output tensors
-  if (!impl)
-    return storage_;
-  const_cast<HbLazyTensorImpl*>(this)->SetStorage(impl->storage());
-  return impl->storage();
+  if (impl && !m_tensor.IsExecutionInProgress() &&
+      !storage_.is_alias_of(impl->storage())) {
+    HABANA_ASSERT(impl->storage(), "StorageImpl for backend tensor is NULL");
+    const_cast<HbLazyTensorImpl*>(this)->SetStorage(
+        c10::Storage(impl->storage()));
+  }
+  return storage_;
 }
 
 bool HbLazyTensorImpl::has_storage() const {

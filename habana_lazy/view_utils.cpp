@@ -553,8 +553,6 @@ void HbLazyTensorViews::updateViewTable(
       params.strides,
       " offset ",
       params.offset);
-  auto storage = params.parent.storage();
-  result.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
   context->viewContext.AddViewTableEntry(id, params);
 }
 
