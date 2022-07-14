@@ -9,7 +9,7 @@
  */
 
 #include "div_mod_util.h"
-#include "generated/hpu_op.h"
+#include "generated/div.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

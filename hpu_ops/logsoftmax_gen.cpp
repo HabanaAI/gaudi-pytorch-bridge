@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/_log_softmax_backward_data.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

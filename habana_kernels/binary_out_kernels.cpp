@@ -20,7 +20,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "hpu_ops/generated/hpu_op.h"
+#include "hpu_ops/op_backend.h"
 
 using namespace torch;
 

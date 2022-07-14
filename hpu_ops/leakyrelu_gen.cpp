@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/leaky_relu_backward.h"
 
 namespace habana {
 std::shared_ptr<void> FillLeakyReluBackwardParams(

@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/resize.h"
 
 namespace habana {
 sizes_vec ResizeOutputShape(const at::Stack& stack, bool) {

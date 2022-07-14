@@ -469,10 +469,11 @@ acosh_:
   inplace_ids: [0]
 
 add.out:
+  broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_backend: BinaryWithAlpha
-  use_meta: true
+  type_promotion: true
 
 addcdiv:
   force_default: false
@@ -3509,7 +3510,6 @@ sub.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
-  scalar_ids: [2]
   type_promotion: true
 
 take:

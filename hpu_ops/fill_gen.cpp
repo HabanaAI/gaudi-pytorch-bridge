@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/fill.h"
 
 namespace habana {
 void Fill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

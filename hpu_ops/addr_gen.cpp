@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/addr.h"
 
 namespace habana {
 
@@ -98,7 +98,7 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {self_reshaped[0].get(), addr_unsqueezed[0].get()},
         {{vecmul_outshape, ScalarType()}});
   }
-  auto outshape = AddROutshape(stack)[0];
+  auto outshape = AddROutshape(stack, true)[0];
 
   auto addr_out = BuildOp(
       graph,

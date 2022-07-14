@@ -32,7 +32,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-#include "hpu_ops/generated/hpu_op.h"
+#include "hpu_ops/generated/ne.h"
 #include "synapse_helpers/layout_utils.h"
 
 using namespace torch;

@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/bitwise_left_shift.h"
+//#include "generated/bitwise_right_shift.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

@@ -7,7 +7,8 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/cumsum.h"
+#include "generated/logcumsumexp.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

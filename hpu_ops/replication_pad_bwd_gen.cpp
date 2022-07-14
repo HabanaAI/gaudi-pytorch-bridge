@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/replication_pad1d_backward.h"
+#include "generated/replication_pad3d_backward.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -77,7 +78,7 @@ void ReplicationPadBwdOp::AddNode(
   // we are having 2 tensor arguments(Grad-In & Self),
   // but the kernel expects Grad-In tensor alone.
   std::vector<synapse_helpers::tensor> pad_bwd_out;
-  auto outshape = ReplicationPadBwdOutputShape(stack)[0];
+  auto outshape = ReplicationPadBwdOutputShape(stack, true)[0];
   size_t size = 0;
   auto params = FillParams(stack, size);
 

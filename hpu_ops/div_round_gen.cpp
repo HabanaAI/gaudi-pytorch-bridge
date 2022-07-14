@@ -10,7 +10,7 @@
 
 #include "../habana_kernels/lazy_kernels_declarations.h"
 #include "div_mod_util.h"
-#include "generated/hpu_op.h"
+#include "generated/div.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
 

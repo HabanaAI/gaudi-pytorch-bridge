@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/all.h"
 
 namespace habana {
 sizes_vec AllOutputShape(const at::Stack&, bool lowering) {

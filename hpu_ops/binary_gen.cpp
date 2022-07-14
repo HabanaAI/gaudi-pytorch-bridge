@@ -8,7 +8,10 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/add.h"
+//#include "generated/sub.h"
+#include "generated/_foreach_add.h"
+#include "generated/rsub.h"
 
 namespace habana {
 sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
@@ -169,7 +172,7 @@ void RSubScalarOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, 0);
-  auto outshape = BinaryOutputShape(stack);
+  auto outshape = BinaryOutputShape(stack, true);
   std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
 
   const auto& other_scalar = stack[1].toScalar();

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/channel_shuffle.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

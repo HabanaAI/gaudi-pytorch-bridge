@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include <c10/util/MathConstants.h>
-#include "generated/hpu_op.h"
+#include "generated/sinc.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

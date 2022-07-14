@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/avg_pool2d.h"
 
 #define CHECK_DIM(input_size)                                        \
   TORCH_CHECK(                                                       \
@@ -83,7 +83,7 @@ void Avgpool2d::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
   size_t size = 0;
   const auto& params = Fillavgpool2dParams(stack, size);
-  auto outshape = Avgpool2dOutputShape(stack)[0];
+  auto outshape = Avgpool2dOutputShape(stack, true)[0];
 
   synTransposeParams trans_params{};
   trans_params.tensorDim = self.dim();

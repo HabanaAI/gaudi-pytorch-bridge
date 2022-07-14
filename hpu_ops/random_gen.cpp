@@ -8,7 +8,10 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/bernoulli.h"
+#include "generated/poisson.h"
+#include "generated/random.h"
+#include "generated/uniform.h"
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {

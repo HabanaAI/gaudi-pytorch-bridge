@@ -10,7 +10,8 @@
 
 #include <utility>
 
-#include "generated/hpu_op.h"
+#include "generated/cumprod.h"
+#include "generated/cumsum.h"
 
 namespace habana {
 

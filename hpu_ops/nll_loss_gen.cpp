@@ -8,7 +8,10 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/nll_loss2d_backward.h"
+#include "generated/nll_loss2d_forward.h"
+#include "generated/nll_loss_backward.h"
+#include "generated/nll_loss_forward.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

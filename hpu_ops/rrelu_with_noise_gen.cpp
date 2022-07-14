@@ -1,4 +1,14 @@
-#include "generated/hpu_op.h"
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+#include "generated/rrelu_with_noise.h"
+#include "generated/rrelu_with_noise_backward.h"
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {

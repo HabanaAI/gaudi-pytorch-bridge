@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+//#include "generated/addcdiv.h"
+#include "generated/addcmul.h"
 
 namespace habana {
 
@@ -70,7 +71,7 @@ void AddCOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // Finally add op with self
   std::vector<synTensor> add_op_inputs{
       vectSynTensor.at(0), variable_op[0].get()};
-  auto outshape = AddCOpsOutputShape(stack)[0];
+  auto outshape = AddCOpsOutputShape(stack, true)[0];
 
   auto add_op = BuildOp(
       graph,

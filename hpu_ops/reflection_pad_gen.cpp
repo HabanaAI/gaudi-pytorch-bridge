@@ -7,7 +7,8 @@
  *
  ******************************************************************************
  */
-#include "generated/hpu_op.h"
+#include "generated/reflection_pad1d.h"
+#include "generated/reflection_pad1d_backward.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

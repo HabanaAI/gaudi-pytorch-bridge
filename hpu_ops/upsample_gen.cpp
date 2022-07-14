@@ -8,7 +8,12 @@
  ******************************************************************************
  */
 
-#include "generated/hpu_op.h"
+#include "generated/upsample_linear1d.h"
+#include "generated/upsample_linear1d_backward.h"
+#include "generated/upsample_nearest1d.h"
+#include "generated/upsample_nearest1d_backward.h"
+#include "generated/upsample_nearest3d.h"
+#include "generated/upsample_nearest3d_backward.h"
 #include "synapse_helpers/layout_utils.h"
 
 using namespace synapse_helpers::layouts;
@@ -1099,7 +1104,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
 void UpsampleLinear1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DFwdOutputShape(stack)[0];
+  auto output_shape = UpsampleLinear1DFwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1133,7 +1138,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
 void UpsampleLinear1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DBwdOutputShape(stack)[0];
+  auto output_shape = UpsampleLinear1DBwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1166,7 +1171,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
 void UpsampleNearest1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DFwdOutputShape(stack)[0];
+  auto output_shape = UpsampleNearest1DFwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1199,7 +1204,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
 void UpsampleNearest1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DBwdOutputShape(stack)[0];
+  auto output_shape = UpsampleNearest1DBwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1232,7 +1237,7 @@ void UpsampleNearest1DBwdOperator::AddNode(
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest3DFwdOutputShape(stack)[0];
+  auto output_shape = UpsampleNearest3DFwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1270,7 +1275,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   // outshape
-  auto output_shape = UpsampleNearest3DBwdOutputShape(stack)[0];
+  auto output_shape = UpsampleNearest3DBwdOutputShape(stack, true)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
