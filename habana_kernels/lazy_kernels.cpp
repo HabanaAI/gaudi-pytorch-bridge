@@ -4144,16 +4144,20 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
 
   auto weight = weight_opt.value_or(Tensor());
   if (!weight.defined()) {
-    weight =
-        torch::ones(sizes_vec, torch::dtype(input.dtype()).requires_grad(false))
-            .to(torch::kHPU);
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(sizes_vec, options);
   }
 
   auto bias = bias_opt.value_or(Tensor());
   if (!bias.defined()) {
-    bias = torch::zeros(
-               sizes_vec, torch::dtype(input.dtype()).requires_grad(false))
-               .to(torch::kHPU);
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    bias = torch::zeros(sizes_vec, options);
   }
 
   const auto input_shape = input.sizes();
