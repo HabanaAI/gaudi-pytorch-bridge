@@ -2113,11 +2113,13 @@ logaddexp:
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
   out_ids: [0]
+  type_promotion: true
 
 logaddexp.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
+  type_promotion: true
 
 logaddexp2:
   force_default: false
@@ -2125,11 +2127,13 @@ logaddexp2:
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
   out_ids: [0]
+  type_promotion: true
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
+  type_promotion: true
 
 logcumsumexp:
   force_default: false
