@@ -1322,6 +1322,10 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
   auto commStreams = getCommStreams(devices);
   PT_DISTRIBUTED_DEBUG(
       "[PYT-DIST] Host and device barrier from rank :: ", getRank())
+  while (JobThreadHCCL::getInstance()->jobCounter() > 0) {
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+  }
   hostBarrier();
   for (size_t i = 0; i < comms.size(); i++) {
     hcclBarrier(*comms[i], commStreams[i]);
