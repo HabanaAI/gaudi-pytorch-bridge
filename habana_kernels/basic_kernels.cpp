@@ -952,6 +952,36 @@ bool StridedInsertOperator::verifyViewMemoryAccess(
   return true;
 }
 
+std::vector<int64_t> GetStridedInsertOperatorStrides(
+    torch::jit::Stack& inputs,
+    bool is_dry_run) {
+  std::vector<int64_t> strides;
+  auto offset_st = inputs[2].toTensor();
+  auto impl = habana_lazy::GetHbInternalTensorImpl(offset_st);
+  HABANA_ASSERT(impl, "impl is invalid");
+  // if it is MIN or MAX pass we need to manipulate the srides
+  // otherwise pass the strides coming from frontend.
+  if (is_dry_run &&
+      (habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MIN_SHAPE ||
+       habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+    auto orig_t = inputs[0].toTensor();
+    auto insert_t = inputs[1].toTensor();
+    auto orig_strides = HabanaOperator::CalculateStrides(
+        orig_t.sizes(), orig_t.suggest_memory_format());
+    std::reverse(orig_strides.begin(), orig_strides.end());
+    for (unsigned d = 0; d < insert_t.dim(); d++) {
+      strides.push_back(orig_strides[d]);
+    }
+    std::reverse(strides.begin(), strides.end());
+  } else {
+    strides = impl->get_shape_struct().get_stride_shape();
+  }
+
+  return strides;
+}
+
 void StridedInsertOperator::compute_params(
     synStridedOpParams& params,
     Stack& inputs,
@@ -964,24 +994,7 @@ void StridedInsertOperator::compute_params(
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
     TORCH_CHECK(p_context_->syn_inputs_[2].ref().is_shape_tensor());
-    auto offset_st = inputs[2].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_st);
-    HABANA_ASSERT(impl, "impl is invalid");
-    // if it is MIN or MAX pass we need to manipulate the srides
-    // otherwise pass the strides coming from frontend.
-    if (graph.is_dry_run() &&
-        habana::ShapeInference::GetCurrentPass() !=
-            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-      auto orig_strides = HabanaOperator::CalculateStrides(
-          orig_t.sizes(), orig_t.suggest_memory_format());
-      std::reverse(orig_strides.begin(), orig_strides.end());
-      for (unsigned d = 0; d < insert_t.dim(); d++) {
-        strides.push_back(orig_strides[d]);
-      }
-      std::reverse(strides.begin(), strides.end());
-    } else {
-      strides = impl->get_shape_struct().get_stride_shape();
-    }
+    strides = GetStridedInsertOperatorStrides(inputs, graph.is_dry_run());
     IntArrayRef strides_ref(strides.data(), strides.size());
     auto syn_shape_input = habana_helpers::create_shape_tensor(
         strides_ref,
@@ -1016,6 +1029,7 @@ void StridedInsertOperator::compute_params(
     if (!graph.is_dry_run() ||
         habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+      auto offset_st = inputs[2].toTensor();
       bool memAccessCheck = verifyViewMemoryAccess(
           inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset_st);
       TORCH_CHECK(
@@ -1070,10 +1084,7 @@ OutputShapeInfRetType StridedInsertOperator::ComputeOutputShape(
       orig_t.suggest_memory_format()));
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
-    auto offset_st = inputs[2].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_st);
-    HABANA_ASSERT(impl, "impl is invalid");
-    auto strides = impl->get_shape_struct().get_stride_shape();
+    auto strides = GetStridedInsertOperatorStrides(inputs, true);
     auto stride_meta_data = TensorMetaData(
         strides, strides, orig_t.scalar_type(), orig_t.suggest_memory_format());
     out.AddShapeTensor(stride_meta_data);
@@ -1161,6 +1172,42 @@ bool StridedViewOperator::verifyViewMemoryAccess(
   return true;
 }
 
+std::vector<int64_t> GetStridedViewOperatorStrides(
+    torch::jit::Stack& inputs,
+    bool graph_dry_run) {
+  std::vector<int64_t> size, strides;
+  auto self = inputs[0].toTensor();
+  auto size_st = inputs[1].toTensor();
+  auto impl = habana_lazy::GetHbInternalTensorImpl(size_st);
+
+  if (graph_dry_run &&
+      (habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MIN_SHAPE ||
+       habana::ShapeInference::GetCurrentPass() ==
+           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+    auto self_strides = self.strides().vec();
+    auto stride_ratios = impl->get_shape_struct().get_stride_ratios();
+    auto len = stride_ratios.size();
+    // for case where strides len recieved is greater than the strides
+    // of real tensor, we need to calculate 1 full stride also
+    // eg real -> 3 800 1216[ 972800 1216 1], strides = 2918400 972800 1216 1
+    // 1 more stride needs to be calculated 3*972800 = 2918400
+    if (len > self_strides.size()) {
+      HABANA_ASSERT(
+          len == self_strides.size() + 1, "Invalid strides requested");
+      self_strides.emplace(
+          self_strides.begin(), self_strides[0] * self.sizes()[0]);
+    }
+    for (uint64_t i = 0; i < len; i++) {
+      strides.push_back(self_strides[i] * stride_ratios[i]);
+    }
+  } else {
+    strides = impl->get_shape_struct().get_stride_shape();
+  }
+
+  return strides;
+}
+
 OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
@@ -1169,10 +1216,8 @@ OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
 
   bool have_shape_tensors = inputs[1].isTensor();
   if (have_shape_tensors) {
-    auto size_st = inputs[1].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(size_st);
     size = inputs[1].toTensor().sizes().vec();
-    strides = impl->get_shape_struct().get_stride_shape();
+    strides = GetStridedViewOperatorStrides(inputs, true);
   } else {
     size = inputs[1].toIntVector();
     strides = inputs[2].toIntVector();
@@ -1209,35 +1254,9 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   bool have_shape_tensors = inputs[1].isTensor();
   if (have_shape_tensors) {
     TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
-
     size = p_context_->syn_inputs_[1].ref().pt_shape();
-    auto size_st = inputs[1].toTensor();
+    strides = GetStridedViewOperatorStrides(inputs, graph.is_dry_run());
     auto offset_tensor = inputs[2].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(size_st);
-    // if it is MIN or MAX pass we need to manipulate the srides
-    // otherwise pass the strides coming from frontend.
-    if (graph.is_dry_run() &&
-        habana::ShapeInference::GetCurrentPass() !=
-            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-      auto self_strides = self.strides().vec();
-      auto stride_ratios = impl->get_shape_struct().get_stride_ratios();
-      auto len = stride_ratios.size();
-      // for case where strides len recieved is greater than the strides
-      // of real tensor, we need to calculate 1 full stride also
-      // eg real -> 3 800 1216[ 972800 1216 1], strides = 2918400 972800 1216 1
-      // 1 more stride needs to be calculated 3*972800 = 2918400
-      if (len > self_strides.size()) {
-        HABANA_ASSERT(
-            len == self_strides.size() + 1, "Invalid strides requested");
-        self_strides.emplace(
-            self_strides.begin(), self_strides[0] * self.sizes()[0]);
-      }
-      for (uint64_t i = 0; i < len; i++) {
-        strides.push_back(self_strides[i] * stride_ratios[i]);
-      }
-    } else {
-      strides = impl->get_shape_struct().get_stride_shape();
-    }
     IntArrayRef strides_ref(strides.data(), strides.size());
     auto syn_shape_input = habana_helpers::create_shape_tensor(
         strides_ref,

@@ -369,3 +369,62 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicComputeOutputShapesTest, SqueezeTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  const int C = 3;
+  const int N = 16;
+  int H = 16;
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+
+    auto x = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    auto hx = x.to(torch::kHPU);
+
+    auto B = torch::squeeze(x);
+    auto hB = torch::squeeze(hx);
+
+    EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedInsertTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
+  std::vector<int> in_sizes{16, 24, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto v1 = A.view(-1);
+    auto v2 = A.view(-1);
+    auto grad1 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    auto grad2 = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+
+    auto hA = A.to(torch::kHPU);
+    auto hv1 = hA.view(-1);
+    auto hv2 = hA.view(-1);
+    auto hgrad1 = grad1.to(torch::kHPU);
+    auto hgrad2 = grad2.to(torch::kHPU);
+
+    v1.add_(grad1);
+    v2.add_(grad2);
+
+    hv1.add_(hgrad1);
+    hv2.add_(hgrad2);
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
