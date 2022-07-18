@@ -2050,7 +2050,7 @@ Tensor& masked_fill_scalar_hpu_lazy_(
     const Tensor& mask,
     const Scalar& value) {
   PT_LAZY_TRACE;
-  auto value_tensor = get_tensor_for_scalar(value.toDouble());
+  auto value_tensor = get_tensor_for_scalar(value.toDouble(), self.options());
   return masked_fill_hpu_lazy_(self, mask, value_tensor);
 }
 Tensor gather_src_hpu_lazy(
