@@ -333,16 +333,37 @@ class LayerNormOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+  virtual void AllocateAndAddSynapseNodeTPCAffinePath(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata);
+  virtual void AllocateAndAddSynapseNodeReshapePath(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata);
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
+      at::IntArrayRef normalized_shape,
       const at::Tensor& bias,
       const at::Tensor& weight,
       int64_t m,
       std::array<bool, 3> is_persistent);
   static std::vector<std::vector<int64_t>> getOutputSizes(
       const at::Tensor& input,
-      int m);
+      at::IntArrayRef normalized_shape);
+
+  static bool is_tpc_affine_path(
+      const at::Tensor& input,
+      at::IntArrayRef normalized_shape,
+      const at::Tensor& weight) {
+    /*
+    We use the TPC Affine path only for 4D input, AND
+    PyTorch layerNorm affine flag False (weight not defined) OR normalization is
+    done across all dims except N
+    */
+    return (input.dim() == 4) &&
+        (!weight.defined() || (normalized_shape.size() == (size_t)input.dim()));
+  }
 };
 
 class LayerNormBackwardOperator : public habana::HabanaOperator {
@@ -358,7 +379,6 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
       const at::Tensor& weight,

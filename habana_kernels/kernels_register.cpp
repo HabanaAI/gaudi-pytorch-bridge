@@ -2672,7 +2672,9 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm(
         input, normalized_shape, weight_opt, bias_opt, eps);
 
   } else {
-    return layer_norm_hpu(input, normalized_shape, weight_opt, bias_opt, eps);
+    HABANA_ASSERT(0 && "layer_norm_hpu not implemented for legacy eager mode");
+    return layer_norm_hpu_lazy(
+        input, normalized_shape, weight_opt, bias_opt, eps);
   }
 };
 std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
@@ -2728,7 +2730,8 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
         grad_input_mask);
 
   } else {
-    return layer_norm_backward_hpu(
+    HABANA_ASSERT(0 && "layer_norm_hpu not implemented for legacy eager mode");
+    return layer_norm_backward_hpu_lazy(
         dY,
         X,
         normalized_shape,

@@ -934,3 +934,64 @@ TEST_F(LazyNormKernelTest, NormScalarDimDtypeOutTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
+
+TEST_F(LazyNormKernelTest, LayerNormFwdBwdExecute) {
+  auto input_tensor =
+      torch::arange(16, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({2, 1, 2, 4}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+  at::Tensor weight =
+      torch::arange(8, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 2, 4}); // nchw;
+  torch::Tensor tWeight = weight.to(torch::kHPU);
+  at::Tensor bias =
+      torch::arange(8, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 2, 4}); // nchw;
+  torch::Tensor tBias = bias.to(torch::kHPU);
+  auto results =
+      torch::native_layer_norm(tHabanaX, {1, 2, 4}, tWeight, tBias, 0.01);
+
+  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+  auto results_cpu =
+      torch::native_layer_norm(input_tensor, {1, 2, 4}, weight, bias, 0.01);
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+
+  // Backward
+
+  auto input_grad =
+      torch::arange(16, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({2, 1, 2, 4}); // nchw
+  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
+  auto mean = std::get<1>(results_cpu);
+  auto var = std::get<2>(results_cpu);
+  torch::Tensor tHabanaMean = std::get<1>(results);
+  torch::Tensor tHabanaVar = std::get<2>(results);
+  auto gamma = weight; // nchw
+  torch::Tensor tGamma = tWeight;
+
+  auto results_bwd = torch::native_layer_norm_backward(
+      tHabanaGrad,
+      tHabanaX,
+      {1, 2, 4},
+      tHabanaMean,
+      tHabanaVar,
+      tGamma,
+      tBias,
+      {true, true, true});
+
+  auto results_bwd_cpu = torch::native_layer_norm_backward(
+      input_grad,
+      input_tensor,
+      {1, 2, 4},
+      mean,
+      var,
+      gamma,
+      bias,
+      {true, true, true});
+  at::Tensor result_bwd_lazy = (std::get<0>(results_bwd)).to(torch::kCPU);
+
+  at::Tensor result_bwd_cpu = std::get<0>(results_bwd_cpu);
+
+  EXPECT_EQ(allclose(result_bwd_lazy, result_bwd_cpu, 0.01, 0.01), true);
+}

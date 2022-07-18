@@ -1040,20 +1040,25 @@ void BatchNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 std::vector<std::vector<int64_t>> LayerNormOperator::getOutputSizes(
     const at::Tensor& input,
-    int m) {
+    IntArrayRef normalized_shape) {
   auto output_sizes = input.sizes().vec();
+  const auto input_shape = input.sizes();
+  const int axis = input.dim() - normalized_shape.size();
+  int64_t m =
+      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   std::vector<int64_t> shape_mean{1, 1, m, 1};
   return std::vector<std::vector<int64_t>>{
       output_sizes, shape_mean, shape_mean};
 }
+
 std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     const Tensor& input,
+    IntArrayRef normalized_shape,
     const Tensor& bias,
     const Tensor& weight,
-    int64_t m,
+    UNUSED int64_t m,
     std::array<bool, 3> is_persistent) {
-  std::vector<int64_t> shape_mean{1, 1, m, 1};
-  auto sizes = LayerNormOperator::getOutputSizes(input, m);
+  auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
   auto output = habana_helpers::createPTTensor(
       input,
       sizes[0],
@@ -1076,15 +1081,6 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
   return std::make_tuple(std::move(output), std::move(mean), std::move(istd));
 }
 
-/*
-Nodes in LayerNorm graph
-input->[reshape_in]--------->|----------------|
-bias->[reshape_bias]-------->| LayerNorm Node |-->[reshape_ln_out]->final outs
-weight->[reshape_weight]---->|----------------|
-                                        ^
-                                        |
-{output}->[reshape_output]->{reshaped_output,mean,istd}
-*/
 void LayerNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1098,8 +1094,32 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isIntList(), "Input type expected to be int list");
   TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[4].isDouble(), "Input type expected to be doube");
+  TORCH_CHECK(inputs[4].isDouble(), "Input type expected to be double");
+  const auto input = inputs[0].toTensor();
+  const auto normalized_shape = inputs[1].toIntList().vec();
+  const auto weight = inputs[2].toTensor();
+  if (is_tpc_affine_path(input, normalized_shape, weight)) {
+    // this is the case where we can use the TPC layer_norm_fwd_affine path
+    // which can efficiently divide load across TPCs
+    AllocateAndAddSynapseNodeTPCAffinePath(graph, inputs, output_metadata);
+  } else {
+    AllocateAndAddSynapseNodeReshapePath(graph, inputs, output_metadata);
+  }
+}
 
+/*
+Nodes in LayerNorm graph
+input->[reshape_in]--------->|----------------|
+bias->[reshape_bias]-------->| LayerNorm Node |-->[reshape_ln_out]->final outs
+weight->[reshape_weight]---->|----------------|
+                                        ^
+                                        |
+{output}->[reshape_output]->{reshaped_output,mean,istd}
+*/
+void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
   OutputMetaDataVector output_metadata_all_outputs = output_metadata;
   if (output_metadata.size() == 1) {
     output_metadata_all_outputs =
@@ -1128,6 +1148,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
     ss << "], but got input of size" << input_shape;
     AT_ERROR(ss.str());
   }
+
   const int axis = input_ndim - normalized_ndim;
   int64_t m =
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
@@ -1146,7 +1167,6 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       graph, stack, OutputMetaDataVector(1));
   auto input_reshaped = reshape_op_input->GetOutputs()[0];
   synapse_helpers::tensor& syn_in_ln = reshape_op_input->GetSynOutputs()[0];
-
   // Add Reshape node for bias to graph for bias.view(-1)
   auto reshape_op_bias =
       make_operator<ReshapeOperator>(bias.device().index(), bias.scalar_type());
@@ -1174,6 +1194,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
 
   auto outputs = AllocatePTOutputs(
       input,
+      normalized_shape,
       bias_reshaped,
       wt_reshaped,
       m,
@@ -1183,6 +1204,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   auto output = std::get<0>(outputs);
   auto mean = std::get<1>(outputs);
   auto istd = std::get<2>(outputs);
+
   std::vector<synTensor> syn_inputs{syn_in_ln.get()};
   syn_inputs.push_back(syn_bias_ln.get());
   syn_inputs.push_back(syn_wt_ln.get());
@@ -1192,7 +1214,6 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       graph,
       habana_helpers::createPTTensor(input_reshaped, false),
       OutputMetaData());
-
   AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(1));
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
@@ -1201,9 +1222,11 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   syn_outputs.push_back(syn_out_ln_mean.get());
   synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
   syn_outputs.push_back(syn_out_ln_istd.get());
+
   struct ns_LayerNormKernel::Params params;
   params.eps = static_cast<float>(eps);
   params.epsValid = true;
+
   graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
@@ -1223,86 +1246,91 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_[0] = reshape_op_out->GetOutputs()[0];
 }
 
-void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  TORCH_CHECK(
-      inputs.size() == 5,
-      "LayerNormOperator::AllocateAndAddSynapseNode expected 5 args but got ",
-      inputs.size())
+void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  OutputMetaDataVector output_metadata_all_outputs = output_metadata;
+  if (output_metadata.size() == 1) {
+    output_metadata_all_outputs =
+        OutputMetaDataVector(3, output_metadata.at(0));
+  }
+
   const auto input = inputs[0].toTensor();
-  const auto normalized_shape = inputs[1].toIntList().vec();
+  auto normalized_shape = inputs[1].toIntList().vec();
   const auto weight = inputs[2].toTensor();
   const auto bias = inputs[3].toTensor();
+  const auto eps = inputs[4].toDouble();
 
   const auto input_shape = input.sizes();
   const auto input_ndim = input.dim();
+  normalized_shape.erase(
+      normalized_shape
+          .begin()); // Lazy frontend would have inserted an additional element
+                     // to indicate elementwise_affine=false. Remove this
   const int normalized_ndim = normalized_shape.size();
+  if (input_ndim < normalized_ndim ||
+      !input_shape.slice(input_ndim - normalized_ndim)
+           .equals(normalized_shape)) {
+    std::stringstream ss;
+    ss << "Given normalized_shape=" << normalized_shape
+       << ", expected input with shape [*";
+    for (auto size : normalized_shape) {
+      ss << ", " << size;
+    }
+    ss << "], but got input of size" << input_shape;
+    AT_ERROR(ss.str());
+  }
+
   const int axis = input_ndim - normalized_ndim;
   int64_t m =
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
 
-  auto outputs = AllocatePTOutputs(input, bias, weight, m, {true, true, true});
-  std::vector<at::Tensor> v{
-      std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)};
-  HabanaOperator::SetPTOutputs(v);
-}
+  torch::jit::Stack stack;
+  synapse_helpers::tensor& syn_in_ln = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& syn_wt_ln = p_context_->syn_inputs_[1];
+  synapse_helpers::tensor& syn_bias_ln = p_context_->syn_inputs_[2];
 
-/** @brief This function implements forward pass for torch.nn.LayerNorm()
- * @param input (bf16/fp32 tensor) input tensor
- * @param weight (fp32 tensor) per element scale value tensor
- * @param bias (fp32 tensor) per element bias value tensor
- * @param m (int) num of elements in outer dims not used in LayerNorm
- * @param n (int) num of elements used for computing LayerNorm
- * @param eps (double) a value added to the denominator for numerical
- * stability. Default: 1e-5
- */
-std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
-    const at::Tensor& input,
-    at::IntArrayRef normalized_shape,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
-    double eps) {
-  PT_KERNEL_BEGIN;
-  // Build Params for the graph
-  auto weight = weight_opt.value();
-  auto bias = bias_opt.value();
-  Stack input_stack = {
-      IValue(input),
-      IValue(normalized_shape),
-      IValue(weight),
-      IValue(bias),
-      IValue(eps)};
-  size_t device_id = input.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = input.scalar_type();
-  std::string node_type = "layer_norm";
-  std::vector<at::Tensor> out;
+  auto outputs = AllocatePTOutputs(
+      input,
+      normalized_shape,
+      bias,
+      weight,
+      m,
+      {output_metadata_all_outputs.at(0).persistent, // false
+       output_metadata_all_outputs.at(1).persistent,
+       output_metadata_all_outputs.at(2).persistent});
+  auto output = std::get<0>(outputs);
+  auto mean = std::get<1>(outputs);
+  auto istd = std::get<2>(outputs);
+  std::vector<synTensor> syn_inputs{syn_in_ln.get()};
+  syn_inputs.push_back(syn_bias_ln.get());
+  syn_inputs.push_back(syn_wt_ln.get());
+  // output syn tensor is non-persistent since it will be reshaped to input
+  // sizes which will be marked as persistent
+  AllocateSynapseOutput(graph, output, output_metadata_all_outputs.at(0));
+  AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(1));
+  AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
+  synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
+  synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
+  syn_outputs.push_back(syn_out_ln_mean.get());
+  synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
+  syn_outputs.push_back(syn_out_ln_istd.get());
 
-  auto layer_norm = [&] {
-    // Create the operator
-    LayerNormOperator Op(device_id, scalar_type);
+  struct ns_LayerNormKernel::ParamsNorm params;
+  params.eps = static_cast<float>(eps);
+  params.epsValid = true;
+  params.NormAxisBmp =
+      (1 << normalized_shape.size()) - 1; // normalize across CWH
+  params.ParamAxisBmp = 1;
 
-    size_t key = Op.GetRecipeKey(node_type, input_stack);
-    const std::vector<at::Tensor> pt_inputs{input, weight, bias};
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      Op.Execute(key, pt_inputs, input_stack);
-      out = Op.GetOutputs();
-    } else {
-      // Create Graph
-      OutputMetaDataVector output_metadata(1);
-      output_metadata.at(0).persistent = true;
-      Op.CreateGraphAndCompile(
-          key, pt_inputs, input_stack, output_metadata, true);
-      out = Op.GetOutputs();
-    }
-    return out;
-  };
-  auto ln_outputs = layer_norm();
-
-  PT_KERNEL_END;
-  return std::make_tuple(
-      std::move(ln_outputs[0]),
-      std::move(ln_outputs[1]),
-      std::move(ln_outputs[2]));
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &params,
+      sizeof(params),
+      guid_);
 }
 
 std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
@@ -1451,7 +1479,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       graph, stack, OutputMetaDataVector(1));
   synapse_helpers::tensor& syn_rstd = reshape_op_rstd->GetSynOutputs()[0];
   stack.clear();
-
   // Add layer_norm_bwd node to graph
   std::vector<synTensor> syn_inputs{syn_x.get(), syn_dy.get()};
   syn_inputs.push_back(syn_mean.get());
@@ -1531,16 +1558,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_[2] = reshape_op_grad_beta->GetOutputs()[0];
 }
 
-void LayerNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  const auto dY = inputs[0].toTensor();
-  const auto gamma = inputs[5].toTensor();
-
-  auto outputs = AllocatePTOutputs(dY, gamma, true);
-  std::vector<at::Tensor> v{
-      std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)};
-  HabanaOperator::SetPTOutputs(v);
-}
-
 std::vector<std::vector<int64_t>> LayerNormBackwardOperator::getOutputSizes(
     const at::Tensor& input,
     const at::Tensor& gamma) {
@@ -1548,77 +1565,6 @@ std::vector<std::vector<int64_t>> LayerNormBackwardOperator::getOutputSizes(
       gamma.defined() ? gamma.sizes().vec() : input.sizes().vec();
   return std::vector<std::vector<int64_t>>{
       input.sizes().vec(), gamma_size, gamma_size};
-}
-/** @brief This function implements backward pass for torch.nn.LayerNorm()
- * with grad_on_grad = False
- * @param dY (bf16/fp32 tensor) grad input tensor
- * @param X (bf16/fp32 tensor) input tensor
- * @param mean (fp32 tensor)
- * @param rstd (fp32 tensor)
- * @param gamma (fp32 tensor) per element scale value tensor
- * @param m (int) num of elements in outer dims not used in LayerNorm
- * @param n (int) num of elements used for computing LayerNorm
- * @param grad_input_mask (bool[]) mask to specify which output grads are
- * enabled
- */
-std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
-    const at::Tensor& dY,
-    const at::Tensor& X,
-    at::IntArrayRef normalized_shape,
-    const at::Tensor& mean,
-    const at::Tensor& rstd,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
-    std::array<bool, 3> grad_input_mask) {
-  PT_KERNEL_BEGIN;
-  std::vector<bool> grad_mask_in;
-  grad_mask_in.push_back(grad_input_mask[0]);
-  grad_mask_in.push_back(grad_input_mask[1]);
-  grad_mask_in.push_back(grad_input_mask[2]);
-
-  // Build Params for the graph
-  Stack input_stack = {
-      IValue(dY),
-      IValue(X),
-      IValue(normalized_shape),
-      IValue(mean),
-      IValue(rstd),
-      IValue(weight_opt),
-      IValue(bias_opt),
-      IValue(grad_mask_in)};
-  size_t device_id = X.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = X.scalar_type();
-  std::string node_type = "layer_norm";
-  std::vector<at::Tensor> out;
-  auto gamma = weight_opt.value();
-  auto bias = bias_opt.value();
-  auto layer_norm = [&] {
-    // Create the operator
-    LayerNormBackwardOperator Op(device_id, scalar_type);
-
-    size_t key = Op.GetRecipeKey(node_type, input_stack);
-    const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      Op.Execute(key, pt_inputs, input_stack);
-      out = Op.GetOutputs();
-    } else {
-      // Create Graph
-      OutputMetaDataVector output_metadata(1);
-      output_metadata.at(0).persistent = true;
-      Op.CreateGraphAndCompile(
-          key, pt_inputs, input_stack, output_metadata, true);
-      out = Op.GetOutputs();
-    }
-    return out;
-  };
-  auto ln_outputs = layer_norm();
-
-  PT_KERNEL_END;
-  return std::make_tuple(
-      std::move(ln_outputs[0]),
-      std::move(ln_outputs[1]),
-      std::move(ln_outputs[2]));
 }
 
 std::vector<int64_t> NormOperator::compute_output_shape(

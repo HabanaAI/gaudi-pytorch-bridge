@@ -4076,15 +4076,29 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
-    IntArrayRef normalized_shape,
+    IntArrayRef normalized_shape_,
     const c10::optional<Tensor>& weight_opt,
     const c10::optional<Tensor>& bias_opt,
     double eps) {
   PT_LAZY_TRACE;
-  auto sizes_vec = input.sizes().vec();
-  sizes_vec.erase(sizes_vec.begin());
-
   auto weight = weight_opt.value_or(Tensor());
+  auto sizes_vec = input.sizes().vec();
+  // check whether we can use a perf optimized TPC exec path
+  auto use_tpc_affine_path =
+      LayerNormOperator::is_tpc_affine_path(input, normalized_shape_, weight);
+  std::vector<int64_t> normalized_shape_vec = normalized_shape_.vec();
+  if (use_tpc_affine_path) { // if optimized path, then we can't have
+                             // N/mini-batch-size for generating weights/biases
+    sizes_vec.erase(sizes_vec.begin());
+    // NOTE: Add Hack to indicate to lowering kernel that
+    // elementwise_affine=False Without this we have to change the schema and
+    // add a new variable to indicate the path. If, in future, TPC moves fully
+    // to use optimized path, we can remove this.
+    if (normalized_shape_vec.size() == (size_t)input.dim() - 1) {
+      normalized_shape_vec.insert(normalized_shape_vec.begin(), 1);
+    }
+  }
+  IntArrayRef normalized_shape = normalized_shape_vec;
   if (!weight.defined()) {
     auto options = torch::TensorOptions()
                        .dtype(input.dtype())
@@ -4102,18 +4116,10 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     bias = torch::zeros(sizes_vec, options);
   }
 
-  const auto input_shape = input.sizes();
-  const auto input_ndim = input.dim();
-  const int normalized_ndim = normalized_shape.size();
-  const int axis = input_ndim - normalized_ndim;
-  const int64_t m =
-      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  // const int64_t n =
-  //     multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
   ir::NodePtr node = std::make_shared<ir::LayerNormForward>(
       input, normalized_shape, weight, bias, eps);
 
-  auto sizes = LayerNormOperator::getOutputSizes(input, m);
+  auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
       node, {input, normalized_shape, weight, bias, eps}, sizes};
   return k.call();
