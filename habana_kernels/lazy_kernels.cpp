@@ -5802,7 +5802,22 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     bool descending) {
   PT_LAZY_TRACE;
   int64_t size_dim = self.dim() ? self.size(dim) : 1;
-  return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
+  dim = at::maybe_wrap_dim(dim, self.dim(), true);
+  // Currnetly TPC supports only Axis 0(dim -1 in Pytorch) for topk.
+  // For any other Axis, topk is called on the permuted input
+  if (dim != self.dim() - 1) {
+    std::vector<int64_t> permute_dims(self.dim());
+    std::iota(permute_dims.begin(), permute_dims.end(), 0);
+    std::swap(permute_dims[dim], permute_dims[self.dim() - 1]);
+    auto permuted_self = permute_hpu_lazy(self, permute_dims);
+    dim = self.dim() - 1;
+    auto out =
+        topk_hpu_lazy_impl(permuted_self, size_dim, dim, descending, true);
+    auto permuted_out_0 = permute_hpu_lazy(std::get<0>(out), permute_dims);
+    auto permuted_out_1 = permute_hpu_lazy(std::get<1>(out), permute_dims);
+    return std::tie(permuted_out_0, permuted_out_1);
+  } else
+    return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims) {

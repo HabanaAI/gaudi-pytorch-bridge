@@ -718,17 +718,22 @@ TEST_F(LazyUnaryKernelTest, DISABLED_TopkTestFalse) {
 }
 
 TEST_F(LazyUnaryKernelTest, SortTest) {
-  auto self = torch::randn({3, 5});
-  auto hself = self.to(torch::kHPU);
+  auto sort_test = [](bool desc, int dim) {
+    auto self = torch::randn({3, 5});
+    auto hself = self.to(torch::kHPU);
 
-  auto out_cpu = at::sort(self, 1, true);
-  at::Tensor cout = std::get<0>(out_cpu);
-  auto out_hpu = at::sort(hself, 1, true);
-  at::Tensor hout = std::get<0>(out_hpu).to(torch::kCPU);
+    auto out_cpu = at::sort(self, dim, desc);
+    at::Tensor cout = std::get<0>(out_cpu);
+    auto out_hpu = at::sort(hself, dim, desc);
+    at::Tensor hout = std::get<0>(out_hpu).to(torch::kCPU);
 
-  EXPECT_EQ(cout.sizes().vec() == hout.sizes().vec(), true);
-
-  EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
+    EXPECT_EQ(cout.sizes().vec() == hout.sizes().vec(), true);
+    EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
+  };
+  sort_test(true, 1);
+  sort_test(false, 1);
+  sort_test(true, 0);
+  sort_test(false, 0);
 }
 
 TEST_F(LazyUnaryKernelTest, SortFwdBwdTest) {
