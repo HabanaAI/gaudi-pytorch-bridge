@@ -341,8 +341,7 @@ class HpuTraceParser {
 
 class ProfilerSession : public libkineto::IActivityProfilerSession {
  public:
-  explicit ProfilerSession(bool dump_hltv, int64_t, int64_t)
-      : dump_hltv_{dump_hltv} {
+  explicit ProfilerSession(int64_t, int64_t) {
     status_ = TraceStatus::READY;
   }
 
@@ -398,9 +397,6 @@ class ProfilerSession : public libkineto::IActivityProfilerSession {
   }
 
   void convertLogs() {
-    if (dump_hltv_) {
-      dumpEntries();
-    }
     activities_.clear();
     auto wall_stop_time = nowNanos(CLOCK_REALTIME) / 1000;
 
@@ -436,17 +432,6 @@ class ProfilerSession : public libkineto::IActivityProfilerSession {
     return true;
   }
 
-  bool dumpEntries() {
-    auto status = synProfilerGetTrace(
-        synTraceAll, 0, synTraceFormatTEF, nullptr, nullptr, nullptr);
-    if (status != synSuccess) {
-      std::cerr << "synProfilerGetTrace failed" << std::endl;
-      return false;
-    }
-    return true;
-  }
-
-  bool dump_hltv_{false};
   std::deque<GenericTraceActivity> activities_;
   std::unique_ptr<HpuTraceParser> parser_;
 };
@@ -479,11 +464,8 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
       const std::set<ActivityType>& activity_types,
       const KINETO_NAMESPACE::Config&) override {
     auto env = std::getenv("HABANA_PROFILE");
-    auto env_hltv = std::getenv("DUMP_HLTV");
     bool hpu_profiling_available =
         (env != nullptr) && (absl::string_view{env} != "0");
-    bool dump_hltv =
-        (env_hltv != nullptr) && (absl::string_view{env_hltv} != "0");
     bool hpu_profiling_requested =
         activity_types.find(ActivityType::HPU_OP) != activity_types.end() ||
         activity_types.find(ActivityType::HPU_META_OP) != activity_types.end();

@@ -214,3 +214,10 @@ def is_enabled_synapse_layout_handling() -> bool:
     warnings.warn("habana_frameworks.torch.core.is_enabled_synapse_layout_handling is deprecated. "
             "Please use habana_frameworks.torch.utils.debug._is_enabled_synapse_layout_handling")
     return htdebug._is_enabled_synapse_layout_handling()
+
+def enable_profiler_if_needed():
+    import os
+    if "HABANA_PROFILE" not in os.environ:
+        os.environ["HABANA_PROFILE"] = "profile_api"
+
+enable_profiler_if_needed()

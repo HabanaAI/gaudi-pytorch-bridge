@@ -81,6 +81,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp
   pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
+  pytorch_helpers/habana_helpers/activity_profiler.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp
@@ -189,6 +190,11 @@ target_link_libraries(habana_pytorch_plugin
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR})
+if (DEFINED ENV{KINETO_ROOT})
+  target_include_directories(habana_pytorch_plugin PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
+else()
+  message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
+endif()
 
 add_custom_command(OUTPUT
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op0.cpp
