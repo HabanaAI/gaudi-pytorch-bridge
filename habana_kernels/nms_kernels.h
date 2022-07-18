@@ -16,6 +16,13 @@ class FilterAndSqueezeOperator : public HabanaOperator {
   FilterAndSqueezeOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
+
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::BCN});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::BCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::BCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::CN});
   }
 
   void AllocateAndAddSynapseNode(
