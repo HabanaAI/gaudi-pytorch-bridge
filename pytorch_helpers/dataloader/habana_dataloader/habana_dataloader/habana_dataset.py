@@ -96,10 +96,11 @@ class SSDDataLoader(torch.utils.data.DataLoader):
 class SSDMediaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get('dataset', args[0])
+        transform = dataset.transform
+        self.is_train =  not transform.val
         self._media_ssd_dl_handle_vars(kwargs)
         root = dataset.img_folder
         annotate_file = dataset.annotate_file
-        transform = dataset.transform
         num_instances = 1
         instance_id = 0
 
@@ -144,12 +145,15 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
 
         if 'drop_last' in kwargs:
             self.drop_last = kwargs.get('drop_last')
-            if self.drop_last == False:
-                print("Warning: MediaDataLoader got drop_last: False, round up of last batch will be done")
+            if (self.drop_last == False) and (self.is_train == True):
+                print("Warning: MediaDataLoader got drop_last: False, round up of last batch will be done for train")
             else:
                 print("MediaDataLoader got drop_last: ", self.drop_last)
         else:
-            print("Warning: MediaDataLoader using drop_last: False, round up of last batch will be done")
+            if self.is_train == True:
+                print("Warning: MediaDataLoader using drop_last: False, round up of last batch will be done for train")
+            else:
+                print("MediaDataLoader using drop_last: False")
             self.drop_last = False
 
         self._enforce_value_for_arg(kwargs, 'timeout', 0)
