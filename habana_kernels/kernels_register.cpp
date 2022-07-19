@@ -5309,6 +5309,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "randperm_out_ds(Tensor idst, Generator? generator, Tensor output) -> Tensor(a!)");
   m.def(
+      "randperm_out_ds_ht(Tensor ht, Tensor st, Generator? generator, Tensor output) -> Tensor(a!)");
+  m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(

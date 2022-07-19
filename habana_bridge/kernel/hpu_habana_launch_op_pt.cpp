@@ -512,7 +512,8 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     // argument.
     else if (
         (!strcmp("hpu::randperm_out", node_qual_str) && 0 == input_idx) ||
-        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx)) {
+        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx) ||
+        (!strcmp("hpu::randperm_out_ds_ht", node_qual_str) && 2 == input_idx)) {
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
       // as an IValues

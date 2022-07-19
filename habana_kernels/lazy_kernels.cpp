@@ -4439,6 +4439,44 @@ Tensor adaptive_avg_pool2d_backward_hpu_lazy(
   return k.call();
 }
 
+Tensor& randperm_hpu_lazy_ht(
+    Tensor& output,
+    int64_t n,
+    c10::optional<Generator> gen) {
+  PT_LAZY_TRACE;
+  auto out_shape = DimVector({n});
+  std::vector<int32_t> params_vec{0 /*start*/, (int32_t)n /*end*/, 1 /*step*/};
+  auto params_shape = empty_hpu_lazy(
+      params_vec.size(),
+      output.options(),
+      output.suggest_memory_format(),
+      false,
+      HOST_TO_DEVICE_TENSOR);
+  auto hl_params_shape = GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
+  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+  habana_lazy::HbInternalTensorImpl* impl =
+      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+  impl->set_host_data(
+      params_vec.data(),
+      params_vec.size(),
+      sizeof(int32_t),
+      HostDataType::INT32_T);
+  auto result_shape = empty_hpu_lazy(
+      out_shape,
+      output.options(),
+      c10::MemoryFormat::Contiguous,
+      false,
+      SHAPE_TENSOR);
+  auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
+
+  LazyOp<Tensor&> op{
+      "hpu::randperm_out_ds_ht",
+      {params_shape, result_shape, std::move(gen), output},
+      {2},
+      {},
+      3};
+  return op.call(output);
+}
 Tensor& randperm_hpu_lazy(
     Tensor& output,
     int64_t n,
@@ -4457,6 +4495,9 @@ Tensor& randperm_hpu_lazy(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
       (output.scalar_type() == c10::ScalarType::Int ||
        output.scalar_type() == c10::ScalarType::Long)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
+      return randperm_hpu_lazy_ht(output, n, gen);
+    }
     std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
     auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
     auto params_shape = empty_hpu_lazy(

@@ -155,4 +155,16 @@ class RandpermOperator : public HabanaOperator {
     return DMAInputGeneratorType::SEEDTENSOR;
   }
 };
+
+class RandpermOperatorHT : public RandpermOperator {
+ public:
+  RandpermOperatorHT(int device_id, c10::ScalarType scalarType)
+      : RandpermOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 } // namespace habana
