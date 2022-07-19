@@ -78,23 +78,6 @@ using namespace at;
 namespace habana_lazy {
 static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
-#define STRINGIFY(op_code) #op_code
-
-#define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
-#define HPU_LAZY_FUNC_NAME_INPLACE(op_code) op_code##hpu_lazy_
-#define HPU_LAZY_WRAP_KERNEL(op_code)                       \
-  Tensor HPU_LAZY_FUNC_NAME(op_code)(const Tensor& self) {  \
-    PT_LAZY_TRACE;                                          \
-    LazyOp<at::Tensor> k{STRINGIFY(aten::op_code), {self}}; \
-    return k.call();                                        \
-  }
-#define HPU_LAZY_WRAP_KERNEL_INPLACE(op_code)                  \
-  Tensor& HPU_LAZY_FUNC_NAME_INPLACE(op_code)(Tensor & self) { \
-    PT_LAZY_TRACE;                                             \
-    LazyOp<at::Tensor&> k{STRINGIFY(aten::op_code), {self}};   \
-    return k.call(self);                                       \
-  }
-
 bool is_inplace(at::Symbol symbol) {
   bool is_inplace = false;
 
@@ -1204,67 +1187,6 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   flush_op(dst);
 }
 
-Tensor asin_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::asin", {self}};
-  return k.call();
-}
-
-HPU_LAZY_WRAP_KERNEL(acos)
-HPU_LAZY_WRAP_KERNEL_INPLACE(acos_)
-
-Tensor acosh_hpu_lazy(const at::Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::acosh", {self}};
-  return k.call();
-}
-
-Tensor& acosh_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::acosh_", {self}};
-  return k.call(self);
-}
-
-Tensor asinh_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::asinh", {self}};
-  return k.call();
-}
-Tensor& asinh_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::asinh_", {self}};
-  return k.call(self);
-}
-Tensor atan_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::atan", {self}};
-  return k.call();
-}
-Tensor& atan_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::atan_", {self}};
-  return k.call(self);
-}
-Tensor atanh_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::atanh", {self}};
-  return k.call();
-}
-Tensor& atanh_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::atanh_", {self}};
-  return k.call(self);
-}
-Tensor cosh_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::cosh", {self}};
-  return k.call();
-}
-Tensor& cosh_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::cosh_", {self}};
-  return k.call(self);
-}
 Tensor sin_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::sin", {self}};
