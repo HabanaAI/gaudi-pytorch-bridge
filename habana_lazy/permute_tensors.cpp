@@ -26,6 +26,14 @@ namespace habana_lazy {
 
 unsigned PermuteTensors::m_permute_counter = 0;
 
+void increasePermuteCount(torch::Tensor& weight) {
+  HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
+  if (hb_tensor.GetHbLazyTensorData().has_value()) {
+    auto hb_data = hb_tensor.GetHbLazyTensorData().value();
+    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+    hb_impl->increasePermutedCounter();
+  }
+}
 void PermuteTensors::permuteWeight(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   TORCH_CHECK(
@@ -43,6 +51,18 @@ void PermuteTensors::permuteWeight(torch::Tensor& weight) {
 }
 
 void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
+  HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
+  if (hb_tensor.GetHbLazyTensorData().has_value()) {
+    auto hb_data = hb_tensor.GetHbLazyTensorData().value();
+    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+    if (hb_impl->getPermutedCounter() >=
+        GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD)) {
+      PT_LAYOUTS_DEBUG(
+          "Reached threshold permutations of ",
+          GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD));
+      return;
+    }
+  }
   auto dim = weight.dim();
   if (dim == 4) {
     habana_lazy::PermuteTensors::permuteWeightToRSCKInMemory(weight);
@@ -172,6 +192,7 @@ void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   copy_hpu_lazy_(weight, weight_cpu, false);
 
   // Update Permutation
+  increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_rsck_in_memory);
 }
 
@@ -186,6 +207,7 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
   copy_hpu_lazy_(weight, weight_cpu, false);
 
   // Update lazy & impl status
+  increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_qrsck_in_memory);
 }
 

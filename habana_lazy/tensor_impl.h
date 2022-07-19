@@ -183,6 +183,13 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     return m_tensor_type;
   }
 
+  void increasePermutedCounter() {
+    m_permuted_counter++;
+  }
+  unsigned getPermutedCounter() const {
+    return m_permuted_counter;
+  }
+
   void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
   // void set_host_data(std::vector<int32_t> d);
   void* get_host_ptr() const;
@@ -208,6 +215,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   // Memory permutation represents how tensor layout is set in memory
   synapse_helpers::layouts::MemoryPermutation m_memory_permutation;
   bool m_dont_allow_permutation = false;
+  unsigned m_permuted_counter = 0;
 
   void* host_ptr_ = nullptr;
   void* compile_host_ptr_ = nullptr;
