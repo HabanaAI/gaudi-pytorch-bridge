@@ -39,6 +39,7 @@
 
 #include "habana_kernels/habana_operator.h"
 #include "habana_lazy/hpu_lazy_cache.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/visualize.h"
 #include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 
@@ -132,9 +133,13 @@ class HabanaLaunchOpPT {
 
   static bool isControlEdge(torch::jit::Node* node);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
+  void set_lazy_front_end_info(
+      std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
+  bool is_hccl_send_mark_step();
 
  private:
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
+  std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;
 
   std::string op_name = std::string();
   std::string name = std::string();

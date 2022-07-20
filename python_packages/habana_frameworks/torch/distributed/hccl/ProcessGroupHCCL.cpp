@@ -18,9 +18,14 @@
 #include "synapse_helpers/env_flags.h"
 
 #include <pybind11/chrono.h>
+#include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
+#include "habana_lazy/permute_tensors.h"
+#include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "pytorch_helpers/synapse_helpers/device_context.h"
@@ -1131,6 +1136,69 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
   return work;
 }
 
+// Sending a tensor doesn't have metadata field, hence we can't send the info if
+// tensor is dense or permuted. So for first functional step, we'll always
+// permute it back to be dnese before sending it. In future it can be optimized
+// if we can send metadata too via send mechanism to provide this info.
+void ProcessGroupHCCL::permutedSendTensorsToDense(
+    std::vector<at::Tensor>& tensors) {
+  bool has_tensors_to_dense = false;
+  std::vector<habana_lazy::HbInternalTensorImpl*> permuted_impls;
+  for (auto& tensor : tensors) {
+    auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
+    auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
+    auto self_internal_tesor = self_hb_tensor_data.value();
+    std::vector<uint8_t> permutation;
+    auto hb_weight_impl =
+        habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+    TORCH_CHECK(
+        hb_weight_impl != nullptr,
+        "Tensor has to have backend impl before send op");
+    permutation = hb_weight_impl->GetMemoryPermutation();
+    if (!permutation.empty()) {
+      PT_DISTRIBUTED_DEBUG(
+          "Tensor: ",
+          self_hb_tensor.getTensorUniqueId(),
+          " has permutation: ",
+          VecToString(permutation),
+          " transposing it back to be dense");
+      tensor = torch::clone(tensor);
+      has_tensors_to_dense = true;
+      permuted_impls.push_back(hb_weight_impl);
+    }
+  }
+  // Creating a Synapse that of memcpy permuted tensors back to dense.
+  if (has_tensors_to_dense) {
+    std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>
+        lazy_front_end_info =
+            std::make_shared<habana_lazy::HbLazyFrontEndInfoToBackend>();
+    lazy_front_end_info->set_is_hccl_send_mark_step(true);
+    habana_lazy::HbLazyTensor::StepMarker({}, lazy_front_end_info);
+    // Clear permutation from back to dense tensors
+    for (auto impl : permuted_impls) {
+      impl->SetMemoryPermutation({});
+    }
+  }
+}
+
+// When recieving a tensor we make sure during send it's dense.
+// So once we recive a tensor, we clear it's permutation info.
+void ProcessGroupHCCL::clearPermutesFromRecvTensors(
+    std::vector<at::Tensor>& tensors) {
+  for (auto& tensor : tensors) {
+    auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
+    auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
+    auto self_internal_tesor = self_hb_tensor_data.value();
+    auto hb_weight_impl =
+        habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+    PT_DISTRIBUTED_DEBUG(
+        "recieved tensor: ",
+        self_hb_tensor.getTensorUniqueId(),
+        " Clearing its permutation");
+    hb_weight_impl->SetMemoryPermutation({});
+  }
+}
+
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
@@ -1142,6 +1210,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
   habana_lazy::HbLazyTensor::StepMarker();
+  permutedSendTensorsToDense(tensors);
   auto work = pointToPoint(
       tensors,
       [&](at::Tensor& input,
@@ -1180,6 +1249,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
   habana_lazy::HbLazyTensor::StepMarker();
+  clearPermutesFromRecvTensors(tensors);
   auto work = pointToPoint(
       tensors,
       [&](at::Tensor& tensor,

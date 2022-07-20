@@ -131,6 +131,14 @@ struct HbLazyFrontEndInfoToBackend {
     input_values = input_vals;
   }
 
+  bool get_is_hccl_send_mark_step() {
+    return is_hccl_send_mark_step;
+  }
+
+  void set_is_hccl_send_mark_step(bool flag) {
+    is_hccl_send_mark_step = flag;
+  }
+
  private:
   // The value 0 of optimized_lazy_eager_key is used to indicate the unhandled
   // cases in optimized lazy eager so that no cache entry is prepared in
@@ -139,6 +147,7 @@ struct HbLazyFrontEndInfoToBackend {
   std::string op_name = getHabanaLazyGraphName();
   bool is_optimized_lazy_eager = false;
   std::vector<ir::Value> input_values{};
+  bool is_hccl_send_mark_step = false;
 };
 
 class HbLazyTensor {

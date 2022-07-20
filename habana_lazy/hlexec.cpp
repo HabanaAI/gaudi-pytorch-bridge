@@ -70,6 +70,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(c10::hpu::getCurrentHPUStream());
   habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
+  habanaLoweringOp.set_lazy_front_end_info(lazyInfo);
   try {
     habanaLoweringOp.run(stack);
   } catch (...) {

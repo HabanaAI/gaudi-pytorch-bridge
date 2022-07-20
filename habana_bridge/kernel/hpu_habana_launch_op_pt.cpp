@@ -1823,7 +1823,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   // allow permutation only for output tensors
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+      !is_hccl_send_mark_step()) {
     for (auto ti : output_tensorinfo_map) {
       auto ival = ti.first;
       auto iter = pt_to_synapse_tensors.find(ival);
@@ -3075,6 +3076,18 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
     // book keep the node pair that reuses same memory
     memory_reuse_pairs.emplace_back(std::make_pair(val_ins[0], node));
   }
+}
+
+void HabanaLaunchOpPT::set_lazy_front_end_info(
+    std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info) {
+  lazy_info = info;
+}
+
+bool HabanaLaunchOpPT::is_hccl_send_mark_step() {
+  if (lazy_info == nullptr) {
+    return false;
+  }
+  return lazy_info->get_is_hccl_send_mark_step();
 }
 
 } // namespace habana

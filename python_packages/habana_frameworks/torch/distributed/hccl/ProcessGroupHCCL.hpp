@@ -148,6 +148,9 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
       int srcRank,
       int tag) override;
 
+  void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors);
+  void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors);
+
   static void groupStart();
 
   static void groupEnd();
