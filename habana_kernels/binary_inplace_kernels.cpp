@@ -855,8 +855,6 @@ Tensor& addcdiv_hpu_(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::mul_.Tensor", KERNEL_FN(MulInplaceOperator))
-        .add("aten::mul_.Scalar", KERNEL_FN(MulInplaceOperator))
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator))
         .add("aten::div_.Tensor", KERNEL_FN(DivInplaceOperator))
