@@ -26,7 +26,7 @@ class RoiAlignFwdOperator : public HabanaOperator {
 
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::XR,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
@@ -70,9 +70,9 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
 
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::VN,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::NSB,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
