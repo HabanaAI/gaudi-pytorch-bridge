@@ -472,6 +472,8 @@ synapse_error_v<std::string> graph::name_suffix_from_type(
   std::string kernel_suffix{};
   if (type == synDataType::syn_type_float) {
     kernel_suffix = "f32";
+  } else if (type == synDataType::syn_type_fp16) {
+    kernel_suffix = "f16";
   } else if (type == synDataType::syn_type_int8) {
     kernel_suffix = "i8";
   } else if (type == synDataType::syn_type_uint8) {

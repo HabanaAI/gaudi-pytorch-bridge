@@ -244,6 +244,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(
       {c10::ScalarType::Int, synDataType::syn_type_int32},
       {c10::ScalarType::Long, synDataType::syn_type_int32},
       {c10::ScalarType::Float, synDataType::syn_type_float},
+      {c10::ScalarType::Half, synDataType::syn_type_fp16},
       {c10::ScalarType::Double, synDataType::syn_type_float},
       {c10::ScalarType::Bool, synDataType::syn_type_int8},
       {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
@@ -1738,6 +1739,10 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::Bool:
     case c10::ScalarType::BFloat16:
       return true;
+    case c10::ScalarType::Half: {
+      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
+    }
     default:
       return false;
   }
