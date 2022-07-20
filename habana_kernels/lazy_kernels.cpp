@@ -1289,7 +1289,7 @@ Tensor add_tensor_hpu_lazy(
         get_tensor_for_scalar(alpha_double, other.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    auto mul_out = torch::mul(other, alpha_tensor);
     return add_tensor_hpu_lazy(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<at::Tensor> k{
@@ -1333,19 +1333,12 @@ Tensor& add_tensor_hpu_lazy_(
         get_tensor_for_scalar(alpha_double, other.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    auto mul_out = torch::mul(other, alpha_tensor);
     return add_tensor_hpu_lazy_(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
     return op.call(self);
   }
-}
-
-Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-
-  LazyBinaryOp<Tensor&> op("aten::mul_", {self, other});
-  return op.call(self);
 }
 
 Tensor where_tensor_hpu_lazy(
@@ -1362,17 +1355,6 @@ Tensor where_tensor_hpu_lazy(
   return k.call();
 }
 
-Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyBinaryOp<at::Tensor> k{
-      "aten::mul",
-      {self, other},
-      {},
-      {BinaryOperator::compute_output_shape(self, other)},
-      -1};
-  return k.call();
-}
-
 Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
@@ -1386,7 +1368,7 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
     StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
     if (params_ptr != nullptr) {
       auto orig_out = out;
-      auto temp = mul_tensor_hpu_lazy(self, other);
+      auto temp = torch::mul(self, other);
       Tensor temp_cast = temp;
       if (temp.scalar_type() != orig_out.scalar_type()) {
         // Cast temp tensor to orig_out tensor data type
@@ -1409,19 +1391,6 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   }
 
   return out;
-}
-
-Tensor mul_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k("aten::mul", {self, other});
-  return k.call();
-}
-
-Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
-  LazyOp<at::Tensor&> k("aten::mul_", {self, other_tensor});
-  return k.call(self);
 }
 
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -6363,8 +6332,8 @@ Tensor masked_scale_hpu_lazy(
   // scale changed to support dropout backward based on what we pass for
   // dropout
   scale = scale / (scale - 1);
-  auto masked = mul_tensor_hpu_lazy(self, mask);
-  auto scaled = mul_scalar_hpu_lazy(masked, scale);
+  auto masked = torch::mul(self, mask);
+  auto scaled = torch::mul(masked, scale);
   return scaled;
 }
 

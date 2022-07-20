@@ -1828,7 +1828,5 @@ static auto& KernelRegistry =
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
         .add("aten::add.Scalar", KERNEL_FN(AddOperator))
         .add("hpu::rsub.Tensor", KERNEL_FN(RsubOperator))
-        .add("aten::mul.Tensor", KERNEL_FN(MulOperator))
-        .add("aten::mul.Scalar", KERNEL_FN(MulOperator))
         .add("aten::div.Tensor", KERNEL_FN(DivOperator))
         .add("aten::div.Scalar", KERNEL_FN(DivOperator));
