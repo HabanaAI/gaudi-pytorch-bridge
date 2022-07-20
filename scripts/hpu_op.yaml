@@ -729,39 +729,37 @@ atanh_:
 
 bernoulli:
   force_default: false
-  custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
   guid: random_bernoulli_fwd
-  op_frontend: LazyIntSeed
+  op_frontend: LazyTensorSeed
+  legacy_eager: true
   op_backend: Bernoulli
   out_ids: [0]
-  schema_args: "(Tensor self, *, int seed) -> Tensor"
+  schema_args: "(Tensor self, *, Tensor seed) -> Tensor"
 
 bernoulli_.float:
-  custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  op_frontend: LazyIntSeed
+  op_frontend: LazyBernoulliFrontend
+  legacy_eager: true
   op_backend: Bernoulli
-  schema_args: "(Tensor(a!) self, float p=0.5, *, int seed) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
 bernoulli_.Tensor:
-  custom_fill_params: FillBernoulliParams
   dtypes: [BFloat16, Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  op_frontend: LazyIntSeed
+  op_frontend: LazyTensorSeed
   op_backend: Bernoulli
-  schema_args: "(Tensor(a!) self, Tensor p, *, int seed) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
 bernoulli.out:
-  custom_fill_params: FillBernoulliOutParams
   dtypes: [BFloat16, Float]
   guid: random_bernoulli_fwd
-  op_frontend: LazyIntOutSeed
+  op_frontend: LazyTensorOutSeed
   op_backend: Bernoulli
-  schema_args: "(Tensor self, *, int seed, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
   custom_output_shape: BinaryCrossEntropyFwdOutputShape
