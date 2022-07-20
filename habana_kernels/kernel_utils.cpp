@@ -21,60 +21,107 @@
 
 using namespace torch;
 
-/** @brief This data structure is used to map src & dst (for a cast) to
- *corresponding cast node guid.
- * @param key: dtype src, dtype dst
- * @param value: node guid
+/**
+ * @brief Prepare cast map for current platform
  **/
-std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
-    habana_helpers::cast_map{
-        {{c10::ScalarType::Char, c10::ScalarType::Bool}, "cast_identity"},
-        {{c10::ScalarType::Bool, c10::ScalarType::Char}, "cast_identity"},
-        {{c10::ScalarType::Float, c10::ScalarType::Float}, "cast_identity"},
-        {{c10::ScalarType::Int, c10::ScalarType::Int}, "cast_identity"},
-        {{c10::ScalarType::Bool, c10::ScalarType::Float}, "cast_i8_to_f32"},
-        {{c10::ScalarType::Char, c10::ScalarType::Float}, "cast_i8_to_f32"},
-        {{c10::ScalarType::Float, c10::ScalarType::Bool}, "cast_f32_to_i8"},
-        {{c10::ScalarType::Float, c10::ScalarType::Char}, "cast_f32_to_i8"},
-        {{c10::ScalarType::Bool, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
-        {{c10::ScalarType::Char, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Bool}, "cast_bf16_to_i8"},
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Char}, "cast_bf16_to_i8"},
-        // TPC GUID doesn't support BF16->Int cast, hence using it
-        // to realize it through a 2 level cast internally
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Int}, "cast_bf16_to_i32"},
-        {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
-        {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
-        {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},
-        {{c10::ScalarType::Bool, c10::ScalarType::Short}, "cast_i8_to_i16"},
-        {{c10::ScalarType::Short, c10::ScalarType::Bool}, "cast_i16_to_i8"},
-        {{c10::ScalarType::Short, c10::ScalarType::Char}, "cast_i16_to_i8"},
-        {{c10::ScalarType::Short, c10::ScalarType::Short}, "cast_identity"},
-        {{c10::ScalarType::Short, c10::ScalarType::Int}, "cast_i16_to_i32"},
-        {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
-        {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
-        {{c10::ScalarType::Int, c10::ScalarType::BFloat16}, "cast_i32_to_bf16"},
-        {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
-        // c10::Long dtype is treated as Int for Synapse tensors,
-        // therefore we are casting from i32 to f32
-        {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i32_to_f32"},
-        {{c10::ScalarType::Float, c10::ScalarType::Int}, "cast_f32_to_i32"},
-        // c10::Long dtype is treated as Int for Synapse tensors,
-        // therefore we are casting to i32 from f32
-        {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"},
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Float},
-         "cast_bf16_to_f32"},
-        {{c10::ScalarType::Float, c10::ScalarType::BFloat16},
-         "cast_f32_to_bf16"},
-        {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
-        {{c10::ScalarType::Byte, c10::ScalarType::Bool}, "cast_u8_to_i8"},
-        {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
-        // TPC GUID doesn't support Byte->BF16, hence using it
-        // to realize it through a 2 level cast internally
-        {{c10::ScalarType::Byte, c10::ScalarType::BFloat16}, "cast_u8_to_bf16"},
-        {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
-        {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
-    };
+static std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
+get_platform_cast_map() {
+  // initialize with g1
+  std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string> cast_map{
+      {{c10::ScalarType::Char, c10::ScalarType::Bool}, "cast_identity"},
+      {{c10::ScalarType::Bool, c10::ScalarType::Char}, "cast_identity"},
+      {{c10::ScalarType::Float, c10::ScalarType::Float}, "cast_identity"},
+      {{c10::ScalarType::Int, c10::ScalarType::Int}, "cast_identity"},
+      {{c10::ScalarType::Bool, c10::ScalarType::Float}, "cast_i8_to_f32"},
+      {{c10::ScalarType::Char, c10::ScalarType::Float}, "cast_i8_to_f32"},
+      {{c10::ScalarType::Float, c10::ScalarType::Bool}, "cast_f32_to_i8"},
+      {{c10::ScalarType::Float, c10::ScalarType::Char}, "cast_f32_to_i8"},
+      {{c10::ScalarType::Bool, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
+      {{c10::ScalarType::Char, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
+      {{c10::ScalarType::BFloat16, c10::ScalarType::Bool}, "cast_bf16_to_i8"},
+      {{c10::ScalarType::BFloat16, c10::ScalarType::Char}, "cast_bf16_to_i8"},
+      // TPC GUID doesn't support BF16->Int cast, hence using it
+      // to realize it through a 2 level cast internally
+      {{c10::ScalarType::BFloat16, c10::ScalarType::Int}, "cast_bf16_to_i32"},
+      {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
+      {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
+      {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},
+      {{c10::ScalarType::Bool, c10::ScalarType::Short}, "cast_i8_to_i16"},
+      {{c10::ScalarType::Short, c10::ScalarType::Bool}, "cast_i16_to_i8"},
+      {{c10::ScalarType::Short, c10::ScalarType::Char}, "cast_i16_to_i8"},
+      {{c10::ScalarType::Short, c10::ScalarType::Short}, "cast_identity"},
+      {{c10::ScalarType::Short, c10::ScalarType::Int}, "cast_i16_to_i32"},
+      {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
+      {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
+      {{c10::ScalarType::Int, c10::ScalarType::BFloat16}, "cast_i32_to_bf16"},
+      {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
+      // c10::Long dtype is treated as Int for Synapse tensors,
+      // therefore we are casting from i32 to f32
+      {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i32_to_f32"},
+      {{c10::ScalarType::Float, c10::ScalarType::Int}, "cast_f32_to_i32"},
+      // c10::Long dtype is treated as Int for Synapse tensors,
+      // therefore we are casting to i32 from f32
+      {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"},
+      {{c10::ScalarType::BFloat16, c10::ScalarType::Float}, "cast_bf16_to_f32"},
+      {{c10::ScalarType::Float, c10::ScalarType::BFloat16}, "cast_f32_to_bf16"},
+      {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
+      {{c10::ScalarType::Byte, c10::ScalarType::Bool}, "cast_u8_to_i8"},
+      {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
+      // TPC GUID doesn't support Byte->BF16, hence using it
+      // to realize it through a 2 level cast internally
+      {{c10::ScalarType::Byte, c10::ScalarType::BFloat16}, "cast_u8_to_bf16"},
+      {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
+      {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
+  };
+  auto type{synapse_helpers::HPURegistrar::get_device().type()};
+  switch (type) {
+    case synDeviceGaudi2:
+    case synDeviceGreco:
+      // Half
+      cast_map.insert(
+          {{c10::ScalarType::Float, c10::ScalarType::Half}, "cast_f32_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Float}, "cast_f16_to_f32"});
+      cast_map.insert(
+          {{c10::ScalarType::BFloat16, c10::ScalarType::Half},
+           "cast_bf16_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::BFloat16},
+           "cast_f16_to_bf16"});
+      cast_map.insert(
+          {{c10::ScalarType::Short, c10::ScalarType::Half}, "cast_i16_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Short}, "cast_f16_to_i16"});
+      cast_map.insert(
+          {{c10::ScalarType::Int, c10::ScalarType::Half}, "cast_i32_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Int}, "cast_f16_to_i32"});
+      cast_map.insert(
+          {{c10::ScalarType::Bool, c10::ScalarType::Half}, "cast_i8_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Char, c10::ScalarType::Half}, "cast_i8_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Bool}, "cast_f16_to_i8"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Char}, "cast_f16_to_i8"});
+      break;
+    default:
+      break;
+  }
+  return cast_map;
+}
+
+std::optional<std::string> habana_helpers::direct_cast_guid(
+    std::pair<c10::ScalarType, c10::ScalarType> type_key) {
+  if (type_key.first == type_key.second)
+    return "cast_identity";
+  static auto cast_map{get_platform_cast_map()};
+  auto iter = cast_map.find(type_key);
+  if (iter != cast_map.end()) {
+    return iter->second;
+  }
+  return {};
+}
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get
  *input arguments with different dtypes. For such cases, this function

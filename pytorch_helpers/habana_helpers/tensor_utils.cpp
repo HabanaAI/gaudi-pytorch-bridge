@@ -125,23 +125,19 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   // Determine cast node_type to use based on src & dst dtypes
   std::pair<c10::ScalarType, c10::ScalarType> type_key{
       Input.scalar_type(), at::typeMetaToScalarType(type)};
-  auto iter = habana_helpers::cast_map.find(type_key);
-  std::string node_type;
-  if (iter != habana_helpers::cast_map.end()) {
-    node_type = iter->second;
-  } else {
-    HABANA_ASSERT(
-        0 && "Unsupported Cast operation requested in hpu_cast_tensor()");
-  }
+  auto node_type{direct_cast_guid(type_key)};
+  HABANA_ASSERT(
+      node_type.has_value() &&
+      "Unsupported Cast operation requested in hpu_cast_tensor()");
 
   int device_id = Input.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  CastOperator Op(device_id, node_type);
+  CastOperator Op(device_id, node_type.value());
   std::vector<c10::IValue> stack = {
       IValue(Input), IValue(typeMetaToScalarType(type))};
   std::vector<at::Tensor> pt_inputs{Input};
 
-  size_t key = Op.GetRecipeKey(node_type, stack);
+  size_t key = Op.GetRecipeKey(node_type.value(), stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     auto Output = at::empty(
@@ -155,7 +151,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   } else {
     PT_KERNEL_DEBUG("key:", key);
     // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
+    auto graph = habana_helpers::create_graph(device_id, node_type.value());
     // Allocate synapse inputs
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
     habana::OutputMetaDataVector output_metadata(1);

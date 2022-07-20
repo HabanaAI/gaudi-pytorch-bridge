@@ -381,17 +381,15 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
          self.scalar_type() == c10::ScalarType::Char))) {
     std::pair<c10::ScalarType, c10::ScalarType> type_key{
         self.scalar_type(), type};
-    auto iter = habana_helpers::cast_map.find(type_key);
-    if (iter != habana_helpers::cast_map.end()) {
-      node_type = iter->second;
-    } else {
-      HABANA_ASSERT(
-          0 &&
-              "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
-          self.scalar_type(),
-          " -> ",
-          type);
-    }
+
+    auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
+    HABANA_ASSERT(
+        node_type_opt.has_value() &&
+            "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
+        self.scalar_type(),
+        " -> ",
+        type);
+    node_type = std::move(node_type_opt.value());
   } else {
     // Cases where a simple copy is being done (input_new = input) come as .to
     // call with same input & output data types. we add a identity node to
@@ -426,23 +424,18 @@ OutputShapeInfRetType CastLazyOperator::ComputeOutputShape(
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
 
-  std::string node_type;
+  std::string node_type{"cast_identity"};
   if (self.scalar_type() != type) {
     std::pair<c10::ScalarType, c10::ScalarType> type_key{
         self.scalar_type(), type};
-    auto iter = habana_helpers::cast_map.find(type_key);
-    if (iter != habana_helpers::cast_map.end()) {
-      node_type = iter->second;
-    } else {
-      HABANA_ASSERT(
-          0 &&
-              "Unsupported Cast operation requested in CastLazyOperator::ComputeOutputShape: ",
-          self.scalar_type(),
-          " -> ",
-          type);
-    }
-  } else {
-    node_type = "cast_identity";
+    auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
+    HABANA_ASSERT(
+        node_type_opt.has_value() &&
+            "Unsupported Cast operation requested in CastLazyOperator::ComputeOutputShape: ",
+        self.scalar_type(),
+        " -> ",
+        type);
+    node_type = std::move(node_type_opt.value());
   }
 
   // Insert the cast node - in case cast is to same type alias, insert an
@@ -516,25 +509,19 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   // auto output = inputs[1].toTensor();
   auto type = inputs[1].toScalarType();
 
-  std::string node_type;
+  std::string node_type{"cast_identity"};
   if (self.scalar_type() != type) {
     std::pair<c10::ScalarType, c10::ScalarType> type_key{
         self.scalar_type(), type};
-    auto iter = habana_helpers::cast_map.find(type_key);
-    if (iter != habana_helpers::cast_map.end()) {
-      node_type = iter->second;
-    } else {
-      HABANA_ASSERT(
-          0 &&
-              "Unsupported Cast operation requested in CastLazyOperator::AllocateAndAddSynapseNode: ",
-          self.scalar_type(),
-          " -> ",
-          type);
-    }
-  } else {
-    node_type = "cast_identity";
+    auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
+    HABANA_ASSERT(
+        node_type_opt.has_value() &&
+            "Unsupported Cast operation requested in CastLazyOperator::AllocateAndAddSynapseNode: ",
+        self.scalar_type(),
+        " -> ",
+        type);
+    node_type = std::move(node_type_opt.value());
   }
-
   /*
    TODO: This is the Original implementation for Cast Operator
         where we pass the output of the cast as part of the inputs,

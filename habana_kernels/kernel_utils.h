@@ -33,8 +33,8 @@
       ? CAST_ROUND_HALF_NE                                      \
       : CAST_ROUND_ZERO;
 namespace habana_helpers {
-extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
-    cast_map;
+std::optional<std::string> direct_cast_guid(
+    std::pair<c10::ScalarType, c10::ScalarType> type_key);
 
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
