@@ -10,6 +10,8 @@
 #pragma once
 
 #include <c10/util/Exception.h>
+#include <habana_device/HPUAllocator.h>
+#include <habana_device/PinnedMemoryAllocator.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
 
@@ -23,6 +25,11 @@ class HPURegistrar {
   std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
       acquired_devices;
   static HPURegistrar& get_hpu_registrar();
+  ~HPURegistrar() {
+    deleteDevices();
+    habana::HPUDeviceAllocator::allocator_active_device_id = -1;
+    habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
+  }
 
  public:
   HPURegistrar(HPURegistrar const&) = delete;
@@ -73,6 +80,7 @@ class HPURegistrar {
       device.cleanup();
       // Reset acquired_devices
       get_hpu_registrar().acquired_devices[0] = nullptr;
+      initialized_ = false;
     }
   }
 
