@@ -213,6 +213,12 @@ void NllLoss2DFwd::AddNode(
 
   std::vector<synapse_helpers::tensor> nll_loss;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    int64_t reduction = stack.at(3).toInt();
+    if (reduction != at::Reduction::Reduction::None) {
+      kernel_meta_data_.synapse_output_layout.assign(
+          {synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    }
+
     if (stack.at(2).isNone()) { // weight is none
       nll_loss = NllLoss(
           this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);

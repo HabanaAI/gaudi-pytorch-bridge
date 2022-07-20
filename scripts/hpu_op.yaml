@@ -2684,8 +2684,8 @@ nll_loss2d_forward:
   op_backend: NllLoss2DFwd
   out_ids: [0,0]
   synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [DONT_CARE]
+  - [WHCN, WHN, DONT_CARE, DONT_CARE]
+  - [WHN]
 
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
@@ -2736,8 +2736,8 @@ nll_loss2d_forward.output:
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
   synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [DONT_CARE]
+  - [WHCN, WHN, DONT_CARE, DONT_CARE]
+  - [WHN]
 
 normal_:
   custom_fill_params: FillNormalParams
