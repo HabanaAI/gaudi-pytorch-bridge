@@ -693,31 +693,6 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(ReShapeOp_2->GetOutputs()[0]));
 }
 
-Tensor mv_hpu(const Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-
-  const auto device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "mv";
-  torch::jit::Stack stack = {c10::IValue(self), c10::IValue(other)};
-  habana::MvOperator op(device_id);
-  size_t key = op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> inputs = {self, other};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty({1, self.size(0)}, self.options());
-    op.Execute(key, inputs, output);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
     const Tensor& self,
     const Tensor& other) {
@@ -1558,7 +1533,6 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::mm", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
-        .add("aten::mv", KERNEL_FN_DROP_ARG2(MvOperator))
         .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))
         .add("aten::bmm", KERNEL_FN(BmmOperator))
         .add("aten::bmm.out", KERNEL_FN(BmmOutOperator))

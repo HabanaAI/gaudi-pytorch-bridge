@@ -1887,18 +1887,6 @@ Tensor hpu_wrap::dot(const Tensor& self, const Tensor& other) {
 
   return dot_hpu(self, other);
 };
-Tensor hpu_wrap::mv(const Tensor& self, const Tensor& other) {
-  PT_OP_TRACE;
-  PT_OP_INFO("mv :", " self=", to_string(self), " other=", to_string(other));
-  FALLBACK_IF_UNSUPPORTED_OP(mv, PARAMS1(self, other), PARAMS2(self, other))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mv_hpu_lazy(self, other);
-
-  } else {
-    return mv_hpu(self, other);
-  }
-};
 std::tuple<Tensor, Tensor> hpu_wrap::nll_loss_forward(
     const Tensor& self,
     const Tensor& target,

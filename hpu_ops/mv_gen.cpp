@@ -17,7 +17,7 @@ sizes_vec MvOpsOutputShape(const at::Stack& stack, bool) {
   sizes_vec shape = std::vector<std::vector<int64_t>>{{mat1.sizes()[0]}};
   return shape;
 }
-void MvOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void MvOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor mat1 = stack_tensor(stack, 0);
   const at::Tensor mat2 = stack_tensor(stack, 1);
 

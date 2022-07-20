@@ -620,18 +620,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "mv",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "nll_loss_forward",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

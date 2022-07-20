@@ -2626,12 +2626,18 @@ multinomial.out:
   op_backend: Multinomial
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
+mv:
+  force_default: false
+  custom_output_shape: MvOpsOutputShape
+  dtypes: [BFloat16, Float, Short, Int]
+  op_backend: MvOp
+  out_ids: [0]
+
 mv.out:
   force_default: false
   custom_output_shape: MvOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
-  guid: mv
-  op_backend: MvOpOut
+  op_backend: MvOp
 
 nan_to_num:
   force_default: false

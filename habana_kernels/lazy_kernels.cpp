@@ -3255,13 +3255,6 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   return k.call();
 }
 
-Tensor mv_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  std::vector<int64_t> shape_out = {self.size(0)};
-  LazyOp<at::Tensor> k{"aten::mv", {self, other}, {}, {shape_out}};
-  return k.call();
-}
-
 Tensor mse_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,

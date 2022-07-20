@@ -322,7 +322,6 @@ at::Tensor& batch_gemm_out_hpu(
     const at::Tensor& mat2);
 at::Tensor batch_gemm_hpu(const at::Tensor& self, const at::Tensor& mat2);
 at::Tensor dot_hpu(const at::Tensor& self, const at::Tensor& other);
-at::Tensor mv_hpu(const at::Tensor& self, const at::Tensor& other);
 std::tuple<at::Tensor, at::Tensor> nll_loss_forward_hpu(
     const at::Tensor& self,
     const at::Tensor& target,
