@@ -6132,6 +6132,7 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     hb_tensor = HbLazyTensorViews::HandleViewsOrUpdate(self, hb_tensor);
     if (self.device().type() == c10::DeviceType::HPU) {
+      flush_op({});
       // Trigger point execution
       PT_IRGRAPH_DEBUG("step marker due to local scalar");
       HbLazyTensor::StepMarker({});
@@ -6218,9 +6219,7 @@ Tensor fused_norm_hpu_lazy(
     }
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
+  flush_op(result);
 
   return result;
 }

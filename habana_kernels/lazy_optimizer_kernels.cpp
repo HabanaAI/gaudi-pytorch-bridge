@@ -46,9 +46,8 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
   auto result =
       k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
+  flush_op({});
+
   return result;
 }
 
@@ -100,9 +99,7 @@ void optimizer_ema_hpu_lazy(
         updated_ema[i], node_unpack, out_index);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
+  flush_op({});
 }
 
 void optimizer_adamw_hpu_lazy(
@@ -199,9 +196,7 @@ void optimizer_adamw_hpu_lazy(
         weights[i], node_unpack, out_index);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    HbLazyTensor::StepMarker({});
-  }
+  flush_op({});
 }
 
 Tensor optimizer_lamb_fused_norm_hpu_lazy(

@@ -683,6 +683,9 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async) {
   PT_LAZY_TRACE;
+  if (StageSubmission::getInstance().getCurrentAccumulatedOps() == 0) {
+    return;
+  }
   StageSubmission::getInstance().resetCurrentAccumulatedOps();
   // For optimized lazy eager, use the output tensors as it is while
   // for normal eager and Lazy, prepare tensors from live tensors
