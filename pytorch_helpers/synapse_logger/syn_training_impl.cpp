@@ -494,11 +494,11 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
   const std::string streamName = strLog.get(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
-      M_ARG_X(launchTensorsInfo, numberOfTensors),
+      ARG(launchTensorsInfo),
       ARG(numberOfTensors),
       ARG_X(pWorkspace),
       ARG(pRecipeHandle),
-      M_ARG_X(eventHandleList, numberOfEvents),
+      ARG(eventHandleList),
       ARG(numberOfEvents),
       ARG(flags),
       ARG(streamName));
