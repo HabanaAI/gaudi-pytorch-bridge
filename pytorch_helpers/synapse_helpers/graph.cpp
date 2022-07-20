@@ -366,6 +366,17 @@ synapse_error_o graph::launch(
   if (!recipe_handle.in_execution_phase_) {
     return synapse_error{"Graph not in execution phase.", synStatus::synFail};
   }
+
+  for (synLaunchTensorInfo& tensorInfo : inputs_and_outputs_info) {
+    // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
+    // size [0] for 0d tensor need to force it [1] to pass to synapse correctly
+    // valdity check for pTensorAddress to differentiate from ZST
+    // in case of ZST pTensorAddress will be NULL
+    if (tensorInfo.pTensorAddress && tensorInfo.tensorSize[0] == 0) {
+      tensorInfo.tensorSize[0] = 1;
+    }
+  }
+
   PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
   PT_SYNHELPER_DEBUG(
       "in graph::launch, launch handle string:\n",
