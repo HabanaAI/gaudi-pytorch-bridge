@@ -509,7 +509,9 @@ acosh_:
 
 add.out:
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
   guid: add_fwd
   op_backend: BinaryWithAlpha
   type_promotion: true
