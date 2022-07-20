@@ -692,7 +692,7 @@ class LazyOp {
         hl_self.GetDevice(),
         hl_self.GetSizes(),
         hl_self.dtype_optional());
-    updateDstDependencies(hl_self, self, false);
+    updateDstDependencies(hl_self, self, true);
 
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()
