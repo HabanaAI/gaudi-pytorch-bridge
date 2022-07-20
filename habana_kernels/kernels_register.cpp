@@ -439,25 +439,6 @@ Tensor hpu_wrap::rsub(
 
   return rsub_scalar_hpu(self, other, alpha);
 };
-Tensor hpu_wrap::where(
-    const Tensor& condition,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "_s_where :",
-      " condition=",
-      to_string(condition),
-      " self=",
-      to_string(self),
-      " other=",
-      to_string(other));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return where_tensor_hpu_lazy(condition, self, other);
-  } else {
-    return where_tensor_hpu(condition, self, other);
-  }
-}
 Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
   PT_OP_INFO("mul_ :", " self=", to_string(self), " other=", to_string(other));

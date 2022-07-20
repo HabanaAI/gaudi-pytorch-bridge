@@ -580,10 +580,7 @@ addr:
 
 addr_:
   custom_output_shape: AddROutshape
-  dtypes:
-    self: [BFloat16, Float]
-    vec1: [BFloat16, Float]
-    vec2: [BFloat16, Float]
+  dtypes: [BFloat16, Float]
   force_default: false
   op_backend: AddR
   inplace_ids: [0]
@@ -4033,6 +4030,21 @@ vdot.out:
   custom_output_shape: VdotOutputShape
   dtypes: [BFloat16, Float]
   op_backend: VdotOperator
+
+where.self:
+  custom_output_shape: WhereOutputShape
+  guid: where_fwd
+  out_ids: [1]
+  op_frontend: WhereFrontend
+  op_backend: WhereBackend
+  fallback_check: [WhereFallbackCheck, condition, self, other]
+
+where.self_out:
+  custom_output_shape: WhereOutputShape
+  guid: where_fwd
+  op_frontend: WhereFrontend
+  op_backend: WhereBackend
+  fallback_check: [WhereFallbackCheck, condition, self, other]
 
 xlogy.OutTensor:
   custom_output_shape: XlogYOutputShape

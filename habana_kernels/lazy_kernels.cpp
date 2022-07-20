@@ -1356,20 +1356,6 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return op.call(self);
 }
 
-Tensor where_tensor_hpu_lazy(
-    const Tensor& condition,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k(
-      "aten::where",
-      {condition, self, other},
-      {},
-      {},
-      1 /*output metadata is picked from self*/);
-  return k.call();
-}
-
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   LazyBinaryOp<at::Tensor> k{
