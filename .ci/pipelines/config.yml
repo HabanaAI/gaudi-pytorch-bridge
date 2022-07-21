@@ -1,0 +1,7 @@
+config:
+  jobTimeout: '120'
+  gerritTriggerMap:
+    - repository: pytorch-fork
+    - repository: pytorch-lightning-fork
+    - repository: pytorch-vision-fork
+    - repository: pytorch-integration

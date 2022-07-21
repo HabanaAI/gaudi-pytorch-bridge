@@ -1,0 +1,79 @@
+def stableBranch = GERRIT_BRANCH - '_next'
+src = library("pipeline-library@$stableBranch")
+
+def user_install = env.runInDocker == 'true' ? '' : '--user'
+def buildDependencies = ['SYNAPSE', 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL']
+def clangFormatValidation = [
+    'clang-format validation': { util ->
+        try {
+            util.createPatchClangformatDiff()
+        } catch(err) {
+            archiveArtifacts artifacts: "repos/${GERRIT_PROJECT}/clang_format_diff_${GERRIT_CHANGE_NUMBER}.patch" , fingerprint: true, allowEmptyArchive: true
+            throw err
+        }
+    }
+]
+def pytorchLightningFork = [
+    'Build Pytorch lightning fork': { util ->
+        util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
+        util.runBuildShell('build_pytorch_lightning_fork')
+    }
+]
+def preBuildStages = [
+    'Install Python test dependencies': { util ->
+        util.runShellCommandWrapper("""
+            set -x
+            __check_pytorch_dev_py_deps
+        """)
+    },
+    'Clean Old .whl pakages': { util ->
+        util.runShellCommandWrapper('rm -rf ${PYTORCH_FORK_ROOT}/dist/*.whl')
+        util.runShellCommandWrapper('rm -rf ${PYTORCH_VISION_FORK_ROOT}/dist/*.whl')
+        util.runShellCommandWrapper('rm -rf ${PYTORCH_MODULES_ROOT_PATH}/dist/*.whl')
+    },
+    'Build Pytorchfork modules': { util ->
+        util.runBuildShell('build_pytorch_fork --dist')
+        util.runShellCommandWrapper("""
+            set -xe
+            __clean_pytorch_dev_py_deps
+            pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
+        """)
+    }
+]
+if(env.GERRIT_PROJECT == 'pytorch-integration' && !env.isPromote) {
+    preBuildStages = clangFormatValidation + preBuildStages
+}
+if(env.GERRIT_PROJECT == 'pytorch-lightning-fork' && !env.isPromote) {
+    preBuildStages =  preBuildStages + pytorchLightningFork
+}
+def buildCommands = [
+    'Pytorch vision fork': 'build_pytorch_vision_fork',
+    'Pytorch modules': 'build_pytorch_modules'
+]
+def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM']
+def requiredArtifact = [
+    'SWTOOLS_SDK': ['bin', 'shared'],
+    'SYNAPSE': ['test', 'shared'],
+    'SYNAPSE_PROFILER': ['bin', 'shared'],
+    'COMPLEX_GUID': ['test', 'shared'],
+    'HL_THUNK': ['test', 'shared'],
+    'TPCSIM': ['shared', 'header'],
+    'ELFTOOLS': ['shared'],
+    'TPC_KERNELS': ['test', 'shared'],
+    'TPC_FUSER': ['bin', 'shared'],
+    'TPC_LLVM': ['bin', 'shared'],
+    'SCAL': ['test', 'shared'],
+    'PYTORCH': ['test', 'data'],
+    'CORAL_SIM': ['bin', 'test', 'shared', 'header'],
+    'AEON': ['shared']
+]
+
+genericBuilder(
+    src: src,
+    preBuildStages: preBuildStages,
+    buildDependencies: buildDependencies,
+    buildCommands: buildCommands,
+    testDependencies: testDependencies,
+    requiredArtifact: requiredArtifact,
+    manifest: manifest
+)
