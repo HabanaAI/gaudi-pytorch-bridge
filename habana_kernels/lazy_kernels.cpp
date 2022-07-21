@@ -5476,8 +5476,52 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
     IntArrayRef split_sizes,
     int64_t dim) {
   PT_LAZY_TRACE;
+  // Changing the implementation of split with sizes
+  // to follow the pytorch fork's approach of lowering
+  // the split operation with multiple slice operations.
+  // This avoids strided memcpy operations and uses
+  // the SliceOp from GC which results in better perf
 
-  return at::native::split_with_sizes(self, split_sizes, dim);
+  TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
+  int64_t cur_size = self.size(dim);
+  int64_t num_splits = split_sizes.size();
+  std::vector<Tensor> splits(num_splits);
+  int64_t start_idx = 0;
+
+  for (const auto i : c10::irange(num_splits)) {
+    auto length = split_sizes[i];
+    TORCH_CHECK(
+        length >= 0,
+        "split_with_sizes expects split_sizes have only non-negative ",
+        "entries, but got split_sizes=",
+        split_sizes);
+    if (start_idx !=
+        cur_size) { // start being the end is valid, but not a valid
+      // dim specification.
+      start_idx = c10::maybe_wrap_dim(start_idx, cur_size);
+    }
+    TORCH_CHECK(
+        length >= 0 && start_idx <= cur_size - length,
+        "start (",
+        start_idx,
+        ") + length (",
+        length,
+        ") exceeds dimension size (",
+        cur_size,
+        ").");
+    splits[i] = slice_hpu_lazy(self, dim, start_idx, start_idx + length, 1);
+    start_idx += length;
+  }
+  TORCH_CHECK(
+      start_idx == cur_size,
+      "split_with_sizes expects split_sizes to sum exactly to ",
+      cur_size,
+      " (input tensor's size at dimension ",
+      dim,
+      "), ",
+      "but got split_sizes=",
+      split_sizes);
+  return splits;
 };
 
 std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
