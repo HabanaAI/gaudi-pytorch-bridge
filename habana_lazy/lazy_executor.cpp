@@ -15,6 +15,8 @@ namespace habana_lazy {
 ////////////////////////////////////////////////////////////////////////////UTILITIES////////////////////////////////////////////////////////////////////////////////////////
 thread_local LazyExecutionMode HbExecutionContextArena::execution_mode{
     LazyExecutionMode::kLAZY};
+thread_local bool HbExecutionContext::m_launch_thread_context{false};
+
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
 bool isDeviceInLoweringMode() {
@@ -51,8 +53,7 @@ void HbExecutionContext::JoinPendingLaunchThread() {
   PT_LAZY_TRACE;
 
   if (m_launch_thread_handle.valid()) {
-    if (std::this_thread::get_id() !=
-        SingleTonExecThreadPool::getInstance().get_id(0)) {
+    if (!m_launch_thread_context) {
       AutoNoGIL gil_release;
       // If the future is already ready when below line executes, it can
       // create an exception. Ignore the exception as the wait is already

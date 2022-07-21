@@ -810,7 +810,7 @@ void PostLaunch(
 }
 
 void LaunchSyncTensorsGraph(
-    std::vector<HbLazyTensor>& tensors_ptr,
+    std::vector<HbLazyTensor> tensors_ptr,
     std::vector<int> indices,
     exec::HlExec hlexec,
     torch::jit::Stack stack,
@@ -822,7 +822,8 @@ void LaunchSyncTensorsGraph(
     size_t optimizedLazyEagerKey,
     bool isOptimizedLazyEager) {
   PT_LAZY_TRACE;
-
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  context->m_launch_thread_context = true;
   std::vector<HbLazyTensor>* tensors = &tensors_ptr;
 
   // Launch the execution
@@ -876,16 +877,12 @@ void LaunchSyncTensorsGraph(
 
   // Rethrow exception in case exception occuured during launch
   if (exception) {
-    if (async &&
-        (std::this_thread::get_id() ==
-         SingleTonExecThreadPool::getInstance().get_id(0))) {
-      auto device = (*tensors)[0].GetDevice();
-      auto context =
-          habana_lazy_executor.getDeviceExecutionContext(device.index());
+    if (async) {
       context->m_launch_thread_exception_handler = launch_except;
     }
     std::rethrow_exception(launch_except);
   }
+  context->m_launch_thread_context = false;
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
@@ -1013,19 +1010,37 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   if (async) {
-    context->m_launch_thread_handle =
-        SingleTonExecThreadPool::getInstance().enqueue(
-            LaunchSyncTensorsGraph,
-            *tensors,
-            std::vector<int>(indices),
-            exec::HlExec(hlexec),
-            torch::jit::Stack(stack),
-            context->m_retained_tensor_list,
-            async,
-            optimized_path_jit_ir_and_mdata,
-            lazy_op_name,
-            optimized_lazy_eager_key,
-            isOptimizedLazyEager);
+    // Use threadpool if the hosttracing is enabled.
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
+        GET_ENV_FLAG_NEW(TRACE_POINT_ENABLE)) {
+      context->m_launch_thread_handle =
+          SingleTonExecThreadPool::getInstance().enqueue(
+              LaunchSyncTensorsGraph,
+              *tensors,
+              std::vector<int>(indices),
+              exec::HlExec(hlexec),
+              torch::jit::Stack(stack),
+              context->m_retained_tensor_list,
+              async,
+              optimized_path_jit_ir_and_mdata,
+              lazy_op_name,
+              optimized_lazy_eager_key,
+              isOptimizedLazyEager);
+    } else {
+      context->m_launch_thread_handle = std::async(
+          std::launch::async,
+          LaunchSyncTensorsGraph,
+          *tensors,
+          std::vector<int>(indices),
+          exec::HlExec(hlexec),
+          torch::jit::Stack(stack),
+          context->m_retained_tensor_list,
+          async,
+          optimized_path_jit_ir_and_mdata,
+          lazy_op_name,
+          optimized_lazy_eager_key,
+          isOptimizedLazyEager);
+    }
   } else {
     LaunchSyncTensorsGraph(
         *tensors,
@@ -1200,10 +1215,12 @@ void HbLazyTensor::StepMarker(
     return;
   }
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  context->m_launch_thread_context = false;
   if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
         lazy_front_end_info->get_optimized_lazy_eager_key())) {
     context->JoinPendingLaunchThread();
   }
+
   HbLazyTensor::SyncLiveTensorsGraph(
       &device,
       lazy_front_end_info,
