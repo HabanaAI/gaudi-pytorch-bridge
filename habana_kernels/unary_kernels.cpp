@@ -2305,5 +2305,4 @@ static auto& KernelRegistry =
         .add("aten::gelu", KERNEL_FN(GeluOperator))
         .add("aten::gelu_backward", KERNEL_FN(GeluBackwardOperator))
         .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))
-        .add("aten::hbgelu2_backward", KERNEL_FN(GeluBackwardOperator))
-        .add("aten::isnan", KERNEL_FN(IsnanOperator));
+        .add("aten::hbgelu2_backward", KERNEL_FN(GeluBackwardOperator));

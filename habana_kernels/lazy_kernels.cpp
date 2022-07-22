@@ -6659,27 +6659,6 @@ at::Tensor roi_align_bwd_hpu_lazy(
   return k.call();
 }
 
-Tensor isnan_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  struct Kernel : public LazyOp<at::Tensor> {
-    explicit Kernel(const Tensor& self)
-        : LazyOp<at::Tensor>("aten::isnan", {self}, {}, {}, -1), m_self(self) {}
-
-    at::Tensor get_result_overrideable() override {
-      auto res = empty_hpu_lazy(
-          m_self.sizes(),
-          m_self.options().dtype(c10::ScalarType::Bool),
-          m_self.suggest_memory_format(),
-          false);
-      return res;
-    }
-
-    at::Tensor m_self;
-  };
-  Kernel kernel{self};
-  return kernel.call();
-}
-
 Tensor silu_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
 

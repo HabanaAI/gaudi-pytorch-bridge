@@ -1946,6 +1946,14 @@ index.Tensor:
   schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
   out_ids: [0]
 
+isnan:
+  custom_output_shape: IsNanOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: isnan_fwd
+  op_backend: IsNanOperator
+  op_frontend: LazyIsNan
+  out_ids: [0]
+
 kl_div:
   force_default: false
   dtypes: [BFloat16, Float]

@@ -4468,18 +4468,6 @@ Tensor hpu_wrap::clamp(
   return clamp_hpu(self, min, max);
 };
 
-Tensor hpu_wrap::isnan(const Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO("isnan :", " self=", to_string(self));
-  FALLBACK_IF_UNSUPPORTED_OP(isnan, PARAMS1(self), PARAMS2(self))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return isnan_hpu_lazy(self);
-  } else {
-    return isnan_hpu(self);
-  }
-};
-
 Tensor hpu_wrap::silu(const Tensor& self) {
   PT_OP_TRACE;
   PT_OP_INFO("silu :", " self=", to_string(self));
