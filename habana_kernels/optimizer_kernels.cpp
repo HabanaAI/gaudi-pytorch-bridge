@@ -926,21 +926,30 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
   // d = decay
   // msd = model.module.state_dict() - module_inputs
 
-  auto d = decay.item();
   for (unsigned int i = 0; i < num_params; i++) {
     auto mul_in_exp =
         make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
+    mul_in_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
     stack.emplace_back(IValue(updated_ema.get(i)));
-    stack.emplace_back(IValue(Scalar((d.toDouble()))));
+    stack.emplace_back(IValue(decay));
     mul_in_exp->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
+    auto sub_exp = make_operator<habana::SubOperator>(device_id, scalar_type);
+    sub_exp->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
+    stack.emplace_back(IValue(1.0));
+    stack.emplace_back(IValue(decay));
+    stack.emplace_back(IValue(1.0));
+    sub_exp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
     auto mul_exp = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_exp->SetSynapseInput(p_context_->syn_inputs_[i]);
+    mul_exp->SetSynapseInput(sub_exp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(model_inputs.get(i)));
-    stack.emplace_back(IValue(Scalar(1.0 - d.toDouble())));
+    stack.emplace_back(IValue(sub_exp->GetOutputs()[0]));
     mul_exp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
