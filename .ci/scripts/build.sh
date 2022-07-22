@@ -738,7 +738,7 @@ build_pytorch_fork()
         fi
         echo "Activated $__venv enviornment"
     else
-        $__python_cmd -m pip install -r ${PYTORCH_FORK_ROOT}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
+        $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
     fi
 
     # Installing CMAKE explicitly inorder to make the version
@@ -1439,7 +1439,7 @@ install_requirements_pytorch()
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
     install_cmd=($__pip_cmd install ninja wheel)
-    cmd=($__pip_cmd install -r ${PYTORCH_FORK_ROOT}/.ci/requirements/requirements-pytorch-${__python_cmd}_base.txt)
+    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-${__python_cmd}_base.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
         install_cmd+=(--user)
@@ -1452,7 +1452,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_FORK_ROOT}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
+    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
@@ -1461,7 +1461,7 @@ install_requirements_pytest()
 
 uninstall_requirements_pytest()
 {
-    cmd=($__pip_cmd uninstall -r ${PYTORCH_FORK_ROOT}/.ci/requirements/requirements-pytest-$__python_cmd.txt -y)
+    cmd=($__pip_cmd uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt -y)
     "${cmd[@]}"
 }
 
@@ -1547,7 +1547,7 @@ __install_anaconda()
     fi
     echo "Activated  conda venv $__conda_venv"
 
-    $__python_cmd -m pip install -r ${PYTORCH_FORK_ROOT}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
+    $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
     __conda_res=$?
     if [ $__conda_res -ne 0 ]; then
         echo "Conda package installation failed!"
