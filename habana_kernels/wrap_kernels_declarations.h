@@ -20,10 +20,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& dst);
   static at::Tensor& silu_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor cumsum(
-      const at::Tensor& self,
-      int64_t dim,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor& linspace_out(
       const at::Scalar& start,
       const at::Scalar& end,

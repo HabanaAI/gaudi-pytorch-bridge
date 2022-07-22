@@ -3566,28 +3566,6 @@ Tensor hpu_wrap::sum(
   }
 };
 
-Tensor hpu_wrap::cumsum(
-    const Tensor& self,
-    int64_t dim,
-    c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "cumsum:",
-      "self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      " dtype=",
-      to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP(cumsum, PARAMS1(self), PARAMS2(self, dim, dtype))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return cumsum_hpu_lazy(self, dim, dtype);
-  } else {
-    return cumsum_hpu(self, dim, dtype);
-  }
-};
-
 Tensor hpu_wrap::mean(
     const Tensor& self,
     IntArrayRef dim,

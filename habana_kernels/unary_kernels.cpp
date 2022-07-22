@@ -2299,59 +2299,6 @@ void CumsumOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-/*************************************************************************
- * @brief Kernel implementation for output = torch.cumsum(input, axis, dtype)
- * @param [in] input - input tensor, 1-4D, BF16/FP32
- * @param [in] dim -   reduction axis , int64_t
- * @param [in] dtype - optional target datatype, ScalarType
- ************************************************************************/
-Tensor cumsum_hpu(
-    const Tensor& self,
-    int64_t dim,
-    c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-  CONVERT_0D_TO_1D(self)
-  at::ScalarType scalar_type = self.scalar_type();
-  at::Tensor self_updated_dtype = self;
-  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
-    self_updated_dtype = self.to(dtype.value());
-  }
-  scalar_type = self_updated_dtype.scalar_type();
-
-  std::string node_type =
-      "cumsum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self_updated_dtype.device().index();
-  CumsumOperator Op(device_id, scalar_type);
-
-  // Assign Inputs to the Operator
-  std::vector<c10::IValue> stack = {
-      IValue(self_updated_dtype), IValue(dim), IValue(dtype)};
-  std::vector<at::Tensor> pt_inputs{self_updated_dtype};
-
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty(
-        self_updated_dtype.sizes(),
-        self_updated_dtype.options(),
-        self_updated_dtype.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // Create Graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  CONVERT_1D_TO_0D(self, out.at(0))
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
@@ -2360,5 +2307,4 @@ static auto& KernelRegistry =
         .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))
         .add("aten::hbgelu2_backward", KERNEL_FN(GeluBackwardOperator))
         .add("aten::isnan", KERNEL_FN(IsnanOperator))
-        .add("aten::silu_backward", KERNEL_FN(SiluBackwardOperator))
-        .add("aten::cumsum", KERNEL_FN(CumsumOperator));
+        .add("aten::silu_backward", KERNEL_FN(SiluBackwardOperator));
