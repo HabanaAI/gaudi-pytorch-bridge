@@ -77,6 +77,10 @@ using namespace at;
 namespace habana_lazy {
 static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
+static bool is_nonempty_tensor(const at::Tensor& tensor) {
+  return tensor.dim() != 1 || tensor.size(0) != 0;
+}
+
 bool is_inplace(at::Symbol symbol) {
   bool is_inplace = false;
 
@@ -5108,11 +5112,24 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   PT_LAZY_TRACE;
   return fill_hpu_lazy_(self, 0);
 }
+
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   PT_LAZY_TRACE;
 
   // handle views
   auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
+
+  t_list = filter(t_list, is_nonempty_tensor);
+
+  if (t_list.size() == 0) {
+    TORCH_CHECK(tensors.size() > 0, "Empty tensors list!");
+    auto first_tensor = tensors[0];
+    return empty_hpu_lazy(
+        first_tensor.sizes(),
+        first_tensor.options(),
+        first_tensor.suggest_memory_format(),
+        true);
+  }
 
   const TensorList view_list{t_list};
 
@@ -5184,9 +5201,15 @@ Tensor& cat_hpu_lazy_out(
 
   // handle views
   auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
+  t_list = filter(t_list, is_nonempty_tensor);
+
+  if (t_list.size() == 0) {
+    return result;
+  }
+
   const TensorList view_list{t_list};
 
-  auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
+  auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
   LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
   return k.call(result);
 }

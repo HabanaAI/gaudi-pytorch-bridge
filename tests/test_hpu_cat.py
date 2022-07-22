@@ -15,6 +15,30 @@ cat_op_list = [
     ),
     (
         torch.cat,
+        {"tensors": (torch.empty(0), torch.randn(8, 3, 24, 24)), "dim": 1},
+    ),
+    (
+        torch.cat,
+        {"tensors": (torch.randn(8, 3, 24, 24), torch.empty(0)), "dim": 2},
+    ),
+    (
+        torch.cat,
+        {"tensors": (torch.randn(8, 0, 24, 24), torch.randn(8, 0, 24, 24)), "dim": 0},
+    ),
+    (
+        torch.cat,
+        {"tensors": (torch.empty((0, 0, 0)),), "dim": 0},
+    ),
+    (
+        torch.cat,
+        {"tensors": (torch.empty(0), torch.empty(0)), "dim": 0},
+    ),
+    (
+        torch.cat,
+        {"tensors": (torch.empty((0, 0, 0)), torch.empty((0, 0, 0))), "dim": 0},
+    ),
+    (
+        torch.cat,
         {
             "tensors": (
                 torch.randn(8, 3, 24, 24),
@@ -31,6 +55,30 @@ cat_op_list = [
             "tensors": (torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
             "out": torch.empty(0),
             "dim": 3,
+        },
+    ),
+    (
+        torch.cat,
+        {
+            "tensors": (torch.empty(0), torch.randn(8, 3, 24, 24)),
+            "out": torch.empty(0),
+            "dim": 3,
+        },
+    ),
+    (
+        torch.cat,
+        {
+            "tensors": (torch.randn(8, 3, 0, 24), torch.randn(8, 3, 0, 24)),
+            "out": torch.empty(0),
+            "dim": 2,
+        },
+    ),
+    (
+        torch.cat,
+        {
+            "tensors": (torch.empty(0), torch.randn(0)),
+            "out": torch.empty(0),
+            "dim": 0,
         },
     ),
 ]
