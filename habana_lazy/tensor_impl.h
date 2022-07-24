@@ -163,6 +163,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     m_memory_permutation = permutation;
   }
 
+  bool GetDontAllowPermutation() const {
+    return m_dont_allow_permutation;
+  }
+
+  void SetDontAllowPermutation(bool allow) {
+    m_dont_allow_permutation = allow;
+  }
+
   void setTensorType(synTensorType tensor_type) {
     m_tensor_type = tensor_type;
   }
@@ -199,6 +207,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
   // Memory permutation represents how tensor layout is set in memory
   synapse_helpers::layouts::MemoryPermutation m_memory_permutation;
+  bool m_dont_allow_permutation = false;
 
   void* host_ptr_ = nullptr;
   void* compile_host_ptr_ = nullptr;

@@ -117,6 +117,11 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& with_dont_allow_permutation(const bool allow) {
+    dont_allow_permutation_ = allow;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& with_dynamic_shape(
       const tensor::dynamic_shape_t& dynamic_shape) {
     HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
@@ -294,6 +299,7 @@ class tensor_builder_base {
         offset_,
         tensor_type_,
         permutation_);
+    t.set_dont_allow_permute(dont_allow_permutation_);
 
     auto create_result{t.create()};
 
@@ -329,6 +335,7 @@ class tensor_builder_base {
   bool error_invalid_shape_{false};
   bool error_invalid_dtype_{false};
   synapse_helpers::layouts::MemoryPermutation permutation_;
+  bool dont_allow_permutation_{false};
 
   uint64_t total_size_bytes() const {
     return detail::size_bytes_from_shape(shape_.max(), data_type_);

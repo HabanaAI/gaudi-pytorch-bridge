@@ -12,7 +12,12 @@
 
 #include "process_group_lazy_hccl.hpp"
 #include "habana_kernels/lazy_kernels_declarations.h"
+
+#include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/permute_tensors.h"
+#include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 namespace c10d {
@@ -392,6 +397,25 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce_scatter(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
 };
 
+void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
+  auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
+  auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
+  auto self_internal_tesor = self_hb_tensor_data.value();
+  std::vector<uint8_t> permutation;
+  auto hb_weight_impl =
+      habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+  permutation = hb_weight_impl->GetMemoryPermutation();
+  if (!permutation.empty()) {
+    PT_DISTRIBUTED_DEBUG(
+        "Tensor: ",
+        self_hb_tensor.getTensorUniqueId(),
+        " has permutation: ",
+        VecToString(permutation),
+        " transposing it back to be dense");
+    tensor = torch::clone(tensor);
+  }
+}
+
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
@@ -402,8 +426,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
   for (size_t index = 0; index < tensors.size(); ++index) {
-    habana_lazy::send_hpu_lazy_(
-        tensors.at(index), dstRank, tag, comm_->GetId());
+    auto tensor = tensors[index];
+    permutedSendTensorsToDense(tensor);
+    habana_lazy::send_hpu_lazy_(tensor, dstRank, tag, comm_->GetId());
   }
   restoreTensorsize(tensors, changed, sizeList, strideList);
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);

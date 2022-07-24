@@ -249,6 +249,14 @@ class PtTensorInfo {
     hb_internal_perm_ = permute;
   }
 
+  bool getHbDontAllowPermute() const {
+    return hb_dont_allow_permute_;
+  }
+
+  void setHbDontAllowPermute(bool allow) {
+    hb_dont_allow_permute_ = allow;
+  }
+
   bool is_ZST() const {
     return is_ZST_;
   }
@@ -323,6 +331,7 @@ class PtTensorInfo {
 
   habana_lazy::LayoutFormat hb_internal_lf_{habana_lazy::LayoutFormat::kNCHW};
   synapse_helpers::layouts::MemoryPermutation hb_internal_perm_;
+  bool hb_dont_allow_permute_;
 
   synTensorType tensor_type_{DATA_TENSOR};
   std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};

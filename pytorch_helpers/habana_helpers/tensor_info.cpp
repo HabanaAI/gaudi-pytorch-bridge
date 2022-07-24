@@ -83,6 +83,7 @@ void PtTensorInfo::populate_tinfo(
           VecToString(hb_internal_tensor->GetMemoryPermutation()));
       hb_internal_perm_ = hb_internal_tensor->GetMemoryPermutation();
     }
+    hb_dont_allow_permute_ = hb_internal_tensor->GetDontAllowPermutation();
   }
 
   offset_ = (get_buffer_syn() - get_buffer_start_syn());
@@ -169,6 +170,7 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, is_restrided_);
   deserialize(is, is_allow_permutation_);
   deserialize(is, hb_internal_perm_);
+  deserialize(is, hb_dont_allow_permute_);
   deserialize(is, offset_);
   deserialize(is, ir_name_);
   deserialize(is, syn_name_);
@@ -198,6 +200,7 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, is_restrided_);
   serialize(os, is_allow_permutation_);
   serialize(os, hb_internal_perm_);
+  serialize(os, hb_dont_allow_permute_);
   serialize(os, offset_);
   serialize(os, ir_name_);
   serialize(os, syn_name_);

@@ -1855,6 +1855,13 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               rank);
           continue;
         }
+        if (out_syntensor.ref().is_dont_allow_permute()) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because tensor specific set with dont_allow_permute");
+          continue;
+        }
         PT_BRIDGE_DEBUG(
             "Setting synapse allow permutation on tensor: ",
             out_syntensor.ref().id());
@@ -1890,6 +1897,13 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               out_syntensor.ref().id(),
               " because the PT tensor rank is not 4 or 5. other ranks are not supported. current rank: ",
               rank);
+          continue;
+        }
+        if (out_syntensor.ref().is_dont_allow_permute()) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because tensor specific set with dont_allow_permute");
           continue;
         }
         PT_BRIDGE_DEBUG(

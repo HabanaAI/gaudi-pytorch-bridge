@@ -14,6 +14,7 @@
 #include <c10d/Types.hpp>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
@@ -724,6 +725,18 @@ void HcclSendOperator::AllocateAndAddSynapseNode(
   dst_rank_ = inputs.at(1).toInt();
   tag_ = inputs.at(2).toInt();
   comm_id_ = inputs.at(3).toInt();
+
+  at::Tensor tensor = inputs[0].toTensor();
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+  // Tensor will be sent as part of lazy graph.
+  // Don't allow Synapse to return it permuted as send/recv don't support
+  // permuted tensors
+  if (hb_impl != nullptr) {
+    auto& syn_tensor = p_context_->syn_inputs_[0].ref();
+    synTensorSetAllowPermutation(syn_tensor.get(), 0);
+    syn_tensor.set_dont_allow_permute(true);
+    hb_impl->SetDontAllowPermutation(true);
+  }
 
   if (p_context_->pt_inputs_.size() == 0)
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());

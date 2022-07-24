@@ -748,6 +748,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     }
 
     std::vector<uint8_t> permutation;
+    bool dont_allow_permutation = false;
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
       auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       if (hb_weight_impl) {
@@ -761,6 +762,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
               " permutation: ",
               VecToString(permutation));
         }
+        dont_allow_permutation = hb_weight_impl->GetDontAllowPermutation();
       }
     }
 
@@ -772,7 +774,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             .mark_persistence(persistent)
             .mark_external(external)
             .with_dynamic_shape(dynamic_shape)
-            .with_permutation(permutation);
+            .with_permutation(permutation)
+            .with_dont_allow_permutation(dont_allow_permutation);
     if (!name.empty()) {
       builder.use_suffix(name);
     }
@@ -791,6 +794,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
   std::vector<uint8_t> permutation;
+  bool dont_allow_permutation = false;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
     if (hb_weight_impl) {
@@ -806,6 +810,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             " permutation: ",
             VecToString(permutation));
       }
+      dont_allow_permutation = hb_weight_impl->GetDontAllowPermutation();
     }
   }
   auto builder =
@@ -816,7 +821,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .set_offset(syn_offset)
           .mark_persistence(persistent)
           .mark_external(external)
-          .with_permutation(permutation);
+          .with_permutation(permutation)
+          .with_dont_allow_permutation(dont_allow_permutation);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -899,6 +905,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
   std::vector<uint8_t> permutation;
+  bool dont_allow_permutation = false;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
     if (hb_weight_impl) {
@@ -914,6 +921,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             " permutation: ",
             VecToString(permutation));
       }
+      dont_allow_permutation = hb_weight_impl->GetDontAllowPermutation();
     }
   }
 
@@ -921,7 +929,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       synapse_helpers::tensor_builder(tensor.sizes(), strides, synType)
           .mark_persistence(persistent)
           .mark_external(external)
-          .with_permutation(permutation);
+          .with_permutation(permutation)
+          .with_dont_allow_permutation(dont_allow_permutation);
 
   if (!name.empty()) {
     builder.use_suffix(name);

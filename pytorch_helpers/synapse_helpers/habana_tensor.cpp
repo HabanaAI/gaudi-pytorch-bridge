@@ -184,7 +184,8 @@ tensor::tensor(tensor&& other) noexcept
       offset_{other.offset_},
       tensor_type_{other.tensor_type_},
       pt_shape_{other.pt_shape_},
-      permutation_(other.permutation_) {
+      permutation_(other.permutation_),
+      dont_allow_permute_(other.dont_allow_permute_) {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -214,6 +215,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   tensor_type_ = other.tensor_type_;
   pt_shape_ = other.pt_shape_;
   permutation_ = other.permutation_;
+  dont_allow_permute_ = other.dont_allow_permute_;
 
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;

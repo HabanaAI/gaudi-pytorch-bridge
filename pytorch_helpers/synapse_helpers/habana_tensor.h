@@ -268,6 +268,14 @@ class tensor final {
     return permutation_;
   }
 
+  bool set_dont_allow_permute(bool allow) {
+    return dont_allow_permute_ = allow;
+  }
+
+  bool is_dont_allow_permute() const {
+    return dont_allow_permute_;
+  }
+
   void set_identity_permutation() {
     for (size_t i = 0; i < permutation_.size(); ++i) {
       permutation_[i] = i;
@@ -463,6 +471,7 @@ class tensor final {
 
   // permutaion representation for passing strided weight tensor to Synapse
   synapse_helpers::layouts::MemoryPermutation permutation_;
+  bool dont_allow_permute_ = false;
 };
 
 /**
@@ -520,7 +529,8 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
              << ", size=" << tensor.total_size_bytes_ << '\n'
              << "    shape :: " << tensor.shape_ << '\n'
              << "    stride :: " << tensor.stride_ << '\n'
-             << "    permutation :: " << tensor.permutation_;
+             << "    permutation :: " << tensor.permutation_ << "\n"
+             << "    dont_allow_permutation_ :: " << tensor.dont_allow_permute_;
 }
 
 using tensor_or_ref = value_or_ref<tensor>;

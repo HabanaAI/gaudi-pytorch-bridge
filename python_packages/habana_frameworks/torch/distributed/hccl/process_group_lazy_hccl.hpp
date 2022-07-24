@@ -122,6 +122,7 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
 
  private:
   void hostBarrier();
+  void permutedSendTensorsToDense(at::Tensor& tensor);
   c10::intrusive_ptr<Store> store_;
   size_t barrier_cnt_;
 
