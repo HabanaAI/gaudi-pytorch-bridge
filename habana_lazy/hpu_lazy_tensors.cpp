@@ -810,7 +810,6 @@ void PostLaunch(
   SBSDebug::getInstance().CompareTensors(*tensors);
 
   retained_tensor_list.clear();
-  context->viewContext.hb_tensors_out_view.clear();
 
   // Restore the optimizations which are cleared forcefully in getlivetensors
   exec::OptPassCfg::GetInstance()->RestoreOptPass();
@@ -1018,8 +1017,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   if (async) {
-    // Use threadpool if the hosttracing is enabled.
+    // Use threadpool if the hosttracing is enabled or if its eager mode
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) ||
         GET_ENV_FLAG_NEW(TRACE_POINT_ENABLE)) {
       context->m_launch_thread_handle =
           SingleTonExecThreadPool::getInstance().enqueue(

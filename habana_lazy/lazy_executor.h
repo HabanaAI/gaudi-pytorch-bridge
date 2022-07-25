@@ -170,6 +170,7 @@ class HbExecutionContext {
   }
 
   void clear() {
+    viewContext.hb_tensors_out_view.clear();
     m_retained_tensor_list.clear();
     // The scalar_to_tensor_map caches {scalar value, target dtype} -> device
     // tensor This cache avoids repeated H2D DMAs for scalars with target dtype.
