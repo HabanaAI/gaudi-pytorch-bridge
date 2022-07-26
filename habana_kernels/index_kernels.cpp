@@ -3525,7 +3525,6 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::index_select", KERNEL_FN(IndexSelectOperator))
         .add("hpu::gather_elements", KERNEL_FN(GatherElemOperator))
-        .add("aten::gather", KERNEL_FN(GatherOperator))
         .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))
         .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
         .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))

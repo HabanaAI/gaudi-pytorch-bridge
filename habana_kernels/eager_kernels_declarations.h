@@ -243,11 +243,6 @@ at::Tensor& masked_fill_scalar_hpu_(
     const at::Tensor& mask,
     const at::Scalar& value);
 at::Tensor nonzero_hpu(const at::Tensor& self);
-at::Tensor gather_src_hpu(
-    const at::Tensor& self,
-    int64_t dim_,
-    const at::Tensor& index,
-    bool sparse_grad);
 at::Tensor& scatter_inplace_src_hpu(
     at::Tensor& self,
     int64_t dim_,

@@ -1941,35 +1941,6 @@ Tensor& masked_fill_scalar_hpu_lazy_(
   auto value_tensor = get_tensor_for_scalar(value.toDouble(), self.options());
   return masked_fill_hpu_lazy_(self, mask, value_tensor);
 }
-Tensor gather_src_hpu_lazy(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    bool sparse_grad) {
-  PT_LAZY_TRACE;
-
-  if (self.dim() != index.dim()) {
-    auto shape = GatherOperator::compute_output_shape(self, dim_, index);
-    LazyOp<at::Tensor> k{
-        "aten::gather", {self, dim_, index, sparse_grad}, {1, 3}, {shape}};
-    return k.call();
-  }
-
-  Tensor valid_count_tensor;
-  c10::optional<at::Tensor> valid_count =
-      c10::make_optional(valid_count_tensor);
-  // we don't support unsorted as of now. Hence, setting sorted to true
-  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
-  LazyOp<at::Tensor> k{
-      "hpu::gather_elements",
-      {self, index, valid_count, dim_, true},
-      {3, 4},
-      {shape}};
-  auto result = k.call();
-
-  flush_op(result);
-  return result;
-}
 
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,

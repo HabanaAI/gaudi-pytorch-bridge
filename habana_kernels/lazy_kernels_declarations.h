@@ -172,11 +172,6 @@ at::Tensor& masked_fill_scalar_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,
     const at::Scalar& value);
-at::Tensor gather_src_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim_,
-    const at::Tensor& index,
-    bool sparse_grad);
 at::Tensor scatter_add_src_hpu_lazy(
     const at::Tensor& self,
     int64_t dim_,

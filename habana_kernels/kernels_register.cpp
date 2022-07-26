@@ -1210,36 +1210,6 @@ Tensor& hpu_wrap::masked_select_out(
     return masked_select_out_hpu_lazy(self, mask, out);
   }
 };
-Tensor hpu_wrap::gather(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    bool sparse_grad) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "gather :",
-      " self=",
-      to_string(self),
-      " dim_=",
-      to_string(dim_),
-      " index=",
-      to_string(index),
-      " sparse_grad=",
-      to_string(sparse_grad));
-  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
-  std::vector<c10::IValue> op_stack = {
-      IValue(self), IValue(dim_), IValue(index), IValue(sparse_grad)};
-  check_handle->hpu_check_ivalues("gather_elements", op_stack);
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      gather, PARAMS1(self, index), PARAMS2(self, dim_, index, sparse_grad))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gather_src_hpu_lazy(self, dim_, index, sparse_grad);
-
-  } else {
-    return gather_src_hpu(self, dim_, index, sparse_grad);
-  }
-};
 Tensor& hpu_wrap::scatter_(
     Tensor& self,
     int64_t dim_,

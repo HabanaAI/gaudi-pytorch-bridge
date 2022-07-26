@@ -1624,15 +1624,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "gather",
-                {{at::ScalarType::Int,
-                  at::ScalarType::Long,
-                  at::ScalarType::Double,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16}},
-            },
-            {
                 "scatter_",
                 {{at::ScalarType::Int,
                   at::ScalarType::Long,

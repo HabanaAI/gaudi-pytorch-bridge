@@ -1609,11 +1609,19 @@ fmod_.Tensor:
   op_backend: Fmod
   type_promotion: true
 
+gather:
+  custom_fill_params: FillGatherParams
+  custom_output_shape: GatherOutputShape
+  dtypes: [BFloat16, Float, Int, Short, Byte, Char]
+  force_default: false
+  op_backend: GatherHabanaOperator
+  out_ids: [0]
+
 gather.out:
   custom_fill_params: FillGatherParams
   custom_output_shape: GatherOutputShape
   dtypes: [BFloat16, Float, Int, Short, Byte, Char]
-  guid: gather_elements_fwd
+  op_backend: GatherHabanaOperator
 
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
