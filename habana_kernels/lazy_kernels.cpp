@@ -3581,7 +3581,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_fwd_preprocess(
   return {input, weight, bias, running_mean, running_var};
 }
 
-std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_orig_training(
+std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_training(
     const Tensor& input,
     const Tensor& weight,
     const Tensor& bias,
@@ -3591,84 +3591,10 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_orig_training
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
-  Tensor residual_add =
-      empty_hpu_lazy({1}, input.options(), input.suggest_memory_format(), true);
   using T = std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor>;
   struct BN : LazyOp<T> {
     BN(const Stack& inputs)
-        : LazyOp<T>("hpu::native_batch_norm_rmv", inputs, {}, -1) {}
-    T get_result_overrideable() override {
-      const auto& inputs = get_inputs();
-      const auto& input = inputs[0].toTensor();
-      const auto& running_mean = inputs[4].toTensor();
-      const auto& running_var = inputs[5].toTensor();
-      auto result_img = empty_hpu_lazy(
-          input.sizes(), input.options(), input.suggest_memory_format(), false);
-      auto result_mean = empty_hpu_lazy(
-          running_mean.sizes(),
-          running_mean.options(),
-          input.suggest_memory_format(),
-          false);
-      auto result_var = empty_hpu_lazy(
-          running_var.sizes(),
-          running_var.options(),
-          input.suggest_memory_format(),
-          false);
-      return {result_img, running_mean, running_var, result_mean, result_var};
-    }
-  };
-  BN op(
-      {input,
-       weight,
-       bias,
-       residual_add,
-       running_mean,
-       running_var,
-       training,
-       momentum,
-       eps});
-  return op.call();
-}
-
-std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_new_training(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    const Tensor& running_mean,
-    const Tensor& running_var,
-    bool training,
-    double momentum,
-    double eps) {
-  PT_LAZY_TRACE;
-  /*
-        output = new_tensor_object(shape(input), dtype(input))
-        if (is_not_defined(running_mean?)) {
-          running_mean_in = dummy_tensor(shape(weight),dtype(input))
-          running_var_in = dummy_tensor(shape(weight),dtype(input))
-          running_mean_out = dummy_tensor(shape(weight),dtype(input))
-          running_var_out = dummy_tensor(shape(weight),dtype(input))
-        }
-        else {
-          running_mean_in = running_mean
-          running_var_in = running_var
-          running_mean_out = new_tensor_object_with_same_buffer(running_mean_in)
-          running_var_out = new_tensor_object_with_same_buffer(running_var_in)
-        }
-
-        save_mean = new_tensor(shape(weight),dtype(input))
-        save_invstd = new_tensor(shape(weight),dtype(input))
-        batch_norm_fwd_dtype(input, weight, bias, running_mean_in,
-      running_var_in, ns_BatchNormKernel::ParamsV2{0.0,momentum,epsilon,train})
-            -> (output, running_mean_out, running_var_out, saved_mean,
-      saved_invstd);
-      }
-      return {output, saved_mean, saved_invstd};
-    */
-
-  using T = std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor>;
-  struct BN : LazyOp<T> {
-    BN(const Stack& inputs)
-        : LazyOp<T>("hpu::native_batch_norm_rmv_new", inputs, {}, -1) {}
+        : LazyOp<T>("hpu::native_batch_norm_training", inputs, {}, -1) {}
     T get_result_overrideable() override {
       const auto& inputs = get_inputs();
       const auto& input = inputs[0].toTensor();
@@ -3711,17 +3637,6 @@ Tensor _batch_norm_fwd_inference(
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
-  /*
-  output = new_tensor_object(shape(input), dtype(input))
-
-  if (!train && is_defined(running_mean?)) {
-    saved_mean = empty({0},float)
-    saved_invstd = empty({0},float);
-    batch_norm_inf_dtype(input, bias, weight, running_mean, running_var,
-            ns_BatchNormKernel::Params{0, momentum, eps})
-            -> (output);
-  }
-  */
   LazyOp<Tensor> op(
       "hpu::native_batch_norm_inf",
       {input,
@@ -3755,10 +3670,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NEW_BN)) {
     bool inference_mode = !training && running_mean_.defined();
     if (!inference_mode) { /*training mode*/
-      auto res_ = _batch_norm_fwd_new_training(
+      auto res_ = _batch_norm_fwd_training(
           input,
           weight,
           bias,
@@ -3797,45 +3711,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
       }
       return {res, running_mean, running_var};
     }
-  } else { // NOT GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NEW_BN)
-    Tensor residual_add;
-    if (training) {
-      auto res_ = _batch_norm_fwd_orig_training(
-          input,
-          weight,
-          bias,
-          running_mean,
-          running_var,
-          training,
-          momentum,
-          eps);
-      Tensor res;
-      auto res0 = std::get<0>(res_);
-      if (input_.ndimension() != 4) {
-        res = bn_reshape_from_4d_to_orig(res0, in_sizes);
-      } else {
-        res = res0;
-      }
-      return {res, std::get<3>(res_), std::get<4>(res_)};
-    } else {
-      auto res_ = _batch_norm_fwd_inference(
-          input,
-          weight,
-          bias,
-          running_mean,
-          running_var,
-          training,
-          momentum,
-          eps);
-      Tensor res;
-      if (input_.ndimension() != 4) {
-        res = bn_reshape_from_4d_to_orig(res_, in_sizes);
-      } else {
-        res = res_;
-      }
-      return {res, running_mean, running_var};
-    }
-  }
 }
 
 std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_bwd_preprocess(
@@ -3883,7 +3758,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_bwd_preprocess(
   return {input, grad_out, weight, running_mean, running_var};
 }
 
-std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd_new(
+std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd(
     const Tensor& grad_out,
     const Tensor& input,
     const Tensor& weight,
@@ -3895,34 +3770,6 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd_new(
     double eps,
     bool not_train_no_rm) {
   PT_LAZY_TRACE;
-  /*
-      if (is_not_defined(weights?)) {
-        weights = constant_dtype(1.0);
-      }
-      if (!train AND is_defined(running_mean)) {
-          mean = running_mean
-          invstd = rsqrt_dtype(add_fwd_dtype(running_var, constant_dtype(eps)));
-      }
-      else {
-          mean = saved_mean
-          invstd = saved_invstd;
-      }
-
-      self_grad = new_tensor_object(shape(self), dtype(self))
-      weight_grad = new_tensor_object(shape(weight), dtype(weight))
-      bias_grad = new_tensor_object(shape(weight), dtype(weight))
-
-      self_grad, bias_grad, weight_grad =
-        batch_norm_bwd_dtype(self, grad_out, weight, mean, invstd,
-            ns_BatchNormKernel::ParamsV2{0,0,epsilon,train})
-                      -> (self_grad, weight_grad, bias_grad);
-
-      return tuple({ output_mask[0] ? self_grad   : None,
-                    output_mask[1] ? weight_grad : None,
-                    output_mask[2] ? bias_grad   : None  });
-    */
-  // hpu::native_batch_norm_backward_new
-
   Tensor mean = save_mean;
   Tensor invstd = save_invstd;
   if (not_train_no_rm) {
@@ -3932,7 +3779,7 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd_new(
   using T = std::tuple<Tensor, Tensor, Tensor>;
   struct BN : LazyOp<T> {
     BN(const Stack& inputs)
-        : LazyOp<T>("hpu::native_batch_norm_backward_new", inputs, {}, -1) {}
+        : LazyOp<T>("hpu::native_batch_norm_backward", inputs, {}, -1) {}
     T get_result_overrideable() override {
       const auto& inputs = get_inputs();
       auto input = inputs[0].toTensor();
@@ -3954,55 +3801,6 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd_new(
   return op.call();
 }
 
-std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd_orig(
-    const Tensor& grad_out,
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& running_mean,
-    const Tensor& running_var,
-    const Tensor& save_mean,
-    const Tensor& save_invstd,
-    bool train,
-    double eps,
-    std::array<bool, 3> output_mask) {
-  PT_LAZY_TRACE;
-  using T = std::tuple<Tensor, Tensor, Tensor>;
-  struct BN : LazyOp<T> {
-    BN(const Stack& inputs)
-        : LazyOp<T>("aten::native_batch_norm_backward", inputs, {}, -1) {}
-    T get_result_overrideable() override {
-      const auto& inputs = get_inputs();
-      // auto output_mask = inputs.back().toListRef();//output_mask ignored
-      auto input = inputs[1].toTensor();
-      auto running_mean = inputs[3].toTensor();
-      auto running_var = inputs[4].toTensor();
-      auto create_res = [&](Tensor in) {
-        Tensor res;
-        // first output is based on input and for HPU-TPC implementation it
-        // cannot be left uncreated.
-        // We ignore output_mask values as TPC always creates 3 outputs
-        res = empty_hpu_lazy(
-            in.sizes(), in.options(), in.suggest_memory_format(), false);
-        return res;
-      };
-      return {
-          create_res(input), create_res(running_mean), create_res(running_var)};
-    }
-  };
-  BN op(
-      {grad_out,
-       input,
-       weight,
-       running_mean,
-       running_var,
-       save_mean,
-       save_invstd,
-       train,
-       eps,
-       output_mask});
-  return op.call();
-}
-
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& grad_out_,
     const Tensor& input_,
@@ -4013,7 +3811,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& save_invstd,
     bool train,
     double eps,
-    std::array<bool, 3> output_mask) {
+    UNUSED std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
   auto in_sizes = input_.sizes().vec();
   auto preprocess_results = batch_norm_bwd_preprocess(
@@ -4025,9 +3823,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NEW_BN)) {
     auto not_train_no_rm = !train && !running_mean_.defined();
-    auto res_ = _batch_norm_bwd_new(
+    auto res_ = _batch_norm_bwd(
         grad_out,
         input,
         weight,
@@ -4050,28 +3847,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
         std::get<BNBwdTPCRetIndex::WeightGrad>(res_) /*gamma*/,
         std::get<BNBwdTPCRetIndex::BiasGrad>(res_) /*beta*/
     };
-  } else { // NOT GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NEW_BN)
-    // aten::native_batch_norm_backward
-    auto res_ = _batch_norm_bwd_orig(
-        grad_out,
-        input,
-        weight,
-        running_mean,
-        running_var,
-        save_mean,
-        save_invstd,
-        train,
-        eps,
-        output_mask);
-    auto res0 = std::get<0>(res_);
-    Tensor res;
-    if (input_.ndimension() != 4) {
-      res = bn_reshape_from_4d_to_orig(res0, in_sizes);
-    } else {
-      res = res0;
-    }
-    return {res, std::get<1>(res_), std::get<2>(res_)};
-  }
 }
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(

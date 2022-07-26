@@ -30,114 +30,17 @@ class BNBwdTPCRetIndex {
 
 class BatchNormForwardOperator : public habana::HabanaOperator {
  public:
-  // NOTE: BatchNormForwardOperator node_type differs for training and eval
-  BatchNormForwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("bn_fwd") {
-    this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
-    // assign layouts for input and output tensors
-
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-  }
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
-
-  // virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack&
-  // inputs);
-  virtual void preProcessInputs(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs);
-  void generateCacheInputs(torch::jit::Stack& inputs);
-  void remove_non_persistent_patching_info();
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
-
-  std::vector<at::Tensor>& GetBNInputs();
-  std::vector<at::Tensor>& GetBNOutputs();
-
-  torch::jit::Stack& GetInputstack();
-
-  void SetEagerMode() {
-    is_eager_mode = true;
-  }
-
-  bool isEagerMode() const {
-    return is_eager_mode;
-  }
-
- private:
-  void insert_memcopy_op(
-      synapse_helpers::graph& graph,
-      at::Tensor& src,
-      int32_t in_position);
-  at::Tensor create_or_return_tensor_bn(
-      synapse_helpers::graph& graph,
-      const at::Tensor& input,
-      uint size,
-      at::Device device,
-      int syn_index);
-  at::Tensor create_or_return_pt_tensor_bn(
-      const at::Tensor& input,
-      uint size,
-      at::Device device);
-
-  c10::ScalarType scalarType_;
-  std::vector<synapse_helpers::tensor_or_ref> tensors_;
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<at::Tensor> pt_outputs;
-  torch::jit::Stack input_stack;
-  std::vector<at::Tensor> pre_inputs;
-  // This has been added so that the input mean/var synapse tensors are
-  // preserved Because we create copies due to in-place restrictions, we replace
-  // these as inputs Need to pass along as GC will complain if they are missing
-  // in patching info
-  std::vector<synapse_helpers::tensor_or_ref> mean_var_temp;
-  std::vector<std::pair<at::Tensor, at::Tensor>> dma_candidates;
-  bool running_vars_def;
-
-  bool is_eager_mode = false;
-};
-
-// Used in lazy mode to avoid the memcopy nodes for RMV
-class BatchNormForwardRmvOperator : public habana::HabanaOperator {
- public:
   // Used in training mode
-  BatchNormForwardRmvOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("bn_fwd_rmv") {
+  BatchNormForwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "batch_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
 
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY,
@@ -150,7 +53,6 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY});
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
@@ -194,49 +96,13 @@ class BatchNormForwardRmvOperator : public habana::HabanaOperator {
   std::vector<at::Tensor> pre_inputs;
 };
 
-// Used in lazy mode to avoid the memcopy nodes for RMV
-class BatchNormInfOperator : public habana::HabanaOperator {
- public:
-  // Used in eval mode
-  BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_inf_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-    // assign layouts for input and output tensors
-
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  }
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 class BatchNormBackwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormBackwardOperator node_type differs for training and eval
   BatchNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("cud_bn_bwd_ex") {
+      : HabanaOperator(
+            "batch_norm_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -255,15 +121,12 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    // {input, grad, wt, bias, save_mean, save_ivarstd}
-    kernel_meta_data_.tpc_input_order = {1, 0, 2, 7, 5, 6};
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    // {input, grad, mean, istd, weight}
     resize_done = false;
     preprocessing_done = false;
   }
@@ -279,10 +142,6 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   void preProcessInputs(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs);
-
-  void generateCacheInputs(torch::jit::Stack& inputs);
-
-  void SetPTOutputs(torch::jit::Stack& inputs);
 
   torch::jit::Stack& GetInputstack() {
     return input_stack;
@@ -318,6 +177,43 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   std::vector<at::Tensor> pre_inputs;
   bool resize_done;
   bool preprocessing_done;
+};
+
+class BatchNormInfOperator : public habana::HabanaOperator {
+ public:
+  // Used in eval mode
+  BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "batch_norm_inf_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  }
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class LayerNormOperator : public habana::HabanaOperator {
@@ -566,157 +462,4 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
       c10::MemoryFormat mf);
 };
 
-/////////////////////////////////////////New BN
-class BatchNormForwardRmvOperatorNew : public habana::HabanaOperator {
- public:
-  // Used in training mode
-  BatchNormForwardRmvOperatorNew(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
-    // assign layouts for input and output tensors
-
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-  }
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  void preProcessInputs(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs);
-
- private:
-  at::Tensor create_or_return_tensor_bn(
-      synapse_helpers::graph& graph,
-      const at::Tensor& input,
-      uint size,
-      at::Device device,
-      int syn_index);
-  at::Tensor create_or_return_pt_tensor_bn(
-      const at::Tensor& input,
-      uint size,
-      at::Device device);
-
-  c10::ScalarType scalarType_;
-  std::vector<synapse_helpers::tensor_or_ref> tensors_;
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<at::Tensor> pt_outputs;
-  std::vector<at::Tensor> pre_inputs;
-};
-
-class BatchNormBackwardOperatorNew : public habana::HabanaOperator {
- public:
-  // NOTE: BatchNormBackwardOperator node_type differs for training and eval
-  BatchNormBackwardOperatorNew(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
-    // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    // {input, grad, mean, istd, weight}
-    resize_done = false;
-    preprocessing_done = false;
-  }
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
-
-  void preProcessInputs(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs);
-
-  torch::jit::Stack& GetInputstack() {
-    return input_stack;
-  };
-
-  bool CheckResizeDone() {
-    return resize_done;
-  };
-
-  void SetResizeDone() {
-    resize_done = true;
-  };
-
-  bool CheckProprocessingDone() {
-    return preprocessing_done;
-  }
-
-  void SetProprocessingDone() {
-    preprocessing_done = true;
-  };
-
- private:
-  void create_opt_input_tensor_bn_bwd(
-      synapse_helpers::graph& graph,
-      const at::Tensor& input,
-      uint size,
-      at::Device device,
-      int syn_index);
-
-  c10::ScalarType scalarType_;
-  std::vector<at::Tensor> pt_inputs;
-  torch::jit::Stack input_stack;
-  std::vector<at::Tensor> pre_inputs;
-  bool resize_done;
-  bool preprocessing_done;
-};
-
-/////////////////////////////////////////
 } // namespace habana
