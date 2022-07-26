@@ -970,11 +970,21 @@ std::vector<int64_t> GetStridedInsertOperatorStrides(
     auto insert_t = inputs[1].toTensor();
     auto orig_strides = HabanaOperator::CalculateStrides(
         orig_t.sizes(), orig_t.suggest_memory_format());
-    std::reverse(orig_strides.begin(), orig_strides.end());
-    for (unsigned d = 0; d < insert_t.dim(); d++) {
-      strides.push_back(orig_strides[d]);
+    auto stride_ratios = impl->get_shape_struct().get_stride_ratios();
+    auto len = stride_ratios.size();
+    // for case where strides len recieved is greater than the strides
+    // of real tensor, we need to calculate 1 full stride also
+    // eg real -> 3 800 1216[ 972800 1216 1], strides = 2918400 972800 1216 1
+    // 1 more stride needs to be calculated 3*972800 = 2918400
+    if (len > orig_strides.size()) {
+      HABANA_ASSERT(
+          len == orig_strides.size() + 1, "Invalid strides requested");
+      orig_strides.emplace(
+          orig_strides.begin(), orig_strides[0] * orig_t.sizes()[0]);
     }
-    std::reverse(strides.begin(), strides.end());
+    for (uint64_t i = 0; i < len; i++) {
+      strides.push_back(orig_strides[i] * stride_ratios[i]);
+    }
   } else {
     strides = impl->get_shape_struct().get_stride_shape();
   }

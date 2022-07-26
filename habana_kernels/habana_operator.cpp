@@ -114,9 +114,9 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
     }
     case 3:
-      return {sizes[1] * sizes[0], sizes[0], 1};
+      return {sizes[1] * sizes[2], sizes[2], 1};
     case 2:
-      return {sizes[0], 1};
+      return {sizes[1], 1};
     case 1:
       return {1};
     case 0:
