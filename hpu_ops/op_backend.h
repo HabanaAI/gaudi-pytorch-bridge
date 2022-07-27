@@ -208,6 +208,13 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  synapse_helpers::tensor BroadcastHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
   OutputShapeInfRetType ComputeOutputShape(at::Stack&) override;
@@ -236,6 +243,14 @@ class OpBackend : public HabanaOperator {
       c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildReshape(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildBroadcast(
       OpBackend* op,
       synapse_helpers::graph& graph,
       synTensor syn_in,

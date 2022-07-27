@@ -37,6 +37,9 @@ class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
     DisableDynamicPassFallback();
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     habana::RecipeCacheLRU::get_cache().clear();
+    if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+      SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+    }
   }
 
   void TearDown() override {
@@ -44,6 +47,7 @@ class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
     UnsetDynamicMode();
     RestoreDynamicPassFallback();
     RestoreMode();
+    UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
   }
 };
 
@@ -62,8 +66,6 @@ class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
 //                            |
 //                           Out
 TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -133,7 +135,6 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
     EXPECT_EQ(allclose(out_add_hpu, out_add, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 // Graph : Conv2DTranspose Op with Bias is lowered to 3 sub kernels
@@ -149,8 +150,6 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
 //                            |
 //                           Out
 TEST_F(LazyDynamicComputeOutputShapesTest, Conv2DTransposeBiasTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -185,25 +184,16 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Conv2DTransposeBiasTest) {
     EXPECT_EQ(allclose(out_conv_hpu, out_conv, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Fill) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
   auto hout = hA.fill_(1.0);
   auto out = hout.to(torch::kCPU);
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SiluBwdTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-
   const int C = 16;
   const int N = 16;
   int H = 16;
@@ -227,13 +217,9 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SiluBwdTest) {
     EXPECT_EQ(allclose(hout, cpu_out, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
@@ -250,15 +236,10 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DTest) {
   upsample_test({1, 1, 2, 3});
   upsample_test({1, 1, 4, 7});
   upsample_test({1, 1, 6, 12});
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
   torch::manual_seed(0);
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
@@ -286,14 +267,9 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
   upsample_test({1, 1, 2, 3});
   upsample_test({1, 1, 4, 7});
   upsample_test({1, 1, 6, 12});
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SqueezeTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
   const int C = 3;
   const int N = 16;
   int H = 16;
@@ -312,15 +288,9 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SqueezeTest) {
     EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedInsertTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -345,6 +315,290 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedInsertTest) {
     EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
+}
 
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+TEST_F(LazyDynamicComputeOutputShapesTest, EqScalarTest) {
+  torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
+  float compVal = 1.1f;
+  auto out_cpu = torch::eq(A, compVal);
+
+  auto hA = A.to(torch::kHPU);
+  auto result = torch::eq(hA, compVal);
+  torch::Tensor out_hpu = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, ge) {
+  auto cpu_in1 = torch::randn({42}).to(at::kBFloat16);
+  auto cpu_in2 = torch::randn({2, 42});
+
+  auto hpu_in1 = cpu_in1.to("hpu");
+  auto hpu_in2 = cpu_in2.to("hpu");
+
+  EXPECT_TRUE(
+      at::allclose(at::ge(cpu_in1, cpu_in2), at::ge(hpu_in1, hpu_in2).cpu()));
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, Maximum) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  torch::Tensor input2 = torch::randn({2, 2});
+
+  torch::Tensor out_cpu = at::max(input1, input2);
+  torch::Tensor out_hpu =
+      at::max(input1.to(torch::kHPU), input2.to(torch::kHPU));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, Minimum) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  torch::Tensor input2 = torch::randn({2, 2});
+
+  torch::Tensor out_cpu = at::min(input1, input2);
+  torch::Tensor out_hpu =
+      at::min(input1.to(torch::kHPU), input2.to(torch::kHPU));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_fwd_scale) {
+  torch::Tensor input1 = torch::randn({2, 7, 3, 4});
+  torch::Tensor input1hpu = input1.to("hpu");
+  std::vector<double> scale_factor = {1.999, 2.999};
+
+  auto expected = torch::upsample_bicubic2d(
+      input1,
+      c10::nullopt,
+      /*align_corner*/ false,
+      scale_factor);
+  auto result = torch::upsample_bicubic2d(
+      input1hpu,
+      c10::nullopt,
+      /*align_corner*/ false,
+      scale_factor);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_bwd_size) {
+  torch::Tensor input1 = torch::randn({4, 3, 12, 64});
+  torch::Tensor input1hpu = input1.to("hpu");
+  std::vector<int64_t> output_size = {12, 64};
+  std::vector<int64_t> input_size = {4, 3, 6, 32};
+
+  auto expected = torch::upsample_bicubic2d_backward(
+      input1, output_size, input_size, /*align_corner*/ true);
+  auto result = torch::upsample_bicubic2d_backward(
+      input1hpu, output_size, input_size, /*align_corner*/ true);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, sigmoid) {
+  torch::Tensor cpu_in = torch::randn({4, 3, 12, 64});
+  torch::Tensor hpu_in = cpu_in.to("hpu");
+
+  EXPECT_TRUE(at::allclose(at::sigmoid(cpu_in), at::sigmoid(hpu_in).cpu()));
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, SigmoidBwdTest) {
+  auto input_tensor =
+      torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 2, 2});
+  auto grad_tensor =
+      torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 2, 2});
+  torch::Tensor cpu_out = torch::sigmoid_backward(grad_tensor, input_tensor);
+
+  torch::Tensor tHabanaI = input_tensor.to(torch::kHPU);
+  torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
+  torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+  auto hout_lazy = hout_backward.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
+  auto in_size = 1;
+  auto max_value = 1024;
+  auto datatype = torch::kInt;
+  auto index_value = 4;
+  auto dim = 0;
+  auto out_size = 0;
+
+  torch::ScalarType dtype = datatype;
+  torch::Tensor cpu_in =
+      torch::randint(0, max_value, {index_value}, torch::kInt);
+  torch::Tensor hpu_in = cpu_in.to("hpu");
+  auto cpu_index = cpu_in.to(torch::kLong);
+  auto hpu_index = cpu_index.to(torch::kHPU);
+  auto expected = torch::empty(out_size, dtype);
+  auto result =
+      torch::empty(out_size, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::Tensor cpu_in_1 = torch::randint(-127, 128, {max_value}, torch::kInt);
+  torch::Tensor hpu_in_2 = cpu_in_1.to("hpu");
+
+  torch::index_select_outf(cpu_in_1, dim, cpu_index, expected);
+  torch::index_select_outf(hpu_in_2, dim, hpu_index, result);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, index_select_1) {
+  auto max_value = 28;
+  auto datatype = torch::kInt;
+  auto index_value = 5;
+  auto dim = 1;
+  auto out_size = 0;
+
+  torch::ScalarType dtype = datatype;
+  torch::Tensor cpu_in =
+      torch::randint(0, max_value, {index_value}, torch::kInt);
+  torch::Tensor hpu_in = cpu_in.to("hpu");
+  auto cpu_index = cpu_in.to(torch::kLong);
+  auto hpu_index = cpu_index.to(torch::kHPU);
+  auto expected = torch::empty(out_size, dtype);
+  auto result =
+      torch::empty(out_size, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::Tensor cpu_in_1 = torch::randint(-127, 128, {28, 28}, torch::kInt);
+  torch::Tensor hpu_in_2 = cpu_in_1.to("hpu");
+
+  torch::index_select_outf(cpu_in_1, dim, cpu_index, expected);
+  torch::index_select_outf(hpu_in_2, dim, hpu_index, result);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
+}
+
+// Also validates ComputeOutputShape for for Reshape/View
+TEST_F(LazyDynamicComputeOutputShapesTest, ReshapeTest) {
+  const int N = 2;
+  const int C = 4;
+  const int H = 8;
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+
+    int W = in_sizes[i];
+    auto A = torch::randn({N * C * H * W});
+    auto A_reshape = A.reshape({N, C, H, W});
+
+    auto hA = A.to(torch::kHPU);
+    auto hA_reshape = hA.reshape({N, C, H, W});
+
+    EXPECT_TRUE(allclose(hA_reshape.to(torch::kCPU), A_reshape));
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, squeezeCmptOpTest) {
+  auto x = torch::randn({4});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x);
+  auto hB = torch::squeeze(hx);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyDynamicComputeOutputShapesTest, SliceTest_CmptOtShp) {
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  int64_t start_index = 0;
+  int64_t end = 8;
+  int64_t step = 1;
+
+  auto h_out = torch::slice(h_a, dim, start_index, end, step);
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::slice(a, dim, start_index, end, step);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+}
+
+// Also validates ComputeOutputShape for View, AddInplace and strided_insert
+TEST_F(LazyDynamicComputeOutputShapesTest, AddInplaceViewTest) {
+  int N = 1;
+  int C = 2;
+  int H = 4;
+  at::Scalar alpha = 0.5;
+  at::Scalar Y = 2.0;
+  std::vector<int> in_sizes{8, 10, 12, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor C = A.view(-1);
+    torch::Tensor out_cpu = C.add_(alpha);
+    torch::Tensor hC = hA.view(-1);
+    torch::Tensor out_hpu = hC.add_(alpha);
+    auto out = out_hpu.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
+  }
+}
+
+// Also validates ComputeOutputShape for ArangeHtF32
+TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestFloatHt) {
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
+  std::vector<int> start_sizes{0, 2, 3, 4};
+  std::vector<int> end_sizes{5, 10, 15, 18};
+  std::vector<int> step_sizes{1, 2, 3, 2};
+  for (int i = 0; i < start_sizes.size(); i++) {
+    torch::Scalar start = start_sizes[i];
+    torch::Scalar end = end_sizes[i];
+    torch::Scalar step = step_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+
+    c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+
+    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    at::TensorOptions hb_options =
+        at::TensorOptions().dtype(dtype).device(hb_device);
+    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    at::TensorOptions cpu_options =
+        at::TensorOptions().dtype(dtype).device(cpu_device);
+
+    auto h_a = torch::arange(start, end, step, hb_options);
+    auto h_cout = h_a.to(torch::kCPU);
+    auto a = torch::arange(start, end, step, cpu_options);
+    EXPECT_EQ(allclose(h_cout, a), true);
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+}
+
+// Also validates ComputeOutputShape for ArangeHtI32
+TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestHt) {
+  // std::vector<int> start_sizes{1, 1, 1, 1};
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
+  std::vector<int> start_sizes{0, 0, 0, 0, 0};
+  std::vector<int> end_sizes{5, 10, 15, 18, 16};
+  std::vector<int> step_sizes{1, 2, 3, 2, 2};
+  for (int i = 0; i < start_sizes.size(); i++) {
+    torch::Scalar start = start_sizes[i];
+    torch::Scalar end = end_sizes[i];
+    torch::Scalar step = step_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+
+    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+
+    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    at::TensorOptions hb_options =
+        at::TensorOptions().dtype(dtype).device(hb_device);
+    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    at::TensorOptions cpu_options =
+        at::TensorOptions().dtype(dtype).device(cpu_device);
+
+    auto h_a = torch::arange(start, end, step, hb_options);
+    auto h_cout = h_a.to(torch::kCPU);
+    auto a = torch::arange(start, end, step, cpu_options);
+    EXPECT_EQ(allclose(h_cout, a), true);
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }

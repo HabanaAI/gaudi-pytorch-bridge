@@ -31,7 +31,7 @@ void ScatterOperator::AddNode(
   synTensor src_or_val;
   std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
   if (stack.at(3).isTensor()) {
-    src_or_val = p_context_->syn_inputs_.at(2).ref().get();
+    src_or_val = syn_in(2);
   } else {
     at::Scalar val;
     at::IValue ival = stack.at(3);

@@ -317,6 +317,16 @@ synapse_helpers::tensor OpBackend::ConstantHelper(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
+synapse_helpers::tensor OpBackend::BroadcastHelper(
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildBroadcast(
+      this, graph, syn_in, sizes, dtype, final_result_index);
+}
+
 synapse_helpers::tensor OpBackend::ReshapeHelper(
     synapse_helpers::graph& graph,
     synTensor syn_in,
@@ -399,6 +409,11 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
           t.strides().vec(),
           attr.dtype,
           at::MemoryFormat::Contiguous);
+      if (habana_helpers::is_shape_tensor(attr.tensor_type)) {
+        meta.AddShapeTensor(md);
+      }
+      // AddShapeTensor call is independent of AddOutputTensor and
+      // AddIntermendiateOutputTensor. That is why no else if.
       if (attr.final_result_index.has_value()) {
         meta.AddOutputTensor(md);
       } else {
@@ -570,6 +585,40 @@ synapse_helpers::tensor OpBackend::BuildConstant(
        sizeof(params)});
 
   return std::move(constant.at(0));
+}
+
+synapse_helpers::tensor OpBackend::BuildBroadcast(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  std::vector<synTensor> inputs = {syn_in};
+  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
+    inputs.emplace_back(
+        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
+  }
+
+  // Add intermediate shape tensor
+  if (op->isMetaMode()) {
+    auto& meta = op->GetMeta();
+    const auto& st = GetProxyTensor(dtype, sizes);
+    const auto& md = TensorMetaData(
+        st.sizes().vec(),
+        st.strides().vec(),
+        dtype,
+        at::MemoryFormat::Contiguous);
+    meta.AddShapeTensor(md);
+  }
+
+  auto broadcast = BuildNode(
+      op,
+      graph,
+      {"broadcast_" + habana_helpers::name_suffix_from_type(dtype),
+       inputs,
+       {{sizes, dtype, final_result_index}}});
+  return std::move(broadcast.at(0));
 }
 
 synapse_helpers::tensor OpBackend::BuildReshape(

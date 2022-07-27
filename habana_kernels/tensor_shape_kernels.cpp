@@ -27,27 +27,25 @@
 using namespace torch;
 using namespace habana;
 
-void CatOutOperator::validate_tensor_dim_sizes(
-    c10::List<at::Tensor> tensors,
+void CatOutOperator::validate_cat_tensor_dim_sizes(
+    const std::vector<std::vector<int64_t>>* tensors,
     int64_t dim) {
   unsigned i = 0;
-  // tensors[0] is out tensor
-  auto tensor_count = tensors.size();
-  auto tempT = tensors.get(0);
+  auto tensor_count = tensors->size();
+  auto tempT_i = 0;
   for (i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
     unsigned j = 0;
-    auto sz1 = tensors.get(i).sizes().vec();
-    auto sz2 = tempT.sizes().vec();
-    for (j = 0; j < tensors.get(i).dim(); j++) {
-      if (j != dim) {
-        if ((sz1[j] - sz2[j]) != 0)
-          TORCH_CHECK(
-              ((sz1[j] - sz2[j]) == 0),
-              "Sizes of tensors along one of the non-cat dimensions don't match");
+    auto sz1 = tensors->at(i);
+    auto sz2 = tensors->at(tempT_i);
+    for (j = 0; j < tensors->at(i).size(); j++) {
+      if (j != dim && (sz1[j] - sz2[j]) != 0) {
+        TORCH_CHECK(
+            ((sz1[j] - sz2[j]) == 0),
+            "Sizes of tensors along one of the non-cat dimensions don't match");
       }
     }
-    tempT = tensors[i];
+    tempT_i = i;
   }
 }
 
@@ -71,7 +69,13 @@ Tensor CatOperator::CheckAllocateOutput(
   TORCH_CHECK(
       dim < first_tensor.ndimension(),
       "Cat dimension specified exceeds tensors dimensions");
-  CatOutOperator::validate_tensor_dim_sizes(tensors, dim);
+
+  std::vector<std::vector<int64_t>> tensors_size;
+  auto tensor_count = tensors.size();
+  for (unsigned i = 0; i < tensor_count; i++)
+    tensors_size.emplace_back(tensors.get(i).sizes().vec());
+
+  CatOutOperator::validate_cat_tensor_dim_sizes(&tensors_size, dim);
   if (dim != dim_) {
     inputs[1] = IValue(dim);
   }
@@ -215,7 +219,12 @@ int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
       tensors.get(0).dim(),
       /*wrap_scalar=*/true);
 
-  validate_tensor_dim_sizes(tensors, dim);
+  std::vector<std::vector<int64_t>> tensors_size;
+  auto tensor_count = tensors.size();
+  for (unsigned i = 0; i < tensor_count; i++)
+    tensors_size.emplace_back(tensors.get(i).sizes().vec());
+
+  CatOutOperator::validate_cat_tensor_dim_sizes(&tensors_size, dim);
 
   return dim;
 }

@@ -41,6 +41,35 @@ static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   }
   return size;
 }
+static std::vector<int64_t> CalcCatOutSize(
+    const std::vector<std::vector<int64_t>>* tensors,
+    int64_t* dim_inp) {
+  auto tensor_count = tensors->size();
+
+  if (tensor_count == 0) // if tensor is empty or its first element is empty,
+                         // then concatenate out size is 0
+    return {0};
+
+  int64_t dim =
+      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
+
+  CatOutOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
+
+  if (dim != *dim_inp) {
+    *dim_inp = dim;
+  }
+
+  // out tensor size should match along all dimensions for input tensors except
+  // along the dim in which to cat
+  auto out_size = tensors->at(0);
+  if (out_size.size() != 0) {
+    out_size[dim] = 0;
+    for (unsigned i = 0; i < tensor_count; i++)
+      out_size[dim] += tensors->at(i)[dim];
+  }
+
+  return out_size;
+}
 
 sizes_vec IndexOutputShape(const at::Stack& stack, bool lowering) {
   if (!lowering) {
@@ -155,49 +184,55 @@ void IndexHabanaOperator::AddNode(
   auto tensorlist = stack[1].toTensorList().vec();
 
   auto max_size = broadcast_size(tensorlist);
-  auto device_id = this->p_context_->device_id_;
   auto scalar_type = tensorlist[0].scalar_type();
 
-  std::vector<at::Tensor> cat_input;
-  auto cat_indices = make_operator<CatOperator>(device_id, scalar_type);
+  std::vector<synTensor> cat_input_synTensor;
+  std::vector<synapse_helpers::tensor> cat_input_tensor;
+  std::vector<std::vector<int64_t>> cat_input_index;
 
   for (size_t i = 0; i < tensorlist.size(); i++) {
-    // broadcast index tensor to largest index tensor size
-    auto bcastOp = make_operator<BroadcastOperator>(device_id, scalar_type);
-    torch::jit::Stack stack_ = {
-        c10::IValue(tensorlist[i]), c10::IValue(max_size), c10::IValue(false)};
-    bcastOp->SetSynapseInput(p_context_->syn_inputs_[i + 1]);
-    bcastOp->AllocateAndAddSynapseNode(graph, stack_, OutputMetaDataVector(1));
+    // syn(i + 1) - Could give seg fault if undefined tensors are passed by user
+    auto bcastOp = BroadcastHelper(graph, syn_in(i + 1), max_size, scalar_type);
 
-    std::vector<int64_t> expanded_size{1};
-    for (auto s : bcastOp->GetOutputs()[0].sizes()) {
+    std::vector<int64_t> expanded_size{1}; // {1, max_size}
+    for (auto s : bcastOp.pt_shape()) {
       expanded_size.push_back(s);
     }
-    stack_ = {
-        c10::IValue(bcastOp->GetOutputs()[0]), c10::IValue(expanded_size)};
-    auto ReshapeOp = make_operator<ReshapeOperator>(device_id, scalar_type);
-    ReshapeOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    ReshapeOp->AllocateAndAddSynapseNode(
-        graph, stack_, OutputMetaDataVector(1));
 
-    cat_input.emplace_back(ReshapeOp->GetOutputs()[0]);
-    cat_indices->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
+    cat_input_tensor.emplace_back(
+        ReshapeHelper(graph, bcastOp.get(), expanded_size, scalar_type));
+
+    cat_input_synTensor.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].get());
+    cat_input_index.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
   }
 
-  torch::jit::Stack stack_ = {c10::IValue(cat_input), c10::IValue(0)};
-  cat_indices->AllocateAndAddSynapseNode(
-      graph, stack_, OutputMetaDataVector(1));
+  int64_t dim = 0;
+  std::vector<int64_t> cat_out_size = CalcCatOutSize(&cat_input_index, &dim);
+  dim = cat_out_size.size() > 0
+      ? (cat_out_size.size() - dim) - 1
+      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+
+  synConcatenateParams concat_params{};
+  concat_params.axis = dim;
+
+  auto catop1 = BuildOp(
+      graph,
+      "concat",
+      cat_input_synTensor,
+      {{cat_out_size, scalar_type}},
+      &concat_params,
+      sizeof(concat_params));
+
+  auto catop = std::move(catop1.at(0));
 
   auto shape = IndexOperator::compute_output_shape(self, tensorlist);
-
-  synapse_helpers::tensor& arg2_syn_tensor =
-      std::move(cat_indices->GetSynOutputs()[0]);
-
   auto indexOp = BuildOp(
       graph,
       "gather_nd_mxnet_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0), arg2_syn_tensor.get()},
+      {syn_in(0), catop.get()},
       {{shape, ScalarType(), 0}});
   syn_out(0) = std::move(indexOp[0]);
 }

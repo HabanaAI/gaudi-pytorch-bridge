@@ -855,10 +855,6 @@ TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({{0, 1}, {0, 1}})};
-  // std::vector<torch::Tensor> vec_hpu;
-  // for (auto t : vec_cpu) {
-  //   vec_hpu.push_back(t.to(torch::kHPU));
-  // }
   c10::List<c10::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
@@ -885,10 +881,6 @@ TEST_F(EagerKernelTest, BroadCastIndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  // std::vector<torch::Tensor> vec_hpu;
-  // for (auto t : vec_cpu) {
-  //   vec_hpu.push_back(t.to(torch::kHPU));
-  // }
   c10::List<c10::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
@@ -910,22 +902,34 @@ TEST_F(EagerKernelTest, BroadCastIndexTest) {
   EXPECT_EQ(equal, true);
 };
 
-/*TEST_F(EagerKernelTest, IndexTest1) {
-  torch::Tensor input_cpu = torch::arange(12).reshape({3, 1, 2, 2});
+TEST_F(EagerKernelTest, BroadCastIndexTest1) {
+  torch::Tensor input_cpu = torch::arange(8).reshape({2, 2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
-  std::vector<torch::Tensor> vec_cpu{torch::tensor({0, 2})};
-  std::vector<torch::Tensor> vec_hpu;
+  std::vector<torch::Tensor> vec_cpu{
+      torch::tensor({1}),
+      torch::tensor({0, 1}),
+      torch::tensor({{0, 1}, {1, 1}})};
+
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  // auto tensorlist = indices.vec();
+  indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
-    vec_hpu.push_back(t.to(torch::kHPU));
+    indices_cpu.push_back(c10::make_optional(t));
   }
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  // auto tensorlist = indices.vec();
+  indices_list.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
+  }
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+  auto out_hpu = at::index(input_hpu, indices_list);
 
-  auto out_cpu = at::index(input_cpu, vec_cpu);
-  auto out_hpu = at::index(input_hpu, vec_hpu);
-
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  // TODO: Check index_hpu_lazy why this long cast is required
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU).to(at::kLong));
   EXPECT_EQ(equal, true);
-};*/
+};
 
 TEST_F(EagerKernelTest, Silu) {
   const std::vector<int64_t> dimentions{7, 3};

@@ -952,40 +952,6 @@ TEST_F(LazyDynamicShapesTest, ArangeTest) {
   }
 }
 
-// Also validates ComputeOutputShape for ArangeHtI32
-TEST_F(LazyDynamicShapesTest, ArangeTestHt) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-  // std::vector<int> start_sizes{1, 1, 1, 1};
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
-  std::vector<int> start_sizes{0, 0, 0, 0, 0};
-  std::vector<int> end_sizes{5, 10, 15, 18, 16};
-  std::vector<int> step_sizes{1, 2, 3, 2, 2};
-  for (int i = 0; i < start_sizes.size(); i++) {
-    torch::Scalar start = start_sizes[i];
-    torch::Scalar end = end_sizes[i];
-    torch::Scalar step = step_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
-    at::TensorOptions hb_options =
-        at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-    at::TensorOptions cpu_options =
-        at::TensorOptions().dtype(dtype).device(cpu_device);
-
-    auto h_a = torch::arange(start, end, step, hb_options);
-    auto h_cout = h_a.to(torch::kCPU);
-    auto a = torch::arange(start, end, step, cpu_options);
-    EXPECT_EQ(allclose(h_cout, a), true);
-  }
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
-}
-
 TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloat) {
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
@@ -1010,39 +976,6 @@ TEST_F(LazyDynamicShapesTest, DISABLED_ArangeTestFloat) {
     auto a = torch::arange(start, end, step, cpu_options);
     EXPECT_EQ(allclose(h_cout, a), true);
   }
-}
-
-// Also validates ComputeOutputShape for ArangeHtF32
-TEST_F(LazyDynamicShapesTest, ArangeTestFloatHt) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
-  std::vector<int> start_sizes{0, 2, 3, 4};
-  std::vector<int> end_sizes{5, 10, 15, 18};
-  std::vector<int> step_sizes{1, 2, 3, 2};
-  for (int i = 0; i < start_sizes.size(); i++) {
-    torch::Scalar start = start_sizes[i];
-    torch::Scalar end = end_sizes[i];
-    torch::Scalar step = step_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
-
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
-    at::TensorOptions hb_options =
-        at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-    at::TensorOptions cpu_options =
-        at::TensorOptions().dtype(dtype).device(cpu_device);
-
-    auto h_a = torch::arange(start, end, step, hb_options);
-    auto h_cout = h_a.to(torch::kCPU);
-    auto a = torch::arange(start, end, step, cpu_options);
-    EXPECT_EQ(allclose(h_cout, a), true);
-  }
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeInplaceTest2) {
@@ -1140,32 +1073,6 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
     auto out = out_hpu.to(torch::kCPU);
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
   }
-}
-
-// Also validates ComputeOutputShape for View, AddInplace and strided_insert
-TEST_F(LazyDynamicShapesTest, AddInplaceViewTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-  int N = 1;
-  int C = 2;
-  int H = 4;
-  at::Scalar alpha = 0.5;
-  at::Scalar Y = 2.0;
-  std::vector<int> in_sizes{8, 10, 12, 20};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor hA = A.to(torch::kHPU);
-    torch::Tensor C = A.view(-1);
-    torch::Tensor out_cpu = C.add_(alpha);
-    torch::Tensor hC = hA.view(-1);
-    torch::Tensor out_hpu = hC.add_(alpha);
-    auto out = out_hpu.to(torch::kCPU);
-    EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
-  }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, CastTest) {
@@ -1585,15 +1492,18 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
     int index_size = W;
     torch::Tensor A = torch::randn({W, H});
     torch::Tensor B = torch::randn({W});
+
     torch::Tensor index =
         torch::randint(0, (W - 1), {index_size}, torch::dtype(torch::kInt64));
+
     // Make list
     c10::List<c10::optional<at::Tensor>> indices_cpu;
     c10::List<c10::optional<at::Tensor>> indices_list{};
-    indices_cpu.push_back(c10::make_optional(
-        torch::slice(index, 0, 0, end_sizes[i], step_sizes[i])));
-    indices_list.push_back(c10::make_optional(torch::slice(
-        index.to(torch::kHPU), 0, 0, end_sizes[i], step_sizes[i])));
+    at::Tensor temp = torch::slice(index, 0, 0, end_sizes[i], step_sizes[i]);
+    indices_cpu.push_back(c10::make_optional(temp));
+    temp =
+        torch::slice(index.to(torch::kHPU), 0, 0, end_sizes[i], step_sizes[i]);
+    indices_list.push_back(c10::make_optional(temp));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hB = B.to(torch::kHPU);
     torch::Tensor hOut = torch::index(hA, indices_list);
@@ -1603,6 +1513,50 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
     HbLazyTensor::StepMarker({});
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
   }
+}
+
+TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
+  // iteration 1
+  torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  indices_cpu.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_cpu.push_back(c10::make_optional(t));
+  }
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  indices_list.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
+  }
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+  auto out_hpu = at::index(input_hpu, indices_list);
+
+  HbLazyTensor::StepMarker({});
+
+  // Iteration #2
+  torch::Tensor input_cpu1 = torch::arange(4).reshape({2, 2});
+  torch::Tensor input_hpu1 = input_cpu1.to(torch::kHPU);
+
+  std::vector<torch::Tensor> vec_cpu1{
+      torch::tensor({1, 0}), torch::tensor({0})};
+  c10::List<c10::optional<at::Tensor>> indices_cpu1{};
+  indices_cpu1.reserve(vec_cpu1.size());
+  for (auto t : vec_cpu1) {
+    indices_cpu1.push_back(c10::make_optional(t));
+  }
+  c10::List<c10::optional<at::Tensor>> indices_list1{};
+  indices_list1.reserve(vec_cpu1.size());
+  for (auto t : vec_cpu1) {
+    indices_list1.push_back(c10::make_optional(t.to(torch::kHPU)));
+  }
+  auto out_cpu1 = at::index(input_cpu1, indices_cpu1);
+  auto out_hpu1 = at::index(input_hpu1, indices_list1);
+
+  // Comparison
+  EXPECT_EQ(allclose(out_hpu1.to(torch::kCPU), out_cpu1, 0.001, 0.001), true);
 }
 
 void runTopkDynamicTest(
@@ -2198,66 +2152,4 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
     EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-}
-
-// Also validates ComputeOutputShape for for Reshape/View
-TEST_F(LazyDynamicShapesTest, ReshapeTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-  const int N = 2;
-  const int C = 4;
-  const int H = 8;
-  std::vector<int> in_sizes{16, 32, 64};
-  for (int i = 0; i < in_sizes.size(); i++) {
-    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
-
-    int W = in_sizes[i];
-    auto A = torch::randn({N * C * H * W});
-    auto A_reshape = A.reshape({N, C, H, W});
-
-    auto hA = A.to(torch::kHPU);
-    auto hA_reshape = hA.reshape({N, C, H, W});
-
-    EXPECT_TRUE(allclose(hA_reshape.to(torch::kCPU), A_reshape));
-    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
-  }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
-}
-
-TEST_F(LazyDynamicShapesTest, squeezeCmptOpTest) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
-
-  auto x = torch::randn({4});
-  auto hx = x.to(torch::kHPU);
-
-  auto B = torch::squeeze(x);
-  auto hB = torch::squeeze(hx);
-
-  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
-}
-
-TEST_F(LazyDynamicShapesTest, SliceTest_CmptOtShp) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-
-  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHPU);
-  int64_t dim = 1;
-  int64_t start_index = 0;
-  int64_t end = 8;
-  int64_t step = 1;
-
-  auto h_out = torch::slice(h_a, dim, start_index, end, step);
-
-  auto h_cout = h_out.to(torch::kCPU);
-  auto cout = torch::slice(a, dim, start_index, end, step);
-
-  EXPECT_EQ(allclose(h_cout, cout), true);
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
