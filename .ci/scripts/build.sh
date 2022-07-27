@@ -1390,13 +1390,14 @@ run_pytorch_qa_tests()
        opts_forked="$opts --forked"
        opts_noforked=""
 
-       # Add aurora framework path for all test suits except single op tests
+       # Run all aurora tests without --forked.
+       # Tfevents anyway mandatorily needs to run without --forked
+       # and rest of the aurora tests need to be ported to tfevents anyway.
+       # pytest junit-xml is broken due to mixing of test file path and
+       # test dirs on pytest cmd line, so again reverting back top use
+       # only tests dirs to pytest cmd line
        if [ "$__suite_type" != "ops" ]; then
-           opts_forked="$opts_forked $__aurora_path/test_model_executor.py"
-           # Only run tfevent tests if the test executor itself exists.
-           if [ -f "$__aurora_path/test_tfevents_executor.py" ]; then
-               opts_noforked="$opts $__aurora_path/test_tfevents_executor.py"
-           fi
+           opts_noforked="$opts $__aurora_path"
        fi
 
        __python_path=`pip show pytest | grep "Location:" | { read pkg_loc; IFS=" " read -ra arr  <<< $pkg_loc;  echo ${arr[-1]};}`
@@ -1408,20 +1409,25 @@ run_pytorch_qa_tests()
        # Function to run tox commands
        run_tox_command(){
            cmd_opts="$1"
-           __tox_cmdline="LOG_LEVEL_ALL=${__spdlog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${__xml}_${test_path} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
+           junit_xml_tox="$2"
+           __tox_cmdline="LOG_LEVEL_ALL=${__spdlog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
        (set -x;export __tox_cmdline; eval $__tox_cmdline)
        }
 
        # Run usual tests (with --forked option)
-       run_tox_command "$opts_forked"
+       run_tox_command "$opts_forked" "${__xml}_${test_path}"
+       __test_status_forked=$?
+
        # Run tfevent tests (without --forked option,
        # since the event framework doesnot support it.
+       __test_status_noforked=0
        if [ -n "$opts_noforked" ]; then
-           run_tox_command "$opts_noforked"
+           run_tox_command "$opts_noforked" "${__xml}_aurora"
+           __test_status_noforked=$?
        fi
     fi
 
-    __test_status=$?
+    __test_status=$((__test_status_forked | __test_status_noforked))
     popd
 
     # Don't cleas up the requirement python packages
