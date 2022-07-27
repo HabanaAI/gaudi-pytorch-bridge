@@ -244,14 +244,16 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   c10::intrusive_ptr<ProcessGroup::Work> collective(
       std::vector<at::Tensor>& input,
       std::vector<at::Tensor>& output,
-      Fn fn);
+      Fn fn,
+      bool is_allreduce = false);
   template <typename Fn, typename PreProcess, typename PostProcess>
   c10::intrusive_ptr<ProcessGroup::Work> collective(
       std::vector<at::Tensor>& input,
       std::vector<at::Tensor>& output,
       Fn fn,
       PreProcess pre,
-      PostProcess post);
+      PostProcess post,
+      bool is_allreduce);
 
   template <typename Fn>
   c10::intrusive_ptr<ProcessGroup::Work> pointToPoint(

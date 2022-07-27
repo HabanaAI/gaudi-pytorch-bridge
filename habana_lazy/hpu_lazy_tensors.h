@@ -250,7 +250,10 @@ class HbLazyTensor {
       bool async = false,
       synEventHandle event_handle = nullptr,
       synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false);
+      bool event_flag = false,
+      bool is_allreduce = false,
+      std::set<int64_t> bucket_id = {},
+      std::set<int64_t> bucket_recent_id = {});
 
   static void StepMarker(
       const std::string& device_str = {},
@@ -260,7 +263,10 @@ class HbLazyTensor {
       bool async = false /* Wait for launch thread to finish for internal MS */,
       synEventHandle event_handle = nullptr,
       synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false);
+      bool event_flag = false,
+      bool is_allreduce = false,
+      std::set<int64_t> bucket_id = {},
+      std::set<int64_t> bucket_recent_id = {});
   static void StepMarkerBind(const std::string& device_str = {});
   static void StepMarkerFinish();
   static void InitiateBucketRefinement();
@@ -364,7 +370,10 @@ class HbContextArena {
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
   std::weak_ptr<Data>& GetTensorDataPtrFromHbContext(Data* data);
-  std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
+  std::vector<HbLazyTensor> GetLiveTensors(
+      const c10::Device* device,
+      bool is_allreduce = false,
+      std::set<int64_t> bucket_recent_id = {});
   void MarkStep(const c10::Device& device);
   std::recursive_mutex& GetMutex() {
     return m_mtx;

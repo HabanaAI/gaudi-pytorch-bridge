@@ -62,9 +62,15 @@ HbLazyTensor GetOrCreateHbLazyTensor(
 
 // Extracts the HbLazyTensor out of our version of at::Tensor. Throws an
 // exception if tensor is not an HbLazy tensor.
-HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor);
+HbLazyTensor GetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated = true,
+    bool handle_collective = true);
 
-c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor);
+c10::optional<HbLazyTensor> TryGetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated = true,
+    bool handle_collective = true);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
 

@@ -79,7 +79,10 @@ HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor) {
   return dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
 }
 
-c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
+c10::optional<HbLazyTensor> TryGetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated,
+    bool handle_collective) {
   HbLazyTensorImpl* impl = GetHbLazyTensorImpl(tensor);
   if (impl == nullptr) {
     return c10::nullopt;
@@ -91,7 +94,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
   auto id = hl_t.getTensorUniqueId();
-  {
+  if (get_updated) {
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
     c10::optional<at::Tensor> base_tensor =
@@ -102,14 +105,16 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   }
   auto hl_t_updated = impl->tensor();
   // if producer is collective, mark step
-  const auto ir_value = hl_t_updated.CurrentIrValue();
-  if (ir_value && ir_value.mp_node) {
-    const auto& ir_op = ir_value.mp_node->op();
-    PT_LAZY_DEBUG(
-        "op: ", ir_op.toQualString(), " ir value: ", ir_value.ToString());
-    if (IsCollective(ir_op)) {
-      PT_LAZY_DEBUG("step marker due to collective op output request");
-      HbLazyTensor::StepMarker({});
+  if (handle_collective) {
+    const auto ir_value = hl_t_updated.CurrentIrValue();
+    if (ir_value && ir_value.mp_node) {
+      const auto& ir_op = ir_value.mp_node->op();
+      PT_LAZY_DEBUG(
+          "op: ", ir_op.toQualString(), " ir value: ", ir_value.ToString());
+      if (IsCollective(ir_op)) {
+        PT_LAZY_DEBUG("step marker due to collective op output request");
+        HbLazyTensor::StepMarker({});
+      }
     }
   }
 
@@ -155,11 +160,14 @@ HbLazyTensor GetOrCreateHbLazyTensor(
   return hl_tensor;
 }
 
-HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {
+HbLazyTensor GetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated,
+    bool handle_collective) {
   HABANA_ASSERT(
       tensor.device().type() == at::kHPU,
       "Got a non-HPU tensor, expecting an HPU tensor");
-  auto hb_tensor = TryGetHbLazyTensor(tensor);
+  auto hb_tensor = TryGetHbLazyTensor(tensor, get_updated, handle_collective);
   HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
   return *hb_tensor;
 }

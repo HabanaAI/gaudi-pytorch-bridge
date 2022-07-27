@@ -147,8 +147,9 @@ class FusedNorm : public ir::Node {
   FusedNorm(
       std::vector<at::Tensor>& grad,
       const at::Tensor& max_norm,
-      float norm_type)
-      : Node(c10::Symbol::fromQualString("hpu::fused_norm_lazy")) {
+      float norm_type,
+      std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
     AddInputVec(grad);
 
     auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHPU);

@@ -29,6 +29,8 @@ enum StridedOPType {
   kStridedOpExpand
 };
 
+enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
+
 struct StridedOpSliceParams {
   int64_t dim;
   c10::optional<int64_t> start;
@@ -73,6 +75,7 @@ struct StrideParams {
   int64_t parent_id;
   StridedOPType optype;
   OpParams params;
+  ViewStatus viewStatus = kViewRead;
 
   size_t Size() const {
     size_t size = sizeof(*this);
@@ -124,9 +127,11 @@ class StridedViewContext {
   void DelOrigTensorMapEntry(int64_t tensor_id);
   c10::optional<at::Tensor> GetOrigTensorMapEntry(int64_t tensor_id);
 
-  // view tensors that occurs as graph outputs
-  std::vector<habana_lazy::HbLazyTensor> hb_tensors_out_view;
+  // contains view tensors that are excluded from graph outputs
+  std::vector<habana_lazy::HbLazyTensor> hb_tensors_exclude_out_view;
   bool isLazyViewPresent = false;
+
+  void SetViewStatus(int64_t id, ViewStatus viewStatus);
 
  private:
   std::recursive_mutex m_view_table_mtx;
@@ -135,6 +140,10 @@ class StridedViewContext {
   std::unordered_map<int64_t, StrideParams> m_view_table;
   // maintains most recent version of the original tensor map
   std::unordered_map<int64_t, at::Tensor> m_orig_tensor_map;
+
+ public:
+  std::vector<HbLazyTensor> updated_bucket_list;
+  std::set<int64_t> view_outputs;
 };
 
 class HbLazyTensorViews {
@@ -197,7 +206,8 @@ class HbLazyTensorViews {
       at::IntArrayRef stride_in,
       int64_t storage_offset,
       bool is_update_view,
-      c10::optional<at::Tensor> out);
+      c10::optional<at::Tensor> out,
+      bool is_out = false);
   static void updateViewTable(at::Tensor& result, StrideParams& params);
   static StrideParams* getViewTableParams(HbLazyTensor& hl_view_t);
   static at::Tensor get_base_tensor(const at::Tensor& self);
@@ -206,6 +216,11 @@ class HbLazyTensorViews {
       const at::Tensor& self,
       habana_lazy::ir::NodePtr node,
       int64_t& out_index);
+  static void HandleViewsLiveTensors(
+      HbContext* devctx,
+      bool is_allreduce,
+      std::set<int64_t> bucket_recent_id);
+  static void StepMarkerAllReduce(const std::vector<at::Tensor>& inputs);
 };
 
 at::Tensor add_strided_insert_node(

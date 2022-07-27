@@ -170,7 +170,7 @@ class HbExecutionContext {
   }
 
   void clear() {
-    viewContext.hb_tensors_out_view.clear();
+    viewContext.hb_tensors_exclude_out_view.clear();
     m_retained_tensor_list.clear();
     // The scalar_to_tensor_map caches {scalar value, target dtype} -> device
     // tensor This cache avoids repeated H2D DMAs for scalars with target dtype.
@@ -192,6 +192,9 @@ class HbExecutionContext {
       PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
       scalar_to_tensor_map.clear();
     }
+
+    viewContext.updated_bucket_list.clear();
+    viewContext.view_outputs.clear();
   }
 
   // We want to retain some tensors for special cases where PT releases them

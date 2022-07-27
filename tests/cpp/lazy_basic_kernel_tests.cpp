@@ -589,7 +589,7 @@ TEST_F(LazyBasicKernelTest, stridedviewoutTest) {
   hgv2.mul_(hg2);
   hgv3.mul_(hg3);
 
-  // HbLazyTensorViews::StepMarkerAllReduce({hbucket});
+  HbLazyTensorViews::StepMarkerAllReduce({hbucket});
 
   EXPECT_EQ(allclose(hgv1.cpu(), gv1, 0.001, 0.001), true);
   EXPECT_EQ(allclose(hgv2.cpu(), gv2, 0.001, 0.001), true);
@@ -630,7 +630,7 @@ TEST_F(LazyBasicKernelTest, stridedviewoutTest) {
   hgv2.mul_(hg2);
   hgv3.mul_(hg3);
 
-  // HbLazyTensorViews::StepMarkerAllReduce({hbucket});
+  HbLazyTensorViews::StepMarkerAllReduce({hbucket});
 
   EXPECT_EQ(allclose(hgv1.cpu(), gv1, 0.001, 0.001), true);
   EXPECT_EQ(allclose(hgv2.cpu(), gv2, 0.001, 0.001), true);

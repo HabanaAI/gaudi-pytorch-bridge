@@ -46,7 +46,8 @@ ir::NodePtr create_as_strided_node(
     const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset);
+    c10::optional<int64_t> storage_offset,
+    bool is_out = false);
 
 /* Debug API to dump memory stats of View Table. */
 void dumpViewTableMemoryStat();

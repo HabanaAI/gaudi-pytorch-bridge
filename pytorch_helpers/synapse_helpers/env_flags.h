@@ -357,7 +357,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_FORCE_USE_DEFAULT_STREAM, bool, false);
 ENV_STRUCT_DEFINITION(TRACE_POINT_ENABLE, bool, false);
 
 // gradient bucket feature
-ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW, bool, true);
 
 // Method for string env variables
 const char* getenv_by_type_new(

@@ -351,6 +351,10 @@ void strided_insert_hpu_lazy(
   StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
   TORCH_CHECK(params_ptr != nullptr, "incorrect tensor id");
 
+  if (params_ptr->optype == kStridedOpDefault) {
+    context->viewContext.SetViewStatus(id, kViewWrite);
+  }
+
   // pick the most recent version
   Tensor recent_orig_t =
       HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
@@ -1013,14 +1017,16 @@ ir::NodePtr create_as_strided_node(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
+    c10::optional<int64_t> storage_offset,
+    bool is_out) {
   ir::NodePtr node = nullptr;
 
   auto offset = storage_offset.value_or(self.storage_offset());
   auto mf = self.suggest_memory_format();
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    std::string node_str = "hpu::strided_view_ds";
+    std::string node_str =
+        (is_out) ? "hpu::strided_view_out_ds" : "hpu::strided_view_ds";
 
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
       node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
@@ -1087,7 +1093,8 @@ ir::NodePtr create_as_strided_node(
           self, out_size_st, offset_st, node_str);
     }
   } else {
-    std::string node_str = "hpu::strided_view";
+    std::string node_str =
+        (is_out) ? "hpu::strided_view_out" : "hpu::strided_view";
 
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
       node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
@@ -6149,7 +6156,15 @@ Tensor fused_norm_hpu_lazy(
     auto hlweight = GetHbLazyTensor(grad[i]);
     updateDstDependencies(hlweight, grad[i], true);
   }
-  ir::NodePtr node = std::make_shared<ir::FusedNorm>(grad, max_norm, norm_type);
+
+  // grads are evaluated in case of gradient bucket view. Use the inplace
+  // backend kernel to update same memory
+  std::string node_str = (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW))
+      ? "hpu::fused_norm_"
+      : "hpu::fused_norm_lazy";
+
+  ir::NodePtr node =
+      std::make_shared<ir::FusedNorm>(grad, max_norm, norm_type, node_str);
   int64_t out_index = 0;
 
   auto hlgrad = habana_lazy::GetHbLazyTensor(grad[0]);
@@ -6181,7 +6196,8 @@ Tensor fused_norm_hpu_lazy(
     auto hlgrad = GetHbLazyTensor(grad_t);
     auto id = hlgrad.getTensorUniqueId();
     StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-    if (params_ptr == nullptr) {
+    if ((params_ptr == nullptr) ||
+        (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW))) {
       ir::Value& out1 = hlgrad.CurrentIrValue();
       out1.SetNode(
           node_unpack,

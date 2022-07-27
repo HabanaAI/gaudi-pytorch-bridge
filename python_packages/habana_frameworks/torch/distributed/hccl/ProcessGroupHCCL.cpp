@@ -603,8 +603,13 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& outputs,
     Fn fn,
     PreProcess pre,
-    PostProcess post) {
-  habana_lazy::HbLazyTensor::StepMarker();
+    PostProcess post,
+    bool is_allreduce) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW) && is_allreduce) {
+    habana_lazy::HbLazyTensorViews::StepMarkerAllReduce(inputs);
+  } else {
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, false /*async*/);
+  }
 
   // Handle views
   auto in_view_vec =
@@ -711,10 +716,16 @@ template <typename Fn>
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
-    Fn fn) {
+    Fn fn,
+    bool is_allreduce) {
   // Need to replace int by device work streams
   return collective(
-      inputs, outputs, fn, [](std::vector<int>&) {}, [](std::vector<int>&) {});
+      inputs,
+      outputs,
+      fn,
+      [](std::vector<int>&) {},
+      [](std::vector<int>&) {},
+      is_allreduce);
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
@@ -827,7 +838,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
           num_elements -= num_elements_in_current_chunk;
         }
         return hccl_result;
-      });
+      },
+      true /*is_allreduce*/);
 
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());

@@ -95,7 +95,9 @@ void HbContextArena::UnregisterTensor(Data* data) {
 }
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
-    const c10::Device* device) {
+    const c10::Device* device,
+    bool is_allreduce,
+    std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
   std::vector<HbLazyTensor> tensors;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
@@ -106,18 +108,29 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
   }
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
+
+  HbLazyTensorViews::HandleViewsLiveTensors(
+      devctx, is_allreduce, bucket_recent_id);
+
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
       if (data->ir_value && data->ir_value.mp_node->is_input() == false) {
         auto id = data->unique_id;
         auto hl_t = HbLazyTensor(std::move(data));
-        // exclude the views
-        if ((context->viewContext.GetViewTableEntry(id) != nullptr) ||
-            (context->viewContext.GetOrigTensorMapEntry(id) != c10::nullopt)) {
-          // book keep view tensors to clear the ir nodes after mark step
-          context->viewContext.hb_tensors_out_view.emplace_back(hl_t);
-        } else {
+
+        auto params_ptr = context->viewContext.GetViewTableEntry(id);
+        auto is_view = (params_ptr != nullptr);
+
+        if (bucket_recent_id.count(id)) {
+          context->viewContext.updated_bucket_list.emplace_back(hl_t);
+        }
+        auto is_view_out = context->viewContext.view_outputs.count(id);
+
+        if (is_view_out ||
+            ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+             (context->viewContext.GetOrigTensorMapEntry(id) ==
+              c10::nullopt))) {
           tensors.emplace_back(hl_t);
         }
       } else { // if (data != nullptr)
@@ -687,7 +700,10 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     bool async,
     synEventHandle event_handle,
     synapse_helpers::hpuStream_t event_stream,
-    bool event_flag) {
+    bool event_flag,
+    bool is_allreduce,
+    std::set<int64_t> bucket_id,
+    std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
   if (StageSubmission::getInstance().getCurrentAccumulatedOps() == 0) {
     // if the accumulated op is empty, then just record the event
@@ -707,7 +723,8 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   std::vector<HbLazyTensor> tensors = out_hb_lazy_tensor;
   if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
         lazy_front_end_info->get_optimized_lazy_eager_key())) {
-    tensors = HbContextArena::Get()->GetLiveTensors(device);
+    tensors = HbContextArena::Get()->GetLiveTensors(
+        device, is_allreduce, bucket_recent_id);
   }
   if (tensors.size()) {
     SyncTensorsGraph(
@@ -726,6 +743,16 @@ void HbLazyTensor::SyncLiveTensorsGraph(
       if (synStatus::synSuccess != status) {
         PT_LAZY_FATAL("synEventRecord failed ", status);
       }
+    }
+  }
+
+  {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    std::lock_guard<std::recursive_mutex> view_table_lock(
+        context->viewContext.GetViewTableMutex());
+    for (auto id : bucket_id) {
+      context->viewContext.DelOrigTensorMapEntry(id);
     }
   }
 }
@@ -1053,7 +1080,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   // clear IR values corresponding to unexecuted view outputs
-  for (auto& t : context->viewContext.hb_tensors_out_view) {
+  for (auto& t : context->viewContext.hb_tensors_exclude_out_view) {
     t.SetExecutionInProgress();
     ir::Value val = t.createIrValueFromData();
     t.resetVersionCounter();
@@ -1123,6 +1150,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         event_handle,
         event_stream,
         event_flag);
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
+    for (auto t : context->viewContext.updated_bucket_list) {
+      // clear IR values corresponding to sync tensors
+      t.ClearAndAssignNewIrValue();
+    }
   }
 
   // clear the context
@@ -1278,7 +1312,10 @@ void HbLazyTensor::StepMarker(
     bool async,
     synEventHandle handle,
     synapse_helpers::hpuStream_t event_stream,
-    bool event_flag) {
+    bool event_flag,
+    bool is_allreduce,
+    std::set<int64_t> bucket_id,
+    std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
   if (!synapse_helpers::HPURegistrar::isInitialized()) {
     // Nothing to do
@@ -1307,7 +1344,10 @@ void HbLazyTensor::StepMarker(
       async,
       handle,
       event_stream,
-      event_flag);
+      event_flag,
+      is_allreduce,
+      bucket_id,
+      bucket_recent_id);
   if (!async) {
     context->JoinPendingLaunchThread();
   }
