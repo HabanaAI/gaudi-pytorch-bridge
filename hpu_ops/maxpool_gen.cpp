@@ -7,8 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/max_pool3d_with_indices.h"
-#include "generated/max_pool3d_with_indices_backward.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/floor_divide.h"
+#include "generated/hpu_op.h"
 #include "habana_kernels/binary_kernels.h"
 
 // Except bfloat16, all other types are computed in following type

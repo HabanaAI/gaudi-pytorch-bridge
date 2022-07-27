@@ -7,8 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/_foreach_erfc.h"
-#include "generated/erfc.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

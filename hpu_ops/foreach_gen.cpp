@@ -8,10 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/_foreach_acos.h"
-#include "generated/_foreach_add.h"
-#include "generated/_foreach_exp.h"
-#include "generated/_foreach_zero.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 template <>

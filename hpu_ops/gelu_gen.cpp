@@ -7,8 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/gelu.h"
-#include "generated/gelu_backward.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

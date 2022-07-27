@@ -9,9 +9,7 @@
  */
 
 #include <cmath>
-#include "generated/reflection_pad1d.h"
-#include "generated/reflection_pad2d.h"
-#include "generated/reflection_pad3d.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

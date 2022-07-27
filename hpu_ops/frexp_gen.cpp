@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/frexp.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -45,7 +45,7 @@ sizes_vec FrexpOutputShape(const at::Stack& stack, bool) {
 }
 
 void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = FrexpOutputShape(stack, true)[0];
+  auto outshape = FrexpOutputShape(stack)[0];
   auto frexp = BuildOp(
       graph,
       guid_,

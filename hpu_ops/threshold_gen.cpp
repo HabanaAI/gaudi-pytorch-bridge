@@ -7,8 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/threshold.h"
-#include "generated/threshold_backward.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 

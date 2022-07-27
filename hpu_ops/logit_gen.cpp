@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/logit.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

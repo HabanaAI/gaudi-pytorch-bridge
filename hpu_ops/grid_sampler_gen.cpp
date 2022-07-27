@@ -9,7 +9,7 @@
  */
 
 #include <ATen/native/GridSampler.h>
-#include "generated/grid_sampler_2d.h"
+#include "generated/hpu_op.h"
 using at::native::detail::GridSamplerInterpolation;
 using at::native::detail::GridSamplerPadding;
 

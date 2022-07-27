@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/max.h"
+#include "generated/hpu_op.h"
 #include "reduction_template.h"
 
 namespace habana {
@@ -37,7 +37,7 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
 
-  auto shape = MinMaxOutputShape(stack, true)[0];
+  auto shape = MinMaxOutputShape(stack)[0];
 
   auto reduce_max = HandleReductionDimAndKeepdim(
       this,

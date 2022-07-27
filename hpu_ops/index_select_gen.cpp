@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/index_select.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 constexpr int64_t index_of_self = 0;

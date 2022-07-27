@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/special_entr.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

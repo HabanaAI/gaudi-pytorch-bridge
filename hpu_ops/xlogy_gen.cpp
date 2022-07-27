@@ -8,8 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/special_xlog1py.h"
-#include "generated/xlogy.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 
@@ -29,7 +28,7 @@ sizes_vec XlogYOutputShape(const at::Stack& stack, bool) {
 void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = XlogYOutputShape(stack, true)[0];
+  auto outshape = XlogYOutputShape(stack)[0];
   auto self_shape = stack_tensor(stack, 0).sizes().vec();
   auto other_shape = stack_tensor(stack, 1).sizes().vec();
 

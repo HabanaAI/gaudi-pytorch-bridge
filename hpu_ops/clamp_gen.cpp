@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/clamp.h"
-#include "generated/clamp_max.h"
+#include "generated/hpu_op.h"
+#include "hpu_op_helper.h"
 
 // Use min/max of self tensor's dtype for clamping instead of
 // blanket float limits. Use min/max of self's dtype as seen

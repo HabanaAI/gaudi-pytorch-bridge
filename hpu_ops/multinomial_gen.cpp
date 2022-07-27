@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/multinomial.h"
+#include "generated/hpu_op.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 

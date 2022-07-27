@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/aminmax.h"
+#include "generated/hpu_op.h"
 #include "reduction_template.h"
 
 namespace habana {

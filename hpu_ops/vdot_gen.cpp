@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/vdot.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 sizes_vec VdotOutputShape(const at::Stack&, bool) {

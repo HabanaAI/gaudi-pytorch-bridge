@@ -8,8 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/gather.h"
-#include "generated/index.h"
+#include "generated/hpu_op.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"

@@ -8,8 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/argmax.h"
-//#include "generated/argmin.h"
+#include "generated/hpu_op.h"
 #include "reduction_template.h"
 
 namespace habana {
@@ -32,7 +31,7 @@ void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
 
-  auto shape = ArgMinMaxOutputShape(stack, true)[0];
+  auto shape = ArgMinMaxOutputShape(stack)[0];
   auto dtype = torch::kInt;
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();

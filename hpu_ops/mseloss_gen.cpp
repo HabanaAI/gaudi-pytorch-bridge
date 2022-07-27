@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/mse_loss.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/diag.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 
@@ -64,7 +64,7 @@ sizes_vec DiagOutShape(const at::Stack& stack, bool) {
 void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
 
-  auto out_shape = DiagOutShape(stack, true)[0];
+  auto out_shape = DiagOutShape(stack)[0];
 
   size_t size = 0;
   auto params = FillDiagParams(stack, size);

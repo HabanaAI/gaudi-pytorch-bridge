@@ -9,7 +9,7 @@
  */
 
 #include "div_mod_util.h"
-#include "generated/remainder.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -31,6 +31,8 @@ void RemainderOp::AddNode(
 
   } else {
     // Using DivMod kernel
+    size_t size = 0;
+    const auto& params = FillDivModParams(size);
     auto output = GetDivModOutput(
         this,
         graph,

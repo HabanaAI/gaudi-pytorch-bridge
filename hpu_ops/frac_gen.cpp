@@ -7,8 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/_foreach_frac.h"
-#include "generated/frac.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {

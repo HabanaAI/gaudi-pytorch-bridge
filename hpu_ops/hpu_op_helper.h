@@ -104,7 +104,7 @@ inline float& get<float>(fint_t& u) {
 #define FILL_PARAMS_DECL(fn) \
   std::shared_ptr<void> fn(const at::Stack&, size_t&);
 
-#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool);
+#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool = false);
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes) \
   const static SupportedDtypes fn##_supported_dtypes supported_dtypes;

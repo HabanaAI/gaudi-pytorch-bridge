@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/logspace.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 
 namespace habana {
@@ -43,7 +43,7 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
 }
 
 void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = LogspaceOutputShape(stack, true)[0];
+  auto outshape = LogspaceOutputShape(stack)[0];
   size_t size = 0;
   auto params = RangeParams(stack, size);
 

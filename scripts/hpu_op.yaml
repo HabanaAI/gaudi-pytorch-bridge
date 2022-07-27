@@ -469,11 +469,10 @@ acosh_:
   inplace_ids: [0]
 
 add.out:
-  broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_backend: BinaryWithAlpha
-  type_promotion: true
+  use_meta: true
 
 addcdiv:
   force_default: false
@@ -3521,6 +3520,7 @@ sub.out:
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
+  scalar_ids: [2]
   type_promotion: true
 
 sum.IntList_out:

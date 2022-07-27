@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "generated/addmv.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 
@@ -111,7 +111,7 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {self_reshaped[0].get(), addmv[0].get()},
         {{matvecmul_outshape, ScalarType()}});
   }
-  auto outshape = AddMVOutshape(stack, true)[0];
+  auto outshape = AddMVOutshape(stack)[0];
 
   // Output
   auto addmv_out = BuildOp(

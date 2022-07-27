@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/hardsigmoid.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 

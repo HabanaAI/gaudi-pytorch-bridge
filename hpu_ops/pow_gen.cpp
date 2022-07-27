@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/pow.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 

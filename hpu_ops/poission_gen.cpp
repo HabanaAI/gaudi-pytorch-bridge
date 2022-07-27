@@ -9,7 +9,7 @@
  ******************************************************************************
  */
 
-#include "generated/poisson.h"
+#include "generated/hpu_op.h"
 
 namespace habana {
 std::shared_ptr<void> FillPoissonParams(const at::Stack&, size_t& size) {

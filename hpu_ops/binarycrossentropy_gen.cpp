@@ -8,10 +8,8 @@
  ******************************************************************************
  */
 
-#include "generated/binary_cross_entropy.h"
-#include "generated/binary_cross_entropy_backward.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
-
 constexpr int64_t index_of_fwd_weight_tensor = 2;
 constexpr int64_t index_of_fwd_mode = 3;
 
@@ -76,7 +74,7 @@ void BinaryCrossEntropyFwd::AddNode(
   constexpr int64_t index_of_self = 0;
   constexpr int64_t index_of_target = 1;
 
-  auto bce_output_shape = BinaryCrossEntropyFwdOutputShape(stack, true)[0];
+  auto bce_output_shape = BinaryCrossEntropyFwdOutputShape(stack)[0];
 
   size_t size = 0;
   bool is_backward = false;
@@ -129,7 +127,7 @@ void BinaryCrossEntropyBwd::AddNode(
   constexpr int64_t index_of_self = 1;
   constexpr int64_t index_of_target = 2;
 
-  auto bce_output_shape = BinaryCrossEntropyBwdOutputShape(stack, true)[0];
+  auto bce_output_shape = BinaryCrossEntropyBwdOutputShape(stack)[0];
   size_t size = 0;
   bool is_backward = true;
 

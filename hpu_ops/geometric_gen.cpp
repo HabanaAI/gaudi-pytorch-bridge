@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/geometric.h"
+#include "generated/hpu_op.h"
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {

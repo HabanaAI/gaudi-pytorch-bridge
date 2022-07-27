@@ -7,8 +7,9 @@
  *
  ******************************************************************************
  */
-#include "generated/huber_loss.h"
-#include "generated/huber_loss_backward.h"
+#include <utility>
+
+#include "generated/hpu_op.h"
 
 namespace habana {
 

@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "generated/norm.h"
+#include "generated/hpu_op.h"
 #include "hpu_op_helper.h"
 #include "reduction_template.h"
 
