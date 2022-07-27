@@ -176,9 +176,9 @@ build_pytorch_modules()
     local __pytorch_module_name="pytorch_bridge"
     local __recursive=""
     local __result=""
-    local __ver_path="${PYTORCH_FORK_ROOT}/.ci/scripts/pt_version.json"
+    local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
     local __build_cpp_tests="ON"
-    local __auditwheel="${PYTORCH_FORK_ROOT}/.ci/scripts/pt_auditwheel.py"
+    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __build_manylinux_whl="false"
     local __set_py_vers="false"
 
@@ -652,9 +652,9 @@ build_pytorch_fork()
     local __default_vers="default_vers"
     local __def_vers=""
     local __branch=""
-    local __ver_path="${PYTORCH_FORK_ROOT}/.ci/scripts/pt_version.json"
+    local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
     local __build_manylinux_whl="false"
-    local __auditwheel="${PYTORCH_FORK_ROOT}/.ci/scripts/pt_auditwheel.py"
+    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
     local __no_conda="false"
 
@@ -1050,7 +1050,7 @@ build_pytorch_vision_fork()
     local __whl_params=" bdist_wheel"
     local __result
     local __build_manylinux_whl="false"
-    local __auditwheel="${PYTORCH_FORK_ROOT}/.ci/scripts/pt_auditwheel.py"
+    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
     # parameter while-loop
     while [ -n "$1" ];
