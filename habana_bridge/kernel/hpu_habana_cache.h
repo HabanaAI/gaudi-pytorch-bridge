@@ -89,7 +89,7 @@ struct RecipeArgumentSpec {
       const std::string& op_strs);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
-    bool ret = (opstrs == arg.opstrs);
+    bool ret = (opstrs == arg.opstrs && token_ == arg.token_);
 
     if (hash_code == graph_hash_code) {
       return ret;
@@ -156,6 +156,7 @@ struct RecipeArgumentSpec {
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
   size_t graph_with_permute_hash_code{0};
+  uint64_t token_{0};
 };
 
 // Hash functor for RecipeArgumentSpec

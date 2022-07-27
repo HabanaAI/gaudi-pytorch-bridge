@@ -115,7 +115,9 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     : cas(false, input_refs), opstrs(op_strs) {
   graph_hash_code = graphKey;
   hash_code = at::hash_combine(hash_code, graph_hash_code);
-  hash_code = at::hash_combine(hash_code, token);
+
+  token_ = token;
+  hash_code = at::hash_combine(hash_code, token_);
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
