@@ -228,9 +228,21 @@ class StridedViewOperator : public habana::HabanaOperator {
 
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
+  void compute_params(
+      synStridedOpParams& params,
+      torch::jit::Stack& inputs,
+      synapse_helpers::graph& graph,
+      std::vector<int64_t>& size,
+      std::vector<int64_t>& strides,
+      int64_t& offset);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
+  void ReuseMemoryAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
       const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);

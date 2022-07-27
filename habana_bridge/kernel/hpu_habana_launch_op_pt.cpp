@@ -1616,9 +1616,13 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     outputs_metadata_index++;
 
     habana::OutputShapeInfRetType kernel_output_cs(true);
-    if ((outputs_metadata.size() == 1) && (!is_shape_inference) &&
-        (outputs_metadata.at(0).persistent == true) &&
-        (std::string(opname).find("strided_insert") != std::string::npos)) {
+    // applicable for both persistent strided view and strided insert tensors
+    if (((outputs_metadata.size() == 1) && (!is_shape_inference) &&
+         (outputs_metadata.at(0).persistent == true)) &&
+        ((std::string(opname).find("strided_insert") != std::string::npos) ||
+         (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW) &&
+          (std::string(opname).find("strided_view_out") !=
+           std::string::npos)))) {
       ProcessStridedInsertAtOutput(
           node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {

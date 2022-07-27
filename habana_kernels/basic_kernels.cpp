@@ -1242,14 +1242,15 @@ OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
  * @brief Kernel implementation for strided view , used for tensor views
  * @param self - input which needs to be viewed
  ************************************************************************/
-void StridedViewOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+void StridedViewOperator::compute_params(
+    synStridedOpParams& params,
     Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
+    synapse_helpers::graph& graph,
+    std::vector<int64_t>& size,
+    std::vector<int64_t>& strides,
+    int64_t& offset) {
   auto self = inputs[0].toTensor();
-  std::vector<int64_t> size;
-  std::vector<int64_t> strides;
-  int64_t offset = 0;
+  offset = 0;
 
   bool have_shape_tensors = inputs[1].isTensor();
   if (have_shape_tensors) {
@@ -1257,6 +1258,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     size = p_context_->syn_inputs_[1].ref().pt_shape();
     strides = GetStridedViewOperatorStrides(inputs, graph.is_dry_run());
     auto offset_tensor = inputs[2].toTensor();
+    offset = offset_tensor.sizes()[0];
     IntArrayRef strides_ref(strides.data(), strides.size());
     auto syn_shape_input = habana_helpers::create_shape_tensor(
         strides_ref,
@@ -1301,14 +1303,6 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     offset = inputs[3].toInt();
   }
 
-  auto output = habana_helpers::createPTTensor(
-      self,
-      size,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-
   // For Dynamic case fill strides/offset params with max size
   if (graph.is_dynamic_graph()) {
     synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
@@ -1328,16 +1322,85 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   // Shape tensor at backend and also pass the params. Otherwise no params are
   // required.
   if (!have_shape_tensors) {
-    // Allocate Shape tensor
-    if (graph.is_dynamic_graph()) {
-      AllocateSynapseShapeTensor(graph, output);
-    }
-    struct synStridedOpParams params;
     params.baseOffset = static_cast<uint64_t>(offset);
     size_t idx = 0;
     // synapse expects strides in reverse order
     for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
       params.strides[idx++] = static_cast<uint64_t>(*it);
+    }
+  }
+}
+
+void StridedViewOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const habana::OutputMetaDataVector& output_metadata) {
+  synStridedOpParams params;
+  std::vector<int64_t> size, strides;
+  int64_t offset;
+  compute_params(params, inputs, graph, size, strides, offset);
+  auto self = inputs[0].toTensor();
+
+  auto output = habana_helpers::createPTTensor(
+      self,
+      size,
+      self.options(),
+      self.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  // If shape tensors are not created at frontend we need to create
+  // Shape tensor at backend and also pass the params. Otherwise no params are
+  // required.
+  bool have_shape_tensors = inputs[1].isTensor();
+  if (!have_shape_tensors) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
+    }
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  } else {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  }
+}
+
+void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+    const habana::OutputMetaDataVector& output_metadata) {
+  synStridedOpParams params;
+  std::vector<int64_t> sizes, strides;
+  int64_t offset;
+  compute_params(params, inputs, graph, sizes, strides, offset);
+  auto self = inputs[0].toTensor();
+  auto graph_input = inputs[inputs.size() - 1].toTensor();
+
+  // params can have non-contiguous strides but tensors will have contiguous
+  // strides as synapse node densifies
+  auto strides_contig = strides;
+  habana_helpers::recalc_strides(strides_contig, sizes);
+
+  auto output = at::as_strided(graph_input, sizes, strides_contig, offset);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section_with_size(
+          syn_t_vec[0],
+          graph,
+          sizes,
+          strides_contig,
+          offset * graph_input.itemsize(),
+          output_metadata.at(0).external));
+  p_context_->pt_outputs_.emplace_back(output);
+
+  // If shape tensors are not created at frontend we need to create
+  // Shape tensor at backend and also pass the params. Otherwise no params are
+  // required.
+  bool have_shape_tensors = inputs[1].isTensor();
+  if (!have_shape_tensors) {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
     }
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   } else {
@@ -1359,6 +1422,8 @@ static auto& KernelRegistry =
         .add("hpu::strided_view_cl", KERNEL_FN_GLOBAL(StridedViewClOperator))
         .add("hpu::strided_view_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_view_cl_ds", KERNEL_FN_GLOBAL(StridedViewClOperator))
+        .add("hpu::strided_view_out", KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add("hpu::strided_view_out_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(
