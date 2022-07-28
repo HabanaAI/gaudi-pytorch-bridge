@@ -1290,6 +1290,14 @@ Tensor add_tensor_hpu_lazy(
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
     auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
+      // The operation has been split into intermediate multiply and then again
+      // add op tensor produced by this split resulted in inappropriate type
+      // deduction of whole add operation. alpha is always scalar, when also
+      // other is scalar then marking intermediate as wrapped number is also
+      // necessary to further proper deduction
+      mul_out.unsafeGetTensorImpl()->set_wrapped_number(true);
+    }
     return add_tensor_hpu_lazy(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<at::Tensor> k{
