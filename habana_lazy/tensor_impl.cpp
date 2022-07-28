@@ -201,15 +201,23 @@ void HbLazyTensorImpl::SetStorage(at::Storage storage) {
 
 const at::Storage& HbLazyTensorImpl::storage() const {
   // FIXME Violates const correctness
-  c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
   // return a dummy storage if it isnt allocated yet
   // its a bit dangerous and we need to ensure storage calls are made only after
   // backend memory allocation for output tensors
-  if (impl && !m_tensor.IsExecutionInProgress() &&
-      !storage_.is_alias_of(impl->storage())) {
-    HABANA_ASSERT(impl->storage(), "StorageImpl for backend tensor is NULL");
-    const_cast<HbLazyTensorImpl*>(this)->SetStorage(
-        c10::Storage(impl->storage()));
+  {
+    // m_tensor is_executing is set to True at point where there is no execution
+    // thread. is_executing is to False in execution thread, when tensor_data is
+    // replaced in data. We acquire this lock so that data state doesn't change
+    // in between.
+    std::lock_guard<std::recursive_mutex> lock(
+        habana_lazy::HbContextArena::Get()->GetMutex());
+    if (!m_tensor.IsExecutionInProgress()) {
+      c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+      if (impl && impl->storage() && !storage_.is_alias_of(impl->storage())) {
+        const_cast<HbLazyTensorImpl*>(this)->SetStorage(
+            c10::Storage(impl->storage()));
+      }
+    }
   }
   return storage_;
 }
