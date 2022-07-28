@@ -476,9 +476,11 @@ tensor tensor::create_placeholder(
     const std::vector<int64_t>& pt_stride,
     bool persistent,
     const std::string& suffix,
-    synTensorType tensor_type) {
+    synTensorType tensor_type,
+    bool tensor_id_inc_flag) {
   auto tensor_id = detail::tensor_name_generator::get_tensor_id();
-  auto name = detail::tensor_name_generator::generate(suffix);
+  auto name =
+      detail::tensor_name_generator::generate(suffix, tensor_id_inc_flag);
   tensor tensor{
       syn_device,
       synDataType::syn_type_na,

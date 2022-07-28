@@ -513,12 +513,13 @@ class HabanaLaunchOpPT {
     RestoreInputTensorMetadata();
   }
 
-  // Fast shape inference specific functions.
+  // Fast shape inference specific members and functions
   // Currently fast shape inference is realized through a pass which works in
   // hybrid mode. This hybrid shape inference pass uses ComputeOutputShape
   // for JIT OPs whenever possible, otherwise falls back to
   // AllocateAndAddSynapseNode for the output shape computation.
- private:
+
+  static std::unordered_set<std::string> enabled_jit_ir_ops_;
   synapse_helpers::tensor& allocate_synapse_tensor(
       at::Tensor& pt_tensor,
       const HabanaOperatorPtr& habana_op,
@@ -554,6 +555,9 @@ class HabanaLaunchOpPT {
       torch::jit::Node* node,
       std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
+  void process_shape_tensors(
+      const HabanaOperatorPtr& habana_op,
+      std::vector<at::Tensor>& intermediate_shape_tensors_vec);
   void print_tidx_to_tensor_map(
       const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
 

@@ -580,12 +580,23 @@ void RecipeValueSpec::update_patching_table(
   bool enable_fast_shape_inf =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
   if (dynamic_graph) {
-    if (enable_fast_shape_inf) {
-      for (auto& tensors : sif_tidx_to_tinfo_map) {
-        auto tensor_idx = tensors.first;
-        auto& ti = tensors.second;
+    if (enable_fast_shape_inf && GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF)) {
+      std::vector<size_t> sif_tidx_vec;
+      for (auto& idx_tensor_pair : sif_tidx_to_tinfo_map) {
+        sif_tidx_vec.push_back(idx_tensor_pair.first);
+      }
+      std::sort(sif_tidx_vec.begin(), sif_tidx_vec.end());
+      for (auto tensor_idx : sif_tidx_vec) {
+        auto& ti = sif_tidx_to_tinfo_map[tensor_idx];
+        // for (auto& tensors : sif_tidx_to_tinfo_map) {
+        // auto tensor_idx = tensors.first;
+        // auto& ti = tensors.second;
 
-        // PT_TEST_DEBUG_TH("Working on tensor index : ", tensor_idx);
+        PT_TEST_DEBUG(
+            "update_patching_table :: before updating tidx : ",
+            tensor_idx,
+            ", tinfo: ",
+            *ti);
 
         HABANA_ASSERT(
             tidx_to_tensor_map_opt != std::nullopt,
@@ -606,6 +617,11 @@ void RecipeValueSpec::update_patching_table(
         }
         ti->set_shape(new_sizes);
         ti->set_strides(strides);
+        PT_TEST_DEBUG(
+            "update_patching_table :: after  updating tidx : ",
+            tensor_idx,
+            ", tinfo: ",
+            *ti);
       }
     } else {
       for (size_t i = 0; i < dtensorinfos->size(); ++i) {

@@ -67,7 +67,9 @@ synTensor OpBackend::syn_in(int index) {
 
 synapse_helpers::tensor& OpBackend::syn_out(int index) {
   if (isMetaMode()) {
-    static auto ph = synapse_helpers::tensor::create_placeholder(0, {}, {});
+    // create dummy tensor with out incrementing tensor id
+    static auto ph = synapse_helpers::tensor::create_placeholder(
+        0, {}, {}, false, std::string(), DATA_TENSOR, false);
     return ph;
   }
   return p_context_->syn_outputs_.at(index);
@@ -104,9 +106,11 @@ void OpBackend::HandleScalarToTensor(
 
     auto constant = ConstantHelper(graph, val);
 
-    // Set output from constant as input to this node at index m_scalar_id
-    p_context_->syn_inputs_.emplace(
-        p_context_->syn_inputs_.cbegin() + m_scalar_id, std::move(constant));
+    if (!isMetaMode()) {
+      // Set output from constant as input to this node at index m_scalar_id
+      p_context_->syn_inputs_.emplace(
+          p_context_->syn_inputs_.cbegin() + m_scalar_id, std::move(constant));
+    }
   }
 }
 
@@ -245,8 +249,10 @@ void OpBackend::HandleTypePromotion(
       input_types[cast_index],
       result_type);
 
-  // Replace the input with the casted input
-  p_context_->syn_inputs_.at(cast_index) = std::move(cast);
+  if (!isMetaMode()) {
+    // Replace the input with the casted input
+    p_context_->syn_inputs_.at(cast_index) = std::move(cast);
+  }
 
   // Update the guid to reflect the promoted type
   SetGuid(
@@ -277,8 +283,10 @@ void OpBackend::HandleIntToFloatPromotion(
         input_types[i],
         result_type);
 
-    // Replace the input with the casted input
-    p_context_->syn_inputs_.at(i) = std::move(cast);
+    if (!isMetaMode()) {
+      // Replace the input with the casted input
+      p_context_->syn_inputs_.at(i) = std::move(cast);
+    }
   }
 
   // Update the guid to reflect the promoted type
@@ -346,6 +354,11 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
+
+  HandleScalarToTensor(*m_graph, stack);
+  HandleTypePromotion(*m_graph, stack);
+  HandleIntToFloatPromotion(*m_graph, stack);
+
   AddNode(*m_graph, stack);
   m_meta_mode = false;
 
@@ -378,6 +391,7 @@ const synapse_helpers::tensor& OpBackend::CreateShapeTensorInput(
     synTensorType shape_tensor_type) {
   auto st = habana_helpers::create_shape_tensor(
       GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
+  st.set_intermediate_shape_tensor();
   m_shape_tensors.emplace_back(std::move(st));
   return m_shape_tensors.back();
 }
@@ -547,6 +561,18 @@ synapse_helpers::tensor OpBackend::BuildConstant(
                            .get());
   }
 
+  // Add intermediate shape tensor
+  if (op->isMetaMode()) {
+    auto& meta = op->GetMeta();
+    const auto& st = GetProxyTensor(valtype, constant_outshape);
+    const auto& md = TensorMetaData(
+        st.sizes().vec(),
+        st.strides().vec(),
+        valtype,
+        at::MemoryFormat::Contiguous);
+    meta.AddShapeTensor(md);
+  }
+
   auto constant = BuildNode(
       op,
       graph,
@@ -586,6 +612,18 @@ synapse_helpers::tensor OpBackend::BuildReshape(
   if (!op->isMetaMode() and graph.is_dynamic_graph()) {
     inputs.emplace_back(
         op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
+  }
+
+  // Add intermediate shape tensor
+  if (op->isMetaMode()) {
+    auto& meta = op->GetMeta();
+    const auto& st = GetProxyTensor(dtype, sizes);
+    const auto& md = TensorMetaData(
+        st.sizes().vec(),
+        st.strides().vec(),
+        dtype,
+        at::MemoryFormat::Contiguous);
+    meta.AddShapeTensor(md);
   }
 
   auto reshape = BuildNode(

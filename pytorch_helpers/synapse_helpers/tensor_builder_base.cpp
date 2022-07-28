@@ -168,9 +168,13 @@ std::string tensor_name_generator::get_next_tensor_name(
   return tensor_name;
 }
 
-std::string tensor_name_generator::generate(const std::string& suffix) {
+std::string tensor_name_generator::generate(
+    const std::string& suffix,
+    bool tensor_id_inc_flag) {
   std::string tensor_name = get_next_tensor_name(suffix);
-  syn_tensor_id++;
+  if (tensor_id_inc_flag) {
+    syn_tensor_id++;
+  }
   if (IS_SYNHELPER_DEBUG_ENABLED || GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
     to_netron_syntax(tensor_name);
   }

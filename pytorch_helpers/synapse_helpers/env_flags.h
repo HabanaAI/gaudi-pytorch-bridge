@@ -302,6 +302,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_VALIDATE_COMPUTE_SHAPE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_ZERO_MIN, bool, false);
 // Option to enable Fast shape Inference
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, bool, false);
+// Option to enable and run Hybrid shape Inference
+ENV_STRUCT_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool, false);
 
 // Options to enable/disable std::copy to async thread for non blocking copy
 // and minimum tensor size limit for non blocking copy, Default 1 MB.

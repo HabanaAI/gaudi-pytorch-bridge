@@ -142,6 +142,84 @@ TEST_F(SifTest, SimpleGraph) {
   validate_shape_end();
 }
 
+// Test Add Add Div Sub
+TEST_F(SifTest, AddAddDivSub) {
+  validate_shape_start();
+  const int H = 8;
+  const int C = 4;
+  const int N = 2;
+
+  std::vector<int> in_sizes{8, 16, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+    const std::vector<int64_t> dimentions{N, C, H, W};
+    torch::Tensor A = torch::randn(dimentions);
+    torch::Tensor B = torch::randn(dimentions);
+    torch::Tensor C = torch::randn(dimentions);
+    torch::Tensor D = torch::randn(dimentions);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor hD = D.to(torch::kHPU);
+    torch::Tensor add_out1 = torch::add(hA, hB, 2.3);
+    torch::Tensor add_out2 = torch::add(hC, add_out1, 3.4);
+    torch::Tensor div_out3 = torch::div(add_out2, 6);
+    torch::Tensor out = torch::sub(div_out3, hD);
+
+    torch::Tensor add_out1_cpu = torch::add(A, B, 2.3);
+    torch::Tensor add_out2_cpu = torch::add(C, add_out1_cpu, 3.4);
+    torch::Tensor div_out3_cpu = torch::div(add_out2_cpu, 6);
+    torch::Tensor out_cpu = torch::sub(div_out3_cpu, D);
+
+    EXPECT_EQ(allclose(out.to(torch::kCPU), out_cpu, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  validate_shape_end();
+}
+
+// Test Add Add Div Sub Cat Relu
+TEST_F(SifTest, AddAddDivSubCatRelu) {
+  validate_shape_start();
+  const int H = 8;
+  const int C = 4;
+  const int N = 2;
+
+  std::vector<int> in_sizes{8, 16, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int W = in_sizes[i];
+    const std::vector<int64_t> dimentions{N, C, H, W};
+    torch::Tensor A = torch::randn(dimentions);
+    torch::Tensor B = torch::randn(dimentions);
+    torch::Tensor C = torch::randn(dimentions);
+    torch::Tensor D = torch::randn(dimentions);
+    torch::Tensor E = torch::randn(dimentions);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor hD = D.to(torch::kHPU);
+    torch::Tensor hE = E.to(torch::kHPU);
+    torch::Tensor add_out1 = torch::add(hA, hB, 2.3);
+    torch::Tensor add_out2 = torch::add(hC, add_out1, 3.4);
+    torch::Tensor div_out3 = torch::div(add_out2, 6);
+    torch::Tensor sub_out4 = torch::sub(div_out3, hD);
+    torch::Tensor cat_out5 = torch::cat({sub_out4, hE}, 3);
+    torch::Tensor out = torch::relu(cat_out5);
+
+    torch::Tensor add_out1_cpu = torch::add(A, B, 2.3);
+    torch::Tensor add_out2_cpu = torch::add(C, add_out1_cpu, 3.4);
+    torch::Tensor div_out3_cpu = torch::div(add_out2_cpu, 6);
+    torch::Tensor sub_out4_cpu = torch::sub(div_out3_cpu, D);
+    torch::Tensor cat_out5_cpu = torch::cat({sub_out4_cpu, E}, 3);
+    torch::Tensor out_cpu = torch::relu(cat_out5_cpu);
+
+    EXPECT_EQ(allclose(out.to(torch::kCPU), out_cpu, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  validate_shape_end();
+}
+
 // Keeping the following unit tests disabled.
 // TODO: Enable the unit tests
 TEST_F(SifTest, DISABLED_SingleOpCat) {
@@ -161,28 +239,36 @@ TEST_F(SifTest, DISABLED_SingleOpCat) {
   PT_TEST_DEBUG("SingleOpCat_END");
 }
 
-TEST_F(SifTest, DISABLED_AddMulRelu) {
+TEST_F(SifTest, AddMulRelu) {
   validate_shape_start();
   int A = 50;
   const int C = 30;
 
-  int B = 34;
-  PT_TEST_DEBUG("PTI_DBG :: TEST ", "  START");
+  std::vector<int> input_sizes{34, 16, 24};
+  std::vector<int> test_rounds{1, 1, 1};
 
-  torch::Tensor h0 =
-      torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
-  torch::Tensor h1 =
-      torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+  for (int i = 0; i < input_sizes.size(); i++) {
+    for (int j = 1; j <= test_rounds[i]; j++) {
+      int B = input_sizes[i];
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", "  START");
 
-  torch::Tensor h4 = torch::add(h0, h1);
-  torch::Tensor h5 = torch::mul(h0, h1);
-  torch::Tensor h6 = torch::mul(h4, h5);
-  torch::Tensor h7 = torch::relu(h6);
-  auto h7_c = h7.to(torch::kCPU);
-  PRINT_TENSOR(h7_c);
-  // HbLazyTensor::StepMarker({});
+      torch::Tensor h0 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+      torch::Tensor h1 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
 
-  PT_TEST_DEBUG("PTI_DBG :: TEST ", "  END");
+      torch::Tensor h4 = torch::add(h0, h1);
+      torch::Tensor h5 = torch::mul(h0, h1);
+      torch::Tensor h6 = torch::mul(h4, h5);
+      torch::Tensor h7 = torch::relu(h6);
+      HbLazyTensor::StepMarker({});
+
+      // auto h7_c = h7.to(torch::kCPU);
+      // PRINT_TENSOR(h7_c);
+
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", "  END");
+    }
+  }
   validate_shape_end();
 }
 
@@ -239,9 +325,9 @@ TEST_F(SifTest, DISABLED_ConvTranspose2dBwd) {
   validate_shape_end();
 }
 
-// Graph : Reshape + Cat + Relu + Conv2DTransposeBias
-// 1. Reshape Op, Has Input Shape Tensor added at Frontend
-// 2. Cat Op (can be disabled to try Hybrid mode)
+// Graph : Cat + Reshape + Relu + Conv2DTransposeBias
+// 1. Cat Op
+// 2. Reshape Op
 // 3. Relu Op, HPU Op
 // 4. Conv2DTranspose Compound Op with Bias is lowered to 3 sub kernels
 //         i.e. Conv2D, Reshape and Add
@@ -255,7 +341,7 @@ TEST_F(SifTest, DISABLED_ConvTranspose2dBwd) {
 //                            |
 //                           Out
 //
-TEST_F(SifTest, DISABLED_Reshape_Cat_Relu_Conv2DTransposeBias_Test) {
+TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
   validate_shape_start();
   int kH = 3;
   int kW = 3;
@@ -267,44 +353,43 @@ TEST_F(SifTest, DISABLED_Reshape_Cat_Relu_Conv2DTransposeBias_Test) {
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
-    // 1. Reshape Node
-    auto tensor =
+    // 1. Cat Node
+    auto tensor_1 =
         torch::randn({N * C * H * (W / 2)}, torch::requires_grad(false));
-    auto reshape_tensor = tensor.reshape({N, C, H, (W / 2)});
-
-    auto h_tensor = tensor.to(torch::kHPU);
-    auto h_reshape_tensor = h_tensor.reshape({N, C, H, (W / 2)});
-
-    // 2. Cat Node
     auto tensor_2 =
-        torch::randn({N, C, H, (W / 2)}, torch::requires_grad(false));
-    auto cat_tensor = torch::cat({reshape_tensor, tensor_2}, 3);
+        torch::randn({N * C * H * (W / 2)}, torch::requires_grad(false));
+    auto cat_tensor = torch::cat({tensor_1, tensor_2}, 0);
 
+    auto h_tensor_1 = tensor_1.to(torch::kHPU);
     auto h_tensor_2 = tensor_2.to(torch::kHPU);
-    auto h_cat_tensor = torch::cat({h_reshape_tensor, h_tensor_2}, 3);
+    auto h_cat_tensor = torch::cat({h_tensor_1, h_tensor_2}, 0);
+
+    // 2. Reshape Node
+    auto reshape_tensor = cat_tensor.reshape({N, C, H, W});
+    auto h_reshape_tensor = h_cat_tensor.reshape({N, C, H, W});
 
     // 3. Relu Node
-    auto relu_tensor = torch::relu(cat_tensor);
-    auto h_relu_tensor = torch::relu(h_cat_tensor);
+    auto relu_tensor = torch::relu(reshape_tensor);
+    auto h_relu_tensor = torch::relu(h_reshape_tensor);
 
     // 4. ConvTranpsoseBias Node => Compound Op (Conv + Reshape + Add)
-    torch::Tensor bias = torch::randn({C}, torch::dtype(torch::kFloat));
-    torch::Tensor h_bias = bias.to(torch::kHPU);
-    torch::Tensor weight_tensor =
+    auto bias = torch::randn({C}, torch::dtype(torch::kFloat));
+    auto h_bias = bias.to(torch::kHPU);
+    auto weight_tensor =
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-    torch::Tensor h_weight_tensor = weight_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
+    auto h_weight_tensor = weight_tensor.to(torch::kHPU);
+    auto h_weight_tensor_hwck = h_weight_tensor;
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
         !habana_lazy::exec::OptPassCfg::GetInstance()
              ->IsEnabledWeightPermutePass()) {
       h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     }
-    torch::Tensor h_out_conv = torch::conv_transpose2d(
+    auto h_out_conv = torch::conv_transpose2d(
         h_relu_tensor, h_weight_tensor_hwck, h_bias, 1, 0, 0, 1, 1);
-    torch::Tensor out_conv = torch::conv_transpose2d(
+    auto out_conv = torch::conv_transpose2d(
         relu_tensor, weight_tensor, bias, 1, 0, 0, 1, 1);
 
-    torch::Tensor out_conv_hpu = h_out_conv.to(torch::kCPU);
+    auto out_conv_hpu = h_out_conv.to(torch::kCPU);
     EXPECT_EQ(allclose(out_conv_hpu, out_conv, 0.01, 0.01), true);
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
@@ -367,6 +452,85 @@ TEST_F(SifTest, AllReduceWithControlEdge_Test) {
     HbLazyTensor::StepMarker({});
 
     EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+  validate_shape_end();
+}
+
+// To Do: Enable this below test once ComputeOutputShape is fixed for at::prod
+TEST_F(SifTest, DISABLED_Fill_Add) {
+  validate_shape_start();
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    auto tensor = torch::randn({in_sizes[i]});
+    auto h_tensor = tensor.to(torch::kHPU);
+
+    auto tensor_fill = tensor.fill_(1.0);
+    auto h_tensor_fill = h_tensor.fill_(1.0);
+
+    auto tensor_2 = torch::randn({in_sizes[i]});
+    auto h_tensor_2 = tensor_2.to(torch::kHPU);
+    auto out = torch::add(tensor_fill, tensor_2);
+    auto h_out = torch::add(h_tensor_fill, h_tensor_2);
+
+    EXPECT_EQ(allclose(out, h_out, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  validate_shape_end();
+}
+
+// To Do: Enable this below test once ComputeOutputShape() is supported for
+// Index op
+TEST_F(SifTest, DISABLED_IndexSubCat) {
+  validate_shape_start();
+  std::vector<int> in_sizes{8, 16, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int H = in_sizes[i];
+    int W = in_sizes[i];
+    auto a = torch::randn(
+        {H, W}, torch::dtype(torch::kBFloat16).requires_grad(false));
+    auto h_a = a.to(torch::kHPU);
+
+    auto idx = torch::randint(0, W - 1, {W}, torch::dtype(torch::kInt64));
+    auto h_idx = idx.to(torch::kHPU);
+
+    auto idx2 = torch::randint(0, W - 1, {W}, torch::dtype(torch::kInt64));
+    auto h_idx2 = idx2.to(torch::kHPU);
+
+    // Make list
+    c10::List<c10::optional<at::Tensor>> indices_cpu_list;
+    c10::List<c10::optional<at::Tensor>> indices_hpu_list;
+
+    indices_cpu_list.push_back(idx);
+    indices_cpu_list.push_back(idx2);
+    indices_hpu_list.push_back(h_idx);
+    indices_hpu_list.push_back(h_idx2);
+
+    auto index_out = torch::index(a, indices_cpu_list);
+    auto h_index_out = torch::index(h_a, indices_hpu_list);
+
+    auto b = torch::randn({W}, torch::requires_grad(false));
+    auto h_b = b.to(torch::kHPU);
+
+    auto sub_out = torch::sub(index_out, b, 1);
+    auto h_sub_out = torch::sub(h_index_out, h_b, 1);
+
+    auto c = torch::randn({W}, torch::requires_grad(false));
+    auto h_c = c.to(torch::kHPU);
+
+    auto out_cpu = torch::cat({sub_out, c}, 0);
+    auto out_hpu = torch::cat({h_sub_out, h_c}, 0);
+
+    EXPECT_EQ(
+        allclose(
+            out_hpu.to(torch::kFloat).to(torch::kCPU),
+            out_cpu.to(torch::kFloat),
+            0.01,
+            0.01),
+        true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   validate_shape_end();
 }

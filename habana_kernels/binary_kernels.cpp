@@ -356,7 +356,8 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     inputs.emplace_back(constOp->GetOutputs()[0]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.pop_back();
       inputs.emplace_back(scalar_input);
     }
@@ -381,7 +382,8 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     inputs.emplace(inputs.cbegin(), constOp->GetOutputs()[0]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin());
       inputs.emplace(inputs.cbegin(), scalar_input);
     }
@@ -424,7 +426,8 @@ habana::OutputShapeInfRetType habana::BinaryWrapperOperator::ComputeOutputShape(
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.pop_back();
       inputs.emplace_back(scalar_input);
     }
@@ -449,7 +452,8 @@ habana::OutputShapeInfRetType habana::BinaryWrapperOperator::ComputeOutputShape(
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin());
       inputs.emplace(inputs.cbegin(), scalar_input);
     }
@@ -620,7 +624,8 @@ habana::OutputShapeInfRetType habana::BinaryWrapperOperatorWithAlpha::
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin() + 1);
       inputs.emplace(inputs.cbegin() + 1, scalar_input);
     }
@@ -645,7 +650,8 @@ habana::OutputShapeInfRetType habana::BinaryWrapperOperatorWithAlpha::
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin());
       inputs.emplace(inputs.cbegin(), scalar_input);
     }
@@ -705,7 +711,8 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin() + 1);
       inputs.emplace(inputs.cbegin() + 1, scalar_input);
     }
@@ -731,7 +738,8 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     inputs.emplace(inputs.cbegin(), constOp->GetOutputs()[0]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
     // revert the stack changes
-    if (true == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE)) {
       inputs.erase(inputs.cbegin());
       inputs.emplace(inputs.cbegin(), scalar_input);
     }

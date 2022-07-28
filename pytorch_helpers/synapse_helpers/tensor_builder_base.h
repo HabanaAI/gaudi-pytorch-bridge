@@ -47,7 +47,9 @@ class tensor_name_generator {
  public:
   static std::string get_next_tensor_name(
       const std::string& suffix = std::string());
-  static std::string generate(const std::string& suffix = std::string());
+  static std::string generate(
+      const std::string& suffix = std::string(),
+      bool tensor_id_inc_flag = true);
   static void set_tensor_id(uint64_t id);
   static uint64_t get_tensor_id();
   static void to_netron_syntax(std::string& name);

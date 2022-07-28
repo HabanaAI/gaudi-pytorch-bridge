@@ -59,9 +59,17 @@ synapse_helpers::tensor& HabanaLaunchOpPT::allocate_synapse_tensor(
     at::Tensor& pt_tensor,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph) {
-  auto& syn_tensor =
-      habana_op->AllocateSynapseInput(syn_graph, pt_tensor, true);
-  return syn_tensor;
+  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+  if (impl && impl->isShapeTensor()) {
+    void* host_ptr = impl->get_compile_host_ptr();
+    auto& syn_tensor = habana_op->AllocateSynapseInput(
+        syn_graph, pt_tensor, true, impl->getTensorType(), host_ptr);
+    return syn_tensor;
+  } else {
+    auto& syn_tensor =
+        habana_op->AllocateSynapseInput(syn_graph, pt_tensor, true);
+    return syn_tensor;
+  }
 }
 
 torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
@@ -146,7 +154,8 @@ void HabanaLaunchOpPT::create_synapse_inputs(
       }
     } else {
       PT_TEST_DEBUG(
-          "Currently unsupported ivalue for %", value_in->debugName());
+          "Not creating synapse tensor for the ivalue for %",
+          value_in->debugName());
     }
     input_idx += 1;
   }
@@ -162,6 +171,15 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
   int64_t output_count = syn_outputs.size();
   int int_shape_tensor_count = 0;
   if (syn_graph.is_dynamic_graph()) {
+    if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+      for (const auto& st : op->GetShapeTensors()) {
+        if (st.is_intermediate_shape_tensor()) {
+          HABANA_ASSERT(st.is_shape_tensor());
+          int_shape_tensor_count++;
+        }
+      }
+    }
+
     for (synapse_helpers::tensor& in_tensor_syn : syn_inputs) {
       if (in_tensor_syn.is_intermediate_shape_tensor()) {
         HABANA_ASSERT(in_tensor_syn.is_shape_tensor());
@@ -196,6 +214,44 @@ OutputMetaDataVector HabanaLaunchOpPT::populate_node_output_metadata(
   return output_metadata;
 }
 
+static at::Tensor GetDummyTensor(
+    at::IntArrayRef sizes,
+    at::ScalarType dtype = c10::ScalarType::Undefined) {
+  const auto& t = at::detail::make_tensor<c10::TensorImpl>(
+      c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
+      c10::scalarTypeToTypeMeta(dtype),
+      c10::Device(c10::kHPU, 0));
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+  return t;
+}
+
+void HabanaLaunchOpPT::process_shape_tensors(
+    const HabanaOperatorPtr& habana_op,
+    std::vector<at::Tensor>& intermediate_shape_tensors_vec) {
+  // Auto gen op shape tensors
+  if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+    for (const auto& st : op->GetShapeTensors()) {
+      if (st.is_intermediate_shape_tensor()) {
+        intermediate_shape_tensors_vec.emplace_back(
+            GetDummyTensor(st.pt_shape()));
+      }
+    }
+  }
+  // Manual op shape tensors
+  for (synapse_helpers::tensor& maybe_syn_shape_tensor :
+       habana_op->GetSynInputs()) {
+    if (maybe_syn_shape_tensor.is_intermediate_shape_tensor()) {
+      intermediate_shape_tensors_vec.emplace_back(
+          GetDummyTensor(maybe_syn_shape_tensor.pt_shape()));
+    }
+  }
+  // Add shape tensors for all Operator created inside habanaOp
+  std::vector<HabanaOperatorPtr> habana_kernels = habana_op->GetKernels();
+  for (auto& habana_op : habana_kernels) {
+    process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
+  }
+}
+
 void HabanaLaunchOpPT::process_outputs(
     const HabanaOperatorPtr& habana_op,
     torch::jit::Node* node,
@@ -219,6 +275,11 @@ void HabanaLaunchOpPT::process_outputs(
     val_to_ival_map.emplace(
         output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
     tidx_to_tensor_map.insert({currentSifTensorIdx, out_tensor_pt});
+    PT_TEST_DEBUG(
+        "For node output, adding to tidx_to_tensor_map: ",
+        currentSifTensorIdx,
+        " -> ",
+        habana_helpers::DebugString(out_tensor_pt));
     output_idx++;
     currentSifTensorIdx++;
   }
@@ -289,6 +350,11 @@ void HabanaLaunchOpPT::visit_prim_node(
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
       val_to_ival_map[value] = IVal(toIValue(value).value());
+      PT_TEST_DEBUG(
+          "For %",
+          value->debugName(),
+          " adding to val_to_ival_map: ",
+          habana_helpers::DebugString(val_to_ival_map[value]));
     }
   } else if (torch::jit::prim::ListConstruct == node->kind()) {
     std::vector<at::Tensor> tensorList;
@@ -300,7 +366,13 @@ void HabanaLaunchOpPT::visit_prim_node(
     }
     auto node_outputs = node->outputs();
     HABANA_ASSERT(node_outputs.size() == 1);
-    val_to_ival_map[node_outputs[0]] = IVal(tensorList);
+    auto value{node_outputs[0]};
+    val_to_ival_map[value] = IVal(tensorList);
+    PT_TEST_DEBUG(
+        "For %",
+        value->debugName(),
+        " adding to val_to_ival_map: ",
+        habana_helpers::DebugString(val_to_ival_map[value]));
   }
 }
 
@@ -331,11 +403,12 @@ void HabanaLaunchOpPT::RunHybridSif(
   syn_graph.set_dynamic_graph(true);
 
   std::vector<at::Tensor> input_shape_tensors_vec;
+  std::vector<at::Tensor> intermediate_shape_tensors_vec;
   for (auto* node : jit_ir_graph->nodes()) {
     // print_val_to_ival_map(val_to_ival_map);
     std::string op_name(node->kind().toQualString());
 
-    PT_TEST_DEBUG("\nVisiting:", op_name);
+    PT_TEST_DEBUG(" Visiting op ", op_name, " for node ", *node);
 
     // There should not be any meta ops
     HABANA_ASSERT(
@@ -344,10 +417,12 @@ void HabanaLaunchOpPT::RunHybridSif(
 
     // Prim nodes require special handling and are a special case
     if (node->kind().is_prim()) {
-      PT_TEST_DEBUG("Constant found");
+      PT_TEST_DEBUG(" constant ", op_name, " found");
       visit_prim_node(node, val_to_ival_map);
       continue;
     }
+
+    PT_TEST_DEBUG(" non constant ", op_name, " found");
 
     // TODO: visit restride nodes
     if ((strcmp(op_name.c_str(), "hpu::restride_cl") == 0) ||
@@ -356,10 +431,19 @@ void HabanaLaunchOpPT::RunHybridSif(
       continue;
     }
 
+    // Get node scalar type, Default value Float if no tensor is found
+    c10::ScalarType node_type = c10::ScalarType::Float;
+    for (auto input : node->inputs()) {
+      if (val_to_ival_map.count(input) && val_to_ival_map[input].isTensor()) {
+        node_type = val_to_ival_map[input].toTensor().scalar_type();
+        break;
+      }
+    }
+
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr habana_op =
-        KernelRegistry().get(device_id, op, getNodeScalarType(node));
+        KernelRegistry().get(device_id, op, node_type);
 
     TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
 
@@ -399,6 +483,7 @@ void HabanaLaunchOpPT::RunHybridSif(
       habana_op->AllocateAndAddSynapseNode(
           syn_graph, op_input_stack, outputs_metadata);
 
+      process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
       process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
 
       auto output_count = get_output_tensors_count(habana_op, syn_graph);
@@ -408,39 +493,59 @@ void HabanaLaunchOpPT::RunHybridSif(
           habana::ShapeInference::GetSifTensorId());
     }};
 
-    auto output_shape_info = habana_op->ComputeOutputShape(op_input_stack);
-    if (output_shape_info.empty()) {
-      PT_TEST_DEBUG_TH("ComputeOutputShape is not supported for ", op_name);
-      propagate_shape();
+    // Temporary check for eanbling yolo
+    if (enabled_jit_ir_ops_.empty() || enabled_jit_ir_ops_.count(op_name)) {
+      auto output_shape_info = habana_op->ComputeOutputShape(op_input_stack);
+      if (output_shape_info.empty()) {
+        PT_TEST_DEBUG_TH("ComputeOutputShape is not supported for ", op_name);
+        propagate_shape();
+      } else {
+        // Output shape info based flow
+        PT_TEST_DEBUG_TH(
+            "Using ComputeOutputShape shape info based flow for ",
+            habana_op->GetGuid(),
+            ", ",
+            op_name);
+        auto output_tensors = output_shape_info.GetOutputTensor();
+
+        // Collect all output tensors
+        for (auto& t : output_tensors) {
+          auto curSifTidx{std::get<0>(t)};
+          auto out_tensor_pt{std::get<1>(t)};
+          PT_TEST_DEBUG(
+              "For node output with cs, adding to tidx_to_tensor_map: ",
+              curSifTidx,
+              " -> ",
+              habana_helpers::DebugString(out_tensor_pt));
+          tidx_to_tensor_map.insert({curSifTidx, out_tensor_pt});
+        }
+
+        // Recursivly collect all shape tensors
+        std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
+        ProcessShapeTensorsCS(output_shape_info, intermediate_shape_tensor_cs);
+
+        // Get all values of shape tensor
+        for (auto& t : intermediate_shape_tensor_cs) {
+          auto curSifTidx{std::get<0>(t)};
+          auto shape_tensor_pt{std::get<1>(t)};
+          PT_TEST_DEBUG(
+              "For node shape output with cs, adding to tidx_to_tensor_map: ",
+              curSifTidx,
+              " -> ",
+              habana_helpers::DebugString(shape_tensor_pt));
+          tidx_to_tensor_map.insert({curSifTidx, shape_tensor_pt});
+        }
+
+        HABANA_ASSERT(node->outputs().size() == output_tensors.size());
+        for (size_t i = 0; i < node->outputs().size(); ++i) {
+          auto output = node->outputs().at(i);
+          HABANA_ASSERT(val_to_ival_map.count(output) == 0);
+          val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
+        }
+      }
     } else {
-      // Output shape info based flow
-      PT_TEST_DEBUG_TH(
-          "Using ComputeOutputShape shape info based flow for ",
-          habana_op->GetGuid(),
-          ", ",
-          op_name);
-      auto output_tensors = output_shape_info.GetOutputTensor();
-
-      // Collect all output tensors
-      for (auto& t : output_tensors) {
-        tidx_to_tensor_map.insert({std::get<0>(t), std::get<1>(t)});
-      }
-
-      // Recursivly collect all shape tensors
-      std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
-      ProcessShapeTensorsCS(output_shape_info, intermediate_shape_tensor_cs);
-
-      // Get all values of shape tensor
-      for (auto& t : intermediate_shape_tensor_cs) {
-        tidx_to_tensor_map.insert({std::get<0>(t), std::get<1>(t)});
-      }
-
-      HABANA_ASSERT(node->outputs().size() == output_tensors.size());
-      for (size_t i = 0; i < node->outputs().size(); ++i) {
-        auto output = node->outputs().at(i);
-        HABANA_ASSERT(val_to_ival_map.count(output) == 0);
-        val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
-      }
+      PT_TEST_DEBUG_TH("ComputeOutputShape is not enabled for ", op_name);
+      propagate_shape();
     }
   }
 
@@ -450,7 +555,7 @@ void HabanaLaunchOpPT::RunHybridSif(
     auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
     tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});
     PT_TEST_DEBUG_TH(
-        "For input tensors, adding to tidx_to_tensor_map: ",
+        "For graph inputs, adding to tidx_to_tensor_map: ",
         inp_sif_tid,
         " -> ",
         habana_helpers::DebugString(input_refs[i].toTensor()));
@@ -461,10 +566,22 @@ void HabanaLaunchOpPT::RunHybridSif(
     auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
     tidx_to_tensor_map.insert({inp_sif_tid, input_tensor});
     PT_TEST_DEBUG_TH(
-        "For input shape tensors, adding to tidx_to_tensor_map: ",
+        "For graph shape inputs, adding to tidx_to_tensor_map: ",
         inp_sif_tid,
         " -> ",
         habana_helpers::DebugString(input_tensor));
+  }
+
+  // For all intermediate shape tensors for nodes not supporting
+  // ComputeOutputShape create a sif mapping
+  for (auto const& inter_tensor : intermediate_shape_tensors_vec) {
+    auto inter_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
+    tidx_to_tensor_map.insert({inter_sif_tid, inter_tensor});
+    PT_TEST_DEBUG_TH(
+        "For graph intermediate shape tensors, adding to tidx_to_tensor_map: ",
+        inter_sif_tid,
+        " -> ",
+        habana_helpers::DebugString(inter_tensor));
   }
 
   // For debugging
