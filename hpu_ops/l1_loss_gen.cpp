@@ -8,6 +8,10 @@
  ******************************************************************************
  */
 
+#include <torch/csrc/api/include/torch/version.h>
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+
 #include "generated/l1_loss.h"
 #include "generated/l1_loss_backward.h"
 
@@ -116,3 +120,5 @@ void L1LossBwdOperator::AddNode(
   syn_out(0) = std::move(grad_in.at(0));
 }
 } // namespace habana
+
+#endif

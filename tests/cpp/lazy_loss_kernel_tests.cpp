@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
+#include <torch/csrc/api/include/torch/version.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -47,20 +48,28 @@ class LazyLossKernelWithParamsTest
 
     auto houtput = torch::binary_cross_entropy_with_logits(
         hinput, htarget, hweight, hpos_weight, reductionType);
-    auto hboutput = torch::binary_cross_entropy_with_logits_backward(
-        hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
 
     auto houtfwd = houtput.to(torch::kCPU);
-    auto houtbwd = hboutput.to(torch::kCPU);
 
     // reference output
     auto expfwd = torch::binary_cross_entropy_with_logits(
         input, target, weight, pos_weight, reductionType);
+
+    EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+
+    auto hboutput = torch::binary_cross_entropy_with_logits_backward(
+        hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
+
+    auto houtbwd = hboutput.to(torch::kCPU);
+
     auto expbwd = torch::binary_cross_entropy_with_logits_backward(
         grad_output, input, target, weight, pos_weight, reductionType);
 
-    EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
     EXPECT_EQ(allclose(houtbwd, expbwd, 0.001, 0.001), true);
+
+#endif
   }
 };
 
@@ -107,17 +116,25 @@ TEST_F(LazyLossKernelTest, KLDivLossTest) {
     auto hgrad_out = grad_out.to(torch::kHPU);
 
     torch::Tensor hout1 = torch::kl_div(hinput, htarget, reduction, log_target);
+
+    auto out1 = hout1.to(torch::kCPU);
+
+    auto exp1 = kl_div(input, target, reduction, log_target);
+
+    EXPECT_EQ(allclose(out1, exp1), true);
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+
     torch::Tensor hout2 = torch::kl_div_backward(
         hgrad_out, hinput, htarget, reduction, log_target);
 
-    auto out1 = hout1.to(torch::kCPU);
     auto out2 = hout2.to(torch::kCPU);
 
-    auto exp1 = kl_div(input, target, reduction, log_target);
     auto exp2 = kl_div_backward(grad_out, input, target, reduction, log_target);
 
-    EXPECT_EQ(allclose(out1, exp1), true);
     EXPECT_EQ(allclose(out2, exp2), true);
+
+#endif
 
     return true;
   };

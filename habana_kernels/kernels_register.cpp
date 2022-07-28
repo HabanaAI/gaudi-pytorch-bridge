@@ -9,6 +9,7 @@
  */
 #include <torch/library.h>
 
+#include <torch/csrc/api/include/torch/version.h>
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -2188,10 +2189,13 @@ Tensor hpu_wrap::kl_div_backward(
       IValue(reduction),
       IValue(log_target)};
   check_handle->hpu_check_ivalues("kl_div_backward", op_stack);
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
   FALLBACK_IF_UNSUPPORTED_OP1(
       kl_div_backward,
       PARAMS1(grad, self, target),
       PARAMS2(grad, self, target, reduction, log_target))
+#endif
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);

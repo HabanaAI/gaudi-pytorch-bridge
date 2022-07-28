@@ -392,6 +392,7 @@ build_pytorch_modules()
             -DBUILD_TESTS=$__build_cpp_tests \
             $CLANG_TIDY_DEFINE \
             $MANY_LINUX_DEFINE \
+            -DUPSTREAM_COMPILE=OFF \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
             -DSANITIZER=$__sanitize)
@@ -436,6 +437,7 @@ build_pytorch_modules()
             -DBUILD_TESTS=$__build_cpp_tests \
             $CLANG_TIDY_DEFINE \
             $MANY_LINUX_DEFINE \
+            -DUPSTREAM_COMPILE=OFF \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
             -DSANITIZER=$__sanitize)

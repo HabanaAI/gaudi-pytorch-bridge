@@ -30,7 +30,7 @@ static inline at::ScalarType get_dtype_from_self(
 
 sizes_vec ReductionOutputShape(
     const at::Tensor& self,
-    at::optional<at::IntArrayRef> dims,
+    at::OptionalIntArrayRef dims,
     bool keepdim);
 
 template <typename T>

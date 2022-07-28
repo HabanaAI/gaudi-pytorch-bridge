@@ -49,7 +49,7 @@ static at::IntArrayRef optional_to_arrayref(const c10::optional<int64_t>& opt) {
 }
 
 static at::IntArrayRef optional_to_arrayref(
-    const c10::optional<at::IntArrayRef>& opt) {
+    const c10::OptionalIntArrayRef& opt) {
   return opt.has_value() ? opt.value() : at::IntArrayRef{};
 }
 
@@ -62,7 +62,7 @@ sizes_vec ReductionOutputShape(
 
 sizes_vec ReductionOutputShape(
     const at::Tensor& self,
-    at::optional<at::IntArrayRef> dims,
+    at::OptionalIntArrayRef dims,
     bool keepdim) {
   at::DimVector shape =
       at::meta::get_reduction_shape(self, optional_to_arrayref(dims), keepdim);

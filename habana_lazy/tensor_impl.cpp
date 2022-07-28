@@ -11,6 +11,7 @@
 #include <c10/core/Device.h>
 #include <c10/core/ScalarType.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
+#include <torch/csrc/api/include/torch/version.h>
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -176,11 +177,16 @@ void HbLazyTensorImpl::SetupSizeProperties() {
           if (dim == new_dim - 1) {
             sizes_and_strides_.stride_at_unchecked(dim) = 1;
           } else {
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR >= 13))
+            int64_t sizes = sizes_and_strides_.size_at_unchecked(dim + 1)
+                                .as_int_unchecked();
+#else
+            int64_t sizes = sizes_and_strides_.size_at_unchecked(dim + 1);
+#endif
+
             // Keep stride monotonically increasing to match NumPy.
             sizes_and_strides_.stride_at_unchecked(dim) =
-                std::max<int64_t>(
-                    sizes_and_strides_.size_at_unchecked(dim + 1), 1) *
-                sizes_and_strides_.stride_at_unchecked(dim + 1);
+                std::max<int64_t>(sizes, 1) * sizes;
           }
         }
         if (dim == 0)
