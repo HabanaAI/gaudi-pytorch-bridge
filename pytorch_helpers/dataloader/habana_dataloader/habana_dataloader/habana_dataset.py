@@ -101,8 +101,8 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         self._media_ssd_dl_handle_vars(kwargs)
         root = dataset.img_folder
         annotate_file = dataset.annotate_file
-        num_instances = 1
-        instance_id = 0
+        num_instances = _get_world_size()
+        instance_id = _get_rank()
 
         from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
         pipeline = HPUMediaPipe(a_torch_transforms=transform, a_root=root, a_annotation_file=annotate_file, a_batch_size=self.batch_size,
@@ -404,13 +404,17 @@ class HabanaDataLoader:
             if 'PT_HPU_MEDIA_PIPE' in os.environ:
                 self.aeon_fallback_activated = os.getenv('PT_HPU_MEDIA_PIPE').lower() in ('false', '0', 'f')
 
+            media_multi = False
+            if (self.aeon_fallback_activated == False) and ('PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD' in os.environ):
+                    media_multi = os.getenv('PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD').lower() in ('true', '1', 't')
+
             # Try aeon when HPUMediaPipe is not available
             if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 num_instances = _get_world_size()
                 if _is_hpumediapipe_available() == False:
                     print("Fallback to aeon dataloader")
                     self.aeon_fallback_activated = True
-                elif num_instances > 1:
+                elif (media_multi == False) and (num_instances > 1):
                     print("Fallback to aeon dataloader as world_size is ", num_instances)
                     self.aeon_fallback_activated = True
 
