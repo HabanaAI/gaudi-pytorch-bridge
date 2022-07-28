@@ -3878,7 +3878,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
                        .dtype(input.dtype())
                        .device(torch::kHPU)
                        .requires_grad(false);
-    weight = torch::ones(sizes_vec, options);
+    weight = torch::ones(normalized_shape_vec, options);
   }
 
   auto bias = bias_opt.value_or(Tensor());
@@ -3887,7 +3887,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
                        .dtype(input.dtype())
                        .device(torch::kHPU)
                        .requires_grad(false);
-    bias = torch::zeros(sizes_vec, options);
+    bias = torch::zeros(normalized_shape_vec, options);
   }
 
   ir::NodePtr node = std::make_shared<ir::LayerNormForward>(

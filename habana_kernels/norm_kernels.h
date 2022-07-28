@@ -223,8 +223,24 @@ class LayerNormOperator : public habana::HabanaOperator {
             "layer_norm_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
-
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

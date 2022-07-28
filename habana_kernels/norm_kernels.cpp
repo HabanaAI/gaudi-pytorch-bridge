@@ -453,13 +453,19 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
   params.NormAxisBmp =
       (1 << normalized_shape.size()) - 1; // normalize across CWH
   params.ParamAxisBmp = 1;
-
+  auto input_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_input_layout);
+  auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_output_layout);
   graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      guid_);
+      guid_,
+      nullptr,
+      input_layouts.data(),
+      output_layouts.data());
 }
 
 std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
