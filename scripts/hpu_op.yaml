@@ -3521,6 +3521,23 @@ sqrt_:
   guid: sqrt_fwd
   inplace_ids: [0]
 
+std.correction:
+  custom_output_shape: StdVarComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: Std
+  out_ids: [0]
+
+std.correction_out:
+  custom_output_shape: StdVarComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: Std
+
+std_mean.correction:
+  custom_output_shape: StdVarMeanComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: StdMean
+  out_ids: [0, 0]
+
 sub.Tensor:
   force_default: false
   broadcast: true
@@ -4092,6 +4109,23 @@ upsample_nearest3d_backward.grad_input:
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
+
+var.correction:
+  custom_output_shape: StdVarComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: Var
+  out_ids: [0]
+
+var.correction_out:
+  custom_output_shape: StdVarComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: Var
+
+var_mean.correction:
+  custom_output_shape: StdVarMeanComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: VarMean
+  out_ids: [0, 0]
 
 vdot:
   custom_output_shape: VdotOutputShape
