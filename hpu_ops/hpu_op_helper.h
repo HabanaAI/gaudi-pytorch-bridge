@@ -111,33 +111,31 @@ inline float& get<float>(fint_t& u) {
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool);
 
-#define HPU_SUPPORTED_DTYPES(fn, supported_dtypes) \
-  const static SupportedDtypes fn##_supported_dtypes supported_dtypes;
+#define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
+  const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)                  \
-  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(input))) {           \
+  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input))) {                   \
     return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
         args);                                                                 \
   }
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...)   \
-  if (ABSL_PREDICT_FALSE(                                                  \
-          !opname##_##overload##_supported_dtypes.count(input))) {         \
+  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input))) {               \
     return at::native::                                                    \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
             args);                                                         \
   }
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG(input, dtype, opname, args...)       \
-  if (ABSL_PREDICT_FALSE(!opname##_supported_dtypes.count(input, dtype))) {    \
+  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) {            \
     return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
         args);                                                                 \
   }
 
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG2(                                \
     input, dtype, opname, overload, args...)                               \
-  if (ABSL_PREDICT_FALSE(                                                  \
-          !opname##_##overload##_supported_dtypes.count(input, dtype))) {  \
+  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) {        \
     return at::native::                                                    \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
             args);                                                         \
@@ -146,8 +144,7 @@ inline float& get<float>(fint_t& u) {
 #define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, opname, args...)      \
   if (ABSL_PREDICT_FALSE(                                                      \
           tensor.defined() &&                                                  \
-          !opname##_##tensor##_supported_dtypes.count(                         \
-              tensor.scalar_type()))) {                                        \
+          !supported_dtypes_##tensor.count(tensor.scalar_type()))) {           \
     return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
         args);                                                                 \
   }
@@ -156,8 +153,7 @@ inline float& get<float>(fint_t& u) {
     tensor, opname, overload, args...)                                     \
   if (ABSL_PREDICT_FALSE(                                                  \
           tensor.defined() &&                                              \
-          !opname##_##overload##_##tensor##_supported_dtypes.count(        \
-              tensor.scalar_type()))) {                                    \
+          !supported_dtypes_##tensor.count(tensor.scalar_type()))) {       \
     return at::native::                                                    \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
             args);                                                         \

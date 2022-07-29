@@ -422,7 +422,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     return out;
   }
 
-  auto ctx = op->p_context_;
+  const auto& ctx = op->p_context_;
   std::vector<synapse_helpers::tensor> outputs;
   std::vector<synTensor> node_outputs;
 
@@ -545,15 +545,6 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     c10::optional<int> final_result_index) {
   const at::ScalarType& valtype =
       force_type.has_value() ? force_type.value() : val.type();
-  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      at::canCast(val.type(), valtype),
-      __func__,
-      " cannot cast ",
-      val.type(),
-      " (",
-      val.isFloatingPoint() ? val.toFloat() : val.toInt(),
-      ") to ",
-      valtype);
 
   ns_ConstantKernel::Params params{};
   if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {

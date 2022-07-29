@@ -6,7 +6,6 @@ import lark
 import json
 import os
 import re
-import shutil
 import sys
 import yaml
 from collections import defaultdict
@@ -183,6 +182,14 @@ _FILL_PARAMS = """[](const at::Stack& stack, size_t& size) {{
             size = sizeof(T);
             return std::make_shared<T>(T{{{args}}});
         }}"""
+
+
+_DEVICE_STR_TO_ENUM = {
+    -1: "-1",
+    "Gaudi": "synDeviceGaudi",
+    "Gaudi2": "synDeviceGaudi2",
+    "Greco": "synDeviceGreco",
+}
 
 
 class Op(object):
@@ -576,6 +583,8 @@ def frontend(
 
     dtypes = ctxop.get_dtypes()
     if dtypes:
+        code += generate_dtype_macro(dtypes)
+
         # Check the promoted input when type promotion applies
         if ctxop.supports_type_promotion():
             code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}(at::result_type({}, {}), {}, {}{})\n".format(
@@ -603,12 +612,14 @@ def frontend(
             if is_out_fn(fname) and len(tinputs) > 1:
                 tinputs = tinputs[:-1]
 
+            check_per_tensor = False
+            if isinstance(dtypes, dict):
+                if any(p in dtypes.keys() for p in param_vars):
+                    check_per_tensor = True
+                elif any(isinstance(x, dict) for x in dtypes.values()):
+                    check_per_tensor = True
             code += fallback_if_unsupported(
-                tinputs,
-                opname,
-                overload,
-                param_vars,
-                isinstance(dtypes, dict),
+                tinputs, opname, overload, param_vars, check_per_tensor
             )
         code += "\n"
 
@@ -1101,42 +1112,61 @@ def generate_impl(aten_sig, overload, override_fn):
     return code
 
 
-def generate_dtype_macro(ctxop, opname):
-    def generate_line(dtypes, suffix):
-        dtypes_set = set(dtypes)
-        assert len(dtypes) == len(
-            dtypes_set
-        ), "Found same dtype defined more than once for {}".format(suffix)
+def generate_dtype_macro(dtypes):
+    def generate_line(dd_pairs, suffix=""):
+        code = []
+        for dd_pair in dd_pairs:
+            dev_type, dtypes = dd_pair
+            assert isinstance(dtypes, list)
+            dtypes_set = set(dtypes)
+            assert len(dtypes) == len(
+                dtypes_set
+            ), "Found same dtype defined more than once!"
 
-        assert not any(x in dtypes_set for x in ["Double", "Long", "Bool"]), (
-            "Double, Long and Bool are not natively supported, they are "
-            "treated as Float, Int and Char respectively. For instance if "
-            "Float is a supported dtype, Double is added as a supported dtype "
-            "in the script."
+            assert not any(x in dtypes_set for x in ["Double", "Long", "Bool"]), (
+                "Double, Long and Bool are not natively supported, they are "
+                "treated as Float, Int and Char respectively. For instance if "
+                "Float is a supported dtype, Double is added as a supported dtype "
+                "by the script."
+            )
+
+            if "Float" in dtypes:
+                dtypes.append("Double")
+            if "Int" in dtypes:
+                dtypes.append("Long")
+            if "Char" in dtypes:
+                dtypes.append("Bool")
+            code.append(
+                "{{{}, {{{}}}}}".format(
+                    _DEVICE_STR_TO_ENUM[dev_type],
+                    ", ".join(["c10::ScalarType::" + d for d in dtypes]),
+                )
+            )
+        return "  HPU_SUPPORTED_DTYPES(({{{}}}){})\n".format(
+            ",\n   ".join(code), ", " + suffix if suffix else ""
         )
 
-        if "Float" in dtypes:
-            dtypes.append("Double")
-        if "Int" in dtypes:
-            dtypes.append("Long")
-        if "Char" in dtypes:
-            dtypes.append("Bool")
-
-        return "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
-            suffix.replace(".", "_"),
-            ", ".join(["c10::ScalarType::" + d for d in dtypes]),
-        )
-
-    dtypes = ctxop.get_dtypes()
     if isinstance(dtypes, list):
-        return generate_line(dtypes, opname)
-    elif isinstance(dtypes, dict):
-        lines = []
+        return generate_line([(-1, dtypes)])
+    elif isinstance(dtypes, dict) and not any(
+        x in dtypes.keys() for x in _DEVICE_STR_TO_ENUM.keys()
+    ):
+        lines = ""
         for k, v in dtypes.items():
-            lines.append(generate_line(v, "{}_{}".format(opname, k)))
-        return "\n".join(lines)
+            lines += generate_line([(-1, v)], k)
+        return lines
     else:
-        assert dtypes is None, "dtypes support list/dict only."
+        assert isinstance(dtypes, dict)
+        if all(isinstance(x, list) for x in dtypes.values()):
+            return generate_line(dtypes.items())
+        args = defaultdict(list)
+        for k, v in dtypes.items():
+            for suffix, dt in v.items():
+                args[suffix].append((k, dt))
+        lines = ""
+        for suffix, arg in args.items():
+            lines += generate_line(arg, suffix)
+        return lines
 
 
 def generate_all(fgen):
@@ -1153,14 +1183,8 @@ def generate_all(fgen):
     pos = fgen.funsig.find("(")
     overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
     impl = generate_impl(fgen.aten_sig, overload, override_fn)
-    assert not fgen.mapsig in _FN_AUTOGRAD_HPU
+    assert fgen.mapsig not in _FN_AUTOGRAD_HPU
     torch_regs += impl
-
-    # Dtype definitions
-    if fgen.ctxop.get_dtypes():
-        dtype_defs += "{}\n".format(
-            generate_dtype_macro(fgen.ctxop, get_aten_opname(fgen.aten_sig))
-        )
 
     if fgen.op_frontend:
         # Lazy functions
@@ -1323,10 +1347,6 @@ namespace habana {{
 
 
 def generate(args):
-    # TODO Find a better way to deal with leftover cpp files
-    # if os.path.isdir(args.output_dir):
-    #     shutil.rmtree(args.output_dir)
-
     fndefs, errors = extract_functions(args.typedef)
     assert len(errors) == 0
 
