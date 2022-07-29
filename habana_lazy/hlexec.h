@@ -16,6 +16,7 @@
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
 #include "lazy_executor.h"
+#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy {
@@ -256,7 +257,7 @@ class HlExec {
   /**
    * This method calls the Habana Graph Lowering kernel
    */
-  void Launch(torch::jit::Stack& stack);
+  void Launch(torch::jit::Stack& stack, const c10::hpu::HPUStream& stream);
 
   GraphPtr get_graph() {
     return mp_g_;

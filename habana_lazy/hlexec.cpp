@@ -26,7 +26,6 @@
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
 #include "passes/weight_permute_graph.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
 #include "visualize.h"
@@ -45,7 +44,9 @@ HlExec::HlExec(ScopePtr scope) {
   m_g_hash_ = 0;
 }
 
-void HlExec::Launch(torch::jit::Stack& stack) {
+void HlExec::Launch(
+    torch::jit::Stack& stack,
+    const c10::hpu::HPUStream& stream) {
   PT_LAZY_TRACE;
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -68,7 +69,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   auto graphIndex = GetGraphIndex(m_g_hash_);
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
-  mp_g_and_meta_data_->SetHPUStream(c10::hpu::getCurrentHPUStream());
+  mp_g_and_meta_data_->SetHPUStream(stream);
   habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
   habanaLoweringOp.set_lazy_front_end_info(lazyInfo);
   try {

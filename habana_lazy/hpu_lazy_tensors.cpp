@@ -823,7 +823,8 @@ void LaunchSyncTensorsGraph(
         optimized_path_jit_ir_and_mdata,
     std::string lazyOpName,
     size_t optimizedLazyEagerKey,
-    bool isOptimizedLazyEager) {
+    bool isOptimizedLazyEager,
+    const c10::hpu::HPUStream& stream) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = true;
@@ -836,8 +837,7 @@ void LaunchSyncTensorsGraph(
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
     optimized_path_jit_ir_and_mdata->SetOpName(lazyOpName);
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
-    optimized_path_jit_ir_and_mdata->SetHPUStream(
-        c10::hpu::getCurrentHPUStream());
+    optimized_path_jit_ir_and_mdata->SetHPUStream(stream);
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
 
     try {
@@ -859,7 +859,7 @@ void LaunchSyncTensorsGraph(
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   } else {
     try {
-      hlexec.Launch(stack);
+      hlexec.Launch(stack, stream);
       if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
         PT_LAZY_DEBUG(
@@ -1028,7 +1028,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
               optimized_path_jit_ir_and_mdata,
               lazy_op_name,
               optimized_lazy_eager_key,
-              isOptimizedLazyEager);
+              isOptimizedLazyEager,
+              c10::hpu::getCurrentHPUStream());
     } else {
       context->m_launch_thread_handle = std::async(
           std::launch::async,
@@ -1042,7 +1043,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           optimized_path_jit_ir_and_mdata,
           lazy_op_name,
           optimized_lazy_eager_key,
-          isOptimizedLazyEager);
+          isOptimizedLazyEager,
+          c10::hpu::getCurrentHPUStream());
     }
   } else {
     LaunchSyncTensorsGraph(
@@ -1055,7 +1057,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         optimized_path_jit_ir_and_mdata,
         lazy_op_name,
         optimized_lazy_eager_key,
-        isOptimizedLazyEager);
+        isOptimizedLazyEager,
+        c10::hpu::getCurrentHPUStream());
   }
 
   // clear the context
@@ -1093,7 +1096,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   hlexec.set_graph(graph);
 
   // Launch the execution
-  hlexec.Launch(stack);
+  hlexec.Launch(stack, c10::hpu::getCurrentHPUStream());
 
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
