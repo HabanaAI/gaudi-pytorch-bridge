@@ -266,8 +266,7 @@ void optimizer_lamb_phase1_hpu_lazy(
        epsilon,
        bias_correction1_t,
        bias_correction2_t,
-       weight_decay},
-      {5, 6, 7, 8, 11});
+       weight_decay});
 
   k.call(
       hl_adam_step_vec,
@@ -291,7 +290,7 @@ void optimizer_lamb_phase2_hpu_lazy(
 
   auto nstep_t = at::tensor(-step).to(c10::kHPU, true);
 
-  LazyOp<void> lo(
+  LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerLambPhase2",
       {weights,
        adam_norm,
@@ -300,11 +299,8 @@ void optimizer_lamb_phase2_hpu_lazy(
        trust_ratio,
        nstep_t,
        weight_decay,
-       use_lamb},
-      {6, 7}, // metadata_indices
-      {} // out_shapes
-  );
-  lo.call(weights);
+       use_lamb});
+  loo.call(weights);
 }
 
 void optimizer_adagrad_hpu_lazy(
@@ -337,10 +333,7 @@ void optimizer_sgd_hpu_lazy(
 
   LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerFusedSGD",
-      {gradients, weights, lr, wd, mom, damp, nesterov},
-      {3, 4, 5, 6}, // metadata_indices
-      {} // out_shapes
-  );
+      {gradients, weights, lr, wd, mom, damp, nesterov});
 
   loo.call(weights);
 }

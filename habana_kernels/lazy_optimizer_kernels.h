@@ -35,7 +35,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       std::vector<at::Tensor>& tVector) {
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    LazyOp<T>::viewUpdateInputs();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tVector.size();
@@ -50,6 +50,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1) {
+    LazyOp<T>::viewUpdateInputs();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();
@@ -75,6 +76,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
           "Incorrect optmizer option. Only ADAGRAD or SGD_MOMENTUM can be called with 2 at::TensorList& arguments.")
     }
   }
+
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       std::vector<at::Tensor>& tList1,
@@ -83,6 +85,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       std::vector<at::Tensor>& tList4,
       std::vector<at::Tensor>& tList5,
       std::vector<at::Tensor>& tList6) {
+    LazyOp<T>::viewUpdateInputs();
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
     int64_t index = 0;
@@ -214,6 +217,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     flush_op(tList5);
     flush_op(tList6);
   }
+
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1,
@@ -224,6 +228,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       // modified-weight-decay !=1,
       // we send "weights" as first output component.
       const bool flagAdditionalOutput) {
+    LazyOp<T>::viewUpdateInputs();
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
 
@@ -317,6 +322,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_void<T>::value, T>::type callSGD_momentum(
       at::TensorList& tList1,
       at::TensorList& tList2) {
+    LazyOp<T>::viewUpdateInputs();
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
     const auto noOfTensor = tList1.size();
