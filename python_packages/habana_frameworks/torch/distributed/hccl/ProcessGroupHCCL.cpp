@@ -1023,29 +1023,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        hcclResult_t hccl_result{hcclSuccess};
-        size_t element_size =
-            c10::elementSize(getInternalScalarType(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(collectiveAllGather) / element_size;
-        size_t data_offset = 0;
-        while (numel > 0) {
-          size_t num_elements_in_current_chunk =
-              (numel > chunk_size) ? chunk_size : numel;
-          hccl_result = hcclAllGather(
-              send_buffer + data_offset,
-              recv_buffer + data_offset,
-              num_elements_in_current_chunk,
-              tensor_data_type,
-              hccl_comm,
-              stream);
-          TORCH_CHECK(
-              hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset =
-              data_offset + (num_elements_in_current_chunk * element_size);
-          numel -= num_elements_in_current_chunk;
-        }
-        return hccl_result;
+        auto work = hcclAllGather(
+            send_buffer,
+            recv_buffer,
+            numel,
+            tensor_data_type,
+            hccl_comm,
+            stream);
+        return work;
       });
   // Record even for outputFlattened on ncclStream
   for (size_t i = 0; i < outputTensors.size(); ++i) {
