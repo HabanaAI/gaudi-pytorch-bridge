@@ -234,15 +234,11 @@ class HbLazyTensor {
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
 
-  // Retrieves the set of tensors which are currently live in the system,
-  // for the given device. If device is nullptr, the live tensors for all
-  // devices will be returned.
-  static std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
-
   static void SyncTensorsGraph(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
-      bool async = false);
+      bool async = false,
+      bool collect_sync_tensors = true);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
@@ -336,7 +332,8 @@ class HbLazyTensor {
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
-      bool async = false);
+      bool async = false,
+      bool collect_sync_tensors = true);
   static bool switch_dynamic_mode;
 };
 

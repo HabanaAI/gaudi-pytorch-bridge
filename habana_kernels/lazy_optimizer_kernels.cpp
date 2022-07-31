@@ -9,6 +9,7 @@
  */
 
 #include "lazy_optimizer_kernels.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/view_utils.h"
@@ -254,6 +255,12 @@ optimizer_lamb_phase1_hpu_lazy(
 
   auto hl_clip_global = GetHbLazyTensor(clip_global_grad_norm);
   updateDstDependencies(hl_clip_global, clip_global_grad_norm, true);
+  // TODO: SW-69618 JIT optimization passes are failing for
+  // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
+  // dont support tensorlist in lowering that matches kernel schema.
+  // Adding unpack will return TensorList, which is not supported as
+  // graph output.
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   float bias_correction1 = 1.0, bias_correction2 = 1.0;
   if (bias_correction) {
@@ -403,6 +410,13 @@ void optimizer_lamb_phase2_hpu_lazy(
     const float weight_decay,
     const int use_lamb) {
   PT_LAZY_TRACE;
+
+  // TODO: SW-69618 JIT optimization passes are failing for
+  // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
+  // dont support tensorlist in lowering that matches kernel schema.
+  // Adding unpack will return TensorList, which is not supported as
+  // graph output.
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
 
   auto nstep_t = at::tensor(-step).to(c10::kHPU, true);
 
