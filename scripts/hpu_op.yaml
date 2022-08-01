@@ -483,50 +483,56 @@ addcdiv:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
   guid: div
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
   out_ids: [0]
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
 
 addcdiv_:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
   guid: div
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
   inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
 
 addcdiv.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
   guid: div
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
 
 addcmul:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: mult_fwd
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
   out_ids: [0]
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
 
 addcmul_:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: mult_fwd
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
   inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
 
 addcmul.out:
   custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: mult_fwd
-  op_backend: AddCOpOut
-  scalar_ids: [3]
+  op_frontend: AddCOpFE
+  op_backend: AddCOpBE
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
 
 addmm_:
   force_default: false
