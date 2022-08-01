@@ -65,7 +65,8 @@ def requiredArtifact = [
     'SCAL': ['test', 'shared'],
     'PYTORCH': ['test', 'data'],
     'CORAL_SIM': ['bin', 'test', 'shared', 'header'],
-    'AEON': ['shared']
+    'AEON': ['shared'],
+    'ENGINES_FW': ['config', 'data', 'shared', 'test']
 ]
 
 genericBuilder(
