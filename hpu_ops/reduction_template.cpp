@@ -156,16 +156,9 @@ synapse_helpers::tensor HandleReductionDtype(
       op, graph, syn_in.get(), self.sizes(), self.scalar_type(), dtype_val);
 }
 
-static std::shared_ptr<void> ReductionOpParams(
-    const int ndim,
-    size_t& size,
-    int64_t index) {
-  PARAMS_STUB(ns_Reduction::Params);
-  auto reduction_dim = ndim - 1 - index;
-  params->reductionDimension = reduction_dim;
-  return params;
-}
-
+// TO DO: Refactor HandleReductionDimAndKeepdim function to handle different
+// fill_param function
+// Jira: https://jira.habana-labs.com/browse/SW-96835
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -174,7 +167,11 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr) {
+    std::vector<NodeAttr::NodeOutputAttr> output_attr,
+    std::function<std::shared_ptr<
+        void>(const int64_t, size_t&, int64_t, const at::Scalar&)>
+        fill_param_fn,
+    const at::Scalar& ord) {
   struct Parameters {
     std::shared_ptr<void> param_list;
     size_t size_list{};
@@ -262,7 +259,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     if (mask[dimIndex]) {
       orig_shape[dimIndex] = 1;
       size_t size = 0;
-      auto params = ReductionOpParams(ndims, size, dimIndex);
+      auto params = fill_param_fn(ndims, size, dimIndex, ord);
       parameters.push_back({params, size, orig_shape});
     }
   }
@@ -290,6 +287,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   std::vector<std::string> multi_output_reduce_ops = {
       "reduce_min_fwd",
       "reduce_max_fwd",
+      "reduce_Lp_fwd",
       "reduce_log_sum_exp_fwd",
       "reduce_log_sum_fwd"};
   for (size_t i = 0; i < multi_output_reduce_ops.size(); i++) {

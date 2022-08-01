@@ -2044,6 +2044,19 @@ linalg_cross.out:
   dtypes: [BFloat16, Float, Int]
   op_backend: LinAlgCross
 
+linalg_vector_norm:
+  force_default: false
+  custom_output_shape: NormOpOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: VecNormOp
+  op_frontend: LazyNormOp
+  out_ids: [0]
+
+linalg_vector_norm.out:
+  custom_output_shape: NormOpOutputShape
+  dtypes: [BFloat16, Float]
+  op_backend: VecNormOp
+
 linspace.out:
   dtypes: [BFloat16, Float, Int]
   op_backend: LinspaceOut
