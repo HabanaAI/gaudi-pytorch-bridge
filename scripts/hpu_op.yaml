@@ -1127,6 +1127,15 @@ clamp_min.Tensor_out:
   guid: max_fwd
   type_promotion: true
 
+constant_pad_nd:
+  force_default: false
+  custom_output_shape: ConstantPadNdOutputShape
+  dtypes: [BFloat16, Float, Int]
+  op_frontend: ConstantPadNdInputs
+  op_backend: ConstantPadNd
+  out_ids: [0]
+  schema_args: "(Tensor self, int[] pad, Scalar value=0, Tensor[] shape_tensors) -> Tensor"
+
 copysign.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]

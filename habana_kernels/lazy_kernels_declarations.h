@@ -116,10 +116,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> convolution_backward_hpu_lazy(
     at::IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask);
-at::Tensor constant_pad_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef pad,
-    const at::Scalar& value);
 at::Tensor embedding_hpu_lazy(
     const at::Tensor& weight,
     const at::Tensor& indices,
