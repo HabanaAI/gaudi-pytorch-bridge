@@ -132,13 +132,19 @@ nlohmannV340::json read_json(std::string input_json) {
 }
 
 std::string get_jit_graph(nlohmannV340::json json_) {
-  std::stringstream graph_string;
-  auto jit_it_vec = json_[0]["000000000"]["compilations"][0]["jit ir graph"];
-  std::copy(
-      jit_it_vec.begin(),
-      jit_it_vec.end(),
-      std::ostream_iterator<std::string>(graph_string, "\n"));
-  return graph_string.str();
+  auto jit_json_vec = json_[0]["000000000"]["compilations"][0]["jit ir graph"];
+  std::stringstream graph_ss;
+  std::string graph_str;
+  for (auto& jit_json : jit_json_vec) {
+    std::string str = jit_json.get<std::string>();
+    size_t pos = str.find(", scope");
+    if (pos != std::string::npos) {
+      str = str.substr(0, pos);
+    }
+    std::replace(str.begin(), str.end(), '/', '_');
+    graph_str += str + '\n';
+  }
+  return graph_str;
 }
 
 at::Tensor create_empty_tensor(
@@ -169,11 +175,18 @@ std::vector<at::Tensor> get_input_tensors(
     const std::map<std::string, std::string>& shapes_map,
     std::map<std::string, c10::ScalarType> tensor_dtype_map) {
   std::vector<at::Tensor> input_tensors;
-  for (auto& input : shapes_map) {
+  std::map<int, at::Tensor> idx_tensor_map;
+  for (auto& name_shape_pair : shapes_map) {
     bool is_shape_tensor = false;
-    std::string input_shape(input.second);
+    std::string input_name = name_shape_pair.first;
+    std::replace(input_name.begin(), input_name.end(), '/', '_');
+
+    std::string input_shape(name_shape_pair.second);
     std::string shape_str = " shape tensor";
     std::string::size_type shape_tensor_pos = (input_shape).find(shape_str);
+
+    size_t pos = input_name.find('_');
+    int idx = std::stoi(input_name.substr(0, pos));
 
     if (shape_tensor_pos != std::string::npos) {
       input_shape.erase(shape_tensor_pos, shape_str.length());
@@ -192,11 +205,27 @@ std::vector<at::Tensor> get_input_tensors(
     }
 
     auto tensor_options = torch::TensorOptions().device("hpu").dtype(
-        tensor_dtype_map[input.first]);
+        tensor_dtype_map[input_name]);
     auto pt_tensor =
         create_empty_tensor(tensor_shape, tensor_options, is_shape_tensor);
-    input_tensors.push_back(pt_tensor);
+    PT_TEST_DEBUG(
+        "Creating tensor for input[",
+        idx,
+        "]: ",
+        input_name,
+        habana_helpers::DebugString(pt_tensor));
+    idx_tensor_map.emplace(idx, pt_tensor);
   }
+
+  for (auto p : idx_tensor_map) {
+    PT_TEST_DEBUG(
+        "Adding tensor for input[",
+        p.first,
+        "]: ",
+        habana_helpers::DebugString(p.second));
+    input_tensors.push_back(p.second);
+  }
+
   return input_tensors;
 }
 } // namespace jit_ir_test
