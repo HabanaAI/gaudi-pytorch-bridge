@@ -14,7 +14,7 @@
 
 namespace habana {
 
-sizes_vec MinMaxOutputShape(const at::Stack& stack, bool) {
+sizes_vec MinMaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
@@ -26,7 +26,7 @@ template <>
 LazyMinMax<std::tuple<at::Tensor, at::Tensor>>::LazyMinMax(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<std::tuple<at::Tensor, at::Tensor>>(
           qualstring,
           inputs,
@@ -38,7 +38,7 @@ std::tuple<at::Tensor, at::Tensor> LazyMinMax<
     std::tuple<at::Tensor, at::Tensor>>::get_result_overrideable() {
   auto inputs = get_inputs();
   auto t = inputs.at(0).toTensor();
-  auto out_shape = MinMaxOutputShape(inputs, true)[0];
+  auto out_shape = MinMaxOutputShape(inputs)[0];
   at::Tensor min = habana_lazy::empty_hpu_lazy(
       out_shape, t.options(), t.suggest_memory_format(), false);
   at::Tensor min_indices = habana_lazy::empty_hpu_lazy(
@@ -64,7 +64,7 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
 
-  auto shape = MinMaxOutputShape(stack, true)[0];
+  auto shape = MinMaxOutputShape(stack)[0];
 
   auto reduce_max = HandleReductionDimAndKeepdim(
       this,

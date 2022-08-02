@@ -16,7 +16,7 @@ template <>
 LazyRreluOutInplace<at::Tensor&>::LazyRreluOutInplace(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // out variant last argument is not a generator
   get_inputs().at(5) =

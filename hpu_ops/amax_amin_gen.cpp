@@ -14,7 +14,7 @@
 
 namespace habana {
 
-sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
+sizes_vec AminmaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();
@@ -28,7 +28,7 @@ sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
   return {shapes[0], shapes[0]};
 }
 
-sizes_vec AminAmaxOutputShape(const at::Stack& stack, bool) {
+sizes_vec AminAmaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();
@@ -92,7 +92,7 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim_vec =
       is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
 
-  const auto output_shape = AminmaxOutputShape(stack, true)[0];
+  const auto output_shape = AminmaxOutputShape(stack)[0];
 
   auto input = syn_in(0);
 
@@ -134,7 +134,7 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = stack.at(1);
   auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
 
-  const auto output_shape = AminAmaxOutputShape(stack, true)[0];
+  const auto output_shape = AminAmaxOutputShape(stack)[0];
 
   auto op = HandleReductionDimAndKeepdim(
       this,

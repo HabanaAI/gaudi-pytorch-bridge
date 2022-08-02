@@ -19,8 +19,7 @@ LazyOpWithTypePromotion<at::Tensor>::LazyOpWithTypePromotion(
     const std::vector<at::IValue>& inputs,
     bool is_outfn,
     bool safe_cast_check,
-    const std::function<
-        std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+    const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
     : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   HABANA_ASSERT(!is_outfn, "Unexpected output op variant");
@@ -34,8 +33,7 @@ LazyOpWithTypePromotion<at::Tensor&>::LazyOpWithTypePromotion(
     const std::vector<at::IValue>& inputs,
     bool is_outfn,
     bool safe_cast_check,
-    const std::function<
-        std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+    const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
     : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Perform type promotion and validate if promoted type can be casted to
@@ -77,8 +75,7 @@ PromoteIntToFloat<at::Tensor>::PromoteIntToFloat(
     const std::vector<at::IValue>& inputs,
     bool is_outfn,
     bool safe_cast_check,
-    const std::function<
-        std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+    const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
     : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   HABANA_ASSERT(!is_outfn, "Unexpected output op variant");
@@ -93,8 +90,7 @@ PromoteIntToFloat<at::Tensor&>::PromoteIntToFloat(
     const std::vector<at::IValue>& inputs,
     bool is_outfn,
     bool safe_cast_check,
-    const std::function<
-        std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+    const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
     : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Perform type promotion and validate if promoted type can be casted to

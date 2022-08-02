@@ -150,9 +150,9 @@ void ReductionBackendTemplate::AddNode(
   // Extract keepdim
   bool keepdim = get_keepdim(stack, m_keepdim_index);
 
-  auto shape = ComputeOutputShapes(stack, true).empty()
+  auto shape = ComputeOutputShapes(stack).empty()
       ? ReductionOutputShape(self, dims, keepdim)[0]
-      : ComputeOutputShapes(stack, true)[0];
+      : ComputeOutputShapes(stack)[0];
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{{shape, ScalarType(), 0}};
 
   auto result = HandleReductionDimAndKeepdim(

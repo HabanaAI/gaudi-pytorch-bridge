@@ -16,7 +16,7 @@ template <>
 LazyFrexp<std::tuple<at::Tensor, at::Tensor>>::LazyFrexp(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<std::tuple<at::Tensor, at::Tensor>>(
           qualstring,
           inputs,
@@ -38,14 +38,14 @@ std::tuple<at::Tensor, at::Tensor> LazyFrexp<
   return {mantissa, exponent};
 }
 
-sizes_vec FrexpOutputShape(const at::Stack& stack, bool) {
+sizes_vec FrexpOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> shape = self.sizes().vec();
   return {{shape, shape}};
 }
 
 void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = FrexpOutputShape(stack, true)[0];
+  auto outshape = FrexpOutputShape(stack)[0];
   auto frexp = BuildOp(
       graph,
       guid_,

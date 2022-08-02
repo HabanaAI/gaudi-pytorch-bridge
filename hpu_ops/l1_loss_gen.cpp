@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec L1LossOutputShape(const at::Stack& stack, bool) {
+sizes_vec L1LossOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   if (reduction == at::Reduction::Reduction::None) {

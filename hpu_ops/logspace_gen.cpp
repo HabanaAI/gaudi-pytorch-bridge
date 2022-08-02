@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec LogspaceOutputShape(const at::Stack& stack, bool) {
+sizes_vec LogspaceOutputShape(const at::Stack& stack) {
   int64_t step = stack.at(2).toInt();
   return {{step}};
 }
@@ -43,7 +43,7 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
 }
 
 void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = LogspaceOutputShape(stack, true)[0];
+  auto outshape = LogspaceOutputShape(stack)[0];
   size_t size = 0;
   auto params = RangeParams(stack, size);
 

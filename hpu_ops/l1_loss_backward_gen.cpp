@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec L1LossBackwardOutputShape(const at::Stack& stack, bool) {
+sizes_vec L1LossBackwardOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
   return {self.sizes().vec()};
 }

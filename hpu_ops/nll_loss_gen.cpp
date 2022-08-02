@@ -15,7 +15,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-sizes_vec NllLossFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec NllLossFwdOutputShape(const at::Stack& stack) {
   const torch::Tensor& target = stack_tensor(stack, 1);
   int64_t reduction = stack.at(3).toInt();
   if (reduction == at::Reduction::Reduction::None) {
@@ -24,7 +24,7 @@ sizes_vec NllLossFwdOutputShape(const at::Stack& stack, bool) {
   return {{}, {}};
 }
 
-sizes_vec NllLossBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec NllLossBwdOutputShape(const at::Stack& stack) {
   const torch::Tensor& target = stack_tensor(stack, 1);
   return {target.sizes().vec()};
 }
@@ -171,7 +171,7 @@ void NllLossFwd::AddNode(
 
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack, true)[0];
+  const auto outshape = ComputeOutputShapes(stack)[0];
 
   if (stack.at(2).isNone()) { // weight is none
     auto nll_loss =
@@ -206,7 +206,7 @@ void NllLoss2DFwd::AddNode(
   auto input_shape = stack_tensor(stack, 0).sizes();
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack, true)[0];
+  const auto outshape = ComputeOutputShapes(stack)[0];
 
   std::vector<synapse_helpers::tensor> nll_loss;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
@@ -267,7 +267,7 @@ void NllLossBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack, true)[0];
+  const auto outshape = ComputeOutputShapes(stack)[0];
   auto dtype = stack.at(0).toTensor().scalar_type();
   // A JIRA is created for self input tensor not used
   // https://jira.habana-labs.com/browse/SW-73878
@@ -295,7 +295,7 @@ void NllLoss2DBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack, true)[0];
+  const auto outshape = ComputeOutputShapes(stack)[0];
   auto dtype = stack.at(0).toTensor().scalar_type();
 
   // A JIRA is created for self input tensor not used

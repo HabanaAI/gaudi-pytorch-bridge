@@ -32,7 +32,7 @@ static int OutputShapeComputation(
       1);
 }
 
-sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack, bool) {
+sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
   auto stride = stack.at(2).toIntVector();
@@ -114,7 +114,7 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack, bool) {
   return {output_shape, output_shape};
 }
 
-sizes_vec MaxPool2DOutputShape(const at::Stack& stack, bool) {
+sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
   auto stride = stack.at(2).toIntVector();
@@ -178,7 +178,7 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack, bool) {
   return {output_shape, output_shape};
 }
 
-sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack, bool) {
+sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
   std::vector<int64_t> input_shape = self.sizes().vec();
   return {input_shape};
@@ -416,7 +416,7 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
     std::vector<synTensor> input,
     const c10::ScalarType& scalar_type) {
   const torch::Tensor& self = stack.at(0).toTensor();
-  const auto& final_out_shape = MaxPool3DIndicesOutputShape(stack, false);
+  const auto& final_out_shape = MaxPool3DIndicesOutputShape(stack);
   size_t size = 0;
   const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
   auto index_type = FindIndexType(self.scalar_type());
@@ -536,7 +536,7 @@ void MaxPool3DWithIndices::AddNode(
 void MaxPool3DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack, true);
+  const auto& out_shape = ComputeOutputShapes(stack);
   const torch::Tensor& self = stack.at(1).toTensor();
   size_t size = 0;
   const auto& params = FillParams(stack, size);
@@ -621,7 +621,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
 /**void MaxPool2DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack, true);
+  const auto& out_shape = ComputeOutputShapes(stack);
   const torch::Tensor& self = stack.at(0).toTensor();
   const auto& transpose_inputshape =
       TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL2D);
@@ -692,7 +692,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
 void MaxPool2DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack, true);
+  const auto& out_shape = ComputeOutputShapes(stack);
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const torch::Tensor& self = stack.at(1).toTensor();

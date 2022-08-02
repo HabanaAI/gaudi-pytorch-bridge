@@ -16,7 +16,7 @@
 constexpr float cmp_value = 0; // value to compare with the reduce sum result
 namespace habana {
 
-sizes_vec AnyDimOutputShape(const at::Stack& stack, bool) {
+sizes_vec AnyDimOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   const bool keepdim = stack.at(2).toBool();
@@ -28,15 +28,15 @@ template <>
 AnyOutputType<at::Tensor>::AnyOutputType(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
 at::Tensor AnyOutputType<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
-  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs, false)[0]
-                                 : AllAnyOutputShape(inputs, false)[0];
+  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs)[0]
+                                 : AllAnyOutputShape(inputs)[0];
   return habana_lazy::empty_hpu_lazy(
       shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
 }
@@ -86,7 +86,7 @@ std::vector<synapse_helpers::tensor> AnyCommonFunc(
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   synapse_helpers::tensor& input = GetSynInputs()[0];
-  auto outshape = ComputeOutputShapes(stack, true)[0];
+  auto outshape = ComputeOutputShapes(stack)[0];
   auto dim = stack.at(1).toInt();
   bool keepdim = stack.at(2).toBool();
 
@@ -98,7 +98,7 @@ void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   synapse_helpers::tensor& input = GetSynInputs()[0];
-  auto outshape = ComputeOutputShapes(stack, true)[0];
+  auto outshape = ComputeOutputShapes(stack)[0];
 
   auto any_out = AnyCommonFunc(this, graph, self, {}, false, input, outshape);
   syn_out(0) = std::move(any_out[0]);

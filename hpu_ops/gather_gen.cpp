@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec GatherOutputShape(const at::Stack& stack, bool) {
+sizes_vec GatherOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto index = stack.at(2).toTensor();
   auto dim_ = stack.at(1).toInt();
@@ -49,7 +49,7 @@ void GatherHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   // output shape
-  auto outshape = GatherOutputShape(stack, true)[0];
+  auto outshape = GatherOutputShape(stack)[0];
   at::Tensor self = stack.at(0).toTensor();
   at::Tensor indices = stack.at(2).toTensor();
 

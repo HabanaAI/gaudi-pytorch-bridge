@@ -11,7 +11,7 @@
 #include "generated/mm.h"
 #include "hpu_op_helper.h"
 namespace habana {
-sizes_vec MmOutputShape(const at::Stack& stack, bool) {
+sizes_vec MmOutputShape(const at::Stack& stack) {
   TORCH_CHECK(
       (stack.at(0).isTensor() && stack.at(1).isTensor()),
       " Matmul Input type expected to be tensors");

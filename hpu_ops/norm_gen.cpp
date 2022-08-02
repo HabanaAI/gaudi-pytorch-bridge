@@ -16,12 +16,12 @@
 #define INF std::numeric_limits<float>::infinity()
 namespace habana {
 
-sizes_vec NormOutputShape(const at::Stack&, bool) {
+sizes_vec NormOutputShape(const at::Stack&) {
   return {{}};
 }
 
 // Second param is unused so neglecting it
-sizes_vec NormOpOutputShape(const at::Stack& stack, bool) {
+sizes_vec NormOpOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim =
       stack.at(2).isNone() ? std::vector<int64_t>() : stack.at(2).toIntVector();
@@ -53,7 +53,7 @@ template <>
 LazyNormOp<at::Tensor>::LazyNormOp(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
@@ -205,7 +205,7 @@ static synapse_helpers::tensor NegPosInfNormPreprocess(
       op,
       graph,
       {"abs_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-       input,
+       std::move(input),
        {{inputshape, dtype}}});
 
   return std::move(abs.at(0));
@@ -315,7 +315,7 @@ void VecNormOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::ScalarType& dtype = optional_dtype.value_or(ScalarType());
   const bool keepdim = stack.at(3).toBool();
 
-  auto output_shape = NormOpOutputShape(stack, true)[0];
+  auto output_shape = NormOpOutputShape(stack)[0];
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       dtype == torch::kBFloat16 || dtype == torch::kFloat,
       "linalg.vector_norm: Expected input dtype to be Float or kBFloat16, but got ",

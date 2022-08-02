@@ -26,7 +26,7 @@ std::shared_ptr<void> FillIndexSelectParams(
   return params;
 }
 
-sizes_vec IndexSelectOutShape(const at::Stack& stack, bool) {
+sizes_vec IndexSelectOutShape(const at::Stack& stack) {
   auto self = stack.at(index_of_self).toTensor();
   auto dim_ = stack.at(index_of_dim).toInt();
   auto index = stack.at(index_of_index_position).toTensor();

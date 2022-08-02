@@ -59,7 +59,7 @@ template <>
 ScalarTypeConversion<at::Tensor>::ScalarTypeConversion(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   auto x = get_inputs();
   if (x[index_of_self].isScalar()) {

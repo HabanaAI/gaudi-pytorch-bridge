@@ -71,8 +71,8 @@ static std::vector<int64_t> CalcCatOutSize(
   return out_size;
 }
 
-sizes_vec IndexOutputShape(const at::Stack& stack, bool lowering) {
-  if (!lowering) {
+sizes_vec IndexOutputShape(const at::Stack& stack) {
+  if (!habana_lazy::isDeviceInLoweringMode()) {
     return {};
   }
   const at::Tensor input = stack_tensor(stack, 0);
@@ -86,7 +86,7 @@ template <>
 LazyIndex<at::Tensor>::LazyIndex(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();

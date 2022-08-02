@@ -17,7 +17,7 @@ constexpr int64_t index_of_fwd_mode = 3;
 
 namespace habana {
 
-sizes_vec BinaryCrossEntropyFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec BinaryCrossEntropyFwdOutputShape(const at::Stack& stack) {
   constexpr int64_t index_of_self = 0;
   auto reduction = stack.at(index_of_fwd_mode).toInt();
   if (reduction == at::Reduction::Reduction::None)
@@ -25,7 +25,7 @@ sizes_vec BinaryCrossEntropyFwdOutputShape(const at::Stack& stack, bool) {
   return {{}};
 }
 
-sizes_vec BinaryCrossEntropyBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec BinaryCrossEntropyBwdOutputShape(const at::Stack& stack) {
   constexpr int64_t index_of_self = 1;
   return {stack.at(index_of_self).toTensor().sizes().vec()};
 }
@@ -76,7 +76,7 @@ void BinaryCrossEntropyFwd::AddNode(
   constexpr int64_t index_of_self = 0;
   constexpr int64_t index_of_target = 1;
 
-  auto bce_output_shape = BinaryCrossEntropyFwdOutputShape(stack, true)[0];
+  auto bce_output_shape = BinaryCrossEntropyFwdOutputShape(stack)[0];
 
   size_t size = 0;
   bool is_backward = false;
@@ -129,7 +129,7 @@ void BinaryCrossEntropyBwd::AddNode(
   constexpr int64_t index_of_self = 1;
   constexpr int64_t index_of_target = 2;
 
-  auto bce_output_shape = BinaryCrossEntropyBwdOutputShape(stack, true)[0];
+  auto bce_output_shape = BinaryCrossEntropyBwdOutputShape(stack)[0];
   size_t size = 0;
   bool is_backward = true;
 

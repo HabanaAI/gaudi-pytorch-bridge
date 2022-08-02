@@ -14,7 +14,7 @@ namespace habana {
 void LogAddExp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape_self = stack_tensor(stack, 0).sizes();
   const auto& outshape_other = stack_tensor(stack, 1).sizes();
-  auto result_outshape = ComputeOutputShapes(stack, true)[0];
+  auto result_outshape = ComputeOutputShapes(stack)[0];
 
   // exp on input 0
   auto exp_0 = BuildOp(

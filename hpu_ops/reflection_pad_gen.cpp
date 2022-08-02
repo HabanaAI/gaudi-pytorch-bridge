@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec ReflectionPad1DOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReflectionPad1DOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> outputShape = self.sizes().vec();
   auto pad = stack.at(1).toIntVector();
@@ -23,7 +23,7 @@ sizes_vec ReflectionPad1DOutputShape(const at::Stack& stack, bool) {
   return {outputShape};
 }
 
-sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> outputShape = self.sizes().vec();
   auto pad = stack.at(1).toIntVector();
@@ -35,7 +35,7 @@ sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack, bool) {
   return {outputShape};
 }
 
-sizes_vec ReflectionPad3DOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReflectionPad3DOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   std::vector<int64_t> outputShape = self.sizes().vec();
   auto pad = stack.at(1).toIntVector();
@@ -82,7 +82,7 @@ std::shared_ptr<void> FillReflectionPadForwardParams(
   return FillReflectionPadParams(stack, size, 1);
 }
 
-sizes_vec ReflectionPadBackwardOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReflectionPadBackwardOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
   return {self.sizes().vec()};
 }

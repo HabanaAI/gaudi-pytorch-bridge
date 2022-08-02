@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec MvOpsOutputShape(const at::Stack& stack, bool) {
+sizes_vec MvOpsOutputShape(const at::Stack& stack) {
   const at::Tensor mat1 = stack_tensor(stack, 0);
   sizes_vec shape = std::vector<std::vector<int64_t>>{{mat1.sizes()[0]}};
   return shape;

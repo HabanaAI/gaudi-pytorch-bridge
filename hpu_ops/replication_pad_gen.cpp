@@ -88,15 +88,15 @@ std::shared_ptr<void> FillPadParams(
   return params;
 }
 
-sizes_vec ReplicationPad1dOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReplicationPad1dOutputShape(const at::Stack& stack) {
   return ComputeOutputShape(stack, true, false, false);
 }
 
-sizes_vec ReplicationPad2dOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReplicationPad2dOutputShape(const at::Stack& stack) {
   return ComputeOutputShape(stack, false, true, false);
 }
 
-sizes_vec ReplicationPad3dOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReplicationPad3dOutputShape(const at::Stack& stack) {
   return ComputeOutputShape(stack, false, false, true);
 }
 

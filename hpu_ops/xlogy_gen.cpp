@@ -32,7 +32,7 @@ template <typename T>
 LazyXlogY<T>::LazyXlogY(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   auto x = LazyXlogY<T>::get_inputs();
   // convert scalar input to tensor
@@ -52,7 +52,7 @@ T LazyXlogY<T>::get_result_overrideable() {
   return LazyXlogY<T>::get_result_overrideable();
 }
 
-sizes_vec XlogYOutputShape(const at::Stack& stack, bool) {
+sizes_vec XlogYOutputShape(const at::Stack& stack) {
   if (stack.at(1).isScalar()) {
     const torch::Tensor& self = stack_tensor(stack, 0);
     return {self.sizes().vec()};
@@ -68,7 +68,7 @@ sizes_vec XlogYOutputShape(const at::Stack& stack, bool) {
 void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = XlogYOutputShape(stack, true)[0];
+  auto outshape = XlogYOutputShape(stack)[0];
   auto other_shape = stack_tensor(stack, 1).sizes().vec();
 
   auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{other_shape, ScalarType()}});

@@ -20,7 +20,7 @@ std::shared_ptr<void> FillDiagParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-sizes_vec DiagOutShape(const at::Stack& stack, bool) {
+sizes_vec DiagOutShape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto sizes = self.sizes().vec();
   auto diagonal = stack.at(1).toInt();
@@ -64,7 +64,7 @@ sizes_vec DiagOutShape(const at::Stack& stack, bool) {
 void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
 
-  auto out_shape = DiagOutShape(stack, true)[0];
+  auto out_shape = DiagOutShape(stack)[0];
 
   size_t size = 0;
   auto params = FillDiagParams(stack, size);

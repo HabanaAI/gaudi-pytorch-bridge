@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec LerpOutputShape(const at::Stack& stack, bool) {
+sizes_vec LerpOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& end = stack_tensor(stack, 1);
   std::vector<std::vector<int64_t>> shape;
@@ -26,7 +26,7 @@ sizes_vec LerpOutputShape(const at::Stack& stack, bool) {
 }
 
 void Lerp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = LerpOutputShape(stack, true)[0];
+  auto outshape = LerpOutputShape(stack)[0];
   auto sub_outshape = at::infer_size(
       stack_tensor(stack, 0).sizes(), stack_tensor(stack, 1).sizes());
 

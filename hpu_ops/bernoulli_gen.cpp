@@ -22,7 +22,7 @@ template <>
 LazyBernoulliOutFrontend<at::Tensor&>::LazyBernoulliOutFrontend(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
@@ -42,7 +42,7 @@ template <typename T>
 LazyBernoulliFrontend<T>::LazyBernoulliFrontend(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   LazyBernoulliFrontend<T>::get_inputs().at(1) =
       habana_lazy::get_tensor_for_scalar(

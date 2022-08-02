@@ -15,7 +15,7 @@ namespace habana {
 void Hypot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape_self = stack_tensor(stack, 0).sizes();
   const auto& outshape_other = stack_tensor(stack, 1).sizes();
-  auto result_outshape = BinaryOutputShape(stack, true)[0];
+  auto result_outshape = BinaryOutputShape(stack)[0];
 
   // mul on input 0
   auto mul_1 = BuildOp(

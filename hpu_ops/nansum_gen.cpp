@@ -15,7 +15,7 @@
 #define guidReducesum "reduce_sum_fwd_"
 
 namespace habana {
-sizes_vec NanSumIntListOutputShape(const at::Stack& stack, bool) {
+sizes_vec NanSumIntListOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> dim = stack.at(1).toIntList().vec();
   const bool keepdim = stack.at(2).toBool();
@@ -35,7 +35,7 @@ void NansumList::AddNode(
 
   bool keepdim = stack.at(2).toBool();
 
-  auto new_shape = NanSumIntListOutputShape(stack, true)[0];
+  auto new_shape = NanSumIntListOutputShape(stack)[0];
 
   auto guid =
       guidReducesum + habana_helpers::name_suffix_from_type(ScalarType());

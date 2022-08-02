@@ -18,7 +18,7 @@ constexpr int val_idx = 3; // index of value
 
 namespace habana {
 
-sizes_vec AddCOpsOutputShape(const at::Stack& stack, bool) {
+sizes_vec AddCOpsOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, inp_idx);
   const torch::Tensor& other1 = stack_tensor(stack, oth1_idx);
   const torch::Tensor& other2 = stack_tensor(stack, oth2_idx);
@@ -41,7 +41,7 @@ template <>
 AddCOpFE<at::Tensor&>::AddCOpFE(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // convert "value" scalar to tensor to avoid cache misses
   convert_scalar_val_to_tensor(get_inputs());
@@ -51,7 +51,7 @@ template <>
 AddCOpFE<at::Tensor>::AddCOpFE(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
   // convert "value" scalar to tensor to avoid cache misses
   convert_scalar_val_to_tensor(get_inputs());
@@ -93,7 +93,7 @@ void AddCOpBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   // Finally add op with self
   std::vector<synTensor> add_op_inputs{syn_in(inp_idx), variable_op[0].get()};
-  auto outshape = AddCOpsOutputShape(stack, true)[0];
+  auto outshape = AddCOpsOutputShape(stack)[0];
 
   auto add_op = BuildOp(
       graph,

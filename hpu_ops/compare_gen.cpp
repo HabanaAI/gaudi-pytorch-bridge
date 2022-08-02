@@ -22,7 +22,7 @@ LazyCmp<at::Tensor>::LazyCmp(
     const std::vector<at::IValue>& inputs,
     bool,
     bool,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   auto x = get_inputs();
   // convert scalar input to tensor to avoid cache misses in cases where scalar
@@ -42,13 +42,13 @@ template <>
 at::Tensor LazyCmp<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
-  auto shape = BinaryOutputShape(inputs, false)[0];
+  auto shape = BinaryOutputShape(inputs)[0];
   return habana_lazy::empty_hpu_lazy(
       shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
 }
 
 void CompareOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = BinaryOutputShape(stack, true)[0];
+  auto outshape = BinaryOutputShape(stack)[0];
   auto result =
       BuildOp(graph, guid_, {syn_in(0), syn_in(1)}, {{outshape, at::kBool, 0}});
 

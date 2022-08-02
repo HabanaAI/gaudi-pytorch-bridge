@@ -46,7 +46,7 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
       const std::vector<at::IValue>& inputs,
       bool is_outfn,
       bool,
-      const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+      const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
       : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn, -1),
         is_outfn_(is_outfn) {}
 

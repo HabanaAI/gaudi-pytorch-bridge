@@ -96,32 +96,30 @@ inline float& get<float>(fint_t& u) {
     void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 
-#define HPU_OP_FRONTEND(op)                                                    \
-  template <typename T>                                                        \
-  struct op : habana_lazy::LazyOp<T> {                                         \
-    op(const std::string& qualstring,                                          \
-       const std::vector<at::IValue>& inputs,                                  \
-       const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn = \
-           {});                                                                \
-    T get_result_overrideable() override;                                      \
+#define HPU_OP_FRONTEND(op)                                                   \
+  template <typename T>                                                       \
+  struct op : habana_lazy::LazyOp<T> {                                        \
+    op(const std::string& qualstring,                                         \
+       const std::vector<at::IValue>& inputs,                                 \
+       const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn = {}); \
+    T get_result_overrideable() override;                                     \
   };
 
-#define HPU_OP_FRONTEND_WITH_TYPE_PROMOTION(op)                                \
-  template <typename T>                                                        \
-  struct op : habana_lazy::LazyOp<T> {                                         \
-    op(const std::string& qualstring,                                          \
-       const std::vector<at::IValue>& inputs,                                  \
-       bool is_out_fn,                                                         \
-       bool safe_cast_check,                                                   \
-       const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn = \
-           {});                                                                \
-    T get_result_overrideable() override;                                      \
+#define HPU_OP_FRONTEND_WITH_TYPE_PROMOTION(op)                               \
+  template <typename T>                                                       \
+  struct op : habana_lazy::LazyOp<T> {                                        \
+    op(const std::string& qualstring,                                         \
+       const std::vector<at::IValue>& inputs,                                 \
+       bool is_out_fn,                                                        \
+       bool safe_cast_check,                                                  \
+       const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn = {}); \
+    T get_result_overrideable() override;                                     \
   };
 
 #define FILL_PARAMS_DECL(fn) \
   std::shared_ptr<void> fn(const at::Stack&, size_t&);
 
-#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool);
+#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;

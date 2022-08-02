@@ -16,7 +16,7 @@ template <>
 LazyTrace<at::Tensor>::LazyTrace(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
   auto x = inputs.at(0).toTensor();
   // In CPU trace op promotes all int dtype input to Long.
@@ -32,7 +32,7 @@ at::Tensor LazyTrace<at::Tensor>::get_result_overrideable() {
   return {};
 }
 
-sizes_vec TraceOutputShape(const at::Stack&, bool) {
+sizes_vec TraceOutputShape(const at::Stack&) {
   return {{}};
 }
 

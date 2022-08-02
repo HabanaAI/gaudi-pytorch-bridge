@@ -16,7 +16,7 @@ void LogAddExp2::AddNode(
     const at::Stack& stack) {
   const auto& outshape_self = stack_tensor(stack, 0).sizes();
   const auto& outshape_other = stack_tensor(stack, 1).sizes();
-  auto result_outshape = ComputeOutputShapes(stack, true)[0];
+  auto result_outshape = ComputeOutputShapes(stack)[0];
 
   // pow on input 0
   auto pow_out_1 = BuildOp(

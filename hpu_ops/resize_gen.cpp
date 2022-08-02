@@ -10,7 +10,7 @@
 #include "generated/resize.h"
 
 namespace habana {
-sizes_vec ResizeOutputShape(const at::Stack& stack, bool) {
+sizes_vec ResizeOutputShape(const at::Stack& stack) {
   return {stack.at(1).toIntVector()};
 }
 

@@ -11,7 +11,7 @@
 #include "generated/vdot.h"
 
 namespace habana {
-sizes_vec VdotOutputShape(const at::Stack&, bool) {
+sizes_vec VdotOutputShape(const at::Stack&) {
   return {{}};
 }
 

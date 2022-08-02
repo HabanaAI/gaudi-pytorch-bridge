@@ -17,7 +17,7 @@ namespace habana {
 void RemainderOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto outshape = BinaryOutputShape(stack, true)[0];
+  const auto outshape = BinaryOutputShape(stack)[0];
 
   if (ScalarType() == c10::ScalarType::BFloat16 ||
       (ScalarType() == c10::ScalarType::Float)) {

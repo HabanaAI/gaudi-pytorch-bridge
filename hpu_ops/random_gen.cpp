@@ -20,7 +20,7 @@ template <typename T>
 LazyTensorSeed<T>::LazyTensorSeed(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
@@ -40,7 +40,7 @@ template <typename T>
 LazyTensorOutSeed<T>::LazyTensorOutSeed(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005

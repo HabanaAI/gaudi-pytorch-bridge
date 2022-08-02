@@ -12,7 +12,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-sizes_vec EyeOutputShape(const at::Stack& stack, bool) {
+sizes_vec EyeOutputShape(const at::Stack& stack) {
   const int64_t n = stack.at(0).toInt();
   if (stack.size() == 3) {
     const int64_t m = stack.at(1).toInt();
@@ -23,7 +23,7 @@ sizes_vec EyeOutputShape(const at::Stack& stack, bool) {
 
 void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<synapse_helpers::tensor> eye_out;
-  auto outshape = EyeOutputShape(stack, true)[0];
+  auto outshape = EyeOutputShape(stack)[0];
 
   auto constant = ConstantHelper(graph, 1.0f, ScalarType(), outshape);
 

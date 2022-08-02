@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec LogSigmoidfwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec LogSigmoidfwdOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   return {self.sizes().vec(), self.sizes().vec()};
 }

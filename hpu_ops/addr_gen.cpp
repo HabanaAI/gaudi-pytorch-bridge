@@ -11,7 +11,7 @@
 
 namespace habana {
 
-sizes_vec AddROutshape(const at::Stack& stack, bool) {
+sizes_vec AddROutshape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto vec1 = stack_tensor(stack, 1);
   auto vec2 = stack_tensor(stack, 2);
@@ -98,7 +98,7 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {self_reshaped[0].get(), addr_unsqueezed[0].get()},
         {{vecmul_outshape, ScalarType()}});
   }
-  auto outshape = AddROutshape(stack, true)[0];
+  auto outshape = AddROutshape(stack)[0];
 
   auto addr_out = BuildOp(
       graph,

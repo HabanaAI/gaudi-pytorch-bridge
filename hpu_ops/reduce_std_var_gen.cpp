@@ -18,7 +18,7 @@
 
 namespace habana {
 
-sizes_vec StdVarComputeOutShape(const at::Stack& stack, bool) {
+sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim =
       stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
@@ -26,7 +26,7 @@ sizes_vec StdVarComputeOutShape(const at::Stack& stack, bool) {
   return ReductionOutputShape(self, dim, keepdim);
 }
 
-sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack, bool) {
+sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim =
       stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();

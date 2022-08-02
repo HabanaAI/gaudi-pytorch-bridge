@@ -49,7 +49,7 @@ std::shared_ptr<void> Fillavgpool2dParams(
   return params;
 }
 
-sizes_vec Avgpool2dOutputShape(const at::Stack& stack, bool) {
+sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   CHECK_DIM(self.dim());
 
@@ -83,7 +83,7 @@ void Avgpool2d::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
   size_t size = 0;
   const auto& params = Fillavgpool2dParams(stack, size);
-  auto outshape = Avgpool2dOutputShape(stack, true)[0];
+  auto outshape = Avgpool2dOutputShape(stack)[0];
 
   synTransposeParams trans_params{};
   trans_params.tensorDim = self.dim();

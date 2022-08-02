@@ -75,11 +75,9 @@ class OpBackend : public HabanaOperator {
       std::vector<synTensor>& inputs,
       synTensorType shape_tensor_type = SHAPE_TENSOR);
 
-  sizes_vec ComputeOutputShapes(
-      const at::Stack& stack,
-      bool is_lowering = false) const {
+  sizes_vec ComputeOutputShapes(const at::Stack& stack) const {
     if (m_compute_output_shapes) {
-      return m_compute_output_shapes(stack, is_lowering);
+      return m_compute_output_shapes(stack);
     }
     return {};
   }
@@ -152,8 +150,7 @@ class OpBackend : public HabanaOperator {
     return m_fill_params ? m_fill_params(stack, size) : nullptr;
   }
 
-  void SetComputeOutputShapes(
-      std::function<sizes_vec(const at::Stack&, bool)> fn) {
+  void SetComputeOutputShapes(std::function<sizes_vec(const at::Stack&)> fn) {
     m_compute_output_shapes = std::move(fn);
   }
 
@@ -274,7 +271,7 @@ class OpBackend : public HabanaOperator {
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
-  std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
+  std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
 
   std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_cast_;

@@ -13,7 +13,7 @@
 namespace habana {
 void NE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
-  auto outshape = BinaryOutputShape(stack, true)[0];
+  auto outshape = BinaryOutputShape(stack)[0];
 
   const at::ScalarType& result_type = c10::ScalarType::Bool;
 

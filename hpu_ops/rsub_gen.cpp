@@ -16,7 +16,7 @@ template <>
 LazyRsub<at::Tensor>::LazyRsub(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>("aten::sub", inputs, out_shapes_fn) {
   static_cast<void>(qualstring);
   auto& sub_inputs = get_inputs();

@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec SmoothL1LossOutputShape(const at::Stack& stack, bool) {
+sizes_vec SmoothL1LossOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   if (reduction == at::Reduction::Reduction::None) {
@@ -22,7 +22,7 @@ sizes_vec SmoothL1LossOutputShape(const at::Stack& stack, bool) {
   return {{}};
 }
 
-sizes_vec SmoothL1LossBackwardOutputShape(const at::Stack& stack, bool) {
+sizes_vec SmoothL1LossBackwardOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
   return {self.sizes().vec()};
 }

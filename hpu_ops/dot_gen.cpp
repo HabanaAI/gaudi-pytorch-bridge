@@ -12,7 +12,7 @@
 #include "hpu_op_helper.h"
 
 namespace habana {
-sizes_vec DotOutputShape(const at::Stack& stack, bool) {
+sizes_vec DotOutputShape(const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
   TORCH_CHECK(

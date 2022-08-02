@@ -18,7 +18,7 @@ template <>
 ForeachFE<::std::vector<at::Tensor>>::ForeachFE(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<::std::vector<at::Tensor>>(
           qualstring,
           inputs,
@@ -61,7 +61,7 @@ template <>
 ForeachBinaryFE<::std::vector<at::Tensor>>::ForeachBinaryFE(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<::std::vector<at::Tensor>>(
           qualstring,
           inputs,

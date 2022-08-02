@@ -149,7 +149,7 @@ void upsample_3d_common_check(
 }
 
 // Forward Output Shape - Linear1D
-sizes_vec UpsampleLinear1DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleLinear1DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -171,7 +171,7 @@ sizes_vec UpsampleLinear1DFwdOutputShape(const at::Stack& stack, bool) {
   return {out_shape};
 }
 // Backward Output Shape - Linear1D
-sizes_vec UpsampleLinear1DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleLinear1DBwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
@@ -179,7 +179,7 @@ sizes_vec UpsampleLinear1DBwdOutputShape(const at::Stack& stack, bool) {
   return {stack.at(2).toIntVector()};
 }
 // Forward Output Shape - Nearest1D
-sizes_vec UpsampleNearest1DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest1DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
@@ -201,7 +201,7 @@ sizes_vec UpsampleNearest1DFwdOutputShape(const at::Stack& stack, bool) {
   return {out_shape};
 }
 // Backward Output Shape - Nearest1D
-sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -236,9 +236,7 @@ std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
   return out_shape;
 }
 // Forward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DFwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleBilinear2DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -248,7 +246,7 @@ sizes_vec UpsampleBilinear2DFwdOutputShape(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     out_shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!isLowering) {
+    if (!habana_lazy::isDeviceInLoweringMode()) {
       if (!out_size.isNone()) {
         out_shape = {
             self.sizes()[0],
@@ -288,16 +286,14 @@ sizes_vec UpsampleBilinear2DFwdOutputShape(
   return {out_shape};
 }
 // Backward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DBwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleBilinear2DBwdOutputShape(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering ||
+  if (!habana_lazy::isDeviceInLoweringMode() ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else { // always in NHWC - backend
@@ -332,9 +328,7 @@ std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
   return out_shape;
 }
 // Forward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DFwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleNearest2DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
@@ -345,7 +339,7 @@ sizes_vec UpsampleNearest2DFwdOutputShape(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     out_shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!isLowering) {
+    if (!habana_lazy::isDeviceInLoweringMode()) {
       // NCHW
       if (!out_size.isNone()) {
         out_shape = {
@@ -386,16 +380,14 @@ sizes_vec UpsampleNearest2DFwdOutputShape(
   return {out_shape};
 }
 // Backward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DBwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering ||
+  if (!habana_lazy::isDeviceInLoweringMode() ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else {
@@ -430,9 +422,7 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
   return out_shape;
 }
 // Forward Output Shape - Bicubic2D
-sizes_vec UpsampleBicubic2DFwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleBicubic2DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -443,7 +433,7 @@ sizes_vec UpsampleBicubic2DFwdOutputShape(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     out_shape = UpsampleBicubic2DFwdOutputShapeSynapseLayout(stack);
   } else {
-    if (!isLowering) {
+    if (!habana_lazy::isDeviceInLoweringMode()) {
       if (!out_size.isNone()) {
         out_shape = {
             self.sizes()[0],
@@ -483,16 +473,14 @@ sizes_vec UpsampleBicubic2DFwdOutputShape(
   return {out_shape};
 }
 // Backward Output Shape - Bicubic2D
-sizes_vec UpsampleBicubic2DBwdOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec UpsampleBicubic2DBwdOutputShape(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!isLowering ||
+  if (!habana_lazy::isDeviceInLoweringMode() ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
     return {outshape};
   } else { // always in NHWC - backend
@@ -500,7 +488,7 @@ sizes_vec UpsampleBicubic2DBwdOutputShape(
   }
 }
 // Forward Output Shape - Nearest3D
-sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
@@ -535,7 +523,7 @@ sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack, bool) {
   return {out_shape};
 }
 // Backward Output Shape - Nearest3D
-sizes_vec UpsampleNearest3DBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec UpsampleNearest3DBwdOutputShape(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -1104,7 +1092,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
 void UpsampleLinear1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DFwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleLinear1DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1138,7 +1126,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
 void UpsampleLinear1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DBwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleLinear1DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1171,7 +1159,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
 void UpsampleNearest1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DFwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleNearest1DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1204,7 +1192,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
 void UpsampleNearest1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DBwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleNearest1DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1237,7 +1225,7 @@ void UpsampleNearest1DBwdOperator::AddNode(
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest3DFwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleNearest3DFwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);
@@ -1275,7 +1263,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   // outshape
-  auto output_shape = UpsampleNearest3DBwdOutputShape(stack, true)[0];
+  auto output_shape = UpsampleNearest3DBwdOutputShape(stack)[0];
   auto self = stack.at(0).toTensor();
   auto shape_in = self.sizes();
   auto out_size = stack.at(1);

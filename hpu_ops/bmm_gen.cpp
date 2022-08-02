@@ -11,7 +11,7 @@
 #include "generated/bmm.h"
 
 namespace habana {
-sizes_vec BmmOutputShape(const at::Stack& stack, bool) {
+sizes_vec BmmOutputShape(const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor mat2 = stack_tensor(stack, 1);
   auto self_sizes = self.sizes();

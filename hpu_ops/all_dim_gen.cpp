@@ -13,11 +13,11 @@
 
 namespace habana {
 
-sizes_vec AllAnyOutputShape(const at::Stack&, bool) {
+sizes_vec AllAnyOutputShape(const at::Stack&) {
   return {{}};
 }
 
-sizes_vec AllDimOutputShape(const at::Stack& stack, bool) {
+sizes_vec AllDimOutputShape(const at::Stack& stack) {
   auto shape = stack.at(0).toTensor().sizes().vec();
   const int64_t axis = stack.at(1).toInt();
   auto dim = (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis;
@@ -40,7 +40,7 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const bool keepdim = stack.at(2).toBool();
   auto dim = (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis;
 
-  auto out_shape = AllDimOutputShape(stack, true)[0];
+  auto out_shape = AllDimOutputShape(stack)[0];
 
   auto reduce_prod = HandleReductionDimAndKeepdim(
       this,
@@ -92,7 +92,7 @@ void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {{1, c10::ScalarType::Float}},
       params.get(),
       size);
-  auto out_shape = AllOutputShape(stack, true)[0];
+  auto out_shape = AllOutputShape(stack)[0];
 
   auto cast_i8 = CastHelper(
       graph,

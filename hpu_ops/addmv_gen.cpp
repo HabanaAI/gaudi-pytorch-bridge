@@ -11,7 +11,7 @@
 
 namespace habana {
 
-sizes_vec AddMVOutshape(const at::Stack& stack, bool) {
+sizes_vec AddMVOutshape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mat = stack_tensor(stack, 1);
   auto vec = stack_tensor(stack, 2);
@@ -111,7 +111,7 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {self_reshaped[0].get(), addmv[0].get()},
         {{matvecmul_outshape, ScalarType()}});
   }
-  auto outshape = AddMVOutshape(stack, true)[0];
+  auto outshape = AddMVOutshape(stack)[0];
 
   // Output
   auto addmv_out = BuildOp(

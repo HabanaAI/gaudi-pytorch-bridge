@@ -21,13 +21,13 @@ static sizes_vec MseLossFwdBwdOutputShape(
   return {{}};
 }
 
-sizes_vec MseLossOutputShape(const at::Stack& stack, bool) {
+sizes_vec MseLossOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   return MseLossFwdBwdOutputShape(self, reduction);
 }
 
-sizes_vec MseLossBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec MseLossBwdOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(3).toInt();
   return MseLossFwdBwdOutputShape(self, reduction);

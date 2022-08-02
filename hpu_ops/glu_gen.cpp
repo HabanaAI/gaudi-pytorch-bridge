@@ -13,7 +13,7 @@
 
 namespace habana {
 
-sizes_vec GluOutputShape(const at::Stack& stack, bool) {
+sizes_vec GluOutputShape(const at::Stack& stack) {
   auto out_shape = stack.at(0).toTensor().sizes().vec();
   const int64_t axis = stack.at(1).toInt();
   auto dim = (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis;
@@ -21,7 +21,7 @@ sizes_vec GluOutputShape(const at::Stack& stack, bool) {
   return {out_shape};
 }
 
-sizes_vec GluBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec GluBwdOutputShape(const at::Stack& stack) {
   auto out_shape = stack.at(1).toTensor().sizes().vec();
   return {out_shape};
 }
@@ -39,7 +39,7 @@ void Glu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       in_shape[split_idx] % 2 == 0, "Glu: Halving dimension must be even");
 
-  auto outshape = GluOutputShape(stack, true)[0];
+  auto outshape = GluOutputShape(stack)[0];
 
   synAxisParams split_params{};
   split_params.axis = self.dim() - 1 - split_idx;
@@ -126,7 +126,7 @@ void GluBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {t1[0].get(), t2[0].get()},
       {{outshape, ScalarType()}});
 
-  auto out_shape = GluBwdOutputShape(stack, true);
+  auto out_shape = GluBwdOutputShape(stack);
   synConcatenateParams concat_params{};
   concat_params.axis = dim;
 

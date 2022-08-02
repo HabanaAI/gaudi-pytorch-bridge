@@ -14,7 +14,7 @@
 
 namespace habana {
 
-sizes_vec ArgMinMaxOutputShape(const at::Stack& stack, bool) {
+sizes_vec ArgMinMaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
 
   auto dim = stack.at(1);
@@ -32,7 +32,7 @@ void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
 
-  auto shape = ArgMinMaxOutputShape(stack, true)[0];
+  auto shape = ArgMinMaxOutputShape(stack)[0];
   auto dtype = torch::kInt;
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();

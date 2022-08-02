@@ -34,7 +34,7 @@ void Fmod::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       result_type,
       torch::kFloat);
 
-  const auto outshape = BinaryOutputShape(stack, true)[0];
+  const auto outshape = BinaryOutputShape(stack)[0];
   auto fmod = BuildOp(
       graph,
       "mod_fwd_f32",

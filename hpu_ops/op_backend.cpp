@@ -113,7 +113,7 @@ void OpBackend::HandleFn(
   }
 
   std::vector<at::Tensor> tensors;
-  const auto& outshapes = ComputeOutputShapes(stack, true);
+  const auto& outshapes = ComputeOutputShapes(stack);
 
   for (int res_id : m_res_ids) {
     at::IValue ival = stack.at(res_id);
@@ -342,7 +342,7 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (isMetaMode()) {
     const auto& t = stack[0].toTensor();
     const auto& sizes = m_compute_output_shapes
-        ? m_compute_output_shapes(stack, true)[0]
+        ? m_compute_output_shapes(stack)[0]
         : t.sizes().vec();
     m_meta.AddOutputTensor(TensorMetaData(
         sizes, t.strides().vec(), t.scalar_type(), t.suggest_memory_format()));

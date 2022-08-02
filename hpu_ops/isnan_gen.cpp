@@ -16,7 +16,7 @@ template <>
 LazyIsNan<at::Tensor>::LazyIsNan(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
@@ -28,7 +28,7 @@ at::Tensor LazyIsNan<at::Tensor>::get_result_overrideable() {
       t.sizes(), options, t.suggest_memory_format(), false);
 }
 
-sizes_vec IsNanOutputShape(const at::Stack& stack, bool) {
+sizes_vec IsNanOutputShape(const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 1,
       "Incorrect number of inputs provided, while expected 1 input for Isnan");
@@ -43,7 +43,7 @@ void IsNanOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
-  auto outshape = IsNanOutputShape(stack, true)[0];
+  auto outshape = IsNanOutputShape(stack)[0];
 
   if (c10::isFloatingType(self.scalar_type())) {
     auto result = BuildOp(

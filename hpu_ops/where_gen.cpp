@@ -43,7 +43,7 @@ FALLBACK_CHECK(
   }
 }
 
-sizes_vec WhereOutputShape(const at::Stack& stack, bool) {
+sizes_vec WhereOutputShape(const at::Stack& stack) {
   at::IntArrayRef cond = stack_tensor(stack, 0).sizes();
   at::IntArrayRef self = stack_tensor(stack, 1).sizes();
   at::IntArrayRef other = stack_tensor(stack, 2).sizes();
@@ -54,7 +54,7 @@ template <>
 WhereFrontend<at::Tensor>::WhereFrontend(
     const std::string& qualstring,
     const std::vector<at::IValue>& stack,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, stack, out_shapes_fn) {
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
@@ -70,7 +70,7 @@ template <>
 WhereFrontend<at::Tensor&>::WhereFrontend(
     const std::string& qualstring,
     const std::vector<at::IValue>& stack,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, stack, out_shapes_fn) {}
 
 template <>
@@ -81,7 +81,7 @@ at::Tensor& WhereFrontend<at::Tensor&>::get_result_overrideable() {
 void WhereBackend::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto shape = ComputeOutputShapes(stack, true)[0];
+  auto shape = ComputeOutputShapes(stack)[0];
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
 

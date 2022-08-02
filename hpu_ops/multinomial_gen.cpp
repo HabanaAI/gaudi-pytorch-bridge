@@ -18,7 +18,7 @@ template <>
 LazyRandomMulti<at::Tensor>::LazyRandomMulti(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   get_inputs().back() =
       get_seed_tensor_hpu(inputs.back().toOptional<at::Generator>());
@@ -38,7 +38,7 @@ template <>
 LazyRandomMultiOut<at::Tensor&>::LazyRandomMultiOut(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn, -1) {
   // Seed is at the 3rd position
   get_inputs().at(3) =
@@ -50,7 +50,7 @@ at::Tensor& LazyRandomMultiOut<at::Tensor&>::get_result_overrideable() {
   return stack_tensor(get_inputs(), 0);
 }
 
-sizes_vec MultinomialOutputShape(const at::Stack& stack, bool) {
+sizes_vec MultinomialOutputShape(const at::Stack& stack) {
   const torch::Tensor& t = stack_tensor(stack, 0);
   int64_t num_samples = stack.at(1).toInt();
   auto dim = t.sizes()[0];
@@ -93,7 +93,7 @@ void Multinomial::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t size = 0;
-  auto outshape = MultinomialOutputShape(stack, true)[0];
+  auto outshape = MultinomialOutputShape(stack)[0];
   auto params = FillMultinomialParams(stack, size);
   auto multinomial = BuildOp(
       graph,

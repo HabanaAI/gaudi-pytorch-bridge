@@ -14,7 +14,7 @@
 #include "generated/sub.h"
 
 namespace habana {
-sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
+sizes_vec BinaryOutputShape(const at::Stack& stack) {
   if (stack.at(0).isScalar() && stack.at(1).isTensor()) {
     return {stack_tensor(stack, 1).sizes().vec()};
   }
@@ -172,7 +172,7 @@ void RSubScalarOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, 0);
-  auto outshape = BinaryOutputShape(stack, true);
+  auto outshape = BinaryOutputShape(stack);
   std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
 
   const auto& other_scalar = stack[1].toScalar();

@@ -28,7 +28,7 @@ std::shared_ptr<void> FillConstantParams(
 
 void Heaviside::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& comparision_outshape = stack_tensor(stack, 0).sizes();
-  const auto final_outshape = BinaryOutputShape(stack, true)[0];
+  const auto final_outshape = BinaryOutputShape(stack)[0];
   size_t size = 0;
   const auto& params = FillConstantParams(stack, size, 1);
 

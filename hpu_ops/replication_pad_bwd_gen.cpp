@@ -48,7 +48,7 @@ std::shared_ptr<void> FillPadBwdParams(
   return params;
 }
 
-sizes_vec ReplicationPadBwdOutputShape(const at::Stack& stack, bool) {
+sizes_vec ReplicationPadBwdOutputShape(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
   return {self.sizes().vec()};
 }
@@ -78,7 +78,7 @@ void ReplicationPadBwdOp::AddNode(
   // we are having 2 tensor arguments(Grad-In & Self),
   // but the kernel expects Grad-In tensor alone.
   std::vector<synapse_helpers::tensor> pad_bwd_out;
-  auto outshape = ReplicationPadBwdOutputShape(stack, true)[0];
+  auto outshape = ReplicationPadBwdOutputShape(stack)[0];
   size_t size = 0;
   auto params = FillParams(stack, size);
 

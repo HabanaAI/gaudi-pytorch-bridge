@@ -142,8 +142,7 @@ class LazyOp {
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      const std::function<
-          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
           out_shapes_fn,
       int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
@@ -151,7 +150,7 @@ class LazyOp {
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     if (out_shapes_fn) {
-      m_out_shapes = out_shapes_fn(inputs, false);
+      m_out_shapes = out_shapes_fn(inputs);
     }
     set_inputs(inputs);
   }
@@ -1159,8 +1158,7 @@ class LazyOpWithTypePromotion : public LazyOp<T> {
       const std::vector<at::IValue>& inputs,
       bool is_outfn,
       bool safe_cast_check_,
-      const std::function<
-          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
           out_shapes_fn = nullptr);
 
  private:
@@ -1177,8 +1175,7 @@ class PromoteIntToFloat : public LazyOp<T> {
       const std::vector<at::IValue>& inputs,
       bool is_outfn,
       bool safe_cast_check_,
-      const std::function<
-          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
+      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
           out_shapes_fn = nullptr);
 
  private:

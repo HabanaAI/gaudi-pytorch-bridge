@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec HuberLossOutputShape(const at::Stack& stack, bool) {
+sizes_vec HuberLossOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   if (reduction == at::Reduction::Reduction::None) {
@@ -21,7 +21,7 @@ sizes_vec HuberLossOutputShape(const at::Stack& stack, bool) {
   return {{}};
 }
 
-sizes_vec HuberLossBackwardOutputShape(const at::Stack& stack, bool) {
+sizes_vec HuberLossBackwardOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
   return {self.sizes().vec()};
 }

@@ -10,19 +10,15 @@
 #include "generated/all.h"
 
 namespace habana {
-sizes_vec AllOutputShape(const at::Stack&, bool lowering) {
-  std::vector<int64_t> shape_out{};
-  if (lowering) {
-    shape_out.push_back(1);
-  }
-  return {shape_out};
+sizes_vec AllOutputShape(const at::Stack&) {
+  return {{}};
 }
 
 template <>
 LazyAll<at::Tensor>::LazyAll(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
   set_scalar_type(c10::ScalarType::Bool);
 }
