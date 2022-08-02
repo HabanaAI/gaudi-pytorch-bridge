@@ -14,9 +14,6 @@
 // Except bfloat16, all other types are computed in following type
 #define COMMON_COMPUTATION_TYPE_TPC c10::ScalarType::Float
 
-// For use in div_rounding_mode
-#define StrModeTruncate "trunc"
-
 namespace habana {
 
 void FloorDivideOperator::AddNode(
@@ -31,7 +28,7 @@ void FloorDivideOperator::AddNode(
 
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
-  std::string rounding_mode = StrModeTruncate;
+  const std::string rounding_mode = "trunc";
   std::vector<at::Tensor> tensors = {self, other};
 
   const at::ScalarType& final_result_type = at::result_type(self, other);

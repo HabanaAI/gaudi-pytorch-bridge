@@ -6960,12 +6960,6 @@ Tensor cumsum_hpu_lazy(
   return k.call();
 }
 
-Tensor floor_divide_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  // floor_divide now do truncation:
-  // https://pytorch.org/docs/stable/generated/torch.floor_divide.html
-  return div(self, other, "trunc");
-}
-
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,
     int64_t root_rank,

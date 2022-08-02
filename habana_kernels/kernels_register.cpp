@@ -526,27 +526,6 @@ Tensor& hpu_wrap::div_(Tensor& self, const Scalar& other) {
   }
 };
 
-Tensor hpu_wrap::floor_divide(const Tensor& self, const Tensor& other) {
-  TORCH_WARN_ONCE(
-      "floor_divide is deprecated, and will be removed in a future version of pytorch. "
-      "It currently rounds toward 0 (like the 'trunc' function NOT 'floor'). "
-      "This results in incorrect rounding for negative values.\n"
-      "To keep the current behavior, use torch.div(a, b, rounding_mode='trunc'), "
-      "or for actual floor division, use torch.div(a, b, rounding_mode='floor').");
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "floor_divide :", " self=", to_string(self), " other=", to_string(other));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      floor_divide, PARAMS1(self, other), PARAMS2(self, other))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return floor_divide_tensor_hpu_lazy(self, other);
-  } else {
-    HABANA_ASSERT(
-        0 && "floor_divide with rounding mode not implemented for eager mode");
-    return div_tensor_hpu(self, other);
-  }
-};
-
 Tensor hpu_wrap::remainder(const Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
   PT_OP_INFO(

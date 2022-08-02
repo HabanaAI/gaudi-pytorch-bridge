@@ -1561,17 +1561,25 @@ floor_:
 
 floor_divide.out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Byte, Char]
   guid: div
   op_backend: FloorDivideOperator
-  promote_int_to_float: true
+  type_promotion: true
+
+floor_divide:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [BFloat16, Float, Int, Byte, Char]
+  guid: div
+  op_backend: FloorDivideOperator
+  type_promotion: true
+  out_ids: [0]
 
 floor_divide_.Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Byte, Char]
   guid: div
   op_backend: FloorDivideOperator
-  promote_int_to_float: true
+  type_promotion: true
   inplace_ids: [0]
 
 frac:
