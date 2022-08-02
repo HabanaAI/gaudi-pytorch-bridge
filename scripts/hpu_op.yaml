@@ -984,12 +984,14 @@ clamp_max:
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   out_ids: [0]
+  type_promotion: true
 
 clamp_max.Tensor:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
   out_ids: [0]
+  type_promotion: true
 
 clamp_max_:
   force_default: false
@@ -1008,10 +1010,12 @@ clamp_max.out:
   custom_fill_params: FillClampMaxParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+  type_promotion: true
 
 clamp_max.Tensor_out:
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
+  type_promotion: true
 
 clamp_min:
   force_default: false
@@ -1019,12 +1023,14 @@ clamp_min:
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   out_ids: [0]
+  type_promotion: true
 
 clamp_min.Tensor:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
   out_ids: [0]
+  type_promotion: true
 
 clamp_min_:
   force_default: false
@@ -1043,10 +1049,12 @@ clamp_min.out:
   custom_fill_params: FillClampMinParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+  type_promotion: true
 
 clamp_min.Tensor_out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
+  type_promotion: true
 
 copysign.out:
   custom_output_shape: BinaryOutputShape

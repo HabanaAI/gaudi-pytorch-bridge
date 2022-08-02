@@ -10,6 +10,7 @@
 
 #include "generated/clamp.h"
 #include "generated/clamp_max.h"
+#include "habana_helpers/dtype_helpers.h"
 
 // Use min/max of self tensor's dtype for clamping instead of
 // blanket float limits. Use min/max of self's dtype as seen
@@ -153,7 +154,13 @@ std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
 }
 
 std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
-  if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
+  habana_helpers::DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
+      .set_promote_to_common_type(true)
+      .build();
+  c10::ScalarType result_type = dtype_helper.get_result_dtype();
+
+  if (c10::isFloatingType(result_type)) {
     return ClampParams(
         stack[1].toScalar().toFloat(), std::numeric_limits<float>::max(), size);
   }
@@ -162,7 +169,13 @@ std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
 }
 
 std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
-  if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
+  habana_helpers::DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
+      .set_promote_to_common_type(true)
+      .build();
+  c10::ScalarType result_type = dtype_helper.get_result_dtype();
+
+  if (c10::isFloatingType(result_type)) {
     return ClampParams(
         -std::numeric_limits<float>::max(),
         stack[1].toScalar().toFloat(),

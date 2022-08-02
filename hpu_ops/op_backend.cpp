@@ -245,6 +245,18 @@ void OpBackend::HandleTypePromotion(
       continue;
     }
 
+    auto skipScalarCastNeeded = [&]() -> bool {
+      // Scalars (which are not converted to tensors - index not found in
+      // m_scalar_ids) do not deliver underlying synTensors, so although they
+      // influence result promoted type, they cannot be casted here.
+      return stack.at(i).isScalar() &&
+          std::find(m_scalar_ids.begin(), m_scalar_ids.end(), i) ==
+          m_scalar_ids.end();
+    };
+    if (skipScalarCastNeeded()) {
+      continue;
+    }
+
     cast_inserted = true;
 
     // Insert cast on the input with lower dtype
