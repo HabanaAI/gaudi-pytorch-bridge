@@ -1373,6 +1373,18 @@ erfc.out:
   dtypes: [BFloat16, Float]
   op_backend: Erfc
 
+erfinv:
+  dtypes: [Float]
+  force_default: false
+  guid: erfinv_fwd
+  out_ids: [0]
+
+erfinv_:
+  dtypes: [Float]
+  force_default: false
+  guid: erfinv_fwd
+  inplace_ids: [0]
+
 erfinv.out:
   dtypes: [Float]
   guid: erfinv_fwd
