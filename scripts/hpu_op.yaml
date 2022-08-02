@@ -821,11 +821,58 @@ atan_:
   guid: atan_fwd
   inplace_ids: [0]
 
-avg_pool2d.out:
-  custom_fill_params: Fillavgpool2dParams
+avg_pool2d:
+  custom_fill_params: Fillavgpool2dParamsFwd
   custom_output_shape: Avgpool2dOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: Avgpool2d
+  guid: avg_pool_2d_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  force_default: false
+
+avg_pool2d.out:
+  custom_fill_params: Fillavgpool2dParamsFwd
+  custom_output_shape: Avgpool2dOutputShape
+  dtypes: [BFloat16, Float]
+  guid: avg_pool_2d_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
+
+avg_pool2d_backward.grad_input:
+  custom_fill_params: Fillavgpool2dParamsBwd
+  custom_output_shape: Avgpool2dOutputShapeBwd
+  dtypes: [BFloat16, Float]
+  op_backend: Avgpool2dBwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
+avg_pool2d_backward:
+  custom_fill_params: Fillavgpool2dParamsBwd
+  custom_output_shape: Avgpool2dOutputShapeBwd
+  dtypes: [BFloat16, Float]
+  op_backend: Avgpool2dBwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  force_default: false
 
 atanh:
   dtypes: [Float]

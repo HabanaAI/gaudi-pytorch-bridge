@@ -401,33 +401,6 @@ at::Tensor max_pool2d_with_indices_backward_hpu_lazy(
     at::IntArrayRef dilation,
     bool ceil_mode,
     const at::Tensor& indices);
-at::Tensor avg_pool2d_hpu_lazy(
-    const at::Tensor& input,
-    at::IntArrayRef kernel_size,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    bool ceil_mode,
-    bool count_include_pad,
-    c10::optional<int64_t> divisor_override);
-at::Tensor& avg_pool2d_backward_out_hpu_lazy(
-    at::Tensor& grad_input,
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    at::IntArrayRef kernel_size,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    bool ceil_mode,
-    bool count_include_pad,
-    c10::optional<int64_t> divisor_override);
-at::Tensor avg_pool2d_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    at::IntArrayRef kernel_size,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    bool ceil_mode,
-    bool count_include_pad,
-    c10::optional<int64_t> divisor_override);
 at::Tensor adaptive_avg_pool2d_hpu_lazy(
     const at::Tensor& input,
     at::IntArrayRef output_size);

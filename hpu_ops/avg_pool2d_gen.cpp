@@ -7,8 +7,9 @@
  *
  ******************************************************************************
  */
-
 #include "generated/avg_pool2d.h"
+#include "generated/avg_pool2d_backward.h"
+#include "habana_kernels/pool_kernels.h"
 
 #define CHECK_DIM(input_size)                                        \
   TORCH_CHECK(                                                       \
@@ -18,16 +19,14 @@
 
 namespace habana {
 
-std::shared_ptr<void> Fillavgpool2dParams(
-    const at::Stack& stack,
+static std::shared_ptr<void> FillAvgpool2dParams(
+    std::vector<int64_t>& kernel_size,
+    std::vector<int64_t>& stride,
+    std::vector<int64_t>& pad,
+    bool ceil_mode,
+    bool include_pad,
+    int64_t divOverride,
     size_t& size) {
-  std::vector<long int> padding = {0, 0};
-  auto kernel_size = stack.at(1).toIntVector();
-  auto stride = stack.at(2).isNone() ? kernel_size : stack.at(2).toIntVector();
-  auto pad = stack.at(3).isNone() ? padding : stack.at(3).toIntVector();
-  const bool ceil_mode = stack.at(4).toBool();
-  const bool include_pad = stack.at(5).toBool();
-
   PARAMS_STUB(ns_AveragePoolingWithDivisorOverride::Params);
   params->pad_w_begin = pad.size() == 1 ? pad.at(0) : pad.at(1);
   params->pad_w_end = pad.size() == 1 ? pad.at(0) : pad.at(1);
@@ -42,86 +41,76 @@ std::shared_ptr<void> Fillavgpool2dParams(
                           // does not give dilation value
   params->dilation_h = 1;
   params->includePadding = include_pad ? 1 : 0;
-  params->divisorOverride = stack.at(6).isNone() ? 0 : stack.at(6).toInt();
+  params->divisorOverride = divOverride;
   params->pooling_convention = ceil_mode
       ? EPoolingConvention::POOLING_CONVENTION_FULL
       : EPoolingConvention::POOLING_CONVENTION_VALID;
   return params;
 }
-
-sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  CHECK_DIM(self.dim());
-
+std::shared_ptr<void> Fillavgpool2dParamsFwd(
+    const at::Stack& stack,
+    size_t& size) {
   std::vector<long int> padding = {0, 0};
   auto kernel_size = stack.at(1).toIntVector();
   auto stride = stack.at(2).isNone() ? kernel_size : stack.at(2).toIntVector();
   auto pad = stack.at(3).isNone() ? padding : stack.at(3).toIntVector();
+  const bool ceil_mode = stack.at(4).toBool();
+  const bool include_pad = stack.at(5).toBool();
+  int64_t divOverride = stack.at(6).isNone() ? 0 : stack.at(6).toInt();
+  return FillAvgpool2dParams(
+      kernel_size, stride, pad, ceil_mode, include_pad, divOverride, size);
+}
+std::shared_ptr<void> Fillavgpool2dParamsBwd(
+    const at::Stack& stack,
+    size_t& size) {
+  std::vector<long int> padding = {0, 0};
+  auto kernel_size = stack.at(2).toIntVector();
+  auto stride = stack.at(3).isNone() ? kernel_size : stack.at(3).toIntVector();
+  auto pad = stack.at(4).isNone() ? padding : stack.at(4).toIntVector();
+  const bool ceil_mode = stack.at(5).toBool();
+  const bool include_pad = stack.at(6).toBool();
+  int64_t divOverride = stack.at(7).isNone() ? 0 : stack.at(7).toInt();
+  return FillAvgpool2dParams(
+      kernel_size, stride, pad, ceil_mode, include_pad, divOverride, size);
+}
 
-  const int filter_H = kernel_size.at(0);
-  const int filter_W = kernel_size.size() == 1 ? filter_H : kernel_size.at(1);
-  const int stride_H = stride.at(0);
-  const int stride_W = stride.size() == 1 ? stride_H : stride.at(1);
-  const int pad_H = pad.at(0);
-  const int pad_W = pad.size() == 1 ? pad_H : pad.at(1);
-
-  auto h_out = ((self.sizes()[2] + ((2 * pad_H) - filter_H)) / stride_H) + 1;
-  auto w_out = ((self.sizes()[3] + ((2 * pad_W) - filter_W)) / stride_W) + 1;
-  std::vector<int64_t> outshape{
-      self.sizes()[0], // N
-      self.sizes()[1], // C
-      h_out,
-      w_out,
-  };
+sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  CHECK_DIM(self.dim());
+  std::vector<long int> padding = {0, 0};
+  std::vector<int64_t> dilation = {1, 1};
+  auto kernel_size = stack.at(1).toIntVector();
+  auto stride = stack.at(2).isNone() ? kernel_size : stack.at(2).toIntVector();
+  auto pad = stack.at(3).isNone() ? padding : stack.at(3).toIntVector();
+  const bool ceil_mode = stack.at(4).toBool();
+  auto outshape = PoolHelper::compute_output_shape(
+      self, kernel_size, stride, pad, dilation, ceil_mode, false);
   return {outshape};
 }
 
-void Avgpool2d::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  auto input_shape = self.sizes();
-  std::vector<int64_t> out_shape_4d = {
-      input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
+sizes_vec Avgpool2dOutputShapeBwd(const at::Stack& stack) {
+  auto self = stack.at(1).toTensor();
+  std::vector<int64_t> input_shape = self.sizes().vec();
+  return {input_shape};
+}
+
+void Avgpool2dBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   size_t size = 0;
-  const auto& params = Fillavgpool2dParams(stack, size);
-  auto outshape = Avgpool2dOutputShape(stack)[0];
+  const auto& params = Fillavgpool2dParamsBwd(stack, size);
+  auto outshape = Avgpool2dOutputShapeBwd(stack)[0];
 
-  synTransposeParams trans_params{};
-  trans_params.tensorDim = self.dim();
-  for (int i = 0; i < self.dim(); ++i) {
-    trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
-  }
-  std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-  std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-
-  auto transpose_nhwc = BuildOp(
+  std::vector<synTensor> grad = {syn_in(0)};
+  this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, grad);
+  auto avg_pool = BuildOp(
       graph,
-      "transpose",
-      {syn_in(0)},
-      {{out_shape_4d, ScalarType()}},
-      &trans_params,
-      sizeof(trans_params));
-
-  std::vector<int64_t> avg_pool_size = {
-      input_shape[0], outshape[2], outshape[3], input_shape[1]};
-  auto resize = BuildOp(
-      graph,
-      "avg_pool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {transpose_nhwc[0].get()},
-      {{avg_pool_size, ScalarType()}},
+      "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      grad,
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
 
-  // Transpose N,H,W,C to N,C,H,W
-  std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-  std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-
-  auto transpose_nchw = BuildOp(
-      graph,
-      "transpose",
-      {resize[0].get()},
-      {{outshape, ScalarType(), 0}},
-      &trans_params,
-      sizeof(trans_params));
-  syn_out(0) = std::move(transpose_nchw[0]);
+  syn_out(0) = std::move(avg_pool[0]);
 }
 } // namespace habana

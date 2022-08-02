@@ -1628,8 +1628,6 @@ static auto& KernelRegistry =
             "aten::max_pool2d_with_indices_backward",
             KERNEL_FN(MaxPool2dWithIndicesBackwardOperator))
         .add("aten::max_pool2d", KERNEL_FN(MaxPool2dOperator))
-        .add("aten::avg_pool2d", KERNEL_FN(AvgPool2dOperator))
-        .add("aten::avg_pool2d_backward", KERNEL_FN(AvgPool2dBackwardOperator))
         .add("aten::_adaptive_avg_pool2d", KERNEL_FN(AdaptiveAvgPool2dOperator))
         .add(
             "aten::_adaptive_avg_pool2d_backward",
