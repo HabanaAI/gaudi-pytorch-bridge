@@ -2286,10 +2286,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
-      "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)");
-  m.def(
-      "hpu::topk.values(Tensor self, Tensor k, int dim, bool largest, bool sorted, Tensor(a!) out_values, Tensor(a!) out_indices) -> (Tensor(a!) values, Tensor(a!) indices)");
-  m.def(
       "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> Tensor");
   m.def(
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");

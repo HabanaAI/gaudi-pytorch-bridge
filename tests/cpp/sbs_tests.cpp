@@ -335,7 +335,7 @@ TEST_P(SBSWithParamsTest, AddInplaceSBS) {
   }
 }
 
-TEST_P(SBSWithParamsTest, TopkSBSTest) {
+TEST_P(SBSWithParamsTest, DISABLED_TopkSBSTest) {
   auto self = torch::randn({3, 5});
   auto hself = self.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();

@@ -172,6 +172,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/softplus_gen.cpp
           backend/take_gen.cpp
           backend/threshold_gen.cpp
+          backend/topk_gen.cpp
           backend/topk_util.cpp
           backend/trace_gen.cpp
           backend/triangular_gen.cpp
@@ -248,6 +249,7 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/rrelu_with_noise_gen.cpp
           lazy/rsub_gen.cpp
           lazy/threshold_gen.cpp
+          lazy/topk_gen.cpp
           lazy/topk_util.cpp
           lazy/trace_gen.cpp
           lazy/unique2_gen.cpp

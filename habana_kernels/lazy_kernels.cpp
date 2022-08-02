@@ -5955,15 +5955,10 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
   std::vector<at::IValue> vector_of_inputs;
   std::string op_name;
 
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
-    op_name = "hpu::topk";
-    auto k_tensor = empty_hpu_lazy(
-        k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
-    vector_of_inputs = {self, k_tensor, dim, largest, sorted};
-  } else {
-    op_name = "aten::topk";
-    vector_of_inputs = {self, k, dim, largest, sorted};
-  }
+  op_name = "hpu::topk";
+  auto k_tensor = empty_hpu_lazy(
+      k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
+  vector_of_inputs = {self, k_tensor, dim, largest, sorted};
 
   using T = std::tuple<at::Tensor, at::Tensor>;
   class Kernel : public LazyOp<T> {
@@ -6004,90 +5999,6 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
 
   Kernel kernel{self, k, dim, op_name, vector_of_inputs};
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(topk, kernel)
-}
-
-std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
-    const Tensor& self,
-    int64_t k,
-    int64_t dim,
-    bool largest,
-    bool sorted,
-    Tensor& values,
-    Tensor& indices) {
-  PT_LAZY_TRACE;
-
-  std::vector<at::IValue> vector_of_inputs;
-  std::string op_name;
-  std::vector<std::vector<int64_t>> out_shapes;
-
-  auto shape_out = self.sizes().vec();
-  int64_t dim_ = c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  shape_out[dim_] = k;
-  out_shapes = {shape_out, shape_out};
-
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
-    op_name = "hpu::topk";
-    auto k_tensor = empty_hpu_lazy(
-        k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
-    vector_of_inputs = {self, k_tensor, dim, largest, sorted, values, indices};
-  } else {
-    op_name = "aten::topk";
-    vector_of_inputs = {self, k, dim, largest, sorted, values, indices};
-  }
-
-  using T = std::tuple<at::Tensor&, at::Tensor&>;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(
-        const Tensor& self,
-        int64_t k,
-        int64_t dim,
-        Tensor& values,
-        Tensor& indices,
-        const std::string& op_name,
-        const std::vector<at::IValue>& vector_of_inputs,
-        std::vector<std::vector<int64_t>> out_shapes)
-        : LazyOp<T>(op_name, vector_of_inputs, out_shapes, -1),
-          self(self),
-          k(k),
-          dim(dim),
-          values(values),
-          indices(indices) {}
-
-    at::Tensor self;
-    int64_t k;
-    int64_t dim;
-    at::Tensor& values;
-    at::Tensor& indices;
-  };
-
-  Kernel kernel{
-      self, k, dim, values, indices, op_name, vector_of_inputs, out_shapes};
-  auto out = std::tie(values, indices);
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(topk_out, kernel, out)
-}
-
-std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
-    const Tensor& self,
-    int64_t k,
-    int64_t dim_,
-    bool largest,
-    bool sorted,
-    Tensor& values,
-    Tensor& indices) {
-  PT_LAZY_TRACE;
-  topk_out_hpu_lazy_impl(self, k, dim_, largest, sorted, values, indices);
-  return std::tie(values, indices);
-}
-// WA around for https://jira.habana-labs.com/browse/SW-57705
-std::tuple<Tensor, Tensor> topk_hpu_lazy(
-    const Tensor& self,
-    int64_t k,
-    int64_t dim,
-    bool largest,
-    bool sorted) {
-  PT_LAZY_TRACE;
-  return topk_hpu_lazy_impl(self, k, dim, largest, sorted);
 }
 
 std::tuple<Tensor, Tensor> sort_hpu_lazy(

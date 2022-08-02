@@ -478,32 +478,3 @@ void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
   TopkOutOperator::SetPTOutputs(inputs);
 }
-
-static auto& TopkKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "aten::topk",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::TopkOperator>(device_id, "topk");
-            })
-        .add(
-            "aten::topk.values",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::TopkOutOperator>(
-                  device_id, "topk");
-            })
-        .add(
-            "hpu::topk",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::TopkOperator>(device_id, "topk");
-            })
-        .add(
-            "hpu::topk.values",
-            [](const int device_id, c10::ScalarType node_type) {
-              static_cast<void>(node_type);
-              return std::make_shared<habana::TopkOutOperator>(
-                  device_id, "topk");
-            });

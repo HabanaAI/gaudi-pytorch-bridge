@@ -151,6 +151,7 @@ add_executable(
   hpu_ops/tanh.cpp
   hpu_ops/tensor_shape.cpp
   hpu_ops/threshold.cpp
+  hpu_ops/topk.cpp
   hpu_ops/trace.cpp
   hpu_ops/type_promotion.cpp
   hpu_ops/unary_op.cpp

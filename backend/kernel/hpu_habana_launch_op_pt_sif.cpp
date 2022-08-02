@@ -178,7 +178,7 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
     if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
       for (const auto& st : op->GetShapeTensors()) {
         if (st.is_intermediate_shape_tensor()) {
-          HABANA_ASSERT(st.is_shape_tensor());
+          HABANA_ASSERT(st.is_shape_tensor() || st.is_input_shape_tensor());
           int_shape_tensor_count++;
         }
       }
@@ -186,7 +186,9 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
 
     for (synapse_helpers::tensor& in_tensor_syn : syn_inputs) {
       if (in_tensor_syn.is_intermediate_shape_tensor()) {
-        HABANA_ASSERT(in_tensor_syn.is_shape_tensor());
+        HABANA_ASSERT(
+            in_tensor_syn.is_shape_tensor() ||
+            in_tensor_syn.is_input_shape_tensor());
         int_shape_tensor_count++;
       }
     }
