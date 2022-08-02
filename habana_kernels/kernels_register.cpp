@@ -6003,6 +6003,12 @@ TORCH_LIBRARY(hpu, m) {
       "strided_insert_ds(Tensor self, Tensor other, Tensor offset) -> (Tensor)");
   m.def(
       "strided_insert_cl_ds(Tensor self, Tensor other, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_view_orig_ds(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_view_orig_out_ds(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_insert_orig_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
   m.def("as_strided_layout(Tensor self, int[] size) -> (Tensor)");
   m.def("reshape(Tensor self, int[] size) -> (Tensor)");
   m.def(

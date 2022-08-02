@@ -1016,7 +1016,15 @@ ir::NodePtr create_as_strided_node(
           ? "hpu::strided_view_cl_ds"
           : "hpu::strided_view_ds";
     }
-
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Strided view Real size = ",
+        self.sizes().vec(),
+        " recieved sizes = ",
+        size.vec(),
+        " strides = ",
+        stride.vec(),
+        " offset = ",
+        offset);
     auto out_size_st = empty_hpu_lazy(
         size,
         self.options(),
@@ -1031,46 +1039,41 @@ ir::NodePtr create_as_strided_node(
         c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
+    if (self.sizes().size() != stride.size()) {
+      if (node_str == "hpu::strided_view_out_ds") {
+        node_str == "hpu::strided_view_orig_out_ds";
+      } else {
+        node_str = "hpu::strided_view_orig_ds";
+      }
+      auto stride_st = empty_hpu_lazy(
+          stride,
+          self.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      node = std::make_shared<ir::StridedView>(
+          self, out_size_st, stride_st, offset_st, node_str);
+    } else {
+      auto lazy_ten = GetHbLazyTensor(out_size_st);
+      auto tensor_size_st = lazy_ten.CurrentTensorAttached().value();
+      auto impl_size_st = habana_lazy::GetHbInternalTensorImpl(tensor_size_st);
+      HABANA_ASSERT(impl_size_st, "impl_size_st is invalid");
 
-    auto lazy_ten = GetHbLazyTensor(out_size_st);
-    auto tensor_size_st = lazy_ten.CurrentTensorAttached().value();
-    auto impl_size_st = habana_lazy::GetHbInternalTensorImpl(tensor_size_st);
-    HABANA_ASSERT(impl_size_st, "impl_size_st is invalid");
+      std::vector<int64_t> stride_ratios;
+      auto self_strides = self.strides().vec();
+      auto stride_sizes = stride.vec();
+      auto len = stride_sizes.size();
+      for (uint64_t i = 0; i < len; i++) {
+        stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
+      }
+      impl_size_st->get_shape_struct().set_strides_tensor_shape(stride_sizes);
+      impl_size_st->get_shape_struct().set_stride_ratio(stride_ratios);
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Setting stride ratio = ", stride_ratios, " offset = ", offset);
 
-    std::vector<int64_t> stride_ratios;
-    auto self_strides = self.strides().vec();
-    auto stride_sizes = stride.vec();
-    auto len = stride_sizes.size();
-    // for case where strides len recieved is greater than the strides
-    // of real tensor, we need to calculate 1 full stride also
-    // eg real -> 3 800 1216[ 972800 1216 1], strides = 2918400 972800 1216 1
-    // 1 more stride needs to be calculated 3*972800 = 2918400
-    if (len > self_strides.size()) {
-      HABANA_ASSERT(
-          len == self_strides.size() + 1, "Invalid strides requested");
-      self_strides.emplace(
-          self_strides.begin(), self_strides[0] * self.sizes()[0]);
+      node = std::make_shared<ir::StridedView>(
+          self, out_size_st, offset_st, node_str);
     }
-    for (uint64_t i = 0; i < len; i++) {
-      stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
-    }
-    impl_size_st->get_shape_struct().set_strides_tensor_shape(stride_sizes);
-    impl_size_st->get_shape_struct().set_stride_ratio(stride_ratios);
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "Real size = ",
-        self.sizes().vec(),
-        " Real strides = ",
-        self_strides,
-        " recieved sizes = ",
-        size.vec(),
-        " strides = ",
-        stride_sizes);
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "Setting stride ratio = ", stride_ratios, " offset = ", offset);
-
-    node = std::make_shared<ir::StridedView>(
-        self, out_size_st, offset_st, node_str);
-    return node;
   } else {
     std::string node_str = "hpu::strided_view";
 

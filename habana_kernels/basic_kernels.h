@@ -194,7 +194,7 @@ class StridedInsertOperator : public habana::HabanaOperator {
       at::Tensor& real,
       at::Tensor& view,
       c10::IntArrayRef& strides,
-      at::Tensor& offset);
+      int64_t& offset);
 };
 
 class StridedInsertClOperator : public StridedInsertOperator {
@@ -250,7 +250,7 @@ class StridedViewOperator : public habana::HabanaOperator {
       at::Tensor& real,
       at::Tensor& view,
       c10::IntArrayRef& strides,
-      at::Tensor& offset);
+      int64_t& offset);
 };
 
 // As Strided for channels last
