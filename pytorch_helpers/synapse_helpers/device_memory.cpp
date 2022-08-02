@@ -310,8 +310,12 @@ void* device_memory::workspace_alloc(
 
       bool defragmentation_done = false;
       if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
+        MemoryStats stats;
+        get_memory_stats(&stats);
         PT_DEVMEM_WARN(
             "Workspace extension failed. Attempt to defragment memory.");
+        PT_DEVMEM_DEBUG(
+            "Memory Stats in case workspace failure", stats.DebugString());
         defragmentation_done =
             defragment_memory(DEFAULT_ALIGNMENT, req_size, true);
       }

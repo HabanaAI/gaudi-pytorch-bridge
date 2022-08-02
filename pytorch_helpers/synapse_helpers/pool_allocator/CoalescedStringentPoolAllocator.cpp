@@ -1275,8 +1275,9 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
       GET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
 
   if (log_fragmentation_info) {
-    const std::string occupancy_mask = "[+++]";
-    const std::string free_mask = "[00000]";
+    const std::string occupancy_mask = "[A";
+    const std::string free_mask = "[F";
+    int max_chunk_per_line = 15;
     std::stringstream pool_status;
     pool_status.str("");
     pool_status.clear();
@@ -1291,6 +1292,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
       auto chunk = m.second;
       if (!chunk->used && (chunk->size != 0)) {
         pool_status << free_mask;
+        pool_status << "-" << chunk->size;
+        pool_status << "]";
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
         if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
@@ -1299,6 +1302,13 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         cntgs_free_chunks_size = 0;
       } else {
         pool_status << occupancy_mask;
+        pool_status << "-" << chunk->size;
+        pool_status << "]";
+      }
+      --max_chunk_per_line;
+      if (max_chunk_per_line <= 0) {
+        max_chunk_per_line = 15;
+        pool_status << "\n";
       }
     }
     stats.fragmentation_percent = 100 *
