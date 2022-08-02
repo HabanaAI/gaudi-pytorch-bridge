@@ -338,7 +338,7 @@ void optimizer_sgd_hpu_lazy(
   loo.call(weights);
 }
 
-void optimizer_sgd_momentum_hpu_lazy(
+Tensor& optimizer_sgd_momentum_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,
     TensorList& momentum,
@@ -349,10 +349,82 @@ void optimizer_sgd_momentum_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hlweight, weights[i], true);
 
-  LazyOptimizationOp<void> loo(
-      "hpu::habanaOptimizerFusedSGDMomentum",
-      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov});
-  loo.call(weights, momentum, OPTIMIZER::SGD_MOMENTUM);
+    auto hlmomentum = GetHbLazyTensor(momentum[i]);
+    updateDstDependencies(hlmomentum, momentum[i], true);
+  }
+
+  ir::NodePtr node = std::make_shared<ir::OptimizerFusedSGDMomentum>(
+      gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov);
+
+  int64_t out_index = 0;
+  HABANA_ASSERT(weights.size() == momentum.size());
+
+  auto hlweight = GetHbLazyTensor(weights[0]);
+  ir::Value& out = hlweight.CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out.SetNode(
+      node,
+      hlweight.GetDevice(),
+      hlweight.GetSizes(),
+      hlweight.dtype_optional());
+
+  ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
+  PT_BRIDGE_DEBUG("FE weights & mumentum tensors size: ", weights.size());
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = GetHbLazyTensor(weights[i]);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      if (hlweight.GetHbLazyTensorData().has_value()) {
+        auto internal_tensor = hlweight.GetHbLazyTensorData().value();
+        auto hb_lazy_impl_internal = GetHbInternalTensorImpl(internal_tensor);
+        if (hb_lazy_impl_internal) {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE weight tensor with address: ",
+              hb_lazy_impl_internal,
+              " permutation: ",
+              VecToString(hb_lazy_impl_internal->GetMemoryPermutation()));
+        } else {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE weight tensor has no BE tensor, this could indicate a problem");
+        }
+      }
+    }
+    HbLazyTensorViews::CustomKernelAddNodeInplace(
+        weights[i], node_unpack, out_index);
+
+    auto hlmomentum = GetHbLazyTensor(momentum[i]);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+      if (hlmomentum.GetHbLazyTensorData().has_value()) {
+        auto internal_tensor = hlmomentum.GetHbLazyTensorData().value();
+        auto hb_lazy_impl_internal = GetHbInternalTensorImpl(internal_tensor);
+        if (hb_lazy_impl_internal) {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE momentum tensor with address: ",
+              hb_lazy_impl_internal,
+              " permutation: ",
+              VecToString(hb_lazy_impl_internal->GetMemoryPermutation()));
+        } else {
+          PT_BRIDGE_DEBUG(
+              "Optimizer FE momentum tensor has no BE tensor, this could indicate a problem");
+        }
+      }
+    }
+    ir::Value& out2 = hlmomentum.CurrentIrValue();
+    out2.SetNode(
+        node_unpack,
+        hlmomentum.GetDevice(),
+        hlmomentum.GetSizes(),
+        hlmomentum.dtype_optional(),
+        out_index++);
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    HbLazyTensor::StepMarker({});
+  }
+  return lr;
 }
+
 } // namespace habana_lazy

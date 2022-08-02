@@ -103,7 +103,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   TensorList hlmoments(hmoments);
 
   torch::Tensor out1, out2;
-  optimizer_sgd_momentum_hpu_wrap(
+  auto t = optimizer_sgd_momentum_hpu_wrap(
       hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
@@ -153,7 +153,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
   auto hwts_before = torch::clone(hwts);
 
   torch::Tensor out1, out2;
-  optimizer_sgd_momentum_hpu_wrap(
+  auto t = optimizer_sgd_momentum_hpu_wrap(
       hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());

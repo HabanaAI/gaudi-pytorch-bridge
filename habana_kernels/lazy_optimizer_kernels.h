@@ -374,6 +374,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
     const auto noOfTensor = tList1.size();
     int64_t out_index = 0;
+
     for (size_t i = 0; i < noOfTensor; ++i) {
       auto hl_result1 = GetHbLazyTensor(tList1[i]);
       auto hl_result2 = GetHbLazyTensor(tList2[i]);

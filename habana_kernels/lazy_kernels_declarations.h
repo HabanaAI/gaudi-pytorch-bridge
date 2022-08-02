@@ -674,7 +674,7 @@ void optimizer_sgd_hpu_lazy(
     const float mom,
     const float damp,
     const bool nesterov);
-void optimizer_sgd_momentum_hpu_lazy(
+at::Tensor& optimizer_sgd_momentum_hpu_lazy(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::TensorList& momentum,
