@@ -65,6 +65,7 @@ class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
 //                           Add <----------------
 //                            |
 //                           Out
+
 TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
   int kH = 3;
   int kW = 3;

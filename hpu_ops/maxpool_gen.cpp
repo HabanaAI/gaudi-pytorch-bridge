@@ -7,9 +7,10 @@
  *
  ******************************************************************************
  */
+#include "generated/max_pool2d_with_indices.h"
+#include "generated/max_pool2d_with_indices_backward.h"
 #include "generated/max_pool3d_with_indices.h"
 #include "generated/max_pool3d_with_indices_backward.h"
-#include "hpu_op_helper.h"
 
 namespace habana {
 
@@ -17,6 +18,33 @@ enum MaxpoolVariant {
   MAXPOOL2D = 2,
   MAXPOOL3D = 3,
 };
+
+template <>
+LazyMaxPool2d<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool2d(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+          qualstring,
+          inputs,
+          out_shapes_fn,
+          -1) {}
+
+template <>
+std::tuple<at::Tensor, at::Tensor> LazyMaxPool2d<
+    std::tuple<at::Tensor, at::Tensor>>::get_result_overrideable() {
+  auto inputs = get_inputs();
+  auto t = inputs.at(0).toTensor();
+  auto out_shape = MaxPool2DOutputShape(inputs)[0];
+  at::Tensor maxpool = habana_lazy::empty_hpu_lazy(
+      out_shape, t.options(), t.suggest_memory_format(), false);
+  at::Tensor indices = habana_lazy::empty_hpu_lazy(
+      out_shape,
+      t.options().dtype(c10::ScalarType::Long),
+      t.suggest_memory_format(),
+      false);
+  return {maxpool, indices};
+}
 
 static int OutputShapeComputation(
     int input_shape,
@@ -616,9 +644,8 @@ void MaxPool3DWithIndicesBwd::AddNode(
 }
 
 // Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263), so that the implementation is
-// commented till the issue got resolved.
-/**void MaxPool2DWithIndicesOut::AddNode(
+// (https://jira.habana-labs.com/browse/SW-74263)
+void MaxPool2DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack);
@@ -687,70 +714,25 @@ void MaxPool3DWithIndicesBwd::AddNode(
 }
 
 // Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263), so that the implementation is
-// commented till the issue got resolved.
+// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool2DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack);
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const torch::Tensor& self = stack.at(1).toTensor();
-  const auto& transpose_input_shape = TransposeShape(
-      stack.at(0).toTensor().sizes().vec(), MaxpoolVariant::MAXPOOL2D);
-  const auto& output_transposeshape =
-      TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL2D);
 
-  // Transpose params
-  synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
-
-  // TPC expects inputs in N H W C or H W C format so we use transpose guid for
-  // reordering.
-  std::vector<std::vector<int>> permutation_order =
-      GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL2D, self.dim());
-
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[0], self.dim());
-  auto index_type = FindIndexType(self.scalar_type());
-
-  auto input_transpose = ShapeTranspose(
-      this,
-      graph,
-      {syn_in(0)},
-      transpose_input_shape,
-      ScalarType(),
-      trans_params);
-
-  auto index_transpose = ShapeTranspose(
-      this,
-      graph,
-      {syn_in(2)},
-      transpose_input_shape,
-      index_type,
-      trans_params);
+  std::vector<synTensor> grad = {syn_in(0), syn_in(2)};
+  this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape[0], grad);
 
   auto maxpool2d_gradout = BuildOp(
       graph,
       "maxpool_2d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {input_transpose[0].get(), index_transpose[0].get()},
-      {{output_transposeshape, ScalarType()}},
+      grad,
+      {{out_shape[0], ScalarType(), 0}},
       params.get(),
       size);
 
-  // After aplying maxpool2d, need to change the order of both indices and
-  // output tensor to N C H W  or C H W format
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[1], self.dim());
-
-  auto grad_output = ShapeTranspose(
-      this,
-      graph,
-      {maxpool2d_gradout[0].get()},
-      out_shape[0],
-      ScalarType(),
-      trans_params,
-      0);
-
-  syn_out(0) = std::move(grad_output.at(0));
-}**/
+  syn_out(0) = std::move(maxpool2d_gradout.at(0));
+}
 } // namespace habana

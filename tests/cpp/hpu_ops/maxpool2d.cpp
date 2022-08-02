@@ -11,6 +11,62 @@
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
+
+TEST_F(HpuOpTest, maxpool_2d_with_indices) {
+  GenerateInputs(1, {{1, 2, 7, 9}});
+  std::vector<int64_t> kernel_size = {{3, 3}};
+  std::vector<int64_t> stride = {{3, 3}};
+  std::vector<int64_t> pad_size = {{1, 1}};
+  std::vector<int64_t> dilation = {{1, 1}};
+  bool ceil_mode = false;
+  auto cpu_out = torch::max_pool2d_with_indices(
+      GetCpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+  auto hpu_out = torch::max_pool2d_with_indices(
+      GetHpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+
+  Compare(std::get<0>(cpu_out), std::get<0>(hpu_out));
+}
+
+TEST_F(HpuOpTest, maxpool_2d_with_indices_backward) {
+  GenerateInputs(1, {{1, 2, 6, 6}});
+  std::vector<int64_t> kernel_size = {{3, 3}};
+  std::vector<int64_t> stride = {{3, 3}};
+  std::vector<int64_t> pad_size = {{1, 1}};
+  std::vector<int64_t> dilation = {{1, 1}};
+  bool ceil_mode = true;
+
+  auto maxpool_cpu = torch::max_pool2d_with_indices(
+      GetCpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+  auto maxpool_hpu = torch::max_pool2d_with_indices(
+      GetHpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+
+  auto expected_tensor = std::get<0>(maxpool_cpu);
+  auto expected_indices = std::get<1>(maxpool_cpu);
+  auto result_tensor = std::get<0>(maxpool_hpu);
+  auto result_indices = std::get<1>(maxpool_hpu);
+
+  auto expected_gradinp = torch::max_pool2d_with_indices_backward(
+      expected_tensor,
+      GetCpuInput(0),
+      kernel_size,
+      stride,
+      pad_size,
+      dilation,
+      ceil_mode,
+      expected_indices);
+
+  auto result_gradinp = torch::max_pool2d_with_indices_backward(
+      result_tensor,
+      GetHpuInput(0),
+      kernel_size,
+      stride,
+      pad_size,
+      dilation,
+      ceil_mode,
+      result_indices);
+  Compare(expected_gradinp, result_gradinp);
+}
+
 // Since the out varriant intices tensor has some issue
 // (https://jira.habana-labs.com/browse/SW-74263), so that the implementation is
 // commented till the issue got resolved.

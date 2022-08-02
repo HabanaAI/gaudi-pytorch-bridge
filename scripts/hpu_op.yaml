@@ -3326,27 +3326,38 @@ maximum.out:
   safe_cast_check: true
 
 max_pool2d_with_indices:
-  force_default: false
+  custom_fill_params: FillSpatialReduction2DParamsFwd
+  custom_output_shape: MaxPool2DOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
-  override_fn: max_pool2d_with_indices_hpu_lazy
-  acc_thread: true
+  op_backend: MaxPool2DWithIndicesOut
+  op_frontend: LazyMaxPool2d
+  out_ids: [0,0]
+  force_default: false
 
 max_pool2d_with_indices_backward:
-  force_default: false
+  custom_fill_params: FillSpatialReduction2DParamsBwd
+  custom_output_shape: MaxPoolOutputShapeBwd
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
       grad_output: [BFloat16, Float]
-      indices: [Byte, Short]
+      indices: [Int]
     Gaudi2:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
-      indices: [Byte, Short]
-  override_fn: max_pool2d_with_indices_backward_hpu_lazy
-  acc_thread: true
+      indices: [Int]
+  op_backend: MaxPool2DWithIndicesBwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN, WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  force_default: false
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool2d_with_indices.out:

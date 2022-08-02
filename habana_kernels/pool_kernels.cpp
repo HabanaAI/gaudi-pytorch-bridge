@@ -1636,12 +1636,6 @@ Tensor adaptive_avg_pool2d_backward_hpu(
 
 static auto& PoolKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::max_pool2d_with_indices",
-            KERNEL_FN(MaxPool2dWithIndicesOperator))
-        .add(
-            "aten::max_pool2d_with_indices_backward",
-            KERNEL_FN(MaxPool2dWithIndicesBackwardOperator))
         .add("aten::max_pool2d", KERNEL_FN(MaxPool2dOperator))
         .add("aten::_adaptive_avg_pool2d", KERNEL_FN(AdaptiveAvgPool2dOperator))
         .add(
