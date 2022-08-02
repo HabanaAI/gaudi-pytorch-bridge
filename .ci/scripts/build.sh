@@ -90,6 +90,7 @@ function pytorch_usage()
         echo -e "       --py-version           Python version"
         echo -e "  -i,  --install-ext          Install extensions"
         echo -e "  -l,  --no_cpp_tests         do not build cpp tests"
+        echo -e "       --upstream_compile     compile for upstream workspace"
     fi
 
     if [ $1 == "build_pytorch_dist" ]; then
@@ -181,6 +182,7 @@ build_pytorch_modules()
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __build_manylinux_whl="false"
     local __set_py_vers="false"
+    local __upstream_compile="false"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -236,6 +238,9 @@ build_pytorch_modules()
             ;;
         --manylinux )
             __build_manylinux_whl="true"
+            ;;
+        --upstream_compile )
+            __upstream_compile="true"
             ;;
         *)
             __argument=$1
@@ -335,6 +340,11 @@ build_pytorch_modules()
         MANY_LINUX_DEFINE="-DMANYLINUX=ON"
     fi
 
+    UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=OFF"
+    if [ "z${__upstream_compile}" == "ztrue" ];then
+        UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=ON"
+    fi
+
     if [ -n "$__recursive" ]; then
         local __release_par=""
         local __configure_par=""
@@ -392,6 +402,7 @@ build_pytorch_modules()
             -DBUILD_TESTS=$__build_cpp_tests \
             $CLANG_TIDY_DEFINE \
             $MANY_LINUX_DEFINE \
+            $UPSTREAM_COMPILE \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
             -DSANITIZER=$__sanitize)
@@ -436,6 +447,7 @@ build_pytorch_modules()
             -DBUILD_TESTS=$__build_cpp_tests \
             $CLANG_TIDY_DEFINE \
             $MANY_LINUX_DEFINE \
+            $UPSTREAM_COMPILE \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
             -DSANITIZER=$__sanitize)

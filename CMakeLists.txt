@@ -17,6 +17,11 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(SANITIZER "build sanitizer configuration" OFF)
 option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
+option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
+
+IF(UPSTREAM_COMPILE)
+    ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
+ENDIF(UPSTREAM_COMPILE)
 
 if(SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope -O0")
