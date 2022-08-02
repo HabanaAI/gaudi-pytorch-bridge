@@ -250,7 +250,7 @@ const char* getenv_by_type_new(
     const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
-    const char*& act_val,
+    std::string& act_val,
     const char* def_val) {
   // Conversion to string:
   //   |    env var      |   returned value
@@ -267,7 +267,7 @@ const char* getenv_by_type_new(
     }
     is_cached = true;
   }
-  return act_val;
+  return act_val.c_str();
 }
 
 bool getenv_by_type_new(
@@ -573,6 +573,7 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_VALIDATE_COMPUTE_SHAPE, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_ZERO_MIN, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool);
+ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE);
 } // namespace new_style
 
 // ****************************************************************************

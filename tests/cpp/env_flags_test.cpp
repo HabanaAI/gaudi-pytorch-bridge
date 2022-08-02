@@ -365,3 +365,30 @@ TEST(EnvFlags, Logging) {
     }
   }
 }
+
+class EnvFlagsTestFixture : public ::testing::TestWithParam<int> {};
+
+TEST_P(EnvFlagsTestFixture, StringTest) {
+  std::string val_0 = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  int run_instance = GetParam();
+  if (!run_instance) // first run
+    ASSERT_EQ(val_0, ".");
+  else // second and last run
+    ASSERT_EQ(val_0, ".tmp_prefix_1_");
+
+  std::string prefix_1{".tmp_prefix_1_"};
+  SET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX, prefix_1.c_str(), 1);
+  std::string val_1 = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  ASSERT_EQ(val_1, prefix_1);
+
+  if (run_instance) { // second and last run
+    UNSET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+    auto is_env_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+    ASSERT_EQ(is_env_defined, false);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    Instantiation,
+    EnvFlagsTestFixture,
+    ::testing::Range(0, 2));

@@ -160,12 +160,13 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   if (enabled_jit_ir_ops_.empty()) {
-    char* wfile_name = getenv("HPU_ENABLED_JIT_IR_OPS_LIST_FILE");
-    if (wfile_name) {
+    std::string wfile_name =
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE);
+    if (!wfile_name.empty()) {
       std::ifstream wfile(wfile_name);
       TORCH_CHECK(
           wfile.is_open(),
-          "Unable to open HPU_ENABLED_JIT_IR_OPS_LIST_FILE file ",
+          "Unable to open PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE file ",
           wfile_name);
 
       std::string opname;

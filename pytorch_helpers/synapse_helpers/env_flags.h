@@ -29,6 +29,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include <limits>
 #include <type_traits>
@@ -173,14 +174,14 @@ namespace new_style {
   struct NAME {                                               \
     static bool is_cached;                                    \
     static bool is_defined;                                   \
-    static const char* actual_value;                          \
+    static std::string actual_value;                          \
     static constexpr const char* default_value = DEFAULT_VAL; \
   }
 
 #define ENV_STRING_STRUCT_STATIC_DEFINITION(NAME) \
   bool NAME::is_cached{false};                    \
   bool NAME::is_defined{false};                   \
-  const char* NAME::actual_value{};
+  std::string NAME::actual_value{};
 
 // Struct defination for non-string env variables with numeric limits
 #define ENV_STRUCT_DEFINITION(NAME, TYPE, DEFAULT_VAL) \
@@ -305,6 +306,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_ZERO_MIN, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, bool, false);
 // Option to enable and run Hybrid shape Inference
 ENV_STRUCT_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool, false);
+// Option to select JIT IR ops for Hybrid Shape Inference
+ENV_STRING_STRUCT_DEFINITION(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE, "");
 
 // Options to enable/disable std::copy to async thread for non blocking copy
 // and minimum tensor size limit for non blocking copy, Default 1 MB.
@@ -359,7 +362,7 @@ const char* getenv_by_type_new(
     const bool& skip_cache,
     bool& is_cached,
     bool& is_defined,
-    const char*& act_val,
+    std::string& act_val,
     const char* def_val);
 
 // Method for bool env variables to handle "true"/"false" and 1/0
@@ -385,13 +388,21 @@ T getenv_by_type_new(
     const T min_val,
     const T max_val);
 
-template <class T>
+/*
+ * Template method(s) for setting env variables
+ *
+ * Template arguments for Env variables data types are same i.e.
+ * A == N (actual value data type == default value/new value data type)
+ * Except for string Env variables where A (actual value)
+ * is of type std::string and N (new value) is of type const char*
+ */
+template <class A, class N>
 void setenv_by_type_new(
     const char* name,
     bool& is_cached,
     bool& is_defined,
-    T& act_val,
-    const T new_val,
+    A& act_val,
+    const N new_val,
     int overwrite) {
   (void)name;
   if (!is_defined || overwrite) {
