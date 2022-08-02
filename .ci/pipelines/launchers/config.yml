@@ -41,3 +41,9 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: Test_pytorch_gaudi_sim_single_op_dynamic_tests
+  gerritTriggerMap:
+  - repository: jenkins_files
+    isStable: true
+    files:
+    - 'sim_pytorch_single_op_tests---t-dg.jenkinsfile'
