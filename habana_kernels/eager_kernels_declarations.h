@@ -366,12 +366,6 @@ at::Tensor binary_cross_entropy_backward_hpu(
     const at::Tensor& target,
     const at::Tensor& weight,
     int64_t reduction);
-at::Tensor binary_cross_entropy_with_logits_hpu(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& pos_weight,
-    int64_t reduction);
 at::Tensor kl_div_hpu(
     const at::Tensor& input,
     const at::Tensor& target,

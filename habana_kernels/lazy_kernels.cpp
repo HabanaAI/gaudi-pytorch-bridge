@@ -3337,24 +3337,6 @@ Tensor& arange_hpu_lazy(
   return output;
 }
 
-Tensor binary_cross_entropy_with_logits_hpu_lazy(
-    const Tensor& self,
-    const Tensor& target,
-    const c10::optional<Tensor>& weight,
-    const c10::optional<Tensor>& pos_weight,
-    int64_t reduction) {
-  PT_LAZY_TRACE;
-
-  auto sizes = BceLogitsFwdOperator::compute_output_shape(self, reduction);
-
-  LazyOp<at::Tensor> k(
-      "aten::binary_cross_entropy_with_logits",
-      {self, target, pos_weight, weight, reduction},
-      {4},
-      {sizes});
-  RUN_MAYBE_WITH_ACC_THREAD(binary_cross_entropy_with_logits, k)
-}
-
 Tensor kl_div_hpu_lazy(
     const Tensor& self,
     const Tensor& target,

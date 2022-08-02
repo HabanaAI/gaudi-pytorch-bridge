@@ -536,18 +536,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "binary_cross_entropy_with_logits",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "norm",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

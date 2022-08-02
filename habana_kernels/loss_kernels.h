@@ -225,27 +225,4 @@ class BceBwdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 };
-
-// BceWithLogitsFwd Operator
-class BceLogitsFwdOperator : public HabanaOperator {
- public:
-  BceLogitsFwdOperator(const int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "binary_cross_entropy_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-  }
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& self,
-      int64_t reduction);
-};
 } // namespace habana

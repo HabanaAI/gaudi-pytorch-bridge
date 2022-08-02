@@ -244,12 +244,6 @@ at::Tensor& masked_select_out_hpu_lazy(
 at::Tensor nonzero_hpu_lazy(const at::Tensor& self);
 at::Tensor& nonzero_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
-at::Tensor binary_cross_entropy_with_logits_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& pos_weight,
-    int64_t reduction);
 at::Tensor kl_div_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& target,

@@ -788,61 +788,6 @@ Tensor hpu_wrap::kl_div_backward(
   }
 };
 
-Tensor hpu_wrap::binary_cross_entropy_with_logits(
-    const Tensor& self,
-    const Tensor& target,
-    const c10::optional<Tensor>& weight,
-    const c10::optional<Tensor>& pos_weight,
-    int64_t reduction) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "binary_cross_entropy_with_logits :",
-      " self=",
-      to_string(self),
-      " target=",
-      to_string(target),
-      " weight=",
-      to_string(weight),
-      " pos_weight=",
-      to_string(pos_weight),
-      " reduction=",
-      to_string(reduction));
-  habana_lazy::SyncAccThreadPool();
-  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
-  std::vector<c10::IValue> op_stack = {
-      IValue(self),
-      IValue(target),
-      IValue(weight),
-      IValue(pos_weight),
-      IValue(reduction)};
-  check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
-
-  int64_t sz = (int64_t)(self.sizes().size());
-
-  if (sz >= 5) {
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        binary_cross_entropy_with_logits,
-        PARAMS2(self, target, weight, pos_weight, reduction))
-  }
-
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      binary_cross_entropy_with_logits,
-      PARAMS1(
-          self,
-          target,
-          weight.value_or(Tensor()),
-          pos_weight.value_or(Tensor())),
-      PARAMS2(self, target, weight, pos_weight, reduction))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return binary_cross_entropy_with_logits_hpu_lazy(
-        self, target, weight, pos_weight, reduction);
-  } else {
-    return binary_cross_entropy_with_logits_hpu(
-        self, target, weight, pos_weight, reduction);
-  }
-};
-
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
     const at::Tensor& input,
     double eps) {
