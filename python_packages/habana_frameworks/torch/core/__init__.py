@@ -10,6 +10,10 @@ import habana_frameworks.torch.utils.experimental as htexp
 from torch.functional import Tensor
 name_stack = deque()
 
+# expose habana_frameworks.torch.hpu as torch.hpu
+from habana_frameworks.torch import hpu
+torch._register_device_module('hpu', hpu)
+
 def pre_fwd_hook(module, input):
     new_name = name_stack[-1] + "/" + module.custom_name if name_stack else module.custom_name
     name_stack.append(new_name)

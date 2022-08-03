@@ -7,9 +7,12 @@
  *
  ******************************************************************************
  */
+// clang-format off
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
+#include <ATen/autocast_mode.h>
+// clang-format on
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
@@ -146,6 +149,22 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_default_stream", []() {
     HPUStream stream = getDefaultHPUStream();
     return stream;
+  });
+  m.def("set_autocast_hpu_enabled", [](py::object enabled) {
+    at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
+  });
+  m.def("is_autocast_hpu_enabled", []() {
+    return at::autocast::is_hpu_enabled();
+  });
+  m.def("set_autocast_hpu_dtype", [](py::object dtype) {
+    at::ScalarType targetType =
+        reinterpret_cast<THPDtype*>(dtype.ptr())->scalar_type;
+    at::autocast::set_autocast_hpu_dtype(targetType);
+  });
+  m.def("get_autocast_hpu_dtype", []() {
+    at::ScalarType current_dtype = at::autocast::get_autocast_hpu_dtype();
+    auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
+    return py::reinterpret_borrow<py::object>(dtype);
   });
 
   py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
