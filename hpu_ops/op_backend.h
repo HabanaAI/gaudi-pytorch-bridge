@@ -172,9 +172,6 @@ class OpBackend : public HabanaOperator {
   void HandleTypePromotion(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
-  void HandleIntToFloatPromotion(
-      synapse_helpers::graph& graph,
-      const at::Stack& stack);
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
@@ -187,6 +184,7 @@ class OpBackend : public HabanaOperator {
 
   synTensor syn_in(int index);
   synapse_helpers::tensor& syn_out(int index);
+  virtual synapse_helpers::tensor_or_ref& SynInput(int index);
 
   synapse_helpers::tensor CastHelper(
       synapse_helpers::graph& graph,
@@ -266,6 +264,8 @@ class OpBackend : public HabanaOperator {
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
+
+  std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_casted_;
 
  protected:
   OutputMetaDataVector m_output_metadata;

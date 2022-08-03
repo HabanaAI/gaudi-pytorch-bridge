@@ -62,7 +62,8 @@ synTensor OpBackend::syn_in(int index) {
   if (isMetaMode()) {
     return nullptr;
   }
-  return p_context_->syn_inputs_.at(index).ref().get();
+
+  return SynInput(index).ref().get();
 }
 
 synapse_helpers::tensor& OpBackend::syn_out(int index) {
@@ -73,6 +74,14 @@ synapse_helpers::tensor& OpBackend::syn_out(int index) {
     return ph;
   }
   return p_context_->syn_outputs_.at(index);
+}
+
+synapse_helpers::tensor_or_ref& OpBackend::SynInput(int index) {
+  auto it = syn_inputs_casted_.find(index);
+  if (it != syn_inputs_casted_.end()) {
+    return it->second;
+  }
+  return p_context_->syn_inputs_.at(index);
 }
 
 c10::ScalarType OpBackend::ComputePromotedScalarType(
@@ -221,7 +230,7 @@ void OpBackend::HandleInplaceFn(
 void OpBackend::HandleTypePromotion(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  if (!m_promote_type) {
+  if (!m_promote_type && !m_promote_int_to_float) {
     return;
   }
 
@@ -229,53 +238,16 @@ void OpBackend::HandleTypePromotion(
       GetScalarType(stack, 0), GetScalarType(stack, 1)};
   const at::ScalarType& result_type = ComputePromotedScalarType(stack, true);
 
-  int cast_index = -1;
-  if (input_types[0] != result_type and input_types[1] == result_type) {
-    cast_index = 0;
-  } else if (input_types[0] == result_type and input_types[1] != result_type) {
-    cast_index = 1;
-  } else {
-    // No cast needed
-    return;
-  }
-
-  std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1)};
-  // Insert cast on the input with lower dtype
-  auto cast = CastHelper(
-      graph,
-      syn_inputs.at(cast_index),
-      stack.at(cast_index).isTensor() ? stack_tensor(stack, cast_index).sizes()
-                                      : 1,
-      input_types[cast_index],
-      result_type);
-
-  if (!isMetaMode()) {
-    // Replace the input with the casted input
-    p_context_->syn_inputs_.at(cast_index) = std::move(cast);
-  }
-
-  // Update the guid to reflect the promoted type
-  SetGuid(
-      guid_.substr(0, guid_.find_last_of('_') + 1) +
-      habana_helpers::name_suffix_from_type(result_type));
-}
-
-void OpBackend::HandleIntToFloatPromotion(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  if (!m_promote_int_to_float) {
-    return;
-  }
-
-  const std::array<at::ScalarType, 2> input_types{
-      GetScalarType(stack, 0), GetScalarType(stack, 1)};
-  const at::ScalarType& result_type = ComputePromotedScalarType(stack, true);
-
-  for (auto i = 0u; i < input_types.size(); ++i) {
-    if (input_types[i] == result_type) {
+  bool cast_inserted = false;
+  for (size_t i = 0; i < input_types.size(); ++i) {
+    if (habana_helpers::pytorch_to_synapse_type(input_types[i]) ==
+        habana_helpers::pytorch_to_synapse_type(result_type)) {
       continue;
     }
 
+    cast_inserted = true;
+
+    // Insert cast on the input with lower dtype
     auto cast = CastHelper(
         graph,
         syn_in(i),
@@ -285,12 +257,18 @@ void OpBackend::HandleIntToFloatPromotion(
 
     if (!isMetaMode()) {
       // Replace the input with the casted input
-      p_context_->syn_inputs_.at(i) = std::move(cast);
+      syn_inputs_casted_.emplace(i, std::move(cast));
     }
   }
 
+  if (!cast_inserted) {
+    return;
+  }
+
   // Update the guid to reflect the promoted type
-  update_guid_dtype(guid_, habana_helpers::name_suffix_from_type(result_type));
+  SetGuid(
+      guid_.substr(0, guid_.find_last_of('_') + 1) +
+      habana_helpers::name_suffix_from_type(result_type));
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
@@ -357,7 +335,6 @@ OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
 
   HandleScalarToTensor(*m_graph, stack);
   HandleTypePromotion(*m_graph, stack);
-  HandleIntToFloatPromotion(*m_graph, stack);
 
   AddNode(*m_graph, stack);
   m_meta_mode = false;
@@ -379,7 +356,6 @@ void OpBackend::AllocateAndAddSynapseNode(
 
   HandleScalarToTensor(graph, stack);
   HandleTypePromotion(graph, stack);
-  HandleIntToFloatPromotion(graph, stack);
 
   AddNode(graph, stack);
 }

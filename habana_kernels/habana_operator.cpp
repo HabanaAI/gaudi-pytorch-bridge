@@ -496,17 +496,19 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     if (no_inputs == false) {
       for (auto index : kernel_meta_data_.tpc_input_order) {
         HABANA_ASSERT(index < p_context_->syn_inputs_.size());
-        synapse_helpers::tensor& tensor = p_context_->syn_inputs_[index];
+        auto& tensor = SynInput(index).ref();
         syn_inputs.emplace_back(tensor.get());
       }
     }
-    for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
+    for (size_t i = 0; i < p_context_->syn_inputs_.size(); ++i) {
+      auto& tensor = SynInput(i).ref();
       if (tensor.is_shape_tensor() || tensor.is_input_shape_tensor()) {
         syn_inputs.emplace_back(tensor.get());
       }
     }
   } else {
-    for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
+    for (size_t i = 0; i < p_context_->syn_inputs_.size(); ++i) {
+      auto& tensor = SynInput(i).ref();
       syn_inputs.emplace_back(tensor.get());
     }
   }

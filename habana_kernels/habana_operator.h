@@ -489,6 +489,10 @@ class HabanaOperator {
       const at::IntArrayRef sizes,
       c10::MemoryFormat format);
 
+  virtual synapse_helpers::tensor_or_ref& SynInput(int index) {
+    return p_context_->syn_inputs_.at(index);
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
