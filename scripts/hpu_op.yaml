@@ -906,10 +906,68 @@ binary_cross_entropy_backward.grad_input:
   dtypes: [Float, BFloat16]
   op_backend: BinaryCrossEntropyBwd
 
+bitwise_and.Scalar:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_and_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+
+bitwise_and.Scalar_out:
+  force_default : false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_and_fwd
+  scalar_ids: [1]
+
+bitwise_and.Scalar_Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalarTensor
+  guid: bitwise_and_fwd
+  out_ids: [1]
+  scalar_ids: [0]
+
+bitwise_and.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_and_fwd
+  out_ids: [0]
+
 bitwise_and.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Int, Short, Byte, Char]
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
+
+bitwise_and_.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_and_fwd
+  inplace_ids: [0]
 
 bitwise_left_shift.Scalar_Tensor:
   force_default: false
@@ -984,10 +1042,56 @@ bitwise_not_:
   guid: bitwise_not_fwd
   inplace_ids: [0]
 
+bitwise_or.Scalar_out:
+  force_default : false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend:  LazyBitwiseScalar
+  guid: bitwise_or_fwd
+  scalar_ids: [1]
+
+bitwise_or.Scalar_Tensor:
+  force_default: false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalarTensor
+  guid: bitwise_or_fwd
+  out_ids: [1]
+  scalar_ids: [0]
+
+bitwise_or.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_or_fwd
+  out_ids: [0]
+
 bitwise_or.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Int, Short, Byte, Char]
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
+
+bitwise_or_.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_or_fwd
+  inplace_ids: [0]
 
 bitwise_right_shift.Scalar_Tensor:
   force_default: false
@@ -1046,10 +1150,56 @@ bitwise_right_shift_.Tensor_Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
 
+bitwise_xor.Scalar_out:
+  force_default : false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend:  LazyBitwiseScalar
+  guid: bitwise_xor_fwd
+  scalar_ids: [1]
+
+bitwise_xor.Scalar_Tensor:
+  force_default: false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalarTensor
+  guid: bitwise_xor_fwd
+  out_ids: [1]
+  scalar_ids: [0]
+
+bitwise_xor.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_xor_fwd
+  out_ids: [0]
+
 bitwise_xor.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Int, Short, Byte, Char]
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
+
+bitwise_xor_.Tensor:
+  force_default: False
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  guid: bitwise_xor_fwd
+  inplace_ids: [0]
 
 bmm:
   dtypes:
