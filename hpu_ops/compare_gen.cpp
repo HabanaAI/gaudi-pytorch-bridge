@@ -12,6 +12,9 @@
 #include "generated/ge.h"
 #include "generated/gt.h"
 #include "generated/le.h"
+#include "generated/logical_and.h"
+#include "generated/logical_or.h"
+#include "generated/logical_xor.h"
 #include "generated/lt.h"
 #include "generated/ne.h"
 
