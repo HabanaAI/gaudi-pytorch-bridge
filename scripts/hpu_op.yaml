@@ -2483,40 +2483,6 @@ mse_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: mse_loss_bwd
 
-mul.Tensor:
-  force_default: false
-  dtypes: [BFloat16, Byte, Char, Float, Int]
-  broadcast: true
-  guid: mult_fwd
-  out_ids: [0]
-  type_promotion: true
-
-mul.Scalar:
-  dtypes: [BFloat16, Byte, Char, Float, Int]
-  force_default: false
-  guid: mult_fwd
-  broadcast: true
-  out_ids: [0]
-  scalar_ids: [1]
-  type_promotion: true
-
-mul_.Tensor:
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int]
-  force_default: false
-  guid: mult_fwd
-  inplace_ids: [0]
-  type_promotion: true
-
-mul_.Scalar:
-  custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int]
-  force_default: false
-  guid: mult_fwd
-  inplace_ids: [0]
-  scalar_ids: [1]
-  type_promotion: true
-
 multinomial:
   dtypes: [BFloat16, Float]
   custom_output_shape: MultinomialOutputShape

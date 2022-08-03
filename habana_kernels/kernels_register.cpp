@@ -457,7 +457,32 @@ Tensor hpu_wrap::where(
   } else {
     return where_tensor_hpu(condition, self, other);
   }
+}
+Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  PT_OP_INFO("mul_ :", " self=", to_string(self), " other=", to_string(other));
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul_, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return mul_tensor_hpu_lazy_(self, other);
+  } else {
+    return mul_tensor_hpu_(self, other);
+  }
 };
+Tensor hpu_wrap::mul(const Tensor& self, const Tensor& other) {
+  PT_OP_TRACE;
+  PT_OP_INFO("mul :", " self=", to_string(self), " other=", to_string(other));
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul, PARAMS1(self, other), PARAMS2(self, other), Tensor)
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return mul_tensor_hpu_lazy(self, other);
+  } else {
+    return mul_tensor_hpu(self, other);
+  }
+};
+
 Tensor& hpu_wrap::mul_out(
     const Tensor& self,
     const Tensor& other,
@@ -472,6 +497,32 @@ Tensor& hpu_wrap::mul_out(
     return mul_out_hpu_lazy(out, self, other);
   } else {
     return mul_out_hpu(out, self, other);
+  }
+};
+
+Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  PT_OP_INFO("mul :", " self=", to_string(self), " other=", to_string(other));
+  FALLBACK_IF_UNSUPPORTED_OP_O(mul, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return mul_scalar_hpu_lazy(self, other);
+
+  } else {
+    return mul_scalar_hpu(self, other);
+  }
+};
+Tensor& hpu_wrap::mul_(Tensor& self, const Scalar& other) {
+  PT_OP_TRACE;
+  PT_OP_INFO("mul_ :", " self=", to_string(self), " other=", to_string(other));
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      mul_, PARAMS1(self), PARAMS2(self, other), Scalar)
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return mul_scalar_hpu_lazy_(self, other);
+
+  } else {
+    return mul_scalar_hpu_(self, other);
   }
 };
 Tensor hpu_wrap::div(const Tensor& self, const Tensor& other) {
@@ -1798,7 +1849,7 @@ Tensor hpu_wrap::baddbmm(
       to_string(beta),
       " alpha=",
       to_string(alpha));
-  Tensor out = torch::mul(hpu_wrap::bmm(mat1, mat2), alpha);
+  Tensor out = hpu_wrap::mul(hpu_wrap::bmm(mat1, mat2), alpha);
   if (beta.toFloat() != 0) {
     hpu_wrap::add_(out, self, beta);
   }
@@ -1829,11 +1880,11 @@ Tensor& hpu_wrap::baddbmm_out(
       to_string(out));
   if (beta.toFloat() == 0) {
     hpu_wrap::bmm_out(mat1, mat2, out);
-    out.mul_(alpha);
+    hpu_wrap::mul_(out, alpha);
   } else {
-    Tensor r_bmul = torch::mul(self, beta);
+    Tensor r_bmul = hpu_wrap::mul(self, beta);
     hpu_wrap::bmm_out(mat1, mat2, out);
-    out.mul_(alpha);
+    hpu_wrap::mul_(out, alpha);
     hpu_wrap::add_(out, r_bmul, 1);
   }
   return out;
@@ -1860,10 +1911,10 @@ Tensor& hpu_wrap::baddbmm_(
       to_string(alpha));
   if (beta.toFloat() == 0) {
     hpu_wrap::bmm_out(mat1, mat2, self);
-    self.mul_(alpha);
+    hpu_wrap::mul_(self, alpha);
   } else {
     Tensor r_bmm = hpu_wrap::bmm(mat1, mat2);
-    self.mul_(beta);
+    hpu_wrap::mul_(self, beta);
     hpu_wrap::add_(self, r_bmm, alpha);
   }
   return self;
