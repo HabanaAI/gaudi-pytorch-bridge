@@ -1,5 +1,6 @@
 import contextlib
 import torch
+from functools import partial
 from functools import wraps
 from . import config
 
@@ -36,22 +37,33 @@ def vprint(*args, **kwds):
     else:
         pass
 
-
-def to_bf16(x):
-    """Cast tensor to bf16"""
+def to_lp_impl(x, lp_type):
+    """Cast tensor to low prevision type"""
     if x.dtype == torch.float32:
-        return x.type(torch.bfloat16)
+        return x.type(lp_type)
     else:
         return x
 
-
-def to_fp32(x):
+def to_fp32_impl(x, lp_type):
     """Cast tensor to fp32"""
-    if x.dtype == torch.bfloat16:
+    if x.dtype == lp_type:
         return x.type(torch.float)
     else:
         return x
 
+class ConvertLowPrecision:
+    """ Class provide casts functions (from/to low precision type) according to provided argument lp_type"""
+    def __init__(self, lp_type):
+        self.to_lp_conv = partial(to_lp_impl, lp_type = lp_type)
+        self.to_fp32_conv = partial(to_fp32_impl, lp_type = lp_type)
+        self.to_lp_conv.__name__ = to_lp_impl.__name__
+        self.to_fp32_conv.__name__ = to_fp32_impl.__name__
+
+    def to_lp(self):
+        return self.to_lp_conv
+
+    def to_fp32(self):
+        return self.to_fp32_conv
 
 def inplace(x):
     """Return inplace version of input OP"""
@@ -72,18 +84,24 @@ def get_list_from_file(file_path):
     return ops_list
 
 
-def check_input(opt_level, bf16_file_path, fp32_file_path):
+def check_input(opt_level, bf16_file_path, fp32_file_path, fp16_file_path, low_precision_type):
     """Run some sanity checks on user provided inputs"""
 
     assert (opt_level == "O1") or (
         opt_level == "O2"
     ), "Optlevel should be either O1 or O2"
 
-    if (opt_level == "O2") and ((bf16_file_path != "") or (fp32_file_path != "")):
+    assert (low_precision_type == torch.bfloat16) or (low_precision_type == torch.float16), "low_precision_type has to be bfloat16 or float16"
+
+    if (opt_level == "O2") and ((bf16_file_path != "") or (fp32_file_path != "") or (fp16_file_path != "")):
         print("Input op list would be overridden in opt_level O2")
 
+    if (opt_level == "O1"):
+        assert not ((low_precision_type == torch.float16) and (bf16_file_path != "")), "Can't use bf16_file_path for float16"
+        assert not ((low_precision_type == torch.bfloat16)and (fp16_file_path != "")), "Can't use fp16_file_path for bfloat16"
 
-def decide_cast_fn(*args, **kwds):
+
+def decide_cast_fn(cast_set, *args, **kwds):
     """Decides cast_fn as fp32 if any tensor is float, else cast_fn is bf16"""
 
     dtype_list = []
@@ -96,15 +114,15 @@ def decide_cast_fn(*args, **kwds):
             dtype_list.append(str(val.dtype))
 
     if "torch.float32" in dtype_list:
-        cast_fn = to_fp32
+        cast_fn = cast_set.to_fp32()
     else:
-        cast_fn = to_bf16
+        cast_fn = cast_set.to_lp()
 
     vprint("Cast function decided", cast_fn.__name__)
     return cast_fn
 
 
-def decide_cast_fn_inplace(*args, **kwds):
+def decide_cast_fn_inplace(cast_set, *args, **kwds):
     """Decides cast_fn based on first/inplace argument dtype"""
 
     arg0 = args[0]
@@ -112,9 +130,9 @@ def decide_cast_fn_inplace(*args, **kwds):
         arg0, torch.autograd.Variable
     ), "Self should be a tensor in inplace op"
     if str(arg0.dtype) == "torch.float32":
-        cast_fn = to_fp32
+        cast_fn = cast_set.to_fp32()
     else:
-        cast_fn = to_bf16
+        cast_fn = cast_set.to_lp()
 
     vprint("Cast function Decided", cast_fn.__name__)
 
@@ -196,7 +214,7 @@ def op_wrap(op, cast_fn):
     return wrapper
 
 
-def op_wrap_dynamic(op):
+def op_wrap_dynamic(op, cast_set):
     """Adds wrapper function for OPs with multiple
     tensor inputs (other than weight, bias etc.), This
     wrapper function looks for largest data type
@@ -219,13 +237,13 @@ def op_wrap_dynamic(op):
 
         if isinstance(args[0], list) or isinstance(args[0], tuple):
             # ops with tensorlist as input
-            cast_fn = decide_cast_fn(*args[0], **kwds)
+            cast_fn = decide_cast_fn(cast_set, *args[0], **kwds)
             vprint("casting ", op, " to ", cast_fn.__name__)
             args_cast = get_new_args(cast_fn, args[0], kwds)
             return op(args_cast, *args[1:], **kwds)
         else:
             # ops with tensors as input
-            cast_fn = decide_cast_fn(*args, **kwds)
+            cast_fn = decide_cast_fn(cast_set, *args, **kwds)
             vprint("casting ", op, " to ", cast_fn.__name__)
             args_cast = get_new_args(cast_fn, args, kwds)
             return op(*args_cast, **kwds)
@@ -233,7 +251,7 @@ def op_wrap_dynamic(op):
     return wrapper_dynamic
 
 
-def op_wrap_dynamic_inplace(op):
+def op_wrap_dynamic_inplace(op, cast_set):
     """Adds wrapper function for inplace OPs. This wrapper
     function casts all the tensor inputs for the inplace OP
     to same type as inplace tensor (assumed to be 1st tensor
@@ -254,7 +272,7 @@ def op_wrap_dynamic_inplace(op):
         if _hmp_state.disable_cast:
             return op(*args, **kwds)
 
-        cast_fn = decide_cast_fn_inplace(*args, **kwds)
+        cast_fn = decide_cast_fn_inplace(cast_set, *args, **kwds)
         vprint("casting ", op, " to ", cast_fn.__name__)
 
         args_cast = get_new_args(cast_fn, args, kwds)
@@ -264,7 +282,7 @@ def op_wrap_dynamic_inplace(op):
     return wrapper_dynamic_inplace
 
 
-def cast_ops_list(ops_list, ops_dict, cast_fn=None):
+def cast_ops_list(ops_list, ops_dict, cast_fn=None, cast_set = None):
     """Takes a list of OPs as input and adds a wrapper function
     around each OP in the list based on the module type for an OP
     and the cast_fn provided.
@@ -293,7 +311,7 @@ def cast_ops_list(ops_list, ops_dict, cast_fn=None):
                             else:
                                 wrapper = op_wrap_var_input_len(pt_op, cast_fn, 1)
                         else:
-                            wrapper = op_wrap_dynamic(pt_op)
+                            wrapper = op_wrap_dynamic(pt_op, cast_set)
                         setattr(mod, op_in, wrapper)
 
                 # Handle inplace ops. For now inplace handling limited to
@@ -302,7 +320,7 @@ def cast_ops_list(ops_list, ops_dict, cast_fn=None):
                 if cast_fn is None:
                     if hasattr(mod, inplace(op)):
                         pt_op_inplace = getattr(mod, inplace(op))
-                        wrapper = op_wrap_dynamic_inplace(pt_op_inplace)
+                        wrapper = op_wrap_dynamic_inplace(pt_op_inplace, cast_set)
                         setattr(mod, inplace(op), wrapper)
 
         else:
