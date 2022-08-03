@@ -1476,6 +1476,22 @@ exponential_:
   op_backend: ExponentialSeedTensorInput
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
 
+exponential.out:
+  custom_fill_params: FillExponentialParams
+  dtypes: [BFloat16, Float]
+  op_frontend: LazyTensorOutSeedExp
+  op_backend: ExponentialSeedTensorInput
+  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
+exponential.functional:
+  custom_fill_params: FillExponentialParams
+  dtypes: [BFloat16, Float]
+  force_default: false
+  op_frontend: LazyTensorSeed
+  op_backend: ExponentialSeedTensorInput
+  out_ids: [0]
+  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
+
 eye.out:
   custom_output_shape: EyeOutputShape
   dtypes: [BFloat16, Float]
