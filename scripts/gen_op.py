@@ -1358,7 +1358,8 @@ def generate(args):
         for op in ctx.op_data.keys():
             assert op in fgen_data, "Cannot generate {}".format(op)
 
-    num_fgens_per_shard = len(fgens) // 5
+    num_shards = 5
+    num_fgens_per_shard = len(fgens) // num_shards
     gen_file_idx = 0
     dtype_defs = ""
     functions = ""
@@ -1386,7 +1387,9 @@ def generate(args):
         kr_regs += _kr_regs
         custom_schema_regs += _custom_schema_regs
 
-        if (idx + 1) % num_fgens_per_shard == 0 or (idx + 1) == len(fgens):
+        if (
+            (gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0
+        ) or (idx + 1) == len(fgens):
             print(
                 _CPP_HEADER.format(
                     gen=os.path.basename(sys.argv[0]),
