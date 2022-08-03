@@ -657,15 +657,38 @@ all.out:
   dtypes: [Char]
   op_backend: AllDim
 
+amax:
+  force_default: false
+  dtypes: [Float, BFloat16, Int]
+  guid:  reduce_max_fwd
+  custom_output_shape: AminAmaxOutputShape
+  op_backend: AminAmax
+  out_ids: [0]
+
 amax.out:
   dtypes: [Float, BFloat16, Int]
   guid:  reduce_max_fwd
   op_template: reduction
 
+amin:
+  force_default: false
+  dtypes: [Float, BFloat16, Int]
+  guid:  reduce_min_fwd
+  custom_output_shape: AminAmaxOutputShape
+  op_backend: AminAmax
+  out_ids: [0]
+
 amin.out:
   dtypes: [Float, BFloat16, Int]
   guid:  reduce_min_fwd
   op_template: reduction
+
+aminmax:
+  force_default: false
+  custom_output_shape: AminmaxOutputShape
+  dtypes: [Float, BFloat16, Int, Char]
+  op_backend: Aminmax
+  out_ids: [0, 0]
 
 aminmax.out:
   custom_output_shape: AminmaxOutputShape

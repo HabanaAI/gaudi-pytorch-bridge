@@ -7,6 +7,8 @@
  *
  ******************************************************************************
  */
+#include "generated/amax.h"
+#include "generated/amin.h"
 #include "generated/aminmax.h"
 #include "reduction_template.h"
 
@@ -24,6 +26,19 @@ sizes_vec AminmaxOutputShape(const at::Stack& stack, bool) {
   auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
 
   return {shapes[0], shapes[0]};
+}
+
+sizes_vec AminAmaxOutputShape(const at::Stack& stack, bool) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  auto dim = stack.at(1);
+  auto is_dim_none = dim.isNone();
+  const bool keepdim = stack.at(2).toBool();
+
+  auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
+
+  auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
+
+  return {shapes[0]};
 }
 
 static std::vector<synapse_helpers::tensor> AminmaxCommon(
@@ -102,5 +117,28 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(0) = std::move(amin_max[0]);
     syn_out(1) = std::move(amin_max[1]);
   }
+}
+
+void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto is_dim_none = stack.at(1).isNone();
+  const bool keepdim = stack.at(2).toBool();
+
+  auto dim = stack.at(1);
+  auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
+
+  const auto output_shape = AminAmaxOutputShape(stack, true)[0];
+
+  auto op = HandleReductionDimAndKeepdim(
+      this,
+      graph,
+      self,
+      {syn_in(0)},
+      dim_vec,
+      keepdim,
+      guid_,
+      {{output_shape, ScalarType(), 0}});
+
+  syn_out(0) = std::move(op[0]);
 }
 } // namespace habana
