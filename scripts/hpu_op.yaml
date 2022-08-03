@@ -3484,12 +3484,22 @@ softshrink:
   guid: shrink_fwd
   out_ids: [0]
 
+softshrink.out:
+  custom_fill_params: FillsoftshrinkfwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_fwd
+
 softshrink_backward:
   force_default: false
   custom_fill_params: FillsoftshrinkbwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
   out_ids: [0]
+
+softshrink_backward.grad_input:
+  custom_fill_params: FillsoftshrinkbwdParams
+  dtypes: [Float, BFloat16]
+  guid: shrink_bwd
 
 special_xlog1py.out:
   custom_output_shape: XlogYOutputShape

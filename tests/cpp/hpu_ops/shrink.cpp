@@ -79,3 +79,25 @@ TEST_F(HpuOpTest, softshrink_backward) {
       torch::softshrink_backward(GetHpuInput(0), GetHpuInput(1), lambda);
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, softshrink_out) {
+  GenerateInputs(1);
+  float lambda = GenerateScalar<float>();
+  auto expected = torch::empty(0, torch::kFloat32);
+  auto result = expected.to(torch::kHPU);
+  torch::softshrink_outf(GetCpuInput(0), lambda, expected);
+  torch::softshrink_outf(GetHpuInput(0), lambda, result);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, softshrink_backward_out) {
+  GenerateInputs(2);
+  float lambda = GenerateScalar<float>();
+  auto expected = torch::empty(0, torch::kFloat32);
+  auto result = expected.to(torch::kHPU);
+  torch::softshrink_backward_outf(
+      GetCpuInput(0), GetCpuInput(1), lambda, expected);
+  torch::softshrink_backward_outf(
+      GetHpuInput(0), GetHpuInput(1), lambda, result);
+  Compare(expected, result);
+}
