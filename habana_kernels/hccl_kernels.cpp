@@ -147,8 +147,15 @@ void collective(
         (synapse_helpers::device_ptr)inputs.at(i)->get_buffer_start();
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)outputs.at(i)->get_buffer_start();
+
+    // TODO [SW-50269]: don't enqueue 2 events if input_storage_ptr ==
+    // output_storage_ptr
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
     deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+
+    // TODO [SW-50269]: this function is not implemented correctly. needs to
+    // return and hold device_ptr_lock. release only after collective completion
+    // event is captured on host
     deviceCtxt->lock_address(inputs.at(i)->get_buffer(), &input_address);
     deviceCtxt->lock_address(outputs.at(i)->get_buffer(), &output_address);
 
@@ -236,6 +243,7 @@ void pointToPoint(
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors.at(i)->get_buffer_start();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
+    // TODO: see collective()
     deviceCtxt->lock_address(tensors.at(i)->get_buffer(), &tensor_address);
 
     auto pr = std::make_shared<std::promise<bool>>();

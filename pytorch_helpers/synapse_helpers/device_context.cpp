@@ -152,6 +152,50 @@ hcclResult_t device_context::lock_address(
   return hcclSuccess;
 }
 
+hcclResult_t device_context::lock_address(
+    void* const address,
+    void** device_address,
+    std::unique_ptr<synapse_helpers::device_ptr_lock>& locked) {
+  std::lock_guard<std::mutex> guard{access_mutex_};
+  PT_DISTRIBUTED_DEBUG(
+      "Calling device_context::lock_address(address=",
+      address,
+      ", device_address=",
+      device_address,
+      ")");
+
+  if (nullptr == device_address) {
+    PT_DISTRIBUTED_FATAL("Unexpected null pointer passed!");
+    return hcclInvalidArgument;
+  }
+
+  synapse_helpers::device_handle device = device_;
+
+  if (device == nullptr) {
+    PT_DISTRIBUTED_FATAL(
+        "Device need to be opened and chosen before allocating memory.");
+    return hcclInvalidUsage;
+  }
+
+  locked =
+      std::make_unique<synapse_helpers::device_ptr_lock>(device->lock_addresses(
+          reinterpret_cast<synapse_helpers::device_ptr>(address)));
+  auto locked_address = reinterpret_cast<void*>(locked->at(0));
+  *device_address = locked_address;
+  return hcclSuccess;
+}
+
+synapse_helpers::active_recipe_counter& device_context::
+    get_active_recipe_counter() {
+  synapse_helpers::device_handle device = device_;
+
+  if (device == nullptr) {
+    PT_DISTRIBUTED_FATAL(
+        "Device need to be opened and chosen before get_active_recipe_counter");
+  }
+  return device_->get_active_recipe_counter();
+}
+
 hcclResult_t device_context::acquire_copy_stream(
     synStreamHandle* stream_handle_ptr,
     deviceCtxtMemcpyKind_t kind) {

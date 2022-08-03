@@ -533,14 +533,31 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
                  peerRank = peerRank,
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
-      {
-        void* tensor_address;
-        deviceCtxt->lock_address(tensor.data_ptr(), &tensor_address);
-        hccl_result =
-            fn(tensor, tensor_address, *comm, collective_stream, peerRank);
-        TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
-      }
-      deviceCtxt->submit_events(collective_stream, tensor_storage_ptr);
+      auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
+      recipe_counter.increase();
+
+      struct ResourceHolder {
+        at::Tensor tensor_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+      };
+      auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensor_ = tensor;
+
+      void* tensor_address;
+      deviceCtxt->lock_address(
+          tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
+
+      hccl_result =
+          fn(tensor, tensor_address, *comm, collective_stream, peerRank);
+      TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+
+      deviceCtxt->submit_events(
+          collective_stream,
+          tensor_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+          });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
     };
@@ -609,7 +626,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
-    deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+    if (input_storage_ptr != output_storage_ptr) {
+      deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+    }
 
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
@@ -622,22 +641,43 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
                  output_storage_ptr = output_storage_ptr,
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
-      {
-        void* input_address;
-        void* output_address;
-        deviceCtxt->lock_address(input.data_ptr(), &input_address);
-        deviceCtxt->lock_address(output.data_ptr(), &output_address);
-        hccl_result =
-            fn(input,
-               output,
-               input_address,
-               output_address,
-               *comm,
-               collective_stream);
-        TORCH_CHECK(
-            hcclSuccess == hccl_result, "Collective call returned error");
-      }
-      deviceCtxt->submit_events(collective_stream, output_storage_ptr);
+      auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
+      recipe_counter.increase();
+
+      struct ResourceHolder {
+        std::vector<at::Tensor> tensors_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> input_address_lock;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> output_address_lock;
+      };
+      auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensors_ = {input, output};
+
+      void* input_address;
+      void* output_address;
+      deviceCtxt->lock_address(
+          input.data_ptr(),
+          &input_address,
+          resource_holder->input_address_lock);
+      deviceCtxt->lock_address(
+          output.data_ptr(),
+          &output_address,
+          resource_holder->output_address_lock);
+      hccl_result =
+          fn(input,
+             output,
+             input_address,
+             output_address,
+             *comm,
+             collective_stream);
+      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+
+      deviceCtxt->submit_events(
+          collective_stream,
+          output_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+          });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
     };

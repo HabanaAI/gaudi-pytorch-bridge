@@ -73,6 +73,11 @@ class device_context : std::enable_shared_from_this<device_context> {
   hcclResult_t free(void* address);
 
   hcclResult_t lock_address(void* const address, void** device_address_ptr);
+  hcclResult_t lock_address(
+      void* const address,
+      void** device_address_ptr,
+      std::unique_ptr<synapse_helpers::device_ptr_lock>& locked);
+  synapse_helpers::active_recipe_counter& get_active_recipe_counter();
 
   hcclResult_t prepare_stream(
       synStreamHandle stream_handle,
