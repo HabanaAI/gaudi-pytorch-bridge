@@ -84,6 +84,7 @@ class HandlesMap {
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
   void Erase(mem_handle::id_t id);
   void MarkMemoryFixed(mem_handle::id_t id);
+  void ResetHandlesMap();
 
   struct MemoryRecord {
     mem_handle::id_t id_;

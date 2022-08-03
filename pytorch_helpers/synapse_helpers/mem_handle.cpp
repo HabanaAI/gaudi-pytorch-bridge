@@ -137,4 +137,10 @@ HandlesMap::Iterator HandlesMap::Iterator::operator++(int) {
   ++(*this);
   return tmp;
 }
+
+void HandlesMap::ResetHandlesMap() {
+  handle_.clear();
+  handle_.emplace_back(Record{});
+  free_handles_ = {};
+}
 } // namespace synapse_helpers

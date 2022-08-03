@@ -10,27 +10,44 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/habana_tensor.h"
 #include "synapse_helpers/synapse_error.h"
 
 using namespace synapse_helpers;
+class SynapseHelpersMemoryTest : public ::testing::Test {
+  void SetUp() override {
+    habana::HABANAGuardImpl device_guard;
+    device_guard.getDevice();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    // clear cache scalar tensors map
+    setenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP", "1", 1);
+    habana_lazy::HbExecutionContext* context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+            device.id());
+    context->clear();
+    // set up defragment, pool and 3gb pool for testing
+    setenv("PT_HABANA_POOL_SIZE", "3", 1);
+    setenv("PT_ENABLE_MEMORY_DEFRAGMENTATION", "true", 1);
+    setenv("PT_HPU_POOL_STRATEGY", "5", 1);
+    device.cleanup_workspace_buffer();
+    device.get_device_memory().reset_pool();
+  }
 
-TEST(SynapseHelpersMemoryTest, degframentonOOM_1) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+  void TearDown() override {
+    // reset the pool when test is done to cleanup the pool
+    unsetenv("PT_HABANA_POOL_SIZE");
+    unsetenv("PT_HPU_POOL_STRATEGY");
+    unsetenv("PT_ENABLE_MEMORY_DEFRAGMENTATION");
+    unsetenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP");
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    device.cleanup_workspace_buffer();
+    device.get_device_memory().reset_pool();
+  }
+};
+
+TEST_F(SynapseHelpersMemoryTest, degframentonOOM_1) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled())
-    return;
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
-
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -73,30 +90,10 @@ TEST(SynapseHelpersMemoryTest, degframentonOOM_1) {
   device.get_device_memory().free(ptr5);
   device.get_device_memory().free(ptr6);
   device.get_device_memory().free(ptr_400mb);
-  // reset the pool when test is done to cleanup the pool
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
-TEST(SynapseHelpersMemoryTest, degframentonOOM_2) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+TEST_F(SynapseHelpersMemoryTest, degframentonOOM_2) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled())
-    return;
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
-
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -142,15 +139,10 @@ TEST(SynapseHelpersMemoryTest, degframentonOOM_2) {
   device.get_device_memory().free(ptr5);
   device.get_device_memory().free(ptr4);
   device.get_device_memory().free(ptr_400mb);
-  // reset the pool when test is done to cleanup the pool
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
-TEST(SynapseHelpersMemoryTest, degframentonOOM_3) {
+TEST_F(SynapseHelpersMemoryTest, degframentonOOM_3) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   int num_mem_blk = 0;
   // Add required test pattern of required length.
   std::set<std::pair<int, std::vector<int>>> test_set{
@@ -174,20 +166,6 @@ TEST(SynapseHelpersMemoryTest, degframentonOOM_3) {
   // Add required patterns of pointers to create free blocks.
   std::vector<std::vector<int>> free_set{{1, 3, 5}, {1, 4, 6}};
   int k = -1;
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled())
-    return;
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
 
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
@@ -231,30 +209,10 @@ TEST(SynapseHelpersMemoryTest, degframentonOOM_3) {
     }
     device.get_device_memory().free(ptr_400mb);
   }
-  // reset the pool when test is done to cleanup the pool
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
-TEST(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled())
-    return;
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
-
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -293,33 +251,12 @@ TEST(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
   device.get_device_memory().free(ptr4);
   device.get_device_memory().free(ptr5);
   device.get_device_memory().free(ptr6);
-
-  // reset the pool when test is done
-  PT_TEST_DEBUG("reset the pool when test is done");
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
 // we can test when we have handling in smalalloc for equal to 256 size. so
 // disabling it for now
-TEST(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+TEST_F(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled()) {
-    return;
-  }
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
   // Fill up the entire space expect the small alloc region
   // allocate workspace buffer 1.06gb
   device.get_workspace_buffer(1143820277);
@@ -381,33 +318,10 @@ TEST(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
   device.get_device_memory().free(ptr4);
   device.get_device_memory().free(ptr5);
   device.get_device_memory().free(ptr6);
-
-  // reset the pool when test is done
-  PT_TEST_DEBUG("reset the pool when test is done");
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
-TEST(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled()) {
-    return;
-  }
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
-
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB and copy the src content
@@ -517,18 +431,12 @@ TEST(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   }
   device.get_device_memory().free(ptr_400mb);
   free(src_400mb);
-  // reset the pool when test is done
-  PT_TEST_DEBUG("reset the pool when test is done");
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
 // This test is disabled, because verifying the contents of
 // the blocks takes time.
-TEST(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
+TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   int num_mem_blk = 0;
   // Add required test pattern of required length.
   std::set<std::pair<int, std::vector<int>>> test_set{
@@ -553,22 +461,7 @@ TEST(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
   std::vector<std::vector<int>> free_set{{1, 3, 5}, {1, 4, 6}};
   void* src_hpu = malloc(104857600);
   void* src1_hpu = malloc(209715200);
-
   int k = -1;
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled()) {
-    return;
-  }
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
@@ -700,31 +593,10 @@ TEST(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
     device.get_device_memory().free(ptr_400mb);
     free(src_400mb);
   }
-  // reset the pool when test is done
-  PT_TEST_DEBUG("reset the pool when test is done");
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }
 
-TEST(SynapseHelpersMemoryTest, GenTest) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
+TEST_F(SynapseHelpersMemoryTest, GenTest) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
-
-  if ((device.get_device_memory().get_pool_strategy() !=
-       pool_allocator::startegy_coalesce_stringent) ||
-      !device.IsMemorydefragmentationEnabled())
-    return;
-  /*set memory to 3GB for test */
-  setenv("PT_HABANA_POOL_SIZE", "3", 1);
-  auto pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.cleanup_workspace_buffer();
-  device.get_device_memory().reset_pool();
-
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   int x = 0, y = 0;
@@ -774,10 +646,4 @@ TEST(SynapseHelpersMemoryTest, GenTest) {
     }
     device.get_device_memory().free(ptr_400mb);
   }
-  // reset the pool when test is done to cleanup the pool
-  device.cleanup_workspace_buffer();
-  unsetenv("PT_HABANA_POOL_SIZE");
-  pool_size = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1);
-  PT_TEST_DEBUG("pool size read::", pool_size);
-  device.get_device_memory().reset_pool();
 }

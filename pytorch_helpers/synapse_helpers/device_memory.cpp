@@ -147,6 +147,8 @@ void device_memory::reset_pool() {
   if (suballoc_) {
     suballoc_->pool_destroy();
   }
+  handle2pointer_.ResetHandlesMap();
+
   pool_size_ = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1) * 1024 * 1024 * 1024;
   if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
     PT_DEVMEM_FATAL("pool creation failed");

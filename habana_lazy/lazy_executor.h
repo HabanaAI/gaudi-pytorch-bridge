@@ -186,7 +186,7 @@ class HbExecutionContext {
     PT_LAZY_DEBUG(
         "scalar_to_tensor_map size at HbExecutionContext::clear = ",
         scalar_to_tensor_map.size());
-    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP) ||
+    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP, 1) ||
         scalar_to_tensor_map.size() >
             GET_ENV_FLAG_NEW(PT_HPU_SCALAR_MAP_MAXSIZE)) {
       PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
