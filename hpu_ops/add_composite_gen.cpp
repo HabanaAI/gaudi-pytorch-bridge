@@ -34,7 +34,7 @@ static void convert_scalar_val_to_tensor(std::vector<at::IValue>& inputs) {
   if (val != 1.0)
     val_t = habana_lazy::get_tensor_for_scalar(val, self.options());
   c10::optional<at::Tensor> val_t_opt = c10::make_optional(val_t);
-  inputs[val_idx] = c10::IValue(val_t_opt);
+  inputs[val_idx] = val_t_opt;
 }
 
 template <>
@@ -43,10 +43,8 @@ AddCOpFE<at::Tensor&>::AddCOpFE(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
-  auto x = get_inputs();
   // convert "value" scalar to tensor to avoid cache misses
-  convert_scalar_val_to_tensor(x);
-  set_inputs(x);
+  convert_scalar_val_to_tensor(get_inputs());
 }
 
 template <>
@@ -55,10 +53,8 @@ AddCOpFE<at::Tensor>::AddCOpFE(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
-  auto x = get_inputs();
   // convert "value" scalar to tensor to avoid cache misses
-  convert_scalar_val_to_tensor(x);
-  set_inputs(x);
+  convert_scalar_val_to_tensor(get_inputs());
 }
 template <>
 at::Tensor& AddCOpFE<at::Tensor&>::get_result_overrideable() {
@@ -75,22 +71,19 @@ void AddCOpBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor other2 = stack_tensor(stack, oth2_idx);
 
   std::vector<synapse_helpers::tensor> mul, variable_op;
-  std::vector<synTensor> vectSynTensor{
-      syn_in(inp_idx), syn_in(oth1_idx), syn_in(oth2_idx)};
 
   // variable_op_inputs = {other1, other2}
-  std::vector<synTensor> variable_op_inputs{
-      vectSynTensor.at(oth1_idx), vectSynTensor.at(oth2_idx)};
+  std::vector<synTensor> variable_op_inputs{syn_in(oth1_idx), syn_in(oth2_idx)};
   // if necessary (i.e, if value != 1 in y = input + value * (other1 op other2)
   // where op = mul or div) do multiplication with value
   if (!stack.at(val_idx).isNone()) {
     mul = BuildOp( // other1 * value
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
-        {vectSynTensor.at(oth1_idx), syn_in(val_idx)},
+        {syn_in(oth1_idx), syn_in(val_idx)},
         {{other1.sizes(), ScalarType()}});
     // variable_op_inputs = {other1 * value, other2}
-    variable_op_inputs = {mul[0].get(), vectSynTensor.at(oth2_idx)};
+    variable_op_inputs = {mul[0].get(), syn_in(oth2_idx)};
   }
 
   // Based on the guid_, do mult/div/other binary op
@@ -99,8 +92,7 @@ void AddCOpBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph, guid_, variable_op_inputs, {{outsize_variable_op, ScalarType()}});
 
   // Finally add op with self
-  std::vector<synTensor> add_op_inputs{
-      vectSynTensor.at(inp_idx), variable_op[0].get()};
+  std::vector<synTensor> add_op_inputs{syn_in(inp_idx), variable_op[0].get()};
   auto outshape = AddCOpsOutputShape(stack, true)[0];
 
   auto add_op = BuildOp(
