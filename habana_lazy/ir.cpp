@@ -133,7 +133,7 @@ void Node::ReplaceInput(
 }
 
 Node::~Node() {
-  auto hash1 = this->get_hash();
+  // auto hash1 = this->get_hash();
   for (auto node_ptr : m_uses_reverse_nodes) {
     auto node = node_ptr.get();
     if (node) {
@@ -147,12 +147,12 @@ Node::~Node() {
         Probably because the ut teardown is not proper.
         Individually testcases will run without any issues.
       */
-      for (ir::Use use : uses) {
-        auto hash2 = use.mp_node->get_hash();
-        if (hash2 == hash1) {
-          uses.erase(use);
-        }
-      }
+      // for (ir::Use use : uses) {
+      //   auto hash2 = use.mp_node->get_hash();
+      //   if (hash2 == hash1) {
+      //     uses.erase(use);
+      //   }
+      // }
       uses.clear();
     }
   }

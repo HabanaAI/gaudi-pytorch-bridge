@@ -505,11 +505,6 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
       GetOrCreateHbLazyTensor(src_updated, src_updated.device());
-  if (hb_tensor.IsExecutionInProgress()) {
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    context->JoinPendingLaunchThread();
-  }
   auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
   auto layout_format = hb_tensor.GetTensorLayout();
   hlresult.SetTensorLayout(layout_format);
@@ -521,6 +516,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   if ((self.scalar_type() == c10::ScalarType::Long) ||
       (self.scalar_type() == c10::ScalarType::Double) ||
       (src_updated.dtype() == self.dtype())) {
+    if (hb_tensor.IsExecutionInProgress()) {
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+      context->JoinPendingLaunchThread();
+    }
     // If both src and dst are already processed ,  go and do the DMA dont
     // wait Else , If we already have storage in dst, add memcopy node to lazy
     // graph and we want to copy to existing tensor and not a new one
