@@ -3618,47 +3618,47 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-    bool inference_mode = !training && running_mean_.defined();
-    if (!inference_mode) { /*training mode*/
-      auto res_ = _batch_norm_fwd_training(
-          input,
-          weight,
-          bias,
-          running_mean,
-          running_var,
-          !inference_mode, // we don't rely just on the training flag from
-                           // PyTorch
-          momentum,
-          eps);
-      Tensor res;
-      auto res0 = std::get<BNFwdTPCRetIndex::Output>(res_);
-      if (input_.ndimension() != 4) {
-        res = bn_reshape_from_4d_to_orig(res0, in_sizes);
-      } else {
-        res = res0;
-      }
-      return {
-          res,
-          std::get<BNFwdTPCRetIndex::SavedMean>(res_),
-          std::get<BNFwdTPCRetIndex::SavedIStd>(res_)};
+  bool inference_mode = !training && running_mean_.defined();
+  if (!inference_mode) { /*training mode*/
+    auto res_ = _batch_norm_fwd_training(
+        input,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        !inference_mode, // we don't rely just on the training flag from
+                         // PyTorch
+        momentum,
+        eps);
+    Tensor res;
+    auto res0 = std::get<BNFwdTPCRetIndex::Output>(res_);
+    if (input_.ndimension() != 4) {
+      res = bn_reshape_from_4d_to_orig(res0, in_sizes);
     } else {
-      auto res_ = _batch_norm_fwd_inference(
-          input,
-          weight,
-          bias,
-          running_mean,
-          running_var,
-          !inference_mode,
-          momentum,
-          eps);
-      Tensor res;
-      if (input_.ndimension() != 4) {
-        res = bn_reshape_from_4d_to_orig(res_, in_sizes);
-      } else {
-        res = res_;
-      }
-      return {res, running_mean, running_var};
+      res = res0;
     }
+    return {
+        res,
+        std::get<BNFwdTPCRetIndex::SavedMean>(res_),
+        std::get<BNFwdTPCRetIndex::SavedIStd>(res_)};
+  } else {
+    auto res_ = _batch_norm_fwd_inference(
+        input,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        !inference_mode,
+        momentum,
+        eps);
+    Tensor res;
+    if (input_.ndimension() != 4) {
+      res = bn_reshape_from_4d_to_orig(res_, in_sizes);
+    } else {
+      res = res_;
+    }
+    return {res, running_mean, running_var};
+  }
 }
 
 std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_bwd_preprocess(
@@ -3771,30 +3771,30 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-    auto not_train_no_rm = !train && !running_mean_.defined();
-    auto res_ = _batch_norm_bwd(
-        grad_out,
-        input,
-        weight,
-        running_mean,
-        running_var,
-        save_mean,
-        save_invstd,
-        train,
-        eps,
-        not_train_no_rm);
-    auto res0 = std::get<0>(res_);
-    Tensor res;
-    if (input_.ndimension() != 4) {
-      res = bn_reshape_from_4d_to_orig(res0, in_sizes);
-    } else {
-      res = res0;
-    }
-    return {
-        res,
-        std::get<BNBwdTPCRetIndex::WeightGrad>(res_) /*gamma*/,
-        std::get<BNBwdTPCRetIndex::BiasGrad>(res_) /*beta*/
-    };
+  auto not_train_no_rm = !train && !running_mean_.defined();
+  auto res_ = _batch_norm_bwd(
+      grad_out,
+      input,
+      weight,
+      running_mean,
+      running_var,
+      save_mean,
+      save_invstd,
+      train,
+      eps,
+      not_train_no_rm);
+  auto res0 = std::get<0>(res_);
+  Tensor res;
+  if (input_.ndimension() != 4) {
+    res = bn_reshape_from_4d_to_orig(res0, in_sizes);
+  } else {
+    res = res0;
+  }
+  return {
+      res,
+      std::get<BNBwdTPCRetIndex::WeightGrad>(res_) /*gamma*/,
+      std::get<BNBwdTPCRetIndex::BiasGrad>(res_) /*beta*/
+  };
 }
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
@@ -5829,12 +5829,6 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
-at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k("aten::flip", {self, dims});
-  return k.call();
-}
-
 at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   PT_LAZY_TRACE;
   auto shape = self.sizes().vec();
@@ -6332,7 +6326,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
   // Add a slice node to capture relevent elements from feature_map
   auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
   // Flipping to match the cpu results
-  result = flip_hpu_lazy(result, {0});
+  result = torch::flip(result, {0});
   flush_op(result);
 
   if (return_inverse) {

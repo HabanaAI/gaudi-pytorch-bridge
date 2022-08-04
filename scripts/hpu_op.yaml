@@ -1513,6 +1513,11 @@ fill_.Tensor:
   op_backend: Fill
   inplace_ids: [0]
 
+flip:
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  op_backend: Flip
+  out_ids: [0]
+
 floor:
   force_default: false
   dtypes: [BFloat16, Float]

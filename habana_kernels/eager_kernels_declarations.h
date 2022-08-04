@@ -810,7 +810,6 @@ at::Tensor habana_nms_hpu(
     float score_threshold);
 at::Tensor silu_hpu(const at::Tensor& self);
 at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats);
-at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims);
 at::Tensor& linspace_out_hpu(
     const at::Scalar& start,
     const at::Scalar& end,

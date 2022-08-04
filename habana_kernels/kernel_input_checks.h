@@ -1821,17 +1821,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "flip",
-                {{at::ScalarType::Double,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Char,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Short,
-                  at::ScalarType::Long}},
-            },
-            {
                 "remainder",
                 {{at::ScalarType::Char,
                   at::ScalarType::Bool,

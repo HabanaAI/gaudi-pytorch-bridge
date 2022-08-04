@@ -5694,19 +5694,6 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
-Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
-  PT_OP_TRACE;
-  PT_OP_INFO(" flip:", " self=", to_string(self), "dims=", to_string(dims));
-  FALLBACK_IF_UNSUPPORTED_OP(flip, PARAMS1(self), PARAMS2(self, dims))
-
-  // Lazy mode is not implemented
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return flip_hpu_lazy(self, dims);
-  } else {
-    return flip_hpu(self, dims);
-  }
-}
-
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(

@@ -735,7 +735,6 @@ at::Tensor cumsum_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims);
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,
     int64_t root_rank,
