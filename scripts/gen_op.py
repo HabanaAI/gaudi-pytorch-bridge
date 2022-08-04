@@ -990,9 +990,8 @@ def get_hpu_wrapper(fndef, ctx):
         )
         if ctxop.force_default() is not None:
             default = ctxop.force_default()
-            assert (
-                default != fndef.default
-            ), "No need to force it to False for {}".format(opname)
+            if default == fndef.default:
+                print("No need to force it to False for {}".format(opname))
         else:
             default = fndef.default
 

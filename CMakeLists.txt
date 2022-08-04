@@ -17,11 +17,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(SANITIZER "build sanitizer configuration" OFF)
 option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
-option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" ON)
-
-IF(UPSTREAM_COMPILE)
-    ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
-ENDIF(UPSTREAM_COMPILE)
 
 if(SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope -O0")
@@ -201,14 +196,6 @@ else()
   message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
 endif()
 
-if(UPSTREAM_COMPILE)
-  message(STATUS "Gen Op: upstream compile!!!")
-  set(HPU_OP_YAML_FILE ${CMAKE_SOURCE_DIR}/scripts/hpu_op_upstream.yaml)
-else()
-  message(STATUS "Gen Op: master compile!!!")
-  set(HPU_OP_YAML_FILE ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml)
-endif()
-
 add_custom_command(OUTPUT
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op0.cpp
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op1.cpp
@@ -218,7 +205,7 @@ add_custom_command(OUTPUT
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/wrap_kernels_registrations.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_SOURCE_DIR}/hpu_ops/generated
-                     --yaml=${HPU_OP_YAML_FILE}
+                     --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
