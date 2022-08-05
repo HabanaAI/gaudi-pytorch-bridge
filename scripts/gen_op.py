@@ -994,7 +994,8 @@ def get_hpu_wrapper(fndef, ctx):
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
 
     if opname in ctx.op_data:
-        assert fndef.dispatch, "{} has dispatch=False".format(opname)
+        if not fndef.dispatch:
+          print("{} has dispatch=False".format(opname))
 
         op_frontend, op_backend, cname, ctxop, fc_params = generate_code(
             ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params
@@ -1375,7 +1376,8 @@ def generate(args):
     if len(ctx.op_data) != len(fgens):
         fgen_data = [get_aten_opname(x.aten_sig) for x in fgens]
         for op in ctx.op_data.keys():
-            assert op in fgen_data, "Cannot generate {}".format(op)
+            if op not in fgen_data:
+                print("Cannot generate {}, skipping it...".format(op), file=sys.stderr)
 
     num_shards = 5
     num_fgens_per_shard = len(fgens) // num_shards
