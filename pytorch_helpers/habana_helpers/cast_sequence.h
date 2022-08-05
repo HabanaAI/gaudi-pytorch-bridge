@@ -35,7 +35,8 @@ namespace habana_helpers {
   ENTRY( u16,  uint16, unsigned,  i16)                     \
   ENTRY( u32,  uint32, unsigned,  i32)                     \
   ENTRY( u64,  uint64, unsigned,  i64)                     \
-  ENTRY(  f8, fp8_152,    float,   f8)
+  ENTRY(  f8, fp8_152,    float,   f8)                     \
+  ENTRY(fp16,    fp16,    float, fp16)
 // clang-format on
 
 #define ENTRY(TPC_T, SYN_T, T, I) TPC_T,
