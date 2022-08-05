@@ -198,3 +198,32 @@ TEST_F(HpuOpTest, min_out_with_broadcast) {
   torch::min_outf(GetHpuInput(0), GetHpuInput(1), result);
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, min_usual) {
+  GenerateInputs(2, {{2, 2}, {2, 2}});
+  auto expected = torch::min(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::min(GetHpuInput(0), GetHpuInput(1));
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, min_usual_with_broadcast) {
+  GenerateInputs(2, {{2, 1, 2}, {5, 2}});
+  auto expected = torch::min(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::min(GetHpuInput(0), GetHpuInput(1));
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, min_f32) {
+  GenerateInputs(1, {{2, 2}});
+  auto expected = torch::min(GetCpuInput(0));
+  auto result = torch::min(GetHpuInput(0));
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, min_bf16) {
+  torch::ScalarType dtype = torch::kBFloat16;
+  GenerateInputs(1, {dtype}, {{2, 2}});
+  auto expected = torch::min(GetCpuInput(0));
+  auto result = torch::min(GetHpuInput(0));
+  Compare(expected, result);
+}
