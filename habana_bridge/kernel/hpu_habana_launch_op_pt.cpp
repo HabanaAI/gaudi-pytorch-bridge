@@ -730,6 +730,22 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       if (use_persistent_tensors || out_tensor_syn.is_persistent()) {
         auto ti = ProcessPersistentNodeOutput(
             ivpsh, output_nodes[output_nodes_idx], out_tensor_syn);
+
+        // set permutation flag for persistent tensors
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+            !is_hccl_send_mark_step()) {
+          if (!ti->is_ZST()) {
+            setSynapsePermuteFlag(out_tensor_syn, ti);
+            if (pt_to_synapse_tensors.count(ivpsh)) {
+              PT_BRIDGE_DEBUG(
+                  habana_helpers::DebugString(ivpsh),
+                  " already exists in pt_to_synapse_tensors map, ",
+                  *ti);
+            }
+          }
+        }
+
         if (shape_inf_flag) {
           if (!op_output_shape.empty()) {
             auto output =
@@ -1582,6 +1598,39 @@ void HabanaLaunchOpPT::validateOutputShape(
     validateOutputShapeDynamic(HabanaKernel, output_shape_handle, opname);
   } else {
     validateOutputShapeNonDynamic(HabanaKernel, output_shape_handle, opname);
+  }
+}
+
+void HabanaLaunchOpPT::setSynapsePermuteFlag(
+    synapse_helpers::tensor& out_syntensor,
+    PtTensorInfoShared& ti) {
+  if (out_syntensor.get() == nullptr || out_syntensor.is_dont_allow_permute()) {
+    PT_BRIDGE_DEBUG(
+        "Not setting synapse allow permutation on tensor: ",
+        out_syntensor.id(),
+        ", Name:",
+        out_syntensor.name(),
+        " because of nullptr tensor or specific tensor set with dont_allow_permute");
+    return;
+  }
+
+  auto rank = out_syntensor.pt_shape().size();
+  if (rank >= 2) {
+    PT_BRIDGE_DEBUG(
+        "Setting synapse allow permutation on tensor: ",
+        out_syntensor.id(),
+        ", Name:",
+        out_syntensor.name());
+    synTensorSetAllowPermutation(out_syntensor.get(), 1);
+    ti->set_allow_permutation(true);
+  } else {
+    PT_BRIDGE_DEBUG(
+        "Not setting synapse allow permutation on tensor: ",
+        out_syntensor.id(),
+        ", Name:",
+        out_syntensor.name(),
+        " because the PT tensor rank is 0D/1D. current rank: ",
+        rank);
   }
 }
 

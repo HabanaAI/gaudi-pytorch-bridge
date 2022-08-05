@@ -308,6 +308,9 @@ class HabanaLaunchOpPT {
       synapse_helpers::graph& syn_graph,
       bool is_shape_inference = false);
 
+  void setSynapsePermuteFlag(
+      synapse_helpers::tensor& out_syntensor,
+      PtTensorInfoShared& ti);
   LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
