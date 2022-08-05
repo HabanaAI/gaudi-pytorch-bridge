@@ -36,15 +36,9 @@ TEST_F(FallbackTest, Simple) {
   constexpr float ones_digamma = 0.42278409;
   auto exp = torch::full(10, ones_digamma);
   EXPECT_TRUE(allclose(exp, res.to("cpu")));
-}
 
-TEST_F(FallbackTest, UnsupportedOpHalf) {
-  auto in =
-      torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kHalf));
-  auto res = torch::tril(in);
-
-  auto exp = torch::tensor({{1, 0}, {3, 4}}, dtype(at::kHalf));
-  EXPECT_TRUE(allclose(exp, res.to("cpu")));
+  const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(freq.at("aten::digamma.out"), 1);
 }
 
 TEST_F(FallbackTest, Inplace) {
@@ -52,11 +46,29 @@ TEST_F(FallbackTest, Inplace) {
   auto res = t.lgamma_();
 
   EXPECT_EQ(t.storage().data_ptr().get(), res.storage().data_ptr().get());
+
+  const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(freq.at("aten::lgamma.out"), 1);
+}
+
+TEST_F(FallbackTest, inverse) {
+  auto a = torch::randn({2, 2});
+  auto b = a.inverse();
+  auto out = torch::transpose(b, 0, 1);
+
+  auto ha = a.to("hpu");
+  auto hb = ha.inverse();
+  auto hout = torch::transpose(hb, 0, 1);
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
+
+  const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(freq.at("aten::_linalg_inv_out_helper_"), 1);
 }
 
 // Test disabled since we do not want to support CPU Fallback for as_strided.
 // Enable this test when strided tensors are completely supported on HPU and
 // move it to appropriate test file
+#if 0
 TEST_F(FallbackTest, AsStrided) {
   setenv("PT_HPU_PLACE_ON_CPU", "div_", 1);
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3});
@@ -69,17 +81,6 @@ TEST_F(FallbackTest, AsStrided) {
 
   EXPECT_TRUE(allclose(Out, hOut.to("cpu"))) << Out << hOut.to("cpu");
   unsetenv("PT_HPU_PLACE_ON_CPU");
-}
-
-TEST_F(FallbackTest, inverse) {
-  auto a = torch::randn({2, 2});
-  auto b = a.inverse();
-  auto out = torch::transpose(b, 0, 1);
-
-  auto ha = a.to("hpu");
-  auto hb = ha.inverse();
-  auto hout = torch::transpose(hb, 0, 1);
-  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
 }
 
 TEST_F(FallbackTest, tensorView_Inplace) {
@@ -196,3 +197,4 @@ TEST_F(FallbackTest, tensorlistView_Inplace) {
   */
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
+#endif

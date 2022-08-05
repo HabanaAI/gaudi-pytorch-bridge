@@ -47,16 +47,12 @@ void HpuFallbackHelper::print_fallback_freq() const {
       });
 
   std::stringstream ss;
-  ss << "Frequency of op and op name that were executed on CPU:\n"
-        // TODO: This flag does not work anymore, check why
-        "(Set env var PT_HPU_LOG_TYPE_MASK=0 to disable this print)\n";
+  ss << "CPU Fallback stats:\n";
   for (const auto& oc : ops_sorted) {
-    // TODO use setw
     ss << oc.second << "\t" << oc.first << "\n";
   }
 
-  // By default, warnings are printed but can be disabled by setting env
-  // variable PT_HABANA_LOG_TYPE_MASK=0
-  PT_FALLBACK_WARN(ss.str());
+  const auto& logger = PtLogger::getLogger()->GetOpLogger();
+  logger->warn(ss.str());
 }
 } // namespace habana

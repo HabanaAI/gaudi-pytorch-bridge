@@ -8,7 +8,6 @@
  *
  ******************************************************************************
  */
-#include <ATen/core/interned_strings.h>
 #include <c10/util/Exception.h>
 #include <mutex>
 #include <unordered_map>
@@ -65,14 +64,4 @@ class HpuFallbackHelper {
   bool enable_fallback = true;
 };
 
-struct FallbackStatsPrint {
-  ~FallbackStatsPrint() {
-    HpuFallbackHelper::get()->print_fallback_freq();
-  }
-};
-
 } // namespace habana
-// TODO remove these  macro in pytorch 1.11
-#define HPU_FALLBACK_COUNTER(op) HpuFallbackHelper::get()->increment_count(op)
-#define PT_FALLBACK_CHECK \
-  HpuFallbackHelper::get()->check_fallback_allowed(__func__);

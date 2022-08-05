@@ -4,7 +4,6 @@ __pycache__/
 data/
 .pytest_cache/
 **/*build*/**
-**/*generated*/**
 *.log
 *.so
 *.bin
@@ -12,6 +11,4 @@ data/
 *.egg-info/
 *.eggs/
 dist
-habana_kernels/aten_hpu_type_default.cpp
-habana_kernels/aten_hpu_type_default.h
 *.pbtxt

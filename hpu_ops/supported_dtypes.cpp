@@ -9,6 +9,7 @@
  */
 
 #include "supported_dtypes.h"
+#include "habana_kernels/fallback_helper.h"
 #include "reduction_template.h"
 
 namespace habana {
@@ -22,6 +23,12 @@ SupportedDtypes::SupportedDtypes(
   } else if (per_gen_dtypes.count(curr_dev_type)) {
     m_dtypes = std::move(per_gen_dtypes.at(curr_dev_type));
   }
+}
+
+SupportedDtypes::~SupportedDtypes() {
+  static std::once_flag flag;
+  std::call_once(
+      flag, []() { HpuFallbackHelper::get()->print_fallback_freq(); });
 }
 
 bool SupportedDtypes::count(at::ScalarType type) const {

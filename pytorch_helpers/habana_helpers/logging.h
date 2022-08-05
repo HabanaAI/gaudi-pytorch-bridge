@@ -184,7 +184,8 @@ class PtLogger {
   }
   PtLogger() {
     loadMask();
-    CREATE_LOGGER("PYTORCH_HPU_OPS", "pytorch_plugin.log", 1000 * 1000 * 10, 3);
+    CREATE_LOGGER(
+        "PYTORCH_HPU_OPS", "pytorch_plugin.log", 1000 * 1000 * 10, 3, 3);
   }
 
  public:
