@@ -426,7 +426,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
   for (size_t index = 0; index < tensors.size(); ++index) {
-    auto tensor = tensors[index];
+    auto& tensor = tensors[index];
     permutedSendTensorsToDense(tensor);
     habana_lazy::send_hpu_lazy_(tensor, dstRank, tag, comm_->GetId());
   }

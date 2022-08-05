@@ -5036,7 +5036,11 @@ Tensor clone_hpu_lazy(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
   PT_LAZY_TRACE;
-  return at::native::clone(self, memory_format);
+  static_cast<void>(memory_format);
+  LazyOp<at::Tensor> k{"hpu::habana_d2d_memcpy", {self}};
+  auto out = k.call();
+  out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out.sizes()));
+  return out;
 }
 
 Tensor& zero_hpu_lazy(Tensor& self) {

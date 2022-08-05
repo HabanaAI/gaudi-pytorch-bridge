@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include "tests/cpp/habana_lazy_test_infra.h"
 
@@ -25,4 +26,46 @@ TEST_F(LazyMiscTest, CatchExceptionTest) {
     return;
   }
   EXPECT_EQ(false, true);
+}
+
+TEST_F(LazyMiscTest, CloneTest) {
+  auto x = torch::randn({2, 3});
+  auto hx = x.to(torch::kHPU);
+  x = torch::relu(x);
+  auto hy = hx.clone();
+  hy = torch::relu(hy);
+  auto y = hy.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(x, y, 0.001, 0.001), true);
+}
+
+TEST_F(LazyMiscTest, CloneIRTest) {
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
+  tensor_in1 = tensor_in1.relu();
+  tensor_in1 = tensor_in1.clone();
+  tensor_in1 = tensor_in1.relu();
+  auto hl_result = GetHbLazyTensor(tensor_in1);
+
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  auto str = po_data.post_order[0]->ToString();
+  auto cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[2]->ToString();
+  cond = (str.find("habana_d2d_memcpy") != string::npos);
+  EXPECT_TRUE(cond);
+
+  std::vector<at::Tensor> input_list{tensor_in1};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  hlexec->GetOrCreate(po_data, stack);
+
+  torch::jit::testing::FileCheck()
+      .check_count("habana_d2d_memcpy", 0, true)
+      ->run(*hlexec->get_graph());
 }

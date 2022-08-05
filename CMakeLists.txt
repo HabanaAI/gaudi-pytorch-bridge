@@ -168,6 +168,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/passes/fuse_mm_transpose.cpp
   habana_lazy/passes/fuse_bn_relu_residual_add.cpp
   habana_lazy/passes/permute_graph.cpp
+  habana_lazy/passes/remove_redundant_memcpy.cpp
   habana_lazy/passes/transform_graph.cpp
   habana_lazy/passes/replace_inplace_ops.cpp
   habana_lazy/passes/replace_views_with_reshapes.cpp

@@ -22,6 +22,7 @@
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
 #include "passes/permute_graph.h"
+#include "passes/remove_redundant_memcpy.h"
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
@@ -523,6 +524,11 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
     replace_inplace_ops(mp_g_);
     visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "replace_inplace_ops");
     OptPassCfg::GetInstance()->SetDeadCodeElimination(true);
+  }
+
+  {
+    remove_redundant_memcpy(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "remove_redundant_memcpy");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM() ||
