@@ -3643,6 +3643,14 @@ sub_.Scalar:
   inplace_ids: [0]
   type_promotion: true
 
+sub.Scalar_out:
+  broadcast: true
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: sub_fwd
+  op_backend: BinaryWithAlpha
+  scalar_ids: [1, 2]
+  type_promotion: true
+
 sub.out:
   broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
