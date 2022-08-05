@@ -15,11 +15,6 @@
 #define guidReducesum "reduce_sum_fwd_"
 
 namespace habana {
-sizes_vec NanSumOutputShape(const at::Stack& stack, bool) {
-  static_cast<void>(stack);
-  return {{}};
-}
-
 sizes_vec NanSumIntListOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> dim = stack.at(1).toIntList().vec();
@@ -70,44 +65,6 @@ void NansumList::AddNode(
       keepdim,
       guid,
       {{new_shape, ScalarType(), 0}});
-  syn_out(0) = std::move(reduce_sum[0]);
-}
-
-void Nansum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto dtype = c10::ScalarType::Char;
-
-  auto self = stack.at(0).toTensor();
-  std::vector<int64_t> new_shape{1};
-  auto guid =
-      guidReducesum + habana_helpers::name_suffix_from_type(ScalarType());
-
-  // isNan on input
-  auto is_nan = BuildOp(
-      graph,
-      "isnan_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0)},
-      {{outshape, dtype}});
-
-  auto zero_constant = ConstantHelper(graph, 0.0f, ScalarType(), outshape);
-
-  // where on is_nan
-  auto where = BuildOp(
-      graph,
-      "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {is_nan[0].get(), zero_constant.get(), syn_in(0)},
-      {{outshape, ScalarType()}});
-
-  auto reduce_sum = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      self,
-      {where[0].get()},
-      {},
-      false,
-      guid,
-      {{new_shape, ScalarType(), 0}});
-
   syn_out(0) = std::move(reduce_sum[0]);
 }
 } // namespace habana

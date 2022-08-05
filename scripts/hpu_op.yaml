@@ -2562,9 +2562,9 @@ nan_to_num.out:
   op_backend: NantoNum
 
 nansum:
-  custom_output_shape: NanSumOutputShape
+  custom_output_shape: NanSumIntListOutputShape
   dtypes: [Float]
-  op_backend: Nansum
+  op_backend: NansumList
   out_ids: [0]
 
 nansum.out:
