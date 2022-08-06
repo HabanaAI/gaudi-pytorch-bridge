@@ -476,8 +476,8 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
       if (t_updated.is_contiguous()) {
         // optimization for contiguous views
         TORCH_CHECK(
-            GetHbLazyTensor(base).CurrentIrValue().IsHpuInputNode(),
-            "base tensor is expected to be an input node");
+            base.storage().data_ptr(),
+            "base tensor is expected to be have storage");
         auto storage = base.storage();
         t_updated.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
       } else {

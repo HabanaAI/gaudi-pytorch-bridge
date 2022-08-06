@@ -210,6 +210,7 @@ class HbLazyTensor {
   c10::ScalarType getTensorOriginalType() const;
   void* CurrentHabanaData() const;
   bool IsExecutionInProgress() const;
+  void SetExecutionInProgress() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
   c10::optional<at::Tensor> GetHbLazyTensorData();

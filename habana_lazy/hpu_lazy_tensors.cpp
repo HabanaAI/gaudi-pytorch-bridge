@@ -275,6 +275,10 @@ bool HbLazyTensor::IsExecutionInProgress() const {
   return data()->is_executing;
 }
 
+void HbLazyTensor::SetExecutionInProgress() const {
+  data()->is_executing = true;
+}
+
 ir::Value HbLazyTensor::GetIrValue() const {
   ir::Value ir_value = CurrentIrValue();
   if (ir_value) {
@@ -474,11 +478,11 @@ void HbLazyTensor::ClearAndAssignNewIrValue() {
     if (currentIrVal.mp_node) {
       auto node = currentIrVal.mp_node.get();
       auto& uses = node->GetUses();
+      // Set the value ptr as input node, this will make sure the mp_node in
+      // value is proper.
+      ir::NodePtr inp_node = std::make_shared<ir::Input>(*this);
+      val.SetNode(inp_node, GetDevice(), GetSizes(), dtype_optional());
       if (uses.size()) {
-        // Set the value ptr as input node, this will make sure the mp_node in
-        // value is proper.
-        ir::NodePtr inp_node = std::make_shared<ir::Input>(*this);
-        val.SetNode(inp_node, GetDevice(), GetSizes(), dtype_optional());
         auto tensor = AtenFromHbLazyTensor(
             *this, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
         for (ir::Use use : uses) {
@@ -991,6 +995,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // pressure
   for (auto idx : indices) {
     auto out_tensor = (*tensors)[idx];
+    out_tensor.SetExecutionInProgress();
     if (!async) {
       out_tensor.SetTensorData(at::Tensor());
     }
@@ -1000,6 +1005,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // clear IR values corresponding to unexecuted view outputs
   for (auto& t : context->viewContext.hb_tensors_out_view) {
+    t.SetExecutionInProgress();
     ir::Value val = t.createIrValueFromData();
     t.resetVersionCounter();
     t.AssignIrValue(val);

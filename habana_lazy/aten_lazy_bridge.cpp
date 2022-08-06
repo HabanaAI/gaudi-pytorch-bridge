@@ -103,10 +103,8 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   auto hl_t_updated = impl->tensor();
   // if producer is collective, mark step
   const auto ir_value = hl_t_updated.CurrentIrValue();
-  if (ir_value) {
-    const auto& ir_node = ir_value.mp_node;
-    const auto& ir_op = ir_node->op();
-
+  if (ir_value && ir_value.mp_node) {
+    const auto& ir_op = ir_value.mp_node->op();
     PT_LAZY_DEBUG(
         "op: ", ir_op.toQualString(), " ir value: ", ir_value.ToString());
     if (IsCollective(ir_op)) {

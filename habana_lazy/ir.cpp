@@ -185,7 +185,7 @@ void Value::SetNode(
 std::string Value::ToString() const {
   std::stringstream ss;
   ss << "id_" << unique_id;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES) && mp_node) {
     auto name{mp_node->GetName()};
     std::replace(name.begin(), name.end(), ':', '_');
     ss << "_" << name;
