@@ -480,22 +480,22 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     return {};
   }
 
-  if (mfu_bucket_id == 0) {
+  size_t curr_mfu_id = mfu_bucket_id;
+  if (curr_mfu_id == 0) {
     PT_DYNAMIC_SHAPE_DEBUG("Can not refine static bucket");
     return {};
   }
 
-  auto& mfu_bucket = buckets_[mfu_bucket_id];
-  if (mfu_bucket.IsRefinementCandidate() == false) {
+  if (buckets_[curr_mfu_id].IsRefinementCandidate() == false) {
     PT_DYNAMIC_SHAPE_DEBUG(
-        "Bucket ", mfu_bucket_id, " is not a candidate for refinement");
+        "Bucket ", curr_mfu_id, " is not a candidate for refinement");
     return {};
   }
 
-  bool isRuntimeImproved{mfu_bucket.IsRuntimeImproved()};
+  bool isRuntimeImproved{buckets_[curr_mfu_id].IsRuntimeImproved()};
 
   PT_DYNAMIC_SHAPE_DEBUG("Current mfu bucket is eligible for refinement");
-  auto rvpsh = mfu_bucket.GetSynapseRecipePtr();
+  auto rvpsh = buckets_[curr_mfu_id].GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
     PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");
     return {};
@@ -505,7 +505,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   size_t min_dist_idx{};
   bool choose_lower{};
   std::tie(is_valid_split, min_dist_idx, choose_lower) =
-      input_history_.FindMidPoint(mfu_bucket.GetInputHistIdxes());
+      input_history_.FindMidPoint(buckets_[curr_mfu_id].GetInputHistIdxes());
 
   if (is_valid_split == false) {
     PT_DYNAMIC_SHAPE_DEBUG(
@@ -517,7 +517,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   // Use the split history input as lo or hi depending on choose_lower
   ResultShapes result_computed(shapes_);
   Bucket new_bucket_computed = ConstructNewBucket(
-      result_computed, mfu_bucket, min_dist_idx, choose_lower);
+      result_computed, buckets_[curr_mfu_id], min_dist_idx, choose_lower);
 
   Bucket& new_bucket_candidate{new_bucket_computed};
   uint64_t new_bucket_candidate_id = buckets_.size();
@@ -543,13 +543,14 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
 
     // Move the history
     // Find the previous hits
-    auto& input_hist_idxes{mfu_bucket.GetInputHistIdxes()};
+    auto& input_hist_idxes{buckets_[curr_mfu_id].GetInputHistIdxes()};
     std::vector<size_t> input_hist_move;
     std::vector<size_t> input_hist_retain;
     split_history(
         input_hist_idxes, new_range, input_hist_move, input_hist_retain);
 
-    auto& inherited_input_hist_idxes{mfu_bucket.GetInheritedInputHistIdxes()};
+    auto& inherited_input_hist_idxes{
+        buckets_[curr_mfu_id].GetInheritedInputHistIdxes()};
     std::vector<size_t> inherited_input_hist_move;
     std::vector<size_t> inherited_input_hist_retain;
     split_history(
@@ -558,9 +559,10 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
         inherited_input_hist_move,
         inherited_input_hist_retain);
 
-    mfu_bucket.SetInputHistIdxes(input_hist_retain);
-    mfu_bucket.SetInheritedInputHistIdxes(inherited_input_hist_retain);
-    mfu_bucket.ResetBaseLine(input_history_);
+    buckets_[curr_mfu_id].SetInputHistIdxes(input_hist_retain);
+    buckets_[curr_mfu_id].SetInheritedInputHistIdxes(
+        inherited_input_hist_retain);
+    buckets_[curr_mfu_id].ResetBaseLine(input_history_);
 
     buckets_.push_back(new_bucket_candidate);
     uint64_t new_bucket_id = buckets_.size() - 1;
@@ -585,7 +587,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
 
     PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket with id ",
-        mfu_bucket_id,
+        curr_mfu_id,
         " is split and new bucket is created with id ",
         new_bucket_id);
 
