@@ -103,7 +103,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   TensorList hlmoments(hmoments);
 
   torch::Tensor out1, out2;
-  auto t = optimizer_sgd_momentum_hpu_wrap(
+  optimizer_sgd_momentum_hpu_wrap(
       hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
@@ -153,7 +153,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
   auto hwts_before = torch::clone(hwts);
 
   torch::Tensor out1, out2;
-  auto t = optimizer_sgd_momentum_hpu_wrap(
+  optimizer_sgd_momentum_hpu_wrap(
       hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
@@ -552,161 +552,4 @@ TEST_F(LazyCustomKernelTest, EMATest_WtView) {
         updated_ema[i].to(torch::kCPU), 0.001, 0.001);
     EXPECT_EQ(equal, true);
   }
-}
-
-TEST_F(LazyCustomKernelTest, OptlambPhase1CustomOp) {
-  const std::vector<int64_t> commonSize = {2, 3, 4};
-  auto gradients = torch::randn(commonSize, torch::requires_grad(false));
-  auto adam_step_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto adam_norm_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto weight_norm_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto weight = torch::randn(commonSize, torch::requires_grad(false));
-  auto exp_avg = torch::randn(commonSize, torch::requires_grad(false));
-  auto exp_avg_sq = torch::randn(commonSize, torch::requires_grad(false));
-
-  const auto clip_global_grad_norm =
-      torch::randn(commonSize, torch::requires_grad(false));
-
-  auto gradientsHPU = gradients.to(HPU);
-  auto adam_step_vecHPU = adam_step_vec.to(HPU);
-  auto adam_norm_vecHPU = adam_norm_vec.to(HPU);
-  auto weight_norm_vecHPU = weight_norm_vec.to(HPU);
-  auto weightHPU = weight.to(HPU);
-  auto exp_avgHPU = exp_avg.to(HPU);
-  auto exp_avg_sqHPU = exp_avg_sq.to(HPU);
-  auto clip_global_grad_normHPU = clip_global_grad_norm.to(HPU);
-
-  const std::vector<at::Tensor> gradientsTL{gradientsHPU};
-  std::vector<at::Tensor> adam_step_vecTL{adam_step_vecHPU};
-  std::vector<at::Tensor> adam_norm_vecTL{adam_norm_vecHPU};
-  std::vector<at::Tensor> weight_norm_vecTL{weight_norm_vecHPU};
-  std::vector<at::Tensor> weightTL{weightHPU};
-  std::vector<at::Tensor> exp_avgTL{exp_avgHPU};
-  std::vector<at::Tensor> exp_avg_sqTL{exp_avg_sqHPU};
-
-  const int grad_averaging = 1;
-  const float lr = 0.0002;
-  const float beta1 = 0.5;
-  const float beta2 = 0.999;
-  const float epsilon = 0.00000001;
-  const int step = 5;
-  const int bias_correction = 0.01;
-  const float weight_decay = 0.01;
-
-  optimizer_lamb_phase1_hpu_wrap(
-      gradientsTL,
-      adam_step_vecTL,
-      adam_norm_vecTL,
-      weight_norm_vecTL,
-      weightTL,
-      exp_avgTL,
-      exp_avg_sqTL,
-      clip_global_grad_normHPU,
-      grad_averaging,
-      lr,
-      beta1,
-      beta2,
-      epsilon,
-      step,
-      bias_correction,
-      weight_decay);
-
-  auto weightsOutputToCpu = weightTL[0].to(CPU);
-
-  // Populate hardcoded reference tensor, which is obtained by old
-  // implementation, which was before :2022-07-18 - cd0bc4e6 -  [SW-80484]
-  // Op - Port Lazy Class under same conditions.
-  float referenceData[] = {
-      0.9671, -0.9911, 0.3016,  -0.1073, 0.9985, -0.4987, 0.7611,
-      0.6183, 0.9874,  -1.4878, 0.5867,  0.1583,
-
-      0.1102, -0.8188, 0.6328,  -1.9169, 1.3119, -0.2098, 0.7817,
-      0.9897, 0.4147,  -1.5090, 2.0360,  0.1316
-
-  };
-  auto options = torch::TensorOptions().dtype(torch::kFloat);
-
-  at::Tensor weightsReference =
-      torch::from_blob(referenceData, commonSize, options);
-
-  EXPECT_TRUE(allclose(weightsOutputToCpu, weightsReference, 0.001, 0.001));
-}
-
-TEST_F(LazyCustomKernelTest, OptlambPhase1CustomOp_grad_view) {
-  const std::vector<int64_t> commonSize = {2, 3, 4};
-  auto gradients =
-      torch::randn(commonSize, torch::requires_grad(false)).view({2, 3, 4});
-  auto adam_step_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto adam_norm_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto weight_norm_vec = torch::randn(commonSize, torch::requires_grad(false));
-  auto weight = torch::randn(commonSize, torch::requires_grad(false));
-  auto exp_avg = torch::randn(commonSize, torch::requires_grad(false));
-  auto exp_avg_sq = torch::randn(commonSize, torch::requires_grad(false));
-
-  const auto clip_global_grad_norm =
-      torch::randn(commonSize, torch::requires_grad(false));
-
-  auto gradientsHPU = gradients.to(HPU).view({2, 3, 4});
-  auto adam_step_vecHPU = adam_step_vec.to(HPU);
-  auto adam_norm_vecHPU = adam_norm_vec.to(HPU);
-  auto weight_norm_vecHPU = weight_norm_vec.to(HPU);
-  auto weightHPU = weight.to(HPU);
-  auto exp_avgHPU = exp_avg.to(HPU);
-  auto exp_avg_sqHPU = exp_avg_sq.to(HPU);
-  auto clip_global_grad_normHPU = clip_global_grad_norm.to(HPU);
-
-  const std::vector<at::Tensor> gradientsTL{gradientsHPU};
-  std::vector<at::Tensor> adam_step_vecTL{adam_step_vecHPU};
-  std::vector<at::Tensor> adam_norm_vecTL{adam_norm_vecHPU};
-  std::vector<at::Tensor> weight_norm_vecTL{weight_norm_vecHPU};
-  std::vector<at::Tensor> weightTL{weightHPU};
-  std::vector<at::Tensor> exp_avgTL{exp_avgHPU};
-  std::vector<at::Tensor> exp_avg_sqTL{exp_avg_sqHPU};
-
-  const int grad_averaging = 1;
-  const float lr = 0.0002;
-  const float beta1 = 0.5;
-  const float beta2 = 0.999;
-  const float epsilon = 0.00000001;
-  const int step = 5;
-  const int bias_correction = 0.01;
-  const float weight_decay = 0.01;
-
-  optimizer_lamb_phase1_hpu_wrap(
-      gradientsTL,
-      adam_step_vecTL,
-      adam_norm_vecTL,
-      weight_norm_vecTL,
-      weightTL,
-      exp_avgTL,
-      exp_avg_sqTL,
-      clip_global_grad_normHPU,
-      grad_averaging,
-      lr,
-      beta1,
-      beta2,
-      epsilon,
-      step,
-      bias_correction,
-      weight_decay);
-
-  auto weightsOutputToCpu = weightTL[0].to(CPU);
-
-  // Populate hardcoded reference tensor, which is obtained by old
-  // implementation, which was before :2022-07-18 - cd0bc4e6 -  [SW-80484]
-  // Op - Port Lazy Class under same conditions.
-  float referenceData[] = {
-      0.9671, -0.9911, 0.3016,  -0.1073, 0.9985, -0.4987, 0.7611,
-      0.6183, 0.9874,  -1.4878, 0.5867,  0.1583,
-
-      0.1102, -0.8188, 0.6328,  -1.9169, 1.3119, -0.2098, 0.7817,
-      0.9897, 0.4147,  -1.5090, 2.0360,  0.1316
-
-  };
-  auto options = torch::TensorOptions().dtype(torch::kFloat);
-
-  at::Tensor weightsReference =
-      torch::from_blob(referenceData, commonSize, options);
-
-  EXPECT_TRUE(allclose(weightsOutputToCpu, weightsReference, 0.001, 0.001));
 }

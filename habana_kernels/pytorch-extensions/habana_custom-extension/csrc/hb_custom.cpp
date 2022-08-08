@@ -33,11 +33,12 @@ extern void optimizer_adamw_hpu_wrap(
     const float epsilon,
     const float weight_decay);
 
-void optimizer_lamb_phase1_hpu_wrap(
+extern std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_wrap(
     const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& hl_adam_step_vec,
-    std::vector<at::Tensor>& hl_adam_norm_vec,
-    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
@@ -222,7 +223,7 @@ void optimizer_fused_sgd(
   optimizer_sgd_hpu_wrap(gradients, weights, lr, wd, mom, damp, nesterov);
 }
 
-extern at::Tensor& optimizer_sgd_momentum_hpu_wrap(
+void optimizer_sgd_momentum_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,
     at::TensorList& momentum,
@@ -247,7 +248,7 @@ void optimizer_fused_sgd_momentum(
   at::TensorList weights(weight_vec);
   at::TensorList momentum(momentum_vec);
 
-  auto out = optimizer_sgd_momentum_hpu_wrap(
+  optimizer_sgd_momentum_hpu_wrap(
       gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
 }
 

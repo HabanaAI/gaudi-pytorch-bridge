@@ -5321,7 +5321,7 @@ void optimizer_sgd_hpu_wrap(
   }
 }
 
-Tensor& optimizer_sgd_momentum_hpu_wrap(
+void optimizer_sgd_momentum_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
     TensorList& momentum,
@@ -5361,8 +5361,6 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
     optimizer_sgd_momentum_hpu(
         gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
   }
-
-  return lr;
 }
 
 Tensor optimizer_lamb_fused_norm_hpu_wrap(
@@ -5382,11 +5380,12 @@ Tensor optimizer_lamb_fused_norm_hpu_wrap(
   }
 }
 
-void optimizer_lamb_phase1_hpu_wrap(
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_wrap(
     const std::vector<at::Tensor>& gradients,
-    std::vector<at::Tensor>& hl_adam_step_vec,
-    std::vector<at::Tensor>& hl_adam_norm_vec,
-    std::vector<at::Tensor>& hl_weight_norm_vec,
     std::vector<at::Tensor>& weights,
     std::vector<at::Tensor>& exp_avg,
     std::vector<at::Tensor>& exp_avg_sq,
@@ -5429,11 +5428,8 @@ void optimizer_lamb_phase1_hpu_wrap(
       "weight_decay=",
       to_string(weight_decay));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_lamb_phase1_hpu_lazy(
+    return optimizer_lamb_phase1_hpu_lazy(
         gradients,
-        hl_adam_step_vec,
-        hl_adam_norm_vec,
-        hl_weight_norm_vec,
         weights,
         exp_avg,
         exp_avg_sq,
@@ -5447,11 +5443,8 @@ void optimizer_lamb_phase1_hpu_wrap(
         bias_correction,
         weight_decay);
   } else {
-    optimizer_lamb_phase1_hpu(
+    return optimizer_lamb_phase1_hpu(
         gradients,
-        hl_adam_step_vec,
-        hl_adam_norm_vec,
-        hl_weight_norm_vec,
         weights,
         exp_avg,
         exp_avg_sq,
