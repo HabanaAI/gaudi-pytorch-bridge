@@ -117,9 +117,6 @@ void PermuteTensors::handlePermutedTensor(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     auto synapse_permute = getMemoryPermutation(permutedTensor);
     if (synapse_permute.size() != 0) {
-      TORCH_CHECK(
-          permutedTensor.dim() == 4 || permutedTensor.dim() == 5,
-          "handlePermutedTensor we only support transposed tensor on 4/5 Dims");
       if (non_blocking) {
         TORCH_CHECK(
             false, "handlePermutedTensor we only support non_blocking = false");

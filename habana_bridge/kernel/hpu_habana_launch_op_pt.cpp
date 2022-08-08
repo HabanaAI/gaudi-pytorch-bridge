@@ -2021,13 +2021,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " because the PT tensor is mapped to multiple synapse tensors");
           continue;
         }
-        auto rank = out_syntensor.ref().pt_shape().size();
-        if (rank != 5 && rank != 4) {
+        if (out_syntensor.ref().pt_shape().size() < 2) {
           PT_BRIDGE_DEBUG(
               "Not setting synapse allow permutation on tensor: ",
               out_syntensor.ref().id(),
-              " because the PT tensor rank is not 4 or 5. other ranks are not supported. current rank: ",
-              rank);
+              " because it is 0D/1D");
           continue;
         }
         if (out_syntensor.ref().is_dont_allow_permute()) {
@@ -2065,13 +2063,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " because the PT tensor is mapped to multiple synapse tensors");
           continue;
         }
-        auto rank = out_syntensor.ref().shape().rank().value;
-        if (rank != 5 && rank != 4) {
+        if (out_syntensor.ref().pt_shape().size() < 2) {
           PT_BRIDGE_DEBUG(
               "Not setting synapse allow permutation on tensor: ",
               out_syntensor.ref().id(),
-              " because the PT tensor rank is not 4 or 5. other ranks are not supported. current rank: ",
-              rank);
+              " because it is 0D/1D");
           continue;
         }
         if (out_syntensor.ref().is_dont_allow_permute()) {
