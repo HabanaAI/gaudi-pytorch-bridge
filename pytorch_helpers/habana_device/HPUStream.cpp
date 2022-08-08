@@ -205,9 +205,13 @@ HPUStream HPUStreamForId(DeviceIndex device_index, StreamId stream_id) {
 bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
   auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto si = streamIdIndex(stream_.id());
-  auto& stream = device.get_compute_stream(si);
-  PT_DEVICE_DEBUG("STREAM:: Query stream id ::", stream_.id());
+  auto hpu_stream_id = stream();
+  PT_DEVICE_DEBUG(
+      "STREAM:: Query User stream id ::",
+      stream_.id(),
+      " Hpu stream Index::",
+      hpu_stream_id);
+  auto& stream = device.get_compute_stream(hpu_stream_id);
   /*TDB check if StepMarker is required for query */
   habana_lazy::HbLazyTensor::StepMarker({});
   auto status = stream.query();
@@ -221,8 +225,13 @@ bool HPUStream::query() const {
 void HPUStream::synchronize() const {
   DeviceGuard guard{stream_.device()};
   auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto si = streamIdIndex(stream_.id());
-  auto& stream = device.get_compute_stream(si);
+  auto hpu_stream_id = stream();
+  PT_DEVICE_DEBUG(
+      "STREAM:: synchronize User stream id ::",
+      stream_.id(),
+      " Hpu stream Index::",
+      hpu_stream_id);
+  auto& stream = device.get_compute_stream(hpu_stream_id);
   habana_lazy::HbLazyTensor::StepMarker({});
   stream.synchronize();
 }

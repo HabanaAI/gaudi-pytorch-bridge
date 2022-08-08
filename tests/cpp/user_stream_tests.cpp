@@ -368,6 +368,8 @@ TEST(TestStream, TestStreamSynchronize) {
   if (num_hpus == 0)
     return;
 
+  at::hpu::HPUStream defaultStream = at::hpu::getDefaultHPUStream();
+  defaultStream.synchronize();
   at::hpu::HPUStream compute1 = at::hpu::getStreamFromPool();
   at::hpu::HPUStream compute2 = at::hpu::getStreamFromPool();
 
@@ -377,10 +379,12 @@ TEST(TestStream, TestStreamSynchronize) {
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
   at::hpu::setCurrentHPUStream(compute1);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
+  PT_TEST_DEBUG("STREAM:: synchronize stream1");
   compute1.synchronize();
   torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
   at::hpu::setCurrentHPUStream(compute2);
   auto outHabana_B = torch::add(tHabana_B, 4.0);
+  PT_TEST_DEBUG("STREAM:: synchronize stream2");
   compute2.synchronize();
   auto out_A = torch::add(tensor_A, 4.0);
   auto out_B = torch::add(tensor_B, 4.0);
