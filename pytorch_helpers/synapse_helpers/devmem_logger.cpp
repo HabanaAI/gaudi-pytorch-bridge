@@ -35,40 +35,47 @@ deviceMallocData::deviceMallocData() {
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_FILENAME), node_id);
   auto log_level = (mem_log_level)GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL);
+  print_free_bt = false;
+  print_alloc_bt = false;
+  take_bt = false;
+  enable_recording = false;
+  print_memory_stats = false;
+  logging_enabled_ = true;
   switch (log_level) {
     case MEM_LOG_ALL:
       print_free_bt = true;
       print_alloc_bt = true;
       take_bt = true;
+      enable_recording = true;
       break;
     case MEM_LOG_ALLOC:
       print_alloc_bt = true;
-      print_free_bt = false;
       take_bt = true;
       break;
     case MEM_LOG_FREE:
-      print_alloc_bt = false;
       print_free_bt = true;
       take_bt = true;
       break;
     case MEM_LOG_ALLOC_FREE_NOBT:
-    case MEM_LOG_GRAPH_LAUNCH:
-      print_free_bt = true;
       print_alloc_bt = true;
-      take_bt = false;
+      print_free_bt = true;
+      break;
+    case MEM_LOG_MEMORY_STATS:
+      enable_recording = true;
+      print_memory_stats = true;
+      break;
+    case MEM_LOG_RECORD:
+      enable_recording = true;
       break;
     case MEM_LOG_DISABLE:
     default:
-      print_free_bt = false;
-      print_alloc_bt = false;
-      take_bt = false;
+      logging_enabled_ = false;
       break;
   }
   dram_start_ = dram_size_ = 0;
 
   logging_enabled_ = (take_bt || print_free_bt || print_alloc_bt);
-
-  if (logging_enabled_)
+  if (logging_enabled_ || enable_recording || print_memory_stats)
     out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
 }
 
@@ -617,28 +624,115 @@ void deviceMallocData::print_live_allocations(const char* msg) {
  * log synDeviceMalloc
  */
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed) {
-  if (!deviceMallocData::singleton().is_logging_enabled())
-    return;
-  std::unique_lock<std::mutex> lk(deviceMallocData::singleton().m);
-  deviceMallocData::singleton().collect_backtrace(ptr, true, size, failed);
-  if (failed) {
-    deviceMallocData::singleton().report_fragmentation();
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_logging_enabled()) {
+    auto lk = dmd.lock();
+    dmd.collect_backtrace(ptr, true, size, failed);
+    if (failed) {
+      dmd.report_fragmentation();
+    }
   }
-  lk.unlock();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("MALLOC", size, ptr);
+  }
 }
 
 /*
  * log synDeviceFree
  */
 void log_synDeviceFree(uint64_t ptr, bool failed) {
-  if (!deviceMallocData::singleton().is_logging_enabled())
-    return;
-  std::unique_lock<std::mutex> lk(deviceMallocData::singleton().m);
-  deviceMallocData::singleton().collect_backtrace(ptr, false, 0, failed);
-  if (failed) {
-    deviceMallocData::singleton().report_fragmentation(true);
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_logging_enabled()) {
+    auto lk = dmd.lock();
+    dmd.collect_backtrace(ptr, false, 0, failed);
+    if (failed) {
+      dmd.report_fragmentation(true);
+    }
   }
-  lk.unlock();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("FREE", ptr);
+  }
+}
+
+/*
+ * log workspace memory
+ */
+void log_synDeviceWorkspace(
+    synapse_helpers::device& device,
+    uint64_t ptr,
+    size_t size) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("WORKSPACE", size, ptr);
+  }
+
+  if (dmd.is_mem_stats_log_enabled()) {
+    synapse_helpers::MemoryStats stats;
+    device.get_device_memory().get_memory_stats(&stats);
+    std::string updated_msg = "Workspace Allocation";
+    updated_msg = updated_msg + "\n" + stats.DebugString();
+    synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+}
+
+/*
+ * log Alloc device memory
+ */
+void log_synDeviceAlloc(
+    synapse_helpers::device& device,
+    uint64_t ptr,
+    size_t size) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("ALLOCATE", size, ptr);
+  }
+
+  if (dmd.is_mem_stats_log_enabled()) {
+    synapse_helpers::MemoryStats stats;
+    device.get_device_memory().get_memory_stats(&stats);
+    std::string updated_msg = "Memory Allocation";
+    updated_msg = updated_msg + "\n" + stats.DebugString();
+    synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+}
+
+/*
+ * log Deallocate device memory
+ */
+void log_synDeviceDeallocate(synapse_helpers::device& device, uint64_t ptr) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("DEALLOCATE", ptr);
+  }
+
+  if (dmd.is_mem_stats_log_enabled()) {
+    synapse_helpers::MemoryStats stats;
+    device.get_device_memory().get_memory_stats(&stats);
+    std::string updated_msg = "Memory deallocation";
+    updated_msg = updated_msg + "\n" + stats.DebugString();
+    synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+}
+
+/*
+ * log lock memory
+ */
+void log_synDeviceLockMemory(
+    absl::Span<const synapse_helpers::device_ptr> ptrs) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("LOCK", ptrs);
+  }
+}
+
+/*
+ * log graph info - name and total memory
+ */
+void log_graph_info(std::string graph_name, size_t size) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("GRAPH", graph_name, size);
+  }
 }
 
 void print_to_file(const char* msg) {

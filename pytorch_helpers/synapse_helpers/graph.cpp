@@ -421,6 +421,11 @@ synapse_error_o graph::launch(
       addresses[i] = static_cast<uint64_t>(0);
     }
   }
+
+  log_graph_info(
+      recipe_handle.recipe_name_.c_str(),
+      device.get_device_memory().get_total_memory_required(addresses));
+
   {
     address_lock = absl::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
@@ -434,12 +439,6 @@ synapse_error_o graph::launch(
       }
       ++index;
       ++iter;
-    }
-
-    if (GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
-      std::string msg = absl::StrFormat(
-          "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
-      synapse_helpers::print_live_allocations(msg.c_str());
     }
 
     uint32_t flags{0};

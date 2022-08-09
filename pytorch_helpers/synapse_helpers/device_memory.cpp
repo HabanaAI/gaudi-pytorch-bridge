@@ -170,6 +170,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     }
 
     *v_ptr = reinterpret_cast<void*>(ptr);
+    log_synDeviceAlloc(device_, ptr, block_align(size));
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -177,6 +178,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
       PT_DEVMEM_DEBUG("synDeviceMalloc failed, requested size ", size);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
+      log_synDeviceAlloc(device_, ptr, size);
     }
   }
 
@@ -196,6 +198,7 @@ synStatus device_memory::deallocate(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_DEVMEM_DEBUG("SynDeviceFree Failed.", status);
   }
+  log_synDeviceDeallocate(device_, reinterpret_cast<uint64_t>(ptr));
   return status;
 }
 
@@ -286,6 +289,8 @@ void* device_memory::workspace_alloc(
     void* v_ptr{nullptr};
     alloc(&v_ptr, actual_size, true);
     ws_size = actual_size;
+    log_synDeviceWorkspace(
+        device_, reinterpret_cast<uint64_t>(v_ptr), req_size);
     return v_ptr;
   } else {
     if ((ws_size >= req_size) && (ptr != nullptr)) {
@@ -321,6 +326,8 @@ void* device_memory::workspace_alloc(
       } else {
         workspace_allocation_ = 0;
       }
+      log_synDeviceWorkspace(
+          device_, reinterpret_cast<uint64_t>(v_ptr), block_align(req_size));
 
       return v_ptr;
     }
@@ -698,6 +705,7 @@ device_ptr_lock device_memory::lock_addresses(
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
+  log_synDeviceLockMemory(addresses);
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     std::unique_lock<std::mutex> lock(defragmentation_mutex_);
     for (const auto address : addresses) {

@@ -23,7 +23,8 @@ enum mem_log_level {
   MEM_LOG_ALLOC, /* logs only alloc */
   MEM_LOG_FREE, /* logs only free  */
   MEM_LOG_ALLOC_FREE_NOBT, /*logs alloc and free, no backtrace */
-  MEM_LOG_GRAPH_LAUNCH, /*logs memory before graph launch, no backtrace */
+  MEM_LOG_MEMORY_STATS, /*logs memory allocation/free and the mem status*/
+  MEM_LOG_RECORD, /* logs memory allocations and deallocation */
 };
 
 class deviceMallocData final {
@@ -39,7 +40,12 @@ class deviceMallocData final {
 
   std::string filename;
   const char* fragment_csv_file = "habana_log.fragment.csv";
-  bool take_bt, print_free_bt, print_alloc_bt, mem_statuscheck_running;
+  bool take_bt = false;
+  bool print_free_bt = false;
+  bool print_alloc_bt = false;
+  bool mem_statuscheck_running = false;
+  bool enable_recording = false;
+  bool print_memory_stats = false;
   size_t bt_depth;
   bool logging_enabled_;
 
@@ -96,10 +102,52 @@ class deviceMallocData final {
     mem_statuscheck_running = flag;
   }
 
-  bool get_memstats_check_flag() {
+  bool get_memstats_check_flag() const {
     return mem_statuscheck_running;
   }
 
+  bool is_recording_enabled() const {
+    return enable_recording;
+  }
+
+  bool is_mem_stats_log_enabled() const {
+    return print_memory_stats;
+  }
+
+  auto lock() {
+    return std::unique_lock<std::mutex>(m);
+  }
+
+  template <typename T>
+  static void print(std::stringstream& ss, const T& arg) {
+    ss << " " << std::hex << arg;
+  }
+
+  template <typename T>
+  static void print(std::stringstream& ss, const absl::Span<T>& arg) {
+    for (auto a : arg) {
+      print(ss, a);
+    }
+  }
+
+  template <typename ArgT>
+  void record(const char* operation, const ArgT& arg) {
+    std::stringstream ss;
+    ss << "TRACE " << operation;
+    print(ss, arg);
+    auto lk = lock();
+    print_to_file(ss.str().c_str());
+  }
+
+  template <typename ArgT, typename ResT>
+  void record(const char* operation, const ArgT& arg, const ResT& result) {
+    std::stringstream ss;
+    ss << "TRACE " << operation;
+    print(ss, arg);
+    print(ss, result);
+    auto lk = lock();
+    print_to_file(ss.str().c_str());
+  }
   // TBD:: Make it private
   std::mutex m;
 
@@ -109,6 +157,18 @@ class deviceMallocData final {
 
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed = false);
 void log_synDeviceFree(uint64_t ptr, bool failed = false);
+void log_synDeviceWorkspace(
+    synapse_helpers::device& device,
+    uint64_t ptr,
+    size_t size);
+void log_synDeviceAlloc(
+    synapse_helpers::device& device,
+    uint64_t ptr,
+    size_t size);
+void log_synDeviceDeallocate(synapse_helpers::device& device, uint64_t ptr);
+void log_synDeviceLockMemory(
+    absl::Span<const synapse_helpers::device_ptr> ptrs);
+void log_graph_info(std::string graph_name, size_t size);
 void print_to_file(const char* msg);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);
