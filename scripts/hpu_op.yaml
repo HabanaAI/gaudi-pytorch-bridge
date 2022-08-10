@@ -484,6 +484,14 @@ add.out:
   op_backend: BinaryWithAlpha
   type_promotion: true
 
+add.Scalar_out:
+  broadcast: true
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: add_fwd
+  op_backend: BinaryWithAlpha
+  scalar_ids: [1,2]
+  type_promotion: true
+
 addcdiv:
   force_default: false
   custom_output_shape: AddCOpsOutputShape

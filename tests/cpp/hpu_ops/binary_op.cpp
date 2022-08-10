@@ -34,3 +34,19 @@ TEST_F(HpuOpTest, sub_out) {
 
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, add_scalar_out) {
+  GenerateInputs(1, {{3, 4, 1}}, torch::kBFloat16);
+  float alpha = 0.1;
+  float other = 1.2;
+  torch::ScalarType dtype = torch::kBFloat16;
+
+  // aten::add.Scalar_out is not yet enabled in cpu;
+  // hence comparing add.Scalar's cpu result with add.Scalar_out's hpu result
+  auto expected = torch::add(GetCpuInput(0), other, alpha);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::add_outf(GetHpuInput(0), other, alpha, result);
+
+  Compare(expected, result);
+}
