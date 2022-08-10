@@ -2537,6 +2537,13 @@ mul.Scalar:
   scalar_ids: [1]
   type_promotion: true
 
+mul.Scalar_out:
+  broadcast: true
+  dtypes: [BFloat16, Byte, Char, Float, Int]
+  guid: mult_fwd
+  type_promotion: true
+  scalar_ids: [1]
+
 mul_.Tensor:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Byte, Char, Float, Int]
