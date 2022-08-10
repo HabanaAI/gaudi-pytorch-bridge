@@ -107,17 +107,20 @@ synapse_error_v<graph> graph::create(
   graph syn_graph(device, std::move(name));
 
   PT_SYNHELPER_DEBUG("Graph Create.");
-  synStatus status = synSuccess;
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
-    status =
-        synGraphCreateEager(&syn_graph.graph_handle_, syn_graph.device_.type());
-  } else {
-    status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
-  }
-  SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
-  syn_graph.is_valid_ = true;
   syn_graph.dry_run_ = dry_run;
+  if (syn_graph.dry_run_ == false) {
+    synStatus status = synSuccess;
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
+      status = synGraphCreateEager(
+          &syn_graph.graph_handle_, syn_graph.device_.type());
+    } else {
+      status =
+          synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
+    }
+    SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
+  }
+  syn_graph.is_valid_ = true;
   PT_SYNHELPER_END;
   return {std::move(syn_graph)};
 }

@@ -534,3 +534,70 @@ TEST_F(SifTest, DISABLED_IndexSubCat) {
   }
   validate_shape_end();
 }
+
+// Hybrid SIF test, Tests Index with Compute Output Shape disabled
+// Tests Sub and Silu Bwd - auto gen ops - With enabled Compute Output shape
+// To do Add more Hybrid Sif tests
+// Disabling the following test since in CI the enabled ops list file
+// "./topologies/configs/yolov5_6/enabled_jit_ir_ops.txt",
+// is not accessible.
+TEST_F(SifTest, DISABLED_IndexSubSiluBwd) {
+  validate_shape_start();
+  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, true, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, true, 1);
+  SET_ENV_FLAG_NEW(
+      PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE,
+      "./topologies/configs/yolov5_6/enabled_jit_ir_ops.txt",
+      1);
+  std::vector<int> in_sizes{8, 16, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    int H = in_sizes[i];
+    int W = in_sizes[i];
+    auto a =
+        torch::randn({H, W}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto h_a = a.to(torch::kHPU);
+
+    auto idx = torch::randint(0, W - 1, {W}, torch::dtype(torch::kInt64));
+    auto h_idx = idx.to(torch::kHPU);
+
+    auto idx2 = torch::randint(0, W - 1, {W}, torch::dtype(torch::kInt64));
+    auto h_idx2 = idx2.to(torch::kHPU);
+
+    // Make list
+    c10::List<c10::optional<at::Tensor>> indices_cpu_list;
+    c10::List<c10::optional<at::Tensor>> indices_hpu_list;
+
+    indices_cpu_list.push_back(idx);
+    indices_cpu_list.push_back(idx2);
+    indices_hpu_list.push_back(h_idx);
+    indices_hpu_list.push_back(h_idx2);
+
+    // 1. Index Op
+    auto index_out = torch::index(a, indices_cpu_list);
+    auto h_index_out = torch::index(h_a, indices_hpu_list);
+
+    auto b = torch::randn({W}, torch::requires_grad(false));
+    auto h_b = b.to(torch::kHPU);
+
+    // 2. Sub Op
+    auto sub_out = torch::sub(index_out, b, 1);
+    auto h_sub_out = torch::sub(h_index_out, h_b, 1);
+
+    auto c = torch::randn({W}, torch::requires_grad(false));
+    auto h_c = c.to(torch::kHPU);
+
+    // 3. Try Silu Bwd with dummy grad tensor
+    auto grad_ones = torch::ones_like(sub_out);
+    auto h_grad_ones = grad_ones.to(torch::kHPU);
+    auto out_cpu = torch::silu_backward(grad_ones, sub_out);
+    auto out_hpu = torch::silu_backward(h_grad_ones, h_sub_out);
+
+    EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  validate_shape_end();
+  UNSET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE);
+}
