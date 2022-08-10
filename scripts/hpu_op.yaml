@@ -2032,6 +2032,10 @@ embedding_dense_backward:
   override_fn: embedding_dense_backward_hpu_lazy
   acc_thread: true
 
+empty.SymInt:
+  override_fn: empty_symint_hpu
+
+
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: Equal

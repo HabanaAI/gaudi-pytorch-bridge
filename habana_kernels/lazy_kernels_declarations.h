@@ -13,6 +13,7 @@
 #include <torch/csrc/api/include/torch/version.h>
 #include <torch/library.h>
 #include <torch/script.h>
+#include <torch/version.h>
 #include "habana_kernels/habana_operator.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
@@ -480,6 +481,15 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
 at::Tensor _copy_from_and_resize_lazy(
     const at::Tensor& self,
     const at::Tensor& dst);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR > 12))
+at::Tensor empty_symint_hpu(
+    c10::SymIntArrayRef size,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<at::MemoryFormat> memory_format);
+#endif
 at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,
