@@ -193,7 +193,7 @@ target_link_libraries(habana_pytorch_plugin
 )
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
-target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR})
+target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR} ${CMAKE_BINARY_DIR})
 if (DEFINED ENV{KINETO_ROOT})
   target_include_directories(habana_pytorch_plugin PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
 else()
@@ -201,14 +201,14 @@ else()
 endif()
 
 add_custom_command(OUTPUT
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op0.cpp
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op1.cpp
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op2.cpp
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op3.cpp
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op4.cpp
-                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/wrap_kernels_registrations.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_op0.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_op1.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
+                     ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
-                     --output_dir=${CMAKE_SOURCE_DIR}/hpu_ops/generated
+                     --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
