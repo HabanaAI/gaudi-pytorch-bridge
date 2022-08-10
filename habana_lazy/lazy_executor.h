@@ -241,12 +241,22 @@ class HbExecutionContextArena {
   const LazyExecutionMode& getExecutionMode();
   void setExecutionMode(LazyExecutionMode m);
   static thread_local LazyExecutionMode execution_mode;
+  void resetUniqueGraphCntr() {
+    uniqueGraphCntr = 0;
+  }
+  uint64_t getUniqueGraphCntr() {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_UNIQUE_GRAPH))
+      return uniqueGraphCntr++;
+    else
+      return 0;
+  }
 
  private:
   // Keep a map of all the execution contexts in play
   // Right now we support  a single context per device, map maintains ID to
   // context map
   std::unordered_map<int, HbExecutionContext*> m_execution_context_list;
+  uint64_t uniqueGraphCntr;
 };
 
 // The global object for all contexts, we create contexts out of this per

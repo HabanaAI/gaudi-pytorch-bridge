@@ -367,6 +367,10 @@ class Node {
     return m_is_output_tensor_list;
   }
 
+  bool is_broadcast_node() const {
+    return m_is_broadcast_node;
+  }
+
   size_t get_post_order_pos() {
     return post_order_pos;
   }
@@ -379,6 +383,10 @@ class Node {
     return m_id;
   }
 
+  void set_broadcast_flag(bool flag) {
+    m_is_broadcast_node = flag;
+  }
+
   bool getDeterministic() {
     return deterministic;
   }
@@ -388,6 +396,7 @@ class Node {
   bool m_is_input = false;
   bool m_is_control_edge = false;
   bool m_is_output_tensor_list = false;
+  bool m_is_broadcast_node = false;
   ValueList m_inputs;
   OutputList m_outputs;
   absl::flat_hash_set<Use, Use> m_uses;

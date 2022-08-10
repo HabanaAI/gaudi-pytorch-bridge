@@ -295,6 +295,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_VALIDATE_COMPUTE_SHAPE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_ZERO_MIN, bool, false);
 // Option to enable Fast shape Inference
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, bool, false);
+// Option to enable UniqueGraph feature
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_UNIQUE_GRAPH, bool, false);
 // Option to enable and run Hybrid shape Inference
 ENV_STRUCT_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool, false);
 // Option to select JIT IR ops for Hybrid Shape Inference

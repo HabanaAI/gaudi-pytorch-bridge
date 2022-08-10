@@ -22,6 +22,8 @@ int GetCurrentThreadDevice() {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
   m.def(
+      "_iter_mark_step", []() { habana_lazy::HbLazyTensor::IterStepMarker(); });
+  m.def(
       "_mark_step",
       [](const std::string& device_str) {
         habana_lazy::HbLazyTensor::StepMarkerBind(device_str);

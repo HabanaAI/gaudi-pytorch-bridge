@@ -520,6 +520,42 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
+  std::vector<std::pair<int, int>> v = {
+      {3, 1},
+      {1, 1},
+      {4, 1},
+      {1, 1},
+      {6, 1},
+      {1, 1},
+      {2, 1},
+      {2, 1},
+      {3, 1},
+      {3, 1},
+      {4, 2},
+      {4, 2},
+      {3, 2},
+      {3, 2},
+      {5, 3},
+      {5, 3}};
+  for (std::vector<std::pair<int, int>>::iterator it = std::begin(v);
+       it != std::end(v);) {
+    HbLazyTensor::IterStepMarker();
+    auto size1 = *it++;
+    auto in1 = torch::randn(
+        {size1.first, size1.second},
+        torch::dtype(torch::kFloat).requires_grad(false));
+    auto size2 = *it++;
+    auto in2 = torch::randn(
+        {size2.first, size2.second},
+        torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_in1 = in1.to(torch::kHPU);
+    torch::Tensor h_in2 = in2.to(torch::kHPU);
+    auto add_1 = torch::add(h_in1, h_in2);
+    torch::Tensor cpu_add_1 = add_1.to(torch::kCPU);
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   int kH = 3;
   int kW = 3;

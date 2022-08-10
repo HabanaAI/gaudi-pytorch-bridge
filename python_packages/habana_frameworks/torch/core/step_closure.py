@@ -39,3 +39,7 @@ def _run_step_closures():
 def mark_step(device_str=""):
     htcore._mark_step(device_str)
     _run_step_closures()
+
+def iter_mark_step(device_str=""):
+    htcore._iter_mark_step()
+    _run_step_closures()

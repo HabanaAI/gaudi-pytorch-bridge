@@ -137,11 +137,15 @@ class HabanaLaunchOpPT {
   void set_lazy_front_end_info(
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
+  void set_node_bcast_map(std::vector<bool>& map) {
+    node_bcast_map_ = map;
+  }
 
  private:
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;
 
+  std::vector<bool> node_bcast_map_;
   std::string op_name = std::string();
   std::string name = std::string();
   size_t graph_index = 0;

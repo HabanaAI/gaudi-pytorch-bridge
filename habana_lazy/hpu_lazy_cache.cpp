@@ -49,7 +49,8 @@ void ComputeGraphHashCode(
     const std::string& id,
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
-    size_t& graphHashCode) {
+    size_t& graphHashCode,
+    uint64_t unique_graph_cntr) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -158,6 +159,7 @@ void ComputeGraphHashCode(
     }
   }
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
+  graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     graphHashCode =
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
@@ -196,11 +198,19 @@ LazyArgumentSpec::LazyArgumentSpec(
     const ir::ValueList& inputs,
     const ir::ValueNodeListMap& value_input_nodes_map,
     const ir::ValueList& outputs,
-    const std::vector<size_t>& parent_vec) {
+    const std::vector<size_t>& parent_vec,
+    const size_t unique_cntr,
+    const std::vector<bool>& node_bcast_map) {
   PT_LAZY_TRACE;
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
-  GetArgSpecKey(with_grad, input_refs, inputs, value_input_nodes_map, outputs);
+  GetArgSpecKey(
+      with_grad,
+      input_refs,
+      inputs,
+      value_input_nodes_map,
+      outputs,
+      unique_cntr);
 
   m_post_order_nodes_hash = post_order_nodes_hash;
   HABANA_ASSERT(m_post_order_nodes_hash > 0);
@@ -216,6 +226,11 @@ LazyArgumentSpec::LazyArgumentSpec(
   // Include the initial duplicate information within the hash code
   for (const auto& a : parent_vec) {
     m_hash_code = at::hash_combine(m_hash_code, a);
+  }
+  m_hash_code = at::hash_combine(m_hash_code, unique_cntr);
+  if (!node_bcast_map.empty()) {
+    std::hash<std::vector<bool>> hash_bcast;
+    m_hash_code = at::hash_combine(m_hash_code, hash_bcast(node_bcast_map));
   }
 }
 
@@ -269,7 +284,8 @@ void LazyArgumentSpec::GetArgSpecKey(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const ir::ValueList& inputs,
     const ir::ValueNodeListMap& value_input_nodes_map,
-    const ir::ValueList& outputs) {
+    const ir::ValueList& outputs,
+    const size_t unique_cntr) {
   // ArgumentSpecCreator requires a JIT graph to be
   // passed, where the JIT graph inputs are the only
   // content used.
@@ -282,7 +298,7 @@ void LazyArgumentSpec::GetArgSpecKey(
 
   uint64_t input_hash{};
 
-  torch::jit::ArgumentSpec as(num_inputs, 0);
+  torch::jit::ArgumentSpec as((num_inputs + unique_cntr), 0);
   for (auto& input : input_refs) {
     as.addTensor(input, with_grad);
   }
@@ -318,8 +334,9 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() {}
 
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-    const at::ArrayRef<torch::jit::IValue>& input_refs)
-    : jit_graph_to_lowering(JitGraphToLowering) {
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    uint64_t ug_cntr)
+    : jit_graph_to_lowering(JitGraphToLowering), unique_graph_cntr(ug_cntr) {
   // Compute the graph hash
   ComputeGraphHashCode(JitGraphToLowering, input_refs);
 }
@@ -330,7 +347,7 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
   set_cached_graph_key(0);
   set_cached_opstrs(std::string());
   habana_lazy::ComputeGraphHashCode(
-      JitGraphToLowering, "", input_refs, opstrs, graphKey);
+      JitGraphToLowering, "", input_refs, opstrs, graphKey, unique_graph_cntr);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {

@@ -1314,6 +1314,10 @@ void HbLazyTensor::StepMarkerFinish() {
   context->JoinPendingLaunchThread();
 }
 
+void HbLazyTensor::IterStepMarker() {
+  habana_lazy_executor.resetUniqueGraphCntr();
+}
+
 void HbLazyTensor::StepMarker(
     const std::string& device_str,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,

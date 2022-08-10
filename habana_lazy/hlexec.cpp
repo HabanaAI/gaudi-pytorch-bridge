@@ -81,6 +81,7 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetEventFlag(event_flag);
   habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
   habanaLoweringOp.set_lazy_front_end_info(lazyInfo);
+  habanaLoweringOp.set_node_bcast_map(node_bcast_map_);
   try {
     habanaLoweringOp.run(stack);
   } catch (...) {
@@ -242,7 +243,9 @@ void HlExec::GetOrCreate(
   std::vector<bool> is_duplicate_vec(num_inputs, false);
   FindDuplicateInStack(po_data, stack, parent_vec, is_duplicate_vec);
   PruneDuplicateStackInputs(stack, is_duplicate_vec);
+  CreateNodeBcastMap(po_data.post_order);
 
+  uint64_t unique_cntr = habana_lazy_executor.getUniqueGraphCntr();
   m_g_hash_ = habana_lazy::LazyArgumentSpec(
                   true,
                   stack,
@@ -250,7 +253,8 @@ void HlExec::GetOrCreate(
                   po_data.inputs,
                   po_data.value_input_nodes_map,
                   po_data.outputs,
-                  parent_vec)
+                  parent_vec,
+                  unique_cntr)
                   .hashCode();
 
   auto ConstructJITGraph{
@@ -262,8 +266,8 @@ void HlExec::GetOrCreate(
         PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
         at::ArrayRef<torch::jit::IValue> input_refs =
             torch::jit::last(stack, mp_g_->inputs().size());
-        mp_g_and_meta_data_ =
-            std::make_shared<OptimizedJITGraphAndMetaData>(mp_g_, input_refs);
+        mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>(
+            mp_g_, input_refs, unique_cntr);
       }};
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
@@ -358,6 +362,18 @@ size_t HlExec::GetGraphIndex(
   return graphIndex;
 }
 
+void HlExec::CreateNodeBcastMap(const ir::NodePtrList& nodes) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_UNIQUE_GRAPH)) {
+    for (const auto& node : nodes) {
+      if (c10::Symbol::fromQualString("prim::constant") != node->op() &&
+          (std::string(node->op().toQualString()).find("hpu::input") ==
+           std::string::npos)) {
+        node_bcast_map_.push_back(node->is_broadcast_node());
+      }
+    }
+  }
+}
+
 /*
  * Creates the Graph
  */
@@ -436,7 +452,6 @@ void HlExec::Create(
         }
       });
       HABANA_ASSERT(j == args_vector.size());
-
       std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
       if (node->GetScope()) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(

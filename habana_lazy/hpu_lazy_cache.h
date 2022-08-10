@@ -26,7 +26,8 @@ void ComputeGraphHashCode(
     const std::string& id,
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
-    size_t& graphHashCode);
+    size_t& graphHashCode,
+    uint64_t unique_graph_cntr = 0);
 /**
  * LazyGraphCache
  * ----------------
@@ -94,7 +95,9 @@ class LazyArgumentSpec {
       const ir::ValueList& inputs,
       const ir::ValueNodeListMap& value_input_nodes_map,
       const ir::ValueList& outputs,
-      const std::vector<size_t>& parent_vec);
+      const std::vector<size_t>& parent_vec,
+      const size_t unique_cntr = 0,
+      const std::vector<bool>& node_bcast_map = {});
 
   bool operator==(const LazyArgumentSpec& rv) const {
     return m_hash_code == rv.m_hash_code &&
@@ -117,7 +120,8 @@ class LazyArgumentSpec {
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const ir::ValueList& inputs,
       const ir::ValueNodeListMap& value_input_nodes_map,
-      const ir::ValueList& outputs);
+      const ir::ValueList& outputs,
+      const size_t unique_cntr = 0);
 
   size_t GetInputHash(
       const ir::ValueList& inputs,
@@ -138,7 +142,8 @@ struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
   OptimizedJITGraphAndMetaData(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-      const at::ArrayRef<torch::jit::IValue>& input_refs);
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      uint64_t ug_cntr = 0);
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -256,6 +261,7 @@ struct OptimizedJITGraphAndMetaData {
   size_t graphKey = 0;
   bool dbg = false;
   size_t graph_index = 0;
+  uint64_t unique_graph_cntr = 0;
   std::string op_name = std::string();
   bool isOptimizedLazyEager = false;
   bool isJITCachedGraphInfoAvailable = false;

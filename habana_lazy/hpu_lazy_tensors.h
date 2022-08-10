@@ -83,6 +83,7 @@ struct Data {
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
+  bool is_broadcastable = false;
   LazyTensorExecutionStatus execution_status = kUN_REGISTERED;
   // is_executing flag is set to true if this tensor is part of launch
   // thread. Reset after launch is completed
@@ -123,6 +124,10 @@ struct HbLazyFrontEndInfoToBackend {
     is_optimized_lazy_eager = flag;
   }
 
+  void set_is_broadcasting_op(bool flag) {
+    is_broadcastable = flag;
+  }
+
   std::vector<ir::Value>& get_input_values() {
     return input_values;
   }
@@ -148,6 +153,7 @@ struct HbLazyFrontEndInfoToBackend {
   bool is_optimized_lazy_eager = false;
   std::vector<ir::Value> input_values{};
   bool is_hccl_send_mark_step = false;
+  bool is_broadcastable = false;
 };
 
 class HbLazyTensor {
@@ -254,6 +260,8 @@ class HbLazyTensor {
       bool is_allreduce = false,
       std::set<int64_t> bucket_id = {},
       std::set<int64_t> bucket_recent_id = {});
+
+  static void IterStepMarker();
 
   static void StepMarker(
       const std::string& device_str = {},

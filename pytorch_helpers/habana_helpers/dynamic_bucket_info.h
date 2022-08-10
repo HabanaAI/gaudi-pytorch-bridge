@@ -355,6 +355,14 @@ class Bucket {
     created_by_refinement_ = f;
   }
 
+  void set_node_bcast_map(const std::vector<bool>& map) {
+    node_bcast_map_ = map;
+  }
+
+  std::vector<bool>& get_node_bcast_map() {
+    return node_bcast_map_;
+  };
+
   size_t HistSize() const {
     size_t size = sizeof(*this);
     size += input_hist_idxes_.size() *
@@ -382,6 +390,7 @@ class Bucket {
   static constexpr double time_improve_factor_ = 0.90;
   static constexpr double polarization_factor_ = 0.75;
 
+  std::vector<bool> node_bcast_map_;
   uint64_t score_{0};
   uint64_t run_count_{0}; // tracks the number of launches
 
@@ -443,7 +452,8 @@ class DynamicBucketInfo {
 
   size_t GetBucketId(
       const InpTensorShapes& shapes,
-      const PadShapes& pad_shapes = PadShapes{});
+      const PadShapes& pad_shapes = PadShapes{},
+      const std::vector<bool>& node_bcast_map = {});
   absl::optional<uint64_t> CheckForSplitBucket(
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
   Bucket ConstructNewBucket(
@@ -795,7 +805,7 @@ class DynamicBucketInfo {
   uint64_t mfu_bucket_id{0};
   uint64_t mfu_bucket_run_count{0};
   uint64_t current_run_count{0};
-
+  std::vector<bool> node_bcast_map_;
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
   InpTensorShapes shapes_;
   DimsHistoryElement local_min_history_tensor_shapes_;

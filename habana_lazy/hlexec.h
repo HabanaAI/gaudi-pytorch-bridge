@@ -304,10 +304,12 @@ class HlExec {
       const ir::ValueList& outputs,
       torch::jit::Stack& stack);
 
+  void CreateNodeBcastMap(const ir::NodePtrList& nodes);
   GraphPtr mp_g_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_;
   size_t m_g_hash_;
   std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyInfo = nullptr;
+  std::vector<bool> node_bcast_map_;
 };
 
 }; // namespace exec
