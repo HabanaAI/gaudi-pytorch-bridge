@@ -23,6 +23,7 @@
 #include <thread>
 #include <vector>
 
+#include "pytorch_helpers/habana_helpers/thread_queue.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_helpers {
@@ -46,7 +47,7 @@ class ThreadPool {
 
  private:
   std::vector<std::thread> m_workers;
-  std::queue<std::function<void()>> m_tasks;
+  Queue<std::function<void()>>* m_tasks;
   // synchronization
   std::mutex m_queueMutex;
   std::condition_variable m_condition;
@@ -70,12 +71,12 @@ auto ThreadPool::enqueue(F&& f, Args&&... args)
       if (m_stop)
         throw std::runtime_error("enqueue on stopped ThreadPool");
 
-      m_tasks.emplace([task]() { (*task)(); });
+      m_tasks->emplace([task]() { (*task)(); });
     } else {
       if (m_stop)
         throw std::runtime_error("enqueue on stopped ThreadPool");
 
-      m_tasks.emplace([task]() { (*task)(); });
+      m_tasks->emplace([task]() { (*task)(); });
       has_work.store(true);
     }
   }

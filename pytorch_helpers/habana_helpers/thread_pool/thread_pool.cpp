@@ -13,11 +13,15 @@
 #include <sys/sysinfo.h>
 #include <iostream>
 
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "thread_pool.h"
 
 namespace habana_helpers {
 
 ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
+  m_tasks = Queue<std::function<void()>>::Create(
+      QueueType(GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_QUEUE_MODE)),
+      GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY));
   for (size_t i = 0; i < threads; ++i)
     m_workers.emplace_back([this] {
       for (;;) {
@@ -32,19 +36,23 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
             }
             if (this->m_stop && !this->has_work.load())
               return;
-            task = std::move(this->m_tasks.front());
-            this->m_tasks.pop();
+            task = std::move(this->m_tasks->front());
+            this->m_tasks->pop();
           } else {
             std::unique_lock<std::mutex> lock(this->m_queueMutex);
             this->m_condition.wait(lock, [this] {
-              return this->m_stop || !this->m_tasks.empty();
+              return this->m_stop || !this->m_tasks->empty();
             });
-            if (this->m_stop && this->m_tasks.empty()) {
+            if (this->m_stop && this->m_tasks->empty()) {
               this->has_queued_items.store(false);
+              if (this->m_tasks) {
+                delete this->m_tasks;
+                this->m_tasks = NULL;
+              }
               return;
             }
-            task = std::move(this->m_tasks.front());
-            this->m_tasks.pop();
+            task = std::move(this->m_tasks->front());
+            this->m_tasks->pop();
           }
         }
 
@@ -53,7 +61,7 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
             (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
           this->has_work.store(false);
         } else {
-          if (this->m_tasks.empty()) {
+          if (this->m_tasks->empty()) {
             this->has_queued_items.store(false);
           } else {
             this->has_queued_items.store(true);
