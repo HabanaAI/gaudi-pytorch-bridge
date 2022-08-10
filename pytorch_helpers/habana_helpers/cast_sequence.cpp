@@ -25,7 +25,7 @@ using CastStage = absl::optional<CastType>;
 
 CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // DON'T EDIT THE FOLLOWING TABLES MANUALLY UNLESS YOU HAVE TO
-  // Use tensorflow-training/tools/generate_cast_node_cpp_get_cast_stage.py
+  // Use pytorch-integration/scripts/generate_cast_node_cpp_get_cast_stage.py
   //
   // tpc_kernels/src/kernel_factory_gaudi.cpp
   // CastKernel::SRC_to_DST
