@@ -428,6 +428,12 @@ class device {
     HABANA_ASSERT(it != user_event_flag_map_.end());
     return user_event_flag_map_[handle];
   }
+  bool getDeterministic() {
+    return deterministic_;
+  }
+  void setDeterministic(bool val) {
+    deterministic_ = val;
+  }
 
  private:
   friend class stream;
@@ -495,6 +501,7 @@ class device {
 
   std::unordered_map<synEventHandle, bool> user_event_flag_map_;
   std::mutex event_mutex_;
+  bool deterministic_;
   // private inline method
   inline bool copy_data_to_device_(
       void* cpu_data,

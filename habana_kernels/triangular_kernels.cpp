@@ -75,7 +75,11 @@ void DiagOutOperator::AllocateAndAddSynapseNode(
       std::move(syn_out),
       &params,
       sizeof(params),
-      std::move(guid));
+      std::move(guid),
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 void DiagOperator::AllocateAndAddSynapseNode(

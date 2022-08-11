@@ -245,7 +245,11 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      guid_);
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {

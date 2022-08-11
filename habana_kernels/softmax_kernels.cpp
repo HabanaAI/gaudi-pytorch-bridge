@@ -263,7 +263,11 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
         std::move(syn_out),
         &params,
         sizeof(params),
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   } else {
     // Softmax Operator
     p_context_->params_.emplace<ns_Softmax::Params>(params);
@@ -413,7 +417,11 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
         std::move(syn_out),
         &params,
         sizeof(params),
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   } else {
     // Softmax Operator
     p_context_->params_.emplace<ns_Softmax::Params>(params);

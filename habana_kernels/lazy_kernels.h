@@ -982,7 +982,11 @@ class LazyOp {
   size_t calculate_optimized_lazy_eager_key() {
     size_t optimized_key = static_cast<uint32_t>(m_symbol);
     optimized_key = at::hash_combine(optimized_key, m_out_shapes.size());
-
+    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      optimized_key =
+          at::hash_combine(optimized_key, device.getDeterministic());
+    }
     std::unordered_set<size_t> input_hash_values;
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       optimized_key = at::hash_combine(optimized_key, i);

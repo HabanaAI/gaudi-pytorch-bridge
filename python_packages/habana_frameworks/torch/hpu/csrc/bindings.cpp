@@ -128,6 +128,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto mem_stat_str = get_mem_stat_summary(id);
     return mem_stat_str;
   });
+  m.def("setDeterministic", [](bool val) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    device.setDeterministic(val);
+  });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
   py::class_<HPUStream>(m, "HPUStream");
   m.def("get_stream", [](bool isHighPriorityStream, int device) {

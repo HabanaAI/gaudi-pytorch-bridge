@@ -1256,7 +1256,11 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      guid_);
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 Tensor binary_cross_entropy_hpu(
@@ -1389,7 +1393,11 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      guid_);
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 
   // add reshape node on output
   auto reshape_grad_in =

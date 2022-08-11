@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
@@ -447,6 +448,12 @@ void HlExec::Create(
 
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
+
+      auto one = torch::jit::attr::alpha;
+      jit_node->i_(one, node->getDeterministic());
+      PT_BRIDGE_DEBUG(
+          "Deterministic val during Jit Node creation: ", jit_node->i(one));
+
       mp_g_->insertNode(jit_node);
 
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||

@@ -469,6 +469,7 @@ class HabanaOperator {
   template <typename T, typename... Args>
   std::shared_ptr<T> make_operator(Args... args) {
     auto op = std::make_shared<T>(args...);
+    op->setDeterministic(deterministic);
     kernels_.emplace_back(op);
     return op;
   }
@@ -493,6 +494,14 @@ class HabanaOperator {
     return p_context_->syn_inputs_.at(index);
   }
 
+  void setDeterministic(bool val) {
+    deterministic = val;
+  }
+
+  bool getDeterministic() {
+    return deterministic;
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
@@ -510,6 +519,7 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
+  bool deterministic;
 };
 
 class RegisterKernel {

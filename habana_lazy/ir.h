@@ -379,6 +379,10 @@ class Node {
     return m_id;
   }
 
+  bool getDeterministic() {
+    return deterministic;
+  }
+
  protected:
   c10::Symbol m_op;
   bool m_is_input = false;
@@ -394,6 +398,7 @@ class Node {
   std::vector<at::Tensor> m_input_pt_tensors;
   std::shared_ptr<std::string> m_scope;
   uint64_t m_id;
+  bool deterministic;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {

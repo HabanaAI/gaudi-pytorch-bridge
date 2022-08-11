@@ -74,7 +74,15 @@ void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
   graph.add_node(
-      std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 /************************************************************************

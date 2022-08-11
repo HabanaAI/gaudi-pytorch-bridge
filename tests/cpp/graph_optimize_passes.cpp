@@ -63,26 +63,45 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   setenv("HABANA_TRANSFORM_GRAPH_FILE", "pattern.json", 1);
 
   // write to .json file patterens
-  std::string patterns =
+  std::string patterns0 =
       "{\n"
       " \"MmReluPattern\" :\n"
       " {\n"
       "   \"Pattern\" : [\n"
       "                   \"graph(%a, %b):\",\n"
-      "                   \" %c = aten::mm(%a, %b)\",\n"
-      "                   \" %r = aten::relu(%c)\",\n"
+      "                   \" %c = aten::mm[alpha=0](%a, %b)\",\n"
+      "                   \" %r = aten::relu[alpha=0](%c)\",\n"
       "                   \" return (%r)\"\n"
       "                 ],\n"
       "   \"ReplacePattern\" : [\n"
       "                   \"graph(%a, %b):\",\n"
-      "                   \" %r = aten::matmul(%a, %b)\",\n"
+      "                   \" %r = aten::matmul[alpha=0](%a, %b)\",\n"
+      "                   \" return (%r)\"\n"
+      "                 ]\n"
+      " }\n"
+      "}\n";
+
+  std::string patterns1 =
+      "{\n"
+      " \"MmReluPattern1\" :\n"
+      " {\n"
+      "   \"Pattern\" : [\n"
+      "                   \"graph(%a, %b):\",\n"
+      "                   \" %c = aten::mm[alpha=1](%a, %b)\",\n"
+      "                   \" %r = aten::relu[alpha=1](%c)\",\n"
+      "                   \" return (%r)\"\n"
+      "                 ],\n"
+      "   \"ReplacePattern\" : [\n"
+      "                   \"graph(%a, %b):\",\n"
+      "                   \" %r = aten::matmul[alpha=1](%a, %b)\",\n"
       "                   \" return (%r)\"\n"
       "                 ]\n"
       " }\n"
       "}\n";
 
   std::ofstream out("pattern.json");
-  out << patterns;
+  out << patterns0;
+  out << patterns1;
   out.close();
 
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));

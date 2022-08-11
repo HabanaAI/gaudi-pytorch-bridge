@@ -68,7 +68,15 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
     graph.add_node(
-        std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   } else {
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
@@ -85,7 +93,15 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
     graph.add_node(
-        std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   }
 }
 
@@ -234,7 +250,15 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
   graph.add_node(
-      std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 habana::OutputShapeInfRetType habana::BinaryInplaceOperator::ComputeOutputShape(

@@ -58,7 +58,8 @@ class graph {
       const synapse_error_v<std::string>& node_type,
       synNodeId* ret_node_id = nullptr,
       const char** input_layouts = nullptr,
-      const char** output_layouts = nullptr);
+      const char** output_layouts = nullptr,
+      bool deterministic = false);
 
   template <typename ParamsT>
   synapse_error_o add_node(
@@ -67,7 +68,8 @@ class graph {
       ParamsT* const params,
       const synapse_error_v<std::string>& node_type,
       const char** input_layouts = nullptr,
-      const char** output_layouts = nullptr) {
+      const char** output_layouts = nullptr,
+      bool deterministic = false) {
     return add_node(
         std::move(inputs),
         std::move(outputs),

@@ -974,7 +974,16 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         synInput0.get(), synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   } else {
     auto output = habana_helpers::createPTTensor(
         self,
@@ -993,7 +1002,16 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         synInput0.get(), synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   }
 }
 
@@ -1398,7 +1416,11 @@ void ClampOperator::AllocateAndAddSynapseNode(
         std::move(syn_out),
         &param,
         sizeof(param),
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
 
     node_type = "cast_f32_to_i32";
     // Create cast operator
@@ -1473,7 +1495,11 @@ void ClampMinOperator::AllocateAndAddSynapseNode(
         std::move(syn_out),
         &param,
         sizeof(param),
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
 
     node_type = "cast_f32_to_i32";
     // Create cast operator

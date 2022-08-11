@@ -283,6 +283,14 @@ synStatus SYN_API_CALL synNodeCreateWithId(
       outputLayouts);
 }
 
+synStatus SYN_API_CALL synNodeSetDeterministic(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const bool useDeterministic) {
+  return syn_api->synNodeSetDeterministic(
+      graphHandle, nodeId, useDeterministic);
+}
+
 synStatus synNodeDependencySet(
     const synGraphHandle graphHandle,
     const synNodeId* pBlockingNodesIdList,

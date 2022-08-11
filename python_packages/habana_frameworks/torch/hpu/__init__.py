@@ -102,6 +102,10 @@ def set_sync_debug_mode(debug_mode) -> None:
         debug_mode: True/False
     ."""
     os.environ['PT_ENABLE_HABANA_STREAMASYNC'] = str(debug_mode)
+def setDeterministic(val: bool) -> None:
+    if not is_initialized():
+       init()
+    _hpu_C.setDeterministic(val)
 
 def set_autocast_hpu_enabled(enabled) -> None:
     _hpu_C.set_autocast_hpu_enabled(enabled)

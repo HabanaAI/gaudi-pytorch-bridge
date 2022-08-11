@@ -371,7 +371,11 @@ ReduceOperator::CreateReductionGraph(
         std::move(syn_out),
         &params,
         sizeof(params),
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   }
   // if dim need not be kept add a final reshape to remove the "1" sized upper
   // dims
@@ -400,7 +404,11 @@ ReduceOperator::CreateReductionGraph(
         std::move(syn_out),
         nullptr,
         0,
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   }
   return std::make_tuple(std::move(syn_tensor_in), std::move(syn_tensor_out));
 }
@@ -1521,7 +1529,11 @@ void AllOutOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &cast_params,
       sizeof(cast_params),
-      std::move(node_type));
+      std::move(node_type),
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 void ReduceSumBwdOperator::AllocateAndAddSynapseNode(

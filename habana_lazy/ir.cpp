@@ -76,6 +76,11 @@ size_t Use::operator()(const Use& in) const {
 
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
+  /*Need to set this node if the deterministic mode is ON*/
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  deterministic = device.getDeterministic();
+  PT_BRIDGE_DEBUG("Deterministic value During Node Creation: ", deterministic);
+
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
     static std::atomic<uint64_t> next_id = 0;
     m_id = next_id++;
@@ -247,6 +252,10 @@ size_t Node::get_hash() {
           at::hash_combine(m_node_hash, m_inputs.at(i).mp_node->get_hash());
     }
     m_node_hash = at::hash_combine(m_node_hash, m_meta_data.get_hash());
+    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+      m_node_hash = at::hash_combine(m_node_hash, deterministic);
+      PT_BRIDGE_DEBUG("Caching calculation deterministic: ", deterministic);
+    }
   }
   return m_node_hash;
 }

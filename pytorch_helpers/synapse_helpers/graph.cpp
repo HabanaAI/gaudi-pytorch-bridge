@@ -184,7 +184,8 @@ synapse_error_o graph::add_node(
     const synapse_error_v<std::string>& node_type_or_err,
     synNodeId* ret_node_id,
     const char** input_layouts,
-    const char** output_layouts) {
+    const char** output_layouts,
+    bool deterministic) {
   if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
     return {};
@@ -257,6 +258,15 @@ synapse_error_o graph::add_node(
   op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
   if (ret_node_id) {
     *ret_node_id = nodeId;
+  }
+  PT_BRIDGE_DEBUG("Adding Syn graph::add_node val ", deterministic);
+  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE) && deterministic) {
+    auto status = synNodeSetDeterministic(graph_handle_, nodeId, deterministic);
+    if (status != synStatus::synSuccess) {
+      PT_SYNHELPER_WARN(
+          "Node " + node_type + "synNodeSetDeterministic", " Err: ", status);
+      HABANA_ASSERT(status == synStatus::synSuccess)
+    }
   }
   return {};
 }

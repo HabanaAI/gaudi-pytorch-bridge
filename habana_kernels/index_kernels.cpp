@@ -1643,7 +1643,11 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      guid_);
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 /*************************************************************************
@@ -2590,7 +2594,15 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
       // range_i32
       graph.add_node(
-          std::move(syn_in), std::move(syn_out), &param, sizeof(param), guid_);
+          std::move(syn_in),
+          std::move(syn_out),
+          &param,
+          sizeof(param),
+          guid_,
+          nullptr,
+          nullptr,
+          nullptr,
+          deterministic);
 
       // respective cast node
       std::string node_type = "cast_i32_to_i8";
@@ -2855,7 +2867,15 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
 
       // range_i32
       graph.add_node(
-          std::move(syn_in), std::move(syn_out), &param, sizeof(param), guid_);
+          std::move(syn_in),
+          std::move(syn_out),
+          &param,
+          sizeof(param),
+          guid_,
+          nullptr,
+          nullptr,
+          nullptr,
+          deterministic);
 
       // respective cast node
       std::string node_type = "cast_i32_to_i8";
@@ -3079,7 +3099,15 @@ void IndexOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
   graph.add_node(
-      std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 /*************************************************************************

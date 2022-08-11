@@ -26,4 +26,3 @@ def _get_device_index(device: Any) -> int:
         device_idx = 0
 
     return device_idx
-

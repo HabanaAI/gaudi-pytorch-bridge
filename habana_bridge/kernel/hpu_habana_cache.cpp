@@ -147,6 +147,24 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     size_t perm_hash_code = habana_lazy::ComputePermutationHashCode(input_refs);
     hash_code = at::hash_combine(hash_code, perm_hash_code);
   }
+  /*Add deterministic flag as well here*/
+  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+    torch::jit::graph_node_list graph_nodes = irgraph->nodes();
+    for (auto node : graph_nodes) {
+      auto node_qual_str = node->kind().toQualString();
+      std::string opname(node_qual_str);
+      /*Ignore the const & meta nodes*/
+      if (node->kind().is_prim() || HabanaMetaOpList::isHabanaMetaOp(opname)) {
+        continue;
+      }
+
+      auto one = torch::jit::attr::alpha;
+      hash_code = at::hash_combine(hash_code, node->f(one));
+      PT_BRIDGE_DEBUG("Jit Sysnapse Cache deterministic: ", node->f(one));
+      auto node_name = node->kind().toQualString();
+      PT_BRIDGE_DEBUG("Node Name: ", node_name);
+    }
+  }
 }
 
 void RecipeArgumentSpec::ComputeOffsetHashCode(
@@ -477,6 +495,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
         "Failed to find collective kernel for ",
         guid,
         "during recipe load from disk");
+
     collective_kernel->Deserialize(is);
     kernel_info->kernel = collective_kernel;
     collective_kernels_info.emplace_back(kernel_info);

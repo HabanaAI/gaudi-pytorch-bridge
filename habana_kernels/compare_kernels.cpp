@@ -223,7 +223,16 @@ void GeOutOperator::AllocateAndAddSynapseNode(
   syn_out.emplace_back(
       static_cast<synapse_helpers::tensor&>(p_context_->syn_outputs_[0]).get());
 
-  graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
+  graph.add_node(
+      std::move(syn_in),
+      std::move(syn_out),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 template <class CompareOp>

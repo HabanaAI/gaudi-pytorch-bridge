@@ -481,7 +481,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       node_attr.guid,
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
-      output_layouts.empty() ? nullptr : output_layouts.data());
+      output_layouts.empty() ? nullptr : output_layouts.data(),
+      op->deterministic);
 
   HABANA_ASSERT(
       ok(result),

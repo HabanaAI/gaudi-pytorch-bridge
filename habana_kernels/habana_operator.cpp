@@ -542,7 +542,8 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       guid_,
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
-      output_layouts.empty() ? nullptr : output_layouts.data());
+      output_layouts.empty() ? nullptr : output_layouts.data(),
+      deterministic);
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {

@@ -47,6 +47,7 @@
   visitor(synTensorHandleCreate);             \
   visitor(synNodeCreate);                     \
   visitor(synNodeCreateWithId);               \
+  visitor(synNodeSetDeterministic);           \
   visitor(synNodeDependencySet);              \
   visitor(synGetVersion);                     \
   visitor(synGraphCompile);                   \

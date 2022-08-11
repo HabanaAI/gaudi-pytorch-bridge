@@ -198,7 +198,16 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
     std::vector<synTensor> syn_out{synOutput.get()};
     guid_ =
         MULT_GUID + habana_helpers::name_suffix_from_type(c10::ScalarType::Int);
-    graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
     if (final_out_dtype != c10::ScalarType::Int) {
       // NOTE: TO DO: need to handle integral type U8
       // Cast Int tensor to Bool tensor
@@ -298,7 +307,15 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
   graph.add_node(
-      std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 /************************************************************************
@@ -565,7 +582,15 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
     graph.add_node(
-        std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto output = habana_helpers::createPTTensor(
@@ -586,7 +611,15 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
     graph.add_node(
-        std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        guid_,
+        nullptr,
+        nullptr,
+        nullptr,
+        deterministic);
   }
 }
 
@@ -1443,7 +1476,11 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
       std::move(syn_outputs),
       &params,
       sizeof(params),
-      std::move(this->guid_));
+      std::move(this->guid_),
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
@@ -1659,7 +1696,15 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
       output1_syn_tensor.get(), output2_syn_tensor.get()};
 
   graph.add_node(
-      std::move(syn_inputs), std::move(syn_outputs), nullptr, 0, guid_);
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid_,
+      nullptr,
+      nullptr,
+      nullptr,
+      deterministic);
 }
 
 void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
