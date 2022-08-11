@@ -22,7 +22,7 @@ struct RepeatOperator : public HabanaOperator {
         {LayoutFormat::ANY, LayoutFormat::ANY});
   }
 
-  void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
@@ -34,6 +34,16 @@ struct RepeatOperator : public HabanaOperator {
   static std::vector<int64_t> compute_reshape_output(
       const at::Tensor& self,
       at::IntArrayRef repeats);
+};
+
+struct RepeatOperatorHT : public RepeatOperator {
+  RepeatOperatorHT(int device_id, c10::ScalarType scalarType)
+      : RepeatOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 class RepeatInlvOperator : public HabanaOperator {

@@ -4405,6 +4405,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::constant_pad_nd(Tensor self, Tensor pad_before_tensor, Tensor pad_after_tensor, Scalar value) -> Tensor");
   m.def(
+      "hpu::repeat_ht(Tensor self, Tensor repeats_shape, Tensor result_shape) -> Tensor");
+  m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
       "upsample_nearest2d_backward(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor");

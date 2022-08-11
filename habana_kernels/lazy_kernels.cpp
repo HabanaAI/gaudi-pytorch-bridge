@@ -4503,12 +4503,72 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
   return op.call();
 }
 
-at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
+at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;
   std::string op_name;
   std::set<size_t> metadata_indices;
 
+  auto rpt_vec = repeats.vec();
+  std::vector<int32_t> params_vec;
+  for_each(rpt_vec.rbegin(), rpt_vec.rend(), [&](const int64_t& n) {
+    params_vec.push_back(static_cast<int32_t>(n));
+  });
+  auto params_shape = empty_hpu_lazy(
+      params_vec.size(),
+      self.options(),
+      self.suggest_memory_format(),
+      false,
+      HOST_TO_DEVICE_TENSOR);
+
+  auto hl_params_shape = GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
+
+  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+
+  habana_lazy::HbInternalTensorImpl* impl =
+      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+  HABANA_ASSERT(impl);
+
+  impl->set_host_data(
+      params_vec.data(),
+      params_vec.size(),
+      sizeof(int32_t),
+      HostDataType::INT32_T);
+  auto out_shape = RepeatOperator::compute_output_shape(self, repeats);
+  std::vector<int64_t> repeat_shape(rpt_vec.rbegin(), rpt_vec.rend());
+  auto repeat_shape_tensor = empty_hpu_lazy(
+      repeat_shape,
+      self.options(),
+      c10::MemoryFormat::Contiguous,
+      false,
+      SHAPE_TENSOR);
+
+  // Mark this front end shape tensor as it does not need synapse tensor
+  auto repeat_internal = GetOrCreateHbLazyTensor(repeat_shape_tensor, c10::kHPU)
+                             .CurrentTensorAttached()
+                             .value();
+  auto stImpl = habana_lazy::GetHbInternalTensorImpl(repeat_internal);
+  if (stImpl) {
+    stImpl->setH2DFrontEndShapeTensor();
+  }
+  vector_of_inputs = {self, params_shape, repeat_shape_tensor};
+  op_name = "hpu::repeat_ht";
+  metadata_indices = {};
+  LazyOp<at::Tensor> k{
+      op_name, vector_of_inputs, metadata_indices, {out_shape}};
+  return k.call();
+}
+
+at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
+  PT_LAZY_TRACE;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR)) {
+    return repeat_hpu_lazy_ht(self, repeats);
+  }
+
+  std::vector<at::IValue> vector_of_inputs;
+  std::string op_name;
+  std::set<size_t> metadata_indices;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     auto repeats_shape = empty_hpu_lazy(
         repeats,

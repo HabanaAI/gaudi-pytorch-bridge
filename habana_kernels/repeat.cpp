@@ -47,6 +47,68 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
   return padded_size;
 }
 
+void RepeatOperatorHT::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for RepeatHTOperator");
+  TORCH_CHECK(
+      inputs[1].isTensor() and inputs[2].isTensor(),
+      "Input arg2 & arg3 expected to be shape tensor for RepeatHTOperator");
+  auto input = inputs[0].toTensor();
+  auto param_tensor = inputs[1].toTensor();
+  auto repeat_shape_tensor = inputs[2].toTensor();
+  auto repeat_shape = repeat_shape_tensor.sizes().vec();
+  int64_t size = static_cast<int64_t>(repeat_shape.size());
+
+  auto impl = habana_lazy::GetHbInternalTensorImpl(param_tensor);
+  HABANA_ASSERT(impl);
+
+  std::vector<int64_t> rpt_cast;
+  for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
+    rpt_cast.push_back(static_cast<int64_t>(n));
+  });
+
+  std::vector<int32_t> repeats;
+  for (auto t : repeat_shape) {
+    repeats.push_back(static_cast<int32_t>(t));
+  }
+
+  if (size > input.ndimension()) {
+    auto reshapeSize = RepeatOperator::compute_reshape_output(
+        input, IntArrayRef(rpt_cast.data(), rpt_cast.size()));
+    auto reshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, input.scalar_type());
+    torch::jit::Stack temp_stack = {IValue(input), IValue(reshapeSize)};
+    reshapeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    reshapeOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
+    synapse_helpers::tensor& syn_tensor = reshapeOp->GetSynOutputs()[0];
+    p_context_->syn_inputs_[0] = std::move(syn_tensor);
+  }
+
+  auto output = habana_helpers::createPTTensor(
+      input,
+      RepeatOperator::compute_output_shape(input, rpt_cast),
+      input.options(),
+      output_metadata.at(0).persistent);
+
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    impl->set_min<int32_t>(repeats);
+  } else if (
+      habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    impl->set_max<int32_t>(repeats);
+  }
+
+  p_context_->syn_inputs_.pop_back();
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
 void RepeatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -213,4 +275,5 @@ static auto& KernelRegistry =
     habana::KernelRegistry()
         .add("aten::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat", KERNEL_FN(RepeatOperator))
-        .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator));
+        .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
+        .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));
