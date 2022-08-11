@@ -9,6 +9,9 @@ float16 definitions collected from tpcsim project.
 Code origin - trees/npu_stack/tpcsim/includes/fma_bfp16.h
 ******************************************************************************
 */
+
+#pragma once
+
 #include <cfenv>
 #include <cmath>
 #include <cstdint>

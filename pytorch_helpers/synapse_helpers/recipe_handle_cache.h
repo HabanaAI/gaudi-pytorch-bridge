@@ -13,6 +13,8 @@
 #include "synapse_helpers/habana_tensor.h"
 #include "synapse_helpers/recipe.h"
 
+#pragma once
+
 namespace synapse_helpers {
 class device;
 class recipe;
