@@ -937,7 +937,7 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
   return output;
 }
 
-static auto& KernelRegistry =
+static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
         .add("hpu::randperm_out_ds", KERNEL_FN(RandpermOperator))

@@ -1634,7 +1634,7 @@ Tensor adaptive_avg_pool2d_backward_hpu(
   return grad_input;
 }
 
-static auto& KernelRegistry =
+static auto& PoolKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "aten::max_pool2d_with_indices",

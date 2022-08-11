@@ -705,7 +705,7 @@ Tensor upsample_nearest3d_backward_hpu(
   return grad_input;
 }
 
-static auto& KernelRegistry =
+static auto& UnsampleKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "aten::upsample_nearest2d.vec",

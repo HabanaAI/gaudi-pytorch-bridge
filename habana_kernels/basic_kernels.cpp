@@ -1475,7 +1475,7 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
   }
 }
 
-static auto& KernelRegistry =
+static auto& BasicKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::habana_d2d_memcpy", KERNEL_FN_GLOBAL(MemCopyOperator))
         .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))

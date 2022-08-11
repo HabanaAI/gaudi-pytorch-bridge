@@ -464,7 +464,7 @@ at::Tensor habana_nms_hpu(
   return output;
 }
 
-static auto& KernelRegistry =
+static auto& NMSKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::habana_nms",

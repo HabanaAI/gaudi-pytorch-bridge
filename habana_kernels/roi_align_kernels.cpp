@@ -305,7 +305,7 @@ void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &quad_tree_params, sizeof(quad_tree_params));
 }
 
-static auto& KernelRegistry =
+static auto& RoiAlignKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::roi_align_fwd", KERNEL_FN(RoiAlignFwdOperator))
         .add("hpu::roi_align_bwd", KERNEL_FN(RoiAlignBwdOperator));

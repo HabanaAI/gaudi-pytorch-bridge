@@ -148,7 +148,7 @@ namespace habana {{
 
 {op_backend}
 
-static const auto& kr = KernelRegistry()
+static const auto& kr_gen_{file_idx} = KernelRegistry()
 {kr_regs};
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {{
@@ -600,7 +600,7 @@ def get_return_type_str(t, orig_sig):
     assert fname.data == "fnname"
     token = fname.children[0]
     assert isinstance(token, lark.lexer.Token)
-    return orig_sig[0 : token.column - 2]
+    return orig_sig[0: token.column - 2]
 
 
 def generate_entry_debug_code(t, fname, params):
@@ -1618,6 +1618,7 @@ def generate(args):
                     kr_regs=kr_regs,
                     torch_regs=torch_regs,
                     custom_schema_regs=custom_schema_regs,
+                    file_idx=gen_file_idx,
                 ),
                 file=gen_cpp_output_file(args, "hpu_op{}".format(gen_file_idx)),
             )

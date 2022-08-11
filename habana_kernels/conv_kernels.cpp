@@ -1220,6 +1220,6 @@ Tensor convolution_hpu(
   return output;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
+static auto& ConvKernelsKernelRegistry = habana::KernelRegistry().add(
     "aten::convolution_overrideable",
     KERNEL_FN(ConvOperator));

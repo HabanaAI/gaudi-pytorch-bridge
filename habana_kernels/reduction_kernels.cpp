@@ -1405,7 +1405,7 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
   ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
-static auto& KernelRegistry =
+static auto& ReductionKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
         .add("aten::sum", KERNEL_FN(SumOperator))

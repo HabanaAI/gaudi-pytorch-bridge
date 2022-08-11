@@ -338,7 +338,7 @@ Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self) {
   return out;
 }
 
-static auto& KernelRegistry =
+static auto& BitwiseKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::bitwise_and_Tensor_out", KERNEL_FN(BitwiseAndOutOperator))
         .add("hpu::bitwise_or_Tensor_out", KERNEL_FN(BitwiseOrOutOperator))

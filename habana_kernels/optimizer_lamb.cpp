@@ -851,13 +851,14 @@ Tensor optimizer_lamb_fused_norm_hpu(
   return out[0];
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-                                  .add(
-                                      "hpu::habanaOptimizerLambFusedNorm",
-                                      KERNEL_FN(OptNormFusedNormOperator))
-                                  .add(
-                                      "hpu::habanaOptimizerLambPhase1",
-                                      KERNEL_FN(OptimizerLambPhase1Operator))
-                                  .add(
-                                      "hpu::habanaOptimizerLambPhase2",
-                                      KERNEL_FN(OptimizerLambPhase2Operator));
+static auto& OptimizerLambKernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::habanaOptimizerLambFusedNorm",
+            KERNEL_FN(OptNormFusedNormOperator))
+        .add(
+            "hpu::habanaOptimizerLambPhase1",
+            KERNEL_FN(OptimizerLambPhase1Operator))
+        .add(
+            "hpu::habanaOptimizerLambPhase2",
+            KERNEL_FN(OptimizerLambPhase2Operator));

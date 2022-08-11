@@ -3805,7 +3805,7 @@ void OneHotOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_[0] = std::move(floatToIntOp->GetOutputs()[0]);
 }
 
-static auto& KernelRegistry =
+static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::gather_elements", KERNEL_FN(GatherElemOperator))
         .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))

@@ -1231,7 +1231,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
   return out;
 }
 
-static auto& KernelRegistry =
+static auto& EmbeddingKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::constant_pad_nd", KERNEL_FN(PadOperator))
         .add("hpu::constant_pad_nd", KERNEL_FN(PadOperator))

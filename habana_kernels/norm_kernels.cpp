@@ -1925,7 +1925,7 @@ OutputShapeInfRetType BatchNormBackwardOperator::ComputeOutputShape(
 }
 
 ///////////////////////////////////////
-static auto& KernelRegistry =
+static auto& NormKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::native_batch_norm_training",

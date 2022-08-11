@@ -345,5 +345,5 @@ Tensor nonzero_hpu(const Tensor& self) {
   return output;
 }
 
-static auto& KernelRegistry =
+static auto& NonZeroKernelRegistry =
     habana::KernelRegistry().add("hpu::nonzero", KERNEL_FN(NonZeroOperator));

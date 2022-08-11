@@ -877,7 +877,7 @@ Tensor& addcdiv_hpu_(
   return self;
 }
 
-static auto& KernelRegistry =
+static auto& BinaryInplaceKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator))

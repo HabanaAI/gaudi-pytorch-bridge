@@ -860,7 +860,7 @@ void HcclRecvOperator::RunCollective(
 
 } // namespace habana
 
-static auto& KernelRegistry =
+static auto& HCCLKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hccl::broadcast_",

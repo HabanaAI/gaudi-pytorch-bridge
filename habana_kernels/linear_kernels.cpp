@@ -1822,7 +1822,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
   }
 }
 
-static auto& KernelRegistry =
+static auto& LinearKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))

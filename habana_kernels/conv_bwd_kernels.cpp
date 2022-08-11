@@ -826,7 +826,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
       ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
 
-
       // Build Params for the graph
       // use spatial_convolution with bias = None and
       // transposed = false (since we want to use "spatial_convolution" guid)
@@ -866,7 +865,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         // Assign Inputs to the Operator
         ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
         ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-
 
         // Build Params for the graph
         // order of input_nhwc & grad_out_nhwc swapped (w.r.t. regular
@@ -939,7 +937,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
 
-
             // Build Params for the graph
             std::vector<c10::IValue> stack = {
                 IValue(grad_out_nhwc),
@@ -971,7 +968,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
             // Assign Inputs to the Operator
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-
 
             // Build Params for the graph
             std::vector<c10::IValue> stack = {
@@ -1372,6 +1368,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   return std::tuple<Tensor, Tensor, Tensor>(grad_input, grad_weight, grad_bias);
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
+static auto& ConvBwdKernelsKernelRegistry = habana::KernelRegistry().add(
     "aten::convolution_backward_overrideable",
     KERNEL_FN(ConvBackwardOperator));

@@ -1266,7 +1266,7 @@ std::vector<Tensor> split_with_sizes_hpu(
   return out;
 }
 
-static auto& KernelRegistry =
+static auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::cat", KERNEL_FN_GLOBAL(CatOperator))
         .add("hpu::cat", KERNEL_FN_GLOBAL(CatOperator))

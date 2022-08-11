@@ -625,7 +625,6 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
 
 habana::OutputShapeInfRetType habana::BinaryWrapperOperatorWithAlpha::
     ComputeOutputShape(torch::jit::Stack& inputs) {
-
   OutputShapeInfRetType out;
   std::shared_ptr<HabanaOperator> binaryOp;
   if (inputs[0].isTensor() &&
@@ -1876,7 +1875,7 @@ Tensor& remainder_scalar_hpu_out(
   return result;
 }
 
-static auto& KernelRegistry =
+static auto& BinaryKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
         .add("aten::add.Scalar", KERNEL_FN(AddOperator))

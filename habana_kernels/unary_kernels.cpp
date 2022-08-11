@@ -2325,7 +2325,7 @@ void CumsumOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-static auto& KernelRegistry =
+static auto& UnaryKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
         .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))

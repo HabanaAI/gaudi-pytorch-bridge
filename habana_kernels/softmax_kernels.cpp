@@ -318,7 +318,7 @@ Tensor softmax_int_hpu(
   return result;
 }
 
-static auto& KernelRegistry =
+static auto& SoftmaxKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::log_softmax", KERNEL_FN(LogSoftmaxOperator))
         .add("aten::softmax", KERNEL_FN(SoftmaxIntOperator))

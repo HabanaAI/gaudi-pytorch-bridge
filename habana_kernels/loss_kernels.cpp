@@ -1446,7 +1446,7 @@ Tensor binary_cross_entropy_backward_hpu(
   return output;
 }
 
-static auto& KernelRegistry =
+static auto& LossKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::kl_div", KERNEL_FN(KlDivOperator))
         .add("aten::kl_div_backward", KERNEL_FN(KlDivBwdOperator));

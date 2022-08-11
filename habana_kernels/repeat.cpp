@@ -275,7 +275,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-static auto& KernelRegistry =
+static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
         .add("aten::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat", KERNEL_FN(RepeatOperator))

@@ -1501,7 +1501,7 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
 }
 } // namespace habana
 
-static auto& KernelRegistry =
+static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::habanaOptimizerSparseSgd",

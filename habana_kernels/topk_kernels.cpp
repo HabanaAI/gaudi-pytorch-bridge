@@ -618,7 +618,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
   return std::forward_as_tuple(out.at(0), out.at(1));
 }
 
-static auto& KernelRegistry =
+static auto& TopkKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "aten::topk",
