@@ -182,7 +182,6 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   print_device_memory_stats(pool_id);
   prealloc_pool = p;
 
-  // CoalescedStringentPooling::print_pool_stats();
   PT_DEVMEM_DEBUG(
       "CS_POOL:: Pool Created :: base host :: ",
       p,
@@ -371,6 +370,10 @@ void* CoalescedStringentPooling::FindChunkPtr(
   return nullptr;
 }
 
+void CoalescedStringentPooling::threshold_check(bool enable) const {
+  enable_threshold_check = enable;
+}
+
 void CoalescedStringentPooling::print_pool_stats() const {
   const std::string occupancy_mask = "[+++]";
   const std::string free_mask = "[00000]";
@@ -386,10 +389,21 @@ void CoalescedStringentPooling::print_pool_stats() const {
   pool_status.str("");
   pool_status.clear();
 
+  std::map<uint64_t, Chunk*> chunks_ordered;
   for (auto& m : chunks) {
+    chunks_ordered.insert(m);
+  }
+  for (auto& m : chunks_ordered) {
     auto chunk = m.second;
     total_chunks++;
     total_size += chunk->size;
+    PT_DEVMEM_DEBUG(
+        "Chunk memptr::",
+        chunk->memptr,
+        " chunk size::",
+        chunk->size,
+        " chunk used::",
+        chunk->used);
     if (chunk->extra_space) {
       total_extra_spaced_chunks++;
       total_exta_size += chunk->extra_space;
@@ -632,7 +646,8 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   }
 
   // if high_memory is already allocated, check the size with the requested size
-  if (high_memory_allocated_ && (size <= tail_chunk->size)) {
+  if (high_memory_allocated_ && (size <= tail_chunk->size) &&
+      tail_chunk->used) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no need to extend high memory allocation current size::",
         tail_chunk->size,
@@ -643,7 +658,8 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
 
   // check if the memory threshold has reached, if reached
   // return nullptr.
-  if (check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
+  if (enable_threshold_check &&
+      check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
     return nullptr;
   }
   // merge lfu chunks if any
@@ -721,7 +737,8 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
 
   // check if the memory threshold has reached, if reached
   // return nullptr.
-  if (check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
+  if (enable_threshold_check &&
+      check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
     return nullptr;
   }
 
@@ -764,7 +781,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
     stats.UpdateStats(old_chunk->size, true);
-    print_device_memory_stats(pool_id);
     return (void*)old_chunk->memptr;
   }
 
@@ -789,8 +805,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     stats.UpdateStats(split_chunk->size, true);
     return (void*)split_chunk->memptr;
   }
-  print_device_memory_stats(pool_id);
-  print_pool_stats();
   PT_DEVMEM_DEBUG("CS_POOL:: pool exhausted !! for size :: ", size);
   return nullptr;
 }
@@ -876,7 +890,9 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " next:: ",
       (c1->next ? c1->next->memptr : 0),
       " size ",
-      c1->size);
+      c1->size,
+      "In USe ",
+      c1->used);
 
   PT_DEVMEM_DEBUG(
       "Merge C2::",
@@ -888,7 +904,9 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " next:: ",
       (c2->next ? c2->next->memptr : 0),
       " size ",
-      c2->size);
+      c2->size,
+      "In USe ",
+      c2->used);
 
   if (c1->used || c2->used) {
     PT_DEVMEM_FATAL(" Chunk is in use, cannot merge ");
@@ -1087,6 +1105,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   --chunk_count;
   bytes_in_use -= chunk->size;
   stats.UpdateStats(chunk->size, false);
+  PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk of size::", chunk->size);
   PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk UpdateStats incr total_frees");
 
   if (enable_lfu_merging) {
@@ -1243,6 +1262,7 @@ void* CoalescedStringentPooling::SmallAllocs::Allocate(size_t size) {
 
 void CoalescedStringentPooling::SmallAllocs::Deallocate(const void* ptr) {
   HABANA_ASSERT(chunk_ptr_.get() != nullptr);
+  PT_DEVMEM_DEBUG("CS_POOL:: smallalloc delete_chunk of size::", Size(ptr));
   const auto offset = ToUnits(Offset(ptr));
 
   const auto num_bytes = size_.at(offset);

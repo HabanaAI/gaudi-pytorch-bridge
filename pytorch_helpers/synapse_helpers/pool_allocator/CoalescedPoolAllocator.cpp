@@ -554,7 +554,6 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
       return (void*)split_chunk->memptr;
     }
     print_device_memory_stats(pool_id);
-    print_pool_stats();
     PT_DEVMEM_DEBUG("POOL:: pool exhausted !! for size :: ", size);
     return nullptr;
   }

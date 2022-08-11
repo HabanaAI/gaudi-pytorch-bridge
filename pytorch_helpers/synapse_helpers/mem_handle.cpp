@@ -106,6 +106,8 @@ void HandlesMap::SetPtrSize(mem_handle::id_t id, HandlesMap::PtrSize ptr_size) {
 void HandlesMap::Erase(mem_handle::id_t id) {
   CheckId(id);
   handle_[id].active_ = false;
+  handle_[id].ptr_size_.size_ = 0;
+  handle_[id].ptr_size_.ptr_ = nullptr;
   free_handles_.push(id);
 }
 

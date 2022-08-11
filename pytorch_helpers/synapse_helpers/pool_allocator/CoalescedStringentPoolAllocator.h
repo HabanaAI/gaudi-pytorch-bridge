@@ -90,6 +90,8 @@ class CoalescedStringentPooling : public PoolingStrategy {
   std::pair<void*, size_t> get_tail_chunk_info() const override;
   std::tuple<void*, size_t, size_t> get_small_alloc_info() const override;
   bool is_memory_available(size_t size) const override;
+  void print_pool_stats() const override;
+  void threshold_check(bool enable) const override;
 
  private:
   struct chunkcompare {
@@ -114,6 +116,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable bool high_memory_allocated_ = false;
   mutable MemoryStats stats;
   mutable uint32_t mem_threshold;
+  mutable bool enable_threshold_check = true;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;
@@ -129,7 +132,6 @@ class CoalescedStringentPooling : public PoolingStrategy {
   Chunk* try_defragmenting(uint64_t size) const;
   bool isChunkContigous(Chunk* chunk1, Chunk* chunk2) const;
   uint64_t getContigousChunkSize(Chunk* chunk) const;
-  void print_pool_stats() const;
   mutable std::mutex sp_mutex;
 
   void* FindChunkPtr(uint64_t bin_index, size_t num_bytes) const;

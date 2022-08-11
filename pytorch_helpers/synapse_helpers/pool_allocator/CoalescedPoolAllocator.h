@@ -59,7 +59,6 @@ class StaticCoalescedPooling : public PoolingStrategy {
   bool isChunkContigous(Chunk* chunk1, Chunk* chunk2) const;
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   Chunk* defragment_on_reuse(void* ptr, uint64_t size) const;
-  void print_pool_stats() const;
   mutable std::mutex sp_mutex;
 
  public:
@@ -73,6 +72,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
+  void print_pool_stats() const override;
 };
 
 } // namespace pool_allocator

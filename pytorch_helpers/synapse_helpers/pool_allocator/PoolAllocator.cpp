@@ -171,7 +171,6 @@ void* StaticPooling::reuse_chunks(uint64_t size) const {
   auto free_chunk = (Poolchunk*)get_free_chunk(chunk, size);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG("POOL:: no more reusable chunk: extend pool !!");
-    // print_pool_stats();
     return nullptr;
   }
   PT_DEVMEM_DEBUG("POOL:: reusing preallocated chunk");
@@ -198,7 +197,6 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   if (pool_available(p) < size) {
     // TBD: implement better algorithms
     pool_allocator::print_device_memory_stats(pool_id);
-    print_pool_stats();
     PT_DEVMEM_DEBUG("POOL:: pool exhausted !! deframgment pool ?");
     return nullptr;
   }
@@ -247,7 +245,6 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   }
   --block_count;
   if (block_count == 0) {
-    print_pool_stats();
     PT_DEVMEM_DEBUG("POOL:: All blocks freed before pool deletion !");
   }
 }

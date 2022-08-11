@@ -62,6 +62,8 @@ class PoolingStrategy {
   virtual bool is_memory_available(UNUSED size_t size) const {
     return true;
   }
+  virtual void print_pool_stats() const {};
+  virtual void threshold_check(UNUSED bool enable) const {};
 };
 
 class SubAllocator {
@@ -135,6 +137,14 @@ class SubAllocator {
   bool is_memory_available(size_t size) const {
     return this->strategy_->is_memory_available(size);
   }
+
+  void print_pool_stats() const {
+    return this->strategy_->print_pool_stats();
+  }
+
+  void threshold_check(bool enable) const {
+    return this->strategy_->threshold_check(enable);
+  };
 };
 
 /// bump pooling ///
@@ -167,7 +177,6 @@ class StaticPooling : public PoolingStrategy {
   mutable simple_pool_t* prealloc_pool;
   void* reuse_chunks(uint64_t size) const;
   void* get_free_chunk(void* p, uint64_t size) const;
-  void print_pool_stats() const;
   mutable std::mutex sp_mutex;
 
  public:
@@ -181,6 +190,7 @@ class StaticPooling : public PoolingStrategy {
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
+  void print_pool_stats() const override;
 };
 
 /// Variable length pooling using equal fit block ///
