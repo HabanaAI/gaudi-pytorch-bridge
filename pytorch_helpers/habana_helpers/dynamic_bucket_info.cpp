@@ -452,7 +452,8 @@ size_t DynamicBucketInfo::GetBucketId(
   return buckets_.size() - 1;
 }
 
-absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
+absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
   PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");
   if (refine_enabled_ == false) {
     PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
@@ -527,7 +528,12 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
   size_t new_recipe_key{0};
   try {
     is_compiled = habana::CompileGraphWithRange(
-        rvpsh, new_range, new_bucket_candidate, new_recipe_key, statistics_);
+        rvpsh,
+        new_range,
+        new_bucket_candidate,
+        new_recipe_key,
+        statistics_,
+        dbipsh);
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_WARN(
         "Recipe compilation failed with exception '", e.what(), "'");

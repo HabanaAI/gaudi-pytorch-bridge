@@ -125,7 +125,8 @@ class HabanaLaunchOpPT {
       habana_helpers::ResultShapes& input_ranges,
       habana_helpers::Bucket& new_bucket,
       size_t& new_recipe_key,
-      std::shared_ptr<habana_helpers::CompilationStatistics> statpsh);
+      std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
+      std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
   void run(torch::jit::Stack& stack);
 

@@ -2189,6 +2189,12 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
       auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
       auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
       auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
+      HABANA_ASSERT(
+          dropped_dbi != nullptr,
+          "DynamicBucketInfoMap missing bucket info for graph_key: ",
+          dropped_arg->graphHashCode(),
+          ", recipe_key:",
+          dropped_arg->hashCode());
       // We are dropping the recipie but keeping the bucket
       /*
       auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
@@ -2631,7 +2637,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,
-    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh) {
+    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
   PT_BRIDGE_BEGIN;
   ProcessInputStack(input_st);
 
@@ -2643,6 +2650,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       input_ranges.max_shapes,
       "--------------------");
 
+  current_dbipsh_ = dbipsh;
   CreateValueToIvalueMapForInputs();
 
   DynamicShapeInfo graph_input_info;
@@ -2815,6 +2823,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   cur_rvalpsh->dynamic_graph = syn_graph.is_dynamic_graph();
   cur_rvalpsh->set_op_strs(cur_rargpsh->get_op_strs());
   RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
+  DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
 
   new_recipe_key = cur_rargpsh->hashCode();
   // Add the recipe to the corresponding bucket

@@ -37,7 +37,8 @@ bool CompileGraphWithRange(
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,
-    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh);
+    std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
 bool RefineBucketDS(size_t graph_key);
 

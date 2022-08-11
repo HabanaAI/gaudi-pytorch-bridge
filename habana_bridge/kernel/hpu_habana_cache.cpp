@@ -1617,7 +1617,7 @@ void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
   for (auto& p : map_) {
     auto dbipsh = p.second;
     if (dbipsh->GetGraphKey() == graph_key) {
-      dbipsh->CheckForSplitBucket();
+      dbipsh->CheckForSplitBucket(dbipsh);
       return;
     }
   }

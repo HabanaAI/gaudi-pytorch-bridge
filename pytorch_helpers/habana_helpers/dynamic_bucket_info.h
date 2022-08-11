@@ -444,7 +444,8 @@ class DynamicBucketInfo {
   size_t GetBucketId(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes = PadShapes{});
-  absl::optional<uint64_t> CheckForSplitBucket();
+  absl::optional<uint64_t> CheckForSplitBucket(
+      std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
   Bucket ConstructNewBucket(
       ResultShapes& result_computed,
       const Bucket& mfu_bucket,
