@@ -12,6 +12,7 @@
 #include <tuple>
 #include <utility>
 
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
@@ -1142,11 +1143,15 @@ class LazyOpWithTypePromotion : public LazyOp<T> {
   explicit LazyOpWithTypePromotion(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool safe_cast_check_,
       const std::function<
           std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-          out_shapes_fn = nullptr) noexcept;
+          out_shapes_fn = nullptr);
 
  private:
+  habana_helpers::DTypeHelper dtype_helper_;
+
   T get_result_overrideable() override;
 };
 
@@ -1156,11 +1161,15 @@ class PromoteIntToFloat : public LazyOp<T> {
   explicit PromoteIntToFloat(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool safe_cast_check_,
       const std::function<
           std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-          out_shapes_fn = nullptr) noexcept;
+          out_shapes_fn = nullptr);
 
  private:
+  habana_helpers::DTypeHelper dtype_helper_;
+
   T get_result_overrideable() override;
 };
 
@@ -1170,6 +1179,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   explicit LazyBinaryOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool safe_cast_check,
       const std::set<size_t>& metadata_indices = {},
       const std::vector<std::vector<int64_t>>& out_shapes = {},
       int out_index = 0)
@@ -1178,7 +1189,19 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
             inputs,
             metadata_indices,
             out_shapes,
-            out_index) {}
+            out_index),
+        is_outfn_(is_outfn),
+        safe_cast_check_(safe_cast_check) {}
+
+  explicit LazyBinaryOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool safe_cast_check,
+      const at::TensorList& output_meta_tensors)
+      : LazyOp<ReturnType>(qualstring, inputs, output_meta_tensors),
+        is_outfn_(is_outfn),
+        safe_cast_check_(safe_cast_check) {}
 
   virtual ~LazyBinaryOp() = default;
 
@@ -1186,10 +1209,15 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     auto inputs = LazyOp<T>::get_inputs();
 
-    int pos = -1;
-    c10::ScalarType compute_dtype = c10::ScalarType::Undefined;
-    habana_helpers::type_promotion_for_two_tensor_inputs(
-        inputs, pos, compute_dtype, dst_dtype_);
+    c10::optional<const at::IValue*> output = is_outfn_
+        ? c10::make_optional<const at::IValue*>(&inputs.back())
+        : c10::nullopt;
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            inputs, output, safe_cast_check_);
+
+    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+    dst_dtype_ = dtype_helper.get_result_dtype();
 
     auto inputs_updated = false;
     for (size_t i = 0; i < 2; ++i) {
@@ -1222,17 +1250,35 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
 
-    dst_dtype_ = self.scalar_type();
-    at::Tensor other = inputs.at(1).toTensor();
+    // Perform type promotion and validate if promoted type can be casted to
+    // output data type.
+    auto output = c10::make_optional<const at::IValue*>(
+        is_outfn_ ? &inputs.back() : &inputs.front());
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            inputs, output, safe_cast_check_);
 
-    if (self.scalar_type() != other.scalar_type()) {
-      at::Tensor casted_other = empty_hpu_lazy(
-          other.sizes(),
-          other.options().dtype(dst_dtype_).device(at::kHPU),
-          other.suggest_memory_format(),
+    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+    dst_dtype_ = dtype_helper.get_result_dtype();
+
+    auto inputs_updated = false;
+    for (size_t i = 0; i < 2; ++i) {
+      auto tensor_promote = inputs[i].toTensor();
+      if (compute_dtype == tensor_promote.scalar_type()) {
+        continue;
+      }
+
+      inputs_updated = true;
+      auto self = empty_hpu_lazy(
+          tensor_promote.sizes(),
+          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
+          tensor_promote.suggest_memory_format(),
           false);
-      copy_hpu_lazy_(casted_other, other, true);
-      inputs[1] = casted_other;
+      self = copy_hpu_lazy_(self, tensor_promote, true);
+      inputs[i] = self;
+    }
+
+    if (inputs_updated) {
       LazyOp<T>::set_inputs(inputs);
     }
 
@@ -1241,6 +1287,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
  private:
   c10::ScalarType dst_dtype_ = c10::ScalarType::Undefined;
+  bool is_outfn_ = false;
+  bool safe_cast_check_ = false;
 
   ReturnType get_result_overrideable() override;
 };

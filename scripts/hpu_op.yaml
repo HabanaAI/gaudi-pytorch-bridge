@@ -515,6 +515,7 @@ add.out:
   guid: add_fwd
   op_backend: BinaryWithAlpha
   type_promotion: true
+  safe_cast_check: true
 
 add.Scalar_out:
   force_default: false
@@ -524,6 +525,7 @@ add.Scalar_out:
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
   type_promotion: true
+  safe_cast_check: true
 
 addcdiv:
   force_default: false
@@ -876,6 +878,7 @@ bitwise_left_shift.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 bitwise_left_shift.Tensor_out:
   broadcast: true
@@ -883,6 +886,7 @@ bitwise_left_shift.Tensor_out:
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   type_promotion: true
+  safe_cast_check: true
 
 bitwise_left_shift.Tensor_Scalar:
   force_default: false
@@ -952,6 +956,7 @@ bitwise_right_shift.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 bitwise_right_shift.Tensor_out:
   broadcast: true
@@ -959,6 +964,7 @@ bitwise_right_shift.Tensor_out:
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   type_promotion: true
+  safe_cast_check: true
 
 bitwise_right_shift.Tensor_Scalar:
   force_default: false
@@ -1056,6 +1062,7 @@ clamp_max:
   guid: clamp_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 clamp_max.Tensor:
   force_default: false
@@ -1063,6 +1070,7 @@ clamp_max.Tensor:
   guid: min_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 clamp_max_:
   force_default: false
@@ -1070,23 +1078,29 @@ clamp_max_:
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   inplace_ids: [0]
+  type_promotion: true
+  safe_cast_check: true
 
 clamp_max_.Tensor:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
   inplace_ids: [0]
+  type_promotion: true
+  safe_cast_check: true
 
 clamp_max.out:
   custom_fill_params: FillClampMaxParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   type_promotion: true
+  safe_cast_check: true
 
 clamp_max.Tensor_out:
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
   type_promotion: true
+  safe_cast_check: true
 
 clamp_min:
   force_default: false
@@ -1095,6 +1109,7 @@ clamp_min:
   guid: clamp_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 clamp_min.Tensor:
   force_default: false
@@ -1102,6 +1117,7 @@ clamp_min.Tensor:
   guid: max_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 clamp_min_:
   force_default: false
@@ -1109,23 +1125,29 @@ clamp_min_:
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   inplace_ids: [0]
+  type_promotion: true
+  safe_cast_check: true
 
 clamp_min_.Tensor:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
   inplace_ids: [0]
+  type_promotion: true
+  safe_cast_check: true
 
 clamp_min.out:
   custom_fill_params: FillClampMinParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   type_promotion: true
+  safe_cast_check: true
 
 clamp_min.Tensor_out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
   type_promotion: true
+  safe_cast_check: true
 
 constant_pad_nd:
   force_default: false
@@ -1141,6 +1163,7 @@ copysign.out:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   promote_int_to_float: true
+  safe_cast_check: true
 
 copysign.Scalar_out:
   force_default: false
@@ -1148,6 +1171,7 @@ copysign.Scalar_out:
   guid: copy_sign_fwd
   promote_int_to_float: true
   scalar_ids: [1]
+  safe_cast_check: true
 
 copysign_.Scalar:
   force_default: false
@@ -1156,6 +1180,7 @@ copysign_.Scalar:
   inplace_ids: [0]
   promote_int_to_float: true
   scalar_ids: [1]
+  safe_cast_check: true
 
 copysign_.Tensor:
   force_default: false
@@ -1163,6 +1188,7 @@ copysign_.Tensor:
   guid: copy_sign_fwd
   inplace_ids: [0]
   promote_int_to_float: true
+  safe_cast_check: true
 
 copysign.Scalar:
   force_default: false
@@ -1171,6 +1197,7 @@ copysign.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_int_to_float: true
+  safe_cast_check: true
 
 copysign.Tensor:
   force_default: false
@@ -1179,6 +1206,7 @@ copysign.Tensor:
   guid: copy_sign_fwd
   out_ids: [0]
   promote_int_to_float: true
+  safe_cast_check: true
 
 cos:
   force_default: false
@@ -1275,6 +1303,7 @@ div.Scalar_mode:
   out_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 div_.Scalar_mode:
   force_default: false
@@ -1284,6 +1313,7 @@ div_.Scalar_mode:
   inplace_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 div.Tensor_mode:
   force_default: false
@@ -1574,6 +1604,7 @@ floor_divide.out:
   guid: div
   op_backend: FloorDivideOperator
   type_promotion: true
+  safe_cast_check: false
 
 floor_divide:
   custom_output_shape: BinaryOutputShape
@@ -1582,6 +1613,7 @@ floor_divide:
   op_backend: FloorDivideOperator
   type_promotion: true
   out_ids: [0]
+  safe_cast_check: false
 
 floor_divide_.Tensor:
   custom_output_shape: BinaryOutputShape
@@ -1590,6 +1622,7 @@ floor_divide_.Tensor:
   op_backend: FloorDivideOperator
   type_promotion: true
   inplace_ids: [0]
+  safe_cast_check: false
 
 frac:
   force_default: false
@@ -1630,6 +1663,7 @@ fmod.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 fmod.Scalar_out:
   force_default: false
@@ -1638,6 +1672,7 @@ fmod.Scalar_out:
   op_backend: Fmod
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 fmod.Tensor:
   force_default: false
@@ -1647,6 +1682,7 @@ fmod.Tensor:
   op_backend: Fmod
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 fmod.Tensor_out:
   broadcast: true
@@ -1654,6 +1690,7 @@ fmod.Tensor_out:
   guid: mod_fwd
   op_backend: Fmod
   type_promotion: true
+  safe_cast_check: true
 
 fmod_.Scalar:
   force_default: false
@@ -1663,6 +1700,7 @@ fmod_.Scalar:
   scalar_ids: [1]
   op_backend: Fmod
   type_promotion: true
+  safe_cast_check: true
 
 fmod_.Tensor:
   force_default: false
@@ -1671,6 +1709,7 @@ fmod_.Tensor:
   inplace_ids: [0]
   op_backend: Fmod
   type_promotion: true
+  safe_cast_check: true
 
 gather:
   custom_fill_params: FillGatherParams
@@ -2280,12 +2319,14 @@ logaddexp:
   op_backend: LogAddExp
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 logaddexp.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
   type_promotion: true
+  safe_cast_check: true
 
 logaddexp2:
   force_default: false
@@ -2294,12 +2335,14 @@ logaddexp2:
   op_backend: LogAddExp2
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
   type_promotion: true
+  safe_cast_check: true
 
 logcumsumexp:
   force_default: false
@@ -2469,12 +2512,14 @@ maximum:
   guid: max_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 maximum.out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
   type_promotion: true
+  safe_cast_check: true
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool2d_with_indices.out:
@@ -2594,12 +2639,14 @@ minimum:
   guid: min_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 minimum.out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
   type_promotion: true
+  safe_cast_check: true
 
 mish:
   force_default: false
@@ -2647,6 +2694,7 @@ mul.Tensor:
   guid: mult_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 mul.Scalar:
   dtypes: [BFloat16, Byte, Char, Float, Int]
@@ -2656,6 +2704,7 @@ mul.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 mul.Scalar_out:
   force_default: false
@@ -2664,6 +2713,7 @@ mul.Scalar_out:
   guid: mult_fwd
   type_promotion: true
   scalar_ids: [1]
+  safe_cast_check: true
 
 mul_.Tensor:
   custom_output_shape: BinaryOutputShape
@@ -2672,6 +2722,7 @@ mul_.Tensor:
   guid: mult_fwd
   inplace_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 mul_.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -2681,6 +2732,7 @@ mul_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 multinomial:
   dtypes: [BFloat16, Float]
@@ -2940,6 +2992,7 @@ pow_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 pow_.Tensor:
   custom_output_shape: BinaryOutputShape
@@ -2948,6 +3001,7 @@ pow_.Tensor:
   guid: pow_fwd
   inplace_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -2957,6 +3011,7 @@ pow.Scalar:
   out_ids: [1]
   scalar_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Scalar_out:
   custom_output_shape: BinaryOutputShape
@@ -2964,6 +3019,7 @@ pow.Scalar_out:
   guid: pow_fwd
   scalar_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Tensor_Scalar:
   custom_output_shape: BinaryOutputShape
@@ -2974,6 +3030,7 @@ pow.Tensor_Scalar:
   op_backend: PowOp
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Tensor_Scalar_out:
   custom_output_shape: BinaryOutputShape
@@ -2982,6 +3039,7 @@ pow.Tensor_Scalar_out:
   op_backend: PowOp
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Tensor_Tensor:
   custom_output_shape: BinaryOutputShape
@@ -2990,12 +3048,14 @@ pow.Tensor_Tensor:
   guid: pow_fwd
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 pow.Tensor_Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float]
   guid: pow_fwd
   type_promotion: true
+  safe_cast_check: true
 
 prelu:
   dtypes: [BFloat16, Float]
@@ -3161,6 +3221,7 @@ remainder.Tensor:
   out_ids: [0]
   type_promotion: true
   broadcast: true
+  safe_cast_check: true
 
 remainder.Scalar:
   force_default: false
@@ -3169,6 +3230,7 @@ remainder.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 remainder_.Tensor:
   force_default: false
@@ -3177,6 +3239,7 @@ remainder_.Tensor:
   inplace_ids: [0]
   type_promotion: true
   broadcast: true
+  safe_cast_check: true
 
 remainder_.Scalar:
   force_default: false
@@ -3185,6 +3248,7 @@ remainder_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 remainder.Scalar_Tensor:
   dtypes: [BFloat16, Float, Int, Char, Short]
@@ -3192,12 +3256,14 @@ remainder.Scalar_Tensor:
   out_ids: [1]
   scalar_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 remainder.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Short]
   op_backend: RemainderOp
   type_promotion: true
   broadcast: true
+  safe_cast_check: true
 
 remainder.Scalar_out:
   force_default: false
@@ -3205,6 +3271,7 @@ remainder.Scalar_out:
   op_backend: RemainderOp
   scalar_ids: [1]
   type_promotion: true
+  safe_cast_check: true
 
 replication_pad1d:
   force_default: false
@@ -3708,6 +3775,7 @@ sub.Tensor:
   out_ids: [0]
   scalar_ids: [2]
   type_promotion: true
+  safe_cast_check: true
 
 sub.Scalar:
   force_default: false
@@ -3718,6 +3786,7 @@ sub.Scalar:
   scalar_ids: [1, 2]
   out_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 sub_.Tensor:
   force_default: false
@@ -3728,6 +3797,7 @@ sub_.Tensor:
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   type_promotion: true
+  safe_cast_check: true
 
 sub_.Scalar:
   force_default: false
@@ -3736,9 +3806,9 @@ sub_.Scalar:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
-  type_promotion: true
   inplace_ids: [0]
   type_promotion: true
+  safe_cast_check: true
 
 sub.Scalar_out:
   broadcast: true
@@ -3747,6 +3817,7 @@ sub.Scalar_out:
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
   type_promotion: true
+  safe_cast_check: true
 
 sub.out:
   broadcast: true
@@ -3754,6 +3825,7 @@ sub.out:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   type_promotion: true
+  safe_cast_check: true
 
 sum.IntList_out:
   dtypes: [BFloat16, Float, Int]

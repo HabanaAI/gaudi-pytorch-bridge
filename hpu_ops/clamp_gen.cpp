@@ -154,10 +154,10 @@ std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
 }
 
 std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
-      .set_promote_to_common_type(true)
-      .build();
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+          stack, c10::nullopt, false);
+
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
   if (c10::isFloatingType(result_type)) {
@@ -169,10 +169,10 @@ std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
 }
 
 std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
-      .set_promote_to_common_type(true)
-      .build();
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+          stack, c10::nullopt, false);
+
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
   if (c10::isFloatingType(result_type)) {

@@ -271,6 +271,9 @@ class Op(object):
     def promote_int_to_float(self):
         return self.op.get("promote_int_to_float", False)
 
+    def safe_cast_check(self):
+        return self.op.get("safe_cast_check", False)
+
     def custom_schema(self):
         args = self.op.get("schema_args", None)
         if args:
@@ -644,6 +647,11 @@ def frontend(
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
+        if ctxop.supports_type_promotion() or ctxop.promote_int_to_float() or ctxop.get_op_template() == "reduction":
+            out_fn = "true" if is_out_fn(fname) else "false"
+            safe_cast = "true" if ctxop.safe_cast_check() else "false"
+            code += ", {}, {}".format(out_fn, safe_cast)
+
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
             code += ", {}".format(output_shape_fn)
@@ -658,6 +666,8 @@ def frontend(
             code += "  hpu_op.SetReductionVarsIndices({});\n".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))
             )
+            code += "  hpu_op.Validate();\n"
+
 
         code += "  {}hpu_op.call({})".format(
             "" if rtype == "void" else "return ", lazyop_call_args
@@ -1235,7 +1245,10 @@ def generate_op_frontend_hclasses(fgens, classes, header_file):
             continue
         if fclass in classes:
             continue
-        code += "HPU_OP_FRONTEND({})\n".format(fclass)
+        if fgen.ctxop.supports_type_promotion() or fgen.ctxop.promote_int_to_float():
+            code += "HPU_OP_FRONTEND_WITH_TYPE_PROMOTION({})\n".format(fclass)
+        else:
+            code += "HPU_OP_FRONTEND({})\n".format(fclass)
         classes[fclass] = header_file
     return code
 

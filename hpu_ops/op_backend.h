@@ -84,10 +84,6 @@ class OpBackend : public HabanaOperator {
   }
 
  protected:
-  c10::ScalarType ComputePromotedScalarType(
-      const at::Stack& stack,
-      bool update);
-
   const std::unordered_map<int, at::Scalar>& ScalarInputs() const {
     return m_scalar_inputs;
   }
@@ -280,7 +276,7 @@ class OpBackend : public HabanaOperator {
   std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
 
-  std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_casted_;
+  std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_cast_;
 
  protected:
   OutputMetaDataVector m_output_metadata;

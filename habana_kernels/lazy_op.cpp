@@ -17,36 +17,45 @@ template <>
 LazyOpWithTypePromotion<at::Tensor>::LazyOpWithTypePromotion(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
+    bool is_outfn,
+    bool safe_cast_check,
     const std::function<
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-        out_shapes_fn) noexcept
-    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+        out_shapes_fn)
+    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
+  c10::optional<const at::IValue*> output = is_outfn
+      ? c10::make_optional<const at::IValue*>(&inputs.back())
+      : c10::nullopt;
+  dtype_helper_ = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+      inputs, output, safe_cast_check);
+}
 
 template <>
 LazyOpWithTypePromotion<at::Tensor&>::LazyOpWithTypePromotion(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
+    bool is_outfn,
+    bool safe_cast_check,
     const std::function<
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-        out_shapes_fn) noexcept
-    : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {}
+        out_shapes_fn)
+    : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  // Perform type promotion and validate if promoted type can be casted to
+  // output data type.
+  auto output = c10::make_optional<const at::IValue*>(
+      is_outfn ? &inputs.back() : &inputs.front());
+  dtype_helper_ = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+      inputs, output, safe_cast_check);
+}
 
 template <>
 at::Tensor LazyOpWithTypePromotion<at::Tensor>::get_result_overrideable() {
   const auto& inputs = LazyOp<at::Tensor>::get_inputs();
   at::Tensor t;
+  auto result_type = dtype_helper_.get_result_dtype();
 
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
-      .set_promote_to_common_type(true)
-      .build();
-  at::ScalarType result_type = dtype_helper.get_result_dtype();
-
-  if (inputs.at(0).isTensor()) {
-    t = inputs.at(0).toTensor();
-  } else {
-    t = inputs.at(1).toTensor();
-  }
+  t = inputs.at(0).isTensor() ? inputs.at(0).toTensor()
+                              : inputs.at(1).toTensor();
 
   const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
       ? t.sizes()
@@ -68,31 +77,44 @@ template <>
 PromoteIntToFloat<at::Tensor>::PromoteIntToFloat(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
+    bool is_outfn,
+    bool safe_cast_check,
     const std::function<
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-        out_shapes_fn) noexcept
-    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+        out_shapes_fn)
+    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
+  c10::optional<const at::IValue*> output =
+      is_outfn ? c10::make_optional(&inputs.back()) : c10::nullopt;
+  dtype_helper_ =
+      habana_helpers::DTypeHelper::binary_op_with_int_to_float_promotion(
+          inputs, output, safe_cast_check);
+}
 
 template <>
 PromoteIntToFloat<at::Tensor&>::PromoteIntToFloat(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
+    bool is_outfn,
+    bool safe_cast_check,
     const std::function<
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
-        out_shapes_fn) noexcept
-    : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {}
+        out_shapes_fn)
+    : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  // Perform type promotion and validate if promoted type can be casted to
+  // output data type.
+  auto output = c10::make_optional<const at::IValue*>(
+      is_outfn ? &inputs.back() : &inputs.front());
+  dtype_helper_ =
+      habana_helpers::DTypeHelper::binary_op_with_int_to_float_promotion(
+          inputs, output, safe_cast_check);
+}
 
 template <>
 at::Tensor PromoteIntToFloat<at::Tensor>::get_result_overrideable() {
   const auto& inputs = LazyOp<at::Tensor>::get_inputs();
   const auto& self = inputs.at(0).toTensor();
 
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
-      .set_promote_to_common_type(true)
-      .set_promote_int_to_float(true)
-      .build();
-  at::ScalarType result_type = dtype_helper.get_result_dtype();
+  auto result_type = dtype_helper_.get_result_dtype();
 
   const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
       ? self.sizes()

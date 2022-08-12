@@ -80,10 +80,14 @@ void WhereBackend::AddNode(
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
 
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&stack.at(1), &stack.at(2)})
-      .set_promote_to_common_type(true)
-      .build();
+  c10::optional<const at::IValue*> output = IsOutputAvailable()
+      ? c10::make_optional<const at::IValue*>(&stack.back())
+      : c10::nullopt;
+
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+          {stack.at(1), stack.at(2)}, output, false);
+
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
   std::vector<synapse_helpers::tensor> cast;

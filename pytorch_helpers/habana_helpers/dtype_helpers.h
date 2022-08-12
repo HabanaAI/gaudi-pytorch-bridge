@@ -22,21 +22,48 @@ class DTypeHelper {
  public:
   DTypeHelper& add_input(const c10::IValue* v);
   DTypeHelper& add_inputs(std::vector<const c10::IValue*>&& v);
+  DTypeHelper& add_output(const c10::IValue* v);
 
-  DTypeHelper& set_fixed_output_dtype(c10::ScalarType dtype);
+  DTypeHelper& set_output_dtype(c10::ScalarType dtype);
   DTypeHelper& set_promote_to_common_type(bool type_promotion);
   DTypeHelper& set_promote_int_to_float(bool type_promotion);
+  DTypeHelper& set_promote_int_to_long(bool type_promotion);
+  DTypeHelper& set_safe_cast_to_output(bool safe_cast);
 
   void build();
-  c10::ScalarType get_common_dtype() const;
+  c10::ScalarType get_common_dtype(
+      bool double_support = true,
+      bool int64_support = true) const;
   c10::ScalarType get_result_dtype() const;
+
+  static DTypeHelper unary_op_with_optional_int_to_long_promotion(
+      const std::vector<at::IValue>& stack,
+      c10::optional<const at::IValue*> output,
+      c10::optional<c10::ScalarType> dtype,
+      bool promote_int_to_long);
+  static DTypeHelper binary_op_with_type_promotion(
+      const std::vector<at::IValue>& stack,
+      c10::optional<const at::IValue*> output,
+      bool safe_cast);
+  static DTypeHelper binary_op_with_optional_int_to_float_promotion(
+      const std::vector<at::IValue>& stack,
+      bool int_to_float,
+      c10::optional<const at::IValue*> output,
+      bool safe_cast);
+  static DTypeHelper binary_op_with_int_to_float_promotion(
+      const std::vector<at::IValue>& stack,
+      c10::optional<const at::IValue*> output,
+      bool safe_cast);
 
  private:
   bool promote_common_input_type_ = false;
   bool promote_int_to_float_ = false;
+  bool promote_int_to_long_ = false;
+  bool safe_cast_to_output_ = false;
 
   std::vector<const c10::IValue*> input_values_;
-  c10::ScalarType fixed_output_dtype_ = c10::ScalarType::Undefined;
+  std::vector<const c10::IValue*> output_values_;
+  c10::ScalarType output_dtype_ = c10::ScalarType::Undefined;
 
   c10::ScalarType common_dtype_ = c10::ScalarType::Undefined;
   c10::ScalarType result_dtype_ = c10::ScalarType::Undefined;

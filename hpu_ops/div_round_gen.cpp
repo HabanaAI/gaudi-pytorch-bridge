@@ -53,11 +53,10 @@ at::Tensor LazyDiv<at::Tensor>::get_result_overrideable() {
 
   const std::string strRroundingMode = rounding_mode.value_or(StrModeTrue);
   auto promote_int_to_float = strRroundingMode == StrModeTrue;
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs[0], &inputs[1]})
-      .set_promote_to_common_type(true)
-      .set_promote_int_to_float(promote_int_to_float)
-      .build();
+  auto dtype_helper = habana_helpers::DTypeHelper::
+      binary_op_with_optional_int_to_float_promotion(
+          inputs, promote_int_to_float, c10::nullopt, false);
+
   c10::ScalarType result_dtype = dtype_helper.get_result_dtype();
 
   auto shape_out = BinaryOperator::compute_output_shape(self, other);
@@ -88,9 +87,14 @@ void DivRoundModeOperator::AddNode(
   bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);
 
   // Find the result type
-  const at::ScalarType& final_result_type = stack.at(1).isScalar()
-      ? ComputePromotedScalarType(stack, true)
-      : at::result_type(self, other);
+  auto dtype_helper = habana_helpers::DTypeHelper::
+      binary_op_with_optional_int_to_float_promotion(
+          stack, !bOtherThanTrueMode, c10::nullopt, false);
+
+  auto final_result_type = dtype_helper.get_result_dtype();
+  if (stack.at(1).isScalar()) {
+    SetScalarType(final_result_type);
+  }
 
   auto shape_out = stack.at(1).isScalar()
       ? self.sizes().vec()
@@ -100,7 +104,7 @@ void DivRoundModeOperator::AddNode(
 
   // Handle integral cases differently using div_mod, else floating point
   // convertion yields error after truncation in some cases.
-  if (bOtherThanTrueMode && (isIntegralType(final_result_type, true))) {
+  if (bOtherThanTrueMode && (c10::isIntegralType(final_result_type, true))) {
     size_t size = 0;
 
     // The second argument of "FillDivModParams", pyCompatible is false
@@ -125,13 +129,7 @@ void DivRoundModeOperator::AddNode(
   } else { // if (isIntegralType(final_result_type, true))
 
     // Computation is always done in float or bfloat16
-    habana_helpers::DTypeHelper dtype_helper;
-    dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
-        .set_promote_to_common_type(true)
-        .set_promote_int_to_float(true)
-        .build();
-
-    at::ScalarType computation_type = dtype_helper.get_result_dtype();
+    at::ScalarType computation_type = dtype_helper.get_common_dtype();
     const std::string opStringSuffix =
         "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 

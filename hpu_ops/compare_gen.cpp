@@ -20,6 +20,8 @@ template <>
 LazyCmp<at::Tensor>::LazyCmp(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
+    bool,
+    bool,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
   auto x = get_inputs();

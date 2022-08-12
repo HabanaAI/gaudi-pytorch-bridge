@@ -1325,6 +1325,8 @@ Tensor add_tensor_hpu_lazy(
     LazyBinaryOp<at::Tensor> k{
         "aten::add",
         {self, other, alpha},
+        false,
+        true,
         {},
         {BinaryOperator::compute_output_shape(self, other)},
         -1};
@@ -1366,7 +1368,7 @@ Tensor& add_tensor_hpu_lazy_(
     auto mul_out = torch::mul(other, alpha_tensor);
     return add_tensor_hpu_lazy_(self, mul_out, 1.0);
   } else {
-    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
+    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
     return op.call(self);
   }
 }
@@ -1401,7 +1403,8 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
       auto metatens = habana::GetMetaTensorList(metatens_tensors);
       at::TensorList metavar =
           at::mul_outf(metatens[0], metatens[1], metatens[2]);
-      LazyOp<at::Tensor&> hpu_op{"aten::mul", {self, other, out}, metavar};
+      LazyBinaryOp<at::Tensor&> hpu_op{
+          "aten::mul", {self, other, out}, true, true, metavar};
       return hpu_op.call(out);
     }
   }
@@ -1434,7 +1437,7 @@ Tensor& div_tensor_hpu_lazy_out(
 Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
 
-  LazyBinaryOp<at::Tensor&> k{"aten::div_", {self, other}};
+  LazyBinaryOp<at::Tensor&> k{"aten::div_", {self, other}, false, true};
   return k.call(self);
 }
 

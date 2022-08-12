@@ -32,8 +32,13 @@ DTypeHelper& DTypeHelper::add_inputs(std::vector<const c10::IValue*>&& v) {
   return *this;
 }
 
-DTypeHelper& DTypeHelper::set_fixed_output_dtype(c10::ScalarType dtype) {
-  fixed_output_dtype_ = dtype;
+DTypeHelper& DTypeHelper::add_output(const c10::IValue* v) {
+  output_values_.push_back(v);
+  return *this;
+}
+
+DTypeHelper& DTypeHelper::set_output_dtype(c10::ScalarType dtype) {
+  output_dtype_ = dtype;
   return *this;
 };
 
@@ -44,6 +49,16 @@ DTypeHelper& DTypeHelper::set_promote_to_common_type(bool type_promotion) {
 
 DTypeHelper& DTypeHelper::set_promote_int_to_float(bool type_promotion) {
   promote_int_to_float_ = type_promotion;
+  return *this;
+}
+
+DTypeHelper& DTypeHelper::set_promote_int_to_long(bool type_promotion) {
+  promote_int_to_long_ = type_promotion;
+  return *this;
+}
+
+DTypeHelper& DTypeHelper::set_safe_cast_to_output(bool safe_cast) {
+  safe_cast_to_output_ = safe_cast;
   return *this;
 }
 
@@ -63,6 +78,13 @@ void DTypeHelper::build() {
     common_dtype_ = get_dtype(input_values_.at(0));
   }
 
+  if (!output_values_.empty()) {
+    for (auto& output : output_values_) {
+      result_dtype_ = get_dtype(output);
+      break;
+    }
+  }
+
   if (promote_common_input_type_) {
     at::native::ResultTypeState state = {};
     for (auto& input : input_values_) {
@@ -76,25 +98,147 @@ void DTypeHelper::build() {
   }
 
   // Promotion of integer value to default floating point dtype.
-  // This kind of promotion is expected for i.e. some binary operators i.e. div
+  // This kind of promotion is expected for i.e. some binary operators like div
   // or unary operators like cosine.
   if (promote_int_to_float_ && c10::isIntegralType(common_dtype_, true)) {
     common_dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
 
-  result_dtype_ = fixed_output_dtype_ == c10::ScalarType::Undefined
-      ? common_dtype_
-      : fixed_output_dtype_;
+  // Promotion of int32 value to int64.
+  // This kind of promotion is expected for i.e. some unary operators like
+  // cumsum.
+  if (promote_int_to_long_ && c10::isIntegralType(common_dtype_, true)) {
+    common_dtype_ = c10::ScalarType::Long;
+  }
 
-  HABANA_ASSERT(common_dtype_ != c10::ScalarType::Undefined);
+  // If output dtype and output tensor were specified, their dtypes must match
+  if (output_dtype_ != c10::ScalarType::Undefined &&
+      result_dtype_ != c10::ScalarType::Undefined) {
+    HABANA_ASSERT(
+        output_dtype_ == result_dtype_,
+        "Expected out tensor to have dtype ",
+        output_dtype_,
+        ", but got ",
+        result_dtype_,
+        " instead");
+  }
+
+  // When safe cast check is enabled, the helper verifies if cast can be done
+  // between computation and output dtype i.e. float to int conversion will not
+  // be allowed.
+  if (safe_cast_to_output_) {
+    HABANA_ASSERT(
+        c10::canCast(common_dtype_, result_dtype_),
+        "result type ",
+        common_dtype_,
+        " can't be cast to the "
+        "desired output type ",
+        result_dtype_);
+  }
+
+  result_dtype_ = output_dtype_ == c10::ScalarType::Undefined ? result_dtype_
+                                                              : output_dtype_;
+
+  result_dtype_ = result_dtype_ == c10::ScalarType::Undefined ? common_dtype_
+                                                              : result_dtype_;
+
+  TORCH_CHECK(
+      common_dtype_ != c10::ScalarType::Undefined,
+      "Common data type cannot be determined");
+  TORCH_CHECK(
+      result_dtype_ != c10::ScalarType::Undefined,
+      "Result data type cannot be determined");
 }
 
-c10::ScalarType DTypeHelper::get_common_dtype() const {
-  return common_dtype_;
+c10::ScalarType DTypeHelper::get_common_dtype(
+    bool double_support,
+    bool int64_support) const {
+  auto common_type = common_dtype_;
+  if (!double_support) {
+    common_type = common_type == c10::ScalarType::Double
+        ? c10::ScalarType::Float
+        : common_type;
+  }
+
+  if (!int64_support) {
+    common_type = common_type == c10::ScalarType::Long ? c10::ScalarType::Int
+                                                       : common_type;
+  }
+  return common_type;
 }
 
 c10::ScalarType DTypeHelper::get_result_dtype() const {
   return result_dtype_;
+}
+
+DTypeHelper DTypeHelper::unary_op_with_optional_int_to_long_promotion(
+    const std::vector<at::IValue>& inputs,
+    c10::optional<const at::IValue*> output,
+    c10::optional<c10::ScalarType> dtype,
+    bool promote_int_to_long) {
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs.at(0)})
+      .set_promote_int_to_long(promote_int_to_long);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+  if (dtype.has_value()) {
+    dtype_helper.set_output_dtype(dtype.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
+}
+
+DTypeHelper DTypeHelper::binary_op_with_type_promotion(
+    const std::vector<at::IValue>& inputs,
+    c10::optional<const at::IValue*> output,
+    bool safe_cast) {
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
+      .set_promote_to_common_type(true)
+      .set_safe_cast_to_output(safe_cast);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
+}
+
+DTypeHelper DTypeHelper::binary_op_with_optional_int_to_float_promotion(
+    const std::vector<at::IValue>& inputs,
+    bool int_to_float,
+    c10::optional<const at::IValue*> output,
+    bool safe_cast) {
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
+      .set_promote_to_common_type(true)
+      .set_promote_int_to_float(int_to_float)
+      .set_safe_cast_to_output(safe_cast);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
+}
+
+DTypeHelper DTypeHelper::binary_op_with_int_to_float_promotion(
+    const std::vector<at::IValue>& inputs,
+    c10::optional<const at::IValue*> output,
+    bool safe_cast) {
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
+      .set_promote_to_common_type(true)
+      .set_promote_int_to_float(true)
+      .set_safe_cast_to_output(safe_cast);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
 }
 
 } // namespace habana_helpers

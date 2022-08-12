@@ -9,8 +9,8 @@
  */
 #pragma once
 #include <ATen/native/ReduceOpsUtils.h>
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/lazy_kernels.h"
-#include "hpu_op_helper.h"
 
 namespace habana {
 
@@ -38,19 +38,26 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
   at::optional<uint8_t> m_dtype_index;
   at::optional<uint8_t> m_dim_index;
   at::optional<uint8_t> m_keepdim_index;
+  bool is_outfn_;
 
  public:
   ReductionFrontendTemplate(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool,
       const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-      : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn, -1) {}
+      : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn, -1),
+        is_outfn_(is_outfn) {}
 
   ReductionFrontendTemplate(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
+      bool is_outfn,
+      bool,
       const sizes_vec& out_shapes)
-      : habana_lazy::LazyOp<T>(qualstring, inputs, {}, out_shapes, -1) {}
+      : habana_lazy::LazyOp<T>(qualstring, inputs, {}, out_shapes, -1),
+        is_outfn_(is_outfn) {}
 
   T get_result_overrideable() override;
 
@@ -62,6 +69,8 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
     m_keepdim_index = keepdim_index;
     m_dtype_index = dtype_index;
   }
+
+  void Validate();
 };
 
 class ReductionBackendTemplate : public OpBackend {

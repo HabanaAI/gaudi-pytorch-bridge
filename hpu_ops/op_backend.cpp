@@ -77,29 +77,11 @@ synapse_helpers::tensor& OpBackend::syn_out(int index) {
 }
 
 synapse_helpers::tensor_or_ref& OpBackend::SynInput(int index) {
-  auto it = syn_inputs_casted_.find(index);
-  if (it != syn_inputs_casted_.end()) {
+  auto it = syn_inputs_cast_.find(index);
+  if (it != syn_inputs_cast_.end()) {
     return it->second;
   }
   return p_context_->syn_inputs_.at(index);
-}
-
-c10::ScalarType OpBackend::ComputePromotedScalarType(
-    const at::Stack& stack,
-    bool update) {
-  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_promote_type or m_promote_int_to_float);
-  habana_helpers::DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&stack.at(0), &stack.at(1)})
-      .set_promote_to_common_type(m_promote_type)
-      .set_promote_int_to_float(m_promote_int_to_float)
-      .build();
-  c10::ScalarType result_type = dtype_helper.get_result_dtype();
-
-  if (update) {
-    m_scalar_type = result_type;
-  }
-
-  return result_type;
 }
 
 void OpBackend::HandleScalarToTensor(
@@ -162,11 +144,19 @@ void OpBackend::HandleFn(
       ") as out_ids is not matching with actual num outputs (",
       m_output_metadata.size());
 
+  auto promoted_dtype = c10::ScalarType::Undefined;
+  if (m_promote_type or m_promote_int_to_float) {
+    auto dtype_helper = habana_helpers::DTypeHelper::
+        binary_op_with_optional_int_to_float_promotion(
+            stack, m_promote_int_to_float, c10::nullopt, false);
+
+    m_scalar_type = promoted_dtype = dtype_helper.get_result_dtype();
+  }
+
   int i = 0;
   for (const at::Tensor& t : tensors) {
-    const auto& dtype = m_promote_type or m_promote_int_to_float
-        ? ComputePromotedScalarType(stack, true)
-        : t.scalar_type();
+    auto dtype = promoted_dtype == c10::ScalarType::Undefined ? t.scalar_type()
+                                                              : promoted_dtype;
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
 
     const auto& output = habana_helpers::createPTTensor(
@@ -234,26 +224,37 @@ void OpBackend::HandleTypePromotion(
     return;
   }
 
-  const std::array<at::ScalarType, 2> input_types{
-      GetScalarType(stack, 0), GetScalarType(stack, 1)};
-  const at::ScalarType& result_type = ComputePromotedScalarType(stack, true);
+  c10::optional<const at::IValue*> output = c10::nullopt;
+  if (IsOutputAvailable()) {
+    output = c10::make_optional<const at::IValue*>(
+        IsInplace() ? &stack.front() : &stack.back());
+  }
+
+  auto dtype_helper = habana_helpers::DTypeHelper::
+      binary_op_with_optional_int_to_float_promotion(
+          stack, m_promote_int_to_float, output, false);
+
+  auto compute_type = dtype_helper.get_common_dtype();
+  m_scalar_type = compute_type;
+
+  auto skipScalarCastNeeded = [&](size_t i) -> bool {
+    // Scalars (which are not converted to tensors - index not found in
+    // m_scalar_ids) do not deliver underlying synTensors, so although they
+    // influence result promoted type, they cannot be casted here.
+    return stack.at(i).isScalar() &&
+        std::find(m_scalar_ids.begin(), m_scalar_ids.end(), i) ==
+        m_scalar_ids.end();
+  };
 
   bool cast_inserted = false;
-  for (size_t i = 0; i < input_types.size(); ++i) {
-    if (habana_helpers::pytorch_to_synapse_type(input_types[i]) ==
-        habana_helpers::pytorch_to_synapse_type(result_type)) {
+  for (size_t i = 0; i < 2; ++i) {
+    auto input_type = GetScalarType(stack, i);
+    if (habana_helpers::pytorch_to_synapse_type(input_type) ==
+        habana_helpers::pytorch_to_synapse_type(compute_type)) {
       continue;
     }
 
-    auto skipScalarCastNeeded = [&]() -> bool {
-      // Scalars (which are not converted to tensors - index not found in
-      // m_scalar_ids) do not deliver underlying synTensors, so although they
-      // influence result promoted type, they cannot be casted here.
-      return stack.at(i).isScalar() &&
-          std::find(m_scalar_ids.begin(), m_scalar_ids.end(), i) ==
-          m_scalar_ids.end();
-    };
-    if (skipScalarCastNeeded()) {
+    if (skipScalarCastNeeded(i)) {
       continue;
     }
 
@@ -264,12 +265,12 @@ void OpBackend::HandleTypePromotion(
         graph,
         syn_in(i),
         stack.at(i).isTensor() ? stack_tensor(stack, i).sizes() : 1,
-        input_types[i],
-        result_type);
+        input_type,
+        compute_type);
 
     if (!isMetaMode()) {
       // Replace the input with the casted input
-      syn_inputs_casted_.emplace(i, std::move(cast));
+      syn_inputs_cast_.emplace(i, std::move(cast));
     }
   }
 
@@ -280,7 +281,7 @@ void OpBackend::HandleTypePromotion(
   // Update the guid to reflect the promoted type
   SetGuid(
       guid_.substr(0, guid_.find_last_of('_') + 1) +
-      habana_helpers::name_suffix_from_type(result_type));
+      habana_helpers::name_suffix_from_type(compute_type));
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildOp(

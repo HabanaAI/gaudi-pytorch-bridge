@@ -144,10 +144,10 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
       // in such cases we will not try type promotion.
       return;
     }
-    habana_helpers::DTypeHelper dtype_helper;
-    dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
-        .set_promote_to_common_type(true)
-        .build();
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            inputs, c10::nullopt, false);
+
     compute_dtype = dst_dtype = dtype_helper.get_result_dtype();
 
     // Temporary W/A. The result dtype is converted from double to float and

@@ -9,6 +9,7 @@
  */
 #include "reduction_template.h"
 #include "habana_kernels/lowering_util.h"
+#include "hpu_op_helper.h"
 
 namespace habana {
 
@@ -74,16 +75,45 @@ at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
   const auto& stack = LazyOp<at::Tensor>::get_inputs();
   const torch::Tensor& self = stack_tensor(stack, 0);
 
+  c10::optional<const at::IValue*> output = is_outfn_
+      ? c10::make_optional<const at::IValue*>(&stack.back())
+      : c10::nullopt;
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
+          stack, output, get_dtype(stack, m_dtype_index), true);
+
   return at::native::create_reduction_result(
       self,
       get_dims(stack, m_dim_index),
       get_keepdim(stack, m_keepdim_index),
-      get_dtype_from_self(self, get_dtype(stack, m_dtype_index), true));
+      dtype_helper.get_result_dtype());
 }
 
 template <>
 at::Tensor& ReductionFrontendTemplate<at::Tensor&>::get_result_overrideable() {
   throw std::invalid_argument("Tensor ref should not be created.");
+}
+
+template <>
+void ReductionFrontendTemplate<at::Tensor>::Validate() {
+  const auto& stack = LazyOp<at::Tensor>::get_inputs();
+  c10::optional<const at::IValue*> output = is_outfn_
+      ? c10::make_optional<const at::IValue*>(&stack.back())
+      : c10::nullopt;
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
+          stack, output, get_dtype(stack, m_dtype_index), true);
+}
+
+template <>
+void ReductionFrontendTemplate<at::Tensor&>::Validate() {
+  const auto& stack = LazyOp<at::Tensor&>::get_inputs();
+  c10::optional<const at::IValue*> output =
+      c10::make_optional<const at::IValue*>(
+          is_outfn_ ? &stack.back() : &stack.front());
+  auto dtype_helper =
+      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
+          stack, output, get_dtype(stack, m_dtype_index), true);
 }
 
 ReductionBackendTemplate::ReductionBackendTemplate(
@@ -156,9 +186,9 @@ synapse_helpers::tensor HandleReductionDtype(
       op, graph, syn_in.get(), self.sizes(), self.scalar_type(), dtype_val);
 }
 
-// TO DO: Refactor HandleReductionDimAndKeepdim function to handle different
-// fill_param function
-// Jira: https://jira.habana-labs.com/browse/SW-96835
+// TO DO: Refactor HandleReductionDimAndKeepdim function to handle
+// different fill_param function Jira:
+// https://jira.habana-labs.com/browse/SW-96835
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -222,10 +252,10 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
         1,
         std::multiplies<int>());
     if (keepdim) {
-      // we need to keep a size of '1' for upper dims, flattened value at last
-      // pos of "dim array", and original sizes for lower dimensions
-      // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
-      // [1,1,48,2]
+      // we need to keep a size of '1' for upper dims, flattened value at
+      // last pos of "dim array", and original sizes for lower dimensions
+      // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true
+      // becomes [1,1,48,2]
       for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
         reshaped_self_sizes.emplace_back(1);
       }
@@ -304,9 +334,9 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       -> std::vector<NodeAttr::NodeOutputAttr> {
     std::vector<NodeAttr::NodeOutputAttr> reduce_output_attrs{
         {outshape, output_attr[0].dtype}};
-    // output shape for the intermediate node can be different from the shape in
-    // output_attr passed to the handle function but the dtype will be same as
-    // in output_attr
+    // output shape for the intermediate node can be different from the
+    // shape in output_attr passed to the handle function but the dtype
+    // will be same as in output_attr
     for (int itr = 1; itr < num_tpc_outputs; itr++) {
       reduce_output_attrs.push_back({retain_ten_shape, output_attr[itr].dtype});
     }
@@ -382,8 +412,9 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
             /*param_index*/ i);
         tensor_list.emplace_back(tensor_itr[0].get());
       }
-      // when reduction has to be done for all the dimension of input tensor,
-      // TPC expects -[1,1,1,1] shape for 4d input but end outshape will be
+      // when reduction has to be done for all the dimension of input
+      // tensor, TPC expects -[1,1,1,1] shape for 4d input but end
+      // outshape will be
       // {}-0d so reshape is used in this case as well
       for (unsigned int itr = 0; itr < num_outputs; itr++) {
         auto reshape = OpBackend::BuildReshape(
