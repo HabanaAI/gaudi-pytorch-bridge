@@ -995,7 +995,7 @@ def get_hpu_wrapper(fndef, ctx):
 
     if opname in ctx.op_data:
         if not fndef.dispatch:
-          print("{} has dispatch=False".format(opname))
+            print("{} has dispatch=False".format(opname))
 
         op_frontend, op_backend, cname, ctxop, fc_params = generate_code(
             ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params
@@ -1348,6 +1348,15 @@ namespace habana {{
 
 
 def generate(args):
+    # TODO: Remove this once this old directory is removed from all build env
+    import shutil
+
+    old_gen_dir = os.path.join(
+        os.environ["PYTORCH_MODULES_ROOT_PATH"], "hpu_ops/generated/"
+    )
+    if os.path.isdir(old_gen_dir):
+        shutil.rmtree(old_gen_dir)
+
     fndefs, errors = extract_functions(args.typedef)
     assert len(errors) == 0
 
