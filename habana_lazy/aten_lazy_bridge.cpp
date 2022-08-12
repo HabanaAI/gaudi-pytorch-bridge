@@ -33,6 +33,7 @@ at::Tensor AtenFromHbLazyTensor(
     c10::optional<c10::IntArrayRef> size,
     c10::optional<c10::IntArrayRef> stride,
     c10::optional<c10::MemoryFormat> mem_format) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto storage_size = scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize();
   if (size.has_value()) {
@@ -56,6 +57,7 @@ at::Tensor AtenFromHbLazyTensor(
     c10::optional<c10::IntArrayRef> size,
     c10::optional<c10::IntArrayRef> stride,
     c10::optional<c10::MemoryFormat> mem_format) {
+  PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
       std::move(HbLazy_tensor), storage, key_set));
