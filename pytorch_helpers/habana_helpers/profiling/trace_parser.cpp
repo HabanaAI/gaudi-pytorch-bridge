@@ -5,6 +5,7 @@
 #include <chrono>
 #include <list>
 #include <memory>
+#include <unordered_set>
 #include "absl/strings/string_view.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
@@ -73,6 +74,15 @@ struct EngineType {
     }
     return false;
   }
+  static bool isMME(const std::string_view name) {
+    static std::vector<std::string> mme_engines = {"**MME ", "*MME "};
+    for (int i = 0; i < (int)mme_engines.size(); i++) {
+      if (name.find(mme_engines[i]) == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 struct EngineDatabase {
@@ -105,6 +115,21 @@ struct EngineDatabase {
         EngineType::isTPC(engine_type_it->second.name);
   }
 
+  bool isEngineTypeMME(uint32_t engine_type) {
+    auto engine_type_it = engine_types_.find(engine_type);
+    return engine_type_it != engine_types_.end() &&
+        EngineType::isMME(engine_type_it->second.name);
+  }
+
+  bool isKernelWhitelist(const char* operatorName) {
+    if (operatorName == nullptr or std::strlen(operatorName) == 0) {
+      return false;
+    }
+    std::string operatorString = operatorName;
+    static std::unordered_set<std::string> whitelisted_events = {
+        "DmaTranspose"};
+    return whitelisted_events.find(operatorString) != whitelisted_events.end();
+  }
   static std::unique_ptr<EngineDatabase> buildDatabase(
       synTraceEvent* events_ptr,
       size_t num_events) {
@@ -241,8 +266,7 @@ void HpuTraceParser::convertEventsToActivities(
               trace_output_.addActivity(
                   StringOrFallback(
                       events_ptr->arguments.operation, events_ptr->name),
-                  engine_type_database_->isEngineTypeTPC(
-                      events_ptr->engineType),
+                  isEventKernel(events_ptr),
                   getDevice(events_ptr),
                   engine_type_database_->getLine(events_ptr->engineIndex),
                   start,
@@ -263,7 +287,7 @@ void HpuTraceParser::convertEventsToActivities(
           trace_output_.addActivity(
               StringOrFallback(
                   events_ptr->arguments.operation, events_ptr->name),
-              engine_type_database_->isEngineTypeTPC(events_ptr->engineType),
+              isEventKernel(events_ptr),
               getDevice(events_ptr),
               engine_type_database_->getLine(events_ptr->engineIndex),
               start,
@@ -287,5 +311,12 @@ int64_t HpuTraceParser::getDevice(const synTraceEvent* events_ptr) {
       ? events_ptr->engineType
       : device_lane_;
 }
+bool HpuTraceParser::isEventKernel(const synTraceEvent* events_ptr) {
+  return engine_type_database_->isKernelWhitelist(
+             events_ptr->arguments.operation) ||
+      engine_type_database_->isEngineTypeMME(events_ptr->engineType) ||
+      engine_type_database_->isEngineTypeTPC(events_ptr->engineType);
+}
+
 }; // namespace habana
 #undef FMT_HEADER_ONLY

@@ -136,13 +136,13 @@ class JsonActivityProfiler : public SynapseProfiler {
 
   void addActivity(
       const std::string& name,
-      bool isTPC,
+      bool isKernel,
       int64_t device,
       int64_t resource,
       uint64_t start,
       uint64_t end) {
     if (start > 0 && end > 0) {
-      if (isTPC) {
+      if (isKernel) {
         parser_.add_kernel_event(name, device, resource, start, end - start);
       } else {
         parser_.add_runtime_event(name, device, resource, start, end - start);

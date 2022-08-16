@@ -12,7 +12,7 @@ struct TraceOutput {
   virtual ~TraceOutput(){};
   virtual void addActivity(
       const std::string& name,
-      bool isTPC,
+      bool isKernel,
       int64_t device,
       int64_t resource,
       uint64_t start,
@@ -54,6 +54,7 @@ class HpuTraceParser {
       long double wall_stop_time);
   int64_t timeStampHpuToTB(long double t);
   int64_t getDevice(const synTraceEvent* events_ptr);
+  bool isEventKernel(const synTraceEvent* events_ptr);
 
   TraceOutput& trace_output_;
   const std::string plane_name_ = "/device:HPU:0";

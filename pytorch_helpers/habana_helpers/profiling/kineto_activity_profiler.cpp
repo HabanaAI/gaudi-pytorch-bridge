@@ -25,20 +25,20 @@ class KinetoActivityProfiler : public SynapseProfiler {
 
   void addActivity(
       const std::string& name,
-      bool isTPC,
+      bool isKernel,
       int64_t device,
       int64_t resource,
       uint64_t start,
       uint64_t end) {
     GenericTraceActivity ev{
         defaultTraceSpan(),
-        isTPC ? ActivityType::CONCURRENT_KERNEL : ActivityType::HPU_OP,
+        isKernel ? ActivityType::CONCURRENT_KERNEL : ActivityType::HPU_OP,
         name};
     ev.startTime = start;
     ev.endTime = end;
     ev.device = device;
     ev.resource = resource;
-    if (isTPC) {
+    if (isKernel) {
       ev.addMetadata("device", ev.device);
     }
     activities_.push_back(ev);
