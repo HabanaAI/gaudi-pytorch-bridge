@@ -966,8 +966,8 @@ synStatus SYN_API_CALL synNodeCreateWithId(
       ARG_Q(pGuid),
       ARG_Q(pName),
       ARG(nodeUniqueId),
-      M_ARG(inputLayouts, numberInputs),
-      M_ARG(outputLayouts, numberOutputs));
+      M_ARG_Q(inputLayouts, numberInputs),
+      M_ARG_Q(outputLayouts, numberOutputs));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synNodeCreateWithId,

@@ -65,7 +65,8 @@ enum arg_print_way {
   print_array,
   print_hex,
   print_hex_array,
-  print_hex_deref
+  print_hex_deref,
+  print_quote_array
 };
 
 template <arg_print_way Way, typename V>
@@ -105,6 +106,9 @@ using x_argument_t = _argument_t<print_hex, V>;
 
 template <typename V>
 using xa_argument_t = _v_argument_t<print_hex_array, V>;
+
+template <typename V>
+using qa_argument_t = _v_argument_t<print_quote_array, V>;
 
 // TODO: Remove this hack when new HCL_Request definition is ready.
 //       The following code is a hack to easen the process of changing the
@@ -188,6 +192,13 @@ inline std::ostream& operator<<(std::ostream& out, x_argument_t<V>&& v) {
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, a_argument_t<V>&& v) {
   return out << '"' << v.name_ << "\":[" << v.value_ << ']';
+}
+
+template <typename V>
+inline std::ostream& operator<<(
+    std::ostream& out,
+    qa_argument_t<absl::Span<V>>&& v) {
+  return out << '"' << v.name_ << "\":\"" << v.value_ << '"';
 }
 
 template <typename V>
@@ -288,5 +299,9 @@ inline void concat_args(UNUSED std::ostream& out) {}
   }
 #define M_ARG_X(x, c)                             \
   xa_argument_t<decltype(absl::MakeSpan(x, c))> { \
+#x, absl::MakeSpan(x, c)                      \
+  }
+#define M_ARG_Q(x, c)                             \
+  qa_argument_t<decltype(absl::MakeSpan(x, c))> { \
 #x, absl::MakeSpan(x, c)                      \
   }
