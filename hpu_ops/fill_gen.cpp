@@ -46,9 +46,20 @@ void FillScalar::AddNode(
     const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto other = stack.at(1).toScalar();
-  const auto& outshape = self.sizes();
-  auto result = ConstantHelper(graph, other, ScalarType(), outshape, 0);
-  syn_out(0) = std::move(result);
-}
 
+  // If self is a ZST then return it as it is since there is nothing to fill
+  if (!self.numel()) {
+    const auto& outshape = stack_tensor(stack, 0).sizes();
+    auto copy = BuildOp(
+        graph,
+        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, ScalarType(), 0}});
+    syn_out(0) = std::move(copy[0]);
+  } else {
+    const auto& outshape = self.sizes();
+    auto result = ConstantHelper(graph, other, ScalarType(), outshape, 0);
+    syn_out(0) = std::move(result);
+  }
+}
 } // namespace habana
