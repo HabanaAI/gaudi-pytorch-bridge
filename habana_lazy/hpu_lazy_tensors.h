@@ -258,6 +258,7 @@ class HbLazyTensor {
       bool async =
           false /* Wait for launch thread to finish for internal MS */);
   static void StepMarkerBind(const std::string& device_str = {});
+  static void StepMarkerFinish();
   static void InitiateBucketRefinement();
   static void SetDynamicMode();
 

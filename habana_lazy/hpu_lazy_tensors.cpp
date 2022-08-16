@@ -1206,6 +1206,12 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   }
 }
 
+void HbLazyTensor::StepMarkerFinish() {
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  context->m_launch_thread_context = false;
+  context->JoinPendingLaunchThread();
+}
+
 void HbLazyTensor::StepMarker(
     const std::string& device_str,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,

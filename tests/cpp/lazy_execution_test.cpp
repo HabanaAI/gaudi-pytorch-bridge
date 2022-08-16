@@ -39,3 +39,27 @@ TEST_F(LazyExecutionTest, testmultipleLaunch) {
     HbLazyTensor::StepMarker({});
   }
 }
+
+TEST_F(LazyExecutionTest, testmultipleLaunchwithAsync) {
+  for (int i = 0; i < 50; i++) {
+    auto in =
+        torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
+    auto wt = torch::randn({4, 5, 3, 3}, torch::dtype(torch::kFloat)); // ckhw
+    auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+    auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
+
+    auto h_in = in.to(torch::kHPU);
+    auto h_wt = wt.to(torch::kHPU);
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+        !habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+      h_wt = wt_hwck.to(torch::kHPU);
+    }
+
+    torch::Tensor result =
+        torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
+    HbLazyTensor::StepMarker({}, nullptr, {}, true);
+    HbLazyTensor::StepMarkerFinish();
+  }
+}
