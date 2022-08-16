@@ -1372,20 +1372,20 @@ run_pytorch_qa_tests()
     test_path=""
 
     if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
         #run pytorch single_op tests with suite_type = ops
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"strided_lazy_single_op.xml"" --mode lazy --strided)
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"strided_lazy_single_op.xml"" --mode lazy --strided)
     elif [ "$__pytest_marks" == "-m=drs_dynamic_smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op_drs_dynamic.xml" " --mode lazy --drs 3 --dynamic)
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op_drs_dynamic.xml" " --mode lazy --drs 3 --dynamic)
     elif [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi2" ]; then
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"gc_eager_single_op.xml"" --mode gc_eager)
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"gc_eager_single_op.xml"" --mode gc_eager)
         #run pytorch single_op tests with suite_type = ops
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
 
     else
        if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "all" ]; then
             #run single_op and topologies smoke tests
-            (set -x; LOCK_GAUDI_SYNAPSE_API=1 PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path}"/../torch_feature_val/single_op" "--junit-xml=${__xml}_"single_op.xml" ")
+            (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path}"/../torch_feature_val/single_op" "--junit-xml=${__xml}_"single_op.xml" ")
             test_path="topologies_tests"
 
        elif [ "$__suite_type" == "topology_ci" ]; then
