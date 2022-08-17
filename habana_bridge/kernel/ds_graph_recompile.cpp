@@ -110,7 +110,8 @@ bool habana::CompileGraphWithRange(
         "JIT_IR_Graph_BEGIN\n", mp_g_->toString(), "JIT_IR_Graph_END");
 
     size_t graphKey{rvpsh->get_graph_key()};
-    size_t graphIndex{habana_lazy::exec::HlExec::GetGraphIndex(graphKey)};
+    size_t graphIndex{habana_lazy::exec::HlExec::GetGraphIndex(
+        graphKey, torch::jit::last(input_stack, input_stack.size()))};
     std::string graphName{rvpsh->get_graph_name()};
     std::string opStr{rvpsh->get_op_strs()};
     std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>

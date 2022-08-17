@@ -101,7 +101,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
   hash_code = graph_hash_code;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    ComputePermutationHashCode(input_refs);
+    size_t perm_hash_code = habana_lazy::ComputePermutationHashCode(input_refs);
     hash_code = at::hash_combine(hash_code, perm_hash_code);
   }
   graph_with_permute_hash_code = hash_code;
@@ -122,7 +122,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    ComputePermutationHashCode(input_refs);
+    size_t perm_hash_code = habana_lazy::ComputePermutationHashCode(input_refs);
     hash_code = at::hash_combine(hash_code, perm_hash_code);
   }
   dynamic_hash_code = hash_code;
@@ -144,7 +144,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    ComputePermutationHashCode(input_refs);
+    size_t perm_hash_code = habana_lazy::ComputePermutationHashCode(input_refs);
     hash_code = at::hash_combine(hash_code, perm_hash_code);
   }
 }
@@ -163,28 +163,6 @@ void RecipeArgumentSpec::ComputeOffsetHashCode(
       auto offset = (buffer_ptr - storage_data_ptr_);
       offset_hash_code = at::hash_combine(offset_hash_code, offset);
     }
-  }
-}
-
-void RecipeArgumentSpec::ComputePermutationHashCode(
-    at::ArrayRef<torch::jit::IValue> input_refs) {
-  perm_hash_code = 0;
-  uint32_t cnt = 0;
-  for (auto& input : input_refs) {
-    if (input.isTensor()) {
-      auto tensor = input.toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      if (impl) {
-        for (auto item : impl->GetMemoryPermutation()) {
-          perm_hash_code = at::hash_combine(perm_hash_code, cnt);
-          perm_hash_code = at::hash_combine(perm_hash_code, item);
-        }
-      } else {
-        PT_BRIDGE_DEBUG(
-            "Could not update cache key with tensor's permutation because the BE tensor has no internal impl");
-      }
-    }
-    cnt++;
   }
 }
 

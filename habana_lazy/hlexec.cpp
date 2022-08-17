@@ -66,7 +66,8 @@ void HlExec::Launch(
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex = GetGraphIndex(m_g_hash_);
+  auto graphIndex =
+      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
@@ -262,7 +263,8 @@ void HlExec::GetOrCreate(
         "JIT Cache disabled :: key ",
         m_g_hash_,
         ", graph_index ",
-        GetGraphIndex(m_g_hash_));
+        GetGraphIndex(
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
     ConstructJITGraph();
     return;
   }
@@ -283,7 +285,8 @@ void HlExec::GetOrCreate(
           "JIT Cache miss :: key ",
           m_g_hash_,
           ", graph_index ",
-          GetGraphIndex(m_g_hash_));
+          GetGraphIndex(
+              m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
       PT_IRGRAPH_DEBUG("JIT Cache miss");
       // Cache miss handling
       // ===================
@@ -294,7 +297,8 @@ void HlExec::GetOrCreate(
         "JIT Cache hit :: key ",
         m_g_hash_,
         ", graph_index ",
-        GetGraphIndex(m_g_hash_));
+        GetGraphIndex(
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     mp_g_ = mp_g_and_meta_data_->get_cached_graph();
     HABANA_ASSERT(mp_g_ != nullptr);
@@ -320,9 +324,16 @@ void HlExec::GetOrCreate(
   }
 }
 
-size_t HlExec::GetGraphIndex(size_t hash) {
+size_t HlExec::GetGraphIndex(
+    size_t hash,
+    at::ArrayRef<torch::jit::IValue> input_refs) {
   if (GET_ENV_FLAG_NEW(PT_HPU_VISUALIZE_GRAPH_INDEX)) {
     return visualize::GetGraphIndex(hash);
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    auto perm_hash_code = ComputePermutationHashCode(input_refs);
+    hash = at::hash_combine(hash, perm_hash_code);
   }
   static std::unordered_map<size_t, size_t> s_graphIndexMap;
   static size_t s_graphIndex;

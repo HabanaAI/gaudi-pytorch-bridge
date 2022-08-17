@@ -18,6 +18,8 @@
 #include "habana_lazy/ir_utils.h"
 
 namespace habana_lazy {
+
+size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 // Functionality to calculate the graph hash on the JIT graph
 void ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph>& irgraph,

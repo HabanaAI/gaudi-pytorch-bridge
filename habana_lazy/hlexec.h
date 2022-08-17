@@ -263,7 +263,9 @@ class HlExec {
     return mp_g_;
   }
 
-  static size_t GetGraphIndex(size_t hash);
+  static size_t GetGraphIndex(
+      size_t hash,
+      at::ArrayRef<torch::jit::IValue> input_refs);
   size_t GetGraphHash() {
     return m_g_hash_;
   }
