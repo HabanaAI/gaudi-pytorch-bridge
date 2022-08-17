@@ -254,9 +254,8 @@ bool MemoryDefragementer::CreateMemoryMap(
     while (it != in_use_memory_blocks.begin() && it->ptr_ > ptr_next) {
       auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
       if (ptr_next < small_alloc_block) {
-        if (next_it->ptr_ < small_alloc_block) {
-          mem_block_size =
-              ptr_diff(next_it->ptr_, ptr_next) - prev_it->actual_size_;
+        if (next_it->ptr_ <= small_alloc_block) {
+          mem_block_size = ptr_diff(it->ptr_, ptr_next);
         } else {
           mem_block_size = ptr_diff(small_alloc_block, ptr_next);
         }

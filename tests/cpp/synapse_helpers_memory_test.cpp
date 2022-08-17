@@ -728,19 +728,18 @@ TEST(SynapseHelpersMemoryTest, GenTest) {
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   int x = 0, y = 0;
+
+  void* small[16384];
   std::vector<device_ptr> address;
-  void* ptr_128{nullptr};
-  device.get_device_memory().malloc(&ptr_128, 128);
-  address.push_back((uint64_t)ptr_128);
-  void* ptr_128_1{nullptr};
-  device.get_device_memory().malloc(&ptr_128_1, 128);
-  address.push_back((uint64_t)ptr_128_1);
-  void* ptr_128_2{nullptr};
-  device.get_device_memory().malloc(&ptr_128_2, 128);
-  address.push_back((uint64_t)ptr_128_2);
+  for (int j = 0; j < 16384; j++) {
+    device.get_device_memory().malloc(&small[j], 128);
+    address.push_back((uint64_t)small[j]);
+  }
   device.lock_addresses(address);
   address.clear();
-  device.get_device_memory().free(ptr_128_2);
+  device.get_device_memory().free(small[22]);
+  device.get_device_memory().free(small[100]);
+  device.get_device_memory().free(small[16383]);
 
   void* ptr[6];
   for (int j = 0; j < 4; j++) {
