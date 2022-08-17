@@ -252,6 +252,11 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER) << "\n";
     std::clog << " PT_HPU_DYNAMIC_MAX_POLICY_ORDER = "
               << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER) << "\n";
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
+      PT_BRIDGE_WARN(
+          "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "
+          "in stochastic rounding mode.");
+    }
 
     std::clog
         << "=============================SYSTEM CONFIGURATION ========================================= "

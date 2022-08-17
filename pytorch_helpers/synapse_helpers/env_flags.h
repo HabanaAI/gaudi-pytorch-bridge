@@ -364,6 +364,9 @@ ENV_STRUCT_DEFINITION(TRACE_POINT_ENABLE, bool, false);
 // gradient bucket feature
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW, bool, false);
 
+// fp8 stochastic rounding
+ENV_STRUCT_DEFINITION(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING, bool, false);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

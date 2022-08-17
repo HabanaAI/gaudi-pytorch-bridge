@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <torch/csrc/api/include/torch/version.h>
 #include <torch/script.h>
 
 #include <perf_lib_layer_params.h>
@@ -108,7 +109,33 @@ get_platform_cast_map() {
     default:
       break;
   }
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+  if (type == synDeviceGaudi2) {
+    // fp8r152
+    cast_map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Fp8r152}, "cast_f32_to_f8"});
+    cast_map.insert(
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Fp8r152},
+         "cast_bf16_to_f8"});
+    cast_map.insert(
+        {{c10::ScalarType::Fp8r152, c10::ScalarType::Float}, "cast_f8_to_f32"});
+    cast_map.insert(
+        {{c10::ScalarType::Fp8r152, c10::ScalarType::BFloat16},
+         "cast_f8_to_bf16"});
+  }
+#endif
   return cast_map;
+}
+
+// TODO Implement it with less hardcoded way
+static std::vector<std::string> get_round_half_casts() {
+  return {
+      "cast_f32_to_bf16",
+      "cast_f32_to_f16",
+      "cast_f32_to_f8",
+      "cast_f16_to_bf16",
+      "cast_bf16_to_f8"};
 }
 
 std::optional<std::string> habana_helpers::direct_cast_guid(
@@ -121,6 +148,23 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
     return iter->second;
   }
   return {};
+}
+
+CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
+    const std::string& guid) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING) &&
+      guid.find("to_f8") != std::string::npos) {
+    return CAST_ROUND_SR;
+  }
+  static auto round_half_casts{get_round_half_casts()};
+  // Floating point casting from higher to lower precision
+  // requires CAST_ROUND_HALF_NE mode, e.g. f32 to bf16.
+  // Otherwise it should truncate with CAST_ROUND_ZERO, like pytorch does.
+  if (std::find(round_half_casts.begin(), round_half_casts.end(), guid) !=
+      round_half_casts.end()) {
+    return CAST_ROUND_HALF_NE;
+  }
+  return CAST_ROUND_ZERO;
 }
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get
@@ -364,7 +408,7 @@ size_t habana_helpers::getRecipeKey(
  */
 ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
   ns_CastKernel::Params params{};
-  SET_CAST_ROUNDING_MODE(GetGuid());
+  params.round_mode = habana_helpers::get_cast_rounding_mode(GetGuid());
   return params;
 }
 

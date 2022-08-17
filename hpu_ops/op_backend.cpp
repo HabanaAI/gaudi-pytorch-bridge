@@ -524,7 +524,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
         habana_helpers::name_suffix_from_type(dst);
 
     ns_CastKernel::Params params{};
-    SET_CAST_ROUNDING_MODE(cast_guid);
+    params.round_mode = habana_helpers::get_cast_rounding_mode(cast_guid);
     auto is_last = (i + 1) == cast_sequence.size();
     auto output_index = is_last ? final_result_index : c10::nullopt;
     NodeAttr castnode{

@@ -10,6 +10,7 @@
 #include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_helpers/graph.h>
+#include <torch/csrc/api/include/torch/version.h>
 #include <algorithm>
 #include <mutex>
 
@@ -237,17 +238,20 @@ at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
 
 synDataType habana_helpers::pytorch_to_synapse_type(
     const c10::ScalarType pt_type) {
-  static const std::unordered_map<c10::ScalarType, synDataType> map{
-      {c10::ScalarType::Byte, synDataType::syn_type_uint8},
-      {c10::ScalarType::Char, synDataType::syn_type_int8},
-      {c10::ScalarType::Short, synDataType::syn_type_int16},
-      {c10::ScalarType::Int, synDataType::syn_type_int32},
-      {c10::ScalarType::Long, synDataType::syn_type_int32},
-      {c10::ScalarType::Float, synDataType::syn_type_float},
-      {c10::ScalarType::Half, synDataType::syn_type_fp16},
-      {c10::ScalarType::Double, synDataType::syn_type_float},
-      {c10::ScalarType::Bool, synDataType::syn_type_int8},
-      {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
+  static const std::unordered_map<c10::ScalarType, synDataType> map {
+    {c10::ScalarType::Byte, synDataType::syn_type_uint8},
+        {c10::ScalarType::Char, synDataType::syn_type_int8},
+        {c10::ScalarType::Short, synDataType::syn_type_int16},
+        {c10::ScalarType::Int, synDataType::syn_type_int32},
+        {c10::ScalarType::Long, synDataType::syn_type_int32},
+        {c10::ScalarType::Float, synDataType::syn_type_float},
+        {c10::ScalarType::Half, synDataType::syn_type_fp16},
+        {c10::ScalarType::Double, synDataType::syn_type_float},
+        {c10::ScalarType::Bool, synDataType::syn_type_int8},
+        {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+        {c10::ScalarType::Fp8r152, synDataType::syn_type_fp8_152},
+#endif
   };
 
   auto result = map.find(pt_type);
@@ -1747,6 +1751,12 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
       return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
     }
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+    case c10::ScalarType::Fp8r152: {
+      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      return device_type == synDeviceGaudi2;
+    }
+#endif
     default:
       return false;
   }

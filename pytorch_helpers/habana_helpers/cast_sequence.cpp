@@ -11,8 +11,10 @@
  ******************************************************************************
  */
 
-#include "cast_sequence.h"
+#include <torch/csrc/api/include/torch/version.h>
+
 #include <vector>
+#include "cast_sequence.h"
 #include "enum_mapping_table.h"
 #include "logging.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -69,35 +71,40 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // ======== gaudi2 ========
 
   // clang-format off
-#define OK  CastStage {}
-#define N   CastStage {}
-#define I32 CastStage { CastType::i32 }
-#define U16 CastStage { CastType::u16 }
-#define U32 CastStage { CastType::u32 }
+#define OK   CastStage {}
+#define N    CastStage {}
+#define BF16 CastStage { CastType::bf16 }
+#define F32  CastStage { CastType::f32  }
+#define I32  CastStage { CastType::i32  }
+#define U16  CastStage { CastType::u16  }
+#define U32  CastStage { CastType::u32  }
   // clang-format on
 
   // TODO: SW-35847 Remove indirect casting
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi2 = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32  i64   u8  u16  u32  u64  f16
-      /* from  f32 */ LineT{   N,   OK,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
-      /* from bf16 */ LineT{  OK,    N,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
-      /* from   i8 */ LineT{  OK,   OK,   N,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
-      /* from  i16 */ LineT{  OK,   OK,  OK,   N,  OK, I32, U16,  OK,  OK, U32,  OK },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,   N,  OK,  OK,  OK,  OK, U32,  OK },
-      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,   N, I32, I32, I32,   N, I32 },
-      /* from   u8 */ LineT{  OK,   OK,  OK, U16,  OK, I32,   N,  OK,  OK, U32,  OK },
-      /* from  u16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,   N,  OK, U32,  OK },
-      /* from  u32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK,   N,  OK,  OK },
-      /* from  u64 */ LineT{ U32,  U32, U32, U32, U32,   N, U32, U32,  OK,   N, U32 },
-      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,   N },
+      //              to:    f32  bf16    i8   i16  i32  i64    u8   u16  u32  u64    f8   f16
+      /* from  f32 */ LineT{   N,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK, U32,   OK,   OK },
+      /* from bf16 */ LineT{  OK,    N,   OK,   OK,  OK, I32,   OK,   OK,  OK, U32,   OK,   OK },
+      /* from   i8 */ LineT{  OK,   OK,    N,   OK,  OK, I32,   OK,   OK,  OK, U32, BF16,   OK },
+      /* from  i16 */ LineT{  OK,   OK,   OK,    N,  OK, I32,  U16,   OK,  OK, U32, BF16,   OK },
+      /* from  i32 */ LineT{  OK,   OK,   OK,   OK,   N,  OK,   OK,   OK,  OK, U32,  F32,   OK },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,   N,  I32,  I32, I32,   N,    N,  I32 },
+      /* from   u8 */ LineT{  OK,   OK,   OK,  U16,  OK, I32,    N,   OK,  OK, U32, BF16,   OK },
+      /* from  u16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,    N,  OK, U32, BF16,   OK },
+      /* from  u32 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,   N,  OK,  F32,   OK },
+      /* from  u64 */ LineT{ U32,  U32,  U32,  U32, U32,   N,  U32,  U32,  OK,   N,    N,  U32 },
+      /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32,   N, BF16, BF16, F32,   N,    N, BF16 },
+      /* from  f16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK, U32, BF16,    N },
       // clang-format on
   };
 
 #undef U32
 #undef U16
 #undef I32
+#undef F32
+#undef BF16
 #undef OK
 #undef N
 
@@ -160,6 +167,10 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
       return CastType::f32;
     case at::ScalarType::BFloat16:
       return CastType::bf16;
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+    case at::ScalarType::Fp8r152:
+      return CastType::f8;
+#endif
     case at::ScalarType::Char:
       return CastType::i8;
     case at::ScalarType::Bool:
@@ -184,6 +195,10 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::Float;
     case CastType::bf16:
       return at::ScalarType::BFloat16;
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+    case CastType::f8:
+      return at::ScalarType::Fp8r152;
+#endif
     case CastType::i8:
       return at::ScalarType::Char;
     case CastType::i16:
