@@ -276,3 +276,52 @@ TEST_F(HpuOpTest, right_shift_scal_ten_i32) {
   auto result = torch::bitwise_right_shift(self, tensor2);
   Compare(expected, result);
 }
+
+// lshift and rshift Out variants are not supported in CPU
+// so used usual variants for reference
+
+TEST_F(HpuOpTest, ls_out) {
+  auto dtype = torch::kInt32;
+  GenerateInputs(1, {dtype});
+  int other = GenerateScalar<int>(1, 32);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+  auto exp = GetCpuInput(0).__lshift__(other);
+  torch::__lshift___outf(GetHpuInput(0), other, res);
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, lt_out) {
+  auto dtype = torch::kInt32;
+  GenerateInputs(2, {dtype, torch::kUInt8});
+  GetCpuInput(1) = GetCpuInput(1) % 8;
+  auto other = GetCpuInput(1).to(torch::kHPU);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+  auto exp = GetCpuInput(0).__lshift__(GetCpuInput(1));
+  torch::__lshift___outf(GetHpuInput(0), other, res);
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, rt_out) {
+  auto dtype = torch::kInt16;
+  GenerateInputs(2, {dtype, torch::kInt8});
+  GetCpuInput(1) = GetCpuInput(1) % 16;
+  auto other = GetCpuInput(1).to(torch::kHPU);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+  auto exp = GetCpuInput(0).__rshift__(GetCpuInput(1));
+  torch::__rshift___outf(GetHpuInput(0), other, res);
+
+  Compare(exp, res);
+}
+
+TEST_F(HpuOpTest, rs_out) {
+  auto dtype = torch::kInt8;
+  GenerateInputs(1, {dtype});
+  int other = GenerateScalar<int>(1, 8);
+  auto res = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+  auto exp = GetCpuInput(0).__rshift__(other);
+  torch::__rshift___outf(GetHpuInput(0), other, res);
+
+  Compare(exp, res);
+}

@@ -28,27 +28,57 @@ __lshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
-  inplace_ids: [0]
+  out_ids: [0]
   scalar_ids: [1]
 
-__lshift__.Tensor:
+__lshift__.Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
-  inplace_ids: [0]
+  scalar_ids: [1]
+
+__lshift__.Tensor:
+  broadcast: true
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  type_promotion: true
+
+__lshift__.Tensor_out:
+  broadcast: true
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  type_promotion: true
 
 __rshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
-  inplace_ids: [0]
+  out_ids: [0]
   scalar_ids: [1]
 
-__rshift__.Tensor:
+__rshift__.Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
-  inplace_ids: [0]
+  scalar_ids: [1]
+
+__rshift__.Tensor:
+  broadcast: true
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  type_promotion: true
+
+__rshift__.Tensor_out:
+  broadcast: true
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  type_promotion: true
 
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize_lazy
