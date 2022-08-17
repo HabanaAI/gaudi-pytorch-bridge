@@ -139,8 +139,9 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
   ~HbInternalTensorImpl() {
     if (host_ptr_ || compile_host_ptr_) {
-      synHostFree(id_, host_ptr_, 0);
-      synHostFree(id_, compile_host_ptr_, 0);
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      device.get_host_memory().free(host_ptr_);
+      device.get_host_memory().free(compile_host_ptr_);
     }
   }
 

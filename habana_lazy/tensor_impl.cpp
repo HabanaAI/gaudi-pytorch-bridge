@@ -255,10 +255,10 @@ void HbInternalTensorImpl::set_host_data(
   id_ = device.id();
   int total_elem = 2 * size * el_size;
   int data_size = size * el_size;
-  auto err = synHostMalloc(id_, total_elem, 0, &host_ptr_);
-  HABANA_ASSERT(err != synOutOfHostMemory);
-  err = synHostMalloc(id_, total_elem, 0, &compile_host_ptr_);
-  HABANA_ASSERT(err != synOutOfHostMemory);
+  auto status = device.get_host_memory().malloc(&host_ptr_, total_elem);
+  HABANA_ASSERT(status == synSuccess);
+  status = device.get_host_memory().malloc(&compile_host_ptr_, total_elem);
+  HABANA_ASSERT(status == synSuccess);
   memcpy(host_ptr_, d, data_size);
   char* ptr = static_cast<char*>(host_ptr_) + data_size;
   memcpy(ptr, d, data_size);
