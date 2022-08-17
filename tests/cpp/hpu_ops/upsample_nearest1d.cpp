@@ -41,9 +41,10 @@ TEST_F(HpuOpTest, upsample_nearest1d_fwd_out) {
   auto expected = torch::empty({5, 6, 7}, dtype);
   auto result =
       torch::empty({5, 6, 7}, torch::TensorOptions(dtype).device("hpu"));
+  c10::optional<double> scales = c10::nullopt;
 
-  torch::upsample_nearest1d_outf(GetCpuInput(0), size, {}, expected);
-  torch::upsample_nearest1d_outf(GetHpuInput(0), size, {}, result);
+  torch::upsample_nearest1d_outf(GetCpuInput(0), size, scales, expected);
+  torch::upsample_nearest1d_outf(GetHpuInput(0), size, scales, result);
 
   Compare(expected, result);
 }
@@ -90,11 +91,12 @@ TEST_F(HpuOpTest, upsample_nearest1d_bwd_out) {
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(input_size, dtype);
   auto result = expected.to(torch::kHPU);
+  c10::optional<double> scales = c10::nullopt;
 
   torch::upsample_nearest1d_backward_outf(
-      GetCpuInput(0), out_size, input_size, c10::nullopt, expected);
+      GetCpuInput(0), out_size, input_size, scales, expected);
   torch::upsample_nearest1d_backward_outf(
-      GetHpuInput(0), out_size, input_size, c10::nullopt, result);
+      GetHpuInput(0), out_size, input_size, scales, result);
   Compare(expected, result);
 }
 
