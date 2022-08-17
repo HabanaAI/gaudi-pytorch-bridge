@@ -2473,30 +2473,35 @@ void RecipeValueSpec::create_outdup(
   auto pt_opt_offset = c10::make_optional(pt_offset);
 
   at::Tensor pt_outdup;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto impl = habana_lazy::GetHbInternalTensorImpl(parent_tensor);
-    if (impl) {
-      if (!ti.get_allow_permutation()) {
-        impl->SetMemoryPermutation({});
-        PT_BRIDGE_DEBUG(
-            "Resetting tensor ",
-            ti.get_tensor_id(),
-            " permutation because it is not allowed permutation (cache hit flow)");
-      } else {
-        PT_BRIDGE_DEBUG(
-            "Setting tensor ",
-            ti.get_tensor_id(),
-            " permutation from the TensorInfo cache record: ",
-            VecToString(ti.getHbInternalPermute()),
-            " old permutation was: ",
-            impl->GetMemoryPermutation());
-        impl->SetMemoryPermutation(ti.getHbInternalPermute());
-      }
-    }
+
+  if ((parent_tensor.sizes() == pt_sizes) &&
+      (parent_tensor.strides() == pt_strides)) {
+    // inplace op
     pt_outdup = parent_tensor;
   } else {
+    // view
     pt_outdup =
         at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+  }
+
+  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_outdup);
+  if (impl) {
+    if (!ti.get_allow_permutation()) {
+      impl->SetMemoryPermutation({});
+      PT_BRIDGE_DEBUG(
+          "Resetting tensor ",
+          ti.get_tensor_id(),
+          " permutation because it is not allowed permutation (cache hit flow)");
+    } else {
+      PT_BRIDGE_DEBUG(
+          "Setting tensor ",
+          ti.get_tensor_id(),
+          " permutation from the TensorInfo cache record: ",
+          VecToString(ti.getHbInternalPermute()),
+          " old permutation was: ",
+          impl->GetMemoryPermutation());
+      impl->SetMemoryPermutation(ti.getHbInternalPermute());
+    }
   }
 
   ti.patch(pt_outdup);

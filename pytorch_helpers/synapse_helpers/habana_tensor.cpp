@@ -384,6 +384,13 @@ synapse_error_o tensor::create() {
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
   set_layout();
+  if (permutation_.size()) {
+    HABANA_ASSERT(
+        permutation_.size() == maxGeometry.dims,
+        " create tensor invalid permutation ",
+        permutation_.size(),
+        maxGeometry.dims);
+  }
   set_permutation();
 
   if (is_const_) {

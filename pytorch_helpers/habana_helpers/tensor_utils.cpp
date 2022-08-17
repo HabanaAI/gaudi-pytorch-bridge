@@ -1262,7 +1262,8 @@ synapse_helpers::tensor habana_helpers::
         std::vector<int64_t>& sizes,
         std::vector<int64_t>& strides,
         const uint64_t offset,
-        bool external) {
+        bool external,
+        synapse_helpers::layouts::MemoryPermutation permutation) {
   PT_BRIDGE_TRACE;
   if (graph.is_dynamic_graph()) {
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);
@@ -1296,9 +1297,8 @@ synapse_helpers::tensor habana_helpers::
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_LAZY_DEBUG(
-        "Setting a duplicate tensor with permutation: ", tensor.permutation());
-    builder.with_permutation(tensor.permutation());
+    PT_LAZY_DEBUG("Setting a duplicate tensor with permutation: ", permutation);
+    builder.with_permutation(permutation);
   }
   auto maybe_tensor = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device_id()),

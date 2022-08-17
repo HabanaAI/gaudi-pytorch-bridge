@@ -5886,8 +5886,12 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "strided_view(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
   m.def(
+      "strided_view_out(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+  m.def(
       "strided_view_cl(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
   m.def("strided_view_ds(Tensor self, Tensor size, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_view_out_ds(Tensor self, Tensor size, Tensor offset) -> (Tensor)");
   m.def(
       "strided_view_cl_ds(Tensor self, Tensor size,Tensor offset) -> (Tensor)");
   m.def(

@@ -198,9 +198,11 @@ synapse_error_o graph::add_node(
       synTensorPermutation perm;
       perm.dims = 0;
       auto status = synTensorSetPermutation(tensor, &perm);
-      if (status != synStatus::synSuccess) {
-        PT_SYNHELPER_WARN("Node " + node_type + "  failed.", " Err: ", status);
-      }
+      HABANA_ASSERT(
+          status == synStatus::synSuccess,
+          "Node " + node_type + "  failed.",
+          " Err: ",
+          status);
     }
   }
   PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());

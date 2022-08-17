@@ -222,7 +222,8 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     std::vector<int64_t>& sizes,
     std::vector<int64_t>& strides,
     const uint64_t offset,
-    bool external);
+    bool external,
+    synapse_helpers::layouts::MemoryPermutation permutation = {});
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
