@@ -174,7 +174,7 @@ void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
   // TODO: SW-80913 enable for gaudi 2
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto device_type = device.type();
-  if (device_type == synDeviceGaudi || device_type == synDeviceGaudiM) {
+  if (device_type == synDeviceGaudi) {
     ExternalMarkingPass(graph_nodes);
   }
 }

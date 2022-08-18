@@ -23,8 +23,7 @@ SupportedDtypes::SupportedDtypes(
 
   auto get_curr_dev_type = []() {
     auto dev = synapse_helpers::HPURegistrar::get_device().type();
-    // Treat synDeviceGaudiM as synDeviceGaudi
-    return dev == synDeviceGaudiM ? synDeviceGaudi : dev;
+    return dev;
   };
 
   const static int curr_dev_type = get_curr_dev_type();

@@ -595,9 +595,6 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
     case synDeviceGaudi:
       stream << " Gaudi ";
       break;
-    case synDeviceGaudiM:
-      stream << " GaudiM ";
-      break;
     case synDeviceGaudi2:
       stream << " Gaudi2 ";
       break;
@@ -1167,7 +1164,6 @@ void device::record_and_wait_for_event(
 std::set<synDeviceType> device::get_supported_devices() {
   return {
       synDeviceType::synDeviceGaudi,
-      synDeviceType::synDeviceGaudiM,
       synDeviceType::synDeviceGaudi2,
       synDeviceType::synDeviceGreco};
 }

@@ -74,7 +74,6 @@ class synDeviceType(Enum):
     synDeviceGoya = 0
     synDeviceGoya2 = synDeviceGreco = 1
     synDeviceGaudi = 2
-    synDeviceGaudiM = 3
     synDeviceGaudi2 = 4
     synDeviceEmulator = 5
     synDeviceTypeInvalid = 6

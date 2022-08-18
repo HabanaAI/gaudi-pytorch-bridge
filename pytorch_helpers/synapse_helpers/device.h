@@ -404,7 +404,7 @@ class device {
 
   int get_compute_stream_count() {
     // FIXME need to get the info from synapse.
-    if (type_ == synDeviceGaudi || type_ == synDeviceGaudiM)
+    if (type_ == synDeviceGaudi)
       return 2;
     if (type_ == synDeviceGaudi2)
       return 4;

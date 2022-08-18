@@ -34,7 +34,7 @@ def _get_rank():
         return 0
 
 def isGaudi(device):
-    return (device == htexp.synDeviceType.synDeviceGaudi) or (device == htexp.synDeviceType.synDeviceGaudiM)
+    return (device == htexp.synDeviceType.synDeviceGaudi)
 
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2

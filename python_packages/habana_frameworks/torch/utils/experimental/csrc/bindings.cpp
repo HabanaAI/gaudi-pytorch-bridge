@@ -96,7 +96,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("t_size"));
   py::enum_<synDeviceType>(m, "synDeviceType")
       .value("synDeviceGaudi", synDeviceGaudi)
-      .value("synDeviceGaudiM", synDeviceGaudiM)
       .value("synDeviceGaudi2", synDeviceGaudi2)
       .value("synDeviceGreco", synDeviceGreco)
       .export_values();

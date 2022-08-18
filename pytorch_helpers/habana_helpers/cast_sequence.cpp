@@ -142,7 +142,6 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   EnumMappingTable<CastType, LineT> cast_stage_matrix;
   switch (syn_device_type) {
     case synDeviceType::synDeviceGaudi:
-    case synDeviceType::synDeviceGaudiM:
       cast_stage_matrix = cast_stage_matrix_gaudi;
       break;
     case synDeviceType::synDeviceGaudi2:
