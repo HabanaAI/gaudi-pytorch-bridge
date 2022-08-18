@@ -19,6 +19,12 @@ option(SANITIZER "build sanitizer configuration" OFF)
 option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
 
+if(MANYLINUX)
+  message("Building with shim layer")
+else()
+  message("Building without shim layer")
+endif()
+
 IF(UPSTREAM_COMPILE)
     ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
 ENDIF(UPSTREAM_COMPILE)

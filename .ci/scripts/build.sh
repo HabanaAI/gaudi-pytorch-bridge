@@ -179,6 +179,7 @@ build_pytorch_modules()
     local __result=""
     local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
     local __build_cpp_tests="ON"
+    local __build_with_shim="ON"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __build_manylinux_whl="false"
     local __set_py_vers="false"
@@ -236,8 +237,12 @@ build_pytorch_modules()
         -l  | --no_cpp_tests )
              __build_cpp_tests="OFF"
             ;;
+        --no_shim )
+             __build_with_shim="OFF"
+            ;;
         --manylinux )
             __build_manylinux_whl="true"
+            __build_with_shim="ON"
             ;;
         --upstream_compile )
             __upstream_compile="true"
@@ -340,11 +345,6 @@ build_pytorch_modules()
         CLANG_TIDY_DEFINE="-DCLANG_TIDY="
     fi
 
-    MANY_LINUX_DEFINE="-DMANYLINUX=OFF"
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        MANY_LINUX_DEFINE="-DMANYLINUX=ON"
-    fi
-
     UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=OFF"
     if [ "z${__upstream_compile}" == "ztrue" ];then
         UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=ON"
@@ -405,8 +405,8 @@ build_pytorch_modules()
             -DBUILD_PKGS=$__build_ext \
             -DINSTALL_PKGS=$__install_ext \
             -DBUILD_TESTS=$__build_cpp_tests \
+            -DMANYLINUX=$__build_with_shim \
             $CLANG_TIDY_DEFINE \
-            $MANY_LINUX_DEFINE \
             $UPSTREAM_COMPILE \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
@@ -450,8 +450,8 @@ build_pytorch_modules()
             -DBUILD_PKGS=$__build_ext \
             -DINSTALL_PKGS=$__install_ext \
             -DBUILD_TESTS=$__build_cpp_tests \
+            -DMANYLINUX=$__build_with_shim \
             $CLANG_TIDY_DEFINE \
-            $MANY_LINUX_DEFINE \
             $UPSTREAM_COMPILE \
             -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
             -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
