@@ -78,6 +78,7 @@ SYN_API_PTR(synNodeCreateWithId);
 SYN_API_PTR(synNodeDependencySet);
 SYN_API_PTR(synGraphCompile);
 SYN_API_PTR(synGraphCreate);
+SYN_API_PTR(synGraphCreateEager);
 SYN_API_PTR(synGraphDestroy);
 SYN_API_PTR(synMemsetD32Async);
 SYN_API_PTR(synMemsetD8Async);
@@ -104,6 +105,7 @@ SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorHandleCreate);
 SYN_API_PTR(synTensorSetExternal);
+SYN_API_PTR(synTensorRetrieveLaunchInfoById);
 SYN_API_PTR(synTensorSetGeometry);
 SYN_API_PTR(synTensorSetDeviceLayout);
 SYN_API_PTR(synTensorSetHostPtr);
@@ -145,6 +147,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synNodeDependencySet);
   SYN_API_INIT_PTR(synGraphCompile);
   SYN_API_INIT_PTR(synGraphCreate);
+  SYN_API_INIT_PTR(synGraphCreateEager);
   SYN_API_INIT_PTR(synGraphDestroy);
   SYN_API_INIT_PTR(synMemsetD32Async);
   SYN_API_INIT_PTR(synMemsetD8Async);
@@ -171,6 +174,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorHandleCreate);
   SYN_API_INIT_PTR(synTensorSetExternal);
+  SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
   SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceLayout);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
@@ -1021,6 +1025,16 @@ synGraphCreate(synGraphHandle* pGraphHandle, const synDeviceType deviceType) {
   return status;
 }
 
+synStatus SYN_API_CALL synGraphCreateEager(
+    synGraphHandle* pGraphHandle,
+    const synDeviceType deviceType) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pGraphHandle), ARG(deviceType));
+  synStatus status = lib_synapse::synGraphCreateEager(pGraphHandle, deviceType);
+  API_LOG_RESULT(S_ARG(pGraphHandle));
+  return status;
+}
+
 synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(graphHandle));
@@ -1288,6 +1302,22 @@ synStatus SYN_API_CALL synTensorSetDeviceLayout(
   API_LOG_CALL(ARG(tensor), ARG(layout));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceLayout, tensor, layout);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
+    const synRecipeHandle pRecipeHandle,
+    const uint32_t numOfTensors,
+    synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(numOfTensors), ARG(tensorsLaunchInfo));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorRetrieveLaunchInfoById,
+      pRecipeHandle,
+      numOfTensors,
+      tensorsLaunchInfo);
   API_LOG_RESULT();
   return status;
 }
