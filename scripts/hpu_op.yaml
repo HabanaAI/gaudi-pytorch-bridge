@@ -3579,6 +3579,30 @@ softshrink_backward.grad_input:
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
 
+softplus:
+  custom_fill_params: FillSoftplusParamsFwd
+  dtypes: [BFloat16, Float]
+  force_default: false
+  guid: softplus_fwd
+  out_ids: [0]
+
+softplus.out:
+  custom_fill_params: FillSoftplusParamsFwd
+  dtypes: [BFloat16, Float]
+  guid: softplus_fwd
+
+softplus_backward:
+  custom_fill_params: FillSoftplusParamsBwd
+  dtypes: [BFloat16, Float]
+  force_default: false
+  guid: softplus_bwd
+  out_ids: [0]
+
+softplus_backward.grad_input:
+  custom_fill_params: FillSoftplusParamsBwd
+  dtypes: [BFloat16, Float]
+  guid: softplus_bwd
+
 special_xlog1py.out:
   custom_output_shape: XlogYOutputShape
   dtypes: [BFloat16, Float]
