@@ -1672,10 +1672,16 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     static std::unordered_set<std::string> auto_gen_jit_ir_ops_;
+    static std::unordered_set<std::string> manual_jit_ir_ops_;
     if (std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
       if (auto_gen_jit_ir_ops_.count(opname) == 0) {
         PT_TEST_DEBUG("Auto_gen_JIT_IR_OP: ", opname);
         auto_gen_jit_ir_ops_.insert(opname);
+      }
+    } else {
+      if (manual_jit_ir_ops_.count(opname) == 0) {
+        PT_TEST_DEBUG("Manual_JIT_IR_OP: ", opname);
+        manual_jit_ir_ops_.insert(opname);
       }
     }
 
@@ -1762,6 +1768,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
                 "Empty_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
             empty_cs_jit_ir_ops_.insert(node_qual_str);
           }
+          TORCH_CHECK(
+              false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
+              "ComputeOutputShape method not available for validation of op ",
+              node_qual_str);
         }
       }
     } else {
