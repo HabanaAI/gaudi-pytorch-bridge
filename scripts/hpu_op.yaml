@@ -485,11 +485,12 @@ add.out:
   type_promotion: true
 
 add.Scalar_out:
+  force_default: false
   broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_backend: BinaryWithAlpha
-  scalar_ids: [1,2]
+  scalar_ids: [1, 2]
   type_promotion: true
 
 addcdiv:
@@ -2538,6 +2539,7 @@ mul.Scalar:
   type_promotion: true
 
 mul.Scalar_out:
+  force_default: false
   broadcast: true
   dtypes: [BFloat16, Byte, Char, Float, Int]
   guid: mult_fwd

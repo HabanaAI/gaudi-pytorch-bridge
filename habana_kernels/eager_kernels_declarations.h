@@ -23,12 +23,6 @@ at::Tensor as_strided_hpu(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-at::Tensor& set_hpu_(
-    at::Tensor& self,
-    at::Storage source,
-    int64_t storage_offset,
-    at::IntArrayRef size,
-    at::IntArrayRef stride);
 at::Tensor view_hpu(const at::Tensor& self, at::IntArrayRef size);
 at::Tensor addcmul_hpu(
     const at::Tensor& self,

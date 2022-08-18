@@ -250,13 +250,8 @@ Tensor& hpu_wrap::set_(
       PARAMS1(self),
       PARAMS2(self, source, storage_offset, size, stride),
       source_Storage_storage_offset)
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return set_hpu_lazy_(self, source, storage_offset, size, stride);
-
-  } else {
-    return set_hpu_(self, source, storage_offset, size, stride);
-  }
-};
+  return set_hpu_lazy_(self, source, storage_offset, size, stride);
+}
 
 Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
   PT_OP_TRACE;
