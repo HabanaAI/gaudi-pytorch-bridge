@@ -13,10 +13,29 @@
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
-std::shared_ptr<void> FillBernoulliParams(
-    size_t& size) {
+std::shared_ptr<void> FillBernoulliParams(size_t& size) {
   PARAMS_STUB(ns_RandomBernoulli::Params);
   return params;
+}
+
+template <>
+LazyBernoulliOutFrontend<at::Tensor&>::LazyBernoulliOutFrontend(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  // Generators can't be represented in JIT graph
+  // https://github.com/pytorch/pytorch/issues/64005
+  LazyBernoulliOutFrontend<at::Tensor&>::get_inputs().at(1) =
+      habana_lazy::get_tensor_for_scalar(
+          inputs[1].toDouble(), inputs[0].toTensor().options());
+  LazyBernoulliOutFrontend<at::Tensor&>::get_inputs().at(2) =
+      get_seed_tensor_hpu(inputs.at(2).toOptional<at::Generator>());
+}
+
+template <>
+at::Tensor& LazyBernoulliOutFrontend<at::Tensor&>::get_result_overrideable() {
+  return stack_tensor(LazyBernoulliOutFrontend<at::Tensor&>::get_inputs(), 0);
 }
 
 template <typename T>
@@ -44,7 +63,13 @@ void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
   // For "outplace" and "out" variant, self tensor is the probability input
   int p_index = IsInplace() ? 1 : 0;
+  // For "tensor_out" and "float_out" variant
+  if (!IsInplace() &&
+      c10::isFloatingType(stack.at(1).toTensor().scalar_type())) {
+    p_index = 1;
+  }
   int seed_index = p_index + 1;
+
   auto bcastOp = BuildOp(
       graph,
       "broadcast_" + habana_helpers::name_suffix_from_type(ScalarType()),

@@ -837,6 +837,13 @@ bernoulli.out:
   op_backend: Bernoulli
   schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
+bernoulli.float_out:
+  dtypes: [BFloat16, Float]
+  guid: random_bernoulli_fwd
+  op_frontend: LazyBernoulliOutFrontend
+  op_backend: Bernoulli
+  schema_args: "(Tensor self, Tensor p, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
 binary_cross_entropy:
   custom_output_shape: BinaryCrossEntropyFwdOutputShape
   dtypes: [Float, BFloat16]

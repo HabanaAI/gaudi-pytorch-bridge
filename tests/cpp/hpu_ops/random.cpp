@@ -123,6 +123,42 @@ TEST_F(HpuOpTest, bernoulli_out_2) {
   EXPECT_TRUE(expected.equal(result));
 }
 
+TEST_F(HpuOpTest, bernoulli_out_scalar1) {
+  GenerateIntInputs(2, {{3, 3}, {3, 3}}, 0, 2);
+  auto input1 = GetHpuInput(0).to(torch::kBFloat16);
+  auto input2 = GetHpuInput(1).to(torch::kBFloat16);
+
+  auto result1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto result2 = result1;
+
+  SetSeed();
+  torch::bernoulli_outf(
+      input1, 0.8, at::detail::getDefaultCPUGenerator(), result1);
+  SetSeed();
+  torch::bernoulli_outf(
+      input2, 0.8, at::detail::getDefaultCPUGenerator(), result2);
+
+  EXPECT_TRUE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, bernoulli_out_scalar2) {
+  GenerateIntInputs(2, {{3, 3}, {3, 3}}, 0, 2);
+  auto input1 = GetHpuInput(0).to(torch::kFloat32);
+  auto input2 = GetHpuInput(1).to(torch::kFloat32);
+
+  auto result1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto result2 = result1;
+
+  SetSeed();
+  torch::bernoulli_outf(
+      input1, 0.3, at::detail::getDefaultCPUGenerator(), result1);
+  SetSeed();
+  torch::bernoulli_outf(
+      input2, 0.3, at::detail::getDefaultCPUGenerator(), result2);
+
+  EXPECT_TRUE(result1.equal(result2));
+}
+
 TEST_F(HpuOpTest, random_) {
   GenerateInputs(1);
   SetSeed();
