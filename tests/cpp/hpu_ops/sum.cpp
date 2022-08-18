@@ -95,3 +95,18 @@ TEST_F(HpuOpTest, sum_UNET) {
 
   Compare(expected, result.to("hpu"));
 }
+
+TEST_F(HpuOpTest, sum_4d_2d_keepdim_cmpt) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
+  GenerateInputs(1, {{2, 3, 4, 5}});
+  const std::vector<int64_t> dim{-2, 0};
+
+  auto expected = torch::sum(GetCpuInput(0), dim, true /*keepdim*/);
+  auto result = torch::sum(GetHpuInput(0), dim, true /*keepdim*/);
+
+  Compare(expected, result);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
