@@ -17,21 +17,29 @@ using namespace at;
 class LazyReductionKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyReductionKernelTest, SumTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::sum(hA);
   torch::Tensor Out = torch::sum(A);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyReductionKernelTest, MeanDim) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = at::mean(hA, {0});
   torch::Tensor Out = at::mean(A, {0});
 
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 TEST_F(LazyReductionKernelTest, SumDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
@@ -282,7 +290,7 @@ TEST_F(LazyReductionKernelTest, DISABLED_MeanDim_cmpt) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyReductionKernelTest, DISABLED_SumDimIntTest_cmpt) {
+TEST_F(LazyReductionKernelTest, SumDimIntTest_cmpt) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }

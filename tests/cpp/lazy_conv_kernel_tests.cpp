@@ -515,7 +515,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   auto grad_wt = wt.grad();
 
   Tensor hgrad_in, hgrad_wt, hgrad_bias;
-  std::array<bool, 3> mask{1, 1, 0};
+  std::array<bool, 3> mask{1, 1, 1};
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) = convolution_backward_hpu_lazy(
       hgrad_out, hin, hwt, {1, 1}, {0, 0}, {1, 1}, true, {0, 0}, 1, mask);
 

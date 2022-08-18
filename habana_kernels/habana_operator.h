@@ -168,6 +168,13 @@ class OutputShapeInfRetType {
   const IdxTensorTup& GetOutputTensor(size_t index);
   const IdxTensorTup& GetShapeTensor(size_t index);
   void MoveToOutput(IdxTensorTup&& data);
+  void RemoveOutput(size_t index);
+  size_t GetKernelSize() {
+    return kernel_outputs.size();
+  }
+  OutputShapeInfRetTypePtr& GetKernel(size_t index) {
+    return kernel_outputs.at(index);
+  }
   const std::vector<OutputShapeInfRetTypePtr>& GetKernels() const {
     return kernel_outputs;
   }

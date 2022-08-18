@@ -3,7 +3,7 @@ aten::add_
 aten::atan
 aten::binary_cross_entropy_with_logits
 aten::clamp
-#aten::convolution_backward_overrideable
+aten::convolution_backward_overrideable
 aten::convolution_overrideable
 aten::div
 aten::eq
@@ -15,7 +15,7 @@ aten::lt
 aten::max_pool2d_with_indices
 aten::max_pool2d_with_indices_backward
 aten::maximum
-#aten::mean
+aten::mean
 aten::minimum
 aten::mul
 aten::mul_
@@ -30,7 +30,7 @@ aten::silu_
 aten::silu_backward
 aten::squeeze
 aten::sub
-#aten::sum
+aten::sum
 aten::unsqueeze
 aten::upsample_nearest2d
 aten::where
@@ -48,7 +48,7 @@ hpu::scatter_nd_onnx
 hpu::slice
 hpu::strided_insert_orig_ds
 hpu::strided_view_orig_ds
-#hpu::sum_dim_IntList
+hpu::sum_dim_IntList
 #hpu::topk
 hpu::upsample_nearest2d_backward
 hpu::view

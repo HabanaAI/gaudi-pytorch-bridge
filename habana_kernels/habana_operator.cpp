@@ -610,3 +610,7 @@ const habana::IdxTensorTup& habana::OutputShapeInfRetType::GetShapeTensor(
 void habana::OutputShapeInfRetType::MoveToOutput(habana::IdxTensorTup&& data) {
   output_tensors.emplace_back(data);
 }
+
+void habana::OutputShapeInfRetType::RemoveOutput(size_t index) {
+  output_tensors.erase(output_tensors.begin() + index);
+}

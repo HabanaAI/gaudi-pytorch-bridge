@@ -25,7 +25,8 @@ class ReduceOperator : public HabanaOperator {
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
-
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -112,7 +113,7 @@ class MeanOperator : public ReduceOperator {
                 habana_helpers::name_suffix_from_type(scalar_type)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -167,6 +168,7 @@ class SumDimOutOperator : public ReduceOperator {
             "reduce_sum_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -186,7 +188,7 @@ class SumDimOperator : public ReduceOperator {
                 habana_helpers::name_suffix_from_type(scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -210,7 +212,7 @@ class SumOperator : public ReduceOperator {
             device_id,
             "reduce_sum_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

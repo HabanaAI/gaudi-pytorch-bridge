@@ -615,21 +615,14 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
 
     // Create the operator
     if (is_conv_3d) {
-      auto Conv3dWeightDiffOp =
-          make_operator<Conv3dWeightDifferentiationOperator>(
-              this->p_context_->device_id_, "dedw3d");
-      auto Conv3dWeightDiffOp_out =
-          out.call_ComputeOutputShape(Conv3dWeightDiffOp, stackDedw);
-
-      auto Conv3dInputDiffOp =
-          make_operator<Conv3dInputDifferentiationOperator>(
-              this->p_context_->device_id_, "dedx3d");
-      auto Conv3dInputDiffOp_out =
-          out.call_ComputeOutputShape(Conv3dInputDiffOp, stackDedx);
-
       // Although we have "dedw3d" node first in the graph followed by "dedx3d",
       // when pushing outputs we want to maintain correct order
       if (output_mask_in[0]) {
+        auto Conv3dInputDiffOp =
+            make_operator<Conv3dInputDifferentiationOperator>(
+                this->p_context_->device_id_, "dedx3d");
+        auto Conv3dInputDiffOp_out =
+            out.call_ComputeOutputShape(Conv3dInputDiffOp, stackDedx);
         auto out_tensor = Conv3dInputDiffOp_out.GetOutputTensor(0);
         out.MoveToOutput(std::move(out_tensor));
       } else {
@@ -641,6 +634,11 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
       }
 
       if (output_mask_in[1]) {
+        auto Conv3dWeightDiffOp =
+            make_operator<Conv3dWeightDifferentiationOperator>(
+                this->p_context_->device_id_, "dedw3d");
+        auto Conv3dWeightDiffOp_out =
+            out.call_ComputeOutputShape(Conv3dWeightDiffOp, stackDedw);
         auto out_tensor = Conv3dWeightDiffOp_out.GetOutputTensor(0);
         out.MoveToOutput(std::move(out_tensor));
       } else {
@@ -652,18 +650,26 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
             memory_format));
       }
     } else {
-      auto ConvWeightDiffOp = make_operator<ConvWeightDifferentiationOperator>(
-          this->p_context_->device_id_, "dedw");
-      auto ConvWeightDiffOp_out =
-          out.call_ComputeOutputShape(ConvWeightDiffOp, stackDedw);
-
-      auto ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
-          this->p_context_->device_id_, "dedx");
-      auto ConvInputDiffOp_out =
-          out.call_ComputeOutputShape(ConvInputDiffOp, stackDedx);
 
       // Although we have "dedw" node first in the graph followed by "dedx",
       // when pushing outputs we want to maintain correct order
+      OutputShapeInfRetType ConvWeightDiffOp_out;
+      OutputShapeInfRetType ConvInputDiffOp_out;
+      if (output_mask_in[1]) {
+        auto ConvWeightDiffOp =
+            make_operator<ConvWeightDifferentiationOperator>(
+                this->p_context_->device_id_, "dedw");
+        ConvWeightDiffOp_out =
+            out.call_ComputeOutputShape(ConvWeightDiffOp, stackDedw);
+      }
+
+      if (output_mask_in[0]) {
+        auto ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
+            this->p_context_->device_id_, "dedx");
+        ConvInputDiffOp_out =
+            out.call_ComputeOutputShape(ConvInputDiffOp, stackDedx);
+      }
+
       if (output_mask_in[0]) {
         auto out_tensor = ConvInputDiffOp_out.GetOutputTensor(0);
         out.MoveToOutput(std::move(out_tensor));
@@ -674,7 +680,6 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
             grad_out_nhwc.scalar_type(),
             memory_format));
       }
-
       if (output_mask_in[1]) {
         auto out_tensor = ConvWeightDiffOp_out.GetOutputTensor(0);
         out.MoveToOutput(std::move(out_tensor));
@@ -919,8 +924,17 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     // simulator crash (TBD: investigate later if required)
 
     auto populateDedwOp =
-        [&](std::shared_ptr<habana::HabanaOperator> ConvWeightDiffOp) mutable {
+        [&](std::shared_ptr<habana::HabanaOperator>& ConvWeightDiffOp) mutable {
           if (output_mask_in[1]) {
+            if (is_conv_3d) {
+              ConvWeightDiffOp =
+                  make_operator<Conv3dWeightDifferentiationOperator>(
+                      this->p_context_->device_id_, "dedw3d");
+            } else {
+              ConvWeightDiffOp =
+                  make_operator<ConvWeightDifferentiationOperator>(
+                      this->p_context_->device_id_, "dedw");
+            }
             // Assign Inputs to the Operator
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
@@ -943,8 +957,17 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           }
         };
     auto populateDedxOp =
-        [&](std::shared_ptr<habana::HabanaOperator> ConvInputDiffOp) mutable {
+        [&](std::shared_ptr<habana::HabanaOperator>& ConvInputDiffOp) mutable {
           if (output_mask_in[0]) {
+            // node_type = "dedx";
+            if (is_conv_3d) {
+              ConvInputDiffOp =
+                  make_operator<Conv3dInputDifferentiationOperator>(
+                      this->p_context_->device_id_, "dedx3d");
+            } else {
+              ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
+                  this->p_context_->device_id_, "dedx");
+            }
             // Assign Inputs to the Operator
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
@@ -967,8 +990,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           }
         };
     auto reverseOrderOp =
-        [&](std::shared_ptr<habana::HabanaOperator> ConvInputDiffOp,
-            std::shared_ptr<habana::HabanaOperator> ConvWeightDiffOp) mutable {
+        [&](std::shared_ptr<habana::HabanaOperator>& ConvInputDiffOp,
+            std::shared_ptr<habana::HabanaOperator>& ConvWeightDiffOp) mutable {
           // Although we have "dedw3d" node first in the graph followed by
           // "dedx3d", when pushing outputs we want to maintain correct order
           if (output_mask_in[0]) {
@@ -1007,36 +1030,15 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           }
         };
     // Create the operator
-    if (is_conv_3d) {
-      std::string node_type = "dedw3d";
-      auto ConvWeightDiffOp =
-          make_operator<Conv3dWeightDifferentiationOperator>(
-              this->p_context_->device_id_, node_type);
-      populateDedwOp(ConvWeightDiffOp);
+    std::shared_ptr<habana::HabanaOperator> ConvWeightDiffOp;
+    std::shared_ptr<habana::HabanaOperator> ConvInputDiffOp;
+    populateDedwOp(ConvWeightDiffOp);
 
-      node_type = "dedx3d";
-      auto ConvInputDiffOp = make_operator<Conv3dInputDifferentiationOperator>(
-          this->p_context_->device_id_, node_type);
-      populateDedxOp(ConvInputDiffOp);
+    populateDedxOp(ConvInputDiffOp);
 
-      // Although we have "dedw3d" node first in the graph followed by "dedx3d",
-      // when pushing outputs we want to maintain correct order
-      reverseOrderOp(ConvInputDiffOp, ConvWeightDiffOp);
-    } else {
-      std::string node_type = "dedw";
-      auto ConvWeightDiffOp = make_operator<ConvWeightDifferentiationOperator>(
-          this->p_context_->device_id_, node_type);
-      populateDedwOp(ConvWeightDiffOp);
-
-      node_type = "dedx";
-      auto ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
-          this->p_context_->device_id_, node_type);
-      populateDedxOp(ConvInputDiffOp);
-
-      // Although we have "dedw" node first in the graph followed by "dedx",
-      // when pushing outputs we want to maintain correct order
-      reverseOrderOp(ConvInputDiffOp, ConvWeightDiffOp);
-    }
+    // Although we have "dedw" node first in the graph followed by "dedx",
+    // when pushing outputs we want to maintain correct order
+    reverseOrderOp(ConvInputDiffOp, ConvWeightDiffOp);
   }
 
   // Bias grad computation same for conv2d bwd and conv2d_transpose bwd

@@ -710,3 +710,20 @@ TEST_F(LazyDynamicComputeOutputShapesTest, RandPermHT) {
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR);
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
+
+TEST_F(LazyDynamicComputeOutputShapesTest, Mean) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  std::vector<int> in_sizes{16, 24, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    torch::Tensor A = torch::randn({in_sizes[i]}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::mean(hA);
+    torch::Tensor Out = torch::mean(A);
+    EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}

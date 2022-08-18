@@ -73,7 +73,12 @@ void allocate_reduction_result(
     if (shape.size() < 4) {
       memory_format = at::MemoryFormat::Contiguous;
     }
-    result = at::empty(shape, self.options().dtype(dtype), memory_format);
+    result = habana_helpers::createPTTensor(
+        self,
+        shape,
+        self.options().dtype(dtype),
+        memory_format,
+        is_result_persistent);
   }
 }
 
@@ -111,6 +116,117 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Habana reduction ops don't support casts yet");*/
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
+}
+
+OutputShapeInfRetType ReduceOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  // output tensor
+  Tensor output = inputs[0].toTensor();
+  Tensor self = inputs[1].toTensor();
+  auto in_dim = inputs[2].toIntVector();
+  bool keepdim = inputs[3].toBool();
+  auto dtype = inputs[4].toOptional<ScalarType>();
+  auto num_dims_to_reduce = in_dim.size();
+  // wrap dims to positive values, sort dim list and remove any duplicates
+  LoweringUtil::SortAndRemoveDuplicateDims(in_dim, self.dim());
+
+  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
+  bool flatten_higher_dims = false;
+  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
+    if (in_dim[i] == next_val[i]) {
+      flatten_higher_dims = true;
+    } else {
+      flatten_higher_dims = false;
+      break;
+    }
+  }
+  at::Tensor self_reshaped = self;
+  if (flatten_higher_dims) {
+    unsigned reshaped_in_dim_size = 1;
+    std::vector<int64_t> reshaped_self_sizes;
+    auto original_self_sizes = self.sizes().vec();
+
+    auto flatten_size = std::accumulate(
+        original_self_sizes.begin(),
+        original_self_sizes.begin() + num_dims_to_reduce,
+        1,
+        std::multiplies<int>());
+    if (keepdim) {
+      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
+        reshaped_self_sizes.emplace_back(1);
+      }
+    }
+    reshaped_self_sizes.emplace_back(flatten_size);
+    for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+      reshaped_self_sizes.emplace_back(original_self_sizes[i]);
+    }
+    // reshape to "reshaped-sizes" before reduction
+    c10::IntArrayRef shape(
+        reshaped_self_sizes.data(), reshaped_self_sizes.size());
+
+    auto ReshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, self.scalar_type());
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(shape));
+    auto reshape_out = out.call_ComputeOutputShape(ReshapeOp, stack);
+    self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
+
+    int64_t reshaped_in_dim_data[reshaped_in_dim_size];
+    if (!keepdim) {
+      reshaped_in_dim_data[0] = 0;
+    } else {
+      std::copy(
+          in_dim.begin() + num_dims_to_reduce - 1,
+          in_dim.end(),
+          reshaped_in_dim_data);
+    }
+
+    IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
+    auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
+    allocate_reduction_result(
+        output,
+        self_reshaped,
+        mask,
+        keepdim,
+        LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
+        false);
+  } else {
+    int64_t in_dim_copy[in_dim.size()];
+    std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
+    IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
+    auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
+    allocate_reduction_result(
+        output,
+        self,
+        mask,
+        keepdim,
+        LoweringUtil::GetDtype(output, self, dtype, false),
+        false);
+  }
+  if (!keepdim) {
+    auto shape_out = output.sizes().vec();
+    auto out_metadata = TensorMetaData(
+        shape_out,
+        HabanaOperator::CalculateStrides(
+            shape_out, self_reshaped.suggest_memory_format()),
+        self_reshaped.scalar_type(),
+        self_reshaped.suggest_memory_format());
+    out.AddOutputTensor(out_metadata);
+
+    auto ReshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, self_reshaped.scalar_type());
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(self_reshaped));
+    stack.emplace_back(IValue(output.sizes()));
+    // reshape output
+    auto reshape1_out = out.call_ComputeOutputShape(ReshapeOp, stack);
+    // since reshape is directly realized at synapse guid level
+    auto reshape_ptr = out.GetKernel(out.GetKernelSize() - 1);
+    reshape_ptr->RemoveOutput(0);
+  }
+  return out;
 }
 
 void ReduceOperator::AllocateAndAddSynapseNode(
@@ -413,6 +529,37 @@ ReduceOperator::CreateReductionGraph(
   return std::make_tuple(std::move(syn_tensor_in), std::move(syn_tensor_out));
 }
 
+OutputShapeInfRetType SumDimOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  if (inputs.size() == 4) {
+    auto self = inputs[0].toTensor();
+    auto dim = inputs[1].toIntVector();
+    bool keepdim = inputs[2].toBool();
+
+    // Check if dim = [], if yes, reduce input along all dims
+    // dim = tuple(range(self.dim))
+    if (dim.size() == 0) {
+      for (int i = 0; i < self.dim(); ++i) {
+        dim.push_back(i);
+      }
+      inputs[1] = dim;
+    }
+    // Remove duplicates in dim list
+    LoweringUtil::SortAndRemoveDuplicateDims(dim, self.dim());
+    // compute number of output dims
+    auto output_dims = self.dim() - (!(keepdim)*dim.size());
+    // output follows input memory_format for all cases
+    // except when output has less than 4 dims
+    auto memory_format = self.suggest_memory_format();
+    if (output_dims < 4) {
+      memory_format = at::MemoryFormat::Contiguous;
+    }
+    Tensor output = habana_helpers::createPTTensor(
+        self, {0}, self.options(), memory_format, false);
+    inputs.insert(inputs.begin(), IValue(output));
+  }
+  return ReduceOperator::ComputeOutputShape(inputs);
+}
 void SumDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -503,6 +650,33 @@ Tensor sum_dim_IntList_hpu(
 
   PT_KERNEL_END;
   return out.at(0);
+}
+
+OutputShapeInfRetType SumDimOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toIntList();
+  auto output = inputs[4].toTensor();
+
+  // Create a new container with all dims of input tensor, followed by creation
+  // of a new reference to it. This is used in case "dim" provided is {}, which
+  // implies that all dims need to be reduced.
+  std::vector<int64_t> data;
+  auto ndim = self.dim();
+  for (int i = 0; i < ndim; i++) {
+    data.push_back(i);
+  }
+  IntArrayRef dim_new(data);
+
+  // Check if dim = {}, if yes, reduce input along all dims
+  if (dim.vec().size() == 0) {
+    inputs[1] = IValue(dim_new);
+  }
+
+  // Move the output at begining
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.erase(inputs.end());
+  return ReduceOperator::ComputeOutputShape(inputs);
 }
 
 void SumDimOutOperator::AllocateAndAddSynapseNode(
@@ -771,6 +945,27 @@ Tensor prod_dim_hpu(
   return out.at(0);
 }
 
+OutputShapeInfRetType SumOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  if (inputs.size() == 2) {
+    Tensor self = inputs[0].toTensor();
+    Tensor output = habana_helpers::createPTTensor(
+        self, {0}, self.options(), at::MemoryFormat::Contiguous, false);
+
+    auto ndim = self.dim();
+    int64_t data[HABANA_DIM_MAX];
+    for (int i = 0; i < ndim; i++) {
+      data[i] = i;
+    }
+    IntArrayRef dim(data, ndim);
+    bool keepdim = false;
+
+    inputs.insert(inputs.begin(), IValue(output));
+    inputs.insert(inputs.begin() + 2, IValue(dim));
+    inputs.insert(inputs.begin() + 3, IValue(keepdim));
+  }
+  return ReduceOperator::ComputeOutputShape(inputs);
+}
 void SumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -863,6 +1058,28 @@ Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
   return out.at(0);
 }
 
+OutputShapeInfRetType MeanOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  if (inputs.size() == 2) {
+    Tensor self = inputs[0].toTensor();
+    Tensor output = habana_helpers::createPTTensor(
+        self, {0}, self.options(), at::MemoryFormat::Contiguous, false);
+
+    std::vector<int64_t> data;
+    auto ndim = self.dim();
+    for (int i = 0; i < ndim; i++) {
+      data.push_back(i);
+    }
+
+    IntArrayRef dim(data);
+
+    bool keepdim = false;
+    inputs.insert(inputs.begin(), IValue(output));
+    inputs.insert(inputs.begin() + 2, IValue(dim));
+    inputs.insert(inputs.begin() + 3, IValue(keepdim));
+  }
+  return ReduceOperator::ComputeOutputShape(inputs);
+}
 void MeanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
