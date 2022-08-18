@@ -247,6 +247,34 @@ class StridedInsert : public ir::Node {
   }
 };
 
+struct SliceInsert : public ir::Node {
+  enum class SliceInsertParams { PARAMS_INDEX = 2 };
+  SliceInsert() = delete;
+  SliceInsert(
+      const at::Tensor& orig_t,
+      const at::Tensor& insert_t,
+      at::IntArrayRef params)
+      : Node(c10::Symbol::fromQualString("hpu::slice_insert")) {
+    auto hl_orig = habana_lazy::GetOrCreateHbLazyTensor(orig_t, c10::kHPU);
+    AddInput(hl_orig.GetIrValue());
+
+    auto hl_insert = habana_lazy::GetOrCreateHbLazyTensor(insert_t, c10::kHPU);
+    AddInput(hl_insert.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{orig_t, insert_t};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(
+        params, static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", slice_params(dim, start, end, step)="
+       << m_meta_data.get(static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+    return ss.str();
+  }
+};
 class StridedView : public ir::Node {
  public:
   enum class StridedViewMeta {

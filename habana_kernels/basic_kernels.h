@@ -160,6 +160,30 @@ class AsStridedClOperator : public AsStridedOperator {
   }
 };
 
+class SliceInsertOperator : public habana::HabanaOperator {
+ public:
+  SliceInsertOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("slice_insert") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
+
+  void ModifySliceParams(
+      at::Tensor self,
+      int64_t& dim,
+      int64_t& start,
+      int64_t& end,
+      int64_t& step);
+
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+};
+
 class StridedInsertOperator : public habana::HabanaOperator {
  public:
   StridedInsertOperator(int device_id, c10::ScalarType scalarType)

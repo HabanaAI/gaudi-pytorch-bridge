@@ -69,3 +69,42 @@ TEST_F(LazyMiscTest, CloneIRTest) {
       .check_count("habana_d2d_memcpy", 0, true)
       ->run(*hlexec->get_graph());
 }
+
+TEST_F(LazyMiscTest, SliceInsertTest) {
+  auto cpu_tensor = torch::randn({10, 20, 30});
+  torch::Tensor tensor_in1 = cpu_tensor.to(torch::kHPU);
+  auto cpu_ref = cpu_tensor.slice(1, 1, 9, 3);
+  cpu_ref = cpu_ref.slice(2, 11, 29, 5);
+  cpu_ref.add_(1);
+
+  auto hpu = tensor_in1.slice(1, 1, 9, 3);
+  hpu = hpu.slice(2, 11, 29, 5);
+  hpu.add_(1);
+
+  EXPECT_EQ(allclose(cpu_ref, hpu.to("cpu"), 0.001, 0.001), true);
+}
+
+TEST_F(LazyMiscTest, SliceInsertIRTest) {
+  torch::Tensor tensor_in1 = torch::randn({2, 10}).to(torch::kHPU);
+  tensor_in1 = tensor_in1.slice(1, 1, 9, 3);
+  tensor_in1 = tensor_in1.add_(1);
+  auto tensor_in2 = tensor_in1.relu();
+
+  auto hl_result = GetHbLazyTensor(tensor_in2);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  hlexec->GetOrCreate(po_data, stack);
+
+  torch::jit::testing::FileCheck()
+      .check_count("hpu::slice_insert", 1, true)
+      ->run(*hlexec->get_graph());
+}

@@ -826,6 +826,137 @@ Tensor pin_memory_hpu(
   return tensor;
 }
 
+OutputShapeInfRetType SliceInsertOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  std::vector<int64_t> shape;
+
+  bool have_shape_tensor = inputs[2].isTensor();
+  if (have_shape_tensor) {
+    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
+  } else {
+    shape = self.sizes().vec();
+  }
+
+  auto metaData = TensorMetaData(
+      shape,
+      HabanaOperator::CalculateStrides(shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(metaData);
+
+  if (!have_shape_tensor) {
+    out.AddShapeTensor(metaData);
+  }
+
+  return out;
+}
+
+void SliceInsertOperator::ModifySliceParams(
+    at::Tensor self,
+    int64_t& dim,
+    int64_t& start,
+    int64_t& end,
+    int64_t& step) {
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
+  }
+  dim = at::maybe_wrap_dim(dim, ndim);
+  std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
+
+  // TODO: support negative strides
+  TORCH_CHECK(step > 0, "slice step must be positive");
+
+  // INT64_MAX stands for default value.
+  if (start == INT64_MAX) {
+    start = 0;
+  }
+  if (start < 0) {
+    start += sizes[dim];
+  }
+  if (end < 0) {
+    end += sizes[dim];
+  }
+  if (start < 0) {
+    start = 0;
+  } else if (start >= sizes[dim]) {
+    start = sizes[dim];
+  }
+  if (end < start) {
+    end = start;
+  } else if (end >= sizes[dim]) {
+    end = sizes[dim];
+  }
+}
+
+void SliceInsertOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  auto self = inputs[0].toTensor();
+  bool have_shape_tensor = inputs[2].isTensor();
+  if (have_shape_tensor) {
+    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
+  } else {
+    TORCH_CHECK(
+        inputs.size() == 3,
+        "Incorrect size of inputs expected for slice operator");
+    TORCH_CHECK(
+        inputs[2].isIntList(),
+        "Input slice params type expected to be integer list");
+    std::vector<int64_t> shape = self.sizes().vec();
+    Tensor output = habana_helpers::createPTTensor(
+        self,
+        shape,
+        self.options(),
+        self.suggest_memory_format(),
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      HABANA_ASSERT(false, "DynamicGraph not yet supported with slice_insert");
+      AllocateSynapseShapeTensor(graph, output);
+    }
+    auto paramsList = inputs[2].toIntList();
+
+    synSliceParamsNDims params;
+    // set defaults
+    std::fill_n(params.axes, HABANA_DIM_MAX, 0);
+    std::fill_n(params.starts, HABANA_DIM_MAX, 0);
+    std::fill_n(params.ends, HABANA_DIM_MAX, 0);
+    std::fill_n(params.steps, HABANA_DIM_MAX, 1);
+
+    int num_slice_params = paramsList.size() / 4;
+    for (int i = 0; i < num_slice_params; i++) {
+      int64_t dim = paramsList[i * 4];
+      int64_t start = paramsList[i * 4 + 1];
+      int64_t end = paramsList[i * 4 + 2];
+      int64_t step = paramsList[i * 4 + 3];
+      ModifySliceParams(self, dim, start, end, step);
+      params.axes[i] = self.dim() - dim - 1;
+      params.starts[i] = start;
+      params.ends[i] = end;
+      params.steps[i] = step;
+      bool needs_params_handling = false;
+      if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
+          end > self.sizes().vec()[dim]) {
+        needs_params_handling = true;
+      }
+      if (needs_params_handling) {
+        synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
+        auto tensor_id = syn_input_tensor.id();
+        std::vector<int64_t> min, max;
+        std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
+        params.ends[i] = static_cast<int>(max[dim]);
+      }
+    }
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
+}
+
 bool StridedInsertOperator::verifyViewMemoryAccess(
     at::Tensor& real,
     at::Tensor& view,
@@ -1342,6 +1473,7 @@ static auto& KernelRegistry =
         .add(
             "hpu::strided_view_out_orig_ds",
             KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(

@@ -110,6 +110,32 @@ bool IsStridesRatioZero(
   return false;
 }
 
+at::Tensor add_slice_insert_node(
+    const at::Tensor& orig_t,
+    const at::Tensor& insert_t,
+    const std::vector<StridedOpSliceParams>& params) {
+  std::vector<int64_t> paramsvec;
+  std::for_each(
+      params.begin(), params.end(), [&](const StridedOpSliceParams& n) {
+        auto start = n.start.has_value() ? n.start.value() : 0;
+        auto end = n.end.has_value() ? n.end.value() : INT64_MAX;
+        paramsvec.insert(paramsvec.end(), {n.dim, start, end, n.step});
+      });
+  auto node = std::make_shared<ir::SliceInsert>(orig_t, insert_t, paramsvec);
+
+  auto result = empty_hpu_lazy(
+      orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
+  auto hl_result = GetHbLazyTensor(result);
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  flush_op(result);
+  return result;
+}
+
 Tensor add_strided_insert_node(
     const Tensor& orig_t,
     const Tensor& insert_t,

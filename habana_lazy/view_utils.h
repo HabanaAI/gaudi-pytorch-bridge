@@ -230,5 +230,10 @@ at::Tensor add_strided_insert_node(
     int64_t offset,
     bool is_flush = true);
 
+at::Tensor add_slice_insert_node(
+    const at::Tensor& orig_t,
+    const at::Tensor& insert_t,
+    const std::vector<StridedOpSliceParams>& params);
+
 bool is_aliased_view(HbLazyTensorImpl& self, HbLazyTensorImpl& other);
 } // namespace habana_lazy

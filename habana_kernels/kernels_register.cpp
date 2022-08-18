@@ -5882,6 +5882,7 @@ TORCH_LIBRARY(hpu, m) {
       "strided_view_out_ds(Tensor self, Tensor size, Tensor offset) -> (Tensor)");
   m.def(
       "strided_view_cl_ds(Tensor self, Tensor size,Tensor offset) -> (Tensor)");
+  m.def("slice_insert(Tensor self, Tensor other, int[] params) -> (Tensor)");
   m.def(
       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
   m.def(
