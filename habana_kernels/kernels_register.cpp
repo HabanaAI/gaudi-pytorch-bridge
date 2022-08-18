@@ -5192,6 +5192,52 @@ void optimizer_lamb_phase2_hpu_wrap(
   }
 }
 
+void optimizer_lars_hpu_wrap(
+    const at::TensorList& params,
+    at::TensorList& grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  PT_OP_TRACE;
+  PT_OP_INFO(
+      " optimizer_lars_hpu_wrap:",
+      " param=",
+      to_string(params),
+      " grad=",
+      to_string(grads),
+      " skipMasks=",
+      to_string(skipMasks),
+      "eeta=",
+      to_string(eeta),
+      "weight_decay=",
+      to_string(weight_decay),
+      "eps=",
+      to_string(eps),
+      "lr=",
+      to_string(lr));
+  return optimizer_lars_hpu_lazy(
+      params, grads, skipMasks, eeta, weight_decay, eps, lr);
+}
+
+void optimizer_ResourceApplyMomentum_hpu_wrap(
+    at::TensorList& params_momentum_buffer_list,
+    const at::TensorList& d_p_list,
+    const float momentum) {
+  PT_OP_TRACE;
+  PT_OP_INFO(
+      " optimizer_ResourceApplyMomentum_hpu_wrap:",
+      " params_momentum_buffer_list =",
+      to_string(params_momentum_buffer_list),
+      " d_p_list=",
+      to_string(d_p_list),
+      "momentum=",
+      to_string(momentum));
+  return optimizer_ResourceApplyMomentum_hpu_lazy(
+      params_momentum_buffer_list, d_p_list, momentum);
+}
+
 Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
@@ -5668,6 +5714,10 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
       "habanaOptimizerLambPhase2(Tensor(a!)[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
+  m.def(
+      "habanaOptimizerLars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
+  m.def(
+      "habanaOptimizerResourceApplyMomentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def(

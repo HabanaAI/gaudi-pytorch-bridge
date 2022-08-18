@@ -966,6 +966,18 @@ void optimizer_lamb_phase2_hpu_wrap(
     const float step,
     const float weight_decay,
     const int use_lamb);
+void optimizer_lars_hpu_wrap(
+    const at::TensorList& params,
+    at::TensorList& grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr);
+void optimizer_ResourceApplyMomentum_hpu_wrap(
+    at::TensorList& params_momentum_buffer_list,
+    const at::TensorList& d_p_list,
+    const float momentum);
 at::Tensor habana_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,

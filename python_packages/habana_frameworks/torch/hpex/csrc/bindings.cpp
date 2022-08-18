@@ -4,6 +4,32 @@
 #include "habana_kernels/wrap_kernels_declarations.h"
 
 // Wrappers to match singatures
+static void optimizer_ResourceApplyMomentum(
+    std::vector<at::Tensor>& params_momentum_buffer_vec,
+    const std::vector<at::Tensor>& d_p_vec,
+    const float momentum) {
+  at::TensorList params_momentum_buffer_list(params_momentum_buffer_vec);
+  at::TensorList d_p_list(d_p_vec);
+
+  optimizer_ResourceApplyMomentum_hpu_wrap(
+      params_momentum_buffer_list, d_p_list, momentum);
+}
+
+static void optimizer_fused_lars(
+    const std::vector<at::Tensor>& paramsVec,
+    std::vector<at::Tensor>& gradsVec,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  at::TensorList params(paramsVec);
+  at::TensorList grads(gradsVec);
+
+  optimizer_lars_hpu_wrap(
+      params, grads, skipMasks, eeta, weight_decay, eps, lr);
+}
+
 static void optimizer_fused_adamw(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
@@ -151,7 +177,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "sparse_adagrad_with_valid_count",
       &optimizer_sparse_adagrad_with_valid_count_hpu_wrap,
       "Optimizer Sparse Adagrad with valid count ");
-
+  m.def("fused_lars", &optimizer_fused_lars, "Optimizer Fused Lars");
+  m.def(
+      "fused_resource_apply_momentum",
+      &optimizer_ResourceApplyMomentum,
+      "Optimizer Fused Resource Apply Momentum");
   //////////////////////////// Normalizations /////////////////////////////////
   m.def(
       "fused_norm",

@@ -10,6 +10,7 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
+#include "../hpu_ops/reduction_template.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -21,6 +22,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
+
 using namespace torch;
 using namespace habana;
 
@@ -1218,6 +1220,284 @@ Tensor& optimizer_sgd_momentum_hpu(
   PT_OTHER_OPS_END;
   return lr;
 }
+namespace habana {
+class OptimizerFusedLarsOperator : public OpBackend {
+ public:
+  OptimizerFusedLarsOperator(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(
+            device_id,
+            NO_TPC + "optimizer_fused_lars_",
+            scalar_type,
+            {},
+            {0}, // inplace id
+            {},
+            false) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
+};
+
+class OptimizerFusedResourceApplyMomentumOperator : public OpBackend {
+ public:
+  OptimizerFusedResourceApplyMomentumOperator(
+      int device_id,
+      c10::ScalarType scalar_type)
+      : OpBackend(
+            device_id,
+            NO_TPC + "optimizer_fused_ResourceApplyMomentumOperator_",
+            scalar_type,
+            {},
+            {0}, // inplace id ; interleaved param and momentum buffer tensors
+            {},
+            false) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
+};
+
+void OptimizerFusedLarsOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto params = stack.at(1).toTensorList();
+  auto grads = stack.at(0).toTensorList();
+  auto skipMasks = stack.at(2).toIntList();
+  auto eeta = stack.at(3).toDouble();
+  auto weightDecay = stack.at(4).toDouble();
+  auto eps = stack.at(5).toDouble();
+  auto lr = stack.at(6).toDouble();
+
+  auto dtype = grads.get(0).scalar_type();
+  auto tlSize = grads.size();
+
+  for (size_t i = 0; i < tlSize; ++i) {
+    auto grad = grads.get(i);
+    auto param = params.get(i);
+    auto outshape = grads.get(i).sizes();
+    auto zero_constant = ConstantHelper(graph, 0.0f, dtype, outshape);
+    auto one_constant = ConstantHelper(graph, 1.0f, dtype, outshape);
+    auto eetaTensor = ConstantHelper(graph, eeta, dtype, outshape);
+    auto weightDecayTensor =
+        ConstantHelper(graph, weightDecay, dtype, outshape);
+    auto epsTensor = ConstantHelper(graph, eps, dtype, outshape);
+    auto lrTensor = ConstantHelper(graph, lr, dtype, outshape);
+
+    auto syn_grad = syn_in(i);
+
+    if (!skipMasks[i]) {
+      auto mul0 = BuildOp(
+          graph,
+          MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+          {syn_grad, lrTensor.get()},
+          {{outshape, dtype, i}});
+      syn_out(i) = std::move(mul0[0]);
+      continue;
+    }
+    auto syn_param = syn_in(i + tlSize);
+    auto n_dims = grads.get(i).dim();
+
+    auto mul1 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {syn_param, syn_param},
+        {{outshape, dtype}});
+
+    std::vector<synTensor> reduction_inputs1 = {mul1[0].get()};
+    std::vector<synapse_helpers::tensor> reshape1;
+
+    if (n_dims > 1) {
+      auto reshape_outshape = grad.numel();
+      reshape1.emplace_back(
+          ReshapeHelper(graph, reduction_inputs1[0], reshape_outshape, dtype));
+      reduction_inputs1 = {reshape1[0].get()};
+    }
+
+    ns_Reduction::Params reduce_params{};
+    reduce_params.reductionDimension = 0;
+    auto sum1 = BuildOp(
+        graph,
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        reduction_inputs1,
+        {{1, dtype}},
+        &reduce_params,
+        sizeof(reduce_params));
+
+    auto sqrt1 = BuildOp(
+        graph,
+        "sqrt_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {sum1[0].get()},
+        {{1, dtype}});
+
+    // Norm calculation for 1-st argument viz. param: mul2, sum2, sqrt2
+    auto mul2 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {syn_grad, syn_grad},
+        {{outshape, dtype}});
+
+    std::vector<synTensor> reduction_inputs2 = {mul2[0].get()};
+    std::vector<synapse_helpers::tensor> reshape2;
+
+    if (n_dims > 1) {
+      auto reshape_outshape = grad.numel();
+      reshape2.emplace_back(
+          ReshapeHelper(graph, reduction_inputs2[0], reshape_outshape, dtype));
+      reduction_inputs2 = {reshape2[0].get()};
+    }
+
+    // ns_Reduction::Params reduce_params{};
+    // reduce_params.reductionDimension = 0;
+    auto sum2 = BuildOp(
+        graph,
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        reduction_inputs2,
+        {{1, dtype}},
+        &reduce_params,
+        sizeof(reduce_params));
+
+    auto sqrt2 = BuildOp(
+        graph,
+        "sqrt_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {sum2[0].get()},
+        {{1, dtype}});
+
+    // torch.greater(param_norm, 0)
+    auto ge1 = BuildOp(
+        graph,
+        "greater_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {sqrt1[0].get(), zero_constant.get()},
+        {{outshape, dtype}});
+
+    // torch.greater(grad_norm, 0)
+    auto ge2 = BuildOp(
+        graph,
+        "greater_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {sqrt2[0].get(), zero_constant.get()},
+        {{outshape, dtype}});
+
+    // eeta*paramNorm
+    auto mul3 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {sqrt1[0].get(), eetaTensor.get()},
+        {{outshape, dtype}});
+
+    // paranNorm*weightDecay
+    auto mul4 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {sqrt1[0].get(), weightDecayTensor.get()},
+        {{outshape, dtype}});
+
+    // weightDecay*paranNorm + eps
+    auto add1 = BuildOp(
+        graph,
+        "add_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {mul4[0].get(), epsTensor.get()},
+        {{outshape, dtype}});
+
+    // gradNorm + weightDecay*paranNorm + eps
+    auto add2 = BuildOp(
+        graph,
+        "add_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {add1[0].get(), sqrt2[0].get()},
+        {{outshape, dtype}});
+
+    //(eeta*param_norm) / (gradNorm + weightDecay*paranNorm + eps)
+    auto div1 = BuildOp(
+        graph,
+        "div_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {mul3[0].get(), add2[0].get()},
+        {{outshape, dtype}});
+
+    auto where1 = BuildOp(
+        graph,
+        "where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {ge2[0].get(), div1[0].get(), one_constant.get()},
+        {{outshape, dtype}});
+
+    // trust_ratio
+    auto where2 = BuildOp(
+        graph,
+        "where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {ge1[0].get(), where1[0].get(), one_constant.get()},
+        {{outshape, dtype}});
+
+    // scaled_lr = lr*trust_ratio
+    auto mul5 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {where2[0].get(), lrTensor.get()},
+        {{outshape, dtype}});
+
+    // param*weightDecayTensor
+    auto mul6 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {syn_param, weightDecayTensor.get()},
+        {{outshape, dtype}});
+
+    // grad + param*weightDecayTensor
+    auto add3 = BuildOp(
+        graph,
+        "add_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {syn_grad, mul6[0].get()},
+        {{outshape, dtype}});
+
+    // param*weightDecayTensor
+    auto mul7 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {add3[0].get(), mul5[0].get()},
+        {{outshape, dtype, i}});
+
+    syn_out(i) = std::move(mul7[0]);
+  } // for (size_t i=0; i< tlSize; ++i)
+}
+
+void OptimizerFusedResourceApplyMomentumOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  static_cast<void>(graph);
+  static_cast<void>(stack);
+
+  auto params_momentum_buffer = stack.at(0).toTensorList();
+  auto momentum = stack.at(2).toDouble();
+
+  auto dtype = params_momentum_buffer.get(0).scalar_type();
+  auto tlSize = params_momentum_buffer.size();
+  int k = 0;
+  for (size_t i = 0; i < tlSize; i += 2) {
+    auto outshape = params_momentum_buffer.get(i).sizes();
+    auto momentumTensor = ConstantHelper(graph, momentum, dtype, outshape);
+
+    auto syn_param = syn_in(i);
+    auto syn_momentum_buffer = syn_in(i + 1);
+    auto syn_d_p = syn_in(k + tlSize);
+    k = k + 1;
+    auto mul1 = BuildOp(
+        graph,
+        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+        {syn_momentum_buffer, momentumTensor.get()},
+        {{outshape, dtype}});
+    auto sub1 = BuildOp(
+        graph,
+        "sub_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {mul1[0].get(), syn_d_p},
+        {{outshape, dtype, i + 1}});
+
+    auto add1 = BuildOp(
+        graph,
+        "add_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {syn_param, sub1[0].get()},
+        {{outshape, dtype, i}});
+    syn_out(i) = std::move(add1[0]);
+    syn_out(i + 1) = std::move(sub1[0]);
+
+  } // for (size_t i = 0; i < tlSize; ++i) {
+}
+} // namespace habana
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
@@ -1237,6 +1517,10 @@ static auto& KernelRegistry =
         .add(
             "hpu::habanaOptimizerFusedSGDMomentum",
             KERNEL_FN(OptimizerFusedSGDMomentumOperator))
+        .add("hpu::habanaOptimizerLars", KERNEL_FN(OptimizerFusedLarsOperator))
+        .add(
+            "hpu::habanaOptimizerResourceApplyMomentum",
+            KERNEL_FN(OptimizerFusedResourceApplyMomentumOperator))
         .add(
             "hpu::habanaOptimizerFusedEMA",
             KERNEL_FN(OptimizerFusedEMAOperator));

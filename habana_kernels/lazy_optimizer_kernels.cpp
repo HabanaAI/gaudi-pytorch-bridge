@@ -485,4 +485,30 @@ void optimizer_sgd_momentum_hpu_lazy(
       {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov});
   loo.call(weights, momentum, OPTIMIZER::SGD_MOMENTUM);
 }
+
+void optimizer_lars_hpu_lazy(
+    const at::TensorList& params,
+    at::TensorList& grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  LazyOptimizationOp<void> lo(
+      "hpu::habanaOptimizerLars",
+      {grads, params, skipMasks, eeta, weight_decay, eps, lr});
+  lo.call(grads);
+  flush_op(grads);
+}
+
+void optimizer_ResourceApplyMomentum_hpu_lazy(
+    at::TensorList& params_momentum_buffer_list,
+    const at::TensorList& d_p_list,
+    const float momentum) {
+  LazyOptimizationOp<void> lo(
+      "hpu::habanaOptimizerResourceApplyMomentum",
+      {params_momentum_buffer_list, d_p_list, momentum});
+  lo.call(params_momentum_buffer_list);
+  flush_op(params_momentum_buffer_list);
+}
 } // namespace habana_lazy

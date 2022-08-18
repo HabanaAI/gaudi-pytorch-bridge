@@ -51,6 +51,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1) {
     LazyOp<T>::viewUpdateInputs();
+
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();
@@ -73,7 +74,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     } else {
       TORCH_CHECK(
           false,
-          "Incorrect optmizer option. Only ADAGRAD or SGD_MOMENTUM can be called with 2 at::TensorList& arguments.")
+          "Incorrect optmizer option. Only ADAGRAD/SGD_MOMENTUM can be called with 2 at::TensorList& arguments.")
     }
   }
   template <typename T = ReturnType>
@@ -256,6 +257,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     flush_op(tList1);
     flush_op(tList2);
   }
+
 }; // class LazyOptimizationOp
 
 } // namespace habana_lazy
