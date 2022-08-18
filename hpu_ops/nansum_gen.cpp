@@ -32,7 +32,10 @@ at::Tensor LazyNansum<at::Tensor>::get_result_overrideable() {
 
 sizes_vec NanSumIntListOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  std::vector<int64_t> dim = stack.at(1).toIntList().vec();
+  std::vector<int64_t> dim;
+  if (!stack.at(1).isNone()) {
+    dim = stack.at(1).toIntVector();
+  }
   const bool keepdim = stack.at(2).toBool();
   std::vector<int64_t> shape =
       ReduceOperator::compute_output_shape(self, dim, keepdim);
@@ -46,7 +49,10 @@ void NansumList::AddNode(
   auto dtype = c10::ScalarType::Char;
 
   auto self = stack.at(0).toTensor();
-  auto dim = stack.at(1).toIntVector();
+  std::vector<int64_t> dim;
+  if (!stack.at(1).isNone()) {
+    dim = stack.at(1).toIntVector();
+  }
 
   bool keepdim = stack.at(2).toBool();
   auto input = syn_in(0);
