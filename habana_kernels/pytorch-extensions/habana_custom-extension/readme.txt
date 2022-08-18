@@ -1,6 +1,4 @@
-This folder contains the custom optimizers specific to habana.
-Usually these are implemented as fused single kernels.
-
+This folder contains unit tests for the custom optimizers specific to habana.
 
 Unit tests:
 1. adagrad_ut.py -- Unit test for fused adagrad optimizer for dense tensors
