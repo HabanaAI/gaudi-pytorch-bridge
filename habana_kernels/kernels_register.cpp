@@ -117,7 +117,7 @@ Tensor hpu_wrap::_pin_memory(
  relevant to HPU. Ref. aten/src/ATen/native/Linear.cpp
  Ref. https://jira.habana-labs.com/browse/SW-93519 for details.
 */
-Tensor hpu_wrap::linear(
+Tensor linear_(
     const Tensor& input,
     const Tensor& weight,
     const c10::optional<Tensor>& bias_opt) {
@@ -137,11 +137,7 @@ Tensor hpu_wrap::linear(
     // Fused op is marginally faster.
     return at::addmm(*bias, input, weight.t());
   }
-  auto output = at::matmul(input, weight.t());
-  if (bias->defined()) {
-    output.add_(*bias);
-  }
-  return output;
+  return linear_non2d_hpu_lazy(input, weight, bias_opt);
 }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -5557,6 +5553,48 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   return MatmulFunction::apply(self, other);
 };
 
+struct LinearFunction : public torch::autograd::Function<LinearFunction> {
+  static at::Tensor forward(
+      AutogradContext* ctx,
+      Tensor input,
+      Tensor weight,
+      c10::optional<Tensor> bias_opt) {
+    at::Tensor result;
+    // ctx->save_for_backward<> does not take c10::optional<Tensor> bias_opt
+    // So create and use an "undefined" tensor if bias_opt does not have value
+    auto bias = bias_opt.value_or(Tensor());
+    ctx->save_for_backward({input, weight, bias});
+    result = linear_(input, weight, bias_opt);
+    return result;
+  }
+
+  static variable_list backward(
+      AutogradContext* ctx,
+      variable_list grad_output) {
+    std::tuple<Tensor, Tensor> result;
+    variable_list saved_vars = ctx->get_saved_variables();
+    Tensor input = saved_vars[0];
+    Tensor weight = saved_vars[1];
+    Tensor bias_opt = saved_vars[2];
+    return linear_non2d_bwd_hpu_lazy(grad_output[0], input, weight, bias_opt);
+  }
+};
+
+Tensor hpu_wrap::linear(
+    const Tensor& input,
+    const Tensor& weight,
+    const c10::optional<Tensor>& bias_opt) {
+  PT_KERNEL_DEBUG(
+      "HpuOp linear:",
+      " input=",
+      to_string(input),
+      " weight=",
+      to_string(weight),
+      " bias_opt=",
+      to_string(bias_opt));
+  return LinearFunction::apply(input, weight, bias_opt);
+}
+
 struct AdaptiveAvgPool2DFunction
     : public torch::autograd::Function<AdaptiveAvgPool2DFunction> {
   static at::Tensor forward(
@@ -5902,6 +5940,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");
   m.def(
       "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::linear_non2d_bwd(Tensor grad_out, Tensor input, Tensor weight, Tensor? bias) -> (Tensor, Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

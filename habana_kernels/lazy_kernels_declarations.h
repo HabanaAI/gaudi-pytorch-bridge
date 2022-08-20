@@ -769,4 +769,13 @@ at::Tensor& recv_hpu_lazy_(
     int64_t tag,
     int64_t comm_id);
 
+at::Tensor linear_non2d_hpu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt);
+std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
+    const at::Tensor grad_output,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt);
 } // namespace habana_lazy

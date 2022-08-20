@@ -133,7 +133,8 @@ class MatMulOperator : public HabanaOperator {
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
-      const at::Tensor& mat2);
+      const at::Tensor& mat2,
+      bool other_transposed = false);
 };
 
 class MatmulBackwardOperator : public HabanaOperator {
@@ -181,6 +182,30 @@ class MatmulBackwardOperator : public HabanaOperator {
       synapse_helpers::tensor_or_ref syn_input);
 
   std::vector<HabanaOperatorPtr> ReshapeOpList;
+};
+
+class LinearForwardOperator : public HabanaOperator {
+ public:
+  LinearForwardOperator(int device_id) : HabanaOperator("linear_fwd") {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+class LinearBackwardOperator : public HabanaOperator {
+ public:
+  LinearBackwardOperator(int device_id) : HabanaOperator("linear_bwd") {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana
