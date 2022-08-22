@@ -26,6 +26,7 @@ FALLBACK_CHECK(
   //  where_fwd_i32
   //  where_fwd_bf16
   //  where_fwd_f32
+  //  where_fwd_f16 only for Gaudi2/Greco
   auto result_type = at::result_type(self, other);
   switch (result_type) {
     case torch::kBool:
@@ -33,6 +34,10 @@ FALLBACK_CHECK(
     case torch::kBFloat16:
     case torch::kFloat32:
       return true;
+    case torch::kHalf: {
+      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
+    }
     default:
       return false;
   }
