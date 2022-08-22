@@ -267,7 +267,7 @@ TEST_F(LazyReductionKernelTest, DISABLED_Mean) {
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
-TEST_F(LazyReductionKernelTest, MeanDim_cmpt) {
+TEST_F(LazyReductionKernelTest, DISABLED_MeanDim_cmpt) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -282,7 +282,7 @@ TEST_F(LazyReductionKernelTest, MeanDim_cmpt) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyReductionKernelTest, SumDimIntTest_cmpt) {
+TEST_F(LazyReductionKernelTest, DISABLED_SumDimIntTest_cmpt) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
