@@ -2470,6 +2470,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // Update the stack from the recipe itself
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
+
+      RefinementEngine::GetEngine().AddGraphKey(
+          rargpsh_graph->graphHashCode(),
+          current_dbipsh_->get_statistics()->GetCurrentStep());
+
       PT_DYNAMIC_SHAPE_DEBUG(
           current_dbipsh_->digest_str(), current_dbipsh_->history_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
@@ -2494,7 +2499,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       ClearMembers();
       ClearStatics();
 
-      RefinementEngine::GetEngine().AddGraphKey(rargpsh_graph->graphHashCode());
       PT_BRIDGE_END;
       return;
     } else {
@@ -2878,7 +2882,6 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   auto syn_graph = create_graph_for_refinement();
 
   // Compile the graph
-  uint64_t current_step{statpsh->GetCurrentStep()};
   {
     CreateValueToIvalueMapForInputs();
 
@@ -2890,12 +2893,6 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
           input_refs, graph_key, op_strs, cur_ds_token_);
       new_recipe_key = cur_rargpsh->hashCode();
-      statpsh->LogRefineCompilation(
-          input_ranges,
-          jit_ir_graph,
-          new_recipe_key,
-          new_bucket.GetIndex(),
-          current_step);
 
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
@@ -2908,7 +2905,14 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
           "Exception occured in compilation - Details :\n", error_str);
 
       std::string result_str{"FAIL"};
-      statpsh->LogRefineResult(result_str, current_step);
+      uint64_t current_step{statpsh->GetCurrentStep()};
+      statpsh->LogRefineCompilation(
+          input_ranges,
+          jit_ir_graph,
+          new_recipe_key,
+          new_bucket.GetIndex(),
+          result_str,
+          current_step);
 
       throw;
     }
@@ -2926,7 +2930,14 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
 
   std::string result_str{"OK"};
-  statpsh->LogRefineResult(result_str, current_step);
+  uint64_t current_step{statpsh->GetCurrentStep()};
+  statpsh->LogRefineCompilation(
+      input_ranges,
+      jit_ir_graph,
+      new_recipe_key,
+      new_bucket.GetIndex(),
+      result_str,
+      current_step);
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "HabanaOp recipe cache :: adding new recipe to cache ::",

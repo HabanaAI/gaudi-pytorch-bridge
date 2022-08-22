@@ -147,17 +147,8 @@ class CompilationStatistics {
       std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       uint64_t signature,
       uint64_t bucket,
+      const std::string& result_str,
       uint64_t step = 0);
-
-  /**
-   * @brief Adds refine compilation result
-   *
-   * @param result the result of compilation, should be mapped from
-   * context.ToString()
-   * @param step iteration where this data belongs, leave to 0 and data will be
-   * assigned to current iteration.
-   */
-  virtual void LogRefineResult(const std::string& result, uint64_t step = 0);
 
   /**
    * @brief Get the Current Step number
@@ -165,6 +156,20 @@ class CompilationStatistics {
    * @return uint64_t Current step number
    */
   virtual uint64_t GetCurrentStep();
+
+  /**
+   * @brief Set the step at which refine initialized
+   *
+   * @param step iteration where this graph key inserted for bucket refinement
+   */
+  virtual void SetRefineInitStep(size_t step);
+
+  /**
+   * @brief Get the refine initialized step
+   *
+   * @return size_t current refinement invocked step
+   */
+  virtual size_t GetRefineInitStep();
 
   /**
    * @brief Dump current json data and increase internal step counter
@@ -175,6 +180,7 @@ class CompilationStatistics {
  protected:
   std::string path_;
   std::atomic<uint64_t> step_;
+  size_t refine_init_step_;
   nlohmannV340::json json_file_;
   std::ofstream file_handle;
   std::string GetStep(uint64_t step);
@@ -184,6 +190,7 @@ class CompilationStatistics {
   CompilationStatistics(std::string path, uint64_t global_count);
   CompilationStatistics(const CompilationStatistics&) = delete;
   void operator=(const CompilationStatistics&) = delete;
+  std::mutex json_file_mutex_;
 };
 
 /**

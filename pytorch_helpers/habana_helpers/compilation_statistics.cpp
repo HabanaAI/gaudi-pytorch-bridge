@@ -105,8 +105,8 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       std::shared_ptr<torch::jit::Graph>,
       uint64_t,
       uint64_t,
+      const std::string&,
       uint64_t) override{};
-  void LogRefineResult(const std::string&, uint64_t) override{};
   uint64_t GetCurrentStep() override {
     return 0;
   };
@@ -160,6 +160,7 @@ void CompilationStatistics::LogShape(
     const habana_helpers::TensorShape& shape,
     const std::string& kind,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["shapes"][index] =
       shape.DebugString() + (kind.empty() ? "" : " " + kind);
 }
@@ -217,6 +218,7 @@ void CompilationStatistics::LogUsedBucket(
     ResultShapes ranges,
     bool refine_candidate,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json json_bucket;
   json_bucket["id"] = id;
   json_bucket["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
@@ -230,27 +232,32 @@ void CompilationStatistics::LogFallback(
     std::string error,
     uint64_t step) {
   std::string key = pass + "_fallback_" + stringify(policy);
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)][key] = error;
 }
 
 void CompilationStatistics::LogSelectedRecipe(
     uint64_t signature,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["selected recipe"] = signature;
 }
 
 void CompilationStatistics::LogRecipeMemory(
     std::shared_ptr<habana::RecipeValueSpec> cur_rvalpsh,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["recipe memory size"] =
       cur_rvalpsh->recipe->get_recipe_host_mem_size();
 }
 
 void CompilationStatistics::LogLaunchBase(uint64_t ns, uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["synLaunch time base"] = ns;
 }
 
 void CompilationStatistics::LogLaunch(uint64_t ns, uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["synLaunch time"] = ns;
 }
 
@@ -258,6 +265,7 @@ void CompilationStatistics::LogLaunchPerf(
     uint64_t base_ns,
     uint64_t ns,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   if (base_ns == 0 || ns == 0) {
     json_file_[GetStep(step)]["synLaunch time performance"] = "-";
   } else {
@@ -271,25 +279,32 @@ void CompilationStatistics::LogRefineCompilation(
     std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     uint64_t signature,
     uint64_t bucket,
+    const std::string& result_str,
     uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   json json_refine;
   json_refine["recipe"] = signature;
   json_refine["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_refine["bucket id"] = bucket;
+  json_refine["start iter"] = GetRefineInitStep();
+  auto& json_refine_result = json_refine["result"];
+  json_refine_result["status"] = result_str;
+  json_refine_result["step"] = GetCurrentStep();
   json_file_[GetStep(step)]["refine"] = json_refine;
-}
-
-void CompilationStatistics::LogRefineResult(
-    const std::string& result,
-    uint64_t step) {
-  auto& json_refine = json_file_[GetStep(step)]["refine"]["result"];
-  json_refine["status"] = result;
-  json_refine["step"] = GetCurrentStep();
 }
 
 uint64_t CompilationStatistics::GetCurrentStep() {
   return step_;
 }
+
+void CompilationStatistics::SetRefineInitStep(size_t step) {
+  refine_init_step_ = step;
+}
+
+size_t CompilationStatistics::GetRefineInitStep() {
+  return refine_init_step_;
+}
+
 void CompilationStatistics::DumpAndNextStep() {
   if (step_) {
     file_handle << ",\n";

@@ -40,6 +40,6 @@ bool CompileGraphWithRange(
     std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
     std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
-bool RefineBucketDS(size_t graph_key);
+bool RefineBucketDS(size_t graph_key, size_t step);
 
 } // namespace habana

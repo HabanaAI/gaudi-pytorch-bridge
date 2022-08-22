@@ -55,11 +55,12 @@ void habana::RefinementEngine::Refine() {
     m_readyQueue.pop_front();
     mutex_lock.unlock();
 
-    auto graph_key{qentry.value()};
+    auto graph_key{qentry.value().first};
+    auto curr_step{qentry.value().second};
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "Refinement thread : received graph hash ", graph_key);
-      habana::RefineBucketDS(graph_key);
+      habana::RefineBucketDS(graph_key, curr_step);
     } else {
       PT_DYNAMIC_SHAPE_DEBUG("Refinement disabled");
     }
@@ -90,7 +91,7 @@ void habana::RefinementEngine::Shutdown() {
   }
 }
 
-void habana::RefinementEngine::AddGraphKey(size_t key) {
+void habana::RefinementEngine::AddGraphKey(size_t key, size_t curr_step) {
   PT_BRIDGE_BEGIN;
   if (!m_threads.empty()) {
     std::unique_lock<std::mutex> mutex_lock(m_mutex);
@@ -98,15 +99,16 @@ void habana::RefinementEngine::AddGraphKey(size_t key) {
     bool key_found{false};
     for (size_t i = 0; i < m_readyQueue.size(); i++) {
       // We should not see a shutdown enqueued if we are within this function
-      if (m_readyQueue[i].value() == key) {
+      if (m_readyQueue[i].value().first == key) {
         PT_DYNAMIC_SHAPE_DEBUG(
             "Graph key ", key, " is already added for refinement");
         key_found = true;
+        m_readyQueue[i].value().second = curr_step;
         break;
       }
     }
     if (!key_found) {
-      m_readyQueue.emplace_back(key);
+      m_readyQueue.emplace_back(std::make_pair(key, curr_step));
     }
     m_refineCV.notify_one();
   }

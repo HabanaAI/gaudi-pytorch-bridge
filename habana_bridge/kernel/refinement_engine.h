@@ -28,7 +28,7 @@ class RefinementEngine {
  private:
   std::atomic_bool m_refineFlag;
   std::mutex m_mutex;
-  std::deque<absl::optional<size_t>> m_readyQueue;
+  std::deque<absl::optional<std::pair<size_t, size_t>>> m_readyQueue;
   std::condition_variable m_refineCV;
   std::vector<std::thread> m_threads;
 
@@ -38,7 +38,7 @@ class RefinementEngine {
   void Initialize();
   void Refine();
   void Shutdown();
-  void AddGraphKey(size_t key);
+  void AddGraphKey(size_t key, size_t curr_step);
 };
 
 } // namespace habana

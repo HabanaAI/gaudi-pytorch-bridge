@@ -459,41 +459,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, RefineAddMulRelu) {
-  int A = 50;
-  const int C = 30;
-
-  std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
-  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
-
-  int num;
-
-  for (int i = 0; i < input_sizes.size(); i++) {
-    for (int j = 1; j <= test_rounds[i]; j++) {
-      int B = input_sizes[i];
-      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
-
-      torch::Tensor h0 =
-          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
-      torch::Tensor h1 =
-          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
-
-      torch::Tensor h4 = torch::add(h0, h1);
-      torch::Tensor h5 = torch::mul(h0, h1);
-      torch::Tensor h6 = torch::mul(h4, h5);
-      torch::Tensor h7 = torch::relu(h6);
-      HbLazyTensor::StepMarker({});
-      torch::Tensor h7_c = h7.to(torch::kCPU);
-
-      PT_TEST_DEBUG("PTI_DBG :: TEST ", i + 1, ", round ", j, "  END");
-      habana_helpers::DynamicBucketInfo::DumpDynamicRecipeStat();
-      if (j > 30) {
-        habana_helpers::DynamicBucketInfo::DisableBucketRefinement();
-      }
-    }
-  }
-}
-
 TEST_F(LazyDynamicShapesTest, RefineSlice) {
   int N = 1;
   int C = 4;
