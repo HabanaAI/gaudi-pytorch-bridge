@@ -460,6 +460,14 @@ _fused_dropout:
     Greco: [BFloat16, Float]
   override_fn: fused_dropout_hpu_lazy
 
+_index_put_impl_:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float]
+  fallback_check: [IndexFallbackCheck, indices]
+  override_fn: _index_put_impl_hpu_lazy_
+
 abs:
   force_default: false
   dtypes:

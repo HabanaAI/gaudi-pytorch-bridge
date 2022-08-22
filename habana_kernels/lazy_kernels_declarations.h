@@ -182,7 +182,7 @@ at::Tensor& scatter_add_inplace_src_hpu_lazy(
 at::Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices);
 at::Tensor& _index_put_impl_hpu_lazy_(
     at::Tensor& self,
-    at::TensorList indices,
+    const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     const bool accumulate,
     const bool unsafe);
@@ -200,12 +200,12 @@ at::Tensor& index_add_hpu_lazy_out(
     at::Tensor& out);
 at::Tensor index_put_hpu_lazy(
     const at::Tensor& self,
-    at::TensorList indices,
+    const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     bool accumulate);
 at::Tensor& index_put_hpu_lazy_(
     at::Tensor& self,
-    at::TensorList indices,
+    const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     bool accumulate);
 at::Tensor& index_fill_hpu_lazy_(

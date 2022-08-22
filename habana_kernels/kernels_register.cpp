@@ -1326,17 +1326,16 @@ Tensor hpu_wrap::index_put(
       self.dim() < value.dim())
     FALLBACK_IF_UNSUPPORTED_OP2(
         index_put, PARAMS2(self, indices, value, accumulate))
-  // TODO: Need a better way to handle this rather than converting everywhere
-  std::vector<at::Tensor> indices_list;
-  for (const c10::optional<Tensor>& input : indices) {
-    indices_list.push_back(input.value_or(Tensor()));
-  }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_put_hpu_lazy(
-        self, at::TensorList(indices_list), value, accumulate);
+    return index_put_hpu_lazy(self, indices, value, accumulate);
 
   } else {
+    // TODO: Need a better way to handle this rather than converting everywhere
+    std::vector<at::Tensor> indices_list;
+    for (const c10::optional<Tensor>& input : indices) {
+      indices_list.push_back(input.value_or(Tensor()));
+    }
     return index_put_hpu(self, at::TensorList(indices_list), value, accumulate);
   }
 };
@@ -1376,7 +1375,7 @@ Tensor& hpu_wrap::index_put_(
     // indices_list.push_back(input.value_or(Tensor()));
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_put_hpu_lazy_(self, indices_list, value, accumulate);
+    return index_put_hpu_lazy_(self, indices, value, accumulate);
 
   } else {
     return index_put_hpu_(self, indices_list, value, accumulate);
@@ -1468,8 +1467,7 @@ Tensor& hpu_wrap::_index_put_impl_(
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return _index_put_impl_hpu_lazy_(
-        self, indices_list, value, accumulate, unsafe);
+    return _index_put_impl_hpu_lazy_(self, indices, value, accumulate, unsafe);
   } else {
     FALLBACK_IF_UNSUPPORTED_OP2(
         _index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))

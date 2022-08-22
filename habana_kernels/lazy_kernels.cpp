@@ -2102,7 +2102,7 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
 
 Tensor& _index_put_impl_hpu_lazy_(
     Tensor& self,
-    at::TensorList indices,
+    const c10::List<c10::optional<at::Tensor>>& indices,
     const Tensor& value,
     bool accumulate,
     UNUSED const bool unsafe) {
@@ -2774,13 +2774,16 @@ Tensor index_put_hpu_lazy(
 
 Tensor& index_put_hpu_lazy_(
     at::Tensor& self,
-    TensorList indices_in,
+    const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
+  std::vector<at::Tensor> indices_in;
+  for (c10::optional<Tensor> input : indices) {
+    indices_in.push_back(input.value());
+  }
 
-  std::vector<Tensor> indices_vec{indices_in.vec()};
-  auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
+  auto isIndicesBool = indices_in[0].scalar_type() == c10::ScalarType::Bool;
   auto self_clone = self;
   auto index_put_result =
       index_put_hpu_lazy(self_clone, indices_in, value, accumulate);
