@@ -1007,7 +1007,8 @@ def get_hpu_wrapper(fndef, ctx):
         else:
             default = fndef.default
 
-        assert not default, "{} has default={}".format(opname, default)
+        if default:
+            print("{} has default={}".format(opname, default))
 
     return OpGen(
         tree=tree,

@@ -8,7 +8,14 @@
  ******************************************************************************
  */
 
+#include <torch/csrc/api/include/torch/version.h>
 #include "util.h"
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#define EXP_FN torch::exponential_functional
+#else
+#define EXP_FN torch::exponential
+#endif
 
 class HpuOpTest : public HpuOpTestUtil {};
 
@@ -98,10 +105,10 @@ TEST_F(HpuOpTest, exponential_f32_diff_seed) {
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
   GenerateInputs(1, {{1024}});
-  auto result1 = torch::exponential_functional(GetHpuInput(0), lambd, gen1);
+  auto result1 = EXP_FN(GetHpuInput(0), lambd, gen1);
 
   GenerateInputs(1, {{1024}});
-  auto result2 = torch::exponential_functional(GetHpuInput(0), lambd, gen2);
+  auto result2 = EXP_FN(GetHpuInput(0), lambd, gen2);
 
   EXPECT_FALSE(torch::equal(result1, result2));
 }
@@ -110,10 +117,10 @@ TEST_F(HpuOpTest, exponential_f32_2) {
   double lambd = GenerateScalar<double>(5.0, 15.0);
 
   GenerateInputs(1, {{256, 256}});
-  auto result1 = torch::exponential_functional(GetHpuInput(0), lambd);
+  auto result1 = EXP_FN(GetHpuInput(0), lambd);
 
   GenerateInputs(1, {{256, 256}});
-  auto result2 = torch::exponential_functional(GetHpuInput(0), lambd);
+  auto result2 = EXP_FN(GetHpuInput(0), lambd);
 
   EXPECT_TRUE(torch::equal(result1, result2));
 }
@@ -124,10 +131,10 @@ TEST_F(HpuOpTest, exponential_bf16_diff_seed) {
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
   GenerateInputs(1, {{1024}}, torch::kBFloat16);
-  auto result1 = torch::exponential_functional(GetHpuInput(0), lambd, gen1);
+  auto result1 = EXP_FN(GetHpuInput(0), lambd, gen1);
 
   GenerateInputs(1, {{1024}}, torch::kBFloat16);
-  auto result2 = torch::exponential_functional(GetHpuInput(0), lambd, gen2);
+  auto result2 = EXP_FN(GetHpuInput(0), lambd, gen2);
 
   EXPECT_FALSE(torch::equal(result1, result2));
 }
@@ -136,10 +143,10 @@ TEST_F(HpuOpTest, exponential_bf16_2) {
   double lambd = GenerateScalar<double>(5.0, 15.0);
 
   GenerateInputs(1, {{256, 256}}, torch::kBFloat16);
-  auto result1 = torch::exponential_functional(GetHpuInput(0), lambd);
+  auto result1 = EXP_FN(GetHpuInput(0), lambd);
 
   GenerateInputs(1, {{256, 256}}, torch::kBFloat16);
-  auto result2 = torch::exponential_functional(GetHpuInput(0), lambd);
+  auto result2 = EXP_FN(GetHpuInput(0), lambd);
 
   EXPECT_TRUE(torch::equal(result1, result2));
 }
