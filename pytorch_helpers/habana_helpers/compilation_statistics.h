@@ -206,6 +206,14 @@ class CompilationStatistics {
    *
    */
   virtual void DumpAndNextStep();
+  void GetDigest(
+      size_t graph_key,
+      size_t bucket_id,
+      uint64_t token,
+      size_t recipe_key);
+
+  void Serialize(std::ostream& os) const;
+  CompilationStatistics(std::istream& is);
 
  protected:
   std::string path_;

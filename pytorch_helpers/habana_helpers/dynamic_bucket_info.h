@@ -390,6 +390,9 @@ class Bucket {
     return size;
   }
 
+  void Serialize(std::ostream& os) const;
+  Bucket(std::istream& is);
+
   static constexpr uint64_t uninitialized_token = 1000000006;
 
  private:
@@ -635,6 +638,7 @@ class DynamicBucketInfo {
     buckets_.at(bid).ResetSynapseRecipePtr();
     return bid;
   }
+
   void SetSynapseRecipePtr(
       size_t bidx,
       std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
@@ -709,6 +713,9 @@ class DynamicBucketInfo {
          sizeof(decltype(recipe_bucket_map)::mapped_type));
     return size;
   }
+
+  void Serialize(std::ostream& os) const;
+  DynamicBucketInfo(std::istream& is);
 
   void split_history(
       const std::vector<size_t>& input_hist_idxes,
@@ -847,6 +854,18 @@ class DynamicBucketInfo {
       return O << '(' << d.num << ", " << d.pos << ", " << d.previous_val
                << ')';
     }
+    void Serialize(std::ostream& os) const {
+      using namespace serialization;
+      serialize(os, num);
+      serialize(os, pos);
+      serialize(os, previous_val);
+    }
+    DynamicDimsElement(std::istream& is) {
+      using namespace serialization;
+      deserialize(is, num);
+      deserialize(is, pos);
+      deserialize(is, previous_val);
+    }
   };
   using DynamicDimsFlat = std::vector<DynamicDimsElement>;
 
@@ -890,6 +909,9 @@ class DynamicBucketInfo {
 
       return O;
     }
+
+    void Serialize(std::ostream& os) const;
+    void Deserialize(std::istream& is);
   };
 
   DynamicDimsHelper dynamic_dims_helper_;
@@ -938,6 +960,15 @@ class UniqueTokenGenerator {
 
   uint64_t token() {
     return ++current_token_;
+  }
+
+  void set_token(uint64_t token) {
+    if (token > current_token_)
+      current_token_ = token;
+  }
+
+  void reset() {
+    current_token_ = Bucket::uninitialized_token;
   }
 
  private:

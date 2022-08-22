@@ -99,6 +99,9 @@ class TensorShape {
     m_tensor_type = tensor_type;
   }
 
+  void Serialize(std::ostream& os) const;
+  TensorShape(std::istream& is);
+
  private:
   size_t m_dim{0};
   int64_t n_elements{0};

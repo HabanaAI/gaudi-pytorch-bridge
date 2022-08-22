@@ -10,8 +10,10 @@
 #pragma once
 
 #include <c10/core/TensorOptions.h>
+#include <map>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace serialization {
@@ -32,6 +34,33 @@ void serialize(std::ostream& os, std::vector<T> const& input) {
   serialize(os, static_cast<int>(input.size()));
   for (auto const& elem : input) {
     serialize(os, elem);
+  }
+}
+
+template <typename T1, typename T2>
+void serialize(std::ostream& os, std::vector<std::pair<T1, T2>> const& input) {
+  serialize(os, static_cast<int>(input.size()));
+  for (auto const& elem : input) {
+    serialize(os, elem.first);
+    serialize(os, elem.second);
+  }
+}
+
+template <typename T1, typename T2>
+void serialize(std::ostream& os, std::map<T1, T2> const& input) {
+  serialize(os, static_cast<int>(input.size()));
+  for (auto const& elem : input) {
+    serialize(os, elem.first);
+    serialize(os, elem.second);
+  }
+}
+
+template <typename T1, typename T2>
+void serialize(std::ostream& os, std::unordered_map<T1, T2> const& input) {
+  serialize(os, static_cast<int>(input.size()));
+  for (auto const& elem : input) {
+    serialize(os, elem.first);
+    serialize(os, elem.second);
   }
 }
 

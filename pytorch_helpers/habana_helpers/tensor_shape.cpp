@@ -18,6 +18,8 @@
 
 #include <c10/util/Exception.h>
 
+#include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 namespace habana_helpers {
 
 TensorShape::TensorShape(
@@ -46,4 +48,22 @@ void TensorShape::set_size(const std::vector<int64_t>& sizes) {
   m_dim = sizes.size();
 }
 
+void TensorShape::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, m_dim);
+  serialize(os, n_elements);
+  serialize(os, is_scalar_initialized);
+  serialize(os, scalar_type_);
+  serialize(os, m_sizes);
+  serialize(os, m_tensor_type);
+}
+TensorShape::TensorShape(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, m_dim);
+  deserialize(is, n_elements);
+  deserialize(is, is_scalar_initialized);
+  deserialize(is, scalar_type_);
+  deserialize(is, m_sizes);
+  deserialize(is, m_tensor_type);
+}
 } // namespace habana_helpers

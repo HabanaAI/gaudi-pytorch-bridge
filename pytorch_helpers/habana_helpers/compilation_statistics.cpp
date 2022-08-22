@@ -17,6 +17,8 @@
 #include <utility>
 #include <vector>
 #include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -338,6 +340,31 @@ void CompilationStatistics::DumpAndNextStep() {
   step_++;
 }
 
+void CompilationStatistics::GetDigest(
+    size_t graph_key,
+    size_t bucket_id,
+    uint64_t token,
+    size_t recipe_key) {
+  std::string recipe_trace_path = GET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
+  if (recipe_trace_path == "") {
+    return;
+  } else {
+    std::ofstream csv_(recipe_trace_path, std::ofstream::app);
+    if (csv_.tellp() == 0) {
+      csv_ << "graph_key"
+           << ","
+           << "bucket_id"
+           << ","
+           << "token"
+           << ","
+           << "recipe_key"
+           << "\n";
+    }
+    csv_ << graph_key << "," << bucket_id << "," << token << "," << recipe_key
+         << "\n";
+  }
+}
+
 std::string CompilationStatistics::GetStep(uint64_t step) {
   const size_t leading_zeros = 9;
   return absl::StrFormat(
@@ -358,5 +385,42 @@ nlohmannV340::json CompilationStatistics::GetRanges(
     }
   }
   return result;
+}
+
+void CompilationStatistics::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, path_);
+  serialize(os, step_);
+}
+
+CompilationStatistics::CompilationStatistics(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, path_);
+  deserialize(is, step_);
+
+  if (path_ == "") {
+    return;
+  }
+
+  std::ifstream infile(path_);
+  auto json_file = nlohmannV340::json::parse(infile, nullptr, false);
+  if (json_file.is_discarded()) {
+    PT_DYNAMIC_SHAPE_WARN("Json parsing failed");
+  }
+
+  infile.close();
+
+  file_handle.open(path_);
+  file_handle << "[\n";
+
+  for (auto it = json_file.begin(); it < json_file.end(); ++it) {
+    file_handle << std::setw(4) << *it;
+    if (it < (json_file.end() - 1)) {
+      file_handle << ",\n";
+    }
+  }
+
+  file_handle.flush();
+  json_file.clear();
 }
 } // namespace habana_helpers

@@ -127,6 +127,10 @@ struct RecipeArgumentSpec {
     return dynamic_hash_code;
   }
 
+  bool hasToken() const {
+    return (token_ != 0);
+  }
+
   size_t graphWithPermuteHashCode() const {
     return graph_with_permute_hash_code;
   }
@@ -142,6 +146,31 @@ struct RecipeArgumentSpec {
   }
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
+
+  void Serialize(std::ostream& os) const {
+    using namespace serialization;
+    serialize(os, opstrs);
+    serialize(os, hash_code);
+    serialize(os, graph_hash_code);
+    serialize(os, offset_hash_code);
+    serialize(os, cargspec_hash_code);
+    serialize(os, dynamic_hash_code);
+    serialize(os, graph_with_permute_hash_code);
+    serialize(os, token_);
+  }
+
+  RecipeArgumentSpec(std::istream& is)
+      : cas(false, {at::IValue{torch::empty({0}, "hpu")}}) {
+    using namespace serialization;
+    deserialize(is, opstrs);
+    deserialize(is, hash_code);
+    deserialize(is, graph_hash_code);
+    deserialize(is, offset_hash_code);
+    deserialize(is, cargspec_hash_code);
+    deserialize(is, dynamic_hash_code);
+    deserialize(is, graph_with_permute_hash_code);
+    deserialize(is, token_);
+  }
 
  private:
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
@@ -550,6 +579,11 @@ class DynamicBucketInfoMap {
   static void DumpBucketMemoryStat();
   static void DumpHistoryMemoryStat();
   void clear();
+
+  static void load_ds_checkpoint(std::string path = "ds_checkpoint.pt");
+  static void save_ds_checkpoint(std::string path = "ds_checkpoint.pt");
+  void Serialize(std::ostream& os) const;
+  void Deserialize(std::istream& is);
 
  private:
   DynamicBucketInfoMap() = default;

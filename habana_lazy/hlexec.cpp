@@ -36,6 +36,9 @@ namespace habana_lazy {
 namespace exec {
 OptPassCfg* OptPassCfg::p_instance_ = nullptr;
 
+std::unordered_map<size_t, size_t> HlExec::s_graphIndexMap;
+size_t HlExec::s_graphIndex;
+
 HlExec::HlExec() {
   mp_g_ = std::make_shared<Graph>();
   m_g_hash_ = 0;
@@ -345,6 +348,18 @@ void HlExec::GetOrCreate(
   }
 }
 
+void HlExec::Serialize(std::ostream& os) {
+  using namespace serialization;
+  serialize(os, s_graphIndexMap);
+  serialize(os, s_graphIndex);
+}
+
+void HlExec::Deserialize(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, s_graphIndexMap);
+  deserialize(is, s_graphIndex);
+}
+
 size_t HlExec::GetGraphIndex(
     size_t hash,
     at::ArrayRef<torch::jit::IValue> input_refs) {
@@ -356,8 +371,7 @@ size_t HlExec::GetGraphIndex(
     auto perm_hash_code = ComputePermutationHashCode(input_refs);
     hash = at::hash_combine(hash, perm_hash_code);
   }
-  static std::unordered_map<size_t, size_t> s_graphIndexMap;
-  static size_t s_graphIndex;
+
   static std::mutex s_mutex;
   std::lock_guard<std::mutex> guard(s_mutex);
   size_t graphIndex = hash;

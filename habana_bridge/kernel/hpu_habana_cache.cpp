@@ -28,6 +28,7 @@
 #include "habana_serialization/serializers.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/event.h"
 
@@ -1568,6 +1569,63 @@ size_t DynamicBucketInfoMap::HistSize() const {
 
 void DynamicBucketInfoMap::clear() {
   map_.clear();
+}
+
+void DynamicBucketInfoMap::save_ds_checkpoint(std::string path) {
+  std::ofstream ds_checkpoint(path, std::ofstream::binary);
+  if (!ds_checkpoint.is_open()) {
+    HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
+    return;
+  }
+  std::stringstream os;
+  habana_lazy::HbLazyTensor::StepMarkerFinish();
+  DynamicBucketInfoMap::get_instance().Serialize(os);
+  ds_checkpoint << os.rdbuf();
+  ds_checkpoint.close();
+}
+
+void DynamicBucketInfoMap::load_ds_checkpoint(std::string path) {
+  std::stringstream is;
+  std::ifstream ds_checkpoint(path, std::ifstream::binary);
+  if (!ds_checkpoint) {
+    HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
+    return;
+  }
+  is << ds_checkpoint.rdbuf();
+  ds_checkpoint.close();
+  DynamicBucketInfoMap::get_instance().Deserialize(is);
+}
+
+void DynamicBucketInfoMap::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  int map_size = 0;
+  for (auto const& p : map_) {
+    if (!p.first->hasToken()) {
+      map_size++;
+    }
+  }
+  serialize(os, static_cast<int>(map_size));
+  for (auto const& p : map_) {
+    if (!p.first->hasToken()) {
+      p.first->Serialize(os);
+      p.second->Serialize(os);
+    }
+  }
+  habana_lazy::exec::HlExec::Serialize(os);
+}
+
+void DynamicBucketInfoMap::Deserialize(std::istream& is) {
+  using namespace serialization;
+  int map_size = 0;
+  deserialize(is, map_size);
+  for (int i = 0; i < map_size; ++i) {
+    std::shared_ptr<RecipeArgumentSpec> key =
+        std::make_shared<RecipeArgumentSpec>(is);
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> value =
+        std::make_shared<habana_helpers::DynamicBucketInfo>(is);
+    add(key, value);
+  }
+  habana_lazy::exec::HlExec::Deserialize(is);
 }
 
 size_t RecipeCacheLRU::Size() const {

@@ -73,6 +73,12 @@ def _dump_synapse_recipe_memory_stat() -> None:
 def _dump_dynamic_shape_memory_stat() -> None:
     _debug_C.dump_dynamic_shape_memory_stat()
 
+def load_ds_checkpoint(path) -> None:
+    _debug_C.load_ds_checkpoint(path)
+
+def save_ds_checkpoint(path) -> None:
+    _debug_C.save_ds_checkpoint(path)
+
 def _is_enabled_synapse_layout_handling() -> bool:
     return _debug_C.is_enabled_synapse_layout_handling()
 

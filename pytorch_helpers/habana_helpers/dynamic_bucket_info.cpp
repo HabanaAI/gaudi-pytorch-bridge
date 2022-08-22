@@ -134,6 +134,53 @@ Bucket::Bucket(
   token_ = habana_helpers::UniqueTokenGenerator::get_gen().token();
 }
 
+void Bucket::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, score_);
+  serialize(os, run_count_);
+  serialize(os, token_);
+  serialize(os, idx_);
+  serialize(os, recipe_key_);
+  serialize(os, is_first_launch_);
+  serialize(os, ranges_);
+  serialize(os, dynamic_dims_);
+  serialize(os, base_time_);
+  serialize(os, compile_time_);
+  serialize(os, cumu_hit_count_);
+  serialize(os, cumu_run_count_);
+  run_time_stat_.Serialize(os);
+  serialize(os, created_by_refinement_);
+  serialize(os, keep_time_);
+  serialize(os, refine_candidate_);
+  serialize(os, time_improvement_met_);
+  serialize(os, input_hist_idxes_);
+  serialize(os, inherited_input_hist_idxes_);
+}
+
+Bucket::Bucket(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, score_);
+  deserialize(is, run_count_);
+  deserialize(is, token_);
+  deserialize(is, idx_);
+  deserialize(is, recipe_key_);
+  deserialize(is, is_first_launch_);
+  deserialize(is, ranges_);
+  deserialize(is, dynamic_dims_);
+  deserialize(is, base_time_);
+  deserialize(is, compile_time_);
+  deserialize(is, cumu_hit_count_);
+  deserialize(is, cumu_run_count_);
+  run_time_stat_ = TimeStat(is);
+  deserialize(is, created_by_refinement_);
+  deserialize(is, keep_time_);
+  deserialize(is, refine_candidate_);
+  deserialize(is, time_improvement_met_);
+  deserialize(is, input_hist_idxes_);
+  deserialize(is, inherited_input_hist_idxes_);
+  UniqueTokenGenerator::get_gen().set_token(token_);
+}
+
 bool Bucket::IsInRange(
     const std::vector<int64_t>& dims,
     const std::set<int64_t>& skipped_ranges) const {
@@ -689,6 +736,112 @@ void DynamicBucketInfo::split_history(
       input_hist_retain.push_back(i);
     }
   }
+}
+
+void DynamicBucketInfo::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, static_cast<int>(buckets_.size()));
+  for (auto& bucket : buckets_) {
+    bucket.Serialize(os);
+  }
+  serialize(os, global_count);
+  serialize(os, mfu_bucket_id);
+  serialize(os, mfu_bucket_run_count);
+  serialize(os, current_run_count);
+  statistics_->Serialize(os);
+  serialize(os, static_cast<int>(shapes_.size()));
+  for (auto& shape : shapes_) {
+    serialize(os, shape.first);
+    shape.second.Serialize(os);
+  }
+  serialize(os, local_min_history_tensor_shapes_);
+  serialize(os, local_min_history_success_shapes_);
+  serialize(os, local_max_history_tensor_shapes_);
+  serialize(os, local_max_history_success_shapes_);
+  for (auto& element : local_pt_history_tensor_shapes_) {
+    serialize(os, element);
+  }
+  for (auto& element : local_pt_history_success_shapes_) {
+    serialize(os, element);
+  }
+  serialize(os, min_policy_);
+  serialize(os, max_policy_);
+  serialize(os, refine_enabled_);
+  input_history_.Serialize(os);
+  serialize(os, current_input_idx_);
+  dynamic_dims_helper_.Serialize(os);
+  serialize(os, graph_key_);
+  cumu_run_time_stat_.Serialize(os);
+  cumu_compile_time_stat_.Serialize(os);
+  serialize(os, cumu_compile_count_);
+  serialize(os, cumu_run_count_);
+  serialize(os, cumu_hit_count_);
+  serialize(os, input_token_map_);
+  serialize(os, original_recipe_count_);
+  serialize(os, refined_recipe_count_);
+  serialize(os, refined_recipe_wirt_count_);
+  serialize(os, num_original_recipe_hits_);
+  serialize(os, num_refined_recipe_hits_);
+  serialize(os, num_refined_recipe_wirt_hits_);
+  serialize(os, total_syn_runtime_);
+  serialize(os, original_syn_runtime_);
+  serialize(os, refined_syn_runtime_);
+  serialize(os, improvement_map_);
+}
+
+DynamicBucketInfo::DynamicBucketInfo(std::istream& is) {
+  using namespace serialization;
+  int bucket_size = 0;
+  deserialize(is, bucket_size);
+  for (int i = 0; i < bucket_size; ++i) {
+    buckets_.emplace_back(Bucket(is));
+  }
+  deserialize(is, global_count);
+  deserialize(is, mfu_bucket_id);
+  deserialize(is, mfu_bucket_run_count);
+  deserialize(is, current_run_count);
+  statistics_ = std::make_shared<habana_helpers::CompilationStatistics>(is);
+  int num_of_tensors = 0;
+  deserialize(is, num_of_tensors);
+  for (int i = 0; i < num_of_tensors; ++i) {
+    int64_t key = 0;
+    deserialize(is, key);
+    auto value = habana_helpers::TensorShape(is);
+    shapes_[key] = value;
+  }
+  deserialize(is, local_min_history_tensor_shapes_);
+  deserialize(is, local_min_history_success_shapes_);
+  deserialize(is, local_max_history_tensor_shapes_);
+  deserialize(is, local_max_history_success_shapes_);
+  for (int i = 0; i < 2; ++i) {
+    deserialize(is, local_pt_history_tensor_shapes_[i]);
+  }
+  for (int i = 0; i < 2; ++i) {
+    deserialize(is, local_pt_history_success_shapes_[i]);
+  }
+  deserialize(is, min_policy_);
+  deserialize(is, max_policy_);
+  deserialize(is, refine_enabled_);
+  input_history_.Deserialize(is);
+  deserialize(is, current_input_idx_);
+  dynamic_dims_helper_.Deserialize(is);
+  deserialize(is, graph_key_);
+  cumu_run_time_stat_ = TimeStat(is);
+  cumu_compile_time_stat_ = TimeStat(is);
+  deserialize(is, cumu_compile_count_);
+  deserialize(is, cumu_run_count_);
+  deserialize(is, cumu_hit_count_);
+  deserialize(is, input_token_map_);
+  deserialize(is, original_recipe_count_);
+  deserialize(is, refined_recipe_count_);
+  deserialize(is, refined_recipe_wirt_count_);
+  deserialize(is, num_original_recipe_hits_);
+  deserialize(is, num_refined_recipe_hits_);
+  deserialize(is, num_refined_recipe_wirt_hits_);
+  deserialize(is, total_syn_runtime_);
+  deserialize(is, original_syn_runtime_);
+  deserialize(is, refined_syn_runtime_);
+  deserialize(is, improvement_map_);
 }
 
 bool DynamicBucketInfo::UpdateBucketWithPolicy(
@@ -1439,6 +1592,27 @@ void DynamicBucketInfo::DynamicDimsHelper::FindOrAdd(
     it_dd->second.emplace(pos, flat_dd_.size());
     DynamicDimsElement item(num, pos, val);
     flat_dd_.emplace_back(num, pos, val);
+  }
+}
+
+void DynamicBucketInfo::DynamicDimsHelper::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, dd_);
+  serialize(os, rem_size_);
+  serialize(os, static_cast<int>(flat_dd_.size()));
+  for (auto& ele : flat_dd_) {
+    ele.Serialize(os);
+  }
+}
+
+void DynamicBucketInfo::DynamicDimsHelper::Deserialize(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, dd_);
+  deserialize(is, rem_size_);
+  int flat_dd_size = 0;
+  deserialize(is, flat_dd_size);
+  for (int i = 0; i < flat_dd_size; ++i) {
+    flat_dd_.emplace_back(DynamicDimsElement(is));
   }
 }
 

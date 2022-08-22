@@ -2366,6 +2366,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // Used only for compilation statistics purpose now
   current_dbipsh_->SetLastUsedStepForBucket(
       current_bucket_id_, current_dbipsh_->get_statistics()->GetCurrentStep());
+  current_dbipsh_->get_statistics()->GetDigest(
+      cur_rargpsh->graphHashCode(),
+      current_bucket_id_,
+      cur_ds_token_,
+      cur_rargpsh->hashCode());
 
   // Check for cached recipe
   if (enable_caching_) {

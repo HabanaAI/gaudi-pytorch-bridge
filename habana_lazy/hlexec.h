@@ -310,6 +310,9 @@ class HlExec {
     return mp_g_and_meta_data_;
   }
 
+  static void Serialize(std::ostream& os);
+  static void Deserialize(std::istream& is);
+
  private:
   /**
    * This method creates the JIT IR Graph
@@ -330,6 +333,8 @@ class HlExec {
   size_t m_g_hash_;
   std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyInfo = nullptr;
   std::vector<bool> node_bcast_map_;
+  static std::unordered_map<size_t, size_t> s_graphIndexMap;
+  static size_t s_graphIndex;
 };
 
 }; // namespace exec

@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/tensor_shape.h"
 
 namespace habana_helpers {
@@ -228,6 +230,24 @@ class TimeStat {
     return O;
   }
 
+  void Serialize(std::ostream& os) const {
+    using namespace serialization;
+    serialize(os, total_time_);
+    serialize(os, average_time_);
+    serialize(os, min_time_);
+    serialize(os, max_time_);
+    serialize(os, num_samples_);
+  }
+
+  TimeStat(std::istream& is) {
+    using namespace serialization;
+    deserialize(is, total_time_);
+    deserialize(is, average_time_);
+    deserialize(is, min_time_);
+    deserialize(is, max_time_);
+    deserialize(is, num_samples_);
+  }
+
  private:
   uint64_t total_time_{};
   uint64_t average_time_{};
@@ -285,6 +305,9 @@ struct HistoryItem {
   DimsHistoryElement& tshapes() {
     return tshapes_;
   }
+
+  void Serialize(std::ostream& os) const;
+  HistoryItem(std::istream& is);
 };
 
 inline std::string DebugString(
@@ -327,6 +350,10 @@ struct HistoryItemLog {
 
     return d;
   }
+  void clear() {
+    ref_tshapes_.clear();
+    hist_items_.clear();
+  }
 
   const DimsHistoryElement& ref_tshapes() const {
     return ref_tshapes_;
@@ -357,6 +384,8 @@ struct HistoryItemLog {
       const DimsHistoryElement& lo,
       const DimsHistoryElement& hi,
       const std::vector<size_t>& bucket_input_hist_idxes);
+  void Serialize(std::ostream& os) const;
+  void Deserialize(std::istream& is);
 };
 
 inline std::string DebugString(const HistoryItemLog h) {

@@ -96,6 +96,20 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
   return isInRange;
 }
 
+void HistoryItem::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, tshapes_);
+  serialize(os, bucket_index_);
+  serialize(os, run_time_);
+}
+
+HistoryItem::HistoryItem(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, tshapes_);
+  deserialize(is, bucket_index_);
+  deserialize(is, run_time_);
+}
+
 std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
     const std::vector<size_t>& bucket_input_hist_idxes) {
   // Compute the distribution midpoint of input_hist_idxes_
@@ -233,6 +247,25 @@ size_t HistoryItemLog::WithinRangeCount(
   }
 
   return within_range_cnt;
+}
+
+void HistoryItemLog::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  serialize(os, ref_tshapes_);
+  serialize(os, static_cast<int>(hist_items_.size()));
+  for (auto& hist_item : hist_items_) {
+    hist_item.Serialize(os);
+  }
+}
+
+void HistoryItemLog::Deserialize(std::istream& is) {
+  using namespace serialization;
+  deserialize(is, ref_tshapes_);
+  int hist_items_size = 0;
+  deserialize(is, hist_items_size);
+  for (int i = 0; i < hist_items_size; ++i) {
+    hist_items_.emplace_back(HistoryItem(is));
+  }
 }
 
 } // namespace habana_helpers

@@ -10,8 +10,10 @@
 #pragma once
 
 #include <c10/core/TensorOptions.h>
+#include <map>
 #include <sstream>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace serialization {
@@ -34,6 +36,45 @@ void deserialize(std::istream& is, std::vector<T>& output) {
     T elem;
     deserialize(is, elem);
     output.push_back(elem);
+  }
+}
+
+template <typename T1, typename T2>
+void deserialize(std::istream& is, std::vector<std::pair<T1, T2>>& output) {
+  int size;
+  deserialize(is, size);
+  for (int i = 0; i < size; ++i) {
+    T1 elem1;
+    T2 elem2;
+    deserialize(is, elem1);
+    deserialize(is, elem2);
+    output.push_back(std::make_pair(elem1, elem2));
+  }
+}
+
+template <typename T1, typename T2>
+void deserialize(std::istream& is, std::map<T1, T2>& output) {
+  int size;
+  deserialize(is, size);
+  for (int i = 0; i < size; ++i) {
+    T1 elem1;
+    T2 elem2;
+    deserialize(is, elem1);
+    deserialize(is, elem2);
+    output[elem1] = elem2;
+  }
+}
+
+template <typename T1, typename T2>
+void deserialize(std::istream& is, std::unordered_map<T1, T2>& output) {
+  int size;
+  deserialize(is, size);
+  for (int i = 0; i < size; ++i) {
+    T1 elem1;
+    T2 elem2;
+    deserialize(is, elem1);
+    deserialize(is, elem2);
+    output[elem1] = elem2;
   }
 }
 
