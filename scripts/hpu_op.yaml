@@ -587,6 +587,35 @@ add.Scalar_out:
   type_promotion: true
   safe_cast_check: true
 
+addbmm:
+  custom_output_shape: AddBMMOutshape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
+  guid: batch_gemm
+  op_backend: AddBMM
+  out_ids: [0]
+
+addbmm_:
+  custom_output_shape: AddBMMOutshape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
+  guid: batch_gemm
+  op_backend: AddBMM
+  inplace_ids: [0]
+
+addbmm.out:
+  custom_output_shape: AddBMMOutshape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
+  guid: batch_gemm
+  op_backend: AddBMM
+
 addcdiv:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
@@ -659,6 +688,7 @@ addmm:
   force_default: false
   custom_output_shape: AddMMOutshape
   dtypes: [BFloat16, Float]
+  guid: gemm
   op_backend: AddMM
   out_ids: [0]
 
@@ -666,12 +696,14 @@ addmm_:
   force_default: false
   custom_output_shape: AddMMOutshape
   dtypes: [BFloat16, Float]
+  guid: gemm
   op_backend: AddMM
   inplace_ids: [0]
 
 addmm.out:
   custom_output_shape: AddMMOutshape
   dtypes: [BFloat16, Float]
+  guid: gemm
   op_backend: AddMM
 
 addmv:
