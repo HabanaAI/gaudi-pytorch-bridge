@@ -747,3 +747,92 @@ TEST(TestStream, HPUGuardEventSyncTest) {
   PT_TEST_DEBUG("query:", guard.queryEvent(event));
   guard.destroyEvent(event, 0);
 }
+
+TEST(TestStream, TestWAR_defaultstream) {
+  /*
+  Case 1: WAR dependency
+  x = op(param) <- Read param is NOT in output of op
+  mark_step()
+  load :
+    // Wait for param to be read by op : No event for param is placed
+    param.copy_(key) <- Write to param
+  print(x.to('cpu'))
+  */
+
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  torch::Tensor tensor_A = torch::randn({2000, 3000});
+  torch::Tensor tensor_B = torch::randn({2000, 3000});
+  torch::Tensor tensor_r = torch::relu(tensor_A);
+
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
+
+  tensor_A.copy_(tensor_B);
+
+  torch::Tensor tHabana_r = torch::relu(tHabana_A);
+  HbLazyTensor::StepMarker({});
+
+  tHabana_A.copy_(tHabana_B);
+  torch::Tensor cpu_tensor = tHabana_A.cpu();
+  EXPECT_EQ(tensor_A.allclose(cpu_tensor, 0, 0), true);
+
+  tensor_r = torch::relu(tensor_A); // cpu
+  tensor_A.copy_(tensor_B); // cpu
+
+  tHabana_r = torch::relu(tHabana_A);
+  HbLazyTensor::StepMarker({});
+
+  tHabana_A.copy_(tHabana_B);
+
+  cpu_tensor = tHabana_A.cpu();
+  EXPECT_EQ(tensor_A.allclose(cpu_tensor, 0, 0), true);
+
+  PT_TEST_DEBUG("tensor::", cpu_tensor[0][0]);
+}
+
+TEST(TestStream, TestWAR_multistream) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto num_hpus = device.get_count_by_current_type();
+  if (num_hpus == 0)
+    return;
+
+  c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+
+  torch::Tensor tensor_A = torch::randn({2000, 3000});
+  torch::Tensor tensor_B = torch::randn({2000, 3000});
+  torch::Tensor tensor_r = torch::relu(tensor_A);
+
+  torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
+  torch::Tensor tHabana_B = tensor_B.to(torch::kHPU);
+
+  tensor_A.copy_(tensor_B);
+  torch::Tensor tHabana_r = torch::relu(tHabana_A);
+  HbLazyTensor::StepMarker({});
+
+  tHabana_A.copy_(tHabana_B);
+  torch::Tensor cpu_tensor = tHabana_A.cpu();
+  EXPECT_EQ(tensor_A.allclose(cpu_tensor, 0, 0), true);
+
+  tensor_r = torch::relu(tensor_A); // cpu
+  tensor_A.copy_(tensor_B); // cpu
+
+  tHabana_r = torch::relu(tHabana_A);
+
+  c10::hpu::setCurrentHPUStream(compute1);
+
+  tHabana_A.copy_(tHabana_B);
+
+  cpu_tensor = tHabana_A.cpu();
+  EXPECT_EQ(tensor_A.allclose(cpu_tensor, 0, 0), true);
+
+  PT_TEST_DEBUG("tensor::", cpu_tensor[0][0]);
+}

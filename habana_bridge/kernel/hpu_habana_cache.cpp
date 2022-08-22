@@ -1137,7 +1137,7 @@ void RecipeValueSpec::launch(
     }
 
     outDevPtr.reserve(
-        num_outputs + num_input_to_outduplicates +
+        num_inputs + num_outputs + num_input_to_outduplicates +
         num_intermediate_to_outduplicates);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
@@ -1147,6 +1147,10 @@ void RecipeValueSpec::launch(
         outPtRefs.push_back(std::move(tensor));
       }
     }
+
+    // Write after read dependancy, add event for the inputs. So all the
+    // tensors being written to will appear in the read side.
+    outDevPtr.insert(outDevPtr.end(), inDevPtr.begin(), inDevPtr.end());
 
     std::vector<synapse_helpers::shared_event> ext_events;
     for (auto external_idx : external_tensor_info_indexes) {
