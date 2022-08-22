@@ -1057,14 +1057,18 @@ bmm:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
   force_default: false
-  override_fn: batch_gemm_hpu_lazy
+  custom_output_shape: BmmOutputShape
+  force_default: false
+  guid: batch_gemm
+  out_ids: [0]
 
 bmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
-  override_fn: batch_gemm_out_hpu_lazy
+  custom_output_shape: BmmOutputShape
+  guid: batch_gemm
 
 ceil:
   force_default: false

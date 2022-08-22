@@ -1695,8 +1695,6 @@ static auto& KernelRegistry =
         .add("aten::mm", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
         .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))
-        .add("aten::bmm", KERNEL_FN(BmmOperator))
-        .add("aten::bmm.out", KERNEL_FN(BmmOutOperator))
         .add(
             "aten::matmul_backward",
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))

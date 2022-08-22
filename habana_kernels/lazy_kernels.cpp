@@ -3259,33 +3259,6 @@ Tensor addmm_hpu_lazy(
       "aten::addmm", {self, mat1, mat2, beta, alpha}, {}, {shape_out}};
   return k.call();
 }
-
-Tensor& batch_gemm_out_hpu_lazy(
-    const Tensor& self,
-    const Tensor& mat2,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor&> k{
-      "aten::bmm",
-      {self, mat2},
-      {},
-      {BmmOperator::compute_output_shape(self, mat2)}};
-  return k.call(out);
-}
-
-Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
-  PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self, mat2};
-  using T = at::Tensor;
-  LazyOp<T> k{
-      "aten::bmm",
-      vector_of_inputs,
-      {},
-      {BmmOperator::compute_output_shape(self, mat2)}};
-  return k.call();
-}
-
 Tensor mse_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,

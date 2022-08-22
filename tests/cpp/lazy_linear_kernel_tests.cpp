@@ -11,6 +11,9 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 
+#define rtol 0.001
+#define atol 0.001
+
 using namespace habana_lazy;
 using namespace at;
 
@@ -29,7 +32,7 @@ TEST_F(LazyLinearKernelTest, MmMulTest) {
 
   auto y_cpu = torch::mm(x, y);
   auto z_cout = torch::mul(y_cpu, z);
-  EXPECT_EQ(allclose(hz_exp, z_cout, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(hz_exp, z_cout, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, AddMmTest) {
@@ -45,35 +48,7 @@ TEST_F(LazyLinearKernelTest, AddMmTest) {
   auto computed = O.to(torch::kCPU);
   auto expected = torch::addmm(A, B, C, 1, 1);
 
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
-}
-
-TEST_F(LazyLinearKernelTest, BmmTest) {
-  torch::Tensor A = torch::randn({4, 2, 3}, torch::requires_grad(false));
-  torch::Tensor B = torch::randn({4, 3, 5}, torch::requires_grad(false));
-  auto exp = torch::bmm(A, B);
-  torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor hB = B.to(torch::kHPU);
-  torch::Tensor result = torch::bmm(hA, hB);
-
-  Tensor out = result.to(kCPU);
-
-  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
-}
-
-TEST_F(LazyLinearKernelTest, BmmOutTest) {
-  torch::Tensor A = torch::randn({4, 2, 3}, torch::requires_grad(false));
-  torch::Tensor B = torch::randn({4, 3, 5}, torch::requires_grad(false));
-  torch::Tensor out_cpu = torch::randn({4, 2, 5}, torch::requires_grad(false));
-  auto exp = torch::bmm_out(out_cpu, A, B);
-  torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor hB = B.to(torch::kHPU);
-  torch::Tensor hOut = out_cpu.to(torch::kHPU);
-  torch::Tensor result = batch_gemm_out_hpu_lazy(hA, hB, hOut);
-
-  Tensor out = result.to(kCPU);
-
-  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, 0.001, 0.001));
 }
 
 TEST_F(LazyLinearKernelTest, MatmulTest) {
@@ -86,7 +61,7 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
     auto out = torch::matmul(mat1, mat2);
     auto out_h = torch::matmul(mat1_h, mat2_h).to(torch::kCPU);
 
-    EXPECT_EQ(allclose(out, out_h, 0.01, 0.01), true);
+    EXPECT_TRUE(allclose(out, out_h, 0.01, 0.01));
   };
 
   matmul_test({10}, {10});
@@ -165,7 +140,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
   auto expected = torch::baddbmm(A, B, C, beta, alpha);
 
   auto computed = hComputed.to(torch::kCPU);
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest2) {
@@ -181,7 +156,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmTest2) {
   auto expected = torch::baddbmm(A, B, C, beta, alpha);
 
   auto computed = hComputed.to(torch::kCPU);
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest3) {
@@ -197,7 +172,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmTest3) {
   auto expected = torch::baddbmm(A, B, C, beta, alpha);
 
   auto computed = hComputed.to(torch::kCPU);
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest4) {
@@ -213,7 +188,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmTest4) {
   auto expected = torch::baddbmm(A, B, C, beta, alpha);
 
   auto computed = hComputed.to(torch::kCPU);
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmOutTest1) {
@@ -231,7 +206,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmOutTest1) {
   auto expected = torch::baddbmm_out(out_cpu, A, B, C, beta, alpha);
 
   auto computed = hComputed.to(torch::kCPU);
-  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(expected, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmOutTest2) {
@@ -249,7 +224,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmOutTest2) {
   torch::baddbmm_out(out_cpu, A, B, C, beta, alpha);
 
   auto computed = hOut.to(torch::kCPU);
-  EXPECT_EQ(allclose(out_cpu, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(out_cpu, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest1) {
@@ -265,7 +240,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest1) {
   A.baddbmm_(B, C, beta, alpha);
 
   auto computed = hA.to(torch::kCPU);
-  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(A, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest2) {
@@ -281,7 +256,7 @@ TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest2) {
   A.baddbmm_(B, C, beta, alpha);
 
   auto computed = hA.to(torch::kCPU);
-  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(A, computed, rtol, atol));
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest3) {
@@ -297,5 +272,5 @@ TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest3) {
   A.baddbmm_(B, C, beta, alpha);
 
   auto computed = hA.to(torch::kCPU);
-  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+  EXPECT_TRUE(allclose(A, computed, rtol, atol));
 }
