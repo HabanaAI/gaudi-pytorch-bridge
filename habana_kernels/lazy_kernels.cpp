@@ -878,6 +878,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   context->MarkTensorStatus(
       self_hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
+  auto id = self_hb_tensor.getTensorUniqueId();
+  StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
 
   // We need to mark this tensor as executed
   // As this will be an input coming from host side, its doesnt need further
@@ -933,6 +935,12 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
         size, stride);
     self = permute_hpu_lazy(self, permute_dims);
   }
+
+  // TODO : Handle view table update of channels_last tensor
+  if (params_ptr != nullptr) {
+    strided_insert_hpu_lazy(self, self, false);
+  }
+
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   flush_op(self);
