@@ -734,18 +734,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "gelu_backward",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "hbgelu2",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
@@ -1294,12 +1282,6 @@ static const std::
             },
             {
                 "tanh_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "gelu",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},

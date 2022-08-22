@@ -46,7 +46,7 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
   }
 
   void register_custom_gelu() {
-    // Registering ustom_op::custom_gelu
+    // Registering custom_op::custom_gelu
     // inputs desc
     habana::custom_op::InputDesc input_a_desc{
         habana::custom_op::input_type::TENSOR, 0};
@@ -222,7 +222,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
       .check("custom_op::custom_gelu")
       ->run(*hlexec->get_graph());
 
-  bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
+  bool equal = results_cpu.allclose(result.to(torch::kCPU), 0.5, 0.5);
   EXPECT_TRUE(equal);
 }
 

@@ -2644,39 +2644,6 @@ Tensor hpu_wrap::tanh_backward(const Tensor& grad_in, const Tensor& input) {
       tanh_backward, PARAMS1(grad_in, input), PARAMS2(grad_in, input))
   return tanh_backward_hpu(grad_in, input);
 };
-Tensor hpu_wrap::gelu(const Tensor& self, c10::string_view sv) {
-  PT_OP_INFO("gelu :", " self=", to_string(self), " sv=", sv);
-  FALLBACK_IF_UNSUPPORTED_OP(gelu, PARAMS1(self), PARAMS2(self, sv))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gelu_hpu_lazy(self, sv);
-
-  } else {
-    return gelu_hpu(self);
-  }
-};
-Tensor hpu_wrap::gelu_backward(
-    const Tensor& grad,
-    const Tensor& self,
-    c10::string_view sv) {
-  PT_OP_INFO(
-      "gelu_backward:",
-      " grad=",
-      to_string(grad),
-      " self=",
-      to_string(self),
-      " sv=",
-      sv);
-  FALLBACK_IF_UNSUPPORTED_OP(
-      gelu_backward, PARAMS1(grad, self), PARAMS2(grad, self, sv))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return gelu_backward_hpu_lazy(grad, self, sv);
-
-  } else {
-    return gelu_backward_hpu(grad, self);
-  }
-};
 
 Tensor& hpu_wrap::erf_(Tensor& self) {
   PT_OP_TRACE;

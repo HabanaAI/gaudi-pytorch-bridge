@@ -561,11 +561,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     bool descending);
 at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
 at::Tensor& tanh_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-at::Tensor gelu_hpu_lazy(const at::Tensor& self, c10::string_view sv);
-at::Tensor gelu_backward_hpu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& self,
-    c10::string_view sv);
 at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
 at::Tensor& reciprocal_out_hpu_lazy(at::Tensor& result, const at::Tensor& self);
 at::Tensor isfinite_hpu_lazy(const at::Tensor& self);

@@ -6305,21 +6305,6 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   return tanh_out_hpu(out, self);
 }
 
-Tensor gelu_hpu_lazy(const Tensor& self, c10::string_view sv) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::gelu", {self, sv}};
-  RUN_MAYBE_WITH_ACC_THREAD(gelu, k)
-}
-
-Tensor gelu_backward_hpu_lazy(
-    const Tensor& grad,
-    const Tensor& self,
-    c10::string_view sv) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::gelu_backward", {grad, self, sv}};
-  RUN_MAYBE_WITH_ACC_THREAD(gelu_backward, k)
-}
-
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(0);
