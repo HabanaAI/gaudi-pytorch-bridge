@@ -5087,37 +5087,6 @@ Tensor any_hpu_lazy(const Tensor& self) {
   return kernel.call();
 }
 
-Tensor softmax_hpu_lazy(
-    const Tensor& self,
-    const int64_t dim,
-    const bool half_to_float) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k(
-      "aten::_softmax",
-      {self, dim, half_to_float},
-      {1},
-      {SoftmaxOperator::compute_output_shape(self)});
-
-  return k.call();
-}
-
-Tensor softmax_backward_hpu_lazy(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    ScalarType input_dtype) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k(
-      "aten::_softmax_backward_data",
-      {grad, output, dim, input_dtype},
-      {2, 3},
-      {SoftmaxBackwardOperator::compute_output_shape(grad)});
-
-  return k.call();
-}
-
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
     c10::optional<synTensorType> tensor_type,

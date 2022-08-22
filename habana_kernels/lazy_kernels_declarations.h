@@ -531,16 +531,6 @@ at::Tensor& any_dim_out_hpu_lazy(
 at::Tensor any_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor any_hpu_lazy(const at::Tensor& self);
 at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-at::Tensor softmax_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    const bool half_to_float);
-at::Tensor softmax_backward_hpu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& output,
-    int64_t dim,
-    at::ScalarType input_type);
-
 at::Tensor _copy_from_and_resize_lazy(
     const at::Tensor& self,
     const at::Tensor& dst);

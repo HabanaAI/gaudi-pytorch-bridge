@@ -3962,14 +3962,41 @@ smooth_l1_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
 
+_softmax:
+  force_default: false
+  custom_fill_params: FillSoftmaxForwardParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: softmax_fwd
+  out_ids: [0]
+
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: softmax_fwd
+
+_softmax_backward_data:
+  force_default: false
+  custom_fill_params: FillSoftmaxBackwardParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: softmax_bwd
+  op_backend: SoftmaxBackward
+  out_ids: [0]
 
 _softmax_backward_data.out:
   custom_fill_params: FillSoftmaxBackwardParams
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
 

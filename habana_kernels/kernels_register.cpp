@@ -3289,63 +3289,7 @@ Tensor hpu_wrap::_log_softmax_backward_data(
 
   return log_softmax_backward_hpu(grad, output, dim, input);
 };
-Tensor hpu_wrap::_softmax(
-    const Tensor& self,
-    int64_t dim,
-    const bool half_to_float) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "_softmax :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " half_to_float=",
-      to_string(half_to_float));
-  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
-  std::vector<c10::IValue> op_stack = {
-      IValue(self), IValue(dim), IValue(half_to_float)};
-  check_handle->hpu_check_ivalues("_softmax", op_stack);
 
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      _softmax, PARAMS1(self), PARAMS2(self, dim, half_to_float))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return softmax_hpu_lazy(self, dim, half_to_float);
-
-  } else {
-    return softmax_hpu(self, dim, half_to_float);
-  }
-};
-
-Tensor hpu_wrap::_softmax_backward_data(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    ScalarType input_dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "_softmax_backward_data :",
-      " grad=",
-      to_string(grad),
-      " output=",
-      to_string(output),
-      " dim=",
-      to_string(dim),
-      " input_dtype=",
-      to_string(input_dtype));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      _softmax_backward_data,
-      PARAMS1(grad, output),
-      PARAMS2(grad, output, dim, input_dtype))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return softmax_backward_hpu_lazy(grad, output, dim, input_dtype);
-
-  } else {
-    return softmax_backward_hpu(grad, output, dim, grad);
-  }
-};
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
   static at::Tensor forward(
       torch::autograd::AutogradContext* ctx,
@@ -3353,7 +3297,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
       int64_t dim,
       c10::optional<at::ScalarType> dtype) {
     Tensor converted = dtype.has_value() ? input.toType(dtype.value()) : input;
-    auto result = hpu_wrap::_softmax(converted, dim, false);
+    auto result = torch::_softmax(converted, dim, false);
     ctx->save_for_backward({result, input});
     ctx->saved_data["dim"] = dim;
     return result;
@@ -3366,7 +3310,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
     auto output = saved_vars[0];
     auto input = saved_vars[1];
     auto dim = ctx->saved_data["dim"].toInt();
-    auto result = hpu_wrap::_softmax_backward_data(
+    auto result = torch::_softmax_backward_data(
         grad_output[0], output, dim, input.scalar_type());
     return {result, torch::Tensor(), torch::Tensor()};
   }

@@ -773,18 +773,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "_softmax_backward_data",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "empty",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
@@ -1406,12 +1394,6 @@ static const std::
             },
             {
                 "_log_softmax",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "_softmax",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},

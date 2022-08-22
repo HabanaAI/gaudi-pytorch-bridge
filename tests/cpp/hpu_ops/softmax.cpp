@@ -12,6 +12,34 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, softmax_float) {
+  GenerateInputs(1);
+
+  auto expected =
+      torch::_softmax(GetCpuInput(0), {} /*dim*/, false /*half_to_float*/);
+  auto result =
+      torch::_softmax(GetHpuInput(0), {} /*dim*/, false /*half_to_float*/);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, softmax_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  auto expected =
+      torch::_softmax(GetCpuInput(0), 2 /*dim*/, false /*half_to_float*/);
+  auto result =
+      torch::_softmax(GetHpuInput(0), 2 /*dim*/, false /*half_to_float*/);
+  Compare(expected, result, 1e-03, 4e-03);
+}
+
+TEST_F(HpuOpTest, softmax_bf16_negdim) {
+  GenerateInputs(1, torch::kBFloat16);
+  auto expected =
+      torch::_softmax(GetCpuInput(0), -2 /*dim*/, false /*half_to_float*/);
+  auto result =
+      torch::_softmax(GetHpuInput(0), -2 /*dim*/, false /*half_to_float*/);
+  Compare(expected, result, 1e-03, 4e-03);
+}
+
 TEST_F(HpuOpTest, softmax_out_float) {
   GenerateInputs(1);
 
@@ -65,6 +93,36 @@ TEST_F(HpuOpTest, softmax_out_bfloat_negdim) {
   Compare(expected, result, 1e-03, 4e-03);
 }
 
+TEST_F(HpuOpTest, softmax_bwd_f32) {
+  GenerateInputs(2);
+  auto expected = torch::_softmax_backward_data(
+      GetCpuInput(0), GetCpuInput(1), {} /*dim*/, GetCpuInput(0).scalar_type());
+  auto result = torch::_softmax_backward_data(
+      GetHpuInput(0), GetHpuInput(1), {} /*dim*/, GetHpuInput(0).scalar_type());
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, softmax_bwd_bf16) {
+  GenerateInputs(2, torch::kBFloat16);
+  auto expected = torch::_softmax_backward_data(
+      GetCpuInput(0), GetCpuInput(1), 2 /*dim*/, GetCpuInput(0).scalar_type());
+  auto result = torch::_softmax_backward_data(
+      GetHpuInput(0), GetHpuInput(1), 2 /*dim*/, GetHpuInput(0).scalar_type());
+
+  Compare(expected, result, 1e-03, 6e-02);
+}
+
+TEST_F(HpuOpTest, softmax_bwd_bf16_negdim) {
+  GenerateInputs(2, torch::kBFloat16);
+  auto expected = torch::_softmax_backward_data(
+      GetCpuInput(0), GetCpuInput(1), -2 /*dim*/, GetCpuInput(0).scalar_type());
+  auto result = torch::_softmax_backward_data(
+      GetHpuInput(0), GetHpuInput(1), -2 /*dim*/, GetHpuInput(0).scalar_type());
+
+  Compare(expected, result, 1e-03, 6e-02);
+}
+
 TEST_F(HpuOpTest, softmax_bwd_out_float) {
   const std::vector<int64_t> size = {5, 3, 8};
   GenerateInputs(3, {size, size, size});
@@ -77,7 +135,11 @@ TEST_F(HpuOpTest, softmax_bwd_out_float) {
   auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::_softmax_backward_data_outf(
-      GetCpuInput(1), GetCpuInput(2), /*dim*/ -1, GetCpuInput(0).scalar_type(), expected);
+      GetCpuInput(1),
+      GetCpuInput(2),
+      /*dim*/ -1,
+      GetCpuInput(0).scalar_type(),
+      expected);
   torch::_softmax_backward_data_outf(
       hgrad_out, houtput, /*dim*/ -1, GetHpuInput(0).scalar_type(), result);
 
@@ -101,7 +163,11 @@ TEST_F(HpuOpTest, softmax_bwd_out_bfloat) {
   auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::_softmax_backward_data_outf(
-      GetCpuInput(1), GetCpuInput(2), /*dim*/ 3, GetCpuInput(0).scalar_type(), expected);
+      GetCpuInput(1),
+      GetCpuInput(2),
+      /*dim*/ 3,
+      GetCpuInput(0).scalar_type(),
+      expected);
   torch::_softmax_backward_data_outf(
       hgrad_out, houtput, /*dim*/ 3, GetHpuInput(0).scalar_type(), result);
 
