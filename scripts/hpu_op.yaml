@@ -453,6 +453,13 @@ _foreach_zero_:
   inplace_ids: [0]
   op_backend: ForeachZero
 
+_fused_dropout:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float]
+  override_fn: fused_dropout_hpu_lazy
+
 abs:
   force_default: false
   dtypes:
@@ -3642,17 +3649,26 @@ silu_backward.grad_input:
 
 sin:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sin_fwd
   out_ids: [0]
 
 sin.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sin_fwd
 
 sin_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sin_fwd
   inplace_ids: [0]
 
@@ -3789,17 +3805,26 @@ special_entr.out:
 
 sqrt:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
   out_ids: [0]
 
 sqrt.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
 
 sqrt_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
   inplace_ids: [0]
 

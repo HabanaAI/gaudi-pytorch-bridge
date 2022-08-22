@@ -3401,29 +3401,6 @@ Tensor& hpu_wrap::randperm_out(
   }
 }
 
-std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
-    const Tensor& self,
-    double p,
-    c10::optional<Generator> gen) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "_fused_dropout:",
-      "self=",
-      to_string(self),
-      "p=",
-      to_string(p),
-      " gen=",
-      to_string(gen));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      _fused_dropout, PARAMS1(self), PARAMS2(self, p, gen))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return fused_dropout_hpu_lazy(self, p, gen);
-  } else {
-    return fused_dropout_hpu(self, p, gen);
-  }
-}
-
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_OP_TRACE;
   PT_OP_INFO(

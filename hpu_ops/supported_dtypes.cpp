@@ -16,13 +16,24 @@ namespace habana {
 SupportedDtypes::SupportedDtypes(
     std::unordered_map<int, std::unordered_set<at::ScalarType>>
         per_gen_dtypes) {
-  const static int curr_dev_type =
-      synapse_helpers::HPURegistrar::get_device().type();
   if (per_gen_dtypes.size() == 1) {
     m_dtypes = std::move(per_gen_dtypes.begin()->second);
-  } else if (per_gen_dtypes.count(curr_dev_type)) {
-    m_dtypes = std::move(per_gen_dtypes.at(curr_dev_type));
+    return;
   }
+
+  auto get_curr_dev_type = []() {
+    auto dev = synapse_helpers::HPURegistrar::get_device().type();
+    // Treat synDeviceGaudiM as synDeviceGaudi
+    return dev == synDeviceGaudiM ? synDeviceGaudi : dev;
+  };
+
+  const static int curr_dev_type = get_curr_dev_type();
+  HABANA_ASSERT(
+      per_gen_dtypes.count(curr_dev_type),
+      "No dtypes defined for device type ",
+      curr_dev_type);
+
+  m_dtypes = std::move(per_gen_dtypes.at(curr_dev_type));
 }
 
 SupportedDtypes::~SupportedDtypes() {
