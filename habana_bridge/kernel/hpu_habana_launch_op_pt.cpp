@@ -631,7 +631,9 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   } else {
     if (!enable_caching_) {
       // Case 2.A: graph output tensor
-      output_tensorinfos.emplace_back(ti);
+      // needs to be added to enable layout handling for lazy eager
+      PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", *ti);
+      output_tensorinfo_map.emplace(ivpsh, ti);
     } else {
       // Is this a duplicate tensor going to graph output?
       // See if this the buffer pointer matches any input, then -

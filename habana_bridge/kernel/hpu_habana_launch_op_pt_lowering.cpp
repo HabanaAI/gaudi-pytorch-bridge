@@ -427,14 +427,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
         " are not adding up to #dtensorinfos ",
         rv.dtensorinfos->size());
 
-    rv.dtensorinfos->insert(
-        rv.dtensorinfos->end(),
-        output_tensorinfos.begin(),
-        output_tensorinfos.end());
-
-    rv.num_outputs = output_tensorinfos.size();
-    rv.num_tinfos = rv.dtensorinfos->size();
-
+    size_t output_idx{0};
     for (auto output : jit_ir_graph->outputs()) {
       auto oit = value_to_ivalue.find(output);
       TORCH_CHECK(
@@ -442,8 +435,30 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
           "value_to_ivalue does not have an entry for %",
           output->debugName());
       IValPtrShared ivpsh = oit->second;
+
+      if (output_tensorinfo_map.count(ivpsh)) {
+        auto it = output_tensorinfo_map.find(ivpsh);
+        it->second->set_output_index(output_idx);
+        output_tensorinfos.push_back(it->second);
+        output_tensorinfo_map.erase(ivpsh);
+      }
       rv.aten_outputs->push_back(ivpsh);
+      output_idx++;
     }
+
+    TORCH_CHECK(
+        output_tensorinfo_map.empty(),
+        "output_tensorinfo_map still contains ",
+        output_tensorinfo_map.size(),
+        " tensors.");
+
+    rv.dtensorinfos->insert(
+        rv.dtensorinfos->end(),
+        output_tensorinfos.begin(),
+        output_tensorinfos.end());
+
+    rv.num_outputs = output_tensorinfos.size();
+    rv.num_tinfos = rv.dtensorinfos->size();
   } else {
     // TODO :
     //   preclude any interim tinfo from adding to output_tensorinfo_map
