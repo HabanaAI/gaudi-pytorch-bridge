@@ -1255,14 +1255,20 @@ cumprod_:
 
 cumsum.out:
   custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   op_backend: CumsumHabanaOperator
 
 cumsum_:
   force_default: false
   custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   inplace_ids: [0]
 
