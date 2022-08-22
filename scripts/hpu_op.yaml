@@ -456,23 +456,26 @@ _foreach_zero_:
 abs:
   force_default: false
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
   out_ids: [0]
 
 abs_:
   force_default: false
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
   inplace_ids: [0]
 
 abs.out:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
 
 acos:
