@@ -50,6 +50,14 @@ class graph {
       device& device,
       std::string name);
 
+  synapse_error_o duplicate(
+      synTensorHandleMap* tensorsMap,
+      synNodeHandleMap* nodesMap);
+
+  static synapse_error_o setTensorGeometry(
+      synTensor tensor_handle,
+      std::vector<int64_t> shape);
+
   synapse_error_o add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
@@ -88,6 +96,14 @@ class graph {
 
   bool is_empty() const {
     return graph_is_empty_;
+  }
+
+  void set_is_empty_value(bool flag) {
+    graph_is_empty_ = flag;
+  }
+
+  void set_build_phase(bool flag) {
+    in_build_phase_ = flag;
   }
 
   struct recipe_handle {
@@ -203,6 +219,34 @@ class graph {
     return dry_run_;
   }
 
+  synGraphHandle get_duplicate_graph_handle() const {
+    return duplicate_graph_handle_;
+  }
+
+  uint32_t get_num_of_tensors() const {
+    return numTensors;
+  }
+
+  void set_num_of_tensors(uint32_t num_tensors) {
+    numTensors = num_tensors;
+  }
+
+  uint32_t get_num_of_nodes() const {
+    return numNodes;
+  }
+
+  void set_num_of_nodes(uint32_t num_nodes) {
+    numNodes = num_nodes;
+  }
+
+  bool get_is_valid() const {
+    return is_valid_;
+  }
+
+  void set_is_valid(bool flag) {
+    is_valid_ = flag;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
@@ -236,6 +280,9 @@ class graph {
   absl::optional<std::string> current_op_name_;
   bool dry_run_{false};
   bool dynamic_graph_{false};
+  synGraphHandle duplicate_graph_handle_{};
+  uint32_t numTensors = 0;
+  uint32_t numNodes = 0;
 };
 
 } // namespace synapse_helpers

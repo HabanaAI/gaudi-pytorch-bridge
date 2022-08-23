@@ -301,7 +301,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   }
 }
 
-void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
+void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
   bool is_c_edge_processing_required =
@@ -315,7 +315,13 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   if (syn_graph_ptr->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
-    cur_rvalpsh = std::make_shared<RecipeValueSpec>(nullptr, jit_ir_graph);
+    // No need to allocate for lazy eager shape agnostic cache hit scenario
+    if (allocate_rval) {
+      cur_rvalpsh = std::make_shared<RecipeValueSpec>(nullptr, jit_ir_graph);
+    } else {
+      cur_rvalpsh->recipe = nullptr;
+      cur_rvalpsh->jit_graph_ = jit_ir_graph;
+    }
     return;
   }
 
@@ -343,7 +349,15 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
   RecipeValueSpec::increment_compile_count();
 
   auto cur_recipe = get_value(std::move(error_variant));
-  cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe, jit_ir_graph);
+  // No need to allocate for lazy eager shape agnostic cache hit scenario
+  if (allocate_rval) {
+    cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe, jit_ir_graph);
+  } else {
+    cur_rvalpsh->recipe = cur_recipe;
+  }
+  PT_SHAPE_AGNOSTIC_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
+      cur_rvalpsh->recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
 
   // Get workspace size of the compiled recipe
@@ -399,7 +413,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
   // need to be reordered only when the tensor handles are released
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
       std::vector<IValPtrShared>());
-  if (!enable_caching_) {
+  if (!enable_caching_ && !enable_shape_agnostic_caching_) {
     if (!intermediate_tinfos.empty()) {
       rv.num_intermediates = intermediate_tinfos.size();
       rv.dtensorinfos->insert(
@@ -435,7 +449,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
           "value_to_ivalue does not have an entry for %",
           output->debugName());
       IValPtrShared ivpsh = oit->second;
-
       if (output_tensorinfo_map.count(ivpsh)) {
         auto it = output_tensorinfo_map.find(ivpsh);
         it->second->set_output_index(output_idx);
@@ -445,7 +458,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
       rv.aten_outputs->push_back(ivpsh);
       output_idx++;
     }
-
     TORCH_CHECK(
         output_tensorinfo_map.empty(),
         "output_tensorinfo_map still contains ",
@@ -510,6 +522,9 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
     rv.set_graph_name(GetSynapseGraphName());
     rv.set_op_strs(cur_rargpsh->get_op_strs());
     rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
+  } else if (enable_shape_agnostic_caching_) {
+    rv.set_graph_key(graph_key);
+    rv.set_graph_name(GetSynapseGraphName());
   }
 }
 
@@ -659,14 +674,14 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
     if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
       const auto ti = absl::get<PtTensorInfoShared>(tiv);
       rv.dtensorinfos->push_back(ti);
-      if (enable_caching_) {
+      if (enable_caching_ || enable_shape_agnostic_caching_) {
         void* buffp = ti->get_buffer_start();
         buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
       }
     } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
       for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
         rv.dtensorinfos->push_back(ti);
-        if (enable_caching_) {
+        if (enable_caching_ || enable_shape_agnostic_caching_) {
           void* buffp = ti->get_buffer_start();
           buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
         }
@@ -683,7 +698,7 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   for (auto& tiv : duplicate_input_tivs) {
     if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
       auto ti = absl::get<PtTensorInfoShared>(tiv);
-      if (enable_caching_) {
+      if (enable_caching_ || enable_shape_agnostic_caching_) {
         void* buffp = ti->get_buffer_start();
         auto it_parent = buff_to_inputtividx_map.find(buffp);
 
@@ -739,7 +754,7 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
 }
 
 void habana::HabanaLaunchOpPT::OrderInputs() {
-  if (enable_caching_) {
+  if (enable_caching_ || enable_shape_agnostic_caching_) {
     // Order the input_tivs according to the order of suggraph inputs
     size_t i = pt_stack_sh.size() - num_inputs;
     for (; i < pt_stack_sh.size(); i++) {
@@ -1082,12 +1097,14 @@ void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
 
 void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
   num_inputs = jit_ir_graph->inputs().size();
+  PT_SHAPE_AGNOSTIC_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
   TORCH_CHECK(
       num_inputs == input_st.size(),
       "Input stack size=",
-      num_inputs,
+      input_st.size(),
       " is not matching with #graph_inputs=",
-      input_st.size());
+      num_inputs);
 
   num_tensor_inputs = 0;
   input_refs = torch::jit::last(input_st, num_inputs);

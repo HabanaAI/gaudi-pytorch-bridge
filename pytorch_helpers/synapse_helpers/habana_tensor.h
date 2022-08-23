@@ -66,8 +66,14 @@ class memory_section {
   // c'tor that creates synSectionHandle
   memory_section(uint64_t memory_attributes, synGraphHandle graph);
   ~memory_section() {
-    if (memory_section_)
-      synSectionDestroy(memory_section_);
+    if (memory_section_) {
+      // To Do - make a provision to destroy at the end of use case for shape
+      // agnostic as sections would not be destoryed by graph destroy
+      if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH))) {
+        synSectionDestroy(memory_section_);
+      }
+    }
   }
   memory_section(const memory_section&) = delete;
   memory_section& operator=(const memory_section&) = delete;

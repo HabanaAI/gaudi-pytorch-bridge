@@ -254,6 +254,7 @@ class PtLogger {
     HOSTSTAT = 0x10000,
     LAYOUTS = 0x20000,
     PARALLEL_ACC = 0x40000,
+    SHAPE_AGNOSTIC = 0x80000
   };
 };
 
@@ -290,6 +291,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("HABHELPER");
     case PtLogger::ModuleMask::PARALLEL_ACC:
       return std::string("PARALLEL_ACC");
+    case PtLogger::ModuleMask::SHAPE_AGNOSTIC:
+      return std::string("SHAPE_AGNOSTIC");
     default:
       return std::string("UNDEFINED");
   }
@@ -377,6 +380,9 @@ class PTFuncLog {
 #define PT_DYNAMIC_SHAPE_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
 
+#define PT_SHAPE_AGNOSTIC_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::SHAPE_AGNOSTIC_, __VA_ARGS__)
+
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...)                                           \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \
@@ -432,6 +438,10 @@ class PTFuncLog {
 #define PT_DYNAMIC_SHAPE_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(   \
       PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
+
+#define PT_SHAPE_AGNOSTIC_WARN(...) \
+  PT_MOD_WARN_WITHOUT_LINE_FILE(    \
+      PtLogger::ModuleMask::SHAPE_AGNOSTIC, __VA_ARGS__)
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
@@ -512,6 +522,9 @@ class PTFuncLog {
       PtLogger::ModuleMask::DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_DEVMEM_TRACE \
   PT_MOD_TRACE(PtLogger::ModuleMask::DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_SHAPE_AGNOSTIC_TRACE \
+  PT_MOD_TRACE(                 \
+      PtLogger::ModuleMask::SHAPE_AGNOSTIC, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define IS_MOD_DEBUG_ENABLED(MOD)                      \
@@ -570,6 +583,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::REFINEMENT, __VA_ARGS__)
 #define PT_LAYOUTS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::LAYOUTS, __VA_ARGS__)
+#define PT_SHAPE_AGNOSTIC_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::SHAPE_AGNOSTIC, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

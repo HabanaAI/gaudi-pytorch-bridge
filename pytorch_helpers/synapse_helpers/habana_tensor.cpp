@@ -457,7 +457,12 @@ void tensor::cleanup() {
   if (tensor_) {
     PT_SYNHELPER_DEBUG("cleaning ", *this);
     memory_section_ = nullptr;
-    synDestroyTensor(tensor_);
+    // No need to destroy tensors explicitly as those would be destroyed
+    // once the graph is destroyed.
+    if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH))) {
+      synDestroyTensor(tensor_);
+    }
     tensor_ = nullptr;
   }
 }

@@ -13,10 +13,12 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
+#include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
+
 namespace habana_lazy {
 
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
@@ -255,6 +257,33 @@ struct OptimizedJITGraphAndMetaData {
     return event_flag;
   }
 
+  std::vector<std::vector<int64_t>> get_output_shapes() {
+    return output_shapes;
+  }
+
+  void set_output_shapes(std::vector<std::vector<int64_t>> shapes) {
+    output_shapes = shapes;
+  }
+
+  std::shared_ptr<habana::RecipeValueSpec> get_shape_agnostic_recipe() {
+    return cur_shape_agnostic_rvalpsh;
+  }
+
+  void set_shape_agnostic_recipe(
+      std::shared_ptr<habana::RecipeValueSpec> shape_agnostic_recipe) {
+    cur_shape_agnostic_rvalpsh = shape_agnostic_recipe;
+  }
+
+  std::unordered_map<uint64_t, synTensor>
+  get_syn_tensor_id_to_tensor_handle_map() {
+    return syn_tensor_id_to_tensor_handle;
+  }
+
+  void set_syn_tensor_id_to_tensor_handle_map(
+      std::unordered_map<uint64_t, synTensor> tensor_id_to_tensor_handle_map) {
+    syn_tensor_id_to_tensor_handle = tensor_id_to_tensor_handle_map;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -275,6 +304,9 @@ struct OptimizedJITGraphAndMetaData {
   synEventHandle event_handle{nullptr};
   synapse_helpers::hpuStream_t event_stream = 0;
   bool event_flag = false;
+  std::vector<std::vector<int64_t>> output_shapes{};
+  std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
+  std::unordered_map<uint64_t, synTensor> syn_tensor_id_to_tensor_handle{};
 };
 
 /**

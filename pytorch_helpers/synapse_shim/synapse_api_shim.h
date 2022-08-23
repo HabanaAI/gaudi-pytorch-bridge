@@ -53,6 +53,7 @@
   visitor(synGraphCompile);                    \
   visitor(synGraphCreate);                     \
   visitor(synGraphCreateEager);                \
+  visitor(synGraphDuplicate);                  \
   visitor(synGraphDestroy);                    \
   visitor(synMemsetD32Async);                  \
   visitor(synMemsetD8Async);                   \

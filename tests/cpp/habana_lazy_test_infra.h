@@ -33,6 +33,9 @@ class EnvHelper {
   unsigned m_fallback_pass = 1;
   unsigned m_fallback_launch = 0;
   uint64_t m_seed = InitSeed();
+  bool m_recipe_cache_enable = true;
+  bool m_eager_gc_enable = false;
+  bool m_shape_agnostic_enable = false;
 
  private:
   uint64_t InitSeed();
@@ -100,6 +103,46 @@ class EnvHelper {
     if (!place_on_cpu_env) {
       unsetenv("PT_HPU_PLACE_ON_CPU");
       habana::HpuFallbackHelper::get()->enumerate_fallback();
+    }
+  }
+
+  void DisableRecipeCache() {
+    m_recipe_cache_enable = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
+    if (m_recipe_cache_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, false, 1);
+    }
+  }
+
+  void RestoreRecipeCache() {
+    if (m_recipe_cache_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, true, 1);
+    }
+  }
+
+  void EnableEagerGC() {
+    m_eager_gc_enable = GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API);
+    if (!m_eager_gc_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
+    }
+  }
+
+  void RestoreEagerGC() {
+    if (!m_eager_gc_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, false, 1);
+    }
+  }
+
+  void EnableShapeAgnostic() {
+    m_shape_agnostic_enable =
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
+    if (!m_shape_agnostic_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, true, 1);
+    }
+  }
+
+  void RestoreShapeAgnostic() {
+    if (!m_shape_agnostic_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, false, 1);
     }
   }
 

@@ -258,6 +258,23 @@ struct RecipeValueSpec {
   std::string build_header_str() const;
   std::string digest_str();
   int update_hit_count();
+  synTensor get_syn_new_handle(
+      std::unordered_map<uint64_t, synTensor>&
+          synapse_tensor_id_to_tensor_handle,
+      std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
+      size_t ridx);
+  void update_tensor_shape(
+      synapse_helpers::graph* synapse_graph_ptr,
+      synTensor tensor_handle,
+      PtTensorInfoShared tinfo,
+      std::vector<int64_t> shape);
+  inline void update_new_tensor(
+      synapse_helpers::graph* synapse_graph_ptr,
+      size_t ridx,
+      std::unordered_map<uint64_t, synTensor>&
+          synapse_tensor_id_to_tensor_handle,
+      std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
+      std::vector<int64_t> new_shape);
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
@@ -265,7 +282,12 @@ struct RecipeValueSpec {
       const habana::IdShapeMap& m_actual_shapes,
       std::optional<
           std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
-          tidx_to_tensor_map_opt = std::nullopt);
+          tidx_to_tensor_map_opt = std::nullopt,
+      std::vector<std::vector<int64_t>> output_shapes = {},
+      synapse_helpers::graph* synapse_graph_ptr = nullptr,
+      std::unordered_map<uint64_t, synTensor>
+          synapse_tensor_id_to_tensor_handle = {},
+      std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {});
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
@@ -431,6 +453,8 @@ struct RecipeValueSpec {
   // a dedicated time slot for itself
   std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
   std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
+  std::shared_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
+      nullptr};
 
   static size_t current_id_;
   static size_t count;

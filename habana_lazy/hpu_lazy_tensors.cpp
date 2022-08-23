@@ -1024,6 +1024,20 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     return;
   }
 
+  std::vector<std::vector<int64_t>> out_shapes{};
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+    for (auto idx : indices) {
+      auto& out_tensor = (*tensors)[idx];
+      out_shapes.push_back(out_tensor.GetSizes());
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] output idx : ",
+          idx,
+          " shape : ",
+          out_tensor.GetSizes());
+    }
+  }
+
   torch::jit::Stack stack;
   habana_lazy::ir::PostOrderData po_data;
   std::vector<uint64_t> executing_indices{};
@@ -1042,6 +1056,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);
     PT_IRGRAPH_DEBUG(
         DumpGraph(optimized_path_jit_ir_and_mdata->get_cached_graph()));
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+      // Setting output shapes for the lazy eager shape agnostic graph
+      optimized_path_jit_ir_and_mdata->set_output_shapes(out_shapes);
+    }
     context->JoinPendingLaunchThread();
     std::vector<ir::Value>& input_values = lazyFrontEndInfo->get_input_values();
     stack = PrepareInputStack(tensors, indices, input_values, true);
@@ -1053,6 +1071,12 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
 
     hlexec.GetOrCreate(po_data, stack);
+
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+      // Setting output shapes for the lazy eager shape agnostic graph
+      hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
+    }
 
     // This is the logic to remove outputs of control edges that are dangling
     // from

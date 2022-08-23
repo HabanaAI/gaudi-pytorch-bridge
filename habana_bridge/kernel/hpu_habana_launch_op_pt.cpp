@@ -190,6 +190,27 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_caching_ = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
 
+  enable_shape_agnostic_caching_ = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
+
+  HABANA_ASSERT(
+      !(enable_caching_ && enable_shape_agnostic_caching_),
+      "Both recipe and shape agnostic cache can not be enabled together!",
+      " enable_caching_ : ",
+      enable_caching_,
+      ", enable_shape_agnostic_caching_ : ",
+      enable_shape_agnostic_caching_);
+
+  if (enable_shape_agnostic_caching_) {
+    out_shapes = optimized_jit_graph_and_meta_data->get_output_shapes();
+    HABANA_ASSERT(
+        out_shapes.size() == jit_ir_graph->outputs().size(),
+        "number of output shapes for patching ",
+        out_shapes.size(),
+        " is not equal to #outputs in jit graph ",
+        jit_ir_graph->outputs().size());
+  }
+
   use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
@@ -426,7 +447,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     tiv.push_back(ti);
     ivalue_to_tensor_info_map[ivalue] = ti;
 
-    if (enable_caching_) {
+    if (enable_caching_ || enable_shape_agnostic_caching_) {
       void* buffp = ti->get_buffer_start();
       if (ti->is_ZST() == false) {
         buff_to_input_ivpsh_map.emplace(buffp, ivalue);
@@ -440,7 +461,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
       pt_to_synapse_tensors[ivalue] = tensorList;
     }
 
-    if (enable_caching_) {
+    if (enable_caching_ || enable_shape_agnostic_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
       auto node_qual_str = value_in->node()->kind().toQualString();
       if ((strcmp(node_qual_str, "hpu::restride_cl") == 0) ||
@@ -629,7 +650,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       }
     }
   } else {
-    if (!enable_caching_) {
+    if (!enable_caching_ && !enable_shape_agnostic_caching_) {
       // Case 2.A: graph output tensor
       // needs to be added to enable layout handling for lazy eager
       PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", *ti);
@@ -939,7 +960,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     if (!isInGraphOutputs(value_in)) {
       duplicate_input_tivs.emplace_back(ti);
     } else {
-      if (!enable_caching_) {
+      if (!enable_caching_ && !enable_shape_agnostic_caching_) {
         output_tensorinfos.emplace_back(ti);
       } else {
         duplicate_outtinfos.emplace_back(ti);
@@ -1069,7 +1090,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
     value_to_ivalue.erase(value_in);
 
-    if (enable_caching_) {
+    if (enable_caching_ || enable_shape_agnostic_caching_) {
       void* buffp = ti->get_buffer_start();
       if (output_tensorinfo_map.count(ivpsh)) {
         // Case 2.A: graph output tensor
@@ -1949,7 +1970,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           auto& ivpsh = it->second;
           ivalue_to_tensor_info_map[ivpsh] = ti;
 
-          if (enable_caching_) {
+          if (enable_caching_ || enable_shape_agnostic_caching_) {
             auto mit = input_tiv_map.find(ivpsh);
             TORCH_CHECK(input_tiv_map.end() != mit, "tinfo missing for input");
 
@@ -2553,7 +2574,6 @@ void RecipeValueSpec::create_outdup(
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
-
   PtTensorInfo& ti = *(dtensorinfos->at(ti_idx));
   auto output_idx = ti.get_output_index();
   TORCH_CHECK(
@@ -2623,6 +2643,96 @@ void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
   PT_BRIDGE_END;
 }
 
+// shape agnostic : duplicate synapse graph
+void HabanaLaunchOpPT::DuplicateSynapseGraph() {
+  // first duplicate call to populate number of tensors and nodes in the
+  // graph
+  syn_graph_ptr->duplicate(nullptr, nullptr);
+
+  std::vector<synTensorHandleMap> tensorsMap(
+      syn_graph_ptr->get_num_of_tensors());
+  std::vector<synNodeHandleMap> nodesMap(syn_graph_ptr->get_num_of_nodes());
+
+  // second duplicate call to to get the tensor and nodes map
+  syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
+
+  if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SHAPE_AGNOSTIC)) {
+    PrintDuplicateGraphInformation(
+        syn_graph_ptr, tensorsMap, nodesMap, "cache miss");
+  }
+}
+
+// shape agnostic : store shape agnostic graph
+void HabanaLaunchOpPT::StoreShapeAgnosticGraph() {
+  cur_rvalpsh->shape_agnostic_synapse_graph_ =
+      std::make_shared<synapse_helpers::graph>(std::move(*syn_graph_ptr));
+  // after std::move the is_valid_ becomes false which is causing the
+  // original graph handle to not getting destroyed. we need the original
+  // graph handle throughout the use case so that it is duplicated each
+  // time.
+  auto shape_agnostic_graph_ptr =
+      cur_rvalpsh->shape_agnostic_synapse_graph_.get();
+  shape_agnostic_graph_ptr->set_num_of_tensors(
+      syn_graph_ptr->get_num_of_tensors());
+  shape_agnostic_graph_ptr->set_num_of_nodes(syn_graph_ptr->get_num_of_nodes());
+  shape_agnostic_graph_ptr->set_is_empty_value(false);
+  shape_agnostic_graph_ptr->set_build_phase(true);
+  shape_agnostic_graph_ptr->set_is_valid(true);
+}
+
+// shape agnostic : prepare tensor id to tensor handle map
+void HabanaLaunchOpPT::PrepareTensorIdToTensorHandleMap() {
+  PT_SHAPE_AGNOSTIC_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] pt_to_synapse_tensors size : ",
+      pt_to_synapse_tensors.size());
+
+  std::unordered_map<uint64_t, synTensor> tensor_id_to_tensor_handle_map{};
+  for (auto iter = pt_to_synapse_tensors.begin();
+       iter != pt_to_synapse_tensors.end();
+       ++iter) {
+    for (synapse_helpers::tensor& tensor : *(iter->second)) {
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] tensor id : ",
+          tensor.id(),
+          " tensor handle : ",
+          tensor.get());
+      tensor_id_to_tensor_handle_map.insert({tensor.id(), tensor.get()});
+    }
+  }
+
+  jit_graph_and_meta_data->set_syn_tensor_id_to_tensor_handle_map(
+      tensor_id_to_tensor_handle_map);
+}
+
+// shape agnostic : print duplicate graph information
+void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
+    synapse_helpers::graph* graph_ptr,
+    std::vector<synTensorHandleMap>& tensors_map,
+    std::vector<synNodeHandleMap>& nodes_map UNUSED,
+    std::string cache_hit_or_miss) {
+  PT_SHAPE_AGNOSTIC_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] === ",
+      cache_hit_or_miss,
+      " duplicate graph information ====");
+  PT_SHAPE_AGNOSTIC_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] original graph handle : ",
+      graph_ptr->get_graph_handle(),
+      " duplicate graph handle : ",
+      graph_ptr->get_duplicate_graph_handle(),
+      " numTensors :",
+      graph_ptr->get_num_of_tensors(),
+      " numNodes :",
+      graph_ptr->get_num_of_nodes());
+
+  for (size_t i = 0; i < tensors_map.size(); i++) {
+    PT_SHAPE_AGNOSTIC_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] org handle : ",
+        tensors_map.at(i).origHandle,
+        " new handle : ",
+        tensors_map.at(i).newHandle);
+  }
+}
+
 void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   PT_BRIDGE_BEGIN;
   static int idx{1};
@@ -2656,7 +2766,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         false, input_refs, jit_ir_graph, graph_key, op_strs);
   }
 
-  // caching :: begin
+  // recipe caching :: begin
   if (enable_caching_) {
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
@@ -2721,7 +2831,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
     }
   }
-  // caching :: end
+  // recipe caching :: end
 
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
@@ -2730,6 +2840,141 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   }
 
   CreateValueToIvalueMapForInputs();
+
+  // shape agnostic caching :: begin
+  if (enable_shape_agnostic_caching_) {
+    if (is_jit_cached_graph_info_available == false) {
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
+      auto syn_graph =
+          habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+      BuildSynapseGraph(syn_graph);
+
+      if (syn_graph_ptr->is_empty()) {
+        PT_SHAPE_AGNOSTIC_DEBUG(
+            "Empty synapse graph. Nothing to duplicate. will update outputs directly.");
+        UpdateOutputs();
+        return;
+      }
+
+      PrepareTensorIdToTensorHandleMap();
+
+      DuplicateSynapseGraph();
+      CompileSynapseGraph();
+      StoreShapeAgnosticGraph();
+      ConstructPatchingTable();
+      UpdateSynapsePermutations();
+      jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
+      ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+      synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (end)");
+    } else {
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
+      cur_rvalpsh = jit_graph_and_meta_data->get_shape_agnostic_recipe();
+      syn_graph_ptr = cur_rvalpsh->shape_agnostic_synapse_graph_.get();
+
+      std::vector<synTensorHandleMap> tensorsMap(
+          syn_graph_ptr->get_num_of_tensors());
+      std::vector<synNodeHandleMap> nodesMap(syn_graph_ptr->get_num_of_nodes());
+
+      syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
+
+      if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SHAPE_AGNOSTIC)) {
+        PrintDuplicateGraphInformation(
+            syn_graph_ptr, tensorsMap, nodesMap, "cache hit");
+      }
+
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      rv.update_hit_count();
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          id_str,
+          ": ",
+          "HabanaOp shape agnostic graph cache hit :: key ",
+          graph_key,
+          "\n",
+          rv.header_str(),
+          "\n",
+          rv.digest_str());
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "HabanaOp shape agnostic graph cache hit :: static shapes");
+
+      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
+          std::make_shared<std::vector<IValPtrShared>>(
+              std::vector<IValPtrShared>());
+
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
+          std::make_shared<std::vector<IValPtrShared>>(
+              std::vector<IValPtrShared>());
+
+      std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle{};
+      for (size_t i = 0; i < tensorsMap.size(); i++) {
+        synapse_orig_to_new_handle.insert(
+            {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
+      }
+
+      rv.update_patching_table(
+          input_refs,
+          intermediate_tensors_ptr,
+          dma_inputs_ptr,
+          m_map_shape.m_actual_shapes,
+          std::nullopt,
+          out_shapes,
+          syn_graph_ptr,
+          jit_graph_and_meta_data->get_syn_tensor_id_to_tensor_handle_map(),
+          synapse_orig_to_new_handle);
+
+      // To check if any other members just like ntensorbytes also need to be
+      // updated
+      rv.ntensorbytes = 0;
+      for (auto& ti : *rv.dtensorinfos) {
+        if (!ti->is_duplicate()) {
+          rv.ntensorbytes += ti->get_size();
+        }
+      }
+
+      syn_graph_ptr->set_build_phase(true);
+      CompileSynapseGraph(false);
+
+      if (enable_tensor_dump_) {
+        DumpTensors_pre(rv);
+      }
+
+      rv.launch(
+          hpu_stream,
+          event_handle,
+          event_stream,
+          event_flag,
+          input_refs,
+          intermediate_tensors_ptr,
+          dma_inputs_ptr);
+
+      if (enable_tensor_dump_) {
+        DumpTensors(rv);
+      }
+
+      // Update the stack from the recipe itself
+      UpdateOutputs(rv);
+      ReturnCachedRecipe(rv);
+
+      synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
+
+      PT_SHAPE_AGNOSTIC_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (end)");
+    }
+
+    is_jit_cached_graph_info_available =
+        jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+    if (is_jit_cached_graph_info_available == false) {
+      jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
+    }
+
+    ClearStatics();
+    PT_BRIDGE_END;
+    return;
+  }
+  // shape agnostic caching :: end
 
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());

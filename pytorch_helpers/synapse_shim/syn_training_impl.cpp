@@ -329,6 +329,17 @@ synStatus SYN_API_CALL synGraphCreateEager(
   return syn_api->synGraphCreateEager(pGraphHandle, deviceType);
 }
 
+synStatus SYN_API_CALL synGraphDuplicate(
+    synGraphHandle graphHandle,
+    synGraphHandle* newGraphHandle,
+    synTensorHandleMap* tensorsMap,
+    uint32_t* numTensors,
+    synNodeHandleMap* nodesMap,
+    uint32_t* numNodes) {
+  return syn_api->synGraphDuplicate(
+      graphHandle, newGraphHandle, tensorsMap, numTensors, nodesMap, numNodes);
+}
+
 synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
   return syn_api->synGraphDestroy(graphHandle);
 }

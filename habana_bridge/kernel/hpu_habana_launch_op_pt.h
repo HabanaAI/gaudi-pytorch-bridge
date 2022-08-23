@@ -157,6 +157,7 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
       jit_graph_and_meta_data = nullptr;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
+  std::vector<std::vector<int64_t>> out_shapes{};
 
   size_t prim_nodes_ival_counter{0};
   size_t restride_node_swap_counter{0};
@@ -264,6 +265,7 @@ class HabanaLaunchOpPT {
   // caching :: end
 
   bool enable_caching_{true};
+  bool enable_shape_agnostic_caching_{false};
   bool watch_tensor_flag_{false};
   bool enable_tensor_dump_{false};
   bool refine_ds_enabled_{false};
@@ -402,6 +404,14 @@ class HabanaLaunchOpPT {
     return rvpsh;
   }
   void ReturnCachedRecipe(RecipeValueSpec& rv);
+  void DuplicateSynapseGraph();
+  void StoreShapeAgnosticGraph();
+  void PrepareTensorIdToTensorHandleMap();
+  void PrintDuplicateGraphInformation(
+      synapse_helpers::graph* graph_ptr,
+      std::vector<synTensorHandleMap>& tensors_map,
+      std::vector<synNodeHandleMap>& nodes_map UNUSED,
+      std::string cache_hit_or_miss);
 
   void create_duplicate_syn_tensor(
       at::Tensor* tensor,
@@ -456,7 +466,8 @@ class HabanaLaunchOpPT {
     std::swap(m_container, empty);
   }
 
-  void CompileSynapseGraph();
+  // No need to allocate for lazy eager shape agnostic cache hit scenario
+  void CompileSynapseGraph(bool allocate_rval = true);
 
   void UpdateSynapsePermutations();
   void ConstructPatchingTable();

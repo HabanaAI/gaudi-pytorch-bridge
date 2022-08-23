@@ -141,6 +141,51 @@ synapse_error_v<graph> graph::create_for_refinement(
   return {std::move(syn_graph)};
 }
 
+synapse_error_o graph::duplicate(
+    synTensorHandleMap* tensorsMap,
+    synNodeHandleMap* nodesMap) {
+  PT_SYNHELPER_BEGIN;
+
+  PT_SYNHELPER_DEBUG("Graph Duplicate.");
+  synStatus status = synSuccess;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    status = synGraphDuplicate(
+        graph_handle_,
+        &duplicate_graph_handle_,
+        tensorsMap,
+        &numTensors,
+        nodesMap,
+        &numNodes);
+  } else {
+    HABANA_ASSERT(
+        "Graph Duplicate API is not supposed to be used in lazy mode : ",
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE));
+  }
+  SYNAPSE_SUCCESS_CHECK("Graph duplication failed.", status)
+  graph_is_empty_ = false;
+  PT_SYNHELPER_END;
+  return {};
+}
+
+synapse_error_o graph::setTensorGeometry(
+    synTensor tensor_handle,
+    std::vector<int64_t> shape) {
+  PT_SYNHELPER_BEGIN;
+  synStatus status = synSuccess;
+  synTensorGeometryExt maxGeometry;
+  maxGeometry.dims = shape.size();
+
+  for (size_t i = 0; i < shape.size(); i++) {
+    maxGeometry.sizes[shape.size() - i - 1] = shape.at(i);
+  }
+
+  status =
+      synTensorSetGeometryExt(tensor_handle, &maxGeometry, synGeometrySizes);
+  SYNAPSE_SUCCESS_CHECK("Tensor Set Geometry failed.", status)
+  PT_SYNHELPER_END;
+  return {};
+}
+
 graph::graph(graph&& other) noexcept
     : device_{other.device_},
       name_{other.name_},
@@ -302,8 +347,28 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   auto recipe_handle{absl::make_unique<graph::recipe_handle>()};
 
   auto name = get_unique_recipe_name(name_);
-  status = synGraphCompile(
-      &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
+
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+    status = synGraphCompile(
+        &recipe_handle->syn_recipe_handle_,
+        duplicate_graph_handle_,
+        name.c_str(),
+        nullptr);
+    PT_SHAPE_AGNOSTIC_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] duplicate graph name : ",
+        name.c_str(),
+        " graph handle : ",
+        duplicate_graph_handle_,
+        " compiled recipe handle : ",
+        recipe_handle->syn_recipe_handle_);
+  } else {
+    status = synGraphCompile(
+        &recipe_handle->syn_recipe_handle_,
+        graph_handle_,
+        name.c_str(),
+        nullptr);
+  }
 
   SYNAPSE_SUCCESS_CHECK("Graph compile failed.", status);
   END_TIME_MEASURE("Synapse graph compilation took");
