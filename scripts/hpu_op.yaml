@@ -3201,6 +3201,10 @@ relu_:
   guid: relu_fwd
   inplace_ids: [0]
 
+relu.out:
+  dtypes: [BFloat16, Float]
+  guid: relu_fwd
+
 reflection_pad1d:
   force_default: false
   custom_output_shape: ReflectionPad1DOutputShape
