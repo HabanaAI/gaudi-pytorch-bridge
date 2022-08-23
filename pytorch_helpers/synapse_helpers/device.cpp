@@ -144,6 +144,126 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
+int GetSystemRamInKB(void) {
+  FILE* meminfo = fopen("/proc/meminfo", "r");
+  if (meminfo != NULL) {
+    char line[256];
+    while (fgets(line, sizeof(line), meminfo)) {
+      int ram;
+      if (sscanf(line, "MemTotal: %d kB", &ram) == 1) {
+        fclose(meminfo);
+        return ram;
+      }
+    }
+    fclose(meminfo);
+  }
+  return 0;
+}
+
+void dumpEnvSettings() {
+  int node_id = 0;
+  char* ptr1;
+  char* ptr2;
+  ptr1 = std::getenv("RANK");
+  ptr2 = std::getenv("OMPI_COMM_WORLD_RANK");
+  if (ptr1 != nullptr) {
+    node_id = std::stoul(ptr1, nullptr, 16);
+  } else if (ptr2 != nullptr) {
+    node_id = std::stoul(ptr2, nullptr, 16);
+  } else {
+    node_id = 0;
+  }
+
+  // print only from main process
+  if (!node_id) {
+    if (const char* env_p = std::getenv("HB_BUILD_VER")) {
+      std::clog
+          << "=============================HABANA SW VERSION======================================= "
+          << "\n";
+      std::clog << " HB_BUILD_VER = " << env_p << '\n';
+    }
+    std::clog
+        << "=============================HABANA PT BRIDGE CONFIGURATION =========================== "
+        << "\n";
+    std::clog << " PT_HPU_LAZY_MODE = " << GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)
+              << "\n";
+    std::clog << " PT_HPU_LAZY_EAGER_OPTIM_CACHE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) << "\n";
+    std::clog << " PT_HPU_ENABLE_COMPILE_THREAD = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD) << "\n";
+    std::clog << " PT_HPU_ENABLE_EXECUTION_THREAD = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) << "\n";
+    std::clog << " PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD)
+              << "\n";
+    std::clog << " PT_ENABLE_INTER_HOST_CACHING = "
+              << GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING) << "\n";
+    std::clog << " PT_ENABLE_INFERENCE_MODE = "
+              << GET_ENV_FLAG_NEW(PT_ENABLE_INFERENCE_MODE) << "\n";
+    std::clog << " PT_ENABLE_HABANA_CACHING = "
+              << GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_CACHING) << "\n";
+    std::clog << " PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = "
+              << GET_ENV_FLAG_NEW(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT) << "\n";
+    std::clog << " PT_HPU_MAX_COMPOUND_OP_SIZE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE) << "\n";
+    std::clog << " PT_HPU_MAX_COMPOUND_OP_SIZE_SS = "
+              << GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE_SS) << "\n";
+    std::clog << " PT_HPU_ENABLE_STAGE_SUBMISSION = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION) << "\n";
+    std::clog << " PT_HPU_PGM_ENABLE_CACHE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) << "\n";
+    std::clog << " PT_HPU_ENABLE_LAZY_COLLECTIVES = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) << "\n";
+    std::clog << " PT_HCCL_SLICE_SIZE_MB = "
+              << GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB) << "\n";
+    std::clog << " PT_HCCL_MEMORY_ALLOWANCE_MB = "
+              << GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB) << "\n";
+    std::clog << " PT_HPU_INITIAL_WORKSPACE_SIZE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) << "\n";
+    std::clog << " PT_HABANA_POOL_SIZE = "
+              << GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE) << "\n";
+    std::clog << " PT_HPU_POOL_STRATEGY = "
+              << GET_ENV_FLAG_NEW(PT_HPU_POOL_STRATEGY) << "\n";
+    std::clog << " PT_HPU_POOL_LOG_FRAGMENTATION_INFO = "
+              << GET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO) << "\n";
+    std::clog << " PT_ENABLE_MEMORY_DEFRAGMENTATION = "
+              << GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION) << "\n";
+    std::clog << " PT_ENABLE_DEFRAGMENTATION_INFO = "
+              << GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO) << "\n";
+    std::clog << " PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = "
+              << GET_ENV_FLAG_NEW(PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT)
+              << "\n";
+    std::clog << " PT_HPU_POOL_MEM_THRESHOLD_PERC = "
+              << GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC) << "\n";
+    std::clog << " PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)
+              << "\n";
+    std::clog << " PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) << "\n";
+    std::clog << " PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK) << "\n";
+    std::clog << " PT_HPU_FORCE_USE_DEFAULT_STREAM = "
+              << GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM) << "\n";
+    std::clog << " PT_RECIPE_CACHE_PATH = "
+              << GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH) << "\n";
+    std::clog << " PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = "
+              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) << "\n";
+    std::clog << " PT_HPU_DYNAMIC_MIN_POLICY_ORDER = "
+              << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER) << "\n";
+    std::clog << " PT_HPU_DYNAMIC_MAX_POLICY_ORDER = "
+              << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER) << "\n";
+
+    std::clog
+        << "=============================SYSTEM CONFIGURATION ========================================= "
+        << "\n";
+    std::clog << "Num CPU Cores = " << std::thread::hardware_concurrency()
+              << "\n";
+    std::clog << "CPU RAM = " << GetSystemRamInKB() << " KB \n";
+    std::clog
+        << "============================================================================================ "
+        << "\n";
+  }
+}
 device::device(
     std::shared_ptr<session> synapse_session,
     synDeviceId device_id,
@@ -168,6 +288,7 @@ device::device(
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
+  dumpEnvSettings();
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);
