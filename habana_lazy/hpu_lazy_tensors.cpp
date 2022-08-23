@@ -115,26 +115,21 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
-      if (data->ir_value && data->ir_value.mp_node->is_input() == false) {
-        auto id = data->unique_id;
-        auto hl_t = HbLazyTensor(std::move(data));
+      auto id = data->unique_id;
+      auto hl_t = HbLazyTensor(std::move(data));
 
-        auto params_ptr = context->viewContext.GetViewTableEntry(id);
-        auto is_view = (params_ptr != nullptr);
+      auto params_ptr = context->viewContext.GetViewTableEntry(id);
+      auto is_view = (params_ptr != nullptr);
 
-        if (bucket_recent_id.count(id)) {
-          context->viewContext.updated_bucket_list.emplace_back(hl_t);
-        }
-        auto is_view_out = context->viewContext.view_outputs.count(id);
+      if (bucket_recent_id.count(id)) {
+        context->viewContext.updated_bucket_list.emplace_back(hl_t);
+      }
+      auto is_view_out = context->viewContext.view_outputs.count(id);
 
-        if (is_view_out ||
-            ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-             (context->viewContext.GetOrigTensorMapEntry(id) ==
-              c10::nullopt))) {
-          tensors.emplace_back(hl_t);
-        }
-      } else { // if (data != nullptr)
-        data->execution_status = kEXECUTION_COMPLETE;
+      if (is_view_out ||
+          ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+           (context->viewContext.GetOrigTensorMapEntry(id) == c10::nullopt))) {
+        tensors.emplace_back(hl_t);
       }
     }
   } // for (auto& uid_wptr : devctx->tensors_data)
@@ -731,7 +726,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
         &tensors,
         lazy_front_end_info,
         async,
-        false,
+        true,
         event_handle,
         event_stream,
         event_flag);
