@@ -47,20 +47,21 @@ std::vector<synapse_helpers::tensor> AnyCommonFunc(
     const at::Tensor& self,
     const at::IntArrayRef dim,
     const bool keepdim,
-    synapse_helpers::tensor& input,
+    synapse_helpers::tensor& input_,
     const at::IntArrayRef outshape) {
-  auto dtype = at::ScalarType::Float;
-  input = HandleReductionDtype(op, graph, self, std::move(input), dtype);
+  const auto& dtype = at::kFloat;
+  std::unique_ptr<synapse_helpers::tensor> cast;
+  synTensor& input = input_.get();
+  if (dtype != self.scalar_type()) {
+    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+        op, graph, input, self.sizes(), self.scalar_type(), dtype));
+    input = cast->get();
+  }
 
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {outshape, op->ScalarType()}};
+  op->SetScalarType(dtype);
 
   auto abs = OpBackend::BuildNode(
-      op,
-      graph,
-      {"abs_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
-       {input.get()},
-       {{self.sizes().vec(), op->ScalarType()}}});
+      op, graph, {"abs_fwd_f32", {input}, {{self.sizes().vec()}}});
 
   auto reduce_sum = HandleReductionDimAndKeepdim(
       op,
@@ -69,17 +70,15 @@ std::vector<synapse_helpers::tensor> AnyCommonFunc(
       {abs[0].get()},
       dim,
       keepdim,
-      "reduce_sum_fwd_" +
-          habana_helpers::name_suffix_from_type(op->ScalarType()),
-      output_attrs);
+      "reduce_sum_fwd_f32",
+      {{outshape}});
 
-  auto zero_tensor =
-      OpBackend::BuildConstant(op, graph, cmp_value, op->ScalarType());
+  auto zero_tensor = OpBackend::BuildConstant(op, graph, cmp_value);
 
   return OpBackend::BuildNode(
       op,
       graph,
-      {"greater_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {"greater_fwd_f32",
        {reduce_sum[0].get(), zero_tensor.get()},
        {{outshape, c10::ScalarType::Bool, 0}}});
 }
