@@ -341,3 +341,91 @@ TEST_F(TypePromotionTests, OutMean) {
   EXPECT_EQ(allclose(t2_hpu.to(torch::kCPU), t2_cpu, 0.001, 0.001), true);
   EXPECT_EQ(t2_hpu.dtype() == t2_cpu.dtype(), true);
 }
+
+TEST_F(TypePromotionTests, CumprodInt32) {
+  auto t1_cpu = torch::tensor({3}, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumprod(t1_cpu, 0);
+  auto hpu_out = torch::cumprod(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, Cumprod0dInt32) {
+  auto t1_cpu = torch::tensor(3, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumprod(t1_cpu, 0);
+  auto hpu_out = torch::cumprod(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, CumprodInt32dtyLong) {
+  auto t1_cpu = torch::tensor({3}, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0, torch::kLong);
+  auto hpu_out = torch::cumsum(t1_hpu, 0, torch::kLong);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, CumprodLong) {
+  auto t1_cpu = torch::tensor({3}, torch::kLong);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0);
+  auto hpu_out = torch::cumsum(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, CumsumInt32) {
+  auto t1_cpu = torch::tensor({3}, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0);
+  auto hpu_out = torch::cumsum(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, Cumsum0dInt32) {
+  auto t1_cpu = torch::tensor(3, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0);
+  auto hpu_out = torch::cumsum(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, CumsumInt32dtyLong) {
+  auto t1_cpu = torch::tensor({3}, torch::kInt32);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0, torch::kLong);
+  auto hpu_out = torch::cumsum(t1_hpu, 0, torch::kLong);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}
+
+TEST_F(TypePromotionTests, CumsumLong) {
+  auto t1_cpu = torch::tensor({3}, torch::kLong);
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto cpu_out = torch::cumsum(t1_cpu, 0);
+  auto hpu_out = torch::cumsum(t1_hpu, 0);
+
+  auto htc_out = hpu_out.to(torch::kCPU);
+  EXPECT_TRUE(htc_out.dtype() == torch::kLong);
+  EXPECT_EQ(allclose(htc_out, cpu_out, 0.001, 0.001), true);
+}

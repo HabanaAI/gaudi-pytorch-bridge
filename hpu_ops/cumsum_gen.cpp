@@ -47,30 +47,29 @@ std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
 void CumsumHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const at::ScalarType& dtype =
+  at::ScalarType dtype =
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
+
+  if (dtype == at::ScalarType::Long) {
+    dtype = at::ScalarType::Int;
+  }
 
   if (dtype == ScalarType()) {
     return OpBackend::AddNode(graph, stack);
   }
 
   const auto& outshape = stack_tensor(stack, 0).sizes();
-  const std::string& cast_from =
-      habana_helpers::name_suffix_from_type(ScalarType());
-  const std::string& cast_to = habana_helpers::name_suffix_from_type(dtype);
-  auto cast = BuildOp(
-      graph,
-      "cast_" + cast_from + "_to_" + cast_to,
-      {syn_in(0)},
-      {{outshape, dtype}});
+  auto cast = CastHelper(graph, syn_in(0), outshape, ScalarType(), dtype);
 
   size_t size = 0;
   const auto& params = FillCumsumParams(stack, size);
   const std::string& guid = guid_.substr(0, guid_.find_last_of('_') + 1);
+  const std::string& cast_to = habana_helpers::name_suffix_from_type(dtype);
+
   auto op = BuildOp(
       graph,
       guid + cast_to,
-      {cast.at(0).get()},
+      {cast.get()},
       {{outshape, dtype, 0}},
       params.get(),
       size);
