@@ -27,7 +27,9 @@ at::Tensor LazyCumsum<at::Tensor>::get_result_overrideable() {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensor();
   const auto& options = inputs.at(2).isNone()
-      ? t.options()
+      ? isIntegralType(t.scalar_type(), true)
+          ? t.options().dtype(c10::ScalarType::Long)
+          : t.options()
       : t.options().dtype(inputs.at(2).toScalarType());
   return habana_lazy::empty_hpu_lazy(
       t.sizes(), options, t.suggest_memory_format(), false);
