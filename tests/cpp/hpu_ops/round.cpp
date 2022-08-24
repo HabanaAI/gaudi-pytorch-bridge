@@ -47,3 +47,24 @@ TEST_F(HpuOpTest, RoundDecimalsTest_bf16) {
 
   Compare(expected, result, 0.1, 0.1);
 }
+
+TEST_F(HpuOpTest, RoundDecimalsInplaceTest) {
+  GenerateInputs(1);
+
+  GetCpuInput(0).round_(3);
+  GetHpuInput(0).round_(3);
+
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, RoundDecimalsOutTest) {
+  torch::ScalarType dtype = torch::kBFloat16;
+  GenerateInputs(1, dtype);
+  auto expected = torch::empty(0, dtype);
+  auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::round_outf(GetCpuInput(0), 3, expected);
+  torch::round_outf(GetHpuInput(0), 3, result);
+
+  Compare(expected, result, 5e-3, 1e-3);
+}

@@ -3410,6 +3410,18 @@ round.out:
   dtypes: [BFloat16, Float]
   guid: round_fwd
 
+round.decimals:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  op_backend: RoundDecimal
+  out_ids: [0]
+
+round_.decimals:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  op_backend: RoundDecimal
+  inplace_ids: [0]
+
 round.decimals_out:
   dtypes: [BFloat16, Float]
   op_backend: RoundDecimal
