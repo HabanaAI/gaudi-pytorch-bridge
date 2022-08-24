@@ -1,0 +1,100 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
+#pragma once
+
+#include <stddef.h>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+
+namespace serialization {
+
+constexpr const char* RECIPE_SUFFIX = ".recipe";
+constexpr const char* METADATA_SUFFIX = ".metadata";
+
+std::string recipe_file_path(
+    std::string const& path,
+    const std::string& cache_id);
+
+std::string metadata_file_path(
+    std::string const& path,
+    const std::string& cache_id);
+
+class CacheFileHandler {
+  // This is an Abstract class
+
+ private:
+  int id, rank;
+  // Updated once during Construction using env: PT_RECIPE_CACHE_PATH
+  std::string cache_path;
+  // Updated once during Construction using env: PT_CACHE_FOLDER_SIZE_MB
+  uint64_t maxFolderSize;
+  std::mutex mtx;
+
+ protected:
+  // Real time Folder size. We must ensure that curFolderSize <= maxFolderSize
+  uint64_t curFolderSize;
+
+  // Child classes can view 'maxFolderSize', but can not change it
+  uint64_t getMaxFolderSize() {
+    return maxFolderSize;
+  }
+
+  // Child classes can view 'cache_path', but can not change it
+  const std::string& getCachePath() {
+    return cache_path;
+  }
+
+  int getRank() {
+    return rank;
+  }
+
+  // This function implements the eviction policy
+  virtual void checkAndDelete() = 0;
+
+ public:
+  CacheFileHandler();
+  virtual ~CacheFileHandler() = default;
+
+  static int fileOpen(const std::string& fname, int flags);
+  static int fileClose(int fd);
+  static bool fileLock(int fd, bool block);
+  // Lock file and get size
+  static bool fileLock(int fd, bool block, size_t& size);
+  // Open, Lock, and get Size
+  static int openAndLockFile(
+      const std::string& fname,
+      int flags,
+      bool block,
+      size_t& size);
+  // Must be called if CachePath changes
+  void init(std::string path);
+  // Add the size of new file and delete something if required
+  void addFileInfo(const std::string& cache_id);
+};
+
+class BasicCacheFileHandler : public CacheFileHandler {
+  void checkAndDelete() override;
+
+  BasicCacheFileHandler() = default;
+
+ public:
+  // Singleton
+  static std::shared_ptr<BasicCacheFileHandler> getInstance() {
+    static std::shared_ptr<BasicCacheFileHandler> bHandler(
+        new BasicCacheFileHandler);
+
+    return bHandler;
+  }
+};
+
+} // namespace serialization

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <string>
+#include "cache_file_handler.h"
 
 namespace serialization {
 
@@ -24,6 +25,7 @@ class InterHostCache {
   bool is_cache_valid_;
   std::string cache_path_;
   std::string master_addr;
+  std::shared_ptr<CacheFileHandler> cfHandler_;
 
   // For simplicity, keep Commands length same
   const std::string cmdSet{"SET\0"};
@@ -44,7 +46,9 @@ class InterHostCache {
   }
 
  public:
-  InterHostCache(std::string& cache_path);
+  InterHostCache(
+      std::string& cache_path,
+      std::shared_ptr<CacheFileHandler> cfHandler);
   ~InterHostCache();
 
   // Setup Socket-Client connection

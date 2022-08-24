@@ -11,11 +11,13 @@ cmake_minimum_required(VERSION 3.10)
 find_package(Torch REQUIRED)
 
 add_library(habana_serialization STATIC
+    cache_file_handler.cpp
     deserializers.cpp
     serializers.cpp
     recipe_cache.cpp
     inter_host_cache.cpp
     cache_version.cpp
+    include/habana_serialization/cache_file_handler.h
     include/habana_serialization/deserializers.h
     include/habana_serialization/serializers.h
     include/habana_serialization/recipe_cache.h

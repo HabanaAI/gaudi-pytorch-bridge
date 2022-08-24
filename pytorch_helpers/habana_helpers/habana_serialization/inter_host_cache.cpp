@@ -46,41 +46,10 @@
 
 namespace serialization {
 
-int file_lock(std::string const& file, int& size) {
-  auto fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-  if (fd < 0) {
-    PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for lock: ", file);
-    return -1;
-  }
-
-  size = lseek(fd, (size_t)0, SEEK_END);
-  auto retVal = flock(fd, LOCK_EX | LOCK_NB);
-  if (retVal == -1) {
-    close(fd);
-    return -1;
-  }
-
-  size = lseek(fd, (size_t)0, SEEK_END);
-  return fd;
-}
-
-constexpr const char* RECIPE_SUFFIX = ".recipe";
-constexpr const char* METADATA_SUFFIX = ".metadata";
-
-std::string recipe_file_path(
-    const std::string& path,
-    const std::string& cache_id) {
-  return path + "/" + cache_id + RECIPE_SUFFIX;
-}
-
-std::string metadata_file_path(
-    const std::string& path,
-    const std::string& cache_id) {
-  return path + "/" + cache_id + METADATA_SUFFIX;
-}
-
-InterHostCache::InterHostCache(std::string& cache_path)
-    : is_cache_valid_{true}, cache_path_{cache_path} {
+InterHostCache::InterHostCache(
+    std::string& cache_path,
+    std::shared_ptr<CacheFileHandler> cfHandler)
+    : is_cache_valid_{true}, cache_path_{cache_path}, cfHandler_{cfHandler} {
   const char* s_rank =
       getenv("RANK") ? getenv("RANK") : getenv("OMPI_COMM_WORLD_RANK");
   const char* s_wsize = getenv("WORLD_SIZE") ? getenv("WORLD_SIZE")
@@ -214,48 +183,36 @@ void InterHostCache::thread_function(int clientfd) {
     std::string filename(tdata);
     std::string recpfile = recipe_file_path(cache_path_, filename);
     std::string metafile = metadata_file_path(cache_path_, filename);
-    int size = 0, fd = file_lock(metafile.c_str(), size);
+    size_t size = 0;
+    int fd = cfHandler_->openAndLockFile(
+        metafile.c_str(), O_RDWR | O_CREAT, false, size);
 
     if (!cmdSet.compare(cmd)) {
       // Get lock status and decide if you can continue
       if (fd < 0 || size > 0) {
-        PT_HABHELPER_DEBUG(
-            INTERHOST_LOG,
-            "(",
-            rank,
-            ") Receive Rejected: ",
-            metafile,
-            ", FD: ",
-            fd,
-            ", Size: ",
-            size);
         if (fd >= 0)
-          close(fd);
+          cfHandler_->fileClose(fd);
+
         send(clientfd, cmdRej.c_str(), cmdSet.size() + 1, 0);
         continue;
       }
+
       send(clientfd, cmdAck.c_str(), cmdSet.size() + 1, 0);
       _recv_file(metafile, clientfd, tdata);
       _recv_file(recpfile, clientfd, tdata);
 
+      cfHandler_->addFileInfo(filename);
+
     } else if (!cmdGet.compare(cmd)) {
       // Get lock status and decide if you can continue
       if (fd < 0 || size <= 0) {
-        PT_HABHELPER_DEBUG(
-            INTERHOST_LOG,
-            "(",
-            rank,
-            ") Send Rejected: ",
-            metafile,
-            ", FD: ",
-            fd,
-            ", Size: ",
-            size);
         if (fd >= 0)
-          close(fd);
+          cfHandler_->fileClose(fd);
+
         send(clientfd, cmdRej.c_str(), cmdSet.size() + 1, 0);
         continue;
       }
+
       send(clientfd, cmdAck.c_str(), cmdSet.size() + 1, 0);
       _send_file(metafile, clientfd, tdata);
       _send_file(recpfile, clientfd, tdata);
@@ -265,7 +222,7 @@ void InterHostCache::thread_function(int clientfd) {
       break;
     }
 
-    close(fd);
+    cfHandler_->fileClose(fd);
   }
 
   close(clientfd);
@@ -298,9 +255,6 @@ bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
     tb += bytes_sent;
   }
 
-  PT_HABHELPER_DEBUG(
-      INTERHOST_LOG, "(", rank, ") Sent: ", filename, ", Bytes: ", tb);
-
   bytes_recv = recv(sock, buff, cmdSet.size() + 1, 0);
   CHECK(bytes_recv, __LINE__);
   fclose(fp);
@@ -327,101 +281,96 @@ bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
     tb += bytes_recv;
   }
 
-  PT_HABHELPER_DEBUG(
-      INTERHOST_LOG, "(", rank, ") Received: ", filename, ", Bytes: ", tb);
-
   send(sock, cmdAck.c_str(), cmdSet.size() + 1, 0);
   fclose(fp);
   return true;
 }
 
-bool InterHostCache::send_file(std::string filename) {
+bool InterHostCache::send_file(std::string cache_id) {
   if (rank == 0 || !is_cache_valid_)
-    return true;
+    return false;
 
-  std::string recpfile = recipe_file_path(cache_path_, filename);
-  std::string metafile = metadata_file_path(cache_path_, filename);
-  int size = 0, fd = file_lock(metafile.c_str(), size);
+  std::string recpfile = recipe_file_path(cache_path_, cache_id);
+  std::string metafile = metadata_file_path(cache_path_, cache_id);
+  size_t size = 0;
+  int fd = cfHandler_->openAndLockFile(
+      metafile.c_str(), O_RDWR | O_CREAT, false, size);
+
   if (fd < 0 || size <= 0) {
-    PT_HABHELPER_DEBUG(
-        INTERHOST_LOG,
-        "(",
-        rank,
-        ") Send Rejected: ",
-        metafile,
-        ", FD: ",
-        fd,
-        ", Size: ",
-        size);
     if (fd >= 0)
-      close(fd);
+      cfHandler_->fileClose(fd);
+
     return false;
   }
+
+  PT_HABHELPER_TRACE("InterHostCache Send");
 
   size_t num;
   int bytes_recv;
 
-  filename += "\0";
-  num = filename.size() + 1;
+  cache_id += "\0";
+  num = cache_id.size() + 1;
   send(sockfd, cmdSet.c_str(), cmdSet.size() + 1, 0);
   send(sockfd, &num, sizeof(num), 0);
-  send(sockfd, filename.c_str(), num, 0);
+  send(sockfd, cache_id.c_str(), num, 0);
   bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
   CHECK(bytes_recv, __LINE__);
   if (!cmdRej.compare(data)) {
-    close(fd);
+    cfHandler_->fileClose(fd);
     return false;
   }
 
   _send_file(metafile, sockfd, data);
   _send_file(recpfile, sockfd, data);
 
-  close(fd);
+  PT_HABHELPER_DEBUG(INTERHOST_LOG, "Sent by: ", rank, ", File: ", cache_id);
+  cfHandler_->fileClose(fd);
   return true;
 }
 
-bool InterHostCache::recv_file(std::string filename) {
+bool InterHostCache::recv_file(std::string cache_id) {
   if (rank == 0 || !is_cache_valid_)
-    return true;
+    return false;
 
-  std::string recpfile = recipe_file_path(cache_path_, filename);
-  std::string metafile = metadata_file_path(cache_path_, filename);
-  int size = 0, fd = file_lock(metafile.c_str(), size);
+  std::string recpfile = recipe_file_path(cache_path_, cache_id);
+  std::string metafile = metadata_file_path(cache_path_, cache_id);
+  size_t size = 0;
+  int fd = cfHandler_->openAndLockFile(
+      metafile.c_str(), O_RDWR | O_CREAT, false, size);
+
   if (fd < 0 || size > 0) {
-    PT_HABHELPER_DEBUG(
-        INTERHOST_LOG,
-        "(",
-        rank,
-        ") Receive Rejected: ",
-        metafile,
-        ", FD: ",
-        fd,
-        ", Size: ",
-        size);
     if (fd >= 0)
-      close(fd);
+      cfHandler_->fileClose(fd);
+
     return false;
   }
+
+  PT_HABHELPER_TRACE("InterHostCache Recv");
 
   size_t num;
   int bytes_recv;
 
-  filename += "\0";
-  num = filename.size() + 1;
+  cache_id += "\0";
+  num = cache_id.size() + 1;
   send(sockfd, cmdGet.c_str(), cmdSet.size() + 1, 0);
   send(sockfd, &num, sizeof(num), 0);
-  send(sockfd, filename.c_str(), num, 0);
+  send(sockfd, cache_id.c_str(), num, 0);
   bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
   CHECK(bytes_recv, __LINE__);
   if (!cmdRej.compare(data)) {
-    close(fd);
+    cfHandler_->fileClose(fd);
     return false;
   }
 
   _recv_file(metafile, sockfd, data);
   _recv_file(recpfile, sockfd, data);
 
-  close(fd);
+  cfHandler_->addFileInfo(cache_id);
+
+  PT_HABHELPER_DEBUG(
+      INTERHOST_LOG, "Received by: ", rank, ", File: ", cache_id);
+
+  cfHandler_->fileClose(fd);
   return true;
 }
 
