@@ -366,6 +366,10 @@ class device {
 
   void synchronize();
 
+  std::string get_device_capability();
+
+  std::string get_device_properties(int id);
+
   void release();
 
   void cleanup_workspace_buffer();

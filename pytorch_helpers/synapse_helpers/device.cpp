@@ -1185,6 +1185,36 @@ void device::release() {
   }
 }
 
+std::string device::get_device_capability() {
+  char pDriverVersion[256];
+  auto status = synDriverGetVersion(pDriverVersion, 256);
+  if (status != synSuccess) {
+    PT_SYNHELPER_FATAL("synDriverGetVersion failed. Status: ", status);
+  }
+  return std::string(pDriverVersion);
+}
+
+std::string device::get_device_properties(int id) {
+  synDeviceInfo device_info;
+  auto status = synDeviceGetInfo(id, &device_info);
+  if (status != synSuccess) {
+    PT_SYNHELPER_FATAL("synDeviceGetInfo failed. Status: ", status);
+  }
+
+  std::string properties = "";
+  properties = properties +
+      "(sramBaseAddress=" + std::to_string(device_info.sramBaseAddress) +
+      ", dramBaseAddress=" + std::to_string(device_info.dramBaseAddress) +
+      ", sramSize=" + std::to_string(device_info.sramSize) +
+      ", dramSize=" + std::to_string(device_info.dramSize) +
+      ", tpcEnabledMask=" + std::to_string(device_info.tpcEnabledMask) +
+      ", dramEnabled=" + std::to_string(device_info.dramEnabled) +
+      ", fd=" + std::to_string(device_info.fd) +
+      ", device_type=" + std::to_string(device_info.deviceType) + ")";
+
+  return properties;
+}
+
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
     PT_SYNHELPER_DEBUG(

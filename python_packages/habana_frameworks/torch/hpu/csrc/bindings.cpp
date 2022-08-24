@@ -113,6 +113,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("device_count", []() {
     return synapse_helpers::HPURegistrar::get_total_device_count();
   });
+  m.def("get_device_capability", []() {
+    return synapse_helpers::HPURegistrar::get_device_capability();
+  });
+  m.def("get_device_properties", [](int id) {
+    return synapse_helpers::HPURegistrar::get_device_properties(id);
+  });
   m.def("reset_peak_memory_stats", [](int id) { reset_peak_memory_stats(id); });
   m.def("clear_memory_stats", [](int id) { clear_memory_stats(id); });
   m.def("get_mem_stats", [](int id) {

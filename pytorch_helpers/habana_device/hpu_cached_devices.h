@@ -92,6 +92,16 @@ class HPURegistrar {
     device.synchronize();
   }
 
+  static std::string get_device_capability() {
+    auto& device = get_hpu_registrar().get_device();
+    return device.get_device_capability();
+  }
+
+  static std::string get_device_properties(int id) {
+    auto& device = get_hpu_registrar().get_device();
+    return device.get_device_properties(id);
+  }
+
   static int get_total_device_count() {
     return synapse_helpers::device::get_total_device_count();
   }

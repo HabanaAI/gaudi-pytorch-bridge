@@ -3,8 +3,8 @@ import torch
 import warnings
 import threading
 from habana_frameworks.torch import _hpu_C
-from typing import Optional, Union
-from ._utils import _get_device_index
+from typing import Optional, Union, List, Any
+from ._utils import _get_device_index, _get_device_id_from_environ
 from .memory import *
 from .streams import *
 from .events import *
@@ -119,3 +119,98 @@ def set_autocast_hpu_dtype(dtype) -> None:
 def get_autocast_hpu_dtype() -> Any:
     return _hpu_C.get_autocast_hpu_dtype()
 
+def is_bf16_supported():
+    r"""Check if bf16 is supported."""
+    if is_available():
+        return True
+    else:
+        return False
+
+def get_device_capability(device: Optional[_device_t] = None) -> str:
+    if not is_available():
+        warnings.warn("Device not available")
+        return ""
+
+    init()
+    device = _get_device_index(device)
+    if device < 0 or device >= device_count():
+        raise AssertionError("Invalid device id")
+    return _hpu_C.get_device_capability()
+
+def get_device_properties(device: Optional[_device_t] = None) -> str:
+    if not is_available():
+        warnings.warn("Device not available")
+        return ""
+
+    init()
+    device = _get_device_index(device)
+    if device < 0 or device >= device_count():
+        raise AssertionError("Invalid device id")
+    return _hpu_C.get_device_properties(device)
+
+def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
+    if not is_available():
+        warnings.warn("Device not available")
+        return ""
+    init()
+    device = _get_device_index(device)
+    peer_device = _get_device_index(peer_device)
+    count = device_count()
+    if device < 0 or device >= count:
+        raise AssertionError("Invalid device id : {}".format(device))
+    if peer_device < 0 or peer_device >= count:
+        raise AssertionError("Invalid device id : {}".format(peer_device))
+    if (device == peer_device):
+        raise AssertionError("Both the ids are same.")
+    if (device <= count and peer_device <= count):
+        return True
+    else:
+        return False
+
+def get_gencode_flags() -> str:
+    r""" Returns the gencode flags the library is compiled with."""
+    return ""
+
+def get_arch_list() -> List[str]:
+    r""" Returns the architecture the library is compiled with"""
+    arch_list = []
+    device = current_device()
+    device_name = get_device_name(device)
+    arch_list.append(device_name)
+    return arch_list
+
+def set_device(device: _device_t) -> None:
+    r"""Sets the current device"""
+    device_idx = _get_device_index(device)
+    # hack to match torch.cuda API
+    device_id = _get_device_id_from_environ()
+    if device_id >= 0:
+        if device_idx != device_id:
+            raise AssertionError("Device index passed {} is different from " + \
+                                        "device_id from environment variables {}".format(device_idx, device_id))
+    os.environ["ID"] = str(device_idx)
+
+class device(object):
+    r"""Context manager that changes the selected device."""
+    def __init__(self, device: Any):
+        self.idx = _get_device_index(device)
+        self.prev_idx = -1
+
+    def __enter__(self):
+        ## hack to match the behavior of torch.cuda APIs
+        self.prev_idx = _get_device_id_from_environ()
+        if self.idx == -1:
+            return
+        if self.idx != self.prev_idx:
+            set_device(self.idx)
+
+    def __exit__(self, type: Any, value: Any, traceback: Any):
+        if self.prev_idx != self.idx:
+            set_device(self.idx)
+        return False
+
+class device_of(device):
+    r"""Context manager that changes the current device of the given object"""
+    def __init__(self, obj):
+        idx = obj.get_device() if obj.is_hpu else -1
+        super(device_of, self).__init__(idx)

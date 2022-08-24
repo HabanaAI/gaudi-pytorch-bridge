@@ -1,5 +1,6 @@
 import torch
 from typing import Optional, Any
+import os
 
 def _get_device_index(device: Any) -> int:
     r"""Gets the device index from :attr:`device`, which can be a torch.device
@@ -26,3 +27,15 @@ def _get_device_index(device: Any) -> int:
         device_idx = 0
 
     return device_idx
+
+def _get_device_id_from_environ():
+    device_id = os.getenv("ID")
+    if not device_id:
+        device_id = os.getenv("LOCAL_RANK")
+    if not device_id:
+        device_id = os.getenv("OMPI_COMM_WORLD_LOCAL_RANK")
+    if device_id:
+        device_index = int(device_id)
+    else:
+        device_index = -1
+    return device_index
