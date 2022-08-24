@@ -20,9 +20,8 @@ LazyGeometric<at::Tensor&>::LazyGeometric(
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
-  // Seed is always at the end for all variants
-  get_inputs().back() = static_cast<int64_t>(
-      get_seed_hpu(inputs.back().toOptional<at::Generator>()));
+  get_inputs().at(2) = static_cast<int64_t>(
+      get_seed_hpu(inputs.at(2).toOptional<at::Generator>()));
 }
 
 template <>
