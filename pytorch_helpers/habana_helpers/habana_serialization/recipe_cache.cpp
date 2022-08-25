@@ -19,6 +19,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <fstream>
+#include <future>
 #include <memory>
 #include "habana_helpers/logging.h"
 
@@ -149,8 +150,12 @@ void RecipeCache::store(
   PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
   cfHandler->fileClose(meta_fd_to_unlock);
 
+  if (send_thread.valid()) {
+    send_thread.get();
+  }
   if (inter_host_cache_) {
-    inter_host_cache_->send_file(cache_id);
+    send_thread = std::async(
+        std::launch::async, [&] { inter_host_cache_->send_file(cache_id); });
   }
 }
 

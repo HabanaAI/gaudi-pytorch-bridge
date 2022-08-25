@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <mutex>
 #include <string>
 #include "cache_file_handler.h"
 
@@ -26,6 +27,7 @@ class InterHostCache {
   std::string cache_path_;
   std::string master_addr;
   std::shared_ptr<CacheFileHandler> cfHandler_;
+  std::mutex mutex_;
 
   // For simplicity, keep Commands length same
   const std::string cmdSet{"SET\0"};

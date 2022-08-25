@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -54,6 +55,7 @@ class RecipeCache {
   bool is_cache_valid_;
   std::unique_ptr<InterHostCache> inter_host_cache_;
   std::shared_ptr<CacheFileHandler> cfHandler;
+  std::future<void> send_thread;
 
   // map to track opened metadata files, so can be closed, once cache entry is
   // stored on disk

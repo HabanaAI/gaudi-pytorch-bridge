@@ -287,6 +287,7 @@ bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
 }
 
 bool InterHostCache::send_file(std::string cache_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (rank == 0 || !is_cache_valid_)
     return false;
 
@@ -329,6 +330,7 @@ bool InterHostCache::send_file(std::string cache_id) {
 }
 
 bool InterHostCache::recv_file(std::string cache_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (rank == 0 || !is_cache_valid_)
     return false;
 
