@@ -1237,9 +1237,10 @@ void RecipeValueSpec::launch(
     };
     auto resource_holder = std::shared_ptr<ResourceHolder>(
         new ResourceHolder(), [](ResourceHolder* resource_holder) {
-          resource_holder->recipe_counter_ptr->decrease_and_notify();
-          PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
+          auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
           delete resource_holder;
+          recipe_counter_ptr->decrease_and_notify();
+          PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
         });
     // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
     // corresponding recipe is finished on stream
