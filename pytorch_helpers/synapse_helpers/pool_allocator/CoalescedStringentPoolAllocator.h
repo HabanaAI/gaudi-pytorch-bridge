@@ -81,7 +81,8 @@ class CoalescedStringentPooling : public PoolingStrategy {
       const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
-  void* extend_high_memory_allocation(uint64_t size) const override;
+  void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
+      const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;

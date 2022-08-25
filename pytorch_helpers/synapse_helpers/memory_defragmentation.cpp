@@ -123,6 +123,7 @@ MemoryDefragementer::MemoryDefragementer(
   void* workspace_ptr = nullptr;
   std::tie(workspace_ptr, workspace_size_) = allocator_.get_tail_chunk_info();
   workspace_ptr_ = static_cast<int8_t*>(workspace_ptr);
+  PT_DEVMEM_DEBUG("MemoryDefragementer workspace ptr::", (void*)workspace_ptr_);
 
   // There is also reserved region for small allocations.
   // If an allocation falls into category of small allocations, this region has
@@ -141,6 +142,10 @@ MemoryDefragementer::MemoryDefragementer(
 
 bool MemoryDefragementer::CollectMemoryInformation(
     std::vector<MemoryBlock>& result) {
+  void* workspace_ptr = nullptr;
+  size_t size;
+  std::tie(workspace_ptr, size) = allocator_.get_tail_chunk_info();
+  PT_DEVMEM_DEBUG("MemoryDefragementer workspace ptr::", (void*)workspace_ptr);
   std::vector<MemoryBlock> in_use_memory_blocks;
   CollectResourceInformation(in_use_memory_blocks);
   CreateMemoryMap(in_use_memory_blocks, result);
@@ -160,27 +165,46 @@ bool MemoryDefragementer::CollectResourceInformation(
     auto mem_state = h2p.fixed_ ? MemoryState::FIXED : MemoryState::IN_USE;
     auto mem_ptr = static_cast<int8_t*>(h2p.ptr_size_.ptr_);
     auto mem_size = h2p.ptr_size_.size_;
-    auto mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
-    if (mem_ptr < small_allocs_ptr_ ||
-        mem_ptr >= small_allocs_ptr_ + small_allocs_size_) {
-      mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
-    }
     PT_DEVMEM_DEBUG(
-        "Collect memory info:: ptr:: ",
+        "Collect memory info:: ptr::",
         (void*)mem_ptr,
-        " Mem Size:: ",
-        mem_size,
-        " State:: ",
-        MemoryStateToString(mem_state),
-        " Actual size:: ",
-        mem_actual_size);
-    in_use_memory_blocks.emplace_back(
-        mem_state, h2p.id_, mem_ptr, mem_size, mem_actual_size);
+        " WS ptr::",
+        (void*)workspace_ptr_);
+    // dont add it to this block if it is a workspace
+    if (mem_ptr != workspace_ptr_) {
+      auto mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
+      if (mem_ptr < small_allocs_ptr_ ||
+          mem_ptr >= small_allocs_ptr_ + small_allocs_size_) {
+        mem_actual_size = allocator_.allocated_size(h2p.ptr_size_.ptr_);
+      }
+
+      // dont add it to this block if it is a workspace
+      PT_DEVMEM_DEBUG(
+          "Collect memory info:: ptr:: ",
+          (void*)mem_ptr,
+          " Mem Size:: ",
+          mem_size,
+          " State:: ",
+          MemoryStateToString(mem_state),
+          " Actual size:: ",
+          mem_actual_size);
+      in_use_memory_blocks.emplace_back(
+          mem_state, h2p.id_, mem_ptr, mem_size, mem_actual_size);
+    }
   }
 
   if (workspace_size_ > 0) {
     // Calculating workspace information.
     // Workspace is placed at the end of memory.
+    PT_DEVMEM_DEBUG(
+        "Collect memory info:: ptr:: ",
+        (void*)workspace_ptr_,
+        " Mem Size:: ",
+        workspace_size_,
+        " State:: ",
+        MemoryStateToString(MemoryState::FIXED),
+        " Actual size:: ",
+        workspace_size_);
     in_use_memory_blocks.emplace_back(
         MemoryState::FIXED,
         0,

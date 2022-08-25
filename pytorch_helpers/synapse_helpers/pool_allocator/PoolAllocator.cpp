@@ -256,7 +256,9 @@ bool StaticPooling::is_mem_threshold_hit() const {
   return false;
 }
 
-void* StaticPooling::extend_high_memory_allocation(uint64_t size) const {
+void* StaticPooling::extend_high_memory_allocation(
+    uint64_t size,
+    UNUSED size_t current_ws_size) const {
   PT_DEVMEM_DEBUG(
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
@@ -486,7 +488,9 @@ bool DynamicPooling::is_mem_threshold_hit() const {
   return false;
 }
 
-void* DynamicPooling::extend_high_memory_allocation(uint64_t size) const {
+void* DynamicPooling::extend_high_memory_allocation(
+    uint64_t size,
+    UNUSED size_t current_ws_size) const {
   PT_DEVMEM_DEBUG(
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);

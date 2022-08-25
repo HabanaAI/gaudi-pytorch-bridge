@@ -313,10 +313,12 @@ void* device_memory::workspace_alloc(
       void* v_ptr{nullptr};
       std::unique_lock<std::mutex> lock(defragmentation_mutex_);
 
-      auto extend_high_memory_alloc = [&](size_t new_workspace_size) -> void* {
+      auto extend_high_memory_alloc = [&](size_t new_workspace_size,
+                                          size_t curr_size) -> void* {
         std::unique_lock<std::mutex> lock(mutex_);
         void* v_ptr{nullptr};
-        v_ptr = suballoc_->extend_high_memory_allocation(new_workspace_size);
+        v_ptr = suballoc_->extend_high_memory_allocation(
+            new_workspace_size, curr_size);
         return v_ptr;
       };
       auto& recipe_counter = device_.get_active_recipe_counter();
@@ -325,13 +327,13 @@ void* device_memory::workspace_alloc(
       else
         suballoc_->threshold_check(false);
 
-      v_ptr = extend_high_memory_alloc(block_align(req_size));
+      v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
 
       if (v_ptr == nullptr) {
         while (recipe_counter.get_count() > 1) {
           recipe_counter.wait_for_next_decrease_call();
         }
-        v_ptr = extend_high_memory_alloc(block_align(req_size));
+        v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
       bool defragmentation_done = false;
       if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
@@ -346,7 +348,7 @@ void* device_memory::workspace_alloc(
       }
 
       if (defragmentation_done) {
-        v_ptr = extend_high_memory_alloc(req_size);
+        v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
 
       if (v_ptr != nullptr) {
@@ -360,9 +362,6 @@ void* device_memory::workspace_alloc(
         PT_DEVMEM_DEBUG(
             "Memory Stats in case workspace failure", stats.DebugString());
       }
-      log_synDeviceWorkspace(
-          device_, reinterpret_cast<uint64_t>(v_ptr), block_align(req_size));
-
       return v_ptr;
     }
   }
@@ -618,10 +617,14 @@ bool device_memory::defragment_memory(
         *suballoc_, handle2pointer_, alignment);
 
     std::vector<defragment_helpers::MemoryBlock> memory_blocks;
-    if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
-      PT_DEVMEM_WARN(
-          "Defragmentation cannot be started. Invalid memory information.");
-      return false;
+    try {
+      if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
+        PT_DEVMEM_WARN(
+            "Defragmentation cannot be started. Invalid memory information.");
+        return false;
+      }
+    } catch (const std::exception& e) {
+      PT_DEVMEM_FATAL("Exception in Collect Memory information...\n", e.what());
     }
 
     bool defragmentation_needed = true;
@@ -694,9 +697,11 @@ bool device_memory::defragment_memory(
       if (synStatus::synSuccess != synStreamSynchronize(handle)) {
         PT_DEVMEM_FATAL("Waiting for Move complete failed");
       }
+      PT_DEVMEM_DEBUG(
+          "Move of resources completed no of resources::", movers.size());
     }
   }
-
+  PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
     auto total_duration =
         std::chrono::high_resolution_clock::now() - timestamp_init;
@@ -732,7 +737,7 @@ size_t device_memory::get_total_memory_required(
     absl::Span<const device_ptr> addresses) {
   size_t total_memory = 0;
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
-    std::unordered_map<device_ptr, size_t> umap_addr;
+    std::unordered_map<mem_handle::id_t, size_t> umap_addr;
     std::unique_lock<std::mutex> lock(mutex_);
     for (const auto address : addresses) {
       auto h = mem_handle::reinterpret_from_pointer(address);
@@ -740,9 +745,9 @@ size_t device_memory::get_total_memory_required(
         continue;
       auto ptr_size = handle2pointer_.GetPtrSize(h.id());
       if (ptr_size.ptr_ == nullptr) {
-        auto found = umap_addr.find(address);
+        auto found = umap_addr.find(h.id());
         if (found == umap_addr.end()) {
-          umap_addr[address] = ptr_size.size_;
+          umap_addr[h.id()] = ptr_size.size_;
         }
       }
     }
@@ -776,6 +781,19 @@ device_ptr_lock device_memory::lock_addresses(
       const auto translated_address = get_pointer(h);
       out.emplace_back(translated_address);
     }
+
+    // update the out vector address to new  one
+    // if defragmentor is run as this could change the device
+    // address
+    if (update_on_defragment_) {
+      out.clear();
+      for (const auto address : addresses) {
+        const auto h = mem_handle::reinterpret_from_pointer(address);
+        const auto translated_address = get_pointer(h);
+        out.emplace_back(translated_address);
+      }
+    }
+    update_on_defragment_ = false;
     return device_ptr_lock(absl::make_unique<defragment::Lock>(
         threads_in_defragmenter_critical_section_, std::move(out)));
   } else {
@@ -847,6 +865,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     }
     if (defragmentation_done) {
       std::tie(ptr, size) = get_and_alloc_mem();
+      update_on_defragment_ = true;
     }
   }
 

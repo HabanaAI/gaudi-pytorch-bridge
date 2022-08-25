@@ -172,7 +172,8 @@ bool StaticCoalescedPooling::is_mem_threshold_hit() const {
 }
 
 void* StaticCoalescedPooling::extend_high_memory_allocation(
-    uint64_t size) const {
+    uint64_t size,
+    UNUSED size_t curr_size) const {
   PT_DEVMEM_DEBUG(
       "POOL:: extending high memory allocation not supported size::", size);
   return nullptr;

@@ -69,6 +69,7 @@ class device_memory {
 
   std::mutex mutex_;
   std::mutex defragmentation_mutex_;
+  bool update_on_defragment_ = false;
   device_ptr workspace_allocation_;
   HandlesMap handle2pointer_;
   device_ptr get_pointer(mem_handle);

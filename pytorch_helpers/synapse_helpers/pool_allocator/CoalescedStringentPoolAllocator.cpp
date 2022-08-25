@@ -620,9 +620,9 @@ static bool check_mem_threshold_hit(
 }
 
 void* CoalescedStringentPooling::extend_high_memory_allocation(
-    uint64_t size) const {
+    uint64_t size,
+    size_t current_ws_size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size_t current_ws_size = 0;
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
     return nullptr;
@@ -672,7 +672,6 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   // if high memory is already allocated, extend the remaining memory for the
   // requested size
   if (high_memory_allocated_) {
-    current_ws_size = tail_chunk->size;
     tail_chunk->used = false;
     bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk, false));
     tail_chunk = prealloc_pool->top;
@@ -682,6 +681,8 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
     PT_DEVMEM_DEBUG(
         "CS_POOL:: out of memory, when trying to extend high meory for size::",
         size);
+    bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+    tail_chunk->used = true;
     return nullptr;
   }
 

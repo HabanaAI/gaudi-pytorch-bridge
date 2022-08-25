@@ -43,7 +43,9 @@ class PoolingStrategy {
       const = 0;
   virtual void pool_free_chunk(void* p) const = 0;
   virtual bool is_mem_threshold_hit() const = 0;
-  virtual void* extend_high_memory_allocation(uint64_t size) const = 0;
+  virtual void* extend_high_memory_allocation(
+      uint64_t size,
+      size_t current_ws_size) const = 0;
   virtual void get_stats(MemoryStats* stats) const = 0;
   virtual void clear_stats() const = 0;
   virtual void reset_peak_mem_stats() const = 0;
@@ -102,8 +104,10 @@ class SubAllocator {
     return this->strategy_->is_mem_threshold_hit();
   }
 
-  void* extend_high_memory_allocation(uint64_t size) const {
-    return this->strategy_->extend_high_memory_allocation(size);
+  void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
+      const {
+    return this->strategy_->extend_high_memory_allocation(
+        size, current_ws_size);
   }
 
   void get_stats(MemoryStats* stats) const {
@@ -186,7 +190,8 @@ class StaticPooling : public PoolingStrategy {
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
-  void* extend_high_memory_allocation(uint64_t size) const override;
+  void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
+      const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
@@ -226,7 +231,8 @@ class DynamicPooling : public PoolingStrategy {
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
-  void* extend_high_memory_allocation(uint64_t size) const override;
+  void* extend_high_memory_allocation(uint64_t size, size_t ws_size)
+      const override;
   void get_stats(MemoryStats* stats) const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
