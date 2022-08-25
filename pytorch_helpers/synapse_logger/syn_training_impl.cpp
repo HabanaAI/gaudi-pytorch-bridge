@@ -679,6 +679,12 @@ synDeviceGetName(char* pName, const int len, const synDeviceId deviceId) {
 }
 
 inline void log_synTensorDescriptor(const synTensorDescriptor* obj) {
+  if (!logger_is_enabled(
+          synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
+      obj == nullptr) {
+    return;
+  }
+
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   out << R"("name":"object", "args":{"at":")" << (void*)obj
       << R"(", "type":"synTensorDescriptor", "fields":{)"
@@ -692,6 +698,12 @@ inline void log_synTensorDescriptor(const synTensorDescriptor* obj) {
 }
 
 inline void log_synConstTensorDescriptor(const synTensorDescriptor* obj) {
+  if (!logger_is_enabled(
+          synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
+      obj == nullptr) {
+    return;
+  }
+
   auto dataSize = synapse_logger::size_of_syn_data_type(obj->m_dataType);
   for (auto i = 0UL; i < obj->m_dims; i++) {
     dataSize *= obj->m_sizes[i];
@@ -719,6 +731,12 @@ inline void log_synConstTensorDescriptor(const synTensorDescriptor* obj) {
 inline void log_synTensorSetGeometry(
     const synTensorGeometry* obj,
     synTensor& tensor) {
+  if (!logger_is_enabled(
+          synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
+      obj == nullptr) {
+    return;
+  }
+
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
       << tensor << R"(, "type":"synTensorGeometry", "fields":{)"
@@ -731,6 +749,12 @@ inline void log_synTensorSetGeometry(
 inline void log_synTensorSetDeviceLayout(
     const synTensorDeviceLayout* obj,
     synTensor& tensor) {
+  if (!logger_is_enabled(
+          synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
+      obj == nullptr) {
+    return;
+  }
+
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
       << tensor << R"(, "type":"synTensorDeviceLayout", "fields":{)"
