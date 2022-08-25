@@ -75,12 +75,10 @@ at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
   const auto& stack = LazyOp<at::Tensor>::get_inputs();
   const torch::Tensor& self = stack_tensor(stack, 0);
 
-  c10::optional<const at::IValue*> output = is_outfn_
-      ? c10::make_optional<const at::IValue*>(&stack.back())
-      : c10::nullopt;
+  HABANA_ASSERT(!is_outfn_, "Unexpected output op variant");
   auto dtype_helper =
       habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
-          stack, output, get_dtype(stack, m_dtype_index), true);
+          stack, c10::nullopt, get_dtype(stack, m_dtype_index), true);
 
   return at::native::create_reduction_result(
       self,

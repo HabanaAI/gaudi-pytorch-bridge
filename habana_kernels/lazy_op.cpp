@@ -23,11 +23,9 @@ LazyOpWithTypePromotion<at::Tensor>::LazyOpWithTypePromotion(
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
         out_shapes_fn)
     : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  c10::optional<const at::IValue*> output = is_outfn
-      ? c10::make_optional<const at::IValue*>(&inputs.back())
-      : c10::nullopt;
+  HABANA_ASSERT(!is_outfn, "Unexpected output op variant");
   dtype_helper_ = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-      inputs, output, safe_cast_check);
+      inputs, c10::nullopt, safe_cast_check);
 }
 
 template <>
@@ -83,11 +81,10 @@ PromoteIntToFloat<at::Tensor>::PromoteIntToFloat(
         std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
         out_shapes_fn)
     : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  c10::optional<const at::IValue*> output =
-      is_outfn ? c10::make_optional(&inputs.back()) : c10::nullopt;
+  HABANA_ASSERT(!is_outfn, "Unexpected output op variant");
   dtype_helper_ =
       habana_helpers::DTypeHelper::binary_op_with_int_to_float_promotion(
-          inputs, output, safe_cast_check);
+          inputs, c10::nullopt, safe_cast_check);
 }
 
 template <>
