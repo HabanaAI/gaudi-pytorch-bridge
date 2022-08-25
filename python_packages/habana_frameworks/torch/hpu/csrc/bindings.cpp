@@ -13,7 +13,9 @@
 #include <torch/extension.h>
 #include <ATen/autocast_mode.h>
 // clang-format on
+#include <tuple>
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/habana_device/HPUEvent.h"
 #include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
@@ -150,6 +152,33 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     HPUStream stream = getDefaultHPUStream();
     return stream;
   });
+  m.def("get_stream_info", [](HPUStream stream) {
+    return std::make_tuple(stream.device(), stream.id());
+  });
+  m.def("id", [](HPUStream stream) { return stream.id(); });
+  m.def("stream_eq", [](HPUStream stream, HPUStream other) {
+    return stream == other;
+  });
+  m.def("get_event", [](bool enable_timing) {
+    return at::hpu::HPUEvent(enable_timing);
+  });
+  m.def("event_query", [](at::hpu::HPUEvent& event) { return event.query(); });
+  m.def("event_synchronize", [](at::hpu::HPUEvent& event) {
+    return event.synchronize();
+  });
+  m.def("event_record", [](at::hpu::HPUEvent& event, HPUStream stream) {
+    return event.record(stream);
+  });
+  m.def("event_wait", [](at::hpu::HPUEvent& event, HPUStream stream) {
+    return event.block(stream);
+  });
+  m.def("elapsed_time", [](at::hpu::HPUEvent& start, at::hpu::HPUEvent& end) {
+    return start.elapsed_time(end);
+  });
+  m.def("get_event_info", [](at::hpu::HPUEvent& event) {
+    return std::make_tuple(event.device_index(), event.isCreated());
+  });
+  py::class_<at::hpu::HPUEvent>(m, "HPUEvent");
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
   });
@@ -166,7 +195,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
     return py::reinterpret_borrow<py::object>(dtype);
   });
-
   py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
   m.def(
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });

@@ -21,8 +21,12 @@ class Stream(object):
     """
 
     def __init__(self, device=None, priority=0, provided_stream=None):
+        if not htorch.hpu.is_initialized():
+            htorch.hpu.init()
+
         if provided_stream is not None:
             self.stream = provided_stream
+            self.device = 0
         else:
             self.device = -1
             device = _get_device_index(device)
@@ -44,6 +48,69 @@ class Stream(object):
 
         """
         _hpu_C.synchronize(self.stream)
+
+    def __repr__(self):
+        info = get_stream_info(self.stream)
+        return ('<ht.hpu.Stream device={0} stream={1:#x}>'
+                .format(info[0], info[1]))
+
+    def __eq__(self, other):
+        r"""Check if other HPU stream is same as this stream
+        Args:
+            other HPU Stream
+        """
+        assert isinstance(other, Stream),"other stream should also be of type HPU Stream"
+        return _hpu_C.stream_eq(self.stream,other.stream)
+
+    def device_index(self):
+        return self.device
+
+    def id(self):
+        return _hpu_C.id(self.stream)
+
+    def record_event(self,event=None):
+        r"""Records an event.
+
+        Args:
+            event (htorch.hpu.Event, optional): event to record. If not given, a new one
+                will be allocated.
+
+        Returns:
+            Recorded event.
+        """
+        if event is None:
+            event = htorch.hpu.Event()
+        else:
+            assert isinstance(event,htorch.hpu.events.Event),"Provided evt is not of type Event"
+
+        _hpu_C.event_record(event.event,self.stream)
+        return event
+
+    def wait_event(self, event):
+        r"""Makes all future work submitted to the stream wait for an event.
+
+        Args:
+            event (htorch.hpu.Event): an event to wait for.
+
+           This function returns without waiting for :attr:`event`: only future
+           operations are affected.
+        """
+        event.wait(self)
+
+    def wait_stream(self, stream):
+        r"""Synchronizes with another stream.
+
+        All future work submitted to this stream will wait until all kernels
+        submitted to a given stream at the time of call complete.
+
+        Args:
+            stream (Stream): a stream to synchronize.
+
+        .. note:: This function returns without waiting for currently enqueued
+           kernels in :attr:`stream`: only future operations are affected.
+        """
+        assert isinstance(stream,Stream),"Provided stream is not of type Stream"
+        self.wait_event(stream.record_event())
 
 
 class StreamContext(object):
@@ -109,7 +176,6 @@ def current_stream():
     Args:
         None.
     """
-    #print('STREAMS: current_stream')
     return Stream(provided_stream = _hpu_C.get_current_stream())
 
 def default_stream():
@@ -118,3 +184,13 @@ def default_stream():
         None.
     """
     return Stream(provided_stream = _hpu_C.get_default_stream())
+
+def get_stream_info(stream:Stream):
+    r"""Gets the info for HPU stream.
+    Args:
+        stream.
+    """
+    if isinstance(stream, Stream):
+        stream = stream.stream
+
+    return _hpu_C.get_stream_info(stream)
