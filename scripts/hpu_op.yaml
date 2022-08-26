@@ -540,7 +540,10 @@ add.Scalar_out:
 addcdiv:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: div
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
@@ -550,7 +553,10 @@ addcdiv:
 addcdiv_:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: div
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
@@ -568,7 +574,10 @@ addcdiv.out:
 addcmul:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half]
   guid: mult_fwd
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
@@ -578,7 +587,10 @@ addcmul:
 addcmul_:
   force_default: false
   custom_output_shape: AddCOpsOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half]
   guid: mult_fwd
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
