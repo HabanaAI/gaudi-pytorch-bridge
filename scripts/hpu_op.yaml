@@ -1560,6 +1560,7 @@ eye.m_out:
 fill_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte, Short]
   op_backend: FillScalar
+  op_frontend: FillFE
   inplace_ids: [0]
   scalar_ids: [1]
 
