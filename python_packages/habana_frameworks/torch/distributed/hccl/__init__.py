@@ -2,6 +2,26 @@ import os
 import torch
 from habana_frameworks.torch.distributed._hccl_C import *
 
+def checkVisibleDevices(rank):
+    HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
+    HABANA_VISIBLE_DEVICES_VAR = "HABANA_VISIBLE_DEVICES"
+    HABANA_DEVICE_ID_VAR = "ID"
+
+    if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
+        visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
+        assert rank < len(visible_modules), f"""There is not enough devices
+        available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
+        is set correctly."""
+        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[rank]
+        return
+    elif HABANA_VISIBLE_DEVICES_VAR in os.environ.keys():
+        visible_modules = os.environ[HABANA_VISIBLE_DEVICES_VAR].split(",")
+        assert rank < len(visible_modules), f"""There is not enough devices
+        available for training. Please verify if {HABANA_VISIBLE_DEVICES_VAR}
+        is set correctly."""
+        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[rank]
+        return      
+
 def initialize_distributed_hpu() -> None:
     r"""Initializes and returns distributed configuration
     Returns world_size, rank and local_rank if the processes
@@ -38,4 +58,5 @@ def initialize_distributed_hpu() -> None:
 
     if world_size > 1 and local_rank != -1:
         os.environ["ID"] = str(local_rank)
+        checkVisibleDevices(local_rank)
     return world_size, rank, local_rank
