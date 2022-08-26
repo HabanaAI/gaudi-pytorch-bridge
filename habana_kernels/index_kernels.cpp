@@ -262,6 +262,23 @@ void GatherOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+OutputShapeInfRetType GatherOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto index = inputs[2].toTensor();
+  if (index.dim() == 0) {
+    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto output = AllocateOutput(inputs, OutputMetaData());
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      output.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          output.sizes().vec(), output.suggest_memory_format()),
+      output.scalar_type(),
+      output.suggest_memory_format()));
+  return out;
+}
+
 std::vector<int64_t> GatherElemOperator::compute_output_shape(
     const Tensor& self,
     int64_t dim_,
@@ -1770,6 +1787,15 @@ void IndexSelectOperator::AllocateAndAddSynapseNode(
   bool sparse_grad = false;
   inputs.emplace_back(IValue(sparse_grad));
   GatherOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+  // Revert input stack
+  inputs.pop_back();
+}
+
+OutputShapeInfRetType IndexSelectOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  bool sparse_grad = false;
+  inputs.emplace_back(IValue(sparse_grad));
+  return GatherOperator::ComputeOutputShape(inputs);
 }
 
 void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {

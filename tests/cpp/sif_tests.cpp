@@ -535,20 +535,13 @@ TEST_F(SifTest, DISABLED_IndexSubCat) {
   validate_shape_end();
 }
 
-// Hybrid SIF test, Tests Index with Compute Output Shape disabled
-// Tests Sub and Silu Bwd - auto gen ops - With enabled Compute Output shape
-// To do Add more Hybrid Sif tests
-// Disabling the following test since in CI the enabled ops list file
-// "./topologies/configs/yolov5_6/enabled_jit_ir_ops.txt",
-// is not accessible.
-TEST_F(SifTest, DISABLED_IndexSubSiluBwd) {
+// Hybrid SIF test, Tests Index, Sub and Silu Bwd - auto gen ops
+// with enabled Compute Output shape.
+// To do refactor and Add Hybrid Sif tests with JIT IR Ops list
+TEST_F(SifTest, IndexSubSiluBwd) {
   validate_shape_start();
   SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, true, 1);
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, true, 1);
-  SET_ENV_FLAG_NEW(
-      PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE,
-      "./topologies/configs/yolov5_6/enabled_jit_ir_ops.txt",
-      1);
   std::vector<int> in_sizes{8, 16, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -599,5 +592,4 @@ TEST_F(SifTest, DISABLED_IndexSubSiluBwd) {
   validate_shape_end();
   UNSET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
   UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE);
 }

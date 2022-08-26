@@ -422,7 +422,33 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SigmoidBwdTest) {
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
 }
 
+// index_select is supported as manual op
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
+  auto in_size = 1;
+  auto max_value = 1024;
+  auto datatype = torch::kInt;
+  auto index_value = 4;
+  auto dim = 0;
+  auto out_size = 0;
+
+  torch::ScalarType dtype = datatype;
+  torch::Tensor cpu_in =
+      torch::randint(0, max_value, {index_value}, torch::kInt);
+  torch::Tensor hpu_in = cpu_in.to("hpu");
+  auto cpu_index = cpu_in.to(torch::kLong);
+  auto hpu_index = cpu_index.to(torch::kHPU);
+
+  torch::Tensor cpu_in_1 = torch::randint(-127, 128, {max_value}, torch::kInt);
+  torch::Tensor hpu_in_2 = cpu_in_1.to("hpu");
+
+  auto expected = torch::index_select(cpu_in_1, dim, cpu_index);
+  auto result = torch::index_select(hpu_in_2, dim, hpu_index);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
+}
+
+// index_select_out is supported as auto gen op
+TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out) {
   auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
@@ -449,7 +475,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
   EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
 }
 
-TEST_F(LazyDynamicComputeOutputShapesTest, index_select_1) {
+TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out_1) {
   auto max_value = 28;
   auto datatype = torch::kInt;
   auto index_value = 5;

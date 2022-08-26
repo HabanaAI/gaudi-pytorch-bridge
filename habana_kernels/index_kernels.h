@@ -106,6 +106,9 @@ class GatherOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_shape(
@@ -256,6 +259,9 @@ class IndexSelectOperator : public GatherOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 

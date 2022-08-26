@@ -10,7 +10,7 @@ aten::eq
 aten::fill_
 aten::ge
 aten::gt
-#aten::index_select
+aten::index_select
 aten::lt
 aten::max_pool2d_with_indices
 aten::max_pool2d_with_indices_backward
@@ -19,7 +19,7 @@ aten::maximum
 aten::minimum
 aten::mul
 aten::mul_
-aten::native_batch_norm_backward
+hpu::native_batch_norm_backward
 aten::neg
 aten::permute
 aten::pow
@@ -41,13 +41,13 @@ hpu::expand
 hpu::habana_d2d_memcpy_other
 #hpu::habanaOptimizerFusedEMA
 #hpu::habanaOptimizerFusedSGDMomentum
-#hpu::index
+hpu::index
 hpu::native_batch_norm_rmv
 hpu::scatter_nd
 hpu::scatter_nd_onnx
 hpu::slice
-hpu::strided_insert_ds
-hpu::strided_view_ds
+hpu::strided_insert_orig_ds
+hpu::strided_view_orig_ds
 #hpu::sum_dim_IntList
 #hpu::topk
 hpu::upsample_nearest2d_backward

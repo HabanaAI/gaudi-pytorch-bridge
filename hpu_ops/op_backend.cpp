@@ -420,7 +420,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       } else {
         meta.AddIntermediateTensor(md);
       }
-      out.emplace_back(synapse_helpers::tensor::create_placeholder(0, {}, {}));
+      out.emplace_back(synapse_helpers::tensor::create_placeholder(
+          0, t.sizes().vec(), t.strides().vec()));
     }
 
     return out;
