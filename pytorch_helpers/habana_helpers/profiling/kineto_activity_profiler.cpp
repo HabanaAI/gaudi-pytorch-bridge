@@ -204,6 +204,6 @@ std::unique_ptr<IActivityProfiler> register_activity_profiler() {
 auto register_activity_profiler_factory = [] {
   libkineto::api().registerProfilerFactory(register_activity_profiler);
   return 0;
-}();
+};
 }; // namespace habana
 #undef FMT_HEADER_ONLY

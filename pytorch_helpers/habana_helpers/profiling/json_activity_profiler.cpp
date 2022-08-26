@@ -141,10 +141,12 @@ class JsonActivityProfiler : public SynapseProfiler {
       int64_t resource,
       uint64_t start,
       uint64_t end) {
-    if (isTPC) {
-      parser_.add_kernel_event(name, device, resource, start, end - start);
-    } else {
-      parser_.add_runtime_event(name, device, resource, start, end - start);
+    if (start > 0 && end > 0) {
+      if (isTPC) {
+        parser_.add_kernel_event(name, device, resource, start, end - start);
+      } else {
+        parser_.add_runtime_event(name, device, resource, start, end - start);
+      }
     }
   }
 

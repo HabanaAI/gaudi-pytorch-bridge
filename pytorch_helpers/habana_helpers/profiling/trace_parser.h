@@ -31,30 +31,34 @@ class HpuTraceParser {
  public:
   HpuTraceParser(
       TraceOutput& trace_output,
-      uint64_t hpu_start_time,
-      uint64_t wall_start_time);
+      long double hpu_start_time,
+      long double wall_start_time);
 
   ~HpuTraceParser();
 
   void Export(
       synTraceEvent* events_ptr,
       size_t num_events,
-      uint64_t wall_stop_time);
+      long double wall_stop_time);
 
  private:
   bool skipEvent(const synTraceEvent* events_ptr);
   void initLanes();
+  bool isEventInTime(
+      long double start,
+      long double end,
+      long double wall_stop_time);
   void convertEventsToActivities(
       synTraceEvent* events_ptr,
       size_t num_events,
-      uint64_t wall_stop_time);
-  uint64_t normalizeTimeStamp(long double t);
+      long double wall_stop_time);
+  int64_t timeStampHpuToTB(long double t);
   int64_t getDevice(const synTraceEvent* events_ptr);
 
   TraceOutput& trace_output_;
   const std::string plane_name_ = "/device:HPU:0";
-  uint64_t hpu_start_time_;
-  uint64_t wall_start_time_;
+  long double hpu_start_time_;
+  long double wall_start_time_;
   pid_t device_lane_{1};
   std::unique_ptr<EngineDatabase> engine_type_database_;
 };

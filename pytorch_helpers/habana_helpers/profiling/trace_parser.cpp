@@ -150,8 +150,8 @@ struct EngineDatabase {
 
 HpuTraceParser::HpuTraceParser(
     TraceOutput& trace_output,
-    uint64_t hpu_start_time,
-    uint64_t wall_start_time)
+    long double hpu_start_time,
+    long double wall_start_time)
     : trace_output_{trace_output},
       hpu_start_time_{hpu_start_time},
       wall_start_time_{wall_start_time} {}
@@ -161,7 +161,7 @@ HpuTraceParser::~HpuTraceParser() {}
 void HpuTraceParser::Export(
     synTraceEvent* events_ptr,
     size_t num_events,
-    uint64_t wall_stop_time) {
+    long double wall_stop_time) {
   engine_type_database_ = EngineDatabase::buildDatabase(events_ptr, num_events);
   initLanes();
   convertEventsToActivities(events_ptr, num_events, wall_stop_time);
@@ -207,59 +207,79 @@ void HpuTraceParser::initLanes() {
   }
 }
 
+bool HpuTraceParser::isEventInTime(
+    long double start,
+    long double end,
+    long double wall_stop_time) {
+  return start > hpu_start_time_ && end < wall_stop_time;
+}
+
 void HpuTraceParser::convertEventsToActivities(
     synTraceEvent* events_ptr,
     size_t num_events,
-    uint64_t wall_stop_time) {
+    long double wall_stop_time) {
   std::unordered_map<
       uint32_t,
       std::unordered_map<uint32_t, std::list<const synTraceEvent*>>>
       activeEvents;
   for (size_t i{}; i < num_events; i++, events_ptr++) {
-    if (skipEvent(events_ptr))
-      continue;
-    if (events_ptr->type == EventType::begin) {
-      activeEvents[events_ptr->engineIndex][events_ptr->contextId].push_back(
-          events_ptr);
-    } else if (events_ptr->type == EventType::end) {
-      auto& eventList =
-          activeEvents[events_ptr->engineIndex][events_ptr->contextId];
-      if (eventList.empty()) {
-        // ShowWarning("END event without BEGIN", events_ptr);
-      } else {
-        auto start = normalizeTimeStamp(eventList.front()->timestamp);
-        auto end = normalizeTimeStamp(events_ptr->timestamp);
-        trace_output_.addActivity(
-            StringOrFallback(events_ptr->arguments.operation, events_ptr->name),
-            engine_type_database_->isEngineTypeTPC(events_ptr->engineType),
-            getDevice(events_ptr),
-            engine_type_database_->getLine(events_ptr->engineIndex),
-            start,
-            end);
-      }
-    } else if (events_ptr->type == EventType::complete) {
-      auto start = normalizeTimeStamp(events_ptr->timestamp);
-      if (start < wall_start_time_ || start > wall_stop_time) {
-        // list might contain events before tracing start, ignore
+    if (!skipEvent(events_ptr)) {
+      if (events_ptr->type == EventType::begin ||
+          events_ptr->type == EventType::end) {
+        auto& eventList =
+            activeEvents[events_ptr->engineIndex][events_ptr->contextId];
+        if (events_ptr->type == EventType::begin) {
+          eventList.push_back(events_ptr);
+        } else {
+          if (!eventList.empty()) {
+            auto start = timeStampHpuToTB(eventList.front()->timestamp);
+            auto end = timeStampHpuToTB(events_ptr->timestamp);
+            if (isEventInTime(
+                    eventList.front()->timestamp,
+                    events_ptr->timestamp,
+                    wall_stop_time)) {
+              trace_output_.addActivity(
+                  StringOrFallback(
+                      events_ptr->arguments.operation, events_ptr->name),
+                  engine_type_database_->isEngineTypeTPC(
+                      events_ptr->engineType),
+                  getDevice(events_ptr),
+                  engine_type_database_->getLine(events_ptr->engineIndex),
+                  start,
+                  end);
+            }
+            eventList.pop_front();
+          }
+        }
         continue;
-      } else {
+      } else if (events_ptr->type == EventType::complete) {
+        auto start = timeStampHpuToTB(events_ptr->timestamp);
         auto end =
-            normalizeTimeStamp(events_ptr->timestamp + events_ptr->duration);
-        trace_output_.addActivity(
-            StringOrFallback(events_ptr->arguments.operation, events_ptr->name),
-            engine_type_database_->isEngineTypeTPC(events_ptr->engineType),
-            getDevice(events_ptr),
-            engine_type_database_->getLine(events_ptr->engineIndex),
-            start,
-            end);
+            timeStampHpuToTB(events_ptr->timestamp + events_ptr->duration);
+        if (isEventInTime(
+                events_ptr->timestamp,
+                events_ptr->timestamp + events_ptr->duration,
+                wall_stop_time)) {
+          trace_output_.addActivity(
+              StringOrFallback(
+                  events_ptr->arguments.operation, events_ptr->name),
+              engine_type_database_->isEngineTypeTPC(events_ptr->engineType),
+              getDevice(events_ptr),
+              engine_type_database_->getLine(events_ptr->engineIndex),
+              start,
+              end);
+        }
       }
     }
   }
 }
 
-uint64_t HpuTraceParser::normalizeTimeStamp(long double t) {
-  auto result = static_cast<int64_t>(t) - hpu_start_time_ + wall_start_time_;
-  return result > 0 ? result : 0;
+int64_t HpuTraceParser::timeStampHpuToTB(long double t) {
+  if (t > hpu_start_time_) {
+    return static_cast<int64_t>(roundl(t - hpu_start_time_ + wall_start_time_));
+  } else {
+    return 0;
+  }
 }
 
 int64_t HpuTraceParser::getDevice(const synTraceEvent* events_ptr) {

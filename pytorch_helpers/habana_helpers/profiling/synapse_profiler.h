@@ -21,6 +21,7 @@ class SynapseProfiler : public TraceOutput {
 
   bool dump_hltv_{false};
   std::unique_ptr<HpuTraceParser> parser_;
+  long double wall_stop_time_;
   std::unordered_map<uint64_t, std::pair<uint64_t, std::string>>
       custom_measurements_;
 };

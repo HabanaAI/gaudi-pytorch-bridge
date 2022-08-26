@@ -4,13 +4,10 @@
 
 namespace habana {
 
-uint64_t nowNanos(clockid_t clock) {
-  constexpr uint64_t kSecondsToNanos = 1000ULL * 1000ULL * 1000ULL;
-  struct timespec ts;
-  clock_gettime(clock, &ts);
-  return (
-      static_cast<uint64_t>(ts.tv_sec) * kSecondsToNanos +
-      static_cast<uint64_t>(ts.tv_nsec));
+static int64_t getTimeUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::system_clock::now().time_since_epoch())
+      .count();
 }
 
 SynapseProfiler::SynapseProfiler() {
@@ -28,8 +25,10 @@ void SynapseProfiler::start() {
   // Necessary to initialize the device to use synapse api calls
   HABANAGuardImpl h;
   h.getDevice();
-  auto hpu_start_time = nowNanos(CLOCK_MONOTONIC_RAW) / 1000;
-  auto wall_start_time = nowNanos(CLOCK_REALTIME) / 1000;
+  uint64_t hpu_start_time_ns{};
+  synProfilerGetCurrentTimeNS(&hpu_start_time_ns);
+  long double hpu_start_time = hpu_start_time_ns / 1000.0L;
+  long double wall_start_time = getTimeUs();
   parser_ =
       std::make_unique<HpuTraceParser>(*this, hpu_start_time, wall_start_time);
 
@@ -40,6 +39,9 @@ void SynapseProfiler::start() {
 }
 
 void SynapseProfiler::stop() {
+  uint64_t wall_stop_time_ns{};
+  synProfilerGetCurrentTimeNS(&wall_stop_time_ns);
+  wall_stop_time_ = wall_stop_time_ns / 1000;
   synStatus status = synProfilerStop(synTraceAll, 0);
   if (status != synSuccess) {
     std::cerr << "synProfilerStop failed" << std::endl;
@@ -48,8 +50,6 @@ void SynapseProfiler::stop() {
 }
 
 void SynapseProfiler::convertLogs() {
-  auto wall_stop_time = nowNanos(CLOCK_REALTIME) / 1000;
-
   size_t size{}, count{};
   getLogsSize(size, count);
   if (count == 0) {
@@ -63,7 +63,7 @@ void SynapseProfiler::convertLogs() {
   if (!getEntries(size, count, events.data())) {
     return;
   }
-  parser_->Export(events.data(), count - 1, wall_stop_time);
+  parser_->Export(events.data(), count - 1, wall_stop_time_);
 }
 
 void SynapseProfiler::getLogsSize(size_t& size, size_t& count) {
