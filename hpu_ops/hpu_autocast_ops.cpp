@@ -11,6 +11,10 @@
  *******************************************************************************
  */
 
+#include <torch/csrc/api/include/torch/version.h>
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+
 #include <ATen/ATen.h>
 #include <ATen/NativeFunctions.h>
 #include <torch/library.h>
@@ -398,3 +402,5 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
 } // namespace
 } // namespace autocast
 } // namespace at
+
+#endif
