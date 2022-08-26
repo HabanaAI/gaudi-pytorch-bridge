@@ -265,6 +265,13 @@ void* StaticPooling::extend_high_memory_allocation(
   return nullptr;
 }
 
+std::vector<std::pair<uint64_t, uint64_t>> StaticPooling::
+    get_occupied_chunk_map() const {
+  std::vector<std::pair<uint64_t, uint64_t>> occupied_chunks_map{};
+  PT_DEVMEM_WARN("get_occupied_chunk_map not implemented for StaticPooling!");
+  return occupied_chunks_map;
+}
+
 void StaticPooling::get_stats(MemoryStats* mem_stats) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   *mem_stats = stats;
@@ -495,6 +502,13 @@ void* DynamicPooling::extend_high_memory_allocation(
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
   return nullptr;
+}
+
+std::vector<std::pair<uint64_t, uint64_t>> DynamicPooling::
+    get_occupied_chunk_map() const {
+  std::vector<std::pair<uint64_t, uint64_t>> occupied_chunks_map{};
+  PT_DEVMEM_WARN("get_occupied_chunk_map not implemented for DynamicPooling!");
+  return occupied_chunks_map;
 }
 
 void DynamicPooling::get_stats(MemoryStats* mem_stats) const {

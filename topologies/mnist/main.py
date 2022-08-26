@@ -11,6 +11,8 @@ import time
 from torch.utils import data
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.experimental as htexp
 
 # The default path to look for the data
 # If path does not exist, the path will be created
@@ -168,8 +170,11 @@ def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaDat
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
+        htcore.mark_step()
+        #htexp._record_params(model, optimizer)
         optimizer.step()
         htcore.mark_step()
+        htexp._record_params(model, optimizer)
         iter_duration = time.time() - iter_timer_start
         # if batch_idx % args.log_interval == 0:
         acc1, acc5 = trainMetaData.accuracy(output.to('cpu'), target.to('cpu'), topk=(1, 5))

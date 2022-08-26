@@ -365,6 +365,7 @@ void* device_memory::workspace_alloc(
         log_synDeviceAllocFail(device_, true, block_align(req_size));
         memory_reporter_event_create(device_, MEM_REPORTER_OOM);
       }
+
       return v_ptr;
     }
   }
@@ -388,6 +389,17 @@ device_ptr device_memory::fix_address(void* ptr) {
   } else {
     return reinterpret_cast<uint64_t>(ptr);
   }
+}
+
+void device_memory::record_param(
+    const std::string& name,
+    const bool is_param,
+    const bool is_grad,
+    const bool is_optim_state,
+    const uint64_t t_start,
+    const uint64_t t_end) {
+  log_synDeviceRecordTensorInfo(
+      name, is_param, is_grad, is_optim_state, false, false, t_start, t_end);
 }
 
 void device_memory::check_and_limit_recipe_execution(size_t size) {
@@ -748,6 +760,7 @@ device_ptr_lock device_memory::lock_addresses(
   out.reserve(addresses.size());
 
   log_synDeviceLockMemory(addresses);
+
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     std::unique_lock<std::mutex> lock(defragmentation_mutex_);
     for (const auto address : addresses) {
@@ -865,6 +878,15 @@ void device_memory::get_memory_stats(MemoryStats* stats) {
   if (pool_strategy_ != pool_allocator::strategy_none) {
     suballoc_->get_stats(stats);
   }
+}
+
+std::vector<std::pair<uint64_t, uint64_t>> device_memory::
+    get_occupied_chunk_map() {
+  std::vector<std::pair<uint64_t, uint64_t>> occupied_chunk_map{};
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    occupied_chunk_map = suballoc_->get_occupied_chunk_map();
+  }
+  return occupied_chunk_map;
 }
 
 void device_memory::clear_memory_stats() {

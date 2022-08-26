@@ -71,6 +71,9 @@ class StaticCoalescedPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size, size_t curr_ws)
       const override;
   void get_stats(MemoryStats* stats) const override;
+  ;
+  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
+      const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
   void print_pool_stats() const override;

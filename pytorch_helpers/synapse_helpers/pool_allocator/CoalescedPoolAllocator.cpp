@@ -918,6 +918,14 @@ void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   stats.UpdateStats(chunk->size, false);
 }
 
+std::vector<std::pair<uint64_t, uint64_t>> StaticCoalescedPooling::
+    get_occupied_chunk_map() const {
+  std::vector<std::pair<uint64_t, uint64_t>> occupied_chunks_map{};
+  PT_DEVMEM_WARN(
+      "get_occupied_chunk_map not implemented for StaticCoalescedPooling!");
+  return occupied_chunks_map;
+}
+
 void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   // Fragmentation info

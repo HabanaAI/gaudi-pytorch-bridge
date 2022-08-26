@@ -528,10 +528,6 @@ synapse_error_o graph::launch(
   }
   auto workspace_buffer = device.get_workspace_buffer(workspace_size);
 
-  log_graph_info(
-      recipe_handle.recipe_name_.c_str(),
-      device.get_device_memory().get_total_memory_required(addresses),
-      workspace_size);
   memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
 
   {
@@ -543,6 +539,7 @@ synapse_error_o graph::launch(
       if (GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ENABLE_TENSOR_INFO)) {
         log_tensor_info(
             ((iter->tensorName == nullptr) ? "" : iter->tensorName),
+            index,
             address,
             addresses[index]);
       }
@@ -555,6 +552,12 @@ synapse_error_o graph::launch(
       ++index;
       ++iter;
     }
+
+    log_graph_info(
+        device,
+        recipe_handle.recipe_name_.c_str(),
+        device.get_device_memory().get_total_memory_required(addresses),
+        workspace_size);
 
     uint32_t flags{0};
     std::vector<synEventHandle> event_handles;

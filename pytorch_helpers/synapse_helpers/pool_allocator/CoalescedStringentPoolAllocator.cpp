@@ -1131,8 +1131,29 @@ void* CoalescedStringentPooling::SmallAllocs::GetChunkPtr() {
   return chunk_ptr_.get();
 }
 
+std::vector<std::pair<uint64_t, uint64_t>> CoalescedStringentPooling::
+    get_occupied_chunk_map() const {
+  std::vector<std::pair<uint64_t, uint64_t>> occupied_chunk_map;
+  std::map<uint64_t, Chunk*> chunks_ordered;
+  for (auto& m : chunks) {
+    chunks_ordered.insert(m);
+  }
+  for (auto& m : chunks_ordered) {
+    auto chunk = m.second;
+    if (chunk->size == 0)
+      continue;
+    if (chunk->used) {
+      occupied_chunk_map.emplace_back(
+          std::make_pair(chunk->memptr, chunk->size));
+    }
+  }
+
+  return occupied_chunk_map;
+}
+
 void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+
   // Fragmentation info
   bool log_fragmentation_info =
       GET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);

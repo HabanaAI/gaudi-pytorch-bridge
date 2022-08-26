@@ -41,6 +41,18 @@ void RecordQuantParams(std::string name, float min, float max) {
   PT_BRIDGE_DEBUG(name, " = min  : ", min, " max : ", max);
 }
 
+void RecordParam(
+    const std::string& name,
+    const bool is_param,
+    const bool is_grad,
+    const bool is_optim_state,
+    const uint64_t t_start,
+    const uint64_t t_size) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  device.record_param(
+      name, is_param, is_grad, is_optim_state, t_start, t_start + t_size);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_device_type", []() { return GetDeviceType(); });
   m.def(
@@ -61,6 +73,22 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("name"),
       py::arg("min"),
       py::arg("max"));
+  m.def(
+      "record_param",
+      [](const std::string name,
+         const bool is_param,
+         const bool is_grad,
+         const bool is_optim_state,
+         const uint64_t t_start,
+         const uint64_t t_size) {
+        RecordParam(name, is_param, is_grad, is_optim_state, t_start, t_size);
+      },
+      py::arg("name"),
+      py::arg("is_param"),
+      py::arg("is_grad"),
+      py::arg("is_optim_state"),
+      py::arg("t_start"),
+      py::arg("t_size"));
   py::enum_<synDeviceType>(m, "synDeviceType")
       .value("synDeviceGaudi", synDeviceGaudi)
       .value("synDeviceGaudiM", synDeviceGaudiM)

@@ -48,8 +48,16 @@ class device_memory {
   synStatus free(void* ptr);
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
   device_ptr fix_address(void* ptr);
+  void record_param(
+      const std::string& name,
+      const bool is_param,
+      const bool is_grad,
+      const bool is_optim_state,
+      const uint64_t t_start,
+      const uint64_t t_end);
   bool is_mem_threshold_hit();
   void get_memory_stats(MemoryStats* stats);
+  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map();
   void clear_memory_stats();
   void reset_peak_memory_stats();
   device_ptr_lock lock_addresses(absl::Span<const device_ptr>);

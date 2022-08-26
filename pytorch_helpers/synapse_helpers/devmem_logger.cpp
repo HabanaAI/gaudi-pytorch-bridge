@@ -80,8 +80,9 @@ deviceMallocData::deviceMallocData() {
   dram_start_ = dram_size_ = 0;
 
   logging_enabled_ = (take_bt || print_free_bt || print_alloc_bt);
-  if (logging_enabled_ || enable_recording || print_memory_stats)
+  if (logging_enabled_ || enable_recording || print_memory_stats) {
     out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
+  }
 
   if (mem_reporter_enable_) {
     SET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO, true, 1);
@@ -91,6 +92,16 @@ deviceMallocData::deviceMallocData() {
     // Redirect output to logfile
     auto coutbuf = std::cout.rdbuf(); // save old buf
     std::cout.rdbuf(memory_reporter_out.rdbuf());
+    std::cout << "[\n";
+    std::cout.rdbuf(coutbuf); // reset to standard output again
+  }
+  fragment_json_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
+  if (fragment_json_enabled_) {
+    memory_json_out.open(
+        "memory.log.json", std::ofstream::out | std::ofstream::trunc);
+    // Redirect output to logfile
+    auto coutbuf = std::cout.rdbuf(); // save old buf
+    std::cout.rdbuf(memory_json_out.rdbuf());
     std::cout << "[\n";
     std::cout.rdbuf(coutbuf); // reset to standard output again
   }
@@ -107,6 +118,9 @@ deviceMallocData::~deviceMallocData() {
     std::cout << "]\n";
     std::cout.rdbuf(coutbuf); // reset to standard output again
     memory_reporter_out.close();
+  }
+  if (memory_json_out.is_open()) {
+    memory_json_out.close();
   }
 }
 
@@ -645,6 +659,263 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   ptr_bt_map_last = ptr_bt_map;
 }
 
+void deviceMallocData::record_graph_tensor_info(
+    const std::string& name,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    const uint64_t index,
+    uint64_t size) {
+  if (is_graph_input) {
+    graph_input_indices.insert({index, graph_input.size()});
+    graph_input.emplace_back(std::make_tuple(index, size, name));
+  } else if (is_graph_output) {
+    graph_output_indices.insert({index, graph_output.size()});
+    graph_output.emplace_back(std::make_tuple(index, size, name));
+  }
+}
+
+void deviceMallocData::update_graph_tensor_info(
+    const uint64_t index,
+    uint64_t start) {
+  auto is_input = graph_input_indices.find(index) != graph_input_indices.end();
+
+  auto update_graph_entry =
+      [&](const uint64_t index,
+          const uint64_t list_index,
+          std::vector<std::tuple<uint64_t, uint64_t, std::string>>&
+              graph_tensors) {
+        assert(list_index < graph_tensors.size());
+        auto& entry = graph_tensors.at(list_index);
+        if (index != std::get<0>(entry)) {
+          return;
+        }
+        auto size = std::get<1>(entry);
+        auto& name = std::get<2>(entry);
+        graph_tensors[list_index] = std::make_tuple(start, start + size, name);
+        // std::cout << "graph entry: " << name << " start = " << start << "end
+        // = " << start + size << "\n";
+      };
+
+  if (is_input) {
+    auto input_entry = graph_input_indices.find(index);
+    update_graph_entry(input_entry->first, input_entry->second, graph_input);
+  } else {
+    auto output_entry = graph_output_indices.find(index);
+    assert(output_entry != graph_output_indices.end());
+    update_graph_entry(output_entry->first, output_entry->second, graph_output);
+  }
+}
+
+void deviceMallocData::record_tensor_info(
+    const std::string& name,
+    const bool is_param,
+    const bool is_grad,
+    const bool is_optim_state,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    uint64_t start,
+    uint64_t end) {
+  if (is_param) {
+    params.emplace_back(std::make_tuple(start, end, name));
+  } else if (is_grad) {
+    grads.emplace_back(std::make_tuple(start, end, name));
+  } else if (is_optim_state) {
+    optim_states.emplace_back(std::make_tuple(start, end, name));
+  } else if (is_graph_input) {
+    // Not adding via this.. graph_input.emplace_back(std::make_tuple(start,
+    // end, name));
+  } else if (is_graph_output) {
+    // Not adding via this.. graph_output.emplace_back(std::make_tuple(start,
+    // end, name));
+  }
+}
+
+void deviceMallocData::create_fragment_json_entry(
+    synapse_helpers::device& device,
+    std::string& graph_name) {
+  auto occupied_chunks_map =
+      device.get_device_memory().get_occupied_chunk_map();
+  static int stat_idx;
+
+  // Redirect output to logfile
+  auto coutbuf = std::cout.rdbuf(); // save old buf
+
+  std::unordered_set<std::string> json_params_printed;
+
+  std::string frag_line_header = std::string("{ \"tid\":") +
+      std::to_string(stat_idx++) + std::string(", \"pid\":") +
+      std::to_string(getpid()) + std::string(", ");
+
+  bool first_chunk_reported = false;
+
+  for (auto& chunk : occupied_chunks_map) {
+    std::string frag_chunk_begin = frag_line_header;
+    if (!first_chunk_reported) {
+      frag_chunk_begin += std::string("\"ts\":") + std::to_string(0);
+      frag_chunk_begin += std::string(", \"name\":\"") + graph_name +
+          std::string("\", \"ph\":\"B\", \"func\":\"Graph") +
+          std::string("\", \"args\":{\"graph name\":\"") + graph_name +
+          std::string("\"}}\n");
+      std::string frag_chunk_end = frag_line_header;
+      frag_chunk_end +=
+          std::string("\"ts\":") + std::to_string((chunk.first) / (1024));
+      frag_chunk_end += std::string(", \"name\":\"") + graph_name +
+          std::string("\", \"ph\":\"E\", \"func\":\"Graph") +
+          std::string("\", \"args\":{\"graph name\":\"") + graph_name +
+          std::string("\"}}\n");
+
+      std::cout.rdbuf(memory_json_out.rdbuf());
+      std::cout << frag_chunk_begin;
+      std::cout << frag_chunk_end;
+      first_chunk_reported = true;
+    }
+
+    frag_chunk_begin = frag_line_header;
+    frag_chunk_begin +=
+        std::string("\"ts\":") + std::to_string(chunk.first / (1024));
+    frag_chunk_begin +=
+        std::string(
+            ", \"name\":\"Persistent\", \"ph\":\"B\", \"func\":\"Persistent\", \"args\":{\"Size_in_bytes\":\"") +
+        std::to_string(chunk.second / (1024)) + std::string(" KB\"}}\n");
+    std::string frag_chunk_end = frag_line_header;
+    frag_chunk_end += std::string("\"ts\":") +
+        std::to_string((chunk.first + chunk.second) / (1024));
+    frag_chunk_end +=
+        std::string(
+            ", \"name\":\"Persistent\", \"ph\":\"E\", \"func\":\"Persistent\", \"args\":{\"Size_in_bytes\":\"") +
+        std::to_string(chunk.second / (1024)) + std::string(" KB\"}}\n");
+
+    std::cout.rdbuf(memory_json_out.rdbuf());
+    std::cout << frag_chunk_begin;
+    std::cout << frag_chunk_end;
+
+    auto write_model_tensors =
+        [&](std::vector<std::tuple<uint64_t, uint64_t, std::string>>
+                model_tensors,
+            const std::string& type) {
+          for (auto p : model_tensors) {
+            uint64_t start = std::get<0>(p);
+            uint64_t end = std::get<1>(p);
+            std::string name = std::get<2>(p);
+
+            if ((json_params_printed.count(name) == 0) &&
+                (start >= chunk.first) &&
+                (end <= (chunk.first + chunk.second))) {
+              std::string param_begin = frag_line_header;
+              param_begin +=
+                  std::string("\"ts\":") + std::to_string(start / (1024));
+              param_begin += std::string(", \"name\":\"") + std::string(type) +
+                  std::string("\", \"ph\":\"B\", \"func\":\"") +
+                  std::string("\", \"args\":{\"Name\":\"") + std::string(name) +
+                  std::string("\", \"Size_in_bytes\":\"") +
+                  std::to_string(chunk.second / (1024)) +
+                  std::string(" KB\"}}\n");
+              std::string param_end = frag_line_header;
+              param_end +=
+                  std::string("\"ts\":") + std::to_string(end / (1024));
+              param_end += std::string(", \"name\":\"") + std::string(type) +
+                  std::string("\", \"ph\":\"E\", \"func\":\"") +
+                  std::string("\", \"args\":{\"Name\":\"") + std::string(name) +
+                  std::string("\", \"Size_in_bytes\":\"") +
+                  std::to_string(chunk.second / (1024)) +
+                  std::string(" KB\"}}\n");
+
+              std::cout << param_begin;
+              std::cout << param_end;
+              json_params_printed.insert(name);
+            }
+          }
+        };
+
+    write_model_tensors(graph_input, "Graph Input");
+    write_model_tensors(graph_output, "Graph Output");
+    write_model_tensors(params, "Weight");
+    write_model_tensors(grads, "Grad");
+    write_model_tensors(optim_states, "Optimizer State");
+
+    if ((workspace_start >= chunk.first) &&
+        (workspace_end <= (chunk.first + chunk.second))) {
+      std::string workspace_chunk_begin = frag_line_header;
+      workspace_chunk_begin +=
+          std::string("\"ts\":") + std::to_string(workspace_start / (1024));
+      workspace_chunk_begin +=
+          std::string(
+              ", \"name\":\"Workspace\", \"ph\":\"B\", \"func\":\"Workspace\", \"args\":{\"Name\":\"") +
+          std::string(graph_name) + std::string("\", \"Size_in_bytes\":\"") +
+          std::to_string((workspace_end - workspace_start) / (1024)) +
+          std::string(" KB\"}}\n");
+      std::string workspace_chunk_end = frag_line_header;
+      workspace_chunk_end +=
+          std::string("\"ts\":") + std::to_string(workspace_end / (1024));
+      workspace_chunk_end +=
+          std::string(
+              ", \"name\":\"Workspace\", \"ph\":\"E\", \"func\":\"Workspace\", \"args\":{\"Name\":\"") +
+          std::string(graph_name) + std::string("\", \"Size_in_bytes\":\"") +
+          std::to_string((workspace_end - workspace_start) / (1024)) +
+          std::string(" KB\"}}\n");
+
+      std::cout << workspace_chunk_begin;
+      std::cout << workspace_chunk_end;
+    }
+  }
+
+  graph_input.clear();
+  graph_output.clear();
+
+  graph_input_indices.clear();
+  graph_output_indices.clear();
+
+  std::cout.rdbuf(coutbuf); // reset to standard output again
+}
+
+/**
+ * log_synDeviceRecordTensorInfo
+ */
+void log_synDeviceRecordGraphTensorInfo(
+    const std::string& name,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    const uint64_t index,
+    uint64_t size) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.record_graph_tensor_info(
+        name, is_graph_input, is_graph_output, index, size);
+  }
+}
+
+void log_synDeviceUpdateGraphTensorInfo(const uint64_t index, uint64_t start) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.update_graph_tensor_info(index, start);
+  }
+}
+
+/**
+ * log_synDeviceRecordTensorInfo
+ */
+void log_synDeviceRecordTensorInfo(
+    const std::string& name,
+    const bool is_param,
+    const bool is_grad,
+    const bool is_optim_state,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    uint64_t start,
+    uint64_t end) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.record_tensor_info(
+        name,
+        is_param,
+        is_grad,
+        is_optim_state,
+        is_graph_input,
+        is_graph_output,
+        start,
+        end);
+  }
+}
 /*
  * log synDeviceMalloc
  */
@@ -697,6 +968,10 @@ void log_synDeviceWorkspace(
     std::string updated_msg = "Workspace Allocation";
     updated_msg = updated_msg + "\n" + stats.DebugString();
     synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.update_workspace_record(ptr, ptr + size);
   }
 }
 
@@ -753,13 +1028,20 @@ void log_synDeviceLockMemory(
 /*
  * log graph info - name, total memory and size
  */
-void log_graph_info(std::string graph_name, size_t size, size_t wsize) {
+void log_graph_info(
+    synapse_helpers::device& device,
+    std::string graph_name,
+    size_t size,
+    size_t wsize) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     std::stringstream msg;
     msg << "GRAPH " << graph_name << " total Memory::" << size
         << " WS::" << wsize;
     synapse_helpers::print_live_allocations(msg.str().c_str());
+  }
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.create_fragment_json_entry(device, graph_name);
   }
 }
 
@@ -768,6 +1050,7 @@ void log_graph_info(std::string graph_name, size_t size, size_t wsize) {
  */
 void log_tensor_info(
     std::string tensor_name,
+    uint64_t index,
     uint64_t v_addr,
     uint64_t d_addr) {
   auto& dmd = deviceMallocData::singleton();
@@ -776,6 +1059,9 @@ void log_tensor_info(
     msg << "Tensor Name" << tensor_name << " virtual addr::" << v_addr
         << " device_addr::" << d_addr;
     synapse_helpers::print_live_allocations(msg.str().c_str());
+  }
+  if (dmd.is_fragment_json_enabled()) {
+    dmd.update_graph_tensor_info(index, v_addr);
   }
 }
 

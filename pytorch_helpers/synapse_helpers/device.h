@@ -161,6 +161,17 @@ class device {
     return device_memory_.fix_address(ptr);
   }
 
+  void record_param(
+      const std::string& name,
+      const bool is_param,
+      const bool is_grad,
+      const bool is_optim_state,
+      const uint64_t t_start,
+      const uint64_t t_end) {
+    device_memory_.record_param(
+        name, is_param, is_grad, is_optim_state, t_start, t_end);
+  }
+
   synapse_error copy_data_to_device(
       void* cpu_data,
       device_ptr destination,

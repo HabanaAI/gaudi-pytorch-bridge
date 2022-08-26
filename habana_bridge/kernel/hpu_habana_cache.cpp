@@ -29,6 +29,7 @@
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
+#include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/event.h"
 
@@ -1206,9 +1207,16 @@ void RecipeValueSpec::patch_launch_info(
       (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
       "syn tensor ids are not populated");
 
+  auto record_graph_data = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
   size_t tensor_idx{0};
   for (size_t i = 0; i < num_tinfos; ++i) {
     PtTensorInfo& ti = *(dtensorinfos->at(i));
+    if (record_graph_data) {
+      auto is_output = ti.is_output();
+      synapse_helpers::log_synDeviceRecordGraphTensorInfo(
+          ti.get_ir_name(), !is_output, is_output, i, ti.get_size());
+    }
+
     switch (ti.tensor_type()) {
       case SHAPE_TENSOR:
       case INPUT_DESCRIBING_SHAPE_TENSOR: {

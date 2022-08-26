@@ -60,6 +60,7 @@ class deviceMallocData final {
   size_t bt_depth;
   bool logging_enabled_;
   bool mem_reporter_enable_{false};
+  bool fragment_json_enabled_{false};
 
   uint64_t dram_start_, dram_size_;
   std::ofstream out;
@@ -134,6 +135,10 @@ class deviceMallocData final {
       synapse_helpers::MemoryStats& mem_stats,
       std::string& event_name);
 
+  bool is_fragment_json_enabled() const {
+    return fragment_json_enabled_;
+  }
+
   auto lock() {
     return std::unique_lock<std::mutex>(m);
   }
@@ -168,6 +173,35 @@ class deviceMallocData final {
     auto lk = lock();
     print_to_file(ss.str().c_str());
   }
+
+  void record_graph_tensor_info(
+      const std::string& name,
+      const bool is_graph_input,
+      const bool is_graph_output,
+      const uint64_t index,
+      uint64_t size);
+
+  void update_graph_tensor_info(const uint64_t index, uint64_t start);
+
+  void record_tensor_info(
+      const std::string& name,
+      const bool is_param,
+      const bool is_grad,
+      const bool is_optim_state,
+      const bool is_graph_input,
+      const bool is_graph_output,
+      const uint64_t t_start,
+      const uint64_t t_end);
+
+  void update_workspace_record(uint64_t start, uint64_t end) {
+    workspace_start = start;
+    workspace_end = end;
+  }
+
+  void create_fragment_json_entry(
+      synapse_helpers::device& device,
+      std::string& graph_name);
+
   // TBD:: Make it private
   std::mutex m;
 
@@ -175,6 +209,15 @@ class deviceMallocData final {
   std::ofstream memory_reporter_out;
 
   deviceMallocData();
+  std::ofstream memory_json_out;
+  uint64_t workspace_start{0}, workspace_end{0};
+  std::vector<std::tuple<uint64_t, uint64_t, std::string>> params;
+  std::vector<std::tuple<uint64_t, uint64_t, std::string>> grads;
+  std::vector<std::tuple<uint64_t, uint64_t, std::string>> optim_states;
+  std::vector<std::tuple<uint64_t, uint64_t, std::string>> graph_input;
+  std::vector<std::tuple<uint64_t, uint64_t, std::string>> graph_output;
+  std::unordered_map<uint64_t, size_t> graph_input_indices{},
+      graph_output_indices{};
 };
 
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed = false);
@@ -195,8 +238,33 @@ void log_synDeviceAllocFail(
     bool is_workspace,
     size_t size);
 
-void log_graph_info(std::string graph_name, size_t size, size_t wsize);
-void log_tensor_info(std::string tensor_name, uint64_t v_addr, uint64_t d_addr);
+void log_graph_info(
+    synapse_helpers::device& device,
+    std::string graph_name,
+    size_t size,
+    size_t wsize);
+
+void log_synDeviceRecordGraphTensorInfo(
+    const std::string& name,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    const uint64_t index,
+    uint64_t size);
+void log_synDeviceUpdateGraphTensorInfo(const uint64_t index, uint64_t start);
+void log_synDeviceRecordTensorInfo(
+    const std::string& name,
+    const bool is_param,
+    const bool is_grad,
+    const bool is_optim_state,
+    const bool is_graph_input,
+    const bool is_graph_output,
+    uint64_t start,
+    uint64_t end);
+void log_tensor_info(
+    std::string tensor_name,
+    uint64_t index,
+    uint64_t v_addr,
+    uint64_t d_addr);
 void print_to_file(const char* msg);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);

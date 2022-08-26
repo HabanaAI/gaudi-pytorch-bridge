@@ -47,6 +47,8 @@ class PoolingStrategy {
       uint64_t size,
       size_t current_ws_size) const = 0;
   virtual void get_stats(MemoryStats* stats) const = 0;
+  virtual std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
+      const = 0;
   virtual void clear_stats() const = 0;
   virtual void reset_peak_mem_stats() const = 0;
   virtual size_t allocated_size(UNUSED const void* p) const {
@@ -107,6 +109,10 @@ class SubAllocator {
       const {
     return this->strategy_->extend_high_memory_allocation(
         size, current_ws_size);
+  }
+
+  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map() const {
+    return this->strategy_->get_occupied_chunk_map();
   }
 
   void get_stats(MemoryStats* stats) const {
@@ -189,6 +195,8 @@ class StaticPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
       const override;
   void get_stats(MemoryStats* stats) const override;
+  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
+      const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
   void print_pool_stats() const override;
@@ -230,6 +238,8 @@ class DynamicPooling : public PoolingStrategy {
   void* extend_high_memory_allocation(uint64_t size, size_t ws_size)
       const override;
   void get_stats(MemoryStats* stats) const override;
+  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
+      const override;
   void clear_stats() const override;
   void reset_peak_mem_stats() const override;
 };
