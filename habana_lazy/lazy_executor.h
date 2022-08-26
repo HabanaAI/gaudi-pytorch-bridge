@@ -194,7 +194,6 @@ class HbExecutionContext {
     }
 
     viewContext.updated_bucket_list.clear();
-    viewContext.view_outputs.clear();
   }
 
   // We want to retain some tensors for special cases where PT releases them

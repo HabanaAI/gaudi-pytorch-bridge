@@ -746,8 +746,16 @@ void HbLazyTensor::SyncLiveTensorsGraph(
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
-    for (auto id : bucket_id) {
-      context->viewContext.DelOrigTensorMapEntry(id);
+
+    if (context->viewContext.view_outputs.size()) {
+      // delete the origtensor map entry only when view outputs are present
+      // ex: megatron has all reduce on embedding tables which doesnt involve
+      // strided view output. Such cases should be excluded from deletion
+
+      for (auto id : bucket_id) {
+        context->viewContext.DelOrigTensorMapEntry(id);
+      }
+      context->viewContext.view_outputs.clear();
     }
   }
 }

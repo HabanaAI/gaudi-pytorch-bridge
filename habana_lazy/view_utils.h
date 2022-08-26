@@ -219,7 +219,7 @@ class HbLazyTensorViews {
   static void HandleViewsLiveTensors(
       HbContext* devctx,
       bool is_allreduce,
-      std::set<int64_t> bucket_recent_id);
+      std::set<int64_t>& bucket_recent_id);
   static void StepMarkerAllReduce(const std::vector<at::Tensor>& inputs);
 };
 

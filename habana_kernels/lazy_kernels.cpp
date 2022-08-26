@@ -1059,7 +1059,7 @@ ir::NodePtr create_as_strided_node(
         SHAPE_TENSOR);
     if (self.sizes().size() != stride.size()) {
       if (node_str == "hpu::strided_view_out_ds") {
-        node_str == "hpu::strided_view_orig_out_ds";
+        node_str == "hpu::strided_view_out_orig_ds";
       } else {
         node_str = "hpu::strided_view_orig_ds";
       }

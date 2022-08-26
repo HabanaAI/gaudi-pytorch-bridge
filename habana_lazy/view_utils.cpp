@@ -514,6 +514,9 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
         strided_insert_hpu_lazy(t, t, false);
         context->viewContext.isLazyViewPresent = true;
       }
+    } else {
+      // check for updated version
+      t_updated = get_recent_base_tensor(t);
     }
     out_vec.emplace_back(t_updated);
   }
@@ -896,7 +899,7 @@ void add_strided_view_output_node(
 void HbLazyTensorViews::HandleViewsLiveTensors(
     HbContext* devctx,
     bool is_allreduce,
-    std::set<int64_t> bucket_recent_id) {
+    std::set<int64_t>& bucket_recent_id) {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
   for (auto& uid_wptr : devctx->tensors_data) {
@@ -923,24 +926,33 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
       }
     } // (data != nullptr)
   }
+
+  if (!context->viewContext.view_outputs.size()) {
+    bucket_recent_id.clear();
+    PT_LAZY_DEBUG(
+        "Strided view outputs not present. Clearing bucket_recent_id.");
+  }
 }
 
 void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
   std::set<int64_t> bucket_id, bucket_recent_id;
-  for (auto t : inputs) {
-    auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
-    auto org_id =
-        habana_lazy::GetHbLazyTensor(base, false, false).getTensorUniqueId();
 
-    auto recent_base =
-        habana_lazy::HbLazyTensorViews::get_recent_base_tensor(base);
-    auto updated_id = habana_lazy::GetHbLazyTensor(recent_base, true, false)
-                          .getTensorUniqueId();
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
+    for (auto t : inputs) {
+      auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
+      auto org_id =
+          habana_lazy::GetHbLazyTensor(base, false, false).getTensorUniqueId();
 
-    if (org_id != updated_id) {
-      /* strided inserts have happened */
-      bucket_id.emplace(org_id);
-      bucket_recent_id.emplace(updated_id);
+      auto recent_base =
+          habana_lazy::HbLazyTensorViews::get_recent_base_tensor(base);
+      auto updated_id = habana_lazy::GetHbLazyTensor(recent_base, true, false)
+                            .getTensorUniqueId();
+
+      if (org_id != updated_id) {
+        /* strided inserts have happened */
+        bucket_id.emplace(org_id);
+        bucket_recent_id.emplace(updated_id);
+      }
     }
   }
 

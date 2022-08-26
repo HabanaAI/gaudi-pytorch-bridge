@@ -2153,3 +2153,87 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
 }
+
+TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
+  auto bucket = torch::randn({64});
+  auto hbucket = bucket.to(torch::kHPU);
+
+  auto gv1 = bucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 0);
+  auto gv2 = bucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 16);
+  auto gv3 = bucket.as_strided({32}, {1}, 32);
+
+  auto g1 = torch::randn({2, 2, 2, 2});
+  auto g2 = torch::randn({2, 2, 2, 2});
+  auto g3 = torch::randn({32});
+
+  gv1.mul_(g1);
+  gv2.mul_(g2);
+  gv3.mul_(g3);
+
+  // hpu
+  auto hgv1 = hbucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 0);
+  auto hgv2 = hbucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 16);
+  auto hgv3 = hbucket.as_strided({32}, {1}, 32);
+
+  auto hg1 = g1.to(torch::kHPU);
+  auto hg2 = g2.to(torch::kHPU);
+  auto hg3 = g3.to(torch::kHPU);
+
+  hgv1.mul_(hg1);
+  hgv2.mul_(hg2);
+  hgv3.mul_(hg3);
+
+  HbLazyTensorViews::StepMarkerAllReduce({hbucket});
+
+  EXPECT_EQ(allclose(hgv1.cpu(), gv1, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(hgv2.cpu(), gv2, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(hgv3.cpu(), gv3, 0.001, 0.001), true);
+
+  // optimizer
+  auto out = torch::mul(gv3, 0.1);
+  auto hout = torch::mul(hgv3, 0.1);
+
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(hout.cpu(), out, 0.001, 0.001), true);
+
+  // cache hit case
+  bucket = torch::randn({64});
+  hbucket = bucket.to(torch::kHPU);
+  gv1 = bucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 0);
+  gv2 = bucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 16);
+  gv3 = bucket.as_strided({32}, {1}, 32);
+
+  g1 = torch::randn({2, 2, 2, 2});
+  g2 = torch::randn({2, 2, 2, 2});
+  g3 = torch::randn({32});
+
+  gv1.mul_(g1);
+  gv2.mul_(g2);
+  gv3.mul_(g3);
+
+  // hpu
+  hgv1 = hbucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 0);
+  hgv2 = hbucket.as_strided({2, 2, 2, 2}, {8, 4, 2, 1}, 16);
+  hgv3 = hbucket.as_strided({32}, {1}, 32);
+
+  hg1 = g1.to(torch::kHPU);
+  hg2 = g2.to(torch::kHPU);
+  hg3 = g3.to(torch::kHPU);
+
+  hgv1.mul_(hg1);
+  hgv2.mul_(hg2);
+  hgv3.mul_(hg3);
+
+  HbLazyTensorViews::StepMarkerAllReduce({hbucket});
+
+  EXPECT_EQ(allclose(hgv1.cpu(), gv1, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(hgv2.cpu(), gv2, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(hgv3.cpu(), gv3, 0.001, 0.001), true);
+
+  // optimizer
+  gv3.mul_(0.1);
+  hgv3.mul_(0.1);
+
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(hout.cpu(), out, 0.001, 0.001), true);
+}
