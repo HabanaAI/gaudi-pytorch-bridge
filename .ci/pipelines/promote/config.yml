@@ -5,10 +5,9 @@ orchestratorConfig:
   - testToLaunch: asic_gaudi_pytorch_perf_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_sbs_tests---t-dg
   - testToLaunch: sim_gaudi_pytorch_single_op_tests---t-dg
-  - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
-  - testToLaunch: gaudi_pytorch_distributed_tests---t-dg
   - testToLaunch: Test_pytorch_gaudi2_sim_single_op
   - testToLaunch: Test_pytorch_gaudi_sim_single_op_dynamic_tests
-    silentMode: true
+  - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
+  - testToLaunch: gaudi_pytorch_distributed_tests---t-dg
 stepConfig:
   jobTimeout: '300'
