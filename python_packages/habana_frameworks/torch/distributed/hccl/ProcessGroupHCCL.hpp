@@ -303,6 +303,8 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
   std::map<int, synStreamHandle> comm_streams_;
+
+  bool emulate_distributed_;
 };
 
 } // namespace c10d

@@ -252,6 +252,9 @@ class JobThreadHCCL {
 
 const int64_t ProcessGroupHCCL::kWatchdogThreadSleepMillis = 40000;
 void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
+  if (this->emulate_distributed_) {
+    return;
+  }
   auto hccl_rank = getRank();
   std::string storeKey = std::to_string(hcclCommCounter_++);
   if (hccl_rank == 0) {
@@ -271,6 +274,9 @@ constexpr int64_t kSynchronizeBusyWaitMillis = 1;
 constexpr int64_t kNumBarrierKeys = 3;
 
 void ProcessGroupHCCL::hostBarrier() {
+  if (this->emulate_distributed_) {
+    return;
+  }
   PT_DISTRIBUTED_BEGIN;
 
   auto hccl_rank = getRank();
@@ -329,8 +335,10 @@ std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
     }
     broadcastUniqueHCCLID(&hccl_id);
     hcclComm_t new_comm;
-    hcclResult_t result{
-        hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank)};
+    hcclResult_t result{hcclSuccess};
+    if (!this->emulate_distributed_) {
+      result = hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank);
+    }
     TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
     std::lock_guard<std::mutex> lock(mutex_);
     hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
@@ -361,7 +369,9 @@ ProcessGroupHCCL::ProcessGroupHCCL(
       store_(store),
       hcclCommCounter_(0),
       barrier_cnt_(0),
-      stop_(false) {}
+      stop_(false) {
+  this->emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
+}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
   destroy();
@@ -370,18 +380,20 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 void ProcessGroupHCCL::destroy() {
   hostBarrier();
   device_contexts_.clear();
-  std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
-  auto worker_count = store_->add(barrier_key, 1);
-  if (getRank() == 0) {
-    while (worker_count != size_) {
-      worker_count = store_->add(barrier_key, 0);
-      std::this_thread::sleep_for(
-          std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+  if (!this->emulate_distributed_) {
+    std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
+    auto worker_count = store_->add(barrier_key, 1);
+    if (getRank() == 0) {
+      while (worker_count != size_) {
+        worker_count = store_->add(barrier_key, 0);
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
+      }
     }
-  }
 
-  for (auto element : hccl_communicator_) {
-    hcclCommDestroy(*(element.second));
+    for (auto element : hccl_communicator_) {
+      hcclCommDestroy(*(element.second));
+    }
   }
   hccl_communicator_ = {};
 }
@@ -763,14 +775,18 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
             " data_type :: ",
             tensor_data_type);
 
-        return hcclBroadcast(
-            send_buffer,
-            recv_buffer,
-            numel,
-            tensor_data_type,
-            rootRank,
-            hccl_comm,
-            stream);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclBroadcast(
+              send_buffer,
+              recv_buffer,
+              numel,
+              tensor_data_type,
+              rootRank,
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
       });
   restoreTensorsize(tensors, changed, sizeList, strideList, work);
   PT_DISTRIBUTED_END;
@@ -823,14 +839,16 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
               " data_type :: ",
               getHCCLDataType(input.scalar_type()));
 
-          hccl_result = hcclAllReduce(
-              send_buffer + data_offset,
-              recv_buffer + data_offset,
-              num_elements_in_current_chunk,
-              getHCCLDataType(input.scalar_type()),
-              getHCCLReduceOp(reduceOp),
-              hccl_comm,
-              stream);
+          if (!this->emulate_distributed_) {
+            hccl_result = hcclAllReduce(
+                send_buffer + data_offset,
+                recv_buffer + data_offset,
+                num_elements_in_current_chunk,
+                getHCCLDataType(input.scalar_type()),
+                getHCCLReduceOp(reduceOp),
+                hccl_comm,
+                stream);
+          }
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
@@ -895,15 +913,17 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
               (num_elements > chunk_size) ? chunk_size : num_elements;
-          hccl_result = hcclReduce(
-              send_buffer + data_offset,
-              recv_buffer + data_offset,
-              num_elements_in_current_chunk,
-              getHCCLDataType(input.scalar_type()),
-              getHCCLReduceOp(reduceOp),
-              root,
-              hccl_comm,
-              stream);
+          if (!this->emulate_distributed_) {
+            hccl_result = hcclReduce(
+                send_buffer + data_offset,
+                recv_buffer + data_offset,
+                num_elements_in_current_chunk,
+                getHCCLDataType(input.scalar_type()),
+                getHCCLReduceOp(reduceOp),
+                root,
+                hccl_comm,
+                stream);
+          }
           TORCH_CHECK(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
@@ -974,45 +994,48 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
             count,
             " data_type :: ",
             getHCCLDataType(input.scalar_type()));
-        hcclGroupStart();
         hcclResult_t hccl_result{hcclSuccess};
-        for (auto r = 0; r < numRanks; r++) {
-          if (r < rank) {
-            hcclSend(
-                reinterpret_cast<const unsigned char*>(send_buffer) +
-                    r * rank_offset,
-                count,
-                type,
-                r,
-                hccl_comm,
-                stream);
-            hcclRecv(
-                reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
-                count,
-                type,
-                r,
-                hccl_comm,
-                stream);
-          } else if (r > rank) {
-            hcclRecv(
-                reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
-                count,
-                type,
-                r,
-                hccl_comm,
-                stream);
-            hcclSend(
-                reinterpret_cast<const unsigned char*>(send_buffer) +
-                    r * rank_offset,
-                count,
-                type,
-                r,
-                hccl_comm,
-                stream);
+        if (!this->emulate_distributed_) {
+          hcclGroupStart();
+          for (auto r = 0; r < numRanks; r++) {
+            if (r < rank) {
+              hcclSend(
+                  reinterpret_cast<const unsigned char*>(send_buffer) +
+                      r * rank_offset,
+                  count,
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+              hcclRecv(
+                  reinterpret_cast<unsigned char*>(recv_buffer) +
+                      r * rank_offset,
+                  count,
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+            } else if (r > rank) {
+              hcclRecv(
+                  reinterpret_cast<unsigned char*>(recv_buffer) +
+                      r * rank_offset,
+                  count,
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+              hcclSend(
+                  reinterpret_cast<const unsigned char*>(send_buffer) +
+                      r * rank_offset,
+                  count,
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+            }
           }
+          hcclGroupEnd();
         }
-        hcclGroupEnd();
-
         return hccl_result;
       });
 
@@ -1075,14 +1098,17 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        auto work = hcclAllGather(
-            send_buffer,
-            recv_buffer,
-            numel,
-            tensor_data_type,
-            hccl_comm,
-            stream);
-        return work;
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclAllGather(
+              send_buffer,
+              recv_buffer,
+              numel,
+              tensor_data_type,
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
       });
   // Record even for outputFlattened on ncclStream
   for (size_t i = 0; i < outputTensors.size(); ++i) {
@@ -1140,7 +1166,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
         inputTensors[0].options(),
         inputTensors[0].sizes());
     outputs = outputTensors[0];
-    groupStart();
+    if (!this->emulate_distributed_) {
+      groupStart();
+    }
     int numRanks = getSize();
     for (int r = 0; r < numRanks; r++) {
       if (r == getRank()) {
@@ -1151,7 +1179,9 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
         work = recv(recvTensor, r, 0 /*tag*/);
       }
     }
-    groupEnd();
+    if (!this->emulate_distributed_) {
+      groupEnd();
+    }
   } else {
     TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
@@ -1200,16 +1230,18 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
             output.numel(),
             " data_type :: ",
             getHCCLDataType(input.scalar_type()));
-        auto work = hcclReduceScatter(
-            send_buffer,
-            recv_buffer,
-            output.numel(),
-            getHCCLDataType(input.scalar_type()),
-            getHCCLReduceOp(reduceOp),
-            hccl_comm,
-            stream);
-
-        return work;
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclReduceScatter(
+              send_buffer,
+              recv_buffer,
+              output.numel(),
+              getHCCLDataType(input.scalar_type()),
+              getHCCLReduceOp(reduceOp),
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
       });
   PT_DISTRIBUTED_END;
   return work;
@@ -1308,8 +1340,12 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        return hcclSend(
-            send_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclSend(
+              send_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+        }
+        return hccl_result;
       },
       dstRank);
   restoreTensorsize(tensors, changed, sizeList, strideList, work);
@@ -1347,8 +1383,12 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = tensor.numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        return hcclRecv(
-            recv_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclRecv(
+              recv_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+        }
+        return hccl_result;
       },
       srcRank);
   restoreTensorsize(tensors, changed, sizeList, strideList, work);
@@ -1406,8 +1446,10 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
         std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
   }
   hostBarrier();
-  for (size_t i = 0; i < comms.size(); i++) {
-    hcclBarrier(*comms[i], commStreams[i]);
+  if (!this->emulate_distributed_) {
+    for (size_t i = 0; i < comms.size(); i++) {
+      hcclBarrier(*comms[i], commStreams[i]);
+    }
   }
 
   std::vector<int> res;
