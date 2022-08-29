@@ -84,6 +84,9 @@ class HPURegistrar {
     }
   }
 
+  // Note: Need to finish execution all performed operations till this point
+  // Ensure a synchronous mark_step is invoked before calling this function for
+  // device synchronization
   static void synchronize_device() {
     auto& device = get_hpu_registrar().get_device();
     device.synchronize();

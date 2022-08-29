@@ -99,6 +99,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return d.id();
   });
   m.def("synchronize_device", []() {
+    // Need to finish execution all the performed operations till now and has to
+    // include also the accumulated lazy graph ops and Then wait for device
+    // sync.
+    // Note: This is synchronous step marker
+    habana_lazy::HbLazyTensor::StepMarker();
     synapse_helpers::HPURegistrar::synchronize_device();
   });
   m.def("device_count", []() {
