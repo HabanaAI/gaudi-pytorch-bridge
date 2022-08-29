@@ -164,7 +164,8 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast3d) {
+// Enable this once SW-102924 is fixed.
+TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {

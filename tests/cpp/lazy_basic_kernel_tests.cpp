@@ -643,3 +643,50 @@ TEST_F(LazyBasicKernelTest, stridedviewoutTest) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(hout.cpu(), out, 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, permuteResizeInplaceAddTest) {
+  torch::Tensor A = torch::randn({2, 3, 4, 5});
+  auto hA = A.to(torch::kHPU);
+
+  auto hOutPerm = hA.permute({0, 2, 3, 1});
+  auto hOut = hOutPerm.reshape({2, 4, 3 * 5});
+  hOut.add_(2);
+  auto outPerm = A.permute({0, 2, 3, 1});
+  auto out = outPerm.reshape({2, 4, 3 * 5});
+  out.add_(2);
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, inplaceAddPermuteResizeInplaceAddTest) {
+  torch::Tensor A = torch::randn({2, 3, 4, 5});
+  auto hA = A.to(torch::kHPU);
+
+  hA.add_(1);
+  auto hOutPerm = hA.permute({0, 2, 3, 1});
+  auto hOut = hOutPerm.reshape({2, 4, 3 * 5});
+  hOut.add_(2);
+
+  A.add_(1);
+  auto outPerm = A.permute({0, 2, 3, 1});
+  auto out = outPerm.reshape({2, 4, 3 * 5});
+  out.add_(2);
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, permuteResizeTest) {
+  torch::Tensor A = torch::randn({24, 16, 384, 64});
+  auto hA = A.to(torch::kHPU);
+
+  auto hOutPerm = hA.permute({0, 2, 1, 3}); // 24, 384, 16, 64
+  auto hOut = hOutPerm.reshape({24, 384, 1024});
+
+  auto outPerm = A.permute({0, 2, 1, 3});
+  auto out = outPerm.reshape({24, 384, 1024});
+
+  auto hOut_cpu = hOut.cpu();
+  EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
+}
