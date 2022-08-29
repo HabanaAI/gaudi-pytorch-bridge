@@ -105,14 +105,14 @@ synStatus SYN_API_CALL synEventElapsedTime(
       pMilliseconds, eventHandleStart, eventHandleEnd);
 }
 
-synStatus SYN_API_CALL synLaunch(
+synStatus SYN_API_CALL synLaunchExt(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfo* launchTensorsInfo,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipehandle,
     uint32_t flags) {
-  return syn_api->synLaunch(
+  return syn_api->synLaunchExt(
       streamHandle,
       launchTensorsInfo,
       numberTensors,
@@ -547,12 +547,6 @@ synStatus SYN_API_CALL synTensorSetPermutation(
   return syn_api->synTensorSetPermutation(tensor, permutation);
 }
 
-synStatus SYN_API_CALL synTensorSetDeviceLayout(
-    synTensor tensor,
-    const synTensorDeviceLayout* layout) {
-  return syn_api->synTensorSetDeviceLayout(tensor, layout);
-}
-
 synStatus SYN_API_CALL synDestroyTensor(synTensor tensor) {
   return syn_api->synDestroyTensor(tensor);
 }
@@ -562,25 +556,30 @@ synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
   return syn_api->synTensorSetAllowPermutation(tensor, allowPermutation);
 }
 
-synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
+synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
     const synRecipeHandle pRecipeHandle,
     const uint32_t numOfTensors,
-    synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
-  return syn_api->synTensorRetrieveLaunchInfoById(
+    synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {
+  return syn_api->synTensorRetrieveLaunchInfoByIdExt(
       pRecipeHandle, numOfTensors, tensorsLaunchInfo);
 }
 
-synStatus SYN_API_CALL synTensorSetGeometry(
+synStatus SYN_API_CALL synTensorSetGeometryExt(
     synTensor tensor,
-    const synTensorGeometry* geometry,
+    const synTensorGeometryExt* geometry,
     synGeometryType geometryType) {
-  return syn_api->synTensorSetGeometry(tensor, geometry, geometryType);
+  return syn_api->synTensorSetGeometryExt(tensor, geometry, geometryType);
 }
 
 synStatus SYN_API_CALL synTensorSetDeviceFullLayout(
     synTensor tensor,
     const synTensorDeviceFullLayout* layout) {
   return syn_api->synTensorSetDeviceFullLayout(tensor, layout);
+}
+
+synStatus SYN_API_CALL
+synTensorSetDeviceDataType(synTensor tensor, synDataType deviceDataType) {
+  return syn_api->synTensorSetDeviceDataType(tensor, deviceDataType);
 }
 
 synStatus SYN_API_CALL synTensorSetQuantizationData(
@@ -612,23 +611,23 @@ synStatus SYN_API_CALL synTensorExtExtractExecutionOrder(
         recipeHandle, numOfExternalTensors, tensorIds);
 }
 
-synStatus SYN_API_CALL synEventMapTensor(
+synStatus SYN_API_CALL synEventMapTensorExt(
     synEventHandle* eventHandle,
     size_t numOfEvents,
-    const synLaunchTensorInfo* launchTensorsInfo,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
     const synRecipeHandle recipeHandle) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synEventMapTensor(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
   } else
-    return syn_api->synEventMapTensor(
+    return syn_api->synEventMapTensorExt(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
 }
 
-synStatus SYN_API_CALL synLaunchWithExternalEvents(
+synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfo* launchTensorsInfoExt,
+    const synLaunchTensorInfoExt* launchTensorsInfoExt,
     const uint32_t numberOfTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -647,7 +646,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
         numberOfEvents,
         flags);
   } else
-    return syn_api->synLaunchWithExternalEvents(
+    return syn_api->synLaunchWithExternalEventsExt(
         streamHandle,
         launchTensorsInfoExt,
         numberOfTensors,

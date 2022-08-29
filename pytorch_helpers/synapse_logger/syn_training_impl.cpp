@@ -53,13 +53,13 @@ SYN_API_PTR(synStreamSynchronize);
 SYN_API_PTR(synStreamQuery);
 SYN_API_PTR(synEventCreate);
 SYN_API_PTR(synEventDestroy);
-SYN_API_PTR(synEventMapTensor);
+SYN_API_PTR(synEventMapTensorExt);
 SYN_API_PTR(synEventRecord);
 SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
-SYN_API_PTR(synLaunch);
-SYN_API_PTR(synLaunchWithExternalEvents);
+SYN_API_PTR(synLaunchExt);
+SYN_API_PTR(synLaunchWithExternalEventsExt);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -105,9 +105,9 @@ SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorHandleCreate);
 SYN_API_PTR(synTensorSetExternal);
-SYN_API_PTR(synTensorRetrieveLaunchInfoById);
-SYN_API_PTR(synTensorSetGeometry);
-SYN_API_PTR(synTensorSetDeviceLayout);
+SYN_API_PTR(synTensorRetrieveLaunchInfoByIdExt);
+SYN_API_PTR(synTensorSetGeometryExt);
+SYN_API_PTR(synTensorSetDeviceDataType);
 SYN_API_PTR(synTensorSetHostPtr);
 SYN_API_PTR(synTensorSetPermutation);
 
@@ -122,13 +122,13 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synStreamQuery);
   SYN_API_INIT_PTR(synEventCreate);
   SYN_API_INIT_PTR(synEventDestroy);
-  SYN_API_INIT_PTR(synEventMapTensor);
+  SYN_API_INIT_PTR(synEventMapTensorExt);
   SYN_API_INIT_PTR(synEventRecord);
   SYN_API_INIT_PTR(synEventQuery);
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
-  SYN_API_INIT_PTR(synLaunch);
-  SYN_API_INIT_PTR(synLaunchWithExternalEvents);
+  SYN_API_INIT_PTR(synLaunchExt);
+  SYN_API_INIT_PTR(synLaunchWithExternalEventsExt);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -174,9 +174,9 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorHandleCreate);
   SYN_API_INIT_PTR(synTensorSetExternal);
-  SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
-  SYN_API_INIT_PTR(synTensorSetGeometry);
-  SYN_API_INIT_PTR(synTensorSetDeviceLayout);
+  SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
+  SYN_API_INIT_PTR(synTensorSetGeometryExt);
+  SYN_API_INIT_PTR(synTensorSetDeviceDataType);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
   SYN_API_INIT_PTR(synTensorSetPermutation);
 }
@@ -376,7 +376,7 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
 synStatus SYN_API_CALL synEventMapTensor(
     synEventHandle* eventHandle,
     size_t numOfEvents,
-    const synLaunchTensorInfo* launchTensorsInfo,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
     const synRecipeHandle recipeHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
@@ -386,7 +386,7 @@ synStatus SYN_API_CALL synEventMapTensor(
       ARG(recipeHandle));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synEventMapTensor,
+      lib_synapse::synEventMapTensorExt,
       eventHandle,
       numOfEvents,
       launchTensorsInfo,
@@ -449,14 +449,14 @@ synStatus SYN_API_CALL synEventElapsedTime(
 
 inline std::ostream& operator<<(
     std::ostream& out,
-    const synLaunchTensorInfo& v) {
+    const synLaunchTensorInfoExt& v) {
   return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
              << v.tensorId << "\", \"" << (void*)v.pTensorAddress << '"';
 }
 
-synStatus SYN_API_CALL synLaunch(
+synStatus SYN_API_CALL synLaunchExt(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfo* launchTensorsInfo,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -474,7 +474,7 @@ synStatus SYN_API_CALL synLaunch(
       ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunch,
+      lib_synapse::synLaunchExt,
       streamHandle,
       launchTensorsInfo,
       numberTensors,
@@ -487,7 +487,7 @@ synStatus SYN_API_CALL synLaunch(
 
 synStatus SYN_API_CALL synLaunchWithExternalEvents(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfo* launchTensorsInfo,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
     uint32_t numberOfTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -508,7 +508,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
       ARG(streamName));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunchWithExternalEvents,
+      lib_synapse::synLaunchWithExternalEventsExt,
       streamHandle,
       launchTensorsInfo,
       numberOfTensors,
@@ -729,7 +729,7 @@ inline void log_synConstTensorDescriptor(const synTensorDescriptor* obj) {
 }
 
 inline void log_synTensorSetGeometry(
-    const synTensorGeometry* obj,
+    const synTensorGeometryExt* obj,
     synTensor& tensor) {
   if (!logger_is_enabled(
           synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
@@ -739,28 +739,10 @@ inline void log_synTensorSetGeometry(
 
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
-      << tensor << R"(, "type":"synTensorGeometry", "fields":{)"
+      << tensor << R"(, "type":"synTensorGeometryExt", "fields":{)"
       << R"( "m_sizes":[)"
-      << absl::Span<const unsigned>(obj->sizes, HABANA_DIM_MAX)
+      << absl::Span<const tensor_size_t>(obj->sizes, HABANA_DIM_MAX)
       << R"(], "m_dims":)" << obj->dims << "}}";
-  synapse_logger::log(out.str());
-}
-
-inline void log_synTensorSetDeviceLayout(
-    const synTensorDeviceLayout* obj,
-    synTensor& tensor) {
-  if (!logger_is_enabled(
-          synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
-      obj == nullptr) {
-    return;
-  }
-
-  synapse_logger::ostr_t out{synapse_logger::get_ostr()};
-  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
-      << tensor << R"(, "type":"synTensorDeviceLayout", "fields":{)"
-      << R"( "strides":[)"
-      << absl::Span<const unsigned>(obj->strides, HABANA_DIM_MAX - 1)
-      << R"(], "deviceDataType":)" << obj->deviceDataType << "}}";
   synapse_logger::log(out.str());
 }
 
@@ -1317,15 +1299,11 @@ synStatus SYN_API_CALL synTensorSetExternal(synTensor tensor, bool isExternal) {
   return status;
 }
 
-synStatus SYN_API_CALL synTensorSetDeviceLayout(
-    synTensor tensor,
-    const synTensorDeviceLayout* layout) {
+synStatus SYN_API_CALL
+synTensorSetDeviceDataType(synTensor tensor, const synDataType dataType) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-
-  log_synTensorSetDeviceLayout(layout, tensor);
-  API_LOG_CALL(ARG(tensor), ARG(layout));
   synStatus status;
-  CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceLayout, tensor, layout);
+  CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceDataType, tensor, dataType);
   API_LOG_RESULT();
   return status;
 }
@@ -1333,12 +1311,12 @@ synStatus SYN_API_CALL synTensorSetDeviceLayout(
 synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
     const synRecipeHandle pRecipeHandle,
     const uint32_t numOfTensors,
-    synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
+    synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(pRecipeHandle), ARG(numOfTensors), ARG(tensorsLaunchInfo));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synTensorRetrieveLaunchInfoById,
+      lib_synapse::synTensorRetrieveLaunchInfoByIdExt,
       pRecipeHandle,
       numOfTensors,
       tensorsLaunchInfo);
@@ -1346,9 +1324,9 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
   return status;
 }
 
-synStatus SYN_API_CALL synTensorSetGeometry(
+synStatus SYN_API_CALL synTensorSetGeometryExt(
     synTensor tensor,
-    const synTensorGeometry* geometry,
+    const synTensorGeometryExt* geometry,
     synGeometryType geometryType) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
@@ -1356,7 +1334,7 @@ synStatus SYN_API_CALL synTensorSetGeometry(
   API_LOG_CALL(ARG(tensor), ARG(geometry), ARG(geometryType));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synTensorSetGeometry, tensor, geometry, geometryType);
+      lib_synapse::synTensorSetGeometryExt, tensor, geometry, geometryType);
   API_LOG_RESULT();
   return status;
 }

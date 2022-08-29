@@ -102,19 +102,19 @@ bool recipe::launch(
     const std::vector<void*>& out_buffers,
     std::unique_ptr<device_ptr_lock>& addr_locked,
     stream& compute_stream) {
-  std::vector<synLaunchTensorInfo> syn_info;
+  std::vector<synLaunchTensorInfoExt> syn_info;
   syn_info.reserve(input_names_.size() + output_names_.size());
 
   size_t tensor_idx{0};
   for (size_t i = 0; i < input_names_.size(); ++i)
-    syn_info.emplace_back(synLaunchTensorInfo{
+    syn_info.emplace_back(synLaunchTensorInfoExt{
         input_names_[i].c_str(),
         reinterpret_cast<uint64_t>(in_buffers[i]),
         DATA_TENSOR,
         {0},
         tensor_ids[tensor_idx++]});
   for (size_t i = 0; i < output_names_.size(); ++i)
-    syn_info.emplace_back(synLaunchTensorInfo{
+    syn_info.emplace_back(synLaunchTensorInfoExt{
         output_names_[i].c_str(),
         reinterpret_cast<uint64_t>(out_buffers[i]),
         DATA_TENSOR,

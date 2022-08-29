@@ -309,9 +309,12 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   return {std::move(recipe_handle)};
 }
 
-std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
+std::string to_string(
+    const std::vector<synLaunchTensorInfoExt>& patching_info) {
   return absl::StrJoin(
-      patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
+      patching_info,
+      ",",
+      [](std::string* out, const synLaunchTensorInfoExt& in) {
         absl::StrAppendFormat(
             out,
             "%s:%u:0x%X [%s]",
@@ -334,10 +337,10 @@ synapse_error_v<uint64_t> graph::query_workspace_size(
 
 synapse_error_o graph::query_recipe_tensor_info(
     std::shared_ptr<graph::recipe_handle> recipe_handle,
-    std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
+    std::vector<synRetrievedLaunchTensorInfoExt>& tensor_info_vec) {
   SYNAPSE_SUCCESS_CHECK(
       "Getting launch tensor info failed",
-      synTensorRetrieveLaunchInfoById(
+      synTensorRetrieveLaunchInfoByIdExt(
           recipe_handle->syn_recipe_handle_,
           tensor_info_vec.size(),
           tensor_info_vec.data()));
@@ -348,7 +351,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
     stream& compute_stream) {
@@ -366,7 +369,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
     stream& compute_stream) {
@@ -382,7 +385,7 @@ synapse_error_o graph::launch(
     return synapse_error{"Graph not in execution phase.", synStatus::synFail};
   }
 
-  for (synLaunchTensorInfo& tensorInfo : inputs_and_outputs_info) {
+  for (synLaunchTensorInfoExt& tensorInfo : inputs_and_outputs_info) {
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
     // size [0] for 0d tensor need to force it [1] to pass to synapse correctly
     // valdity check for pTensorAddress to differentiate from ZST
@@ -402,20 +405,21 @@ synapse_error_o graph::launch(
           recipe_handle.recipe_name_,
           to_string(inputs_and_outputs_info)));
 
-  auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
-    if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
-      PT_SYNHELPER_WARN(
-          recipe_handle.recipe_name_,
-          " null address:",
-          (info.pTensorAddress == 0),
-          " null name:",
-          (info.tensorName == nullptr),
-          " ",
-          ((info.tensorName == nullptr) ? "" : info.tensorName));
-      return true;
-    }
-    return false;
-  }};
+  auto table_checker{
+      [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
+        if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
+          PT_SYNHELPER_WARN(
+              recipe_handle.recipe_name_,
+              " null address:",
+              (info.pTensorAddress == 0),
+              " null name:",
+              (info.tensorName == nullptr),
+              " ",
+              ((info.tensorName == nullptr) ? "" : info.tensorName));
+          return true;
+        }
+        return false;
+      }};
   PT_SYNHELPER_DEBUG("checking input_output patching table");
   SYNAPSE_RETURN_IF_ERROR(
       std::find_if(
@@ -474,7 +478,7 @@ synapse_error_o graph::launch(
         std::back_inserter(event_handles),
         [](shared_event& event) -> synEventHandle { return *event; });
 
-    status = synLaunchWithExternalEvents(
+    status = synLaunchWithExternalEventsExt(
         compute_stream,
         inputs_and_outputs_info.data(),
         inputs_and_outputs_info.size(),

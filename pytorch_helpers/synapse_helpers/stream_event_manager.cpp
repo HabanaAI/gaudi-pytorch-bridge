@@ -185,7 +185,7 @@ void stream_event_manager::add_event_id(
 shared_event stream_event_manager::map_event_to_tensor(
     stream& stream,
     const synRecipeHandle recipe_handle,
-    synLaunchTensorInfo* tensor_info,
+    synLaunchTensorInfoExt* tensor_info,
     event_done_callback done_cb) {
   std::lock_guard<std::mutex> lock(mut_);
   auto& device_address = tensor_info->pTensorAddress;

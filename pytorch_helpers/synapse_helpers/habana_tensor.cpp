@@ -327,28 +327,6 @@ synapse_error_o tensor::set_permutation() {
   return {};
 }
 
-synapse_error_o tensor::set_layout() {
-  synStatus status;
-  synTensorDeviceLayout deviceLayout;
-  uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
-    PT_SYNHELPER_DEBUG("Not passing strides to synapse, all strides will be 0");
-  } else if (permutation_.empty()) {
-    // If we pass permutation to Synapse tensor, we must pass empty strides
-    std::copy_n(
-        stride_.max_.data(), stride_.max_.rank().value, std::begin(strides));
-  }
-
-  memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
-  deviceLayout.deviceDataType = data_type_;
-
-  status = synTensorSetDeviceLayout(tensor_, &deviceLayout);
-  SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "synTensorSetDeviceLayout failed.", status, cleanup());
-  return {};
-}
-
 synapse_error_o tensor::create() {
   if (GET_ENV_FLAG_NEW(PT_HPU_INTERNAL_OLD_SYNAPI)) {
     return create_old_synapi();
@@ -361,11 +339,12 @@ synapse_error_o tensor::create() {
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorHandleCreate failed.", status, cleanup());
 
-  synTensorGeometry maxGeometry;
-  // Add tensor dimension via synTensorGeometry
+  synTensorGeometryExt maxGeometry;
+  // Add tensor dimension via synTensorGeometryExt
   // Max geometry is also used as the actual geometry. In synapse side,
   // synGeometryMaxSizes is aliased to synGeometrySizes
-  uint32_t maxSizes[sizeof(maxGeometry.sizes) / sizeof(uint32_t)] = {0};
+  tensor_size_t maxSizes[sizeof(maxGeometry.sizes) / sizeof(tensor_size_t)] = {
+      0};
 
   // TBD: Once GC min-max shape inferencing is available, the non_persistent
   // synapse tensors shapes need to be zero-filled.
@@ -374,16 +353,20 @@ synapse_error_o tensor::create() {
 
   maxGeometry.dims = shape_.max().rank().value;
   memcpy(maxGeometry.sizes, maxSizes, sizeof(maxGeometry.sizes));
-  status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
+  status = synTensorSetGeometryExt(tensor_, &maxGeometry, synGeometrySizes);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "synTensorSetGeometry failed.", status, cleanup());
+      "synTensorSetGeometryExt failed.", status, cleanup());
 
   if (is_host_to_device_tensor()) {
     status = synTensorSetHostPtr(
         tensor_, host_ptr_, total_size_bytes_ * 2, data_type_, false);
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
-  set_layout();
+
+  status = synTensorSetDeviceDataType(tensor_, data_type_);
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "Set device data type failed", status, cleanup());
+
   if (permutation_.size()) {
     HABANA_ASSERT(
         permutation_.size() == maxGeometry.dims,
@@ -403,8 +386,9 @@ synapse_error_o tensor::create() {
   } else {
     HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
 
-    synTensorGeometry minGeometry;
-    uint32_t minSizes[sizeof(minGeometry.sizes) / sizeof(uint32_t)] = {0};
+    synTensorGeometryExt minGeometry;
+    tensor_size_t minSizes[sizeof(minGeometry.sizes) / sizeof(tensor_size_t)] =
+        {0};
 
     // TBD: Once GC min-max shape inferencing is available, the non_persistent
     // synapse tensors shapes need to be zero-filled.
@@ -413,9 +397,10 @@ synapse_error_o tensor::create() {
 
     minGeometry.dims = shape_.min().rank().value;
     memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
-    status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
+    status =
+        synTensorSetGeometryExt(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
-        "synTensorSetGeometry min sizes failed.", status, cleanup());
+        "synTensorSetGeometryExt min sizes failed.", status, cleanup());
     if (tensor_type_ == SHAPE_TENSOR ||
         tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
       HABANA_ASSERT(data_type_ == syn_type_uint32);

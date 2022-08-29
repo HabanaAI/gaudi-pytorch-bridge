@@ -43,26 +43,24 @@ def split_launch_id(recipe_info):
     return name[:split], name[split + 1 :], addr
 
 
-
 class Utils:
     @staticmethod
     def generate_makefile(files):
         exes = list(map(lambda x: x[:-4] + ".exe", files))
         bins = list(map(lambda x: x[:-4] + ".bin", files))
         lines = [
-            "SRCS="+ ' '.join(files),
+            "SRCS=" + " ".join(files),
             "CXX=g++",
             "CXXFLAGS=-I${HOME}/trees/npu-stack/pytorch-integration/pytorch_helpers/synapse_logger/logger_test/gtest_stub -I${HOME}/trees/npu-stack/synapse/include -I${HOME}/trees/npu-stack/tpc_kernels/include",
             "LIBS=${HOME}/builds/synapse_release_build/lib/libSynapse.so",
-            ".PHONY: compile clean run help"
-            "",
+            ".PHONY: compile clean run help" "",
             "all: help",
             "",
             "help:",
             "\t@echo 'make compile         - compiles all recipe-dumpers'",
             "\t@echo 'make run             - executes compiled program'",
             "",
-            "compile: " + ' '.join(exes),
+            "compile: " + " ".join(exes),
             "\t@echo Done",
             "",
             "run: compile",
@@ -71,21 +69,29 @@ class Utils:
             "%.exe: %.cpp",
             "\t${CXX} ${CXXFLAGS} -o $@ $< ${LIBS}",
             "",
-            ]
+        ]
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def write_makefile(path, files):
         content = Utils.generate_makefile(files)
         with open(path, "w") as fd:
             fd.write(content)
 
+
 class Tensor:
-    def __init__(self, creation_event=None, custom_name="",
-                 *,
-                 descriptor=None,
-                 memory_section=None,
-                 is_null=False, new_api=True, is_const=False, is_persistent=False):
+    def __init__(
+        self,
+        creation_event=None,
+        custom_name="",
+        *,
+        descriptor=None,
+        memory_section=None,
+        is_null=False,
+        new_api=True,
+        is_const=False,
+        is_persistent=False,
+    ):
         self.events = [creation_event] if creation_event is not None else []
         self.is_persistent = is_persistent
         self.update_from_section(memory_section)
@@ -104,9 +110,9 @@ class Tensor:
         self.src = None
         self.is_output = False
         if is_null:
-           self.is_const = False
-           log.info(f"new tensor {self.name}")
-           return
+            self.is_const = False
+            log.info(f"new tensor {self.name}")
+            return
         const = "const " if self.is_const else ""
         log.info(f"{creation_event['ts']}: new {const}tensor {self.name} at {creation_event['result']['pTensor']}")
 
@@ -145,7 +151,9 @@ class Tensor:
         self.syn_type = syn_types[desc["args"]["fields"]["m_dataType"] if desc else 0]
 
     def update_from_section(self, section):
-        self.is_persistent = bool(section and (int(section["args"]["memoryAttributes"]) & synMemoryAttribute.MEMORY_ATTRIBUTE_PERSISTENT))
+        self.is_persistent = bool(
+            section and (int(section["args"]["memoryAttributes"]) & synMemoryAttribute.MEMORY_ATTRIBUTE_PERSISTENT)
+        )
 
     def __repr__(self):
         if self.is_null:
@@ -401,16 +409,16 @@ def area_overlaps(a1, a2):
 
 
 class MemMap:
-    """ Models device memory space in synapse-log time.
+    """Models device memory space in synapse-log time.
 
-        Upon each log entry of a call that writes to a device memory the map
-        remembers that area starting at some address and spanning some size was
-        produced by this operation. Then ar any time it is possible to query
-        MemMap about producers of data that now is referenced. Subsequent
-        producers may partially or completely overwrite previous writes which
-        is also modeled. E.g if A wrote memory producing [   AAAAAA   ] and
-        then B writes in the middle, MemMap might split area writen by A and
-        contain something like [   AABBAA   ]"""
+    Upon each log entry of a call that writes to a device memory the map
+    remembers that area starting at some address and spanning some size was
+    produced by this operation. Then ar any time it is possible to query
+    MemMap about producers of data that now is referenced. Subsequent
+    producers may partially or completely overwrite previous writes which
+    is also modeled. E.g if A wrote memory producing [   AAAAAA   ] and
+    then B writes in the middle, MemMap might split area writen by A and
+    contain something like [   AABBAA   ]"""
 
     class Agent:
         def __init__(self, entry):
@@ -436,7 +444,7 @@ class MemMap:
         self.watch_end = 1582655668496039
 
     def collisions(self, addr, size, trim=False):
-        """ Generates all sources that produced a given memory area.
+        """Generates all sources that produced a given memory area.
         Resulting generator produces 3-tuples of producer address, size and log
         entry.
 
@@ -456,7 +464,7 @@ class MemMap:
                     yield iaddr, isize, value
 
     def add_destination(self, device_ptr, size, agent, input_name):
-        """ Register consumer of a memory area within all participating producers.
+        """Register consumer of a memory area within all participating producers.
         In general, a buffer might have been partially prepared by multiple
         sources in which case each source is bound to destination. This call
         is producing bidirectional connections between consumer and sources.
@@ -487,8 +495,8 @@ class MemMap:
         return len(self.mem)
 
     def update(self, addr, size, agent, name):
-        """ Updates map with new producer agent
-            @param: name identifier of the map update, e.g. tensor name. Agent may update multiple areas, each identified by 'name'.
+        """Updates map with new producer agent
+        @param: name identifier of the map update, e.g. tensor name. Agent may update multiple areas, each identified by 'name'.
         """
 
         def get_watch_collisions():
@@ -701,14 +709,10 @@ class Log:
                     t = Tensor(entry, "")
                     self.tensors[result["pTensor"]] = t
                     self.ntensors[t.name] = t
-                if is_call(entry, "synTensorSetGeometry"):
+                if is_call(entry, "synTensorSetGeometryExt"):
                     geometry_object = objects[entry["args"]["geometry"]]
-                    tensor          = entry["args"]["tensor"]
+                    tensor = entry["args"]["tensor"]
                     self.tensors[tensor].update_geometry(entry, geometry_object)
-                if is_call(entry, "synTensorSetDeviceLayout"):
-                    layout_object = objects[entry["args"]["layout"]]
-                    tensor          = entry["args"]["tensor"]
-                    self.tensors[tensor].update_layout(entry, layout_object)
                 if is_call(entry, "synGraphCreate"):
                     graph = Graph(entry)
                     self.graphs[result["pGraphHandle"]] = graph
@@ -768,10 +772,10 @@ class Log:
 
     def select_launches(self, recipe_id):
         """unpack recipe_id into enumeration of graphs. this is extracted to offer consistent behavior of --recipe_id:
-            * when not provided select all graphs in log, but provide no launch
-            * when given as graph id return iterator with one graph and no launch
-            * when given as graph_G/L return iterator with one graph and one launch
-            * when given as graph_G/* return iterator with one graph and all launches"""
+        * when not provided select all graphs in log, but provide no launch
+        * when given as graph id return iterator with one graph and no launch
+        * when given as graph_G/L return iterator with one graph and one launch
+        * when given as graph_G/* return iterator with one graph and all launches"""
         if recipe_id:
             recipe_id = (recipe_id,)
         else:
@@ -800,30 +804,33 @@ class Log:
                 g = self.ngraphs[graph_id]
                 yield (g, None)
 
-    def write_graph_test(self, graph : Graph, output, computation_result = None):
+    def write_graph_test(self, graph: Graph, output, computation_result=None):
         from gson2test import Flow
 
         def collect_tss():
-            tss = set([ e["ts"] for e in graph.events() ])
-            tss |= set([ e["end_ts"] for e in graph.events() if "end_ts" in e ])
+            tss = set([e["ts"] for e in graph.events()])
+            tss |= set([e["end_ts"] for e in graph.events() if "end_ts" in e])
             return tss
 
-        test_op_list = set([
-            "synStreamCreate",
-            "synStreamDestroy",
-            # "synStreamSynchronize",
-            # "synWorkspaceGetSize",
-            "synSetCfg",
-            "synDeviceMalloc",
-            "synDeviceGetMemoryInfo",
-            "synDeviceFree",
-            "synDeviceRelease",
-            "synDestroy",
-            "synInitialize",
-            "synDeviceAcquireByDeviceType",
-        ])
+        test_op_list = set(
+            [
+                "synStreamCreate",
+                "synStreamDestroy",
+                # "synStreamSynchronize",
+                # "synWorkspaceGetSize",
+                "synSetCfg",
+                "synDeviceMalloc",
+                "synDeviceGetMemoryInfo",
+                "synDeviceFree",
+                "synDeviceRelease",
+                "synDestroy",
+                "synInitialize",
+                "synDeviceAcquireByDeviceType",
+            ]
+        )
 
         selected_tss = collect_tss()
+
         def pred(elem):
             entry = elem[1]
             if entry["ts"] in selected_tss:
@@ -862,15 +869,15 @@ class Log:
             else:
                 os.makedirs(output_dir)
 
-        def convert_to_path(graph_name : str):
-            fname = graph_name.replace('.', '_').replace('/', '__')
+        def convert_to_path(graph_name: str):
+            fname = graph_name.replace(".", "_").replace("/", "__")
             return f"{output_dir}/{fname}.cpp"
 
         def dump_graphs_with_makefile():
             from gson2test import Flow
 
             graphs = self.ngraphs.values()
-            paths  = list(map(convert_to_path, self.ngraphs.keys()))
+            paths = list(map(convert_to_path, self.ngraphs.keys()))
 
             for fname, graph in zip(paths, graphs):
                 self.write_graph_test(graph, fname, Flow.ComputationResult.LAST_COMPILED_RECIPE)
@@ -880,14 +887,12 @@ class Log:
 
             Utils.write_makefile(mkpath, srcs)
 
-
-
         handle_dir()
         dump_graphs_with_makefile()
 
     def cmd_write_graph_test(self, recipe_id, **kwargs):
         for g, launch_id in self.select_launches(recipe_id):
-            return self.write_graph_test(g, 'test.cxx')
+            return self.write_graph_test(g, "test.cxx")
 
     def cmd_list_nodes(self, recipe_id, **kwargs):
         for g, launch_id in self.select_launches(recipe_id):
@@ -1055,10 +1060,8 @@ if __name__ == "__main__":
     p_runtime_summary = subparsers.add_parser(
         "runtime-summary", help="prints summary of runtime behavior of each graph"
     )
-    p_extrat_all_graphs = subparsers.add_parser('extract-all-graphs', help='produce API-level graphs')
-    p_extrat_all_graphs.add_argument(
-        "output_dir", help="output directory"
-    )
+    p_extrat_all_graphs = subparsers.add_parser("extract-all-graphs", help="produce API-level graphs")
+    p_extrat_all_graphs.add_argument("output_dir", help="output directory")
     subparser = subparsers.add_parser("list-nodes", help="prints nodes of graph along with input/output tensors")
     subparser = subparsers.add_parser("write-graph-test", help="produce API-level test ofgraph compilation")
     subparser = subparsers.add_parser("timeline", help="prints launches timeline")

@@ -84,23 +84,25 @@ class Flow:
 
     def _return_last_compiled_recipe(self):
         if self.last_compiled_recipe is None:
-            raise Exception("Flow is executed with computation_result==LAST_COMPILED_RECIPE, but no recipe has been compiled")
+            raise Exception(
+                "Flow is executed with computation_result==LAST_COMPILED_RECIPE, but no recipe has been compiled"
+            )
         var = self.last_compiled_recipe
-        if var[0] != '&':
+        if var[0] != "&":
             raise Exception("self.last_compiled_recipe is not an address of member field")
         var = var[1:]
-        return f'return {var};'
+        return f"return {var};"
 
-    def __init__(self, input_iterator, computation_result = None):
+    def __init__(self, input_iterator, computation_result=None):
         self.references = list()
         self.objs = {}
         self.bin_file_size = 0
         self.last_compiled_recipe = None
         if computation_result == Flow.ComputationResult.LAST_COMPILED_RECIPE:
-            self.return_type = 'synRecipeHandle'
+            self.return_type = "synRecipeHandle"
             self.get_return_statement = self._return_last_compiled_recipe
         else:
-            self.return_type = 'void'
+            self.return_type = "void"
             self.get_return_statement = lambda: ""
 
         if isinstance(input_iterator, str):
@@ -150,7 +152,7 @@ class Flow:
                     cast = "&"
                 elif replacement_type != value_type:
                     cast = f"({value_type})"
-                    if (value_type.find("**") > 0) and not(replacement_type.find("**") > 0):
+                    if (value_type.find("**") > 0) and not (replacement_type.find("**") > 0):
                         cast = cast + "&"
                 return f"{cast}{replacement}"
 
@@ -376,10 +378,9 @@ class Flow:
             self.vars = ""
             self.bin_file_size = "x"
             self.body = StringIO()
-            self.return_type = 'void'
+            self.return_type = "void"
             self.get_return_statement = None
             self.disable_bin_file = False
-
 
         def set_tid(self, tid):
             pass
@@ -400,7 +401,7 @@ class Flow:
                 '  std::clog << "Finished\\n";',
                 "}",
             ]
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def str_render_preambule(self):
             lines = [
@@ -422,7 +423,7 @@ class Flow:
                 "",
             ]
 
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def str_render_class_ctor_dtor(self):
             lines = [
@@ -440,22 +441,19 @@ class Flow:
                 "      ASSERT_EQ(fstat(data_fd, &data_file_stat), 0);",
                 "      data_file_size = data_file_stat.st_size;",
                 "  } else if (errno == ENOENT) {",
-                '      printf("WARNING: cannot open `%s` so I am using zeros. This may affect test behavior.\", bin_file_name);',
+                '      printf("WARNING: cannot open `%s` so I am using zeros. This may affect test behavior.", bin_file_name);',
                 "      mmap_flags |= MAP_ANONYMOUS;",
                 "  } else",
                 '      ASSERT_EQ(errno, 0) << "failed to open binary file";',
                 "  data_adr = (unsigned char*) mmap(NULL, data_file_size, PROT_READ | PROT_WRITE, mmap_flags, data_fd, 0);",
-                '  printf("mmap\'ed 0x%zx bytes data file at %p\", data_file_size, data_adr);',
-                '  close(data_fd);'
-                '  ASSERT_NE(data_adr, MAP_FAILED) << "mmapping of bin file failed " << errno;',
+                '  printf("mmap\'ed 0x%zx bytes data file at %p", data_file_size, data_adr);',
+                "  close(data_fd);" '  ASSERT_NE(data_adr, MAP_FAILED) << "mmapping of bin file failed " << errno;',
                 "} // constructor",
                 "",
                 "",
-                "~logger_test() {"
-                "  munmap(data_adr, data_file_size);"
-                "}"
+                "~logger_test() {" "  munmap(data_adr, data_file_size);" "}",
             ]
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def str_render_class_code(self):
             lines = [
@@ -463,7 +461,7 @@ class Flow:
                 self.body.getvalue(),
                 "}",
             ]
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def str_render_class(self):
             lines = [
@@ -474,7 +472,7 @@ class Flow:
                 "uint32_t device_id;",
                 self.vars,
                 "",
-                ""
+                "",
             ]
 
             if self.bin_file_size and not self.disable_bin_file:
@@ -482,7 +480,7 @@ class Flow:
 
             lines.append(self.str_render_class_code())
             lines.append("};")
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def render(self, out):
             out(self.str_render_preambule())
@@ -501,10 +499,9 @@ class Flow:
                 "   auto rh = t.run();",
                 "   unlink(argv[1]);",
                 "   synRecipeSerialize(rh, argv[1]);",
-                "   return 0;"
-                "}",
+                "   return 0;" "}",
             ]
-            return '\n'.join(lines)
+            return "\n".join(lines)
 
         def str_render_preambule(self):
             lines = [
@@ -519,8 +516,7 @@ class Flow:
                 "",
                 "",
             ]
-            return '\n'.join(lines)
-
+            return "\n".join(lines)
 
     def configure_renderer(self, renderer):
         renderer.return_type = self.return_type
@@ -723,8 +719,7 @@ class Flow:
                         # it happens if the machine has GaudiM card instead of Gaudi
                         # in that case, we record only successful device acquisitions
                         if entry["result"]["status"] == 0:
-                            out(Flow.call(
-                                entry, {"pDeviceId": "&device_id"}))
+                            out(Flow.call(entry, {"pDeviceId": "&device_id"}))
                     elif func_def.name == "synDeviceGetMemoryInfo":
                         v = space.add(entry["result"]["free"], "uint64_t", f"device_free_memory{no}", local=True)
                         args["free"] = entry["result"]["free"]
@@ -836,19 +831,28 @@ class Flow:
                     elif func_def.name == "synTensorHandleCreate":
                         v = space.add(entry["result"]["pTensor"], "synTensor", f"tensor{no}", local=True)
                         args["pTensor"] = entry["result"]["pTensor"]
-                        replacements = space.get_args(entry, ("pTensor", "graph",))
+                        replacements = space.get_args(
+                            entry,
+                            (
+                                "pTensor",
+                                "graph",
+                            ),
+                        )
                         tensorType = args["type"]
                         replacements["type"] = f"(synTensorType) {tensorType}"
                         out(Flow.call(entry, replacements))
 
-                    elif func_def.name == "synTensorSetGeometry":
-                        replacements = space.get_args(entry, ("tensor","geometry", ))
+                    elif func_def.name == "synTensorSetGeometryExt":
+                        replacements = space.get_args(
+                            entry,
+                            (
+                                "tensor",
+                                "geometry",
+                            ),
+                        )
                         geometryType = args["geometryType"]
                         replacements["geometryType"] = f"(synGeometryType) {geometryType}"
                         out(Flow.call(entry, replacements))
-
-                    elif func_def.name == "synTensorSetDeviceLayout":
-                        out(Flow.call(entry, space.get_args(entry, ("tensor", "layout", ))))
 
                     elif func_def.name == "synGraphCompile":
                         self._reference_match_graph(no, entry)
@@ -857,7 +861,7 @@ class Flow:
                         v = space.add(entry["result"]["pRecipeHandle"], "synRecipeHandle", f"recipe{no}", local=True)
                         args["pRecipeHandle"] = entry["result"]["pRecipeHandle"]
                         replacements = space.get_args(entry, ("graphHandle", "pRecipeHandle"))
-                        self.last_compiled_recipe = replacements['pRecipeHandle']
+                        self.last_compiled_recipe = replacements["pRecipeHandle"]
                         out(Flow.call(entry, replacements))
                     elif func_def.name == "synGraphDestroy":
                         out(Flow.call(entry, space.get_args(entry, ("graphHandle",))))
@@ -880,7 +884,13 @@ class Flow:
                         args["sectionHandle"] = entry["result"]["sectionHandle"]
                         out(Flow.call(entry, space.get_args(entry, ("graph", "sectionHandle"))))
                     elif func_def.name == "synTensorAssignToSection":
-                        replacements = space.get_args(entry, ("tensor", "section",))
+                        replacements = space.get_args(
+                            entry,
+                            (
+                                "tensor",
+                                "section",
+                            ),
+                        )
                         out(Flow.call(entry, replacements))
                     elif func_def.name == "synStreamCreate":
                         v = space.add(entry["result"]["pStreamHandle"], "synStreamHandle", f"stream{no}", local=True)

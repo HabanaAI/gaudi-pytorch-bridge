@@ -434,7 +434,6 @@ class tensor final {
   }
   synapse_error_o create_old_synapi();
   synapse_error_o create();
-  synapse_error_o set_layout();
   void cleanup();
 
   std::string tensor_name_;

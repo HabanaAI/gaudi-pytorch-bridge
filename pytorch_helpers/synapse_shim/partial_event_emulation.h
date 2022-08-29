@@ -41,7 +41,7 @@ class PartialEventEmulation {
       uint64_t* tensorIds);
   synStatus synLaunchWithExternalEvents(
       const synStreamHandle streamHandle,
-      const synLaunchTensorInfo* launchTensorsInfoExt,
+      const synLaunchTensorInfoExt* launchTensorsInfoExt,
       const uint32_t numberOfTensors,
       uint64_t pWorkspace,
       const synRecipeHandle pRecipeHandle,
@@ -51,7 +51,7 @@ class PartialEventEmulation {
   synStatus synEventMapTensor(
       synEventHandle* eventHandle,
       size_t numOfEvents,
-      const synLaunchTensorInfo* launchTensorsInfo,
+      const synLaunchTensorInfoExt* launchTensorsInfo,
       const synRecipeHandle recipeHandle);
   synStatus synTensorSetExternal(synTensor tensor, bool isExternal);
   synStatus synTensorGetExternal(const synTensor tensor, bool* isExternal);

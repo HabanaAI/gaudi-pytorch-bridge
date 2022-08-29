@@ -239,7 +239,7 @@ struct RecipeValueSpec {
           tidx_to_tensor_map_opt = std::nullopt);
   void populate_syn_tensor_ids();
   void patch_launch_info(
-      std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
+      std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes);
   void PrintDebugInfo(
       at::ArrayRef<torch::jit::IValue>& input_refs,

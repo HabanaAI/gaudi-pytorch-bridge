@@ -977,7 +977,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 }
 
 void RecipeValueSpec::patch_launch_info(
-    std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
+    std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
     std::vector<size_t>& external_tensor_info_indexes) {
   TORCH_CHECK(
       (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
@@ -990,7 +990,7 @@ void RecipeValueSpec::patch_launch_info(
       case SHAPE_TENSOR:
       case INPUT_DESCRIBING_SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
             ti.get_syn_namec_str(),
             0,
             ti.tensor_type(),
@@ -1000,7 +1000,7 @@ void RecipeValueSpec::patch_launch_info(
       }
       case HOST_TO_DEVICE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
             ti.get_syn_namec_str(),
             ti.get_host_ptr(),
             ti.tensor_type(),
@@ -1014,7 +1014,7 @@ void RecipeValueSpec::patch_launch_info(
           external_tensor_info_indexes.push_back(tensor_idx);
         }
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
             ti.get_syn_namec_str(),
             ti.get_buffer_syn(),
             ti.tensor_type(),
@@ -1024,7 +1024,7 @@ void RecipeValueSpec::patch_launch_info(
       }
       case DEVICE_SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
-        syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+        syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
             ti.get_syn_namec_str(),
             ti.get_buffer_syn(),
             ti.tensor_type(),
@@ -1111,7 +1111,7 @@ void RecipeValueSpec::launch(
   std::vector<at::Tensor> outPtRefs;
   std::vector<synapse_helpers::device_ptr> outDevPtr;
 
-  std::vector<synLaunchTensorInfo> syn_launch_info;
+  std::vector<synLaunchTensorInfoExt> syn_launch_info;
   std::vector<size_t> external_tensor_info_indexes;
   if (recipe) {
     patch_launch_info(syn_launch_info, external_tensor_info_indexes);
@@ -1173,7 +1173,7 @@ void RecipeValueSpec::launch(
 
     std::vector<synapse_helpers::shared_event> ext_events;
     for (auto external_idx : external_tensor_info_indexes) {
-      synLaunchTensorInfo& ti = syn_launch_info.at(external_idx);
+      synLaunchTensorInfoExt& ti = syn_launch_info.at(external_idx);
       PT_BRIDGE_DEBUG("Map event to external tensor ", ti.tensorName);
       ext_events.emplace_back(device.map_event_to_tensor(
           stream_handle, recipe->syn_recipe_handle_, &ti, []() {}));

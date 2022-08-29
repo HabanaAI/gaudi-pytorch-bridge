@@ -138,7 +138,7 @@ class graph {
 
   static synapse_error_o query_recipe_tensor_info(
       std::shared_ptr<graph::recipe_handle> recipe_handle,
-      std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec);
+      std::vector<synRetrievedLaunchTensorInfoExt>& tensor_info_vec);
 
   static synapse_error_v<uint64_t> query_workspace_size(
       const graph::recipe_handle& recipe_handle);
@@ -147,7 +147,7 @@ class graph {
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
+      std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
       std::unique_ptr<device_ptr_lock>& address_lock,
       std::vector<shared_event>& ext_events,
       stream& compute_stream);
@@ -156,7 +156,7 @@ class graph {
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
+      std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
       std::unique_ptr<device_ptr_lock>& address_lock,
       std::vector<shared_event>& ext_events,
       stream& compute_stream);

@@ -290,7 +290,7 @@ class device {
   shared_event map_event_to_tensor(
       stream& stream,
       const synRecipeHandle recipe_handle,
-      synLaunchTensorInfo* tensor_info,
+      synLaunchTensorInfoExt* tensor_info,
       event_done_callback done_cb);
 
   const absl::optional<owned_device_ptr>& reduction_buffer() {
