@@ -43,7 +43,7 @@ static bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
   return false;
 }
 
-static bool isOutputInplaceOp(const Value* v) {
+static bool isInplaceOp(const Value* v) {
   for (auto& u : v->uses()) {
     auto n = u.user;
     if (n && isInplace(n)) {
@@ -79,7 +79,7 @@ void remove_redundant_memcpy(std::shared_ptr<Graph>& graph) {
         !isGraphOutput(graph, node->output(0)) &&
         !isInList(graph->outputs().vec(), node->input(0)) &&
         !isInList(graph->inputs().vec(), node->input(0)) &&
-        !isOutputInplaceOp(node->output(0))) {
+        !isInplaceOp(node->input(0)) && !isInplaceOp(node->output(0))) {
       redundant_memcpy_nodes.emplace_back(node);
     }
   }
