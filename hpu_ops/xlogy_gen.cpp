@@ -13,6 +13,45 @@
 
 namespace habana {
 
+constexpr size_t index_of_self = 0;
+constexpr size_t index_of_other = 1;
+
+static void XlogyScalarConversion(
+    std::vector<at::IValue>& inputs,
+    size_t scalar_index,
+    size_t tensor_index) {
+  auto tensor = inputs[tensor_index].toTensor();
+  auto scalar = inputs[scalar_index].toScalar();
+  auto dtype = at::result_type(tensor, scalar);
+  auto self_tensor =
+      habana_lazy::get_tensor_for_scalar(scalar.toDouble(), dtype);
+  inputs[scalar_index] = c10::IValue(self_tensor);
+}
+
+template <typename T>
+LazyXlogY<T>::LazyXlogY(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
+    : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn) {
+  auto x = LazyXlogY<T>::get_inputs();
+  // convert scalar input to tensor
+  if (x[index_of_self].isScalar()) {
+    XlogyScalarConversion(x, index_of_self, index_of_other);
+  } else {
+    XlogyScalarConversion(x, index_of_other, index_of_self);
+  }
+  LazyXlogY<T>::set_inputs(x);
+}
+
+template struct LazyXlogY<at::Tensor&>;
+template struct LazyXlogY<at::Tensor>;
+
+template <typename T>
+T LazyXlogY<T>::get_result_overrideable() {
+  return LazyXlogY<T>::get_result_overrideable();
+}
+
 sizes_vec XlogYOutputShape(const at::Stack& stack, bool) {
   if (stack.at(1).isScalar()) {
     const torch::Tensor& self = stack_tensor(stack, 0);
@@ -30,37 +69,13 @@ void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto outshape = XlogYOutputShape(stack, true)[0];
-  auto self_shape = stack_tensor(stack, 0).sizes().vec();
   auto other_shape = stack_tensor(stack, 1).sizes().vec();
 
-  auto self = stack.at(0).toTensor();
-  auto other = stack.at(1).toTensor();
-
-  std::vector<synTensor> self_input{syn_in(0)};
-  std::vector<synTensor> other_input{syn_in(1)};
-  std::unique_ptr<synapse_helpers::tensor> cast;
-
-  // TODO: To remove cast nodes after adding frontend support
-  // https://jira.habana-labs.com/browse/SW-86489
-  if (self_shape == std::vector<int64_t>({1})) { // Scalar | Tensor
-    if (ScalarType() == c10::ScalarType::BFloat16) {
-      cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
-          graph, syn_in(0), self_shape, self.scalar_type(), ScalarType()));
-      self_input = {cast->get()};
-    }
-  } else if (other_shape == std::vector<int64_t>({1})) { // Tensor | Scalar
-    if (ScalarType() == c10::ScalarType::BFloat16) {
-      cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
-          graph, syn_in(1), other_shape, other.scalar_type(), ScalarType()));
-      other_input = {cast->get()};
-    }
-  }
-
-  auto logy = BuildOp(graph, guid_, other_input, {{other_shape, ScalarType()}});
+  auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{other_shape, ScalarType()}});
   auto xlogy = BuildOp(
       graph,
       MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
-      {self_input[0], logy[0].get()},
+      {syn_in(0), logy[0].get()},
       {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(xlogy[0]);

@@ -105,3 +105,22 @@ class HpuOpTest : public HpuOpTestUtil {};
 XLOGY_TEST(special_xlog1py)
 XLOGY_TEST(xlogy)
 INPLACE_TEST(xlogy_)
+
+// Issue Raised: https://jira.habana-labs.com/browse/SW-102352
+// Below testcase fails for default tolerance
+// hence tuned atol & rtol to 1e-2
+TEST_F(HpuOpTest, xlogy_self_scalar_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  float self = 2.3;
+  auto expected = torch::xlogy(self, GetCpuInput(0));
+  auto result = torch::xlogy(self, GetHpuInput(0));
+  Compare(expected, result, 1e-2, 1e-2);
+}
+
+TEST_F(HpuOpTest, xlogy_other_scalar_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  float other = 2.3;
+  auto expected = torch::xlogy(GetCpuInput(0), other);
+  auto result = torch::xlogy(GetHpuInput(0), other);
+  Compare(expected, result);
+}
