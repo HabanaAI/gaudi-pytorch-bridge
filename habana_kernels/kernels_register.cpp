@@ -941,6 +941,29 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
   }
 };
 
+Tensor hpu_wrap::constant_pad_nd(
+    const Tensor& self,
+    IntArrayRef pad,
+    const Scalar& value) {
+  PT_OP_TRACE;
+  PT_OP_INFO(
+      "constant_pad :",
+      " self=",
+      to_string(self),
+      " pad=",
+      to_string(pad),
+      " value=",
+      to_string(value));
+  FALLBACK_IF_UNSUPPORTED_OP(
+      constant_pad_nd, PARAMS1(self), PARAMS2(self, pad, value))
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return constant_pad_hpu_lazy(self, pad, value);
+
+  } else {
+    return constant_pad_hpu(self, pad, value);
+  }
+};
 Tensor hpu_wrap::embedding(
     const Tensor& weight,
     const Tensor& indices,
@@ -5865,6 +5888,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
+  m.def(
+      "hpu::constant_pad_nd(Tensor self, Tensor pad_before_tensor, Tensor pad_after_tensor, Scalar value) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(

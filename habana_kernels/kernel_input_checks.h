@@ -1593,6 +1593,14 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
+                "constant_pad_nd",
+                {{at::ScalarType::Int,
+                  at::ScalarType::Long,
+                  at::ScalarType::Double,
+                  at::ScalarType::Float,
+                  at::ScalarType::BFloat16}},
+            },
+            {
                 "scatter_",
                 {{at::ScalarType::Int,
                   at::ScalarType::Long,
