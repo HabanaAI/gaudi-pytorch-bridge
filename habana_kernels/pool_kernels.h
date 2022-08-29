@@ -102,6 +102,8 @@ class MaxPool2dWithIndicesBackwardOperator
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
   }
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

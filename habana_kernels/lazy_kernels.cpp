@@ -3040,7 +3040,15 @@ Tensor& arange_hpu_lazy_ht(
         c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
+    // Mark this front end shape tensor as it does not need synapse tensor
     auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
+    auto hl_result_shape_internal =
+        hl_result_shape.CurrentTensorAttached().value();
+    auto stImpl =
+        habana_lazy::GetHbInternalTensorImpl(hl_result_shape_internal);
+    if (stImpl) {
+      stImpl->setH2DFrontEndShapeTensor();
+    }
 
     if (output.scalar_type() == c10::ScalarType::Int ||
         output.scalar_type() == c10::ScalarType::Long) {
@@ -4635,6 +4643,17 @@ at::Tensor repeat_inlv_hpu_lazy(
       input.suggest_memory_format(),
       false,
       SHAPE_TENSOR);
+  // Mark this front end shape tensor as it does not need synapse tensor
+  auto hl_output_shape_tensor =
+      GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
+  auto hl_output_shape_tensor_internal =
+      hl_output_shape_tensor.CurrentTensorAttached().value();
+  auto stImpl =
+      habana_lazy::GetHbInternalTensorImpl(hl_output_shape_tensor_internal);
+  if (stImpl) {
+    stImpl->setH2DFrontEndShapeTensor();
+  }
+
   if (need_h2d_tensor) {
     LazyOp<at::Tensor> k{
         "hpu::repeat_inlv",

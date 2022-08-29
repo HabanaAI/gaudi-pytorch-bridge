@@ -374,9 +374,9 @@ class HabanaLaunchOpPT {
       const OutputMetaDataVector& outputs_metadata);
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
-      torch::jit::Node* node,
       std::vector<size_t>& intermediate_shape_tensors,
-      std::vector<size_t>& inputs_shape_tensors);
+      std::vector<size_t>& inputs_shape_tensors,
+      bool isRecursiveCall = false);
   void ProcessShapeTensorsCS(
       const OutputShapeInfRetType& output,
       std::vector<IdxTensorTup>& intermediate_shape_tensor_cs);

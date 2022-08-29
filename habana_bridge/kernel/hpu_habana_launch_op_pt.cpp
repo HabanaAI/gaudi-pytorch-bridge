@@ -814,9 +814,9 @@ void HabanaLaunchOpPT::ProcessShapeTensorsCS(
 
 void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
     const HabanaOperatorPtr& habanaOp,
-    torch::jit::Node* node,
     std::vector<size_t>& intermediate_shape_tensors,
-    std::vector<size_t>& inputs_shape_tensors) {
+    std::vector<size_t>& inputs_shape_tensors,
+    bool isRecursiveCall) {
   bool shape_inf_flag = enable_fast_shape_inf_ &&
       syn_graph_ptr->is_dynamic_graph() &&
       !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
@@ -854,6 +854,11 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
               " : ",
               *ti);
         } else {
+          // Add input shape tensors for top level op only
+          // skip adding for child kernels by check recursive call
+          if (true == isRecursiveCall)
+            continue;
+
           inputs_shape_tensors.emplace_back(shape_tensor_tinfos.size());
           PT_TEST_DEBUG_TH(
               "manual path: adding input shape tensor for index = ",
@@ -870,7 +875,7 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
   std::vector<HabanaOperatorPtr> habana_kernels = habanaOp->GetKernels();
   for (auto& habana_op : habana_kernels) {
     ProcessSynapseShapeTensors(
-        habana_op, node, intermediate_shape_tensors, inputs_shape_tensors);
+        habana_op, intermediate_shape_tensors, inputs_shape_tensors, true);
   }
 }
 
@@ -1799,12 +1804,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     syn_graph_ptr->clear_node_indices();
 
     if (refine_ds_enabled_ && (!is_shape_inference)) {
+      // Process both synapse input and intermediate shape tensors
       std::vector<size_t> intermediate_shape_tensors;
       ProcessSynapseShapeTensors(
-          HabanaKernel,
-          node,
-          intermediate_shape_tensors,
-          inputs_shape_tensors_vec);
+          HabanaKernel, intermediate_shape_tensors, inputs_shape_tensors_vec);
       if (enable_fast_shape_inf_ && syn_graph.is_dynamic_graph()) {
         if (!kernel_output_cs.empty()) {
           size_t index = 0;

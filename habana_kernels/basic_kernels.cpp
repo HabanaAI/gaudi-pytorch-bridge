@@ -364,10 +364,7 @@ OutputShapeInfRetType CastLazyOperator::ComputeOutputShape(
       auto bf_to_floatOp = make_operator<CastOperator>(
           self.device().index(), "cast_bf16_to_f32");
       inputs[1] = IValue(c10::ScalarType::Float);
-      auto bf_to_floatOp_out =
-          out.call_ComputeOutputShape(bf_to_floatOp, inputs);
-      auto bf_to_floatOp_out_tensor = bf_to_floatOp_out.GetOutputTensor(0);
-      out.MoveToOutput(std::move(bf_to_floatOp_out_tensor));
+      (void)out.call_ComputeOutputShape(bf_to_floatOp, inputs);
 
       auto float_to_intOp =
           make_operator<CastOperator>(self.device().index(), "cast_f32_to_i32");
@@ -382,10 +379,7 @@ OutputShapeInfRetType CastLazyOperator::ComputeOutputShape(
       auto byte_to_floatOp =
           make_operator<CastOperator>(self.device().index(), "cast_u8_to_f32");
       inputs[1] = IValue(c10::ScalarType::Float);
-      auto byte_to_floatOp_out =
-          out.call_ComputeOutputShape(byte_to_floatOp, inputs);
-      auto byte_to_floatOp_out_tensor = byte_to_floatOp_out.GetOutputTensor(0);
-      out.MoveToOutput(std::move(byte_to_floatOp_out_tensor));
+      (void)out.call_ComputeOutputShape(byte_to_floatOp, inputs);
 
       auto float_to_bfOp = make_operator<CastOperator>(
           self.device().index(), "cast_f32_to_bf16");

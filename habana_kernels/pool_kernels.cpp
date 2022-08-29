@@ -748,6 +748,22 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   return grad_input;
 }
 
+habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOperator::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[1].toTensor();
+  auto grad_input = habana_helpers::createPTTensor(input, false);
+
+  // Re-order the inputs for:
+  // MaxPool2dWithIndicesBackwardOutOperator in the below order:
+  // {grad_input, grad_out, input, indices, kernel_size, stride, padding,
+  //  dialation, ceil_mode}
+  inputs.insert(inputs.begin(), IValue(grad_input));
+  auto& indices = inputs.back();
+  inputs.insert(inputs.begin() + 3, indices);
+  inputs.pop_back();
+  return MaxPool2dWithIndicesBackwardOutOperator::ComputeOutputShape(inputs);
+}
+
 void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -772,6 +788,11 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
 
   MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, output_metadata);
+
+  // Revert to the original input stack
+  inputs.push_back(indices);
+  inputs.erase(inputs.begin() + 3);
+  inputs.erase(inputs.begin());
 }
 
 void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(

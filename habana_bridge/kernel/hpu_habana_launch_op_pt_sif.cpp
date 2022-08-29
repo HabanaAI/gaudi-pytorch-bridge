@@ -461,11 +461,15 @@ void HabanaLaunchOpPT::RunHybridSif(
     // print_stack(op_input_stack);
 
     // Collect input shape tensors, To add them at last after graph inputs
+    // Add only shape tensors and input describing shape tensors and
+    // exclude front end shape tensors added for H2D tensors
     for (auto const& input : op_input_stack) {
       if (input.isTensor()) {
         auto tensor = input.toTensor();
         auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-        if (impl && impl->isShapeTensor()) {
+        if (impl && impl->isH2DFrontEndShapeTensor() == false &&
+            (impl->getTensorType() == SHAPE_TENSOR ||
+             impl->getTensorType() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
           input_shape_tensors_vec.emplace_back(tensor);
         }
       }

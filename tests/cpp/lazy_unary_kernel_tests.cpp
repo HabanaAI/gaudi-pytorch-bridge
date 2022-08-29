@@ -936,6 +936,27 @@ TEST_F(LazyUnaryKernelTest, CastU8F32I32) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also Validates ComputeOutputShape for cast bf16->i32, i32->u8 and u8->bf16
+// cast bf16->i32 validates GUIDs cast_bf16_to_f32 and cast_f32_to_i32
+// cast i32->u8 validates GUID cast_i32_to_u8
+// cast u8->bf16 validates GUIDs cast_u8_to_f32 and cast_f32_to_bf16
+TEST_F(LazyUnaryKernelTest, CastBF16I32U8BF16) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  torch::Tensor A = torch::rand(
+      {2, 3, 4}, torch::dtype(torch::kBFloat16).requires_grad(false));
+  torch::Tensor out_cpu =
+      A.to(torch::kInt32).to(torch::kByte).to(torch::kBFloat16);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor out_hpu =
+      hA.to(torch::kInt32).to(torch::kByte).to(torch::kBFloat16);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 // Also Validates ComputeOutputShape for GUID cast_f32_to_i8, identity,
 // cast_i8_to_f32
 TEST_F(LazyUnaryKernelTest, CastIdentity) {

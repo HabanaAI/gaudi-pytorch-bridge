@@ -105,6 +105,19 @@ Tensor CatOperator::CheckAllocateOutput(
   return out;
 }
 
+OutputShapeInfRetType CatOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto out_tensor = CheckAllocateOutput(inputs, OutputMetaData());
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      out_tensor.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          out_tensor.sizes().vec(), out_tensor.suggest_memory_format()),
+      out_tensor.scalar_type(),
+      out_tensor.suggest_memory_format()));
+  return out;
+}
+
 void CatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -118,6 +131,9 @@ void CatOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(kernel_dim);
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &kernel_dim, sizeof(kernel_dim));
+
+  // Revert input stack
+  inputs.pop_back();
 }
 
 /*************************************************************************

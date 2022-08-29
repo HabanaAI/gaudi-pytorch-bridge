@@ -180,6 +180,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     return habana_helpers::is_shape_tensor(m_tensor_type);
   }
 
+  bool isH2DFrontEndShapeTensor() {
+    return m_is_h2d_fe_shape_tensor;
+  }
+
+  void setH2DFrontEndShapeTensor() {
+    m_is_h2d_fe_shape_tensor = true;
+  }
+
   synTensorType getTensorType() {
     return m_tensor_type;
   }
@@ -217,6 +225,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   synapse_helpers::layouts::MemoryPermutation m_memory_permutation;
   bool m_dont_allow_permutation = false;
   unsigned m_permuted_counter = 0;
+  bool m_is_h2d_fe_shape_tensor = false;
 
   void* host_ptr_ = nullptr;
   void* compile_host_ptr_ = nullptr;
