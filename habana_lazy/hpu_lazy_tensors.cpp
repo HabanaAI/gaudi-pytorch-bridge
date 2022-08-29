@@ -116,24 +116,28 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
       auto id = data->unique_id;
-      auto hl_t = HbLazyTensor(std::move(data));
+      if (data->ir_value && data->ir_value.mp_node->is_input() == false) {
+        auto hl_t = HbLazyTensor(std::move(data));
 
-      auto params_ptr = context->viewContext.GetViewTableEntry(id);
-      auto is_view = (params_ptr != nullptr);
+        auto params_ptr = context->viewContext.GetViewTableEntry(id);
+        auto is_view = (params_ptr != nullptr);
 
-      if (bucket_recent_id.count(id)) {
-        context->viewContext.updated_bucket_list.emplace_back(hl_t);
+        if (bucket_recent_id.count(id)) {
+          context->viewContext.updated_bucket_list.emplace_back(hl_t);
+        }
+        auto is_view_out = context->viewContext.view_outputs.count(id);
+
+        if (is_view_out ||
+            ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+             (context->viewContext.GetOrigTensorMapEntry(id) ==
+              c10::nullopt))) {
+          tensors.emplace_back(hl_t);
+        }
+      } else { // if (data != nullptr)
+        data->execution_status = kEXECUTION_COMPLETE;
       }
-      auto is_view_out = context->viewContext.view_outputs.count(id);
-
-      if (is_view_out ||
-          ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-           (context->viewContext.GetOrigTensorMapEntry(id) == c10::nullopt))) {
-        tensors.emplace_back(hl_t);
-      }
-    }
-  } // for (auto& uid_wptr : devctx->tensors_data)
-
+    } // for (auto& uid_wptr : devctx->tensors_data)
+  }
   return tensors;
 }
 
@@ -726,7 +730,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
         &tensors,
         lazy_front_end_info,
         async,
-        true,
+        false,
         event_handle,
         event_stream,
         event_flag);
@@ -834,6 +838,7 @@ torch::jit::Stack PrepareInputStack(
     // So marking for execution here
     context->MarkTensorExecuting(d);
     d->is_executing = true;
+    context->executing_tids.emplace_back(d->unique_id);
   }
 
   return stack;
@@ -1085,6 +1090,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // clear IR values corresponding to unexecuted view outputs
   for (auto& t : context->viewContext.hb_tensors_exclude_out_view) {
     t.SetExecutionInProgress();
+    context->executing_tids.emplace_back(t.getTensorUniqueId());
     ir::Value val = t.createIrValueFromData();
     t.resetVersionCounter();
     t.AssignIrValue(val);
