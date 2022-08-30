@@ -25,8 +25,7 @@ static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
      {"aten::relu_", "aten::relu"},
      {"aten::leaky_relu_", "aten::leaky_relu"},
      {"aten::clamp_", "aten::clamp"},
-     {"aten::sub_", "aten::sub"},
-     {"hpu::restride", "hpu::restride"}};
+     {"aten::sub_", "aten::sub"}};
 
 bool isInplaceOp(const Node* node) {
   return node ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0
