@@ -22,7 +22,7 @@ namespace serialization {
 class InterHostCache {
   int sockfd;
   int master_port;
-  int rank, w_size;
+  int rank, w_size, l_w_size;
   bool is_cache_valid_;
   std::string cache_path_;
   std::string master_addr;

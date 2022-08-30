@@ -56,6 +56,9 @@ InterHostCache::InterHostCache(
                                              : getenv("OMPI_COMM_WORLD_SIZE");
   const char* s_master_port = getenv("MASTER_PORT");
   const char* s_master_addr = getenv("MASTER_ADDR");
+  const char* s_l_w_size = getenv("LOCAL_WORLD_SIZE")
+      ? getenv("LOCAL_WORLD_SIZE")
+      : getenv("OMPI_COMM_WORLD_LOCAL_SIZE");
 
   {
     // Basic Sanity check
@@ -68,9 +71,12 @@ InterHostCache::InterHostCache(
       ss << "MasterAddr: " << s_master_addr << "\t";
     if (s_master_port)
       ss << "MasterPort: " << s_master_port << "\t";
+    if (s_l_w_size)
+      ss << "Local WorldSize: " << s_l_w_size << "\t";
 
     PT_HABHELPER_DEBUG(INTERHOST_LOG, ss.str());
-    if (!s_rank || !s_wsize || !s_master_port || !s_master_addr) {
+    if (!s_rank || !s_wsize || !s_master_port || !s_master_addr ||
+        !s_l_w_size) {
       PT_HABHELPER_WARN(INTERHOST_LOG, "InterHostCache() Failed: ", ss.str());
       invalidate_cache();
       return;
@@ -78,6 +84,7 @@ InterHostCache::InterHostCache(
   }
 
   rank = std::atoi(s_rank);
+  l_w_size = std::atoi(s_l_w_size);
   w_size = std::atoi(s_wsize);
   master_port = std::atoi(s_master_port) + SOCKET_TX_PORT_OFFSET;
   master_addr = s_master_addr;
@@ -91,8 +98,12 @@ InterHostCache::InterHostCache(
 }
 
 void InterHostCache::init() {
-  if (!is_cache_valid_)
+  // PT_ENABLE_INTER_HOST_CACHING could be set by mistake for single node runs
+  // avoid doing additional initialization
+  if (!is_cache_valid_ || w_size == l_w_size) {
+    invalidate_cache();
     return;
+  }
 
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
@@ -288,7 +299,8 @@ bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
 
 bool InterHostCache::send_file(std::string cache_id) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (rank == 0 || !is_cache_valid_)
+  // Avoid sending files in node0
+  if (rank == 0 || !is_cache_valid_ || rank < l_w_size)
     return false;
 
   std::string recpfile = recipe_file_path(cache_path_, cache_id);
