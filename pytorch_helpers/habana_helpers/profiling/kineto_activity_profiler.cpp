@@ -1,5 +1,6 @@
 #include <iostream>
 #include "absl/strings/string_view.h"
+#include "json_parser.h"
 #include "synapse_profiler.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
@@ -21,7 +22,7 @@ using namespace std::chrono;
 class KinetoActivityProfiler : public SynapseProfiler {
  public:
   KinetoActivityProfiler(std::deque<GenericTraceActivity>& activities)
-      : activities_{activities} {}
+      : SynapseProfiler(json_parser_), activities_{activities} {}
 
   void addActivity(
       const std::string& name,
@@ -101,6 +102,7 @@ class KinetoActivityProfiler : public SynapseProfiler {
   }
 
   std::deque<GenericTraceActivity>& activities_;
+  Parser json_parser_;
 };
 
 class ProfilerSession : public libkineto::IActivityProfilerSession {

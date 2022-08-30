@@ -60,7 +60,7 @@ class HpuTraceParser {
   const std::string plane_name_ = "/device:HPU:0";
   long double hpu_start_time_;
   long double wall_start_time_;
-  pid_t device_lane_{1};
+  pid_t device_lane_{0};
   std::unique_ptr<EngineDatabase> engine_type_database_;
 };
 }; // namespace habana

@@ -10,7 +10,29 @@ static int64_t getTimeUs() {
       .count();
 }
 
-SynapseProfiler::SynapseProfiler() {
+std::string get_device_name() {
+  constexpr uint32_t maxStringLength{1024};
+  char deviceName[maxStringLength];
+  auto status = synDeviceGetName(deviceName, maxStringLength, 0);
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+    return "";
+  }
+  return deviceName;
+}
+
+uint64_t get_memory_size() {
+  uint64_t free_mem{}, total_mem{};
+  auto status = synDeviceGetMemoryInfo(0, &free_mem, &total_mem);
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+    return 0;
+  }
+  return total_mem;
+}
+
+SynapseProfiler::SynapseProfiler(HPUDetailsConsumer& hpu_details_consumer)
+    : hpu_details_consumer_(hpu_details_consumer) {
   auto env = std::getenv("HABANA_PROFILE");
   bool hpu_profiling_available =
       (env != nullptr) && (absl::string_view{env} != "0");
@@ -25,6 +47,7 @@ void SynapseProfiler::start() {
   // Necessary to initialize the device to use synapse api calls
   HABANAGuardImpl h;
   h.getDevice();
+  init_hpu_details(hpu_details_consumer_);
   uint64_t hpu_start_time_ns{};
   synProfilerGetCurrentTimeNS(&hpu_start_time_ns);
   long double hpu_start_time = hpu_start_time_ns / 1000.0L;
@@ -82,6 +105,14 @@ bool SynapseProfiler::getEntries(size_t& size, size_t& count, void* out) {
     return false;
   }
   return true;
+}
+
+void SynapseProfiler::init_hpu_details(
+    HPUDetailsConsumer& hpu_details_consumer) {
+  auto name = get_device_name();
+  auto memory = get_memory_size();
+  hpu_details_consumer.add_device_details(
+      {{"name", name}, {"totalGlobalMem", std::to_string(memory)}});
 }
 
 uint64_t SynapseProfiler::startCustomMeasurement(const std::string& tag) {
