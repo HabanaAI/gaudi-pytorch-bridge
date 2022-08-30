@@ -194,5 +194,20 @@ struct SqueezeBase : public ir::Node {
   }
 };
 
+struct Identity : public ir::Node {
+  Identity() = delete;
+  Identity(const at::Tensor& self, std::string node_str)
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_self = habana_lazy::GetHbLazyTensor(self);
+
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy

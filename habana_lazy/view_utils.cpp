@@ -764,7 +764,14 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
   PT_LAZY_TRACE;
   auto hl_self = GetHbLazyTensor(self);
 
-  ir::NodePtr node = std::make_shared<ir::SqueezeBase>(self, dim, node_str);
+  ir::NodePtr node = nullptr;
+  if (node_str == "aten::unsqueeze" && !self.dim()) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    node = std::make_shared<ir::Identity>(self, "hpu::identity");
+  } else {
+    node = std::make_shared<ir::SqueezeBase>(self, dim, node_str);
+  }
+
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);

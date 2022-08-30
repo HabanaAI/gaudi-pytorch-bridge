@@ -4615,11 +4615,7 @@ at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
   PT_OP_INFO("unsqueeze :", " self=", to_string(self), " dim=", to_string(dim));
   FALLBACK_IF_UNSUPPORTED_OP(unsqueeze, PARAMS1(self), PARAMS2(self, dim))
 
-  // Use strided view for the following cases:
-  // 1. ZST
-  // 2. self.dim() >=5
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) && self.dim()) {
-    // expand_dims gc guid supports max output tensor dim of 5
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)) {
     return unsqueeze_hpu_lazy(self, dim);
   } else {
     return at::native::unsqueeze(self, dim);
@@ -5927,6 +5923,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
   m.def(
       "hpu::linear_non2d_bwd(Tensor grad_out, Tensor input, Tensor weight, Tensor? bias) -> (Tensor, Tensor, Tensor)");
+  m.def("hpu::identity(Tensor self) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

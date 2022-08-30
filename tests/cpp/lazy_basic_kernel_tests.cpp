@@ -690,3 +690,16 @@ TEST_F(LazyBasicKernelTest, permuteResizeTest) {
   auto hOut_cpu = hOut.cpu();
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, unsqeezeExpandTest) {
+  auto x = torch::randn({});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::unsqueeze(x, -1);
+  auto hB = torch::unsqueeze(hx, -1);
+
+  auto C = B.expand(1);
+  auto hC = hB.expand(1);
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}
