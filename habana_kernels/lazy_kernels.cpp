@@ -1601,15 +1601,6 @@ Tensor& div_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   return self.div_(other, mode);
 }
 
-Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
-  PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);
-  std::vector<int64_t> sizes =
-      ReduceOperator::compute_output_shape(self, dim, keepdim);
-  LazyOp<at::Tensor, ir::AllDim> op(node, {self, dim, keepdim}, {sizes});
-  return op.call();
-}
-
 Tensor permute_wt_hpu(const Tensor& self) {
   at::Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()

@@ -1643,37 +1643,6 @@ Tensor all_hpu(const Tensor& self) {
   return stack.back().toTensor();
 }
 
-/*************************************************************************
- * @brief Kernel implementation for aten.all(self, dim, keepdim)
- * @param self - tensor_0
- ************************************************************************/
-Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
-  PT_KERNEL_BEGIN;
-  // create OP graph and populate the stack with inputs
-  auto graph = std::make_shared<torch::jit::Graph>();
-  const auto graph_string = R"IR(
-  graph(%a, %dim : int, %keepdim : bool):
-    %b : Tensor = aten::all(%a, %dim, %keepdim)
-    return (%b))IR";
-  torch::jit::parseIR(graph_string, graph.get());
-  torch::jit::Stack stack = {IValue(self), IValue(dim), IValue(keepdim)};
-
-  habana_lazy::transform_graph(graph);
-
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      jit_ir_graph_and_mdata =
-          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
-  jit_ir_graph_and_mdata->set_cached_graph(graph);
-  jit_ir_graph_and_mdata->SetOpName("all_dim");
-  // Execute OP graph
-  HabanaLaunchOpPT launch{jit_ir_graph_and_mdata};
-  launch.run(stack);
-
-  // Pop output from stack
-  PT_KERNEL_END;
-  return stack.back().toTensor();
-}
-
 void AllOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1853,5 +1822,4 @@ static auto& KernelRegistry =
         .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))
         .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator))
         .add("aten::prod.dim_Int", KERNEL_FN(ProdDimOperator))
-        .add("aten::any.out", KERNEL_FN(AnyDimOutOperator))
-        .add("hpu::all_dim", KERNEL_FN(AllOperator));
+        .add("aten::any.out", KERNEL_FN(AnyDimOutOperator));

@@ -121,7 +121,6 @@ at::Tensor le_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor ne_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor ne_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor all_hpu(const at::Tensor& self);
-at::Tensor all_dim_hpu(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor gt_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor gt_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor& eq_tensor_out_hpu(

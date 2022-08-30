@@ -72,7 +72,9 @@ at::Tensor& div_tensor_hpu_lazy_out(
 at::Tensor& div_tensor_hpu_lazy_(at::Tensor& self, const at::Tensor& other);
 at::Tensor div_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
-at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
+at::Tensor floor_divide_tensor_hpu_lazy(
+    const at::Tensor& self,
+    const at::Tensor& other);
 at::Tensor upsample_nearest2d_hpu_lazy(
     const at::Tensor& input,
     OptionalIntArrayRef output_size,

@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "generated/all.h"
 #include "generated/any.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_op_helper.h"
@@ -16,7 +17,11 @@
 constexpr float cmp_value = 0; // value to compare with the reduce sum result
 namespace habana {
 
-sizes_vec AnyDimOutputShape(const at::Stack& stack) {
+sizes_vec AllAnyOutputShape(const at::Stack&) {
+  return {{}};
+}
+
+sizes_vec AllAnyDimOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   const bool keepdim = stack.at(2).toBool();
@@ -25,20 +30,17 @@ sizes_vec AnyDimOutputShape(const at::Stack& stack) {
 }
 
 template <>
-AnyOutputType<at::Tensor>::AnyOutputType(
+AllAnyOutputType<at::Tensor>::AllAnyOutputType(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, 0) {
+  set_scalar_type(at::kBool);
+}
 
 template <>
-at::Tensor AnyOutputType<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  const auto& t = inputs.at(0).toTensor();
-  auto shape = inputs.size() > 1 ? AnyDimOutputShape(inputs)[0]
-                                 : AllAnyOutputShape(inputs)[0];
-  return habana_lazy::empty_hpu_lazy(
-      shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
+at::Tensor AllAnyOutputType<at::Tensor>::get_result_overrideable() {
+  return {};
 }
 
 std::vector<synapse_helpers::tensor> AnyCommonFunc(

@@ -61,7 +61,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool descending);
-  static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
   static at::Tensor constant_pad_nd(
       const at::Tensor& self,
       at::IntArrayRef pad,

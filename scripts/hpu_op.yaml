@@ -715,19 +715,27 @@ addr.out:
 
 all:
   force_default: false
-  custom_output_shape: AllOutputShape
+  custom_output_shape: AllAnyOutputShape
   dtypes: [Char]
-  guid: all_fwd
   out_ids: [0]
-  op_frontend: LazyAll
+  op_frontend: AllAnyOutputType
+  op_backend: All
 
 all.all_out:
   custom_output_shape: AllAnyOutputShape
   dtypes: [Char]
   op_backend: All
 
+all.dim :
+  force_default: false
+  custom_output_shape: AllAnyDimOutputShape
+  dtypes: [Char]
+  op_frontend: AllAnyOutputType
+  op_backend: AllDim
+  out_ids : [0]
+
 all.out:
-  custom_output_shape: AllDimOutputShape
+  custom_output_shape: AllAnyDimOutputShape
   dtypes: [Char]
   op_backend: AllDim
 
@@ -781,18 +789,18 @@ any:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
-  op_frontend: AnyOutputType
+  op_frontend: AllAnyOutputType
   op_backend: Any
   out_ids: [0]
 
 any.dim:
   force_default: false
-  custom_output_shape: AnyDimOutputShape
+  custom_output_shape: AllAnyDimOutputShape
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
-  op_frontend: AnyOutputType
+  op_frontend: AllAnyOutputType
   op_backend: AnyDim
   out_ids: [0]
 

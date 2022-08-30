@@ -249,26 +249,6 @@ Tensor& hpu_wrap::set_(
   return set_hpu_lazy_(self, source, storage_offset, size, stride);
 }
 
-Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "all :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " keepdim=",
-      to_string(keepdim));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      all, PARAMS1(self), PARAMS2(self, dim, keepdim), dim)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return all_dim_hpu_lazy(self, dim, keepdim);
-  } else {
-    return all_dim_hpu(self, dim, keepdim);
-  }
-};
-
 Tensor hpu_wrap::constant_pad_nd(
     const Tensor& self,
     IntArrayRef pad,
@@ -2626,7 +2606,6 @@ TORCH_LIBRARY(hpu, m) {
       "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def(
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
-  m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor(a!) out) -> Tensor(a!)");
   m.def("arange_out_ds(Tensor shape, Tensor(a!) out) -> Tensor(a!)");
