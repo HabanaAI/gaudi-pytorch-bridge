@@ -12,7 +12,15 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
+
+#if !defined __GNUC__ || __GNUC__ >= 8
 #include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 #include "habana_helpers/logging.h"
 
 namespace serialization {
@@ -48,11 +56,11 @@ CacheFileHandler::CacheFileHandler() : curFolderSize{0} {
 void CacheFileHandler::init(std::string path) {
   cache_path = std::move(path);
 
-  std::filesystem::path dir_path{cache_path};
-  HABANA_ASSERT(std::filesystem::exists(dir_path));
+  fs::path dir_path{cache_path};
+  HABANA_ASSERT(fs::exists(dir_path));
   if (id == 0) {
-    auto de = std::filesystem::directory_iterator{dir_path};
-    while (de != std::filesystem::end(de)) {
+    auto de = fs::directory_iterator{dir_path};
+    while (de != fs::end(de)) {
       PT_HABHELPER_DEBUG(
           CACHEFILE_LOG,
           "Cleaning: ",
@@ -60,7 +68,7 @@ void CacheFileHandler::init(std::string path) {
           ", Rank: ",
           std::dec,
           getRank());
-      std::filesystem::remove(de->path());
+      fs::remove(de->path());
       de++;
     }
   }
@@ -98,12 +106,11 @@ bool CacheFileHandler::fileLock(int fd, bool block, size_t& size) {
 
 void CacheFileHandler::addFileInfo(const std::string& cache_id) {
   // Get filename, extract real size, and add
-  std::filesystem::path rcpeFile{recipe_file_path(cache_path, cache_id)};
-  std::filesystem::path metaFile{metadata_file_path(cache_path, cache_id)};
-  HABANA_ASSERT(
-      std::filesystem::exists(rcpeFile) && std::filesystem::exists(metaFile));
-  std::filesystem::directory_entry de1{rcpeFile};
-  std::filesystem::directory_entry de2{metaFile};
+  fs::path rcpeFile{recipe_file_path(cache_path, cache_id)};
+  fs::path metaFile{metadata_file_path(cache_path, cache_id)};
+  HABANA_ASSERT(fs::exists(rcpeFile) && fs::exists(metaFile));
+  fs::directory_entry de1{rcpeFile};
+  fs::directory_entry de2{metaFile};
 
   uint64_t size = de1.file_size() + de2.file_size();
   PT_HABHELPER_DEBUG(
@@ -139,22 +146,21 @@ int CacheFileHandler::openAndLockFile(
 }
 
 void BasicCacheFileHandler::checkAndDelete() {
-  std::filesystem::path dir_path{getCachePath()};
-  if (!std::filesystem::exists(dir_path))
+  fs::path dir_path{getCachePath()};
+  if (!fs::exists(dir_path))
     return;
 
-  auto de = std::filesystem::directory_iterator{dir_path};
-  while ((de != std::filesystem::end(de)) &&
-         (curFolderSize > getMaxFolderSize())) {
+  auto de = fs::directory_iterator{dir_path};
+  while ((de != fs::end(de)) && (curFolderSize > getMaxFolderSize())) {
     std::string cache_id;
 
     std::string fname = de->path();
     std::string subName = fname.substr(0, fname.rfind("."));
 
-    std::filesystem::path p1{subName + RECIPE_SUFFIX};
-    std::filesystem::path p2{subName + METADATA_SUFFIX};
+    fs::path p1{subName + RECIPE_SUFFIX};
+    fs::path p2{subName + METADATA_SUFFIX};
 
-    if (!std::filesystem::exists(p1) || !std::filesystem::exists(p2)) {
+    if (!fs::exists(p1) || !fs::exists(p2)) {
       de++;
       continue;
 
@@ -168,8 +174,8 @@ void BasicCacheFileHandler::checkAndDelete() {
       // Not closing file because we want to hold the lock
     }
 
-    std::filesystem::directory_entry de1{p1};
-    std::filesystem::directory_entry de2{p2};
+    fs::directory_entry de1{p1};
+    fs::directory_entry de2{p2};
 
     uint64_t size = de1.file_size() + de2.file_size();
     PT_HABHELPER_DEBUG(
@@ -182,8 +188,8 @@ void BasicCacheFileHandler::checkAndDelete() {
         ", Rank: ",
         getRank());
 
-    std::filesystem::remove(p1);
-    std::filesystem::remove(p2);
+    fs::remove(p1);
+    fs::remove(p2);
 
     curFolderSize -= size;
 
