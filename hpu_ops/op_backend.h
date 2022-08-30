@@ -178,7 +178,7 @@ class OpBackend : public HabanaOperator {
 
   synTensor syn_in(int index);
   synapse_helpers::tensor& syn_out(int index);
-  virtual synapse_helpers::tensor_or_ref& SynInput(int index);
+  synapse_helpers::tensor_or_ref& SynInput(int index) override;
 
   synapse_helpers::tensor CastHelper(
       synapse_helpers::graph& graph,

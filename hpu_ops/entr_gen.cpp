@@ -38,7 +38,7 @@ void SpecialEntr::AddNode(
       {xlogx[0].get()},
       {{outshape, ScalarType()}});
 
-  auto constant = ConstantHelper(graph, 0);
+  auto constant = ConstantHelper(graph, 0., ScalarType());
   const at::ScalarType& result_type = c10::ScalarType::Bool;
   // if two tensors have the same size and elements returm true, otherwise False
   auto mask_0 = BuildOp(

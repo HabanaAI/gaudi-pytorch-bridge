@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/tensorexpr/kernel.h>
 #include <torch/library.h>
 #include "habana_kernels/fallback_helper.h"
+#include "habana_kernels/op_support_level.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 #pragma once
@@ -3986,7 +3987,19 @@ void hpu_check_inputs(
     i++;
   }
 }
-bool hpu_check_inputs_impl(
+
+using TypeVector = std::vector<at::TypePtr>;
+
+/**
+ * Checks if `op` can be executed on HPU given provided arguments.  This
+ * process might be a bit nuanced, however the most straightforward test is if
+ * types of the arguments are supported. This check expects that type promotion
+ * of arguments already happened. consider that whereas add(fp16, fp16) might
+ * not be supported on some platforms, add(fp16, bf16) likely is.  This is
+ * because since arguments have different types, they undergo type promotion to
+ * fp32 which is broadly supported.
+ */
+OpSupportLevel hpu_check_inputs_impl(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {
   // Synchronize acc thread, if Op is not supported for parallel acc yet.
@@ -3995,7 +4008,7 @@ bool hpu_check_inputs_impl(
   const auto& supported_types = op_info.at(op);
   size_t i = 0;
   if (habana::HpuFallbackHelper::get()->is_placed_on_cpu(op))
-    return false;
+    return OpSupportLevel::Value::placed_on_cpu;
   for (const auto& tensor : tensors) {
     if (!tensor.defined()) {
       continue;
@@ -4003,15 +4016,16 @@ bool hpu_check_inputs_impl(
 
     const auto& dtype = tensor.scalar_type();
     if (at::isComplexType(dtype)) {
-      return false;
+      return OpSupportLevel::Value::unsupported;
     }
     // When same types are applicable to all input tensors, use the only one
     // defined
     size_t j = (supported_types.size() == 1) ? 0 : i;
 
-    if (!supported_types.at(j).count(dtype))
-      return false;
+    if (!supported_types.at(j).count(dtype)) {
+      return OpSupportLevel::Value::unsupported_dtype;
+    }
     i++;
   }
-  return true;
+  return OpSupportLevel::Value::supported;
 }

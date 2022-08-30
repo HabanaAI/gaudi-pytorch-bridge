@@ -9,7 +9,6 @@
  */
 #pragma once
 #include <perf_lib_layer_params.h>
-#include "cpu_fallback.h"
 #include "op_backend.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
@@ -139,62 +138,6 @@ inline float& get<float>(fint_t& u) {
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
-#define FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)                  \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input))) {                   \
-    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
-        args);                                                                 \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...)   \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input))) {               \
-    return at::native::                                                    \
-        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
-            args);                                                         \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG(input, dtype, opname, args...)       \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) {            \
-    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
-        args);                                                                 \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_DTYPE_ARG2(                                \
-    input, dtype, opname, overload, args...)                               \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) {        \
-    return at::native::                                                    \
-        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
-            args);                                                         \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, opname, args...)      \
-  if (ABSL_PREDICT_FALSE(                                                      \
-          tensor.defined() &&                                                  \
-          !supported_dtypes_##tensor.count(tensor.scalar_type()))) {           \
-    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(opname)>::call( \
-        args);                                                                 \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR2(                         \
-    tensor, opname, overload, args...)                                     \
-  if (ABSL_PREDICT_FALSE(                                                  \
-          tensor.defined() &&                                              \
-          !supported_dtypes_##tensor.count(tensor.scalar_type()))) {       \
-    return at::native::                                                    \
-        call_fallback_fn<&cpu_fallback, ATEN_OP2(opname, overload)>::call( \
-            args);                                                         \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_INPUTS(check_fn, op, args...)              \
-  if (ABSL_PREDICT_FALSE(!check_fn)) {                                     \
-    return at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(op)>::call( \
-        args);                                                             \
-  }
-
-#define FALLBACK_IF_UNSUPPORTED_INPUTS2(check_fn, op, overload, args...)     \
-  if (ABSL_PREDICT_FALSE(!check_fn)) {                                       \
-    return at::native::                                                      \
-        call_fallback_fn<&cpu_fallback, ATEN_OP2(op, overload)>::call(args); \
-  }
 
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                                \
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \

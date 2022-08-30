@@ -82,7 +82,8 @@ inline std::string print_hdr() {
 
 template <typename... Args>
 inline void print(std::ostream& os, const Args&... args) {
-  (os << Logger::print_hdr() << ... << args);
+  os << Logger::print_hdr();
+  (os << ... << args);
 }
 
 // Convert a list of string-like arguments into a single string.

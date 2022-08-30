@@ -25,6 +25,36 @@ bool isInplaceOp(std::string op_name) {
   return habana_lazy::is_inplace(m_symbol);
 }
 
+namespace detail {
+
+void submit_result(at::Tensor& src, at::Tensor& result) {
+  auto sizes = src.sizes().vec();
+  if (src.sizes() != result.sizes()) {
+    result.resize_(src.sizes());
+  }
+
+  result.copy_(src.to(result.scalar_type()));
+}
+
+at::Tensor& prepare_out(
+    at::Tensor& from,
+    at::Tensor& copy,
+    at::ScalarType float_dtype) {
+  if (!from.is_floating_point())
+    return from;
+  if (from.dtype() == float_dtype)
+    return from;
+  copy = at::empty(
+      from.sizes(),
+      float_dtype,
+      from.layout(),
+      from.device(),
+      from.is_pinned(),
+      {});
+  return copy;
+}
+} // namespace detail
+
 static void updateAtensorView(
     const at::Tensor& old_tensor,
     const at::Tensor& new_tensor) {
@@ -36,7 +66,7 @@ static void updateAtensorView(
   }
 }
 
-void updateTensorViewIfNeeded(
+static void updateTensorViewIfNeeded(
     const c10::IValue& dst,
     const c10::IValue& src,
     std::string op_name) {
@@ -68,6 +98,7 @@ void updateTensorViewIfNeeded(
 }
 
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
+  PT_FALLBACK_TRACE
   const auto& op_name = c10::toString(op.operator_name());
   HpuFallbackHelper::get()->check_fallback_allowed(op_name);
   HpuFallbackHelper::get()->increment_count(op_name);
@@ -76,10 +107,12 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   at::native::cpu_fallback(op, stack);
 
   auto new_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
+
   updateTensorViewIfNeeded(old_tensor, new_tensor, op_name);
 }
 
 TORCH_LIBRARY_IMPL(_, HPU, m) {
   m.fallback(torch::CppFunction::makeFromBoxedFunction<&cpu_fallback>());
 }
+
 } // namespace habana

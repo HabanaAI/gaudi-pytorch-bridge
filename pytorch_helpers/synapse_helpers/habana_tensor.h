@@ -369,7 +369,7 @@ class tensor final {
 
   std::string DebugString() const {
     return absl::StrFormat(
-        "Tensor %s at %p, internal=%p%s%s%s, offset=%d, size=0x%x",
+        "Tensor %s at %p, internal=%p%s%s%s%s, offset=%d, size=0x%x",
         tensor_name_,
         this,
         tensor_,

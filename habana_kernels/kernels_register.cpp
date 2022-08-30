@@ -3192,7 +3192,8 @@ Tensor hpu_wrap::empty_strided(
       to_string(device),
       " pin_memory=",
       to_string(pin_memory));
-  FALLBACK_IF_UNSUPPORTED_OP(
+  FALLBACK_IF_UNSUPPORTED_OP_RT(
+      at::dtype_or_default(dtype),
       empty_strided,
       PARAMS1(),
       PARAMS2(size, stride, dtype, layout, device, pin_memory))
@@ -3311,8 +3312,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim), IValue(descending)};
   check_handle->hpu_check_ivalues("sort", op_stack);
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      sort, PARAMS1(self), PARAMS2(self, dim, descending))
+  FALLBACK_IF_UNSUPPORTED_OP1_RT(
+      self.scalar_type(), sort, PARAMS1(self), PARAMS2(self, dim, descending))
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return sort_hpu_lazy(self, dim, descending);
