@@ -67,3 +67,9 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: Test_pytorch_gaudi2_asic_smoke_topology
+  gerritTriggerMap:
+  - repository: pytorch-integration
+- testToLaunch: Test_pytorch_gaudi2_asic_perf
+  gerritTriggerMap:
+  - repository: pytorch-integration
