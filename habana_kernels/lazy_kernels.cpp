@@ -2880,37 +2880,6 @@ Tensor& masked_scatter_hpu_lazy_(
   return index_put_hpu_lazy_(self, {broadcasted_mask}, flattened_values, false);
 }
 
-Tensor index_select_hpu_lazy(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index) {
-  PT_LAZY_TRACE;
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self, dim, index};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::index_select", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim = inputs[1].toInt();
-      auto index = inputs[2].toTensor();
-
-      auto shape = GatherOperator::compute_output_shape(self, dim, index);
-      return empty_hpu_lazy(
-          shape, self.options(), self.suggest_memory_format(), false);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
-}
 Tensor gather2d_hpu_lazy(
     const Tensor& input,
     const Tensor& indices,

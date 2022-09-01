@@ -1805,46 +1805,6 @@ void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   inputs.emplace_back(IValue(sparse_grad));
   GatherOperator::SetPTOutputs(inputs);
 }
-/*************************************************************************
- * @brief Kernel implementation for torch.index_select(input, dim, index) →
- *Tensor
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - The dimension in which we index
- * @param index - 1D tensor containing the indices to index
- ************************************************************************/
-Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
-  PT_KERNEL_BEGIN;
-
-  auto index_int = habana_helpers::cast_tensor_to_integer(index);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "index_select_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // create the operator
-  IndexSelectOperator Op(device_id, scalar_type);
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(index)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self, index_int};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-
-  return out.at(0);
-}
 
 void Gather2dOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -3760,7 +3720,6 @@ void OneHotOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::index_select", KERNEL_FN(IndexSelectOperator))
         .add("hpu::gather_elements", KERNEL_FN(GatherElemOperator))
         .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))
         .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))

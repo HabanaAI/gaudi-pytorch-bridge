@@ -222,10 +222,6 @@ at::Tensor& masked_scatter_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,
     const at::Tensor& source);
-at::Tensor index_select_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index);
 at::Tensor gather2d_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,

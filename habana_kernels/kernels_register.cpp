@@ -1489,30 +1489,6 @@ Tensor& hpu_wrap::_index_put_impl_(
   }
 }
 
-Tensor hpu_wrap::index_select(
-    const Tensor& self,
-    int64_t dim,
-    const Tensor& index) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "index_select :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      "index=",
-      to_string(index));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      index_select, PARAMS1(self, index), PARAMS2(self, dim, index))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_select_hpu_lazy(self, dim, index);
-
-  } else {
-    return index_select_hpu(self, dim, index);
-  }
-};
-
 Tensor& hpu_wrap::index_fill_(
     Tensor& self,
     int64_t dim,

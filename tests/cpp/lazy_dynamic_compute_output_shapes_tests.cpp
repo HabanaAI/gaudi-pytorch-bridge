@@ -447,6 +447,32 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
   EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
 }
 
+TEST_F(LazyDynamicComputeOutputShapesTest, index_select_1) {
+  auto max_value = 28;
+  auto datatype = torch::kInt;
+  auto index_value = 5;
+  auto dim = 1;
+  auto out_size = 0;
+
+  torch::ScalarType dtype = datatype;
+  torch::Tensor cpu_in =
+      torch::randint(0, max_value, {index_value}, torch::kInt);
+  torch::Tensor hpu_in = cpu_in.to("hpu");
+  auto cpu_index = cpu_in.to(torch::kLong);
+  auto hpu_index = cpu_index.to(torch::kHPU);
+  auto expected = torch::empty(out_size, dtype);
+  auto result =
+      torch::empty(out_size, torch::TensorOptions(dtype).device("hpu"));
+
+  torch::Tensor cpu_in_1 = torch::randint(-127, 128, {28, 28}, torch::kInt);
+  torch::Tensor hpu_in_2 = cpu_in_1.to("hpu");
+
+  torch::index_select_outf(cpu_in_1, dim, cpu_index, expected);
+  torch::index_select_outf(hpu_in_2, dim, hpu_index, result);
+
+  EXPECT_EQ(allclose(expected, result.cpu(), 0, 0), true);
+}
+
 // index_select_out is supported as auto gen op
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out) {
   auto in_size = 1;

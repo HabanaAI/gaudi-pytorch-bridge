@@ -288,10 +288,6 @@ at::Tensor& index_put_hpu_(
     at::TensorList indices,
     const at::Tensor& value,
     bool accumulate);
-at::Tensor index_select_hpu(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index);
 at::Tensor index_hpu(const at::Tensor& self, at::TensorList indices);
 at::Tensor gather2d_hpu(
     const at::Tensor& input,

@@ -286,7 +286,7 @@ struct hpu_wrap {
       const c10::List<c10::optional<at::Tensor>>& indices,
       const at::Tensor& value,
       bool accumulate);
-  static at::Tensor index_select(
+  inline static at::Tensor index_select(
       const at::Tensor& self,
       int64_t dim,
       const at::Tensor& index);

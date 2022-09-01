@@ -286,21 +286,6 @@ INSTANTIATE_TEST_CASE_P(
             false,
             true)));
 
-TEST_F(LazyIndexKernelTest, IndexSelectTest) {
-  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHPU);
-  int64_t dim = 1;
-  auto index = torch::tensor({0, 1}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHPU);
-
-  Tensor h_out = torch::index_select(h_a, dim, h_index);
-
-  auto h_cout = h_out.to(torch::kCPU);
-  auto cout = torch::index_select(a, dim, index);
-
-  EXPECT_EQ(allclose(h_cout, cout), true);
-}
-
 TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
