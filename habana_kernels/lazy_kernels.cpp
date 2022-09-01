@@ -3819,6 +3819,199 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   };
 }
 
+::std::tuple<Tensor, Tensor> batch_norm_stats_lazy(
+    const Tensor& input,
+    double eps) {
+  std::vector<int64_t> dim = {0, 2, 3};
+  if (input.dim() == 5)
+    dim.push_back(4);
+  auto mean = at::mean(input, dim);
+  auto var = at::var(input, dim, true);
+  auto inv_std = at::reciprocal(at::sqrt(at::add(var, eps)));
+  return std::tie(mean, inv_std);
+}
+
+Tensor batch_norm_elemt_lazy(
+    const Tensor& input,
+    const c10::optional<Tensor>& weight,
+    const c10::optional<Tensor>& bias,
+    const Tensor& mean,
+    const Tensor& invstd,
+    double eps) {
+  static_cast<void>(eps);
+  auto C = input.sizes().vec()[1];
+  std::vector<int64_t> dim = {1, C, 1, 1};
+  if (input.dim() == 5)
+    dim.push_back(1);
+  Tensor gamma, beta;
+  if (weight.has_value())
+    gamma = weight.value();
+  else
+    gamma = at::ones(C).to(torch::kHPU);
+
+  if (bias.has_value())
+    beta = bias.value();
+  else
+    beta = at::zeros(C).to(torch::kHPU);
+
+  auto mean_reshaped = at::reshape(mean, dim);
+  auto inv_std_reshaped = at::reshape(invstd, dim);
+  auto gamma_reshaped = at::reshape(gamma, dim);
+  auto beta_reshaped = at::reshape(beta, dim);
+
+  auto out = at::add(
+      at::mul(
+          at::mul(at::sub(input, mean_reshaped), inv_std_reshaped),
+          gamma_reshaped),
+      beta_reshaped);
+  return out;
+}
+
+Tensor batch_norm_backward_elemt_lazy(
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& mean,
+    const Tensor& invstd,
+    const c10::optional<Tensor>& weight,
+    const Tensor& mean_dy,
+    const Tensor& mean_dy_xmu,
+    const Tensor& count) {
+  std::vector<int64_t> dim = {1, mean.sizes().vec()[0], 1, 1};
+  if (input.dim() == 5)
+    dim.push_back(1);
+
+  auto mean_reshaped = at::reshape(mean, dim);
+  auto invstd_reshaped = at::reshape(invstd, dim);
+  auto mean_dy_reshaped = at::reshape(mean_dy, dim);
+  auto mean_dy_xmu_reshaped = at::reshape(mean_dy_xmu, dim);
+  auto total_count = at::sum(count);
+  Tensor factor_2_c, factor_1_c;
+  if (weight.has_value()) {
+    factor_2_c = at::mul(weight.value(), invstd);
+  } else {
+    factor_2_c = at::reciprocal(invstd_reshaped);
+  }
+
+  factor_1_c = at::div(
+      at::mul(at::mul(mean_dy_xmu_reshaped, invstd_reshaped), invstd_reshaped),
+      total_count);
+
+  auto grad_in = at::mul(
+      at::sub(
+          at::sub(grad_out, at::div(mean_dy_reshaped, total_count)),
+          at::mul(at::sub(input, mean_reshaped), factor_1_c)),
+      factor_2_c);
+  return grad_in;
+}
+
+::std::tuple<Tensor, Tensor, Tensor, Tensor> batch_norm_backward_reduce_lazy(
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& mean,
+    const Tensor& invstd,
+    const c10::optional<Tensor>& weight,
+    bool input_g,
+    bool weight_g,
+    bool bias_g) {
+  static_cast<void>(weight);
+  auto grad_out_reshaped = at::reshape(
+      grad_out, {grad_out.sizes().vec()[0], grad_out.sizes().vec()[1], -1});
+  auto mean_reshaped = at::reshape(mean, {1, mean.sizes().vec()[0], 1});
+  auto inp_reshaped =
+      at::reshape(input, {input.sizes().vec()[0], input.sizes().vec()[1], -1});
+  auto invstd_reshaped = at::reshape(invstd, {1, invstd.sizes().vec()[0], 1});
+  std::vector<int64_t> dim = {0, 2};
+  Tensor sum_dy, sum_dy_xmu, grad_wei, grad_bias;
+  sum_dy = input_g ? at::sum(grad_out_reshaped, dim) : sum_dy;
+
+  auto dy_xmu =
+      at::mul(grad_out_reshaped, at::sub(inp_reshaped, mean_reshaped));
+  sum_dy_xmu = input_g ? at::sum(dy_xmu, dim) : sum_dy_xmu;
+  auto wei_term = at::mul(dy_xmu, invstd_reshaped);
+  grad_wei = weight_g ? at::sum(wei_term, dim) : grad_wei;
+  grad_bias = bias_g ? at::sum(grad_out_reshaped, dim) : grad_bias;
+  return std::tie(sum_dy, sum_dy_xmu, grad_wei, grad_bias);
+}
+
+::std::tuple<Tensor, Tensor> batch_norm_gather_stats_with_counts_lazy(
+    const Tensor& input,
+    const Tensor& mean,
+    const Tensor& invstd,
+    const c10::optional<Tensor>& running_mean,
+    const c10::optional<Tensor>& running_var,
+    double momentum,
+    double eps,
+    const Tensor& counts) {
+  auto counts_reshaped = at::reshape(counts, {-1, 1});
+
+  auto counts_accum_inclusive = at::cumsum(counts_reshaped, 0);
+
+  auto counts_accum_exclusive =
+      at::sub(counts_accum_inclusive, counts_reshaped);
+
+  auto mean_times_counts = at::mul(counts_reshaped, mean);
+
+  auto one_div_counts_accum_inclusive = at::reciprocal(counts_accum_inclusive);
+
+  auto partial_mean =
+      at::mul(at::cumsum(mean_times_counts, 0), one_div_counts_accum_inclusive);
+
+  auto tmp_partial_mean = at::roll(partial_mean, 1, 0);
+  auto type = kLong;
+  auto const_tensor = empty_hpu_lazy(
+      {1}, input.options().dtype(type), input.suggest_memory_format(), true);
+  auto value_tensor = empty_hpu_lazy(
+      {1},
+      tmp_partial_mean.options(),
+      tmp_partial_mean.suggest_memory_format(),
+      true);
+  fill_hpu_lazy_(const_tensor, 0);
+  fill_hpu_lazy_(value_tensor, 0);
+  index_put_hpu_lazy_(tmp_partial_mean, {const_tensor}, value_tensor, 0);
+
+  auto second_term = at::mul(
+      at::mul(
+          at::mul(
+              at::sub(tmp_partial_mean, mean), at::sub(tmp_partial_mean, mean)),
+          at::mul(counts_accum_exclusive, counts_reshaped)),
+      one_div_counts_accum_inclusive);
+
+  auto v = at::reciprocal(invstd);
+  auto w = at::mul(at::sub(at::mul(v, v), eps), counts_reshaped);
+
+  auto first_term = at::cumsum(w, 0);
+  auto partial_var = at::add(first_term, second_term);
+  auto const_tensor2 = empty_hpu_lazy(
+      {1}, input.options().dtype(type), input.suggest_memory_format(), true);
+  fill_hpu_lazy_(const_tensor2, partial_var.sizes().vec()[0] - 1);
+  auto partial_var_value = at::index_select(partial_var, 0, const_tensor2);
+  auto partial_mean_value = at::index_select(partial_mean, 0, const_tensor2);
+  auto counts_accum_value =
+      at::index_select(counts_accum_inclusive, 0, const_tensor2);
+
+  auto partial_var_reshaped =
+      at::reshape(partial_var_value, {partial_var_value.numel()});
+  auto g_invstd = at::reciprocal(
+      at::sqrt(at::add(at::div(partial_var_value, counts_accum_value), eps)));
+
+  auto out1 = at::reshape(partial_mean_value, {partial_mean_value.numel()});
+  auto out2 = at::reshape(g_invstd, {g_invstd.numel()});
+
+  if (running_mean.has_value()) {
+    auto x = at::mul(out1, momentum);
+    running_mean.value().mul_(1 - momentum);
+    running_mean.value().add_(x);
+  }
+  if (running_var.has_value()) {
+    auto unbiasedVar =
+        at::div(partial_var_reshaped, at::sub(at::sum(counts), 1));
+    auto x = at::mul(unbiasedVar, momentum);
+    running_var.value().mul_(1 - momentum);
+    running_var.value().add_(x);
+  }
+  return std::tie(out1, out2);
+}
+
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
     IntArrayRef normalized_shape_,

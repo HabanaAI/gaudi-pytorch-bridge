@@ -1929,6 +1929,37 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
+                "batch_norm_stats",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+                "batch_norm_elemt",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+                "batch_norm_backward_elemt",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+                "batch_norm_backward_reduce",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+                "batch_norm_gather_stats_with_counts",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+
+            {
                 "batch_norm_inf_",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,

@@ -2230,6 +2230,61 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
   }
 };
 
+::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
+    const at::Tensor& input,
+    double eps) {
+  return batch_norm_stats_lazy(input, eps);
+}
+at::Tensor hpu_wrap::batch_norm_elemt(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    double eps) {
+  return batch_norm_elemt_lazy(input, weight, bias, mean, invstd, eps);
+}
+at::Tensor hpu_wrap::batch_norm_backward_elemt(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    const c10::optional<at::Tensor>& weight,
+    const at::Tensor& mean_dy,
+    const at::Tensor& mean_dy_xmu,
+    const at::Tensor& count) {
+  return batch_norm_backward_elemt_lazy(
+      grad_out, input, mean, invstd, weight, mean_dy, mean_dy_xmu, count);
+}
+
+::std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hpu_wrap::
+    batch_norm_backward_reduce(
+        const at::Tensor& grad_out,
+        const at::Tensor& input,
+        const at::Tensor& mean,
+        const at::Tensor& invstd,
+        const c10::optional<at::Tensor>& weight,
+        bool input_g,
+        bool weight_g,
+        bool bias_g) {
+  return batch_norm_backward_reduce_lazy(
+      grad_out, input, mean, invstd, weight, input_g, weight_g, bias_g);
+}
+
+::std::tuple<at::Tensor, at::Tensor> hpu_wrap::
+    batch_norm_gather_stats_with_counts(
+        const at::Tensor& input,
+        const at::Tensor& mean,
+        const at::Tensor& invstd,
+        const c10::optional<at::Tensor>& running_mean,
+        const c10::optional<at::Tensor>& running_var,
+        double momentum,
+        double eps,
+        const at::Tensor& counts) {
+  return batch_norm_gather_stats_with_counts_lazy(
+      input, mean, invstd, running_mean, running_var, momentum, eps, counts);
+}
+
 std::tuple<Tensor, Tensor> hpu_wrap::_weight_norm_interface(
     const Tensor& v_in,
     const Tensor& g_in,
