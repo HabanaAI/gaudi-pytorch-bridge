@@ -69,6 +69,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/pt_ver/torch_params_shim.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
 using namespace habana;
@@ -5740,7 +5741,7 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
     return result;
   }
 
-  auto out = at::native::expand(self, size_in, implicit);
+  auto out = at::native::expand(self, INTARRAY_PARAM(size_in), implicit);
   auto hl_self = GetHbLazyTensor(self);
   auto hb_result = GetHbLazyTensor(out);
   auto self_id = hl_self.getTensorUniqueId();
