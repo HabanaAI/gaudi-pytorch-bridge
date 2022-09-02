@@ -1445,38 +1445,32 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return torch::div(self, other, mode);
 }
 Tensor& div_tensor_hpu_lazy_out(
-    Tensor& out,
     const Tensor& self,
-    const Tensor& other) {
+    const Tensor& other,
+    Tensor& out) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{
-      "hpu::div_out",
-      {out, self, other},
-      {},
-      {BinaryOperator::compute_output_shape(self, other)}};
-  return k.call(out);
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return torch::div_outf(self, other, mode, out);
 }
 
 Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-
-  LazyBinaryOp<at::Tensor&> k{"aten::div_", {self, other}, false, true};
-  return k.call(self);
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return self.div_(other, mode);
 }
 
 Tensor div_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
 
   auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
-  LazyOp<at::Tensor> k{"aten::div", {self, other_tensor}};
-  RUN_MAYBE_WITH_ACC_THREAD(div, k)
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return torch::div(self, other_tensor, mode);
 }
 
 Tensor& div_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
-  return k.call(self);
+  c10::optional<c10::string_view> mode = c10::nullopt;
+  return self.div_(other, mode);
 }
 
 Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {

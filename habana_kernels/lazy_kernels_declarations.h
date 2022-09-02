@@ -73,9 +73,9 @@ at::Tensor& mul_out_hpu_lazy(
     at::Tensor& out);
 at::Tensor div_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor& div_tensor_hpu_lazy_out(
-    at::Tensor& result,
     const at::Tensor& self,
-    const at::Tensor& other);
+    const at::Tensor& other,
+    at::Tensor& result);
 at::Tensor& div_tensor_hpu_lazy_(at::Tensor& self, const at::Tensor& other);
 at::Tensor div_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);

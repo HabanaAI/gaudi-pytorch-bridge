@@ -1531,11 +1531,18 @@ diag.out:
   custom_fill_params: FillDiagParams
   op_backend: Diag
 
+div.out:
+  override_fn: div_tensor_hpu_lazy_out
+
 div.out_mode:
   custom_output_shape: BinaryOutputShape
   fallback_check: [DivTensorFallbackCheck, self, other, rounding_mode]
   guid: div
   op_backend: DivRoundModeOperator
+
+div.Scalar:
+  force_default: false
+  override_fn: div_scalar_hpu_lazy
 
 div.Scalar_mode:
   force_default: false
@@ -1547,6 +1554,10 @@ div.Scalar_mode:
   type_promotion: true
   safe_cast_check: true
 
+div_.Scalar:
+  force_default: false
+  override_fn: div_scalar_hpu_lazy_
+
 div_.Scalar_mode:
   force_default: false
   fallback_check: [DivScalarFallbackCheck, self, other, rounding_mode]
@@ -1557,6 +1568,10 @@ div_.Scalar_mode:
   type_promotion: true
   safe_cast_check: true
 
+div.Tensor:
+  force_default: false
+  override_fn: div_tensor_hpu_lazy
+
 div.Tensor_mode:
   force_default: false
   fallback_check: [DivTensorFallbackCheck, self, other, rounding_mode]
@@ -1565,6 +1580,10 @@ div.Tensor_mode:
   op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
   out_ids: [0]
+
+div_.Tensor:
+  force_default: false
+  override_fn: div_tensor_hpu_lazy_
 
 div_.Tensor_mode:
   force_default: false
