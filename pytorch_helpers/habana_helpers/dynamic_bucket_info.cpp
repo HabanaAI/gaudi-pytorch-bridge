@@ -515,9 +515,14 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   bool is_valid_split{};
   size_t min_dist_idx{};
   bool choose_lower{};
+  std::vector<size_t> bucket_hist_idxes(
+      buckets_[curr_mfu_id].GetInheritedInputHistIdxes());
+  bucket_hist_idxes.insert(
+      bucket_hist_idxes.end(),
+      buckets_[curr_mfu_id].GetInputHistIdxes().begin(),
+      buckets_[curr_mfu_id].GetInputHistIdxes().end());
   std::tie(is_valid_split, min_dist_idx, choose_lower) =
-      input_history_.FindMidPoint(buckets_[curr_mfu_id].GetInputHistIdxes());
-
+      input_history_.FindMidPoint(bucket_hist_idxes);
   if (is_valid_split == false) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "Range mid point is matching with one of the endpoints.",

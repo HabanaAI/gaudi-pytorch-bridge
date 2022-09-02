@@ -98,6 +98,89 @@ TEST_F(LazyDynamicShapesBucketRefineTest, RefineAddMulRelu) {
   disable_bucket_refinement();
 }
 
+TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineAddMulReluBig) {
+  enable_bucket_refinement();
+  int A = 50;
+  const int C = 30;
+
+  std::vector<int> input_sizes{34, 16, 32, 22, 17, 18, 16};
+  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
+
+  int num;
+  int level_cnt = 4;
+
+  for (int i = 0; i < input_sizes.size(); i++) {
+    for (int j = 1; j <= test_rounds[i]; j++) {
+      int B = input_sizes[i] * 10;
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
+
+      torch::Tensor a0 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+      torch::Tensor m0 =
+          torch::randn({C, B, A}, torch::requires_grad(false)).to(torch::kHPU);
+
+      torch::Tensor a1, m1;
+      for (size_t l = 0; l < level_cnt; l++) {
+        a1 = torch::add(a0, m0);
+        m1 = torch::mul(a0, a1);
+        a0 = a1;
+        m0 = m1;
+      }
+      torch::Tensor ml0 = torch::mul(a0, m0);
+      torch::Tensor rl0 = torch::relu(ml0);
+      HbLazyTensor::StepMarker({});
+
+      PT_TEST_DEBUG("PTI_DBG :: TEST ", i + 1, ", round ", j, "  END");
+      habana_helpers::DynamicBucketInfo::DumpDynamicRecipeStat();
+      if (j > 30) {
+        habana_helpers::DynamicBucketInfo::DisableBucketRefinement();
+      }
+    }
+  }
+  disable_bucket_refinement();
+}
+
+TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineWithMatmul) {
+  enable_bucket_refinement();
+  int level_cnt = 4;
+  int A = 50;
+  std::vector<int> input_sizes{340, 160, 320, 220, 170, 180, 160};
+  std::vector<int> test_rounds{1, 1, 1, 1, 1, 2, 50};
+  for (int i = 0; i < input_sizes.size(); i++) {
+    for (int j = 1; j <= test_rounds[i]; j++) {
+      int B = input_sizes[i];
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
+      torch::Tensor c0 = torch::randn({A, B, B}, torch::requires_grad(false));
+      torch::Tensor c1 = torch::randn({A, B, B}, torch::requires_grad(false));
+
+      torch::Tensor a0 = c0.to(torch::kHPU);
+      torch::Tensor m0 = c1.to(torch::kHPU);
+      torch::Tensor a1, m1;
+      for (size_t l = 0; l < level_cnt; l++) {
+        a1 = torch::add(a0, m0);
+        m1 = torch::matmul(a0, a1);
+        a0 = a1;
+        m0 = m1;
+      }
+      torch::Tensor ml0 = torch::mul(a0, m0);
+      torch::Tensor rl0 = torch::relu(ml0);
+      HbLazyTensor::StepMarker({});
+
+      PT_TEST_DEBUG(
+          "PTI_DBG :: a0.shape : ", a0.sizes(), " a0.strides : ", a0.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: m0.shape : ", m0.sizes(), " m0.strides : ", m0.strides());
+      PT_TEST_DEBUG(
+          "PTI_DBG :: rl0.shape : ",
+          rl0.sizes(),
+          " rl0.strides : ",
+          rl0.strides());
+      PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, ", round ", j, "  START");
+    }
+  }
+  disable_bucket_refinement();
+}
+
 TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
   enable_bucket_refinement();
 

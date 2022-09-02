@@ -104,7 +104,6 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
   DimsHistoryElement distr_mid{clone_ref_with(LONG_MAX)};
 
   const DimsHistoryElement& ref{ref_tshapes_};
-
   for (auto i : bucket_input_hist_idxes) {
     const DimsHistoryElement& d{hist_items_[i].tshapes_};
     for (auto tensor_it : ref) {
@@ -163,6 +162,23 @@ std::tuple<bool, size_t, bool> HistoryItemLog::FindMidPoint(
   }
 
   const DimsHistoryElement& distr_split{hist_items_[min_dist_idx].tshapes_};
+
+  DimsHistoryElement distr_sp_copy{ref};
+  for (auto tensor_it : ref) {
+    const auto& tensor_idx{tensor_it.first};
+    for (auto dim_it : tensor_it.second) {
+      const auto& dim_idx{dim_it.first};
+      if (distr_split.count(tensor_idx) &&
+          distr_split.at(tensor_idx).count(dim_idx)) {
+        distr_sp_copy[tensor_idx][dim_idx] =
+            distr_split.at(tensor_idx).at(dim_idx);
+      }
+    }
+  }
+
+  if (distr_sp_copy == distr_hi || distr_sp_copy == distr_lo) {
+    return std::make_tuple(false, 0, false);
+  }
 
   // Count the hits at lower as well as upper half based on the nearest mid
   // point
