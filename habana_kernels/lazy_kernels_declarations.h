@@ -264,9 +264,9 @@ at::Tensor addmm_hpu_lazy(
     const at::Scalar& beta,
     const at::Scalar& alpha);
 at::Tensor& batch_gemm_out_hpu_lazy(
-    at::Tensor& out,
     const at::Tensor& self,
-    const at::Tensor& mat2);
+    const at::Tensor& mat2,
+    at::Tensor& out);
 at::Tensor batch_gemm_hpu_lazy(const at::Tensor& self, const at::Tensor& mat2);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
 at::Tensor mse_loss_forward_hpu_lazy(

@@ -1693,7 +1693,7 @@ Tensor hpu_wrap::baddbmm(
       to_string(beta),
       " alpha=",
       to_string(alpha));
-  Tensor out = torch::mul(hpu_wrap::bmm(mat1, mat2), alpha);
+  Tensor out = torch::mul(torch::bmm(mat1, mat2), alpha);
   if (beta.toFloat() != 0) {
     hpu_wrap::add_(out, self, beta);
   }
@@ -1723,11 +1723,11 @@ Tensor& hpu_wrap::baddbmm_out(
       " out=",
       to_string(out));
   if (beta.toFloat() == 0) {
-    hpu_wrap::bmm_out(mat1, mat2, out);
+    torch::bmm_outf(mat1, mat2, out);
     out.mul_(alpha);
   } else {
     Tensor r_bmul = torch::mul(self, beta);
-    hpu_wrap::bmm_out(mat1, mat2, out);
+    torch::bmm_outf(mat1, mat2, out);
     out.mul_(alpha);
     hpu_wrap::add_(out, r_bmul, 1);
   }
@@ -1754,10 +1754,10 @@ Tensor& hpu_wrap::baddbmm_(
       " alpha=",
       to_string(alpha));
   if (beta.toFloat() == 0) {
-    hpu_wrap::bmm_out(mat1, mat2, self);
+    torch::bmm_outf(mat1, mat2, self);
     self.mul_(alpha);
   } else {
-    Tensor r_bmm = hpu_wrap::bmm(mat1, mat2);
+    Tensor r_bmm = torch::bmm(mat1, mat2);
     self.mul_(beta);
     hpu_wrap::add_(self, r_bmm, alpha);
   }
@@ -1794,38 +1794,6 @@ Tensor hpu_wrap::addmm(
     return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
   } else {
     return addmm_hpu(self, mat1, mat2, beta, alpha);
-  }
-};
-Tensor& hpu_wrap::bmm_out(const Tensor& self, const Tensor& mat2, Tensor& out) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "bmm_out :",
-      " self=",
-      to_string(self),
-      " mat2=",
-      to_string(mat2),
-      " out=",
-      to_string(out));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      bmm_out, PARAMS1(out, self, mat2), PARAMS2(self, mat2, out))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return batch_gemm_out_hpu_lazy(out, self, mat2);
-
-  } else {
-    return batch_gemm_out_hpu(out, self, mat2);
-  }
-};
-Tensor hpu_wrap::bmm(const Tensor& self, const Tensor& mat2) {
-  PT_OP_TRACE;
-  PT_OP_INFO("bmm :", " self=", to_string(self), " mat2=", to_string(mat2));
-  FALLBACK_IF_UNSUPPORTED_OP(bmm, PARAMS1(self, mat2), PARAMS2(self, mat2))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return batch_gemm_hpu_lazy(self, mat2);
-
-  } else {
-    return batch_gemm_hpu(self, mat2);
   }
 };
 Tensor hpu_wrap::dot(const Tensor& self, const Tensor& other) {
@@ -3975,39 +3943,6 @@ Tensor hpu_wrap::t(const Tensor& self) {
   }
 };
 
-Tensor hpu_wrap::permute(const Tensor& self, IntArrayRef dims_) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "permute :", " self=", to_string(self), " dims_=", to_string(dims_));
-  FALLBACK_IF_UNSUPPORTED_OP(permute, PARAMS1(self), PARAMS2(self, dims_))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return permute_hpu_lazy(self, dims_);
-
-  } else {
-    return permute_hpu(self, dims_);
-  }
-};
-Tensor hpu_wrap::expand(const Tensor& self, IntArrayRef size, bool implicit) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "expand :",
-      " self=",
-      to_string(self),
-      " size=",
-      to_string(size),
-      " implicit=",
-      to_string(implicit));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      expand, PARAMS1(self), PARAMS2(self, size, implicit))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return expand_hpu_lazy(self, size, implicit);
-
-  } else {
-    return expand_hpu(self, size, implicit);
-  }
-};
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     IntArrayRef split_sizes,

@@ -1030,6 +1030,21 @@ bitwise_xor.Tensor_out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
 
+bmm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
+  force_default: false
+  override_fn: batch_gemm_hpu_lazy
+
+bmm.out:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
+  override_fn: batch_gemm_out_hpu_lazy
+
 ceil:
   force_default: false
   dtypes: [BFloat16, Float]
@@ -1550,6 +1565,10 @@ exp2_:
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   inplace_ids: [0]
+
+expand:
+  force_default: false
+  override_fn: expand_hpu_lazy
 
 expm1:
   force_default: false
@@ -3032,6 +3051,10 @@ norm.ScalarOpt_dtype:
   dtypes: [BFloat16, Float]
   op_backend: NormHabanaOperator
   out_ids: [0]
+
+permute:
+  force_default: false
+  override_fn: permute_hpu_lazy
 
 poisson:
   custom_fill_params: FillPoissonParams

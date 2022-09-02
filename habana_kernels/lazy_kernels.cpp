@@ -3289,9 +3289,9 @@ Tensor addmm_hpu_lazy(
 }
 
 Tensor& batch_gemm_out_hpu_lazy(
-    Tensor& out,
     const Tensor& self,
-    const Tensor& mat2) {
+    const Tensor& mat2,
+    Tensor& out) {
   PT_LAZY_TRACE;
   LazyOp<Tensor&> k{
       "aten::bmm",

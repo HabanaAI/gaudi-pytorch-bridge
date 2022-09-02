@@ -69,7 +69,7 @@ TEST_F(LazyLinearKernelTest, BmmOutTest) {
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor hOut = out_cpu.to(torch::kHPU);
-  torch::Tensor result = batch_gemm_out_hpu_lazy(hOut, hA, hB);
+  torch::Tensor result = batch_gemm_out_hpu_lazy(hA, hB, hOut);
 
   Tensor out = result.to(kCPU);
 

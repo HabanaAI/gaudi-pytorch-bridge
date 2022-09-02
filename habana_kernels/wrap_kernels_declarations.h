@@ -344,11 +344,6 @@ struct hpu_wrap {
       const at::Tensor& mat2,
       const at::Scalar& beta,
       const at::Scalar& alpha);
-  static at::Tensor& bmm_out(
-      const at::Tensor& self,
-      const at::Tensor& mat2,
-      at::Tensor& out);
-  static at::Tensor bmm(const at::Tensor& self, const at::Tensor& mat2);
   static at::Tensor dot(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor mv(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor where(
@@ -651,11 +646,6 @@ struct hpu_wrap {
       int64_t dim0_,
       int64_t dim1_);
   static at::Tensor t(const at::Tensor& self);
-  static at::Tensor permute(const at::Tensor& self, at::IntArrayRef dims_);
-  static at::Tensor expand(
-      const at::Tensor& self,
-      at::IntArrayRef size,
-      bool implicit);
   static ::std::vector<at::Tensor> split_with_sizes(
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
