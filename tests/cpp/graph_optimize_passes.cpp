@@ -63,9 +63,27 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   setenv("HABANA_TRANSFORM_GRAPH_FILE", "pattern.json", 1);
 
   // write to .json file patterens
-  std::string patterns0 =
+  std::string patterns =
       "{\n"
       " \"MmReluPattern\" :\n"
+      " {\n"
+      "   \"Pattern\" : [\n"
+      "                   \"graph(%a, %b):\",\n"
+      "                   \" %c = aten::mm(%a, %b)\",\n"
+      "                   \" %r = aten::relu(%c)\",\n"
+      "                   \" return (%r)\"\n"
+      "                 ],\n"
+      "   \"ReplacePattern\" : [\n"
+      "                   \"graph(%a, %b):\",\n"
+      "                   \" %r = aten::matmul(%a, %b)\",\n"
+      "                   \" return (%r)\"\n"
+      "                 ]\n"
+      " }\n"
+      "}\n";
+
+  std::string patterns0 =
+      "{\n"
+      " \"MmReluPattern0\" :\n"
       " {\n"
       "   \"Pattern\" : [\n"
       "                   \"graph(%a, %b):\",\n"
@@ -100,6 +118,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "}\n";
 
   std::ofstream out("pattern.json");
+  out << patterns;
   out << patterns0;
   out << patterns1;
   out.close();

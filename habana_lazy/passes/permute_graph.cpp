@@ -732,10 +732,12 @@ void InsertPermute_graph(
     TORCH_CHECK(
         habana_kernel, node->schema().operator_name(), " is not registered!");
 
-    // Set the deterministic val
-    auto one = torch::jit::attr::alpha;
-    PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-    habana_kernel->setDeterministic(node->i(one));
+    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+      // Set the deterministic val
+      auto one = torch::jit::attr::alpha;
+      PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
+      habana_kernel->setDeterministic(node->i(one));
+    }
 
     const auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
     HandleNodeInputsTensor(

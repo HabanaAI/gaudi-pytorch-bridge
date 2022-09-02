@@ -449,10 +449,12 @@ void HlExec::Create(
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
 
-      auto one = torch::jit::attr::alpha;
-      jit_node->i_(one, node->getDeterministic());
-      PT_BRIDGE_DEBUG(
-          "Deterministic val during Jit Node creation: ", jit_node->i(one));
+      if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+        auto one = torch::jit::attr::alpha;
+        jit_node->i_(one, node->getDeterministic());
+        PT_BRIDGE_DEBUG(
+            "Deterministic val during Jit Node creation: ", jit_node->i(one));
+      }
 
       mp_g_->insertNode(jit_node);
 

@@ -1671,10 +1671,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
-    // Set the deterministic val
-    auto one = torch::jit::attr::alpha;
-    PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-    HabanaKernel->setDeterministic(node->i(one));
+    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+      // Set the deterministic val
+      auto one = torch::jit::attr::alpha;
+      PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
+      HabanaKernel->setDeterministic(node->i(one));
+    }
 
     PT_BRIDGE_DEBUG("Going to add ", *node);
 
@@ -1756,9 +1758,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         HabanaOperatorPtr csHabanaKernel =
             KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-        auto one = torch::jit::attr::alpha;
-        PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-        HabanaKernel->setDeterministic(node->i(one));
+        if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+          auto one = torch::jit::attr::alpha;
+          PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
+          HabanaKernel->setDeterministic(node->i(one));
+        }
 
         kernel_output_cs = csHabanaKernel->ComputeOutputShape(input_stack);
         if (!kernel_output_cs.empty()) {

@@ -22,6 +22,18 @@ using Patterns = std::vector<Pattern>;
 Patterns internal_patts = {
     // torch.all(tensor) pattern
     {"graph(%a):\n\
+      %b : Tensor = aten::all(%a)\n\
+      return (%b)",
+     "graph(%x):\n\
+      %11 : int = prim::Constant[value=11]()\n\
+      %5 : None = prim::Constant()\n\
+      %3 : bool = prim::Constant[value=0]()\n\
+      %2 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %2, %3, %3, %5)\n\
+      %z : Tensor = aten::prod(%y, %5)\n\
+      %a : Tensor = aten::to(%z, %11, %3, %3, %5)\n\
+      return (%a)"},
+    {"graph(%a):\n\
       %b : Tensor = aten::all[alpha=0](%a)\n\
       return (%b)",
      "graph(%x):\n\
@@ -47,6 +59,18 @@ Patterns internal_patts = {
       return (%a)"},
     // torch.all(tensor, dim, keepdim) pattern
     {"graph(%a, %dim : int, %keepdim : bool):\n\
+      %b : Tensor = aten::all(%a, %dim, %keepdim)\n\
+      return (%b)",
+     "graph(%x, %dim : int, %keepdim : bool):\n\
+      %16 : int = prim::Constant[value=11]()\n\
+      %7 : None = prim::Constant()\n\
+      %5 : bool = prim::Constant[value=0]()\n\
+      %4 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %4, %5, %5, %7)\n\
+      %z : Tensor = hpu::prod_dim_Int(%y, %dim, %keepdim, %7)\n\
+      %a : Tensor = aten::to(%z, %16, %5, %5, %7)\n\
+      return (%a)"},
+    {"graph(%a, %dim : int, %keepdim : bool):\n\
       %b : Tensor = aten::all[alpha=0](%a, %dim, %keepdim)\n\
       return (%b)",
      "graph(%x, %dim : int, %keepdim : bool):\n\
@@ -71,6 +95,18 @@ Patterns internal_patts = {
       %a : Tensor = aten::to[alpha=1](%z, %16, %5, %5, %7)\n\
       return (%a)"},
     // torch.all(tensor, dim, keepdim) pattern for Lazy
+    {"graph(%a, %dim : int, %keepdim : bool):\n\
+      %b : Tensor = hpu::all_dim(%a, %dim, %keepdim)\n\
+      return (%b)",
+     "graph(%x, %dim : int, %keepdim : bool):\n\
+      %16 : int = prim::Constant[value=11]()\n\
+      %7 : None = prim::Constant()\n\
+      %5 : bool = prim::Constant[value=0]()\n\
+      %4 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %4, %5, %5, %7)\n\
+      %z : Tensor = hpu::prod_dim_Int(%y, %dim, %keepdim, %7)\n\
+      %a : Tensor = aten::to(%z, %16, %5, %5, %7)\n\
+      return (%a)"},
     {"graph(%a, %dim : int, %keepdim : bool):\n\
       %b : Tensor = hpu::all_dim[alpha=0](%a, %dim, %keepdim)\n\
       return (%b)",
