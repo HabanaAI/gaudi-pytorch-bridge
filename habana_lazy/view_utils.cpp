@@ -98,6 +98,18 @@ c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
   return c10::nullopt;
 }
 
+bool IsStridesRatioZero(
+    std::vector<int64_t>& self_strides,
+    std::vector<int64_t>& stride_sizes) {
+  auto len = self_strides.size();
+  for (uint64_t i = 0; i < len; i++) {
+    if (stride_sizes[i] < self_strides[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 Tensor add_strided_insert_node(
     const Tensor& orig_t,
     const Tensor& insert_t,
@@ -129,7 +141,10 @@ Tensor add_strided_insert_node(
         c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
-    if (orig_t.sizes().size() != strides.size()) {
+    auto self_strides = orig_t.strides().vec();
+    auto stride_sizes = strides.vec();
+    if (orig_t.sizes().size() != strides.size() ||
+        IsStridesRatioZero(self_strides, stride_sizes)) {
       node_str = "hpu::strided_insert_orig_ds";
       auto out_stride_st = empty_hpu_lazy(
           strides,
@@ -146,8 +161,6 @@ Tensor add_strided_insert_node(
       HABANA_ASSERT(impl_st, "impl_st is invalid");
 
       std::vector<int64_t> stride_ratios;
-      auto self_strides = orig_t.strides().vec();
-      auto stride_sizes = strides.vec();
       auto len = stride_sizes.size();
       for (uint64_t i = 0; i < len; i++) {
         stride_ratios.push_back(stride_sizes[i] / self_strides[i]);

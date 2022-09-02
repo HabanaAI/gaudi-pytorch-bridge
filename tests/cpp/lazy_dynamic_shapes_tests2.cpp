@@ -160,7 +160,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
     auto hB = hA.reshape(hA.sizes());
     hB.add_(0.5);
     HbLazyTensor::StepMarker({});
-    EXPECT_EQ(allclose(A, hA.cpu()), true);
+    EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
 }
 
@@ -178,7 +178,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast3d) {
     auto hB = hA.view(hA.sizes());
     hB.add_(0.5);
     HbLazyTensor::StepMarker({});
-    EXPECT_EQ(allclose(A, hA.cpu()), true);
+    EXPECT_EQ(allclose(B, hB.cpu()), true);
   }
 }
 
