@@ -14,6 +14,7 @@
 #include "habana_lazy/lazy_storage.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/hpu_input.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 namespace habana_lazy {
 
 at::Tensor HbLazyToAtenTensor(
@@ -164,6 +165,7 @@ HbLazyTensor GetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
     bool handle_collective) {
+  habana_lazy::SyncAccThreadPool(); // Synchronize acc thread pool if necessary
   HABANA_ASSERT(
       tensor.device().type() == at::kHPU,
       "Got a non-HPU tensor, expecting an HPU tensor");

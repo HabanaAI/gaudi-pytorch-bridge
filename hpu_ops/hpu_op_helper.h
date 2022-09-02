@@ -11,9 +11,24 @@
 #include <perf_lib_layer_params.h>
 #include "cpu_fallback.h"
 #include "op_backend.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
+
 #include "supported_dtypes.h"
 
 namespace habana {
+
+template <class T>
+void scheduleAccTask(T&& lazy_op, at::Tensor tensor) {
+  habana_lazy::GetAccThreadPool().run(
+      [op = std::move(lazy_op), tensor]() mutable {
+        PT_LAZY_TRACE;
+        op.call(tensor);
+        habana_lazy::GetAccCleanupThreadPool().run(
+            [op = std::move(op), self = std::move(tensor)]() {});
+      });
+}
 
 inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
   return stack.at(index).toTensor();
@@ -180,5 +195,30 @@ inline float& get<float>(fint_t& u) {
     return at::native::                                                      \
         call_fallback_fn<&cpu_fallback, ATEN_OP2(op, overload)>::call(args); \
   }
+
+#define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                                \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      auto result = lazy_op.get_result();                                     \
+      scheduleAccTask(std::move(lazy_op), result);                            \
+      return result;                                                          \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call();
+
+#define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                  \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      scheduleAccTask(std::move(lazy_op), self);                              \
+      return self;                                                            \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call(self);
 
 #define FALLBACK_CHECK(fn, args...) bool fn(args...)

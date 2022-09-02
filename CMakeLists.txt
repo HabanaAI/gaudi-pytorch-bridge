@@ -103,6 +103,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/dynamic_bucket_info_utils.cpp
   pytorch_helpers/habana_helpers/compilation_statistics.cpp
   pytorch_helpers/habana_helpers/collective_kernel_info.cpp
+  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp

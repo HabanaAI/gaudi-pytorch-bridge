@@ -5,6 +5,8 @@
 import os
 import sys
 import torch
+import atexit
+from habana_frameworks.torch import _hpu_C
 
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
 # must be preloaded before _mandatory_libs for profiler to work
@@ -72,6 +74,8 @@ def _load_habana_module(library_list):
             os.path.abspath(os.path.join(habana_modules_directory, module))
         )
         sys.path.insert(0, habana_modules_directory)
+
+    atexit.register(_hpu_C.cleanup)
 
 def load_habana_module():
     _load_habana_module(_mandatory_libs)

@@ -30,6 +30,8 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     float mom,
     bool nesterov) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
+
   HbLazyTensor::StepMarker({});
   LazyOp<::std::tuple<at::Tensor&, at::Tensor&>> k{
       "hpu::habanaOptimizerSparseSgd",
@@ -61,6 +63,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   LazyOp<::std::tuple<at::Tensor&, at::Tensor&>> k{
       "hpu::habanaOptimizerSparseAdagrad",
@@ -81,6 +84,7 @@ void optimizer_ema_hpu_lazy(
     at::TensorList& updated_ema,
     const at::Tensor& decay) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   ir::NodePtr node =
       std::make_shared<ir::OptimizerFusedEMA>(model_inputs, updated_ema, decay);
@@ -115,6 +119,7 @@ void optimizer_adamw_hpu_lazy(
     const float epsilon,
     const float modified_wd) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   auto hl_lr_t = GetHbLazyTensor(lr_t);
   auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
@@ -204,6 +209,8 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
+
   auto clip_norm = get_tensor_for_scalar(1.0);
   ir::NodePtr node =
       std::make_shared<ir::LambFusedNorm>(grad, max_grad_norm, clip_norm);
@@ -234,6 +241,7 @@ optimizer_lamb_phase1_hpu_lazy(
     const int bias_correction,
     const float weight_decay) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   static_cast<void>(lr);
 
   /*
@@ -410,6 +418,7 @@ void optimizer_lamb_phase2_hpu_lazy(
     const float weight_decay,
     const int use_lamb) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   // TODO: SW-69618 JIT optimization passes are failing for
   // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
@@ -443,6 +452,7 @@ void optimizer_adagrad_hpu_lazy(
     const float lrd,
     const float epsilon) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerFusedAdagrad",
@@ -460,6 +470,7 @@ void optimizer_sgd_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerFusedSGD",
@@ -479,6 +490,7 @@ void optimizer_sgd_momentum_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerFusedSGDMomentum",

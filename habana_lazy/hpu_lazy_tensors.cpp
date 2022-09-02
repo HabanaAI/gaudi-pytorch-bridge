@@ -26,6 +26,7 @@
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 #include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
@@ -1367,6 +1368,8 @@ void HbLazyTensor::StepMarker(
     std::set<int64_t> bucket_id,
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
+
   if (!synapse_helpers::HPURegistrar::isInitialized()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");

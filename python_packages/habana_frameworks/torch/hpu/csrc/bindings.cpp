@@ -9,19 +9,20 @@
  */
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
-// clang-format off
+//clang-format off
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
 #include <ATen/autocast_mode.h>
 #endif
-// clang-format on
+//clang-format on
 #include <tuple>
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUEvent.h"
 #include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 
 void hpu_init() {
@@ -96,8 +97,20 @@ const std::string get_mem_stat_summary(int device_id) {
   return summary;
 }
 
+// In parallel accumulation, it is possible to have a case when program
+// is finishing and some workload is still pending in accumulation/cleanup
+// threads (i.e. user called ops, but never requested the output values).
+// To avoid race between Python shuting down and accumulation threads finishing
+// work, it's recommended to sync those threads in Python 'atexit' registry.
+void sync_threads() {
+  auto gil_release = pybind11::gil_scoped_release();
+  habana_lazy::SyncAccThreadPool();
+  habana_lazy::SyncCleanupThreadPool();
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("init", []() { hpu_init(); });
+  m.def("cleanup", []() { sync_threads(); });
   m.def("current_device", []() {
     auto& d = synapse_helpers::HPURegistrar::get_device();
     return d.id();

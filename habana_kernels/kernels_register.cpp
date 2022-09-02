@@ -17,6 +17,7 @@
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch;
@@ -48,6 +49,7 @@ Tensor hpu_wrap::_to_copy(
       to_string(non_blocking),
       " optional_memory_format=",
       to_string(optional_memory_format));
+  habana_lazy::SyncAccThreadPool();
   auto memory_format = optional_memory_format.value_or(MemoryFormat::Preserve);
   auto options =
       TensorOptions().dtype(dtype).layout(layout).device(device).pinned_memory(
@@ -158,6 +160,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    habana_lazy::SyncAccThreadPool();
     return copy_hpu_lazy_(self, src, non_blocking);
   } else {
     if (src.device().type() == c10::DeviceType::HPU &&
@@ -2093,6 +2096,7 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
       to_string(pos_weight),
       " reduction=",
       to_string(reduction));
+  habana_lazy::SyncAccThreadPool();
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self),
@@ -3454,6 +3458,7 @@ Tensor& hpu_wrap::exp_(Tensor& self) {
 
   return exp_hpu_(self);
 };
+
 Tensor hpu_wrap::exp(const Tensor& self) {
   PT_OP_TRACE;
   PT_OP_INFO("exp :", " self=", to_string(self));

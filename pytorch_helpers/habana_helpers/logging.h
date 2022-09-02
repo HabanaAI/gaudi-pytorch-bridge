@@ -251,7 +251,8 @@ class PtLogger {
     VIEWTABLE = 0x4000,
     REFINEMENT = 0x8000,
     HOSTSTAT = 0x10000,
-    LAYOUTS = 0x20000
+    LAYOUTS = 0x20000,
+    PARALLEL_ACC = 0x40000,
   };
 };
 
@@ -286,6 +287,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("HOSTSTAT");
     case PtLogger::ModuleMask::HABHELPER:
       return std::string("HABHELPER");
+    case PtLogger::ModuleMask::PARALLEL_ACC:
+      return std::string("PARALLEL_ACC");
     default:
       return std::string("UNDEFINED");
   }
@@ -547,6 +550,8 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+#define PT_LAZY_PARALLEL_ACC_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::PARALLEL_ACC, __VA_ARGS__)
 #define PT_IRGRAPH_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
 #define PT_VIEWTABLE_DEBUG(...) \

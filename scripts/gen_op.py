@@ -673,9 +673,13 @@ def frontend(
             )
             code += "  hpu_op.Validate();\n"
 
-        code += "  {}hpu_op.call({})".format(
-            "" if rtype == "void" else "return ", lazyop_call_args
-        )
+        if is_acc_thread_supported(fname, ctxop, rtype):
+            if fname.endswith("_") and not fname.endswith("__"): # inplace ops, but not shift ops
+                code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, lazyop_call_args)
+            else:
+                code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+        else:
+            code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", lazyop_call_args)
     return code + ";\n}"
 
 
@@ -878,6 +882,11 @@ def extract_reduction_vars_indices(param_vars):
 
     return reduction_vars_indices
 
+def is_acc_thread_supported(opname, ctxop, rtype):
+    return (not ctxop.get_override_fn() # ops with custom lazy func, not LazyOp
+            and not opname.endswith("_out") # out ops
+            and not opname.endswith("__") # shift ops - todo SW-104232
+            and rtype.startswith("at::Tensor")) # regular or in-place ops
 
 def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params):
     opname = get_aten_opname(aten_sig)
@@ -887,6 +896,8 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
 
     tfetcher = TensorFetcher("metatens")
     rtype = get_return_type_str(rwxtree, rwsig)
+    if not is_acc_thread_supported(fname, ctxop, rtype):
+        op_frontend += "  habana_lazy::SyncAccThreadPool();\n"
     param_vars = []
     meta_param_vars = []
     call_args = []

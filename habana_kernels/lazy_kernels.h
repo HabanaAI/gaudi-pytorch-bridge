@@ -218,6 +218,13 @@ class LazyOp {
     set_inputs(inputs);
   }
 
+  LazyOp(LazyOp&) = default;
+  LazyOp(const LazyOp&) = default;
+  LazyOp(LazyOp&&) = default;
+  LazyOp& operator=(const LazyOp&) = default;
+  LazyOp& operator=(LazyOp&) = default;
+  LazyOp& operator=(LazyOp&&) = default;
+
   virtual ~LazyOp() = default;
 
   template <typename T = ReturnType>
@@ -464,6 +471,39 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type
+  HandleLazy(
+      at::Tensor& self,
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
+          nullptr) {
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      isOptimizedLazyEager =
+          info_to_lazy_backend->get_is_optimized_lazy_eager();
+    }
+
+    auto hl_result = GetHbLazyTensor(self);
+    if (isOptimizedLazyEager == false) {
+      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      const auto& node = create_node();
+      ir::Value& out = hl_result.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional());
+      updateDstDependencies(hl_result, self, false);
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+      info_to_lazy_backend->set_input_values(input_vals);
+    }
+
+    runSBS(self);
+    flush_op(self, info_to_lazy_backend, {hl_result});
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
     bool isView = false;
@@ -487,6 +527,36 @@ class LazyOp {
     context->viewContext.isLazyViewPresent = false;
 
     return HandleLazy(infoToBackEnd);
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type call(
+      at::Tensor& self) {
+    PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
+    bool isView = false;
+
+    // Handle views or fetch updated tensor for all the inputs
+    isView = viewUpdateInputs();
+
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
+        std::make_shared<HbLazyFrontEndInfoToBackend>();
+    infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+    // Temporarily disabled the switch - To Do
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent) &&
+        false) {
+      size_t lazy_eager_key = 0;
+      bool IsOptimizedLazyEagerCached =
+          calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
+
+      infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
+    }
+
+    HandleLazy(self, infoToBackEnd);
   }
 
   bool viewUpdateInputsProcessSingleTensor(at::Tensor& t, size_t& idx) {
@@ -739,39 +809,10 @@ class LazyOp {
     return HandleLazy(infoToBackEnd);
   }
 
- private:
-  bool isMetadataCandidate(const at::IValue& input) const {
-    return input.isBool() || input.isDevice() || input.isIntList() ||
-        input.isDoubleList() || input.isBoolList() || input.isString() ||
-        input.isNone() ||
-        (input.isList() &&
-         !input.toList().elementType()->cast<at::TensorType>());
-  }
-
-  template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
-  get_result() {
-    // Get results from derived class when index is negative
-    if (m_out_index < 0) {
-      return get_result_overrideable();
-    }
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        std::tuple_size<T>::value == m_out_shapes.size());
-
-    unsigned i = 0;
-    ReturnType results;
-
-    for_each_in_tuple(results, [&](auto& result) {
-      auto t = get_inputs().at(m_out_index).toTensor();
-      result = empty_hpu_lazy(
-          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
-    });
-    return results;
-  }
-
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
+    PT_LAZY_TRACE;
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();
@@ -806,6 +847,37 @@ class LazyOp {
     }
   }
 
+ private:
+  bool isMetadataCandidate(const at::IValue& input) const {
+    return input.isBool() || input.isDevice() || input.isIntList() ||
+        input.isDoubleList() || input.isBoolList() || input.isString() ||
+        input.isNone() ||
+        (input.isList() &&
+         !input.toList().elementType()->cast<at::TensorType>());
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
+  get_result() {
+    PT_LAZY_TRACE;
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::tuple_size<T>::value == m_out_shapes.size());
+
+    unsigned i = 0;
+    ReturnType results;
+
+    for_each_in_tuple(results, [&](auto& result) {
+      auto t = get_inputs().at(m_out_index).toTensor();
+      result = empty_hpu_lazy(
+          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
+    });
+    return results;
+  }
+
   void create_inputs(
       ir::ValueList& values,
       std::vector<at::Tensor>& input_pt_vec,
@@ -814,8 +886,8 @@ class LazyOp {
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
       if (m_metadata_indices.count(i)) {
-        // Already taken care in optimized lazy eager JIT graph key calculation
-        // so not required for the optimized lazy eager.
+        // Already taken care in optimized lazy eager JIT graph key
+        // calculation so not required for the optimized lazy eager.
         if (!is_optimized_lazy_eager) {
           metadata.set(input, i);
         }
@@ -823,8 +895,8 @@ class LazyOp {
       }
 
       if (input.isScalar()) {
-        // Already taken care in optimized lazy eager JIT graph key calculation
-        // so not required for the optimized lazy eager
+        // Already taken care in optimized lazy eager JIT graph key
+        // calculation so not required for the optimized lazy eager
         if (!is_optimized_lazy_eager) {
           auto val = GetIrValueForScalar(input.toScalar());
           values.emplace_back(val);
@@ -848,8 +920,8 @@ class LazyOp {
             input_pt_vec.emplace_back(t);
           } else {
             // Taking care of duplicate values here itself for optimized lazy
-            // eager. In normal flow it is taken care later in the flow. To Do -
-            // To make it same for normal flow as well.
+            // eager. In normal flow it is taken care later in the flow. To Do
+            // - To make it same for normal flow as well.
             auto it = find(values.begin(), values.end(), val);
             if (it == values.end()) {
               values.emplace_back(val);
@@ -890,8 +962,9 @@ class LazyOp {
               opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
               list_input_pt_vec.emplace_back(t);
             } else {
-              // Taking care of duplicate values here itself for optimized lazy
-              // eager. In normal flow it is taken care later in the flow. To Do
+              // Taking care of duplicate values here itself for optimized
+              // lazy eager. In normal flow it is taken care later in the
+              // flow. To Do
               // - To make it same for normal flow as well.
               auto val = GetHbLazyTensor(t).GetIrValue();
               auto it = find(values.begin(), values.end(), val);

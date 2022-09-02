@@ -616,6 +616,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   auto dims_vec = dims_in.vec();
   for (unsigned i = 0; i < dims_in.size(); i++) {
     dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
@@ -1139,6 +1140,7 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef stride_in,
     c10::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
@@ -1467,7 +1469,7 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
 
   auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
   LazyOp<at::Tensor> k{"aten::div", {self, other_tensor}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(div, k)
 }
 
 Tensor& div_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
@@ -2045,6 +2047,7 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
+      habana_lazy::SyncAccThreadPool();
       indices_vec_out.insert(
           indices_vec_out.cend(), list.cbegin(), list.cend());
     }
@@ -2472,6 +2475,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
     HbLazyTensor::StepMarker({});
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
+      habana_lazy::SyncAccThreadPool();
       indices_vec_out.insert(
           indices_vec_out.cend(), list.cbegin(), list.cend());
     }
@@ -2901,6 +2905,7 @@ Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   auto hl_self_in = GetHbLazyTensor(self_in);
 
   // Native fork implementation to slice op is introduced to
@@ -5426,6 +5431,7 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
     auto hl_self = GetHbLazyTensor(self);
     auto out = at::native::transpose(self, dim0_, dim1_);
@@ -5487,6 +5493,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
     auto out = at::native::t(self);
     if (is_fallback_original_op(self, out)) {
@@ -6318,6 +6325,7 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
 
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor> k_{
       "aten::isfinite", {input}, {input.sizes().vec()}, c10::ScalarType::Bool};
   return k_.call();
@@ -6325,6 +6333,7 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
 
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   Scalar out;
   // If self is a lazy tensor make sure the execution till the point of self
   // getting flled has finished before we start copying
@@ -6353,6 +6362,7 @@ Tensor fused_norm_hpu_lazy(
     const Tensor& max_norm,
     float norm_type) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   bool is_view_evaluated = true;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (size_t i = 0; i < grad.size(); i++) {
@@ -6543,6 +6553,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
   auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
   // Flipping to match the cpu results
   result = torch::flip(result, {0});
+  habana_lazy::SyncAccThreadPool();
   flush_op(result);
 
   if (return_inverse) {
@@ -6834,6 +6845,7 @@ Tensor masked_scale_hpu_lazy(
 
 Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<Tensor> k(
       "aten::matmul",
       {self, other},
@@ -6861,6 +6873,7 @@ Tensor habana_nms_hpu_lazy(
     float iou_threshold,
     float score_threshold) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   // Ensuring that the boxes and scores input to nms is always FP32
   // This is required because when batched_nms is called
   // it calls torch.ops.torhchvision.nms which is visible
@@ -6963,6 +6976,7 @@ Tensor batched_nms_hpu_lazy(
     const Tensor& indexes,
     float iou_threshold) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
 
   if (boxes.numel() == 0 && scores.numel() == 0 && indexes.numel() == 0) {
     auto shape = DimVector{0};
@@ -7089,6 +7103,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
     bool aligned) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   // Assuming outshape to be NCHW
   std::vector<int64_t> out_shape{
       num_rois.sizes()[0], images.sizes()[1], output_h, output_w};
@@ -7129,6 +7144,7 @@ at::Tensor roi_align_bwd_hpu_lazy(
     bool aligned) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   std::vector<int64_t> out_shape = {bs, ch, h, w};
   auto input_shape = empty_hpu_lazy(
       out_shape, grad_out.options(), grad_out.suggest_memory_format(), true);
@@ -7181,6 +7197,7 @@ at::Tensor& broadcast_hpu_lazy_(
     int64_t root_rank,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::broadcast_", {tensor, root_rank, comm_id}, {1, 2}, {}, 0);
   return k.call(tensor);
@@ -7191,6 +7208,7 @@ at::Tensor& allreduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::allreduce_", {tensor, reduce_op, comm_id}, {1, 2}, {}, 0);
   return k.call(tensor);
@@ -7202,6 +7220,7 @@ at::Tensor& reduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::reduce_",
       {tensor, dst_rank, reduce_op, comm_id},
@@ -7216,6 +7235,7 @@ at::Tensor& alltoall_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::alltoall_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   return k.call(outputTensor);
@@ -7226,6 +7246,7 @@ at::Tensor& allgather_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::allgather_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   return k.call(outputTensor);
@@ -7237,6 +7258,7 @@ at::Tensor& reduce_scatter_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::reduce_scatter_out",
       {inputTensor, reduce_op, comm_id, outputTensor},
@@ -7252,6 +7274,7 @@ at::Tensor& send_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::send_", {tensor, dst_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   return k.call(tensor);
@@ -7263,6 +7286,7 @@ at::Tensor& recv_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::recv_", {tensor, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   return k.call(tensor);
@@ -7273,6 +7297,7 @@ Tensor linear_non2d_hpu_lazy(
     const Tensor& weight,
     const c10::optional<Tensor>& bias_opt) {
   PT_LAZY_TRACE;
+  habana_lazy::SyncAccThreadPool();
   /* Implements:
     auto output = at::matmul(input, weight.t());
     if (bias->defined()) {

@@ -14,6 +14,8 @@
 #include <torch/csrc/jit/tensorexpr/kernel.h>
 #include <torch/library.h>
 #include "habana_kernels/fallback_helper.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+
 #pragma once
 
 class OpAttributeCheck {
@@ -3987,6 +3989,9 @@ void hpu_check_inputs(
 bool hpu_check_inputs_impl(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {
+  // Synchronize acc thread, if Op is not supported for parallel acc yet.
+  habana_lazy::SyncManualOpIfNeeded(op);
+
   const auto& supported_types = op_info.at(op);
   size_t i = 0;
   if (habana::HpuFallbackHelper::get()->is_placed_on_cpu(op))
