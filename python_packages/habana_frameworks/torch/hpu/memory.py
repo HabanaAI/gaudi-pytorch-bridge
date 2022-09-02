@@ -1,7 +1,7 @@
 import collections
 import torch
 import warnings
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Union, Optional, Tuple
 import habana_frameworks.torch.hpu as hpu
 from habana_frameworks.torch import _hpu_C
 from ._utils import _get_device_index
@@ -51,7 +51,7 @@ def reset_accumulated_memory_stats(device: Optional[_device_t] = None) -> None:
 def memory_stats(device: Optional[_device_t] = None) -> Dict[str, Any]:
     r"""This API (TORCH.HPU.MEMORY_STATS) returns dict of HPU memory statics.
     Below sample memory stats printout and details
-    ('Limit', 3050939105) : amount of total memory on HPU device
+    ('Limit', 3050939105) : amount of total reserved memory on HPU device
     ('InUse', 20073088) : amount of allocated memory at any instance. ( starting point after reset_peak_memroy_stats() )
     ('MaxInUse', 20073088) : amount of total active memory allocated
     ('NumAllocs', 0) : number of allocations
@@ -85,3 +85,32 @@ def memory_summary(device: Optional[_device_t] = None) -> str:
     str1 = _hpu_C.get_memory_summary(device)
     char1 = str1.split("\n")
     return(str +str1)
+
+def memory_reserved(device: Optional[_device_t] = None) -> int:
+    r"""Returns the current HPU memory managed by caching allocator in bytes for a given device."""
+    stats = memory_stats(device)
+    return stats['Limit']
+
+def max_memory_reserved(device: Optional[_device_t] = None) -> int:
+    r"""Returns the maximum HPU memory managed by caching allocator in bytes for a given device."""
+    stats = memory_stats(device)
+    return stats['Limit']
+
+def memory_cached(device: Optional[_device_t] = None) -> int:
+    r"""Deprecated same as memory_reserved"""
+    warnings.warn(
+        "torch.hpu.memory_cached has been renamed to torch.hpu.memory_reserved",
+        FutureWarning)
+    return memory_reserved(device)
+
+def max_memory_cached(device: Optional[_device_t] = None) -> int:
+    r"""Deprecated: same as max_memory_reserved"""
+    warnings.warn(
+        "torch.hpu.max_memory_cached has been renamed to torch.hpu.max_memory_reserved",
+        FutureWarning)
+    return max_memory_reserved(device)
+
+def mem_get_info(device: Optional[_device_t] = None) -> Tuple:
+    r"""Returns the free and total memory occupied by a HPU device"""
+    stats = memory_stats(device)
+    return (stats['Limit'] - stats['InUse'], stats['Limit'])

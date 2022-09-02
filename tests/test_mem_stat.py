@@ -4,6 +4,11 @@
 # 3. memory_allocated
 # 4. memory_summary
 # 5. memory_stats
+# 6. memory_reserved
+# 7. max_memory_reserved
+# 8. memory_cached
+# 9. max_memory_cached
+# 10. mem_get_info
 
 #TORCH.HPU.MAX_MEMORY_ALLOCATED
 #This API returns peak HPU memory allocated by tensors( in bytes). reset_peak_memory_stats() can be used to reset the starting point in tracing stats.
@@ -31,19 +36,32 @@
 #TORCH.HPU.RESET_PEAK_MEMORY_STATS
 #Resets starting point of memory occupied by tensors.
 
+#TORCH.HPU.MEMORY_RESERVED
+#Returns the current HPU memory managed by caching allocator in bytes for a given device.
+
+#TORCH.HPU.MAX_MEMORY_RESERVED
+#Returns the maximum HPU memory managed by caching allocator in bytes for a given device.
+
+#TORCH.HPU.MEMORY_CACHED
+#Deprecated same as memory_reserved.
+
+#TORCH.HPU.MAX_MEMORY_CACHED
+#Deprecated same as max_memory_reserved.
+
+#TORCH.HPU.MEM_GET_INFO
+#Returns the free and total memory occupied by a HPU device.
+
 import torch
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
-device = torch.device("hpu")
+import habana_frameworks.torch.hpu as htcore
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 if __name__ == '__main__':
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input1 = torch.randn((64,28,28,20),dtype=torch.float, requires_grad=True)
     input1_hpu = input1.contiguous(memory_format=torch.channels_last).to(hpu)
-    import habana_frameworks.torch.hpu as htcore
     mem_summary1 = htcore.memory_summary()
     print('memory_summary1:')
     print(mem_summary1)
@@ -60,3 +78,11 @@ if __name__ == '__main__':
     print(mem_stats)
     max_mem_allocated = htcore.max_memory_allocated()
     print('max_memory_allocated: ', max_mem_allocated)
+    print('memory_reserved:', htcore.memory_reserved())
+    print('max_memory_reserved:', htcore.max_memory_reserved())
+    print('memory_cached:', htcore.memory_cached())
+    print('max_memory_cached:', htcore.max_memory_cached())
+    print('mem_get_info (free_mem, total_mem):', htcore.mem_get_info())
+    assert(htcore.memory_reserved() == htcore.memory_cached())
+    assert(htcore.memory_reserved() == htcore.max_memory_reserved())
+    assert(htcore.memory_cached() == htcore.max_memory_cached())
