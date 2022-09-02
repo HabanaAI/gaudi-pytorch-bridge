@@ -1778,6 +1778,16 @@ Tensor constant_pad_hpu_lazy(
           self.suggest_memory_format(),
           false,
           SHAPE_TENSOR);
+      // Mark this front end shape tensor as it does not need synapse tensor
+      auto hl_output_shape_tensor =
+          GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
+      auto hl_output_shape_tensor_internal =
+          hl_output_shape_tensor.CurrentTensorAttached().value();
+      auto stImpl =
+          habana_lazy::GetHbInternalTensorImpl(hl_output_shape_tensor_internal);
+      if (stImpl) {
+        stImpl->setH2DFrontEndShapeTensor();
+      }
       auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
 
       auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
