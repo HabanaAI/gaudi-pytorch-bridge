@@ -85,12 +85,34 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
   return false;
 }
 
+bool feedsIntoInplaceOrCtrl(
+    const std::shared_ptr<Graph>& graph,
+    const Value* v) {
+  for (auto& u : v->uses()) {
+    auto n = u.user;
+    if (n && checkOps(n) && (n->outputs().size() >= 1)) {
+      auto o = n->output(0);
+      if (feedsIntoInplaceOrCtrl(graph, o)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 /*
  * A Inplace op can be replaced if the below conditions
  * are met:
  * (Handle only single output node)
  * 1. Node output is not part of graph output
  * 2. Node input is not part of graph input
+ *
+ * Relaxed check for replacing in-place ops:
+
+If below conditions are satisfied, then check for graph output is avoided.
+1. Node not connected to input
+2. Not feeding into any other inplace/control edge ops.
  */
 bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
@@ -100,11 +122,11 @@ bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
 
   auto out = node->output(0);
   auto in = node->input(0);
-  if (!isInplaceOp(node) || isGraphOutput(graph, out) ||
-      isGraphInput(graph, in)) {
-    return false;
+  if (isInplaceOp(node) && !isGraphInput(graph, in) &&
+      !feedsIntoInplaceOrCtrl(graph, out)) {
+    return true;
   }
-  return true;
+  return false;
 }
 
 void replace_inplace_ops(
@@ -134,6 +156,7 @@ void replace_inplace_ops(
 
 void replace_inplace_ops(std::shared_ptr<Graph>& graph) {
   std::vector<Node*> inplace_ops;
+
   for (auto node : graph->nodes()) {
     if (canReplaceOp(graph, node)) {
       inplace_ops.emplace_back(node);
