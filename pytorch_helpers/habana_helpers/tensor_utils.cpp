@@ -428,7 +428,11 @@ at::Tensor habana_helpers::createPTTensor(
     t = at::empty(size, options, input.suggest_memory_format());
   } else {
     t = habana_helpers::nonPersistentTensor(
-        input, size, options, input.suggest_memory_format());
+        input,
+        size,
+        options,
+        input.suggest_memory_format(),
+        options.dtype_opt());
   }
 
   return t;
