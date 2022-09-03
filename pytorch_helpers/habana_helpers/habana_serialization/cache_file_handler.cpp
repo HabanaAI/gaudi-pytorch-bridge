@@ -112,7 +112,11 @@ void CacheFileHandler::addFileInfo(const std::string& cache_id) {
   fs::directory_entry de1{rcpeFile};
   fs::directory_entry de2{metaFile};
 
+#if !defined __GNUC__ || __GNUC__ >= 8
   uint64_t size = de1.file_size() + de2.file_size();
+#else
+  uint64_t size = fs::file_size(rcpeFile) + fs::file_size(metaFile);
+#endif
   PT_HABHELPER_DEBUG(
       CACHEFILE_LOG,
       "Adding: ",
@@ -177,7 +181,12 @@ void BasicCacheFileHandler::checkAndDelete() {
     fs::directory_entry de1{p1};
     fs::directory_entry de2{p2};
 
+#if !defined __GNUC__ || __GNUC__ >= 8
     uint64_t size = de1.file_size() + de2.file_size();
+#else
+    uint64_t size = fs::file_size(p1) + fs::file_size(p2);
+#endif
+
     PT_HABHELPER_DEBUG(
         CACHEFILE_LOG,
         "Deleting: ",
