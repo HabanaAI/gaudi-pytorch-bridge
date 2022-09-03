@@ -3168,33 +3168,6 @@ at::Tensor hpu_wrap::repeat_interleave(
   return repeat_inlv_hpu_lazy(repeats, output_size);
 }
 
-Tensor hpu_wrap::sum(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "sum:",
-      "self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      "keepdim=",
-      to_string(keepdim),
-      " dtype=",
-      to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      sum, PARAMS1(self), PARAMS2(self, dim, keepdim, dtype), dim_IntList)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sum_dim_IntList_hpu_lazy(self, dim, keepdim, dtype);
-
-  } else {
-    return sum_dim_IntList_hpu(self, dim, keepdim, dtype);
-  }
-};
-
 Tensor hpu_wrap::mean(
     const Tensor& self,
     IntArrayRef dim,
@@ -3219,18 +3192,6 @@ Tensor hpu_wrap::mean(
 
   } else {
     return mean_dim_hpu(self, dim, keepdim, dtype);
-  }
-};
-Tensor hpu_wrap::sum(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO("sum :", " self=", to_string(self), " dtype=", to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP(sum, PARAMS1(self), PARAMS2(self, dtype))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sum_hpu_lazy(self, dtype);
-
-  } else {
-    return sum_hpu(self, dtype);
   }
 };
 Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
@@ -5644,13 +5605,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "embedding_bag_sum_bwd_out",
       embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap);
-  m.impl(
-      "sum_dim_IntList",
-      static_cast<at::Tensor (*)(
-          const at::Tensor&,
-          at::IntArrayRef,
-          bool,
-          c10::optional<at::ScalarType>)>(&hpu_wrap::sum));
   m.impl(
       "prod_dim_Int",
       static_cast<at::Tensor (*)(

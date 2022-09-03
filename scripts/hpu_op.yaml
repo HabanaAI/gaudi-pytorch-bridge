@@ -4025,8 +4025,27 @@ sub.out:
   type_promotion: true
   safe_cast_check: true
 
+sum:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
+  override_fn: sum_hpu_lazy
+
+sum.dim_IntList:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
+  override_fn: sum_dim_IntList_hpu_lazy
+
 sum.IntList_out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_sum_fwd
   op_template: reduction
 

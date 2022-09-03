@@ -551,11 +551,6 @@ struct hpu_wrap {
   static at::Tensor repeat_interleave(
       const at::Tensor& self,
       c10::optional<int64_t> output_size);
-  static at::Tensor sum(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor& sum_out(
       const at::Tensor& self,
       at::IntArrayRef dim,
@@ -573,9 +568,6 @@ struct hpu_wrap {
       bool keepdim,
       c10::optional<at::ScalarType> dtype,
       at::Tensor& output);
-  static at::Tensor sum(
-      const at::Tensor& self,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor mean(
       const at::Tensor& self,
       c10::optional<at::ScalarType> dtype);
