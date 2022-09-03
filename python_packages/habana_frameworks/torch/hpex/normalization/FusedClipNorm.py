@@ -15,6 +15,7 @@ class FusedClipNorm:
         super(FusedClipNorm, self).__init__()
 
     def clip_norm(self, parameters):
+        htcore.mark_step()
         norm_list = []
         if isinstance(parameters, torch.Tensor):
             if parameters.grad is not None:

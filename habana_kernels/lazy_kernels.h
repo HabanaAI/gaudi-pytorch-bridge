@@ -587,7 +587,13 @@ class LazyOp {
     auto hl_self = GetHbLazyTensor(self);
 
     auto id = hl_self.getTensorUniqueId();
-    auto is_self_view = (context->viewContext.GetViewTableEntry(id) != nullptr);
+    bool is_self_view = false;
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+    if (params_ptr != nullptr) {
+      if (params_ptr->viewStatus != kEvaluated) {
+        is_self_view = true;
+      }
+    }
 
     std::vector<at::IValue> sbs_stack;
     // special handling for self tensor

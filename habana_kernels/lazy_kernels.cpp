@@ -1078,7 +1078,7 @@ ir::NodePtr create_as_strided_node(
         SHAPE_TENSOR);
     if (self.sizes().size() != stride.size()) {
       if (node_str == "hpu::strided_view_out_ds") {
-        node_str == "hpu::strided_view_out_orig_ds";
+        node_str = "hpu::strided_view_out_orig_ds";
       } else {
         node_str = "hpu::strided_view_orig_ds";
       }
@@ -6201,16 +6201,27 @@ Tensor fused_norm_hpu_lazy(
     const Tensor& max_norm,
     float norm_type) {
   PT_LAZY_TRACE;
+  bool is_view_evaluated = true;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (size_t i = 0; i < grad.size(); i++) {
-    auto hlweight = GetHbLazyTensor(grad[i]);
-    updateDstDependencies(hlweight, grad[i], true);
+    auto id = GetHbLazyTensor(grad[i]).getTensorUniqueId();
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+
+    if (params_ptr != nullptr) {
+      if (params_ptr->viewStatus != kEvaluated) {
+        is_view_evaluated = false;
+        break;
+      }
+    } else {
+      is_view_evaluated = false;
+      break;
+    }
   }
 
   // grads are evaluated in case of gradient bucket view. Use the inplace
   // backend kernel to update same memory
-  std::string node_str = (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW))
-      ? "hpu::fused_norm_"
-      : "hpu::fused_norm_lazy";
+  std::string node_str =
+      is_view_evaluated ? "hpu::fused_norm_" : "hpu::fused_norm_lazy";
 
   ir::NodePtr node =
       std::make_shared<ir::FusedNorm>(grad, max_norm, norm_type, node_str);
@@ -6239,14 +6250,12 @@ Tensor fused_norm_hpu_lazy(
 
   // check if any of the grad is a view output and add strided insert node
   // accordingly
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (size_t i = 0; i < grad.size(); i++) {
     auto grad_t = grad[i];
     auto hlgrad = GetHbLazyTensor(grad_t);
     auto id = hlgrad.getTensorUniqueId();
     StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-    if ((params_ptr == nullptr) ||
-        (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW))) {
+    if ((params_ptr == nullptr) || (is_view_evaluated)) {
       ir::Value& out1 = hlgrad.CurrentIrValue();
       out1.SetNode(
           node_unpack,
