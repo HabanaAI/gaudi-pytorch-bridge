@@ -27,6 +27,9 @@ class CompareOutOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
  protected:
   c10::ScalarType scalarType_;
 };
@@ -47,6 +50,9 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  protected:
@@ -65,6 +71,9 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs);
 

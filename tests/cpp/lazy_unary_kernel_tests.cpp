@@ -957,6 +957,28 @@ TEST_F(LazyUnaryKernelTest, CastBF16I32U8BF16) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// Also Validates ComputeOutputShape for cast byte to bool
+TEST_F(LazyUnaryKernelTest, CastF32I32ByteBool) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto A = torch::rand({2, 3, 4});
+  auto out = A.to(torch::kInt).to(torch::kByte).to(torch::kBool);
+
+  // Char cast to Bool inserts Identity Op
+  auto hA = A.to(torch::kHPU);
+  auto hOut = hA.to(torch::kInt).to(torch::kByte).to(torch::kBool);
+
+  EXPECT_EQ(
+      allclose(
+          hOut.to(torch::kFloat).to(torch::kCPU),
+          out.to(torch::kFloat),
+          0.001,
+          0.001),
+      true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
 // Also Validates ComputeOutputShape for GUID cast_f32_to_i8, identity,
 // cast_i8_to_f32
 TEST_F(LazyUnaryKernelTest, CastIdentity) {

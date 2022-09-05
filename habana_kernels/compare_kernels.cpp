@@ -53,6 +53,19 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+OutputShapeInfRetType CompareOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto output = inputs[2].toTensor();
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      output.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          output.sizes().vec(), output.suggest_memory_format()),
+      output.scalar_type(),
+      output.suggest_memory_format()));
+  return out;
+}
+
 void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -69,10 +82,10 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       "Input arg2 type expected to be a tensor or scalar");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
 
-  auto compareOp = make_operator<CompareOutOperator>(
-      this->p_context_->device_id_, this->scalarType_, guid_);
-
+  std::shared_ptr<HabanaOperator> compareOp;
   if (inputs[1].isTensor()) { // Both inputs are tensors
+    compareOp = make_operator<CompareOutOperator>(
+        this->p_context_->device_id_, this->scalarType_, guid_);
     compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     compareOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     compareOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
@@ -86,17 +99,59 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(
         graph, constOp_stack, OutputMetaDataVector(1));
+
+    compareOp = make_operator<CompareOutOperator>(
+        this->p_context_->device_id_, this->scalarType_, guid_);
     compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     compareOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
+    auto org_input = inputs.at(1);
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
     compareOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+    // revert the input stack changes
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(inputs.cbegin() + 1, org_input);
   }
 
   p_context_->pt_outputs_.emplace_back(compareOp->GetOutputs()[0]);
   synapse_helpers::tensor& out_syn_t = compareOp->GetSynOutputs()[0];
   p_context_->syn_outputs_.emplace_back(out_syn_t);
+}
+
+OutputShapeInfRetType CompareOutWrapperOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+
+  std::shared_ptr<HabanaOperator> compareOp;
+  if (inputs[1].isTensor()) { // Both inputs are tensors
+    compareOp = make_operator<CompareOutOperator>(
+        this->p_context_->device_id_, this->scalarType_, guid_);
+    auto compareOp_out = out.call_ComputeOutputShape(compareOp, inputs);
+    auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(compareOp_out_tensor));
+    return out;
+  } else { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    auto arg1 = inputs[0].toTensor();
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+
+    // replace 2nd scalar input with a tensor in stack
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(
+        inputs.cbegin() + 1, std::get<1>(constOp_out.GetOutputTensor(0)));
+    compareOp = make_operator<CompareOutOperator>(
+        this->p_context_->device_id_, this->scalarType_, guid_);
+    auto compareOp_out = out.call_ComputeOutputShape(compareOp, inputs);
+    auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
+    out.MoveToOutput(std::move(compareOp_out_tensor));
+    return out;
+  }
 }
 
 void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -139,6 +194,34 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
   inputs.push_back(output);
   CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, output_metadata);
+  // revert input stack
+  inputs.pop_back();
+}
+
+OutputShapeInfRetType CompareWrapperOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  std::vector<int64_t> out_shape;
+  Tensor operand;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    operand = inputs[0].toTensor();
+    out_shape =
+        compute_output_shape(inputs[0].toTensor(), inputs[1].toTensor());
+  } else if (inputs[0].isTensor()) {
+    operand = inputs[0].toTensor();
+    out_shape = operand.sizes().vec();
+  } else {
+    operand = inputs[1].toTensor();
+    out_shape = operand.sizes().vec();
+  }
+  auto output = habana_helpers::createPTTensor(
+      operand,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      operand.options(),
+      operand.suggest_memory_format(),
+      c10::ScalarType::Bool,
+      false);
+  inputs.push_back(output);
+  return CompareOutWrapperOperator::ComputeOutputShape(inputs);
 }
 
 void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
