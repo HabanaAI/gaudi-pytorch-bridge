@@ -260,6 +260,24 @@ synDataType habana_helpers::pytorch_to_synapse_type(
   return result->second;
 }
 
+c10::ScalarType habana_helpers::synapse_to_pytorch_type(
+    const synDataType type) {
+  static const auto map = std::unordered_map<synDataType, c10::ScalarType>{
+      {synDataType::syn_type_uint8, c10::ScalarType::Byte},
+      {synDataType::syn_type_int8, c10::ScalarType::Char},
+      {synDataType::syn_type_int16, c10::ScalarType::Short},
+      {synDataType::syn_type_int32, c10::ScalarType::Int},
+      {synDataType::syn_type_float, c10::ScalarType::Float},
+      {synDataType::syn_type_fp16, c10::ScalarType::Half},
+      {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
+  };
+
+  auto result = map.find(type);
+  TORCH_CHECK(result != map.end(), "Unsupported synapse type ", type);
+
+  return result->second;
+}
+
 synDataType pytorch_to_synapse_type(const c10::Scalar& s) {
   return habana_helpers::pytorch_to_synapse_type(
       habana_helpers::scalar_type(s));

@@ -652,18 +652,10 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   auto cat_grads = make_operator<CatOperator>(device_id, scalar_type);
   std::vector<int64_t> shape{1, 1};
   for (auto i = 0; i < num_params; i++) {
-    // Add node to compute norm on each gradient tensor
-    auto pow_lp = make_operator<PowOperator>(device_id, scalar_type);
-    pow_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
+    // add node to compute reduce_sum_square
+    auto sum_lp = make_operator<SumSquareOperator>(device_id, scalar_type);
+    sum_lp->SetSynapseInput(p_context_->syn_inputs_[i]);
     stack.emplace_back(IValue(gradients.get(i)));
-    stack.emplace_back(IValue(2.0));
-    pow_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-    stack.clear();
-
-    // add node to compute reduce_sum
-    auto sum_lp = make_operator<SumOperator>(device_id, scalar_type);
-    sum_lp->SetSynapseInput(pow_lp->GetSynOutputs()[0]);
-    stack.emplace_back(IValue(pow_lp->GetOutputs()[0]));
     stack.emplace_back(IValue(scalar_type));
     sum_lp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -704,43 +696,93 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   sqrt_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
+  std::shared_ptr<HabanaOperator> global_grad_norm = sqrt_final;
+
   // if global_grad_norm > max_grad_norm:
   //    clip_global_grad_norm = global_grad_norm / max_grad_norm
   // else:
   //    clip_global_grad_norm = 1.0
 
+  if (habana_helpers::pytorch_to_synapse_type(max_grad_norm.type()) !=
+      habana_helpers::pytorch_to_synapse_type(scalar_type)) {
+    auto cast00 = make_operator<CastOperator>(
+        device_id,
+        "cast_" + habana_helpers::name_suffix_from_type(scalar_type) + "_to_" +
+            habana_helpers::name_suffix_from_type(max_grad_norm.type()));
+
+    cast00->SetSynapseInput(global_grad_norm->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(global_grad_norm->GetOutputs()[0]));
+
+    // This is on purpose as not all pytorch types have their synapse
+    // counterparts
+    scalar_type = habana_helpers::synapse_to_pytorch_type(
+        habana_helpers::pytorch_to_synapse_type(max_grad_norm.type()));
+
+    stack.emplace_back(IValue(scalar_type));
+    cast00->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    global_grad_norm = cast00;
+  }
+
   // global_grad_norm / max_grad_norm
   auto div_final = make_operator<DivOperator>(device_id, scalar_type);
-  div_final->SetSynapseInput(sqrt_final->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(sqrt_final->GetOutputs()[0]));
+  div_final->SetSynapseInput(global_grad_norm->GetSynOutputs()[0]);
+  stack.emplace_back(IValue(global_grad_norm->GetOutputs()[0]));
   stack.emplace_back(IValue(max_grad_norm));
   div_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
   // mask = global_grad_norm < max_grad_norm
   auto lt_final = make_operator<LtOperator>(device_id, scalar_type);
-  lt_final->SetSynapseInput(sqrt_final->GetSynOutputs()[0]);
-  stack.emplace_back(IValue(sqrt_final->GetOutputs()[0]));
+  lt_final->SetSynapseInput(global_grad_norm->GetSynOutputs()[0]);
+  stack.emplace_back(IValue(global_grad_norm->GetOutputs()[0]));
   stack.emplace_back(IValue(max_grad_norm));
   lt_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
-  std::string node_type = "cast_i8_to_f32";
+  const std::string node_type =
+      "cast_i8_to_" + habana_helpers::name_suffix_from_type(scalar_type);
   auto cast1 = make_operator<CastOperator>(device_id, node_type);
   cast1->SetSynapseInput(lt_final->GetSynOutputs()[0]);
   stack.emplace_back(IValue(lt_final->GetOutputs()[0]));
-  stack.emplace_back(IValue(c10::ScalarType::Float));
+  stack.emplace_back(IValue(scalar_type));
   cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
-  // mul1 = mask * clip_norm(=1)
-  auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
-  mul1->SetSynapseInput(cast1->GetSynOutputs()[0]);
-  mul1->SetSynapseInput(p_context_->syn_inputs_[num_params]);
-  stack.emplace_back(IValue(cast1->GetOutputs()[0]));
-  stack.emplace_back(IValue(clip_norm));
-  mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-  stack.clear();
+  std::shared_ptr<MulOperator> mul1;
+
+  if (habana_helpers::pytorch_to_synapse_type(clip_norm.scalar_type()) !=
+      habana_helpers::pytorch_to_synapse_type(scalar_type)) {
+    auto cast01 = make_operator<CastOperator>(
+        device_id,
+        "cast_" +
+            habana_helpers::name_suffix_from_type(clip_norm.scalar_type()) +
+            "_to_" + habana_helpers::name_suffix_from_type(scalar_type));
+    cast01->SetSynapseInput(p_context_->syn_inputs_[num_params]);
+    stack.emplace_back(IValue(clip_norm));
+    stack.emplace_back(IValue(scalar_type));
+    cast01->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    // mul1 = mask * cast(clip_norm(=1))
+    mul1 = make_operator<MulOperator>(device_id, scalar_type);
+    mul1->SetSynapseInput(cast1->GetSynOutputs()[0]);
+    mul1->SetSynapseInput(cast01->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(cast1->GetOutputs()[0]));
+    stack.emplace_back(IValue(cast01->GetOutputs()[0]));
+    mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+  } else {
+    // mul1 = mask * clip_norm(=1)
+    mul1 = make_operator<MulOperator>(device_id, scalar_type);
+    mul1->SetSynapseInput(cast1->GetSynOutputs()[0]);
+    mul1->SetSynapseInput(p_context_->syn_inputs_[num_params]);
+    stack.emplace_back(IValue(cast1->GetOutputs()[0]));
+    stack.emplace_back(IValue(clip_norm));
+    mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+  }
 
   // imask = (mask == 0)
   auto eq_final = make_operator<EqOperator>(device_id, scalar_type);
@@ -750,11 +792,10 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   eq_final->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
-  node_type = "cast_i8_to_f32";
   auto cast2 = make_operator<CastOperator>(device_id, node_type);
   cast2->SetSynapseInput(eq_final->GetSynOutputs()[0]);
   stack.emplace_back(IValue(eq_final->GetOutputs()[0]));
-  stack.emplace_back(IValue(c10::ScalarType::Float));
+  stack.emplace_back(IValue(scalar_type));
   cast2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 

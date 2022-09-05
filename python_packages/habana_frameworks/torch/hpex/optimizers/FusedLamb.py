@@ -59,6 +59,7 @@ class FusedLamb(Optimizer):
         max_grad_norm=1.0,
         use_lamb=False,
         fused=False,
+        dtype=None
     ):
         if amsgrad:
             raise RuntimeError("FusedLamb does not support the AMSGrad variant.")
@@ -77,6 +78,7 @@ class FusedLamb(Optimizer):
         self.set_grad_none = set_grad_none
         self.use_lamb = use_lamb
         self.device = self.param_groups[0]["params"][0].device
+        self.dtype = dtype
 
     def zero_grad(self):
         if self.set_grad_none:
@@ -108,7 +110,7 @@ class FusedLamb(Optimizer):
                     raise RuntimeError(
                         "Lamb does not support sparse gradients, consider SparseAdam instad."
                     )
-                grad_list_norm.append(grad)
+                grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
 
         max_grad_norm = self.defaults["max_grad_norm"]
         clip_global_grad_norm = _hpex_C.fused_lamb_norm(grad_list_norm, max_grad_norm)

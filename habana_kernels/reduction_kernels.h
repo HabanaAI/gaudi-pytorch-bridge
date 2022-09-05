@@ -198,14 +198,18 @@ class SumDimOperator : public ReduceOperator {
 //
 // Sum Operator
 class SumOperator : public ReduceOperator {
- public:
-  SumOperator(int device_id, c10::ScalarType scalarType)
-      : ReduceOperator(
-            device_id,
-            "reduce_sum_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {
+ protected:
+  SumOperator(int device_id, const std::string& guid)
+      : ReduceOperator(device_id, guid) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
+
+ public:
+  SumOperator(int device_id, c10::ScalarType scalarType)
+      : SumOperator(
+            device_id,
+            "reduce_sum_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -213,6 +217,17 @@ class SumOperator : public ReduceOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
+
+//
+// Sum Square Operator
+class SumSquareOperator : public SumOperator {
+ public:
+  SumSquareOperator(int device_id, c10::ScalarType scalarType)
+      : SumOperator(
+            device_id,
+            "reduce_sum_square_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 //
