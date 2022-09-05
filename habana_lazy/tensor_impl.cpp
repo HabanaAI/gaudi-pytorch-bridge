@@ -14,6 +14,7 @@
 #include <torch/csrc/api/include/torch/version.h>
 #include "aten_lazy_bridge.h"
 #include "habana_helpers/logging.h"
+#include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
@@ -209,6 +210,38 @@ void HbLazyTensorImpl::SetupSizeProperties() {
 void HbLazyTensorImpl::SetStorage(at::Storage storage) {
   storage_ = std::move(storage);
   device_opt_ = storage_.device();
+}
+
+void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
+  TORCH_CHECK(
+      allow_tensor_metadata_change(),
+      "set_storage ",
+      err_msg_tensor_metadata_change_not_allowed);
+
+  device_opt_ = storage_.device();
+  // storage is frontend and we are setting in frontend tensor's storage.
+  if (storage.data_ptr() == nullptr) {
+    storage_ = std::move(storage);
+    PT_LAZY_DEBUG("set_storage_keep_dtype called with frontend storage.");
+    return;
+  } else { // We have backend storage to be set.
+    std::lock_guard<std::recursive_mutex> lock(
+        habana_lazy::HbContextArena::Get()->GetMutex());
+    if (m_tensor.IsExecutionInProgress()) {
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+      context->JoinPendingLaunchThread();
+    }
+    c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+    // At this point, execution thread is finished.
+    if (impl) {
+      impl->set_storage_keep_dtype(storage);
+      PT_LAZY_DEBUG("set_storage_keep_dtype called with backend storage.");
+    } else {
+      PT_LAZY_DEBUG(
+          "set_storage_keep_dtype called with backend storage, but impl in NULL");
+    }
+  }
 }
 
 const at::Storage& HbLazyTensorImpl::storage() const {
