@@ -1467,6 +1467,22 @@ elu_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: elu_bwd
 
+embedding:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Half, Int]
+  fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
+  override_fn: embedding_hpu_lazy
+
+embedding_dense_backward:
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int]
+  override_fn: embedding_dense_backward_hpu_lazy
+
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: Equal

@@ -197,18 +197,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef pad,
       const at::Scalar& value);
-  static at::Tensor embedding(
-      const at::Tensor& weight,
-      const at::Tensor& indices,
-      int64_t padding_idx,
-      bool scale_grad_by_freq,
-      bool sparse);
-  static at::Tensor embedding_dense_backward(
-      const at::Tensor& grad,
-      const at::Tensor& indices,
-      int64_t num_weights,
-      int64_t padding_idx,
-      bool scale_grad_by_freq);
   static at::Tensor& masked_fill_(
       at::Tensor& self,
       const at::Tensor& mask,
