@@ -159,8 +159,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       }
 
       auto one = torch::jit::attr::alpha;
-      hash_code = at::hash_combine(hash_code, node->f(one));
-      PT_BRIDGE_DEBUG("Jit Sysnapse Cache deterministic: ", node->f(one));
+      hash_code = at::hash_combine(hash_code, node->i(one));
+      PT_BRIDGE_DEBUG("Jit Sysnapse Cache deterministic: ", node->i(one));
       auto node_name = node->kind().toQualString();
       PT_BRIDGE_DEBUG("Node Name: ", node_name);
     }

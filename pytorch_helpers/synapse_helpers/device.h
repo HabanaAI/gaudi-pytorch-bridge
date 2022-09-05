@@ -501,7 +501,7 @@ class device {
 
   std::unordered_map<synEventHandle, bool> user_event_flag_map_;
   std::mutex event_mutex_;
-  bool deterministic_;
+  bool deterministic_ = 0;
   // private inline method
   inline bool copy_data_to_device_(
       void* cpu_data,

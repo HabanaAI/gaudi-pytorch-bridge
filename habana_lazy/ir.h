@@ -398,7 +398,7 @@ class Node {
   std::vector<at::Tensor> m_input_pt_tensors;
   std::shared_ptr<std::string> m_scope;
   uint64_t m_id;
-  bool deterministic;
+  bool deterministic = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
