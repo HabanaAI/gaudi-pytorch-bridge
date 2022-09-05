@@ -132,11 +132,6 @@ struct hpu_wrap {
       const at::Scalar& other,
       const at::Scalar& alpha);
   static at::Tensor& mul_(at::Tensor& self, const at::Tensor& other);
-  static at::Tensor& mul_out(
-
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& out);
   static at::Tensor mul(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor mul(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor& mul_(at::Tensor& self, const at::Scalar& other);

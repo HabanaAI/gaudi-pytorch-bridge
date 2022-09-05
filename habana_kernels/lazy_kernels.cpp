@@ -1373,7 +1373,7 @@ Tensor& add_tensor_hpu_lazy_(
   }
 }
 
-Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
+Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
   // storage. //TODO enhance lazy op framework to convert out variant to out of

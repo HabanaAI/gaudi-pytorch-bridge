@@ -431,22 +431,6 @@ Tensor hpu_wrap::rsub(
   return rsub_scalar_hpu(self, other, alpha);
 };
 
-Tensor& hpu_wrap::mul_out(
-    const Tensor& self,
-    const Tensor& other,
-    Tensor& out) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "mul_out :", " self=", to_string(self), " other=", to_string(other));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      mul_out, PARAMS1(out, self, other), PARAMS2(self, other, out))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mul_out_hpu_lazy(out, self, other);
-  } else {
-    return mul_out_hpu(out, self, other);
-  }
-};
 Tensor hpu_wrap::div(const Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
   PT_OP_INFO("div :", " self=", to_string(self), " other=", to_string(other));

@@ -1784,11 +1784,17 @@ ge.Tensor:
   type_promotion: true
 
 gelu.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float, Half]
   op_backend: Gelu
 
 gelu_backward.grad_input:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Greco: [Float, Half]
   op_backend: GeluBwd
 
 geometric_:
@@ -2731,6 +2737,13 @@ mul_.Scalar:
   scalar_ids: [1]
   type_promotion: true
   safe_cast_check: true
+
+mul.out:
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Half]
+    Greco: [BFloat16, Float, Half, Char]
+  override_fn: mul_out_hpu_lazy
 
 multinomial:
   dtypes: [BFloat16, Float]
