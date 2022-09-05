@@ -469,7 +469,8 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
       guid_,
       nullptr,
       input_layouts.data(),
-      output_layouts.data());
+      output_layouts.data(),
+      deterministic);
 }
 
 std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(

@@ -49,7 +49,11 @@ void synapse_simple_generic_kernel(
           std::move(syn_outputs),
           syn_param,
           syn_param_size,
-          std::move(node_type));
+          std::move(node_type),
+          nullptr,
+          nullptr,
+          nullptr,
+          false);
 
       habana_helpers::compile_and_run(
           std::move(graph),
@@ -93,7 +97,11 @@ void synapse_simple_generic_inplace_kernel(
           std::move(syn_outputs),
           syn_param,
           syn_param_size,
-          std::move(node_type));
+          std::move(node_type),
+          nullptr,
+          nullptr,
+          nullptr,
+          false);
 
       habana_helpers::compile_and_run(
           std::move(graph),
@@ -127,12 +135,17 @@ void synapse_execute_kernel(
         habana_helpers::create_tensors(pt_inputs, graph, true, false);
     std::tie(syn_helper_outputs, syn_outputs) =
         habana_helpers::create_tensors(pt_outputs, graph, true, false);
+
     graph.add_node(
         std::move(syn_inputs),
         std::move(syn_outputs),
         syn_param,
         syn_param_size,
-        std::move(node_type));
+        std::move(node_type),
+        nullptr,
+        nullptr,
+        nullptr,
+        false);
 
     habana_helpers::compile_and_run(
         std::move(graph),
@@ -186,7 +199,11 @@ void synapse_execute_inplace_kernel(
           std::move(syn_outputs),
           syn_param,
           syn_param_size,
-          std::move(node_type));
+          std::move(node_type),
+          nullptr,
+          nullptr,
+          nullptr,
+          false);
 
       habana_helpers::compile_and_run(
           std::move(graph),

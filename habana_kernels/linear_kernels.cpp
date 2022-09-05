@@ -123,13 +123,16 @@ void synapse_matmul(
 
       { // add node
         synGEMMParams params{0, 0};
-
         graph.add_node(
             std::move(syn_inputs),
             std::move(syn_outputs),
             (void*)&params,
             sizeof(params),
-            std::move(node_type));
+            std::move(node_type),
+            nullptr,
+            nullptr,
+            nullptr,
+            false);
       }
 
       habana_helpers::compile_and_run(
