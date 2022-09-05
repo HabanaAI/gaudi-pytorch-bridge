@@ -618,20 +618,6 @@ struct hpu_wrap {
       const at::Tensor& grad_output,
       const at::Tensor& self,
       const at::Scalar& threshold);
-  static ::std::tuple<at::Tensor&, at::Tensor&> topk_out(
-      const at::Tensor& self,
-      int64_t k,
-      int64_t dim_,
-      bool largest,
-      bool sorted,
-      at::Tensor& values,
-      at::Tensor& indices);
-  static ::std::tuple<at::Tensor, at::Tensor> topk(
-      const at::Tensor& self,
-      int64_t k,
-      int64_t dim,
-      bool largest,
-      bool sorted);
   static at::Tensor elu(
       const at::Tensor& self,
       const at::Scalar& alpha,

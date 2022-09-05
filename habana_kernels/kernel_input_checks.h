@@ -911,18 +911,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "topk_out",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "sigmoid_backward",
                 {{at::ScalarType::Double,
                   at::ScalarType::Float,
@@ -1506,14 +1494,6 @@ static const std::
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
-            },
-            {
-                "topk",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double,
-                  at::ScalarType::Int,
-                  at::ScalarType::Long}},
             },
             {
                 "sort",

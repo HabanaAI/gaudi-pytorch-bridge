@@ -9,8 +9,11 @@
  */
 
 #include "topk_util.h"
-
+#include "generated/topk.h"
 namespace habana {
+FALLBACK_CHECK(TopkFallbackCheck, bool sorted) {
+  return sorted;
+}
 
 std::vector<synapse_helpers::tensor> TopK_Helper(
     OpBackend* op,

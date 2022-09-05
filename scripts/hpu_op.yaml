@@ -4192,6 +4192,22 @@ threshold_backward.grad_input:
   fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
 
+topk:
+  force_default: false
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int, Half, Char]
+  override_fn: topk_hpu_lazy
+  fallback_check: [TopkFallbackCheck, sorted]
+
+topk.values:
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int, Half, Char]
+  override_fn: topk_out_hpu_lazy
+
 trace:
   custom_output_shape: TraceOutputShape
   dtypes: [BFloat16, Float, Int]
