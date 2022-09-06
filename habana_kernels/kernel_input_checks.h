@@ -1562,12 +1562,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "uniform_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
                 "normal_",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
@@ -3319,10 +3313,6 @@ static const std::
             },
             {
                 "random_shuffle",
-                {{at::ScalarType::Int, at::ScalarType::Long}},
-            },
-            {
-                "randperm",
                 {{at::ScalarType::Int, at::ScalarType::Long}},
             },
             {

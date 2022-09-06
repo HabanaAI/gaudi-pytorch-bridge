@@ -2660,20 +2660,29 @@ mean.out:
 
 median:
   custom_output_shape: MedianOutputShape
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int, Char, Short]
   op_backend: Median
   out_ids: [0]
 
 median.dim:
   force_default: false
   custom_output_shape: MediandimOutputShape
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
   out_ids: [0,0]
 
 median.dim_values:
   custom_output_shape: MediandimOutputShape
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
 
 min.dim:
@@ -3179,6 +3188,13 @@ random_.to:
   op_frontend: LazyTensorSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
+
+randperm.generator_out:
+  dtypes:
+    Gaudi: [Int]
+    Gaudi2: [Int]
+    Greco: [Int]
+  override_fn: randperm_hpu_lazy
 
 reciprocal:
   force_default: false
@@ -4093,7 +4109,10 @@ trunc_:
 
 uniform_:
   custom_fill_params: FillUniformParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int]
+    Greco: [BFloat16, Float]
   guid: philox_random_uniform
   inplace_ids: [0]
   op_frontend: LazyTensorSeed

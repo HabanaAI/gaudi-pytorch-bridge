@@ -3346,29 +3346,6 @@ Tensor& hpu_wrap::bernoulli_(
   return bernoulli_scalar_hpu(self, p, gen);
 }
 
-Tensor& hpu_wrap::randperm_out(
-    int64_t n,
-    c10::optional<Generator> gen,
-    Tensor& out) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "randperm_out:",
-      "n=",
-      to_string(n),
-      "gen=",
-      to_string(gen),
-      " out=",
-      to_string(out));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      randperm, PARAMS1(out), PARAMS2(n, gen, out), generator_out)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return randperm_hpu_lazy(out, n, gen);
-  } else {
-    return randperm_hpu(out, n, gen);
-  }
-}
-
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_OP_TRACE;
   PT_OP_INFO(
@@ -5867,11 +5844,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       static_cast<
           at::Tensor& (*)(const Scalar&, const Scalar&, const Scalar&, at::Tensor&)>(
           &hpu_wrap::arange_out));
-  m.impl(
-      "randperm_out",
-      static_cast<
-          at::Tensor& (*)(int64_t, c10::optional<at::Generator>, at::Tensor&)>(
-          &hpu_wrap::randperm_out));
   m.impl(
       "bernoulli_float",
       static_cast<

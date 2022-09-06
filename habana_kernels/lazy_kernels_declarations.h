@@ -434,9 +434,9 @@ at::Tensor& normal_hpu_lazy(
     double std = 1,
     c10::optional<at::Generator> gen = c10::nullopt);
 at::Tensor& randperm_hpu_lazy(
-    at::Tensor& output,
     int64_t n,
-    c10::optional<at::Generator> gen);
+    c10::optional<at::Generator> gen,
+    at::Tensor& output);
 at::Tensor bernoulli_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::Generator> gen = c10::nullopt);

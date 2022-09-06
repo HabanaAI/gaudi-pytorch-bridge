@@ -4498,9 +4498,9 @@ Tensor& randperm_hpu_lazy_ht(
   return op.call(output);
 }
 Tensor& randperm_hpu_lazy(
-    Tensor& output,
     int64_t n,
-    c10::optional<Generator> gen) {
+    c10::optional<Generator> gen,
+    Tensor& output) {
   PT_LAZY_TRACE;
 
   // resizing the output as it is coming as empty from model
