@@ -435,6 +435,8 @@ class device {
     deterministic_ = val;
   }
 
+  size_t get_least_workspace_size(size_t req_workspace_size);
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -514,6 +516,7 @@ class device {
   // Empty be default, framework can register its function to be called before
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
+  std::map<size_t, uint32_t> workspace_usage_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);

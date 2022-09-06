@@ -423,7 +423,6 @@ synapse_error_o graph::launch(
           inputs_and_outputs_info.end(),
           table_checker) == inputs_and_outputs_info.end());
 
-  auto workspace_buffer = device.get_workspace_buffer(workspace_size);
   std::vector<device_ptr> addresses(
       inputs_and_outputs_info.size(), device_nullptr);
   std::unordered_map<uint64_t, uint64_t> host_address_map;
@@ -436,6 +435,16 @@ synapse_error_o graph::launch(
       addresses[i] = static_cast<uint64_t>(0);
     }
   }
+  size_t tensor_mem =
+      device.get_device_memory().get_total_memory_required(addresses);
+  bool oom_may = !device.get_device_memory().is_memory_available(tensor_mem);
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_WORKSPACE_MEMORY_SHRINK, 1) && oom_may) {
+    size_t least_workspace_size =
+        device.get_least_workspace_size(workspace_size);
+    device.cleanup_workspace_buffer();
+    workspace_size = least_workspace_size;
+  }
+  auto workspace_buffer = device.get_workspace_buffer(workspace_size);
 
   log_graph_info(
       recipe_handle.recipe_name_.c_str(),

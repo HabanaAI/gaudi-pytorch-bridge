@@ -1028,6 +1028,11 @@ device_ptr device::get_workspace_buffer(size_t size) {
   if (buffer == nullptr) {
     PT_SYNHELPER_FATAL("workspace Allocation of size ::", size, " failed!");
   }
+  uint32_t usage_cnt = 0;
+  if (workspace_usage_.find(size) != workspace_usage_.end()) {
+    usage_cnt = workspace_usage_.at(size);
+  }
+  workspace_usage_[size] = ++usage_cnt;
   PT_SYNHELPER_DEBUG(
       "Allocated workspace buffer at",
       (void*)workspace_buffer_,
@@ -1037,10 +1042,33 @@ device_ptr device::get_workspace_buffer(size_t size) {
   return workspace_buffer_;
 }
 
+size_t device::get_least_workspace_size(size_t req_workspace_size) {
+  size_t least_workspace_size = 0;
+  if (workspace_usage_.size() > 1) {
+    size_t last_workspace_size = std::prev(workspace_usage_.end())->first;
+    uint32_t usage_rank = 0;
+    auto itr = workspace_usage_.begin();
+    for (; itr != workspace_usage_.end(); ++itr) {
+      if (itr->first >= req_workspace_size &&
+          itr->first < last_workspace_size && itr->second > usage_rank) {
+        least_workspace_size = itr->first;
+        usage_rank = itr->second;
+      }
+    }
+  }
+  return (
+      least_workspace_size > req_workspace_size ? least_workspace_size
+                                                : req_workspace_size);
+}
+
 void device::cleanup_workspace_buffer() {
   std::unique_lock<std::mutex> lock(ws_mutex_);
   if (workspace_size_ == 0)
     return;
+  auto& recipe_counter = get_active_recipe_counter();
+  while (recipe_counter.get_count() > 1) {
+    recipe_counter.wait_for_next_decrease_call();
+  }
   allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
   workspace_buffer_ = 0;
   workspace_size_ = 0;

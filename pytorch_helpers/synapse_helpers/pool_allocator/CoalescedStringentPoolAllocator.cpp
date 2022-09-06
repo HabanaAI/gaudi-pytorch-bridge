@@ -1116,6 +1116,10 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   } else {
     bin_utils->InsertFreeChunkIntoBin(try_to_merge(chunk, false));
   }
+  Chunk* tail_chunk = prealloc_pool->top;
+  if (tail_chunk != nullptr && tail_chunk == chunk) {
+    high_memory_allocated_ = false;
+  }
 }
 
 std::vector<std::pair<void*, size_t>> CoalescedStringentPooling::

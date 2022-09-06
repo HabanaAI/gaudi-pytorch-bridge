@@ -59,6 +59,7 @@ class device_memory {
   void reset_pool();
   size_t get_total_memory_required(absl::Span<const device_ptr>);
   size_t block_align(size_t n);
+  bool is_memory_available(size_t size);
 
  private:
   device& device_;

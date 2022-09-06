@@ -304,7 +304,7 @@ void* device_memory::workspace_alloc(
     ws_size = actual_size;
     log_synDeviceWorkspace(
         device_, reinterpret_cast<uint64_t>(v_ptr), req_size);
-    if (v_ptr != nullptr) {
+    if (v_ptr == nullptr && pool_strategy_ != pool_allocator::strategy_none) {
       suballoc_->print_pool_stats();
     }
     return v_ptr;
@@ -907,6 +907,13 @@ void device_memory::reset_peak_memory_stats() {
   if (pool_strategy_ != pool_allocator::strategy_none) {
     suballoc_->reset_peak_mem_stats();
   }
+}
+
+bool device_memory::is_memory_available(size_t size) {
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    return suballoc_->is_memory_available(size);
+  }
+  return true;
 }
 
 } // namespace synapse_helpers
