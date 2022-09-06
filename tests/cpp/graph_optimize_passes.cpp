@@ -118,7 +118,9 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "}\n";
 
   std::ofstream out("pattern.json");
-  out << patterns;
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE))) {
+    out << patterns;
+  }
   out << patterns0;
   out << patterns1;
   out.close();

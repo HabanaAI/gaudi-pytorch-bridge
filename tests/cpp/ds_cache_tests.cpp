@@ -40,11 +40,11 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
     graph(%0 : Tensor,
           %1 : Tensor):
       %12 : int = prim::Constant[value=1]()
-      %2.1 : Tensor = aten::mul(%0, %1)
-      %2 : Tensor = aten::mul(%2.1, %1)
-      %3 : Tensor = aten::add_(%2, %1, %12)
-      %4 : Tensor = aten::mul(%2, %1)
-      %5 : Tensor = aten::add(%2, %4, %12)
+      %2.1 : Tensor = aten::mul[alpha=0](%0, %1)
+      %2 : Tensor = aten::mul[alpha=0](%2.1, %1)
+      %3 : Tensor = aten::add_[alpha=0](%2, %1, %12)
+      %4 : Tensor = aten::mul[alpha=0](%2, %1)
+      %5 : Tensor = aten::add[alpha=0](%2, %4, %12)
       return (%5))IR";
 
   auto jit_ir_graph = std::make_shared<torch::jit::Graph>();
@@ -76,8 +76,6 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
       std::make_shared<habana::RecipeArgumentSpec>(inputs, graphKey, op_strs);
 
-  // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
-  //<< rargpsh1->graphHashCode() << '\n';
   EXPECT_EQ(rargpsh1->graphWithPermuteHashCode(), rargpsh1->hashCode());
 
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
