@@ -7,6 +7,11 @@ def register_habana_activity_profiler():
 
     original_activity = torch.profiler.ProfilerActivity
 
+    class habana_autograd_profile_wrapper(torch.autograd.profiler.profile):
+        def export_chrome_trace(self, path):
+                super().export_chrome_trace(path)
+                hpu_profiler._export_logs(path)
+
     class habana_profile(torch.profiler.profile):
         def __init__(
                 self,
@@ -52,10 +57,6 @@ def register_habana_activity_profiler():
             if self.hpu_profiling_active:
                 hpu_profiler._stop_activity_profiler()
 
-        def export_chrome_trace(self, path: str):
-            super().export_chrome_trace(path)
-            hpu_profiler._export_logs(path)
-
     class HabanaProfilerActivity(Enum):
         CPU = 1
         CUDA = 2
@@ -63,6 +64,7 @@ def register_habana_activity_profiler():
 
     torch.profiler.profile = habana_profile
     torch.profiler.ProfilerActivity = HabanaProfilerActivity
+    torch.autograd.profiler.profile = habana_autograd_profile_wrapper
 
 class habana_tracer:
     def __init__(self, tag: str):
