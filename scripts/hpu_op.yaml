@@ -2712,7 +2712,7 @@ mse_loss_backward.grad_input:
 
 mul.Tensor:
   force_default: false
-  dtypes: [BFloat16, Byte, Char, Float, Int]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
   broadcast: true
   guid: mult_fwd
   out_ids: [0]
@@ -2720,7 +2720,7 @@ mul.Tensor:
   safe_cast_check: true
 
 mul.Scalar:
-  dtypes: [BFloat16, Byte, Char, Float, Int]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
   force_default: false
   guid: mult_fwd
   broadcast: true
@@ -2732,7 +2732,7 @@ mul.Scalar:
 mul.Scalar_out:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Byte, Char, Float, Int]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
   guid: mult_fwd
   type_promotion: true
   scalar_ids: [1]
@@ -2740,7 +2740,7 @@ mul.Scalar_out:
 
 mul_.Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
   force_default: false
   guid: mult_fwd
   inplace_ids: [0]
@@ -2749,7 +2749,7 @@ mul_.Tensor:
 
 mul_.Scalar:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
   force_default: false
   guid: mult_fwd
   inplace_ids: [0]
@@ -2759,8 +2759,8 @@ mul_.Scalar:
 
 mul.out:
   dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Half]
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   override_fn: mul_out_hpu_lazy
 
