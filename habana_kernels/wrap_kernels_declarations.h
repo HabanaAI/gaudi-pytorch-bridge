@@ -319,7 +319,6 @@ struct hpu_wrap {
       at::Tensor& output);
   static at::Tensor nonzero(const at::Tensor& self);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor mm(const at::Tensor& mat1, const at::Tensor& mat2);
   static at::Tensor baddbmm(
       const at::Tensor& self,
       const at::Tensor& mat1,
@@ -800,7 +799,6 @@ struct hpu_wrap {
   static at::Tensor& squeeze_(at::Tensor& self);
   static at::Tensor& squeeze_(at::Tensor& self, int64_t dim);
   static at::Tensor unsqueeze(const at::Tensor& self, int64_t dim);
-  static at::Tensor& unsqueeze_(at::Tensor& self, int64_t dim);
   static const at::Tensor& as_strided_(
       const at::Tensor& self,
       at::IntArrayRef size,

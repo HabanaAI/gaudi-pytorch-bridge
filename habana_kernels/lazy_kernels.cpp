@@ -5449,6 +5449,12 @@ Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   return out;
 }
 
+Tensor& unsqueeze_hpu_lazy_(Tensor& self, int64_t dim) {
+  PT_LAZY_TRACE;
+
+  return at::native::unsqueeze_(self, dim);
+}
+
 void adjustPTSizesLazy(Tensor& t) {
   // PT expects metadata like sizes and strides same as in NCHW,
   // but data permuted for channel last, so change the size and stride

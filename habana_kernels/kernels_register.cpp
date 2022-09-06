@@ -1673,17 +1673,6 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
     return nonzero_out_hpu_lazy(self, out);
   }
 };
-Tensor hpu_wrap::mm(const at::Tensor& mat1, const at::Tensor& mat2) {
-  PT_OP_TRACE;
-  PT_OP_INFO("mm :", " mat1=", to_string(mat1), " mat2=", to_string(mat2));
-  FALLBACK_IF_UNSUPPORTED_OP(mm, PARAMS1(mat1, mat2), PARAMS2(mat1, mat2))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mm_hpu_lazy(mat1, mat2);
-  } else {
-    return mm_hpu(mat1, mat2);
-  }
-};
 
 Tensor hpu_wrap::baddbmm(
     const Tensor& self,
@@ -4620,14 +4609,6 @@ at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
   } else {
     return at::native::unsqueeze(self, dim);
   }
-}
-
-at::Tensor& hpu_wrap::unsqueeze_(at::Tensor& self, int64_t dim) {
-  PT_OP_TRACE;
-  PT_OP_INFO("squeeze_ :", " self=", to_string(self), " dim=", to_string(dim));
-  FALLBACK_IF_UNSUPPORTED_OP(unsqueeze_, PARAMS1(self), PARAMS2(self, dim))
-
-  return at::native::unsqueeze_(self, dim);
 }
 
 const at::Tensor& hpu_wrap::as_strided_(

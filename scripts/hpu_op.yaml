@@ -2693,6 +2693,14 @@ mish_backward:
   op_backend: Mishbackward
   out_ids: [0]
 
+mm:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
+  override_fn: mm_hpu_lazy
+
 mm.out:
   custom_output_shape: MmOutputShape
   dtypes: [BFloat16,Float]
@@ -4041,6 +4049,10 @@ unique_dim:
   override_fn: unique_dim_hpu_lazy
   fallback_check: [UniqueFallbackCheck, sorted]
   dtypes: [BFloat16, Float, Int]
+
+unsqueeze_:
+  force_default: false
+  override_fn: unsqueeze_hpu_lazy_
 
 upsample_bicubic2d:
   force_default: false
