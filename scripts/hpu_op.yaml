@@ -2415,80 +2415,19 @@ logcumsumexp.out:
   dtypes: [BFloat16, Float]
   op_backend: LogCumsumExp
 
-logical_and:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: and
-  out_ids: [0]
-  op_frontend: LazyCmp
-
-logical_and_:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: and
-  inplace_ids: [0]
-
 logical_and.out:
-  broadcast: true
   dtypes: [BFloat16, Float, Byte, Char]
   guid: and
-
-logical_not:
-  dtypes: [Byte, Char]
-  force_default: false
-  guid: not_fwd
-  out_ids: [0]
-  op_frontend: LazyLogicalNot
-
-logical_not_:
-  dtypes: [Byte, Char]
-  force_default: false
-  guid: not_fwd
-  inplace_ids: [0]
 
 logical_not.out:
   dtypes: [Byte, Char]
   guid: not_fwd
 
-logical_or:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: or
-  out_ids: [0]
-  op_frontend: LazyCmp
-
-logical_or_:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: or
-  inplace_ids: [0]
-
 logical_or.out:
-  broadcast: true
   dtypes: [BFloat16, Float, Byte, Char]
   guid: or
-
-logical_xor:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: xor
-  out_ids: [0]
-  op_frontend: LazyCmp
-
-logical_xor_:
-  broadcast: true
-  dtypes: [BFloat16, Float, Byte, Char]
-  force_default: false
-  guid: xor
-  inplace_ids: [0]
 
 logical_xor.out:
-  broadcast: true
   dtypes: [BFloat16, Float, Byte, Char]
   guid: xor
 
