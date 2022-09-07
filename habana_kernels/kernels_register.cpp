@@ -1648,17 +1648,6 @@ Tensor& hpu_wrap::arange_out(
     return arange_hpu(output, start, end, step);
   }
 };
-Tensor hpu_wrap::nonzero(const Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO("nonzero :", " self=", to_string(self));
-  FALLBACK_IF_UNSUPPORTED_OP(nonzero, PARAMS1(self), PARAMS2(self))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nonzero_hpu_lazy(self);
-  } else {
-    return nonzero_hpu(self);
-  }
-};
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_OP_TRACE;
   PT_OP_INFO(

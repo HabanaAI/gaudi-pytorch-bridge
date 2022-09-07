@@ -1942,16 +1942,6 @@ static const std::
                 {{at::ScalarType::Long, at::ScalarType::Int}},
             },
             {
-                "nonzero",
-                {{at::ScalarType::Int,
-                  at::ScalarType::Long,
-                  at::ScalarType::Double,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Bool}},
-            },
-            {
                 "nonzero_out",
                 {{at::ScalarType::Int,
                   at::ScalarType::Long,

@@ -2942,11 +2942,18 @@ nll_loss_backward:
   custom_fill_params: FillNllLossBwdParams
   custom_output_shape: NllLossBwdOutputShape
   dtypes:
-    grad_output: [BFloat16, Float]
-    self: [BFloat16, Float]
-    target: [Int]
-    weight: [BFloat16, Float]
-    total_weight: [BFloat16, Float]
+    Gaudi:
+      grad_output: [BFloat16, Float]
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
+      total_weight: [BFloat16, Float]
+    Gaudi2:
+      grad_output: [BFloat16, Float, Half]
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   out_ids: [0]
@@ -2956,9 +2963,18 @@ nll_loss_forward:
   custom_fill_params: FillNllLossFwdParams
   custom_output_shape: NllLossFwdOutputShape
   dtypes:
-    self: [BFloat16, Float]
-    target: [Int]
-    weight: [BFloat16, Float]
+    Gaudi:
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+    Greco:
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLossFwd
   out_ids: [0,0]
@@ -2967,11 +2983,18 @@ nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
   custom_output_shape: NllLossBwdOutputShape
   dtypes:
-    grad_output: [BFloat16, Float]
-    self: [BFloat16, Float]
-    target: [Int]
-    weight: [BFloat16, Float]
-    total_weight: [BFloat16, Float]
+    Gaudi:
+      grad_output: [BFloat16, Float]
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
+      total_weight: [BFloat16, Float]
+    Gaudi2:
+      grad_output: [BFloat16, Float, Half]
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   out_ids: [0]
@@ -2983,9 +3006,18 @@ nll_loss2d_forward:
   custom_fill_params: FillNllLossFwdParams
   custom_output_shape: NllLossFwdOutputShape
   dtypes:
-    self: [BFloat16, Float]
-    target: [Int]
-    weight: [BFloat16, Float]
+    Gaudi:
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+    Greco:
+      self: [BFloat16, Float]
+      target: [Int]
+      weight: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
   out_ids: [0,0]
@@ -3044,6 +3076,13 @@ nll_loss2d_forward.output:
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
   - [WHN]
+
+nonzero:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Int, Char, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: nonzero_hpu_lazy
 
 normal_:
   custom_fill_params: FillNormalParams

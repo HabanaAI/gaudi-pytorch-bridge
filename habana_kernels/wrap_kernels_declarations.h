@@ -317,7 +317,6 @@ struct hpu_wrap {
       const at::Scalar& end,
       const at::Scalar& step,
       at::Tensor& output);
-  static at::Tensor nonzero(const at::Tensor& self);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor baddbmm(
       const at::Tensor& self,
