@@ -17,6 +17,7 @@ list(APPEND HPU_OP_SOURCES
   ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
   ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
   ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
+  ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
   ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp
 )
 target_sources(habana_pytorch_plugin PRIVATE ${HPU_OP_SOURCES})

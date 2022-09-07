@@ -217,6 +217,7 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
                      ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
                      ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
+                     ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
                      ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated
@@ -224,6 +225,7 @@ add_custom_command(OUTPUT
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
+                     ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml
                    MAIN_DEPENDENCY scripts/gen_op.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml

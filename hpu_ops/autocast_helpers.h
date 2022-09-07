@@ -14,9 +14,102 @@
 #pragma once
 
 #include <ATen/autocast_mode.h>
+#include <fstream>
+#include <unordered_set>
+
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace at {
 namespace autocast {
+
+std::unordered_set<std::string> load_list(
+    const char* list_name,
+    const std::unordered_set<std::string>& default_list) {
+  auto path = std::getenv(list_name);
+  if (path == nullptr) {
+    return default_list;
+  }
+  std::ifstream file(path);
+  if (!file.is_open()) {
+    PT_BRIDGE_WARN(
+        "Failed to open file with ops to autocast: ",
+        path,
+        ". Default list loaded.");
+    return default_list;
+  }
+  std::unordered_set<std::string> list;
+  std::string line;
+  while (getline(file, line)) {
+    list.insert(line);
+  }
+  return list;
+}
+
+static const std::unordered_set<std::string> default_lower_ops{
+    "addmm",
+    "batch_norm",
+    "bmm",
+    "conv1d",
+    "conv2d",
+    "conv3d",
+    "conv_transpose1d",
+    "conv_transpose2d",
+    "conv_transpose3d",
+    "dot",
+    "dropout",
+    "group_norm",
+    "instance_norm",
+    "layer_norm",
+    "leaky_relu",
+    "linear",
+    "matmul",
+    "mean",
+    "mm",
+    "mul",
+    "mv",
+    "relu",
+    "t"};
+static const std::unordered_set<std::string> default_fp32_ops{
+    "binary_cross_entropy",
+    "binary_cross_entropy_with_logits",
+    "cross_entropy_loss"
+    "div",
+    "divide",
+    "embedding_bag",
+    "log",
+    "log2",
+    "log_softmax",
+    "nll_loss",
+    "smooth_l1_loss",
+    "softmax",
+    "topk",
+    "truediv"};
+static const std::unordered_set<std::string> lower_first_ops{
+    "layer_norm",
+    "group_norm",
+    "instance_norm",
+    "batch_norm"};
+
+// Lists of ops for autocast registration are taken from above default lists, or
+// from external files, passed with below envs.
+
+static const std::unordered_set<std::string> lower_list =
+    load_list("LOWER_LIST", default_lower_ops);
+static const std::unordered_set<std::string> fp32_list =
+    load_list("FP32_LIST", default_fp32_ops);
+static const std::unordered_set<std::string> promote_list{
+    "add",
+    "addcmul",
+    "addcdiv",
+    "cat",
+    "div",
+    "exp",
+    "mul",
+    "pow",
+    "sub",
+    "iadd",
+    "truediv",
+    "stack"};
 
 // Below structures are taken from pytorch/aten/src/ATen/autocast_mode.cpp
 // and adjusted/enhanced for HPU usage
@@ -85,8 +178,8 @@ struct WrapFunction_<
   }
 };
 
-template <class Ret, class Signature, class... Args>
-inline Ret cast_firstarg(Signature* F, const Tensor& first, Args... args) {
+template <class Ret, class Signature, class T, class... Args>
+inline Ret cast_firstarg(Signature* F, const T& first, Args... args) {
   return (*F)(
       cached_cast(get_autocast_hpu_dtype(), first, DeviceType::HPU), args...);
 }
@@ -129,10 +222,34 @@ struct WrapFunction final {
 
 #define ADD_NS(RAW_OP) at::RAW_OP
 
-#define KERNEL(FUNC, REGISTER_NAME, SIGNATURE, POLICY) \
-  m.impl(                                              \
-      TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),    \
-      &WrapFunction<CastPolicy::POLICY, SIGNATURE, &FUNC>::type::call);
+#define KERNEL(FUNC, REGISTER_NAME, SIGNATURE)                               \
+  if (lower_list.count(#FUNC)) {                                             \
+    if (lower_first_ops.count(#FUNC)) {                                      \
+      m.impl(                                                                \
+          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                      \
+          &WrapFunction<                                                     \
+              CastPolicy::lower_first_arg,                                   \
+              SIGNATURE,                                                     \
+              &ADD_NS(FUNC)>::type::call);                                   \
+    } else {                                                                 \
+      m.impl(                                                                \
+          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                      \
+          &WrapFunction<                                                     \
+              CastPolicy::lower_precision_fp,                                \
+              SIGNATURE,                                                     \
+              &ADD_NS(FUNC)>::type::call);                                   \
+    }                                                                        \
+  } else if (fp32_list.count(#FUNC)) {                                       \
+    m.impl(                                                                  \
+        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
+        &WrapFunction<CastPolicy::fp32, SIGNATURE, &ADD_NS(FUNC)>::type::    \
+            call);                                                           \
+  } else if (promote_list.count(#FUNC)) {                                    \
+    m.impl(                                                                  \
+        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
+        &WrapFunction<CastPolicy::promote, SIGNATURE, &ADD_NS(FUNC)>::type:: \
+            call);                                                           \
+  }
 
 } // namespace autocast
 } // namespace at
