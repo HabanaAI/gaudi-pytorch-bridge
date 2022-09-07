@@ -21,3 +21,4 @@ pytest-timeout==2.1.0
 pytest-xdist==2.5.0
 pyvirtualdisplay==0.2.4
 tox==3.24.4
+scipy==1.9.1
