@@ -3756,11 +3756,11 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd(
     const Tensor& save_invstd,
     bool train,
     double eps,
-    bool not_train_no_rm) {
+    bool not_train_rm) {
   PT_LAZY_TRACE;
   Tensor mean = save_mean;
   Tensor invstd = save_invstd;
-  if (not_train_no_rm) {
+  if (not_train_rm) {
     mean = running_mean;
     invstd = at::rsqrt(at::add(running_var, eps));
   }
@@ -3811,7 +3811,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-  auto not_train_no_rm = !train && !running_mean_.defined();
+  auto not_train_rm = !train && running_mean_.defined();
   auto res_ = _batch_norm_bwd(
       grad_out,
       input,
@@ -3822,7 +3822,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
       save_invstd,
       train,
       eps,
-      not_train_no_rm);
+      not_train_rm);
   auto res0 = std::get<0>(res_);
   Tensor res;
   if (input_.ndimension() != 4) {
