@@ -2113,7 +2113,9 @@ void SliceOperator::AllocateAndAddSynapseNode(
         input - start = output * step
         start = input - output * step
         */
-        start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+        if (out_shape[i] != 0) {
+          start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+        }
       }
       // Modify the start and output shape in name shape map to create valid
       // ranges
