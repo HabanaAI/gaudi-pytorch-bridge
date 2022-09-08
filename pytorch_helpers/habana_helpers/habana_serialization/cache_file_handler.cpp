@@ -57,19 +57,21 @@ void CacheFileHandler::init(std::string path) {
   cache_path = std::move(path);
 
   fs::path dir_path{cache_path};
-  HABANA_ASSERT(fs::exists(dir_path));
-  if (id == 0) {
-    auto de = fs::directory_iterator{dir_path};
-    while (de != fs::end(de)) {
-      PT_HABHELPER_DEBUG(
-          CACHEFILE_LOG,
-          "Cleaning: ",
-          de->path(),
-          ", Rank: ",
-          std::dec,
-          getRank());
-      fs::remove(de->path());
-      de++;
+  HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
+  if (GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE)) {
+    if (id == 0) {
+      auto de = fs::directory_iterator{dir_path};
+      while (de != fs::end(de)) {
+        PT_HABHELPER_DEBUG(
+            CACHEFILE_LOG,
+            "Cleaning: ",
+            de->path(),
+            ", Rank: ",
+            std::dec,
+            getRank());
+        fs::remove(de->path());
+        de++;
+      }
     }
   }
 }
