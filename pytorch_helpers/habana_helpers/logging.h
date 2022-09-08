@@ -272,7 +272,8 @@ class PtLogger {
     HOSTSTAT = 0x10000,
     LAYOUTS = 0x20000,
     PARALLEL_ACC = 0x40000,
-    LAZY_EAGER = 0x80000
+    LAZY_EAGER = 0x80000,
+    MEMLOG = 0x100000
   };
 };
 
@@ -311,6 +312,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("PARALLEL_ACC");
     case PtLogger::ModuleMask::LAZY_EAGER:
       return std::string("LAZY_EAGER");
+    case PtLogger::ModuleMask::MEMLOG:
+      return std::string("MEMLOG");
     default:
       return std::string("UNDEFINED");
   }
@@ -575,6 +578,10 @@ class PTFuncLog {
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 #define PT_LAZY_PARALLEL_ACC_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::PARALLEL_ACC, __VA_ARGS__)
+#define PT_MEMLOG_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::MEMLOG, __VA_ARGS__)
+#define IS_MEMLOG_DEBUG_ENABLED \
+  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::MEMLOG)
 #define PT_IRGRAPH_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
 #define PT_VIEWTABLE_DEBUG(...) \

@@ -462,6 +462,31 @@ void CoalescedStringentPooling::print_pool_stats() const {
   return;
 }
 
+size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+
+  uint64_t max_cntgs_free_chunks_size = 0;
+  uint64_t cntgs_free_chunks_size = 0;
+
+  std::map<uint64_t, Chunk*> chunks_ordered;
+  for (auto& m : chunks) {
+    chunks_ordered.insert(m);
+  }
+  for (auto& m : chunks_ordered) {
+    auto chunk = m.second;
+
+    if (!chunk->used && (chunk->size != 0)) {
+      cntgs_free_chunks_size = getContigousChunkSize(chunk);
+      if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
+        max_cntgs_free_chunks_size = cntgs_free_chunks_size;
+      }
+      cntgs_free_chunks_size = 0;
+    }
+  }
+
+  return max_cntgs_free_chunks_size;
+}
+
 Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
     uint64_t size) const {
   uint64_t bin_index = bin_utils->BinIndexForSize(size);

@@ -16,6 +16,8 @@
 #include "HPUGuardImpl.h"
 #include "hpu_cached_devices.h"
 
+#include "habana_lazy/memlog.h"
+
 bool synapse_helpers::HPURegistrar::initialized_ = false;
 
 // Note the main thread id
@@ -72,6 +74,8 @@ static void waitTillRecipeExecutionDone(synDeviceId device_id) {
         "waiting for recipe launch completion, recipe count ", counter_state);
     status = device.get_device_memory().is_mem_threshold_hit();
   }
+
+  habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Execution-Done");
 }
 
 static synStatus waitTillRecipeExecution(
@@ -100,6 +104,9 @@ static synStatus waitTillRecipeExecution(
       // exit point, since framework might called multiple new allocations
       // from other threads, or wakeup might be spurious.
     } while (counter_state > 1 && v_ptr == nullptr);
+
+    habana_lazy::log_dev_mem_stats(
+        "Post-Recipe-Decrease-Execution-Done", "", num_bytes);
   }
   return status;
 }

@@ -1037,6 +1037,8 @@ device_ptr device::get_workspace_buffer(size_t size) {
       " size ",
       synapse_helpers::get_mem_str(workspace_size_));
 
+  real_workspace_size_ = size;
+
   return workspace_buffer_;
 }
 

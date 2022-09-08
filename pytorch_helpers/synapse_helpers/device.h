@@ -426,6 +426,10 @@ class device {
     }
   }
 
+  size_t get_real_workspace_size() const {
+    return real_workspace_size_;
+  }
+
   // since we have 2 cache for event this is required
   void add_user_event(synEventHandle handle, bool flag) {
     std::unique_lock<std::mutex> lock(event_mutex_);
@@ -481,6 +485,7 @@ class device {
   // require specific order of destruction.
   std::unique_ptr<device_allocator> allocator_;
   size_t workspace_size_{0};
+  size_t real_workspace_size_{0};
   device_ptr workspace_buffer_{0}; // global workspace buffer per device to be
                                    // used to launch recipes
   std::mutex ws_mutex_;

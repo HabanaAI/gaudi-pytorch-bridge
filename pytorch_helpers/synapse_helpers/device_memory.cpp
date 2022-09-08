@@ -21,6 +21,8 @@
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/memory_defragmentation.h"
 
+#include "habana_lazy/memlog.h"
+
 namespace synapse_helpers {
 device_memory::device_memory(device& device) : device_{device} {
   pool_size_ = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1) * 1024 * 1024 * 1024;
@@ -157,6 +159,20 @@ size_t device_memory::block_align(size_t n) {
   return (n + DEFAULT_ALIGNMENT - 1) & ~(DEFAULT_ALIGNMENT - 1);
 }
 
+bool device_memory::is_allocated(const device_ptr address) const {
+  auto h = mem_handle::reinterpret_from_pointer(address);
+  if (!h.is_valid()) {
+    return false;
+  }
+
+  auto ptr_size = handle2pointer_.GetPtrSize(h.id());
+  return (ptr_size.ptr_ != nullptr);
+}
+
+size_t device_memory::get_max_cntgs_chunk_size() const {
+  return suballoc_->get_max_cntgs_chunk_size();
+}
+
 /* recipe count is incremented before the allocation
  * of device memory for the the tensor, so the
  * default count is 1 which includes the current recipe
@@ -287,6 +303,10 @@ void* device_memory::workspace_alloc(
       while (recipe_counter.get_count() > 1) {
         recipe_counter.wait_for_next_decrease_call();
       }
+
+      habana_lazy::log_dev_mem_stats(
+          "Post-Recipe-Decrease-Workspace", "", req_size);
+
       PT_DEVMEM_DEBUG(
           "requested size > size, free the buffer and reallocte current size::",
           ws_size,
@@ -324,6 +344,7 @@ void* device_memory::workspace_alloc(
       v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
 
       if (v_ptr == nullptr) {
+        habana_lazy::log_dev_mem_stats("OOM-Workspace", "", req_size);
         while (recipe_counter.get_count() > 1) {
           recipe_counter.wait_for_next_decrease_call();
         }
@@ -332,6 +353,9 @@ void* device_memory::workspace_alloc(
             block_align(req_size),
             " current size::",
             ws_size);
+        habana_lazy::log_dev_mem_stats(
+            "Post-Recipe-Decrease-Workspace", "", req_size);
+
         v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
       bool defragmentation_done = false;
@@ -411,6 +435,8 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
     } while (counter_state > DEFAULT_RECIPE_COUNT);
+
+    habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Lock-Addr", "", size);
   }
 }
 
@@ -819,6 +845,8 @@ device_ptr device_memory::get_pointer(mem_handle h) {
         device_,
         "Allocation failed, stats before waiting for recipies to finish.");
 
+    habana_lazy::log_dev_mem_stats("OOM-Tensor", "", size);
+
     // check and wait for recipe execution to complete
     uint32_t counter_state{0};
     if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
@@ -832,6 +860,8 @@ device_ptr device_memory::get_pointer(mem_handle h) {
             size);
         std::tie(ptr, size) = get_and_alloc_mem();
       } while (counter_state > DEFAULT_RECIPE_COUNT && ptr == nullptr);
+
+      habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Tensor", "", size);
     }
   }
 
@@ -851,9 +881,13 @@ device_ptr device_memory::get_pointer(mem_handle h) {
       std::tie(ptr, size) = get_and_alloc_mem();
       update_on_defragment_ = true;
     }
+
+    habana_lazy::log_dev_mem_stats(
+        "Post-Defrag", defragmentation_done ? "True" : "False", size);
   }
 
   if (ptr == nullptr) {
+    habana_lazy::log_dev_mem_stats("OOM-FATAL", "", size);
     suballoc_->print_pool_stats();
     synapse_helpers::memstats_dump(device_, "Allocation failed.");
     log_synDeviceAllocFail(device_, false, size);

@@ -33,6 +33,8 @@
 #include "synapse_helpers/util.h"
 #include "util/time_measure.h"
 
+#include "habana_lazy/memlog.h"
+
 namespace synapse_helpers {
 
 namespace {
@@ -535,8 +537,10 @@ synapse_error_o graph::launch(
   }
   auto workspace_buffer = device.get_workspace_buffer(workspace_size);
 
-  memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
+  habana_lazy::log_dev_mem_stats(
+      "Post-Workspace", recipe_handle.recipe_name_, workspace_size);
 
+  memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
   {
     address_lock = absl::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
@@ -565,6 +569,11 @@ synapse_error_o graph::launch(
         recipe_handle.recipe_name_.c_str(),
         device.get_device_memory().get_total_memory_required(addresses),
         workspace_size);
+
+    habana_lazy::log_dev_mem_stats(
+        "Post-Tensors",
+        recipe_handle.recipe_name_,
+        device.get_device_memory().get_total_memory_required(addresses));
 
     uint32_t flags{0};
     std::vector<synEventHandle> event_handles;

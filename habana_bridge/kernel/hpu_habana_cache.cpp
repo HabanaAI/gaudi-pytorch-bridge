@@ -37,6 +37,8 @@
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
+#include "habana_lazy/memlog.h"
+
 namespace {
 template <typename T>
 std::vector<int64_t> ptr_array_indices(
@@ -1438,6 +1440,8 @@ void RecipeValueSpec::launch(
             address_lock,
             ext_events,
             stream_handle)};
+        habana_lazy::log_dev_mem_stats(
+            "Post-Launch", get_graph_name(), workspace_size);
         if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
           recipe_counter.decrease_and_notify();
           auto& error = error_optional.value();
@@ -1536,6 +1540,10 @@ void RecipeValueSpec::launch(
           address_lock,
           ext_events,
           stream_handle)};
+
+      habana_lazy::log_dev_mem_stats(
+          "Post-Launch", get_graph_name(), workspace_size);
+
       if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
         auto& error = error_optional.value();
         PT_BRIDGE_FATAL(

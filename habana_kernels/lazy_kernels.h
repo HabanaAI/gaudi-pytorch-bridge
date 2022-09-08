@@ -27,6 +27,8 @@
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "resize.h"
 
+#include "habana_lazy/memlog.h"
+
 namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
 at::Tensor permute_wt_hpu(const at::Tensor& self);
@@ -265,6 +267,7 @@ class LazyOp {
       info_to_lazy_backend->set_input_values(input_vals);
     }
 
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
     flush_op(tensors, info_to_lazy_backend, hl_results);
     return results;
@@ -386,6 +389,7 @@ class LazyOp {
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
       info_to_lazy_backend->set_input_values(input_vals);
     }
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
     flush_op(tensors, info_to_lazy_backend, hl_results);
     return results;
@@ -431,6 +435,8 @@ class LazyOp {
         hl_result.GetSizes(),
         hl_result.dtype_optional());
     updateDstDependencies(hl_result, result, false);
+
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(result);
     return result.item().template to<T>();
   }
@@ -454,6 +460,8 @@ class LazyOp {
       context->MarkTensorStatus(
           hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
+
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
     flush_op(tensors);
   }
@@ -499,6 +507,8 @@ class LazyOp {
           i++);
       updateDstDependencies(hl_result, tensor, false);
     }
+
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
     flush_op(tensors);
 
@@ -555,6 +565,7 @@ class LazyOp {
       info_to_lazy_backend->set_input_values(input_vals);
     }
 
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(result);
     flush_op(result, info_to_lazy_backend, {hl_result});
     return result;
@@ -777,6 +788,7 @@ class LazyOp {
     context->MarkTensorStatus(
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
 
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(self, sbs_stack);
     flush_op(self, info_to_lazy_backend);
     return self;
@@ -846,6 +858,8 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(self);
     flush_op(self, std::move(info_to_lazy_backend));
     return self;

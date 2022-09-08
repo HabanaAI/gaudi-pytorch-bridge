@@ -67,6 +67,9 @@ class PoolingStrategy {
     return true;
   }
   virtual void print_pool_stats() const {};
+  virtual size_t get_max_cntgs_chunk_size() const {
+    return -1;
+  };
 };
 
 class SubAllocator {
@@ -151,6 +154,9 @@ class SubAllocator {
     return this->strategy_->print_pool_stats();
   }
 
+  size_t get_max_cntgs_chunk_size() const {
+    return this->strategy_->get_max_cntgs_chunk_size();
+  }
 };
 
 /// bump pooling ///
