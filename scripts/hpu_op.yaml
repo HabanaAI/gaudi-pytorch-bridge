@@ -3138,6 +3138,7 @@ nan_to_num.out:
 nansum:
   custom_output_shape: NanSumIntListOutputShape
   dtypes: [Float]
+  op_frontend: LazyNansum
   op_backend: NansumList
   out_ids: [0]
 
