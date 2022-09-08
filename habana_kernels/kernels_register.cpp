@@ -249,19 +249,6 @@ Tensor& hpu_wrap::set_(
   return set_hpu_lazy_(self, source, storage_offset, size, stride);
 }
 
-Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
-  PT_OP_TRACE;
-  PT_OP_INFO("view :", " self=", to_string(self), " size=", to_string(size));
-  FALLBACK_IF_UNSUPPORTED_OP(view, PARAMS1(self), PARAMS2(self, size))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return view_hpu_lazy(self, size);
-
-  } else {
-    return view_hpu(self, size);
-  }
-};
-
 Tensor hpu_wrap::add(
     const Tensor& self,
     const Tensor& other,
@@ -3644,19 +3631,6 @@ Tensor hpu_wrap::clone(
     return clone_hpu(self, memory_format);
   }
 };
-Tensor& hpu_wrap::zero_(Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO("zero_ :", " self=", to_string(self));
-
-  FALLBACK_IF_UNSUPPORTED_OP(zero_, PARAMS1(self), PARAMS2(self))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return zero_hpu_lazy(self);
-
-  } else {
-    return zero_hpu(self);
-  }
-};
 Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
   PT_OP_TRACE;
   PT_OP_INFO(
@@ -4291,18 +4265,6 @@ at::Tensor& hpu_wrap::squeeze_(at::Tensor& self, int64_t dim) {
   FALLBACK_IF_UNSUPPORTED_OP_O(squeeze_, PARAMS1(self), PARAMS2(self, dim), dim)
 
   return at::native::squeeze_(self, dim);
-}
-
-at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
-  PT_OP_TRACE;
-  PT_OP_INFO("unsqueeze :", " self=", to_string(self), " dim=", to_string(dim));
-  FALLBACK_IF_UNSUPPORTED_OP(unsqueeze, PARAMS1(self), PARAMS2(self, dim))
-
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)) {
-    return unsqueeze_hpu_lazy(self, dim);
-  } else {
-    return at::native::unsqueeze(self, dim);
-  }
 }
 
 const at::Tensor& hpu_wrap::as_strided_(

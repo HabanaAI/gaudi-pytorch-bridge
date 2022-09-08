@@ -69,7 +69,6 @@ struct hpu_wrap {
       int64_t storage_offset,
       at::IntArrayRef size,
       at::IntArrayRef stride);
-  static at::Tensor& zero_(at::Tensor& self);
   static ::std::tuple<at::Tensor, at::Tensor> sort(
       const at::Tensor& self,
       int64_t dim,
@@ -82,7 +81,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Scalar& other,
       const at::Scalar& alpha);
-  static at::Tensor view(const at::Tensor& self, at::IntArrayRef size);
   static at::Tensor addcmul(
       const at::Tensor& self,
       const at::Tensor& tensor1,
@@ -758,7 +756,6 @@ struct hpu_wrap {
   static at::Tensor squeeze(const at::Tensor& self, int64_t dim);
   static at::Tensor& squeeze_(at::Tensor& self);
   static at::Tensor& squeeze_(at::Tensor& self, int64_t dim);
-  static at::Tensor unsqueeze(const at::Tensor& self, int64_t dim);
   static const at::Tensor& as_strided_(
       const at::Tensor& self,
       at::IntArrayRef size,

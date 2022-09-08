@@ -1468,7 +1468,10 @@ eq_.Tensor:
 
 eq.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: equal_fwd
   op_frontend: LazyCmp
   scalar_ids: [1]
@@ -1479,7 +1482,10 @@ eq.Scalar:
 eq.Tensor:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Short, Half]
   guid: equal_fwd
   op_frontend: LazyCmp
   out_ids: [0]
@@ -1621,7 +1627,10 @@ eye.m_out:
   op_backend: EyeOpOut
 
 fill_.Scalar:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
   inplace_ids: [0]
@@ -4192,6 +4201,10 @@ unsqueeze_:
   force_default: false
   override_fn: unsqueeze_hpu_lazy_
 
+unsqueeze:
+  force_default: false
+  override_fn: unsqueeze_hpu_lazy
+
 upsample_bicubic2d:
   force_default: false
   custom_fill_params: FillBicubicFwdParams
@@ -4586,6 +4599,9 @@ vdot.out:
   dtypes: [BFloat16, Float]
   op_backend: VdotOperator
 
+view:
+  override_fn: view_hpu_lazy
+
 where.self:
   custom_output_shape: WhereOutputShape
   guid: where_fwd
@@ -4606,3 +4622,10 @@ xlogy.OutTensor:
   guid: log_fwd
   dtypes: [BFloat16, Float]
   op_backend: XlogYOperator
+
+zero_:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Char, Byte, Short, Half]
+  override_fn: zero_hpu_lazy
