@@ -677,7 +677,6 @@ void optimizer_lamb_phase2_hpu_lazy(
     const std::vector<at::Tensor>& adam_norm_vec,
     const std::vector<at::Tensor>& weight_norm_vec,
     const std::vector<at::Tensor>& adam_step_vec,
-    const std::vector<at::Tensor>& trust_ratio_vec,
     const float step,
     const float weight_decay,
     const int use_lamb);

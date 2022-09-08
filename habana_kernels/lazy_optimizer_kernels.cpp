@@ -405,6 +405,7 @@ optimizer_lamb_phase1_hpu_lazy(
     HbLazyTensor::StepMarker({});
   }
 
+  flush_op({});
   return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
 }
 
@@ -413,7 +414,6 @@ void optimizer_lamb_phase2_hpu_lazy(
     const std::vector<at::Tensor>& adam_norm,
     const std::vector<at::Tensor>& weight_norm,
     const std::vector<at::Tensor>& adam_step,
-    const std::vector<at::Tensor>& trust_ratio,
     const float step,
     const float weight_decay,
     const int use_lamb) {
@@ -435,11 +435,11 @@ void optimizer_lamb_phase2_hpu_lazy(
        adam_norm,
        weight_norm,
        adam_step,
-       trust_ratio,
        nstep_t,
        weight_decay,
        use_lamb});
   loo.call(weights);
+  flush_op(weights);
 }
 
 void optimizer_adagrad_hpu_lazy(

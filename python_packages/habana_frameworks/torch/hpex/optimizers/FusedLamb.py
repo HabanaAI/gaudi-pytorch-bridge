@@ -140,8 +140,7 @@ class FusedLamb(Optimizer):
                 wt_norm_list,
                 adam_norm_list,
                 adam_step_list,
-                tr_ones_list,
-            ) = ([], [], [], [], [], [], [], [])
+            ) = ([], [], [], [], [], [], [])
 
             htcore.mark_step()
 
@@ -163,7 +162,6 @@ class FusedLamb(Optimizer):
                 wt_list.append(p.data)
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
-                tr_ones_list.append(torch.ones(1).to(self.device))
 
             (wt_norm_list, adam_norm_list, adam_step_list) = _hpex_C.fused_lamb_phase1(
                 grad_list,
@@ -188,7 +186,6 @@ class FusedLamb(Optimizer):
                 adam_norm_list,
                 wt_norm_list,
                 adam_step_list,
-                tr_ones_list,
                 step_size,
                 group["weight_decay"],
                 self.use_lamb,

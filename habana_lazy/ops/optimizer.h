@@ -480,7 +480,6 @@ class OptimizerFusedLambPhase2 : public Node {
       const std::vector<at::Tensor>& adam_norm_vec,
       const std::vector<at::Tensor>& weight_norm_vec,
       const std::vector<at::Tensor>& adam_step_vec,
-      const std::vector<at::Tensor>& trust_ratio_vec,
       const at::Tensor& neg_step_t,
       const float weight_decay,
       const int use_lamb)
@@ -490,7 +489,6 @@ class OptimizerFusedLambPhase2 : public Node {
     AddInputVec(adam_norm_vec);
     AddInputVec(weight_norm_vec);
     AddInputVec(adam_step_vec);
-    AddInputVec(trust_ratio_vec);
 
     auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
     AddInput(hl_neg_step_t.GetIrValue());

@@ -400,17 +400,16 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 8,
+      inputs.size() == 7,
       "Incorrect size of inputs for lamb optimizer ph2 graph creation call");
 
   auto weights = inputs[0].toTensorList();
   auto adam_norm = inputs[1].toTensorList();
   auto weight_norm = inputs[2].toTensorList();
   auto adam_step = inputs[3].toTensorList();
-  auto trust_ratio = inputs[4].toTensorList();
-  auto nstep = inputs[5].toTensor();
-  auto weight_decay = inputs[6].toScalar();
-  auto use_lamb = inputs[7].toScalar();
+  auto nstep = inputs[4].toTensor();
+  auto weight_decay = inputs[5].toScalar();
+  auto use_lamb = inputs[6].toScalar();
 
   auto device_id = weights.get(0).device().index();
   auto scalar_type = weights.get(0).scalar_type();
@@ -459,14 +458,8 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
       cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
-      // mul1 = mask * trust_ratio(=1)
-      auto mul1 = make_operator<MulOperator>(device_id, scalar_type);
-      mul1->SetSynapseInput(cast1->GetSynOutputs()[0]);
-      mul1->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + i]);
-      stack.emplace_back(IValue(cast1->GetOutputs()[0]));
-      stack.emplace_back(IValue(trust_ratio.get(i)));
-      mul1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-      stack.clear();
+      // mul1 = mask [* trust_ratio(=1)]
+      auto& mul1 = cast1;
 
       // imask = (mask == 0)
       auto eq2_lp = make_operator<EqOperator>(device_id, scalar_type);
@@ -506,7 +499,7 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
       // trust_ratio * -step
       auto mul3 = make_operator<MulOperator>(device_id, scalar_type);
       mul3->SetSynapseInput(add2_lp->GetSynOutputs()[0]);
-      mul3->SetSynapseInput(p_context_->syn_inputs_[5 * num_params]);
+      mul3->SetSynapseInput(p_context_->syn_inputs_[4 * num_params]);
       stack.emplace_back(IValue(add2_lp->GetOutputs()[0]));
       stack.emplace_back(IValue(nstep));
       mul3->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -523,7 +516,7 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
     } else {
       // -step * adam_step
       mul4->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + i]);
-      mul4->SetSynapseInput(p_context_->syn_inputs_[5 * num_params]);
+      mul4->SetSynapseInput(p_context_->syn_inputs_[4 * num_params]);
       stack.emplace_back(IValue(adam_step.get(i)));
       stack.emplace_back(IValue(nstep));
       mul4->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -554,7 +547,6 @@ void optimizer_lamb_phase2_hpu(
     const std::vector<at::Tensor>& adam_norm_vec,
     const std::vector<at::Tensor>& weight_norm_vec,
     const std::vector<at::Tensor>& adam_step_vec,
-    const std::vector<at::Tensor>& trust_ratio_vec,
     const float step,
     const float weight_decay,
     const int use_lamb) {
@@ -564,7 +556,6 @@ void optimizer_lamb_phase2_hpu(
   TensorList adam_norm(adam_norm_vec);
   TensorList weight_norm(weight_norm_vec);
   TensorList adam_step(adam_step_vec);
-  TensorList trust_ratio(trust_ratio_vec);
 
   size_t device_id = weights[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -589,7 +580,6 @@ void optimizer_lamb_phase2_hpu(
       IValue(adam_norm),
       IValue(weight_norm),
       IValue(adam_step),
-      IValue(trust_ratio),
       IValue(nstep_t),
       IValue(weight_decay),
       IValue(use_lamb)};
@@ -610,9 +600,6 @@ void optimizer_lamb_phase2_hpu(
   }
   for (auto j = 0; j < num_params; j++) {
     pt_inputs.push_back(adam_step[j]);
-  }
-  for (auto j = 0; j < num_params; j++) {
-    pt_inputs.push_back(trust_ratio[j]);
   }
   pt_inputs.push_back(nstep_t);
 

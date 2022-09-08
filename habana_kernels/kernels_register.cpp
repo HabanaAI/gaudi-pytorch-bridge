@@ -4413,7 +4413,6 @@ void optimizer_lamb_phase2_hpu_wrap(
     const std::vector<at::Tensor>& adam_norm_vec,
     const std::vector<at::Tensor>& weight_norm_vec,
     const std::vector<at::Tensor>& adam_step_vec,
-    const std::vector<at::Tensor>& trust_ratio_vec,
     const float step,
     const float weight_decay,
     const int use_lamb) {
@@ -4428,8 +4427,6 @@ void optimizer_lamb_phase2_hpu_wrap(
       to_string(weight_norm_vec),
       "adam_step_vec=",
       to_string(adam_step_vec),
-      "trust_ratio_vec=",
-      to_string(trust_ratio_vec),
       "step=",
       to_string(step),
       "weight_decay=",
@@ -4442,7 +4439,6 @@ void optimizer_lamb_phase2_hpu_wrap(
         adam_norm_vec,
         weight_norm_vec,
         adam_step_vec,
-        trust_ratio_vec,
         step,
         weight_decay,
         use_lamb);
@@ -4452,7 +4448,6 @@ void optimizer_lamb_phase2_hpu_wrap(
         adam_norm_vec,
         weight_norm_vec,
         adam_step_vec,
-        trust_ratio_vec,
         step,
         weight_decay,
         use_lamb);
@@ -4980,7 +4975,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
-      "habanaOptimizerLambPhase2(Tensor(a!)[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
+      "habanaOptimizerLambPhase2(Tensor(a!)[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def(
       "habanaOptimizerLars(Tensor[] params, Tensor(a!)[] grads, Tensor lr_t, int[] skip_masks, float eeta, float weight_decay, float eps) -> ()");
   m.def(
