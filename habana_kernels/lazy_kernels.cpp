@@ -3609,17 +3609,22 @@ Tensor _batch_norm_fwd_inference(
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input_,
-    const Tensor& weight_tensor,
-    const Tensor& bias_tensor,
-    const Tensor& running_mean_,
-    const Tensor& running_var_,
+    const c10::optional<at::Tensor>& weight_tensor,
+    const c10::optional<at::Tensor>& bias_tensor,
+    const c10::optional<at::Tensor>& running_mean_,
+    const c10::optional<at::Tensor>& running_var_,
     bool training,
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
   auto in_sizes = input_.sizes().vec();
+  auto running_tensor_mean = running_mean_.value_or(Tensor());
   auto preprocess_results = batch_norm_fwd_preprocess(
-      input_, weight_tensor, bias_tensor, running_mean_, running_var_);
+      input_,
+      weight_tensor.value_or(Tensor()),
+      bias_tensor.value_or(Tensor()),
+      running_tensor_mean,
+      running_var_.value_or(Tensor()));
 
   auto input = std::get<0>(preprocess_results);
   auto weight = std::get<1>(preprocess_results);
@@ -3627,7 +3632,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-  bool inference_mode = !training && running_mean_.defined();
+  bool inference_mode = !training && running_tensor_mean.defined();
   if (!inference_mode) { /*training mode*/
     auto res_ = _batch_norm_fwd_training(
         input,
@@ -3761,18 +3766,23 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd(
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& grad_out_,
     const Tensor& input_,
-    const Tensor& weight_tensor,
-    const Tensor& running_mean_,
-    const Tensor& running_var_,
-    const Tensor& save_mean,
-    const Tensor& save_invstd,
+    const c10::optional<at::Tensor>& weight_tensor,
+    const c10::optional<at::Tensor>& running_mean_,
+    const c10::optional<at::Tensor>& running_var_,
+    const c10::optional<at::Tensor>& save_mean,
+    const c10::optional<at::Tensor>& save_invstd,
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
   auto in_sizes = input_.sizes().vec();
+  auto running_tensor_mean = running_mean_.value_or(Tensor());
   auto preprocess_results = batch_norm_bwd_preprocess(
-      input_, grad_out_, weight_tensor, running_mean_, running_var_);
+      input_,
+      grad_out_,
+      weight_tensor.value_or(Tensor()),
+      running_tensor_mean,
+      running_var_.value_or(Tensor()));
 
   auto input = std::get<0>(preprocess_results);
   auto grad_out = std::get<1>(preprocess_results);
@@ -3780,15 +3790,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   auto running_mean = std::get<3>(preprocess_results);
   auto running_var = std::get<4>(preprocess_results);
 
-  auto not_train_rm = !train && running_mean_.defined();
+  auto not_train_rm = !train && running_tensor_mean.defined();
   auto res_ = _batch_norm_bwd(
       grad_out,
       input,
       weight,
       running_mean,
       running_var,
-      save_mean,
-      save_invstd,
+      save_mean.value_or(Tensor()),
+      save_invstd.value_or(Tensor()),
       train,
       eps,
       not_train_rm);

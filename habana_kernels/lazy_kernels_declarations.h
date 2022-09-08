@@ -304,21 +304,21 @@ at::Tensor kl_div_backward_hpu_lazy(
     bool log_target);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_hpu_lazy(
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    const at::Tensor& running_mean,
-    const at::Tensor& running_var,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    const c10::optional<at::Tensor>& running_mean,
+    const c10::optional<at::Tensor>& running_var,
     bool training,
     double momentum,
     double eps);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_bwd_hpu_lazy(
     const at::Tensor& grad_out,
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& running_mean,
-    const at::Tensor& running_var,
-    const at::Tensor& save_mean,
-    const at::Tensor& save_invstd,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& running_mean,
+    const c10::optional<at::Tensor>& running_var,
+    const c10::optional<at::Tensor>& save_mean,
+    const c10::optional<at::Tensor>& save_invstd,
     bool train,
     double eps,
     std::array<bool, 3> output_mask);

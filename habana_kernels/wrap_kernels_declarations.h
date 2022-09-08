@@ -414,27 +414,6 @@ struct hpu_wrap {
       const c10::optional<at::Tensor>& weight,
       const c10::optional<at::Tensor>& pos_weight,
       int64_t reduction);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> native_batch_norm(
-      const at::Tensor& input,
-      const c10::optional<at::Tensor>& weight_opt,
-      const c10::optional<at::Tensor>& bias_opt,
-      const c10::optional<at::Tensor>& running_mean_opt,
-      const c10::optional<at::Tensor>& running_var_opt,
-      bool training,
-      double momentum,
-      double eps);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
-  native_batch_norm_backward(
-      const at::Tensor& grad_out,
-      const at::Tensor& input,
-      const c10::optional<at::Tensor>& weight_opt,
-      const c10::optional<at::Tensor>& running_mean_opt,
-      const c10::optional<at::Tensor>& running_var_opt,
-      const c10::optional<at::Tensor>& save_mean_opt,
-      const c10::optional<at::Tensor>& save_invstd_opt,
-      bool train,
-      double eps,
-      ::std::array<bool, 3> output_mask);
   static ::std::tuple<at::Tensor, at::Tensor> _weight_norm_interface(
       const at::Tensor& v_in,
       const at::Tensor& g_in,
