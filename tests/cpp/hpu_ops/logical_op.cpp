@@ -35,7 +35,7 @@ class LogicalNotHpuOpTest
     : public HpuOpTestUtil,
       public testing::WithParamInterface<c10::ScalarType> {};
 
-#define HPU_LOGICAL_NOT_TEST(op)                                               \
+#define HPU_LOGICAL_NOT_OUT_TEST(op)                                           \
   TEST_P(LogicalNotHpuOpTest, op) {                                            \
     const auto& dtype = GetParam();                                            \
     GenerateInputs(1, dtype);                                                  \
@@ -63,13 +63,32 @@ class LogicalHpuOpTest : public HpuOpTestUtil,
   INSTANTIATE_TEST_SUITE_P(                                    \
       op,                                                      \
       LogicalHpuOpTest,                                        \
-      testing::Values(torch::kFloat, torch::kByte, torch::kChar));
+      testing::Values(                                         \
+          torch::kFloat, torch::kBFloat16, torch::kByte, torch::kChar));
+
+class LogicalInplaceHpuOpTest
+    : public HpuOpTestUtil,
+      public testing::WithParamInterface<c10::ScalarType> {};
+#define HPU_LOGICAL_INPLACE_TEST(op)         \
+  TEST_P(LogicalInplaceHpuOpTest, op) {      \
+    const auto& dtype = GetParam();          \
+    GenerateInputs(2, dtype);                \
+    GetCpuInput(0).op(GetCpuInput(1));       \
+    GetHpuInput(0).op(GetHpuInput(1));       \
+    Compare(GetCpuInput(0), GetHpuInput(0)); \
+  }                                          \
+  INSTANTIATE_TEST_SUITE_P(                  \
+      op,                                    \
+      LogicalInplaceHpuOpTest,               \
+      testing::Values(                       \
+          torch::kFloat, torch::kBFloat16, torch::kByte, torch::kChar));
 
 #define TEST_HPU_LOGICAL_OP(op)   \
   HPU_LOGICAL_OUT_TEST(op##_outf) \
-  HPU_LOGICAL_TEST(op)
+  HPU_LOGICAL_TEST(op)            \
+  HPU_LOGICAL_INPLACE_TEST(op##_)
 
-#define TEST_HPU_LOGICAL_NOT_OP(op) HPU_LOGICAL_NOT_TEST(op##_outf)
+#define TEST_HPU_LOGICAL_NOT_OP(op) HPU_LOGICAL_NOT_OUT_TEST(op##_outf)
 
 TEST_HPU_LOGICAL_OP(logical_and)
 TEST_HPU_LOGICAL_OP(logical_or)
