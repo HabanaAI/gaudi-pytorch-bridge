@@ -383,16 +383,33 @@ void OpBackend::AllocateAndAddSynapseNode(
   AddNode(graph, stack);
 }
 
-const synapse_helpers::tensor& OpBackend::CreateShapeTensorInput(
+void OpBackend::CreateShapeTensorInput(
     synapse_helpers::graph& graph,
     at::ScalarType dtype,
     at::IntArrayRef sizes,
+    std::vector<synTensor>& inputs,
     synTensorType shape_tensor_type) {
-  auto st = habana_helpers::create_shape_tensor(
-      GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
-  st.set_intermediate_shape_tensor();
-  m_shape_tensors.emplace_back(std::move(st));
-  return m_shape_tensors.back();
+  // Add intermediate shape tensor
+  if (isMetaMode()) {
+    auto& meta = GetMeta();
+    const auto& st = GetProxyTensor(dtype, sizes);
+    const auto& md = TensorMetaData(
+        st.sizes().vec(),
+        st.strides().vec(),
+        dtype,
+        at::MemoryFormat::Contiguous);
+    meta.AddShapeTensor(md);
+
+    return;
+  }
+
+  if (graph.is_dynamic_graph()) {
+    auto st = habana_helpers::create_shape_tensor(
+        GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
+    st.set_intermediate_shape_tensor();
+    m_shape_tensors.emplace_back(std::move(st));
+    inputs.emplace_back(m_shape_tensors.back().get());
+  }
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
@@ -560,23 +577,7 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   }
 
   std::vector<synTensor> input;
-  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
-    input.emplace_back(op->CreateShapeTensorInput(
-                             graph, valtype, constant_outshape, SHAPE_TENSOR)
-                           .get());
-  }
-
-  // Add intermediate shape tensor
-  if (op->isMetaMode()) {
-    auto& meta = op->GetMeta();
-    const auto& st = GetProxyTensor(valtype, constant_outshape);
-    const auto& md = TensorMetaData(
-        st.sizes().vec(),
-        st.strides().vec(),
-        valtype,
-        at::MemoryFormat::Contiguous);
-    meta.AddShapeTensor(md);
-  }
+  op->CreateShapeTensorInput(graph, valtype, constant_outshape, input);
 
   auto constant = BuildNode(
       op,
@@ -598,22 +599,7 @@ synapse_helpers::tensor OpBackend::BuildBroadcast(
     at::ScalarType dtype,
     c10::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {syn_in};
-  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
-    inputs.emplace_back(
-        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
-  }
-
-  // Add intermediate shape tensor
-  if (op->isMetaMode()) {
-    auto& meta = op->GetMeta();
-    const auto& st = GetProxyTensor(dtype, sizes);
-    const auto& md = TensorMetaData(
-        st.sizes().vec(),
-        st.strides().vec(),
-        dtype,
-        at::MemoryFormat::Contiguous);
-    meta.AddShapeTensor(md);
-  }
+  op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
 
   auto broadcast = BuildNode(
       op,
@@ -648,22 +634,7 @@ synapse_helpers::tensor OpBackend::BuildReshape(
         the definition.
   */
   std::vector<synTensor> inputs = {syn_in};
-  if (!op->isMetaMode() and graph.is_dynamic_graph()) {
-    inputs.emplace_back(
-        op->CreateShapeTensorInput(graph, dtype, sizes, SHAPE_TENSOR).get());
-  }
-
-  // Add intermediate shape tensor
-  if (op->isMetaMode()) {
-    auto& meta = op->GetMeta();
-    const auto& st = GetProxyTensor(dtype, sizes);
-    const auto& md = TensorMetaData(
-        st.sizes().vec(),
-        st.strides().vec(),
-        dtype,
-        at::MemoryFormat::Contiguous);
-    meta.AddShapeTensor(md);
-  }
+  op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
 
   auto reshape = BuildNode(
       op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});

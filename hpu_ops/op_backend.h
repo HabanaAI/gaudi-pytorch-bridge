@@ -68,11 +68,12 @@ class OpBackend : public HabanaOperator {
     return m_shape_tensors;
   }
 
-  const synapse_helpers::tensor& CreateShapeTensorInput(
+  void CreateShapeTensorInput(
       synapse_helpers::graph& graph,
       at::ScalarType dtype,
       at::IntArrayRef sizes,
-      synTensorType shape_tensor_type);
+      std::vector<synTensor>& inputs,
+      synTensorType shape_tensor_type = SHAPE_TENSOR);
 
   sizes_vec ComputeOutputShapes(
       const at::Stack& stack,

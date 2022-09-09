@@ -126,10 +126,7 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     size_t size,
     c10::optional<int> final_index = c10::nullopt) {
   // This helper function is used only when weight is none
-  if (graph.is_dynamic_graph()) {
-    input.emplace_back(
-        op->CreateShapeTensorInput(graph, dtype, outshape, SHAPE_TENSOR).get());
-  }
+  op->CreateShapeTensorInput(graph, dtype, outshape, input);
   return NllLoss(op, graph, input, outshape, params, size, final_index);
 }
 
