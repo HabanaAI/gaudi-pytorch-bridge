@@ -92,15 +92,20 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   const auto output_shape = AminmaxOutputShape(stack, true)[0];
 
-  synapse_helpers::tensor& input = p_context_->syn_inputs_[0];
+  auto input = syn_in(0);
 
   if ((self.scalar_type() == torch::kBool) ||
       (self.scalar_type() == torch::kInt8)) {
-    auto cast = HandleReductionDtype(
-        this, graph, self, std::move(input), torch::kInt32);
+    auto cast = HandleReductionDtype(this, graph, self, input, torch::kInt32);
 
     auto amin_max = AminmaxCommon(
-        this, graph, {cast.get()}, output_shape, self, dim_vec, keepdim);
+        this,
+        graph,
+        {cast.value().get()},
+        output_shape,
+        self,
+        dim_vec,
+        keepdim);
 
     auto cast1 = CastHelper(
         graph, amin_max[0].get(), output_shape, torch::kInt32, torch::kBool, 0);

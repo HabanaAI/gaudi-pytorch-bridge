@@ -135,11 +135,14 @@ void ReductionBackendTemplate::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  synapse_helpers::tensor& input = GetSynInputs()[0];
+  synTensor input = syn_in(0);
 
   // Extract dtype and cast self to the supplied dtype
   auto dtype = get_dtype(stack, m_dtype_index);
-  input = HandleReductionDtype(this, graph, self, std::move(input), dtype);
+  auto cast = HandleReductionDtype(this, graph, self, input, dtype);
+  if (cast.has_value()) {
+    input = cast.value().get();
+  }
 
   // Extract dims
   auto dims = get_dims(stack, m_dim_index);
@@ -153,16 +156,18 @@ void ReductionBackendTemplate::AddNode(
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{{shape, ScalarType(), 0}};
 
   auto result = HandleReductionDimAndKeepdim(
-      this, graph, self, {input.get()}, dims, keepdim, GetGuid(), output_attrs);
+      this, graph, self, {input}, dims, keepdim, GetGuid(), output_attrs);
 
   syn_out(0) = std::move(result[0]);
 }
 
-synapse_helpers::tensor HandleReductionDtype(
+// Returns the input after cast to the supplied dtype. If dtype is none or if
+// dtype is same as input's dtype, returns nullopt.
+c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
-    synapse_helpers::tensor syn_in,
+    synTensor syn_in,
     at::optional<at::ScalarType> dtype) {
   auto dtype_val = dtype.value_or(self.scalar_type());
 
@@ -171,7 +176,7 @@ synapse_helpers::tensor HandleReductionDtype(
   }
 
   if (dtype_val == self.scalar_type()) {
-    return syn_in;
+    return c10::nullopt;
   }
 
   op->SetScalarType(dtype_val);
@@ -181,7 +186,7 @@ synapse_helpers::tensor HandleReductionDtype(
   op->SetGuid(update_guid_dtype(guid, dtype_val));
 
   return OpBackend::BuildCast(
-      op, graph, syn_in.get(), self.sizes(), self.scalar_type(), dtype_val);
+      op, graph, syn_in, self.sizes(), self.scalar_type(), dtype_val);
 }
 
 // TO DO: Refactor HandleReductionDimAndKeepdim function to handle

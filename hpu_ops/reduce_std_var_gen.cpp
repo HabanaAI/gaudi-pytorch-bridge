@@ -102,14 +102,14 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   // followed by reduce_sum for rest of the dims.
   // example: input_shape [8,3,2,2] with dim=[0,2,3] only dim=0 is passed to
   // reduction_helper, output_shape [1,3,2,2]
+  auto sum_square_input = is_bf16
+      ? *HandleReductionDtype(op, graph, self, difference[0].get(), at::kFloat)
+      : std::move(difference[0]);
   auto sum_square = HandleReductionDimAndKeepdim(
       op,
       graph,
       self,
-      {is_bf16 ? HandleReductionDtype(
-                     op, graph, self, std::move(difference[0]), at::kFloat)
-                     .get()
-               : difference[0].get()},
+      {sum_square_input.get()},
       enable_reduce_sum ? min_dim : dims,
       enable_reduce_sum ? true : keepdim,
       "reduce_sum_square_fwd_f32",

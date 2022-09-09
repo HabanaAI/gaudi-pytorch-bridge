@@ -101,11 +101,11 @@ class ReductionBackendTemplate : public OpBackend {
   }
 };
 
-synapse_helpers::tensor HandleReductionDtype(
+c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
-    synapse_helpers::tensor syn_in,
+    synTensor syn_in,
     at::optional<at::ScalarType> dtype);
 
 static inline std::shared_ptr<void> ReductionOpParams(

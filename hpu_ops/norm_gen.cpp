@@ -76,17 +76,18 @@ void NormHabanaOperator::AddNode(
   auto outshape = self.sizes();
   auto n_dims = self.dim();
 
-  synapse_helpers::tensor& input = p_context_->syn_inputs_[0];
-  auto input_in_dtype =
-      HandleReductionDtype(this, graph, self, std::move(input), dtype);
-  auto input_tensor = input_in_dtype.get();
+  auto input = syn_in(0);
+  auto input_in_dtype = HandleReductionDtype(this, graph, self, input, dtype);
+  if (input_in_dtype.has_value()) {
+    input = input_in_dtype.value().get();
+  }
 
   if (p.toFloat() == 2.0) {
     if (n_dims <= 1 || self.sizes()[0] == 1) {
       auto mul = BuildOp(
           graph,
           MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
-          {input_tensor, input_tensor},
+          {input, input},
           {{outshape, dtype}});
 
       std::vector<synTensor> reduction_inputs = {mul[0].get()};
@@ -121,7 +122,7 @@ void NormHabanaOperator::AddNode(
       auto norm = BuildOp(
           graph,
           "frobenius_norm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-          {input_tensor},
+          {input},
           {{1, dtype, 0}});
 
       syn_out(0) = std::move(norm[0]);
@@ -132,8 +133,8 @@ void NormHabanaOperator::AddNode(
     std::vector<synapse_helpers::tensor> reshape;
     if (n_dims > 1) {
       reshape.emplace_back(
-          ReshapeHelper(graph, input_tensor, reshape_outshape, dtype));
-      input_tensor = reshape[0].get();
+          ReshapeHelper(graph, input, reshape_outshape, dtype));
+      input = reshape[0].get();
     }
 
     ns_LpNormKernel::Params lpnorm_params{};
@@ -143,7 +144,7 @@ void NormHabanaOperator::AddNode(
     auto norm = BuildOp(
         graph,
         "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-        {input_tensor},
+        {input},
         {{reshape_outshape, dtype}, {reshape_outshape, dtype}},
         &lpnorm_params,
         sizeof(lpnorm_params));
