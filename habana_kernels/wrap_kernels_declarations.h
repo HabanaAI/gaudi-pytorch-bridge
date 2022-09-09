@@ -648,11 +648,6 @@ struct hpu_wrap {
       const at::TensorList tensors,
       int64_t dim_,
       at::Tensor& result);
-  static at::Tensor transpose(
-      const at::Tensor& self,
-      int64_t dim0_,
-      int64_t dim1_);
-  static at::Tensor t(const at::Tensor& self);
   static ::std::vector<at::Tensor> split_with_sizes(
       const at::Tensor& self,
       at::IntArrayRef split_sizes,

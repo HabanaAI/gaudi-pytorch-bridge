@@ -3580,36 +3580,6 @@ Tensor& hpu_wrap::cat_out(
     return cat_hpu_out(result, tensors, dim_);
   }
 };
-Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "transpose :",
-      " self=",
-      to_string(self),
-      " dim0=",
-      to_string(dim0_),
-      " dim1=",
-      to_string(dim1_));
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return transpose_hpu_lazy(self, dim0_, dim1_);
-
-  } else {
-    return transpose_hpu(self, dim0_, dim1_);
-  }
-};
-
-Tensor hpu_wrap::t(const Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO("t :", " self=", to_string(self));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return t_hpu_lazy(self);
-
-  } else {
-    return t_hpu(self);
-  }
-};
-
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     IntArrayRef split_sizes,

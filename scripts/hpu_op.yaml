@@ -4162,6 +4162,10 @@ sum.IntList_out:
   guid: reduce_sum_fwd
   op_template: reduction
 
+t:
+  force_default: false
+  override_fn: t_hpu_lazy
+
 take:
   dtypes:
     self: [BFloat16, Float]
@@ -4270,6 +4274,10 @@ trace:
   op_frontend: LazyTrace
   op_backend: Trace
   out_ids: [0]
+
+transpose.int:
+  force_default: false
+  override_fn: transpose_hpu_lazy
 
 tril:
   force_default: false
