@@ -2529,27 +2529,39 @@ logspace.out:
   custom_output_shape: LogspaceOutputShape
 
 lt.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   scalar_ids: [1]
   type_promotion: true
 
 lt.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   type_promotion: true
 
 lt_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   inplace_ids: [0]
   type_promotion: true
 
 lt_.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   scalar_ids: [1]
   inplace_ids: [0]
@@ -2557,7 +2569,10 @@ lt_.Scalar:
 
 lt.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   op_frontend: LazyCmp
   scalar_ids: [1]
@@ -2568,7 +2583,10 @@ lt.Scalar:
 lt.Tensor:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   op_frontend: LazyCmp
   out_ids: [0]
@@ -2783,7 +2801,10 @@ mse_loss_backward.grad_input:
 
 mul.Tensor:
   force_default: false
-  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Greco: [BFloat16, Float, Half, Char]
   broadcast: true
   guid: mult_fwd
   out_ids: [0]
@@ -2791,7 +2812,10 @@ mul.Tensor:
   safe_cast_check: true
 
 mul.Scalar:
-  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
   broadcast: true
@@ -2803,7 +2827,10 @@ mul.Scalar:
 mul.Scalar_out:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Greco: [BFloat16, Float, Half, Char]
   guid: mult_fwd
   type_promotion: true
   scalar_ids: [1]
@@ -2811,7 +2838,10 @@ mul.Scalar_out:
 
 mul_.Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
   inplace_ids: [0]
@@ -2820,7 +2850,10 @@ mul_.Tensor:
 
 mul_.Scalar:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Byte, Char, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
   inplace_ids: [0]
@@ -3115,7 +3148,10 @@ nonzero:
 
 normal_:
   custom_fill_params: FillNormalParams
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float]
   guid: random_normal_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
@@ -3622,7 +3658,10 @@ rsub.Tensor:
 rsub.Scalar:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: RSubScalarOperator
   out_ids: [0]
@@ -3967,7 +4006,10 @@ std_mean.correction:
 sub.Tensor:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   out_ids: [0]
@@ -3978,7 +4020,10 @@ sub.Tensor:
 sub.Scalar:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
@@ -3989,7 +4034,10 @@ sub.Scalar:
 sub_.Tensor:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   inplace_ids: [0]
   op_backend: BinaryWithAlpha
@@ -4000,7 +4048,10 @@ sub_.Tensor:
 sub_.Scalar:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
@@ -4010,7 +4061,10 @@ sub_.Scalar:
 
 sub.Scalar_out:
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
@@ -4019,7 +4073,10 @@ sub.Scalar_out:
 
 sub.out:
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   type_promotion: true
@@ -4122,7 +4179,9 @@ threshold.out:
 
 threshold_backward:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
   out_ids: [1]
