@@ -239,7 +239,8 @@ ENV_STRUCT_DEFINITION(
     PT_HCCL_SLICE_SIZE_MB,
     unsigned,
     DEFAULT_HCCL_SLICE_SIZE_MB);
-ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_SIZE_MB, unsigned, 1024);
+// 10MB per worker to save recipes to the disk
+ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_SIZE_MB, unsigned, 10 * 1024);
 ENV_STRUCT_DEFINITION(PT_HABANA_MAX_RECIPE_HIT_COUNT, unsigned, 0);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNC_OUTPUT_HOST, bool, true);
 // enable PT_STORE_SYNC if cs-timeouts are seen to perform host synchronization
