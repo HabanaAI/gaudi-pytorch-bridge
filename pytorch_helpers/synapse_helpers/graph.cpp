@@ -191,7 +191,18 @@ synapse_error_o graph::add_node(
     return {};
   }
   SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
-  const auto& node_type{get_value(node_type_or_err)};
+  std::string node_type{get_value(node_type_or_err)};
+
+  // Remove "fwd" suffix for greco guids
+  // NOTE: if gaudi and gaudi2 also have non "fwd" guids aliases for all the
+  // fwd guids, this string manipulation can be avoided.
+  if (device_.type() == synDeviceType::synDeviceGreco) {
+    size_t pos = node_type.find("_fwd");
+    if (pos != std::string::npos) {
+      node_type.erase(pos, 4);
+    }
+  }
+
   for (auto& tensor : outputs) {
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
       PT_LAZY_DEBUG(
