@@ -21,6 +21,46 @@
 
 namespace habana {
 
+static bool DivCommonCheck(
+    const at::Tensor& self,
+    const c10::IValue& other,
+    c10::optional<c10::string_view> rounding_mode) {
+  auto promote_int_to_float = rounding_mode == StrModeTrue;
+  auto result_type =
+      habana_helpers::DTypeHelper::
+          binary_op_with_optional_int_to_float_promotion(
+              {self, other}, !promote_int_to_float, c10::nullopt, false)
+              .get_common_dtype();
+  switch (result_type) {
+    case torch::kBFloat16:
+    case torch::kFloat32:
+    case torch::kFloat64:
+      return true;
+    case torch::kHalf: {
+      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
+    }
+    default:
+      return false;
+  }
+}
+
+FALLBACK_CHECK(
+    DivTensorFallbackCheck,
+    const at::Tensor& self,
+    const at::Tensor& other,
+    c10::optional<c10::string_view> rounding_mode) {
+  return DivCommonCheck(self, other, rounding_mode);
+}
+
+FALLBACK_CHECK(
+    DivScalarFallbackCheck,
+    const at::Tensor& self,
+    const at::Scalar& other,
+    c10::optional<c10::string_view> rounding_mode) {
+  return DivCommonCheck(self, other, rounding_mode);
+}
+
 template <>
 LazyDiv<at::Tensor>::LazyDiv(
     const std::string& qualstring,
