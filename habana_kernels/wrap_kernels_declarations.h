@@ -469,22 +469,6 @@ struct hpu_wrap {
       const at::Tensor& saved_g,
       const at::Tensor& saved_norms,
       int64_t dim);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor> native_layer_norm(
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape,
-      const c10::optional<at::Tensor>& weight,
-      const c10::optional<at::Tensor>& bias,
-      double eps);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
-  native_layer_norm_backward(
-      const at::Tensor& grad_out,
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape,
-      const at::Tensor& mean,
-      const at::Tensor& rstd,
-      const c10::optional<at::Tensor>& weight,
-      const c10::optional<at::Tensor>& bias,
-      ::std::array<bool, 3> output_mask);
   static at::Tensor norm(const at::Tensor& self, const at::Scalar& p = 2);
   static at::Tensor norm(
       const at::Tensor& self,

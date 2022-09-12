@@ -597,18 +597,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "native_layer_norm_backward",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "norm",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
@@ -1364,12 +1352,6 @@ static const std::
             },
             {
                 "binary_cross_entropy",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "native_layer_norm",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},

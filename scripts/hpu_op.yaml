@@ -3006,6 +3006,20 @@ native_batch_norm_backward:
     Gaudi2: [BFloat16, Float, Half]
   override_fn: batch_norm_bwd_hpu_lazy
 
+native_layer_norm:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: layer_norm_hpu_lazy
+
+native_layer_norm_backward:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+  override_fn: layer_norm_backward_hpu_lazy
+
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Byte, Char]
