@@ -304,7 +304,6 @@ struct hpu_wrap {
       c10::optional<int64_t> start,
       c10::optional<int64_t> end,
       int64_t step);
-  static at::Tensor select(const at::Tensor& self, int64_t dim, int64_t index);
   static at::Tensor select_backward(
       const at::Tensor& grad,
       at::IntArrayRef input_sizes,
@@ -617,20 +616,12 @@ struct hpu_wrap {
       bool keepdim,
       c10::optional<at::ScalarType> dtype,
       at::Tensor& output);
-  static at::Tensor mean(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor& mean_out(
       const at::Tensor& self,
       at::IntArrayRef dim,
       bool keepdim,
       c10::optional<at::ScalarType> dtype,
       at::Tensor& output);
-  static at::Tensor mean(
-      const at::Tensor& self,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor prod(
       const at::Tensor& self,
       c10::optional<at::ScalarType> dtype);

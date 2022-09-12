@@ -2716,8 +2716,27 @@ max_pool3d_with_indices_backward:
 #   - [WHDCN, WHDCN]
 #   - [WHDCN]
 
+mean:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
+  override_fn: mean_hpu_lazy
+
+mean.dim:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
+  override_fn: mean_dim_hpu_lazy
+
 mean.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_mean_fwd
   op_template: reduction
 
@@ -3744,6 +3763,14 @@ scatter.value_out:
     index: [Int]
     out: [BFloat16, Float, Int, Short, Byte, Char]
   op_backend: ScatterOperator
+
+select.int:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  override_fn: select_hpu_lazy
 
 sgn.out:
   dtypes: [BFloat16, Float]

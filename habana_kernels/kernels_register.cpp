@@ -1542,26 +1542,6 @@ Tensor gather2d_hpu_wrap(
     return gather2d_hpu(input, indices, validCount);
   }
 };
-Tensor hpu_wrap::select(const Tensor& self, int64_t dim, int64_t index) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "select :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " index=",
-      to_string(index));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      select, PARAMS1(self), PARAMS2(self, dim, index), int)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return select_hpu_lazy(self, dim, index);
-
-  } else {
-    return select_hpu(self, dim, index);
-  }
-};
 Tensor hpu_wrap::select_backward(
     const at::Tensor& grad,
     at::IntArrayRef input_sizes,
@@ -3221,44 +3201,6 @@ at::Tensor hpu_wrap::repeat_interleave(
   return repeat_inlv_hpu_lazy(repeats, output_size);
 }
 
-Tensor hpu_wrap::mean(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "mean:",
-      "self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      "keepdim=",
-      to_string(keepdim),
-      " dtype=",
-      to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      mean, PARAMS1(self), PARAMS2(self, dim, keepdim, dtype), dim)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mean_dim_hpu_lazy(self, dim, keepdim, dtype);
-
-  } else {
-    return mean_dim_hpu(self, dim, keepdim, dtype);
-  }
-};
-Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO("mean :", " self=", to_string(self), " dtype=", to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP(mean, PARAMS1(self), PARAMS2(self, dtype))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mean_hpu_lazy(self, dtype);
-
-  } else {
-    return mean_hpu(self, dtype);
-  }
-};
 Tensor hpu_wrap::prod(
     const Tensor& self,
     int64_t dim,

@@ -475,18 +475,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "select",
-                {{at::ScalarType::Bool,
-                  at::ScalarType::Double,
-                  at::ScalarType::Long,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Short,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Int}},
-            },
-            {
                 "select_backward",
                 {{at::ScalarType::Bool,
                   at::ScalarType::Double,
@@ -1436,12 +1424,6 @@ static const std::
             },
             {
                 "bernoulli_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "mean",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
