@@ -61,22 +61,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool descending);
-  static at::Tensor add(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      const at::Scalar& alpha);
-  static at::Tensor add(
-      const at::Tensor& self,
-      const at::Scalar& other,
-      const at::Scalar& alpha);
-  static at::Tensor& add_(
-      at::Tensor& self,
-      const at::Scalar& other,
-      const at::Scalar& alpha);
-  static at::Tensor& add_(
-      at::Tensor& self,
-      const at::Tensor& other,
-      const at::Scalar& alpha);
   static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
   static at::Tensor constant_pad_nd(
       const at::Tensor& self,

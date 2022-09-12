@@ -249,91 +249,6 @@ Tensor& hpu_wrap::set_(
   return set_hpu_lazy_(self, source, storage_offset, size, stride);
 }
 
-Tensor hpu_wrap::add(
-    const Tensor& self,
-    const Tensor& other,
-    const Scalar& alpha) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "add :",
-      " self=",
-      to_string(self),
-      " other=",
-      to_string(other),
-      " alpha=",
-      to_string(alpha));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      add, PARAMS1(self, other), PARAMS2(self, other, alpha), Tensor)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return add_tensor_hpu_lazy(self, other, alpha);
-  } else {
-    return add_tensor_hpu(self, other, alpha);
-  }
-};
-Tensor hpu_wrap::add(
-    const Tensor& self,
-    const Scalar& other,
-    const Scalar& alpha) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "add :",
-      " self=",
-      to_string(self),
-      " other=",
-      to_string(other),
-      " alpha=",
-      to_string(alpha));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      add, PARAMS1(self), PARAMS2(self, other, alpha), Scalar)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return add_scalar_hpu_lazy(self, other, alpha);
-
-  } else {
-    return add_scalar_hpu(self, other, alpha);
-  }
-};
-Tensor& hpu_wrap::add_(Tensor& self, const Scalar& other, const Scalar& alpha) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "add_ :",
-      " self=",
-      to_string(self),
-      " other=",
-      to_string(other),
-      " alpha=",
-      to_string(alpha));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      add_, PARAMS1(self), PARAMS2(self, other, alpha), Scalar)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return add_scalar_hpu_lazy_(self, other, alpha);
-
-  } else {
-    return add_scalar_hpu_(self, other, alpha);
-  }
-};
-Tensor& hpu_wrap::add_(Tensor& self, const Tensor& other, const Scalar& alpha) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "add_ :",
-      " self=",
-      to_string(self),
-      " other=",
-      to_string(other),
-      " alpha=",
-      to_string(alpha));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      add_, PARAMS1(self, other), PARAMS2(self, other, alpha), Tensor)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return add_tensor_hpu_lazy_(self, other, alpha);
-  } else {
-    return add_tensor_hpu_(self, other, alpha);
-  }
-};
-
 Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
   PT_OP_TRACE;
   PT_OP_INFO(
@@ -762,7 +677,7 @@ Tensor hpu_wrap::baddbmm(
       to_string(alpha));
   Tensor out = torch::mul(torch::bmm(mat1, mat2), alpha);
   if (beta.toFloat() != 0) {
-    hpu_wrap::add_(out, self, beta);
+    out.add_(self, beta);
   }
   return out;
 }
@@ -796,7 +711,7 @@ Tensor& hpu_wrap::baddbmm_out(
     Tensor r_bmul = torch::mul(self, beta);
     torch::bmm_outf(mat1, mat2, out);
     out.mul_(alpha);
-    hpu_wrap::add_(out, r_bmul, 1);
+    out.add_(r_bmul, 1);
   }
   return out;
 }
@@ -826,7 +741,7 @@ Tensor& hpu_wrap::baddbmm_(
   } else {
     Tensor r_bmm = torch::bmm(mat1, mat2);
     self.mul_(beta);
-    hpu_wrap::add_(self, r_bmm, alpha);
+    self.add_(r_bmm, alpha);
   }
   return self;
 }

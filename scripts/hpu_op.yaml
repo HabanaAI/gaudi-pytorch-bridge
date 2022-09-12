@@ -528,11 +528,48 @@ acosh_:
   guid: acosh_fwd
   inplace_ids: [0]
 
+add.Tensor:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
+  override_fn: add_tensor_hpu_lazy
+  type_promotion: true
+
+add.Scalar:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
+  override_fn: add_scalar_hpu_lazy
+  type_promotion: true
+
+add_.Scalar:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
+  override_fn: add_scalar_hpu_lazy_
+  type_promotion: true
+
+add_.Tensor:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
+  override_fn: add_tensor_hpu_lazy_
+  type_promotion: true
+
 add.out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
   guid: add_fwd
   op_backend: BinaryWithAlpha
   type_promotion: true
@@ -540,7 +577,10 @@ add.out:
 
 add.Scalar_out:
   broadcast: true
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half, Char]
   guid: add_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
