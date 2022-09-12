@@ -77,7 +77,19 @@ class graph(object):
         self.stream_ctx.__exit__(exc_type, exc_value, traceback)
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
-def make_graphed_callables(callables, sample_args):
+def make_graphed_callables(callables, sample_args, warmups=0):
+
+    '''
+    callables (torch.nn.Module or Python function, or tuple of these) – Callable or callables to graph.
+        If you pass a tuple of callables, their order in the tuple must be the same order they’ll run in the live workload.
+
+    sample_args (tuple of Tensors, or tuple of tuples of Tensors) – Samples args for each callable.
+        If a single callable was passed, sample_args must be a single tuple of argument Tensors.
+        If a tuple of callables was passed, sample_args must be tuple of tuples of argument Tensors.
+
+    warmups (Int) -  number warmups run needed.
+    '''
+
     just_one_callable = False
 
     if not isinstance(callables, tuple):
@@ -105,21 +117,22 @@ def make_graphed_callables(callables, sample_args):
 
     fwd_graphs = [htorch.hpu.HPUGraph() for _ in range(len(callables))]
     bwd_graphs = [htorch.hpu.HPUGraph() for _ in range(len(callables))]
-    # No Need for memPool
-    htorch.hpu.synchronize()
-    with htorch.hpu.stream(htorch.hpu.Stream()):
-        for func, args, static_input_surface in zip(callables,
-                                                    sample_args,
-                                                    per_callable_static_input_surfaces):
-            for _ in range(3):
-                outputs = func(*args)
-                outputs = (outputs,) if isinstance(outputs, torch.Tensor) else outputs
-                grad_inputs = torch.autograd.grad(outputs=outputs,
-                                                  inputs=tuple(i for i in static_input_surface if i.requires_grad),
-                                                  grad_outputs=tuple(torch.empty_like(o) for o in outputs),
-                                                  only_inputs=True,
-                                                  allow_unused=False)
-            del outputs, grad_inputs
+
+    if warmups > 0:
+        htorch.hpu.synchronize()
+        with htorch.hpu.stream(htorch.hpu.Stream()):
+            for func, args, static_input_surface in zip(callables,
+                                                        sample_args,
+                                                        per_callable_static_input_surfaces):
+                for _ in range(warmups):
+                    outputs = func(*args)
+                    outputs = (outputs,) if isinstance(outputs, torch.Tensor) else outputs
+                    grad_inputs = torch.autograd.grad(outputs=outputs,
+                                                    inputs=tuple(i for i in static_input_surface if i.requires_grad),
+                                                    grad_outputs=tuple(torch.empty_like(o) for o in outputs),
+                                                    only_inputs=True,
+                                                    allow_unused=False)
+                del outputs, grad_inputs
 
     htorch.hpu.synchronize()
     # Capture forward graphs
@@ -181,8 +194,10 @@ def make_graphed_callables(callables, sample_args):
             @staticmethod
             def forward(ctx, *inputs):
                 for i in range(len_user_args):
-                    if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
-                        static_input_surface[i].copy_(inputs[i])
+                    # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
+                    #     static_input_surface[i].copy_(inputs[i])
+                    static_input_surface[i].copy_(inputs[i])
+                htorch.hpu.synchronize()
                 fwd_graph.replay()
                 assert isinstance(static_outputs, tuple)
                 return tuple(o.detach() for o in static_outputs)
@@ -194,8 +209,10 @@ def make_graphed_callables(callables, sample_args):
                     if g is None:
                         assert grad is None
                     else:
-                        if g.data_ptr() != grad.data_ptr():
-                            g.copy_(grad)
+                        # if g.data_ptr() != grad.data_ptr():
+                        #     g.copy_(grad)
+                        g.copy_(grad)
+                htorch.hpu.synchronize()
                 bwd_graph.replay()
 
                 # Input args that didn't require grad expect a None gradient.
