@@ -1515,18 +1515,25 @@ RecipeCacheLRU::RecipeCacheLRU() {
 }
 
 void RecipeCacheLRU::InitDiskCache() {
+  // disk caching is not enabled with dynamic shapes
+  const bool is_ds_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
   const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (!IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH))
+  if (((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) ||
+      (is_ds_enabled))
     return;
-
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
+  // disk caching is not enabled with dynamic shapes
+  const bool is_ds_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // Reset disk_cache_ if PT_RECIPE_CACHE_PATH is defined
   const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (!IS_ENV_FLAG_DEFINED_NEW(PT_RECIPE_CACHE_PATH))
+  if (((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) ||
+      (is_ds_enabled))
     return;
 
   if (disk_cache_) {

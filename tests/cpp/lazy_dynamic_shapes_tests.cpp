@@ -2054,6 +2054,7 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   std::vector<int> in_sizes{6, 8, 10, 20, 50};
   int rounds{2};
 
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
   uint32_t initial_host_mem_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(100);
@@ -2092,7 +2093,9 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   habana::RecipeCacheLRU::SetHostMemoryThreshold(initial_host_mem_threshold);
 
   auto current_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
-  HABANA_ASSERT(current_recipe_count < actual_recipe_count);
+  HABANA_ASSERT(
+      (current_recipe_count < actual_recipe_count) ||
+      (recipe_cache_path != nullptr));
 }
 
 TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
