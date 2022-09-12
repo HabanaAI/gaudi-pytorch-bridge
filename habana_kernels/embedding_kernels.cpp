@@ -140,15 +140,22 @@ void PadOperator::AllocateAndAddSynapseNode(
 
   if (have_shape_tensor) {
     param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    param.value.f = inputs[3].toScalar().to<float>();
+    if (self.scalar_type() == c10::ScalarType::Int) {
+      param.value.i = inputs[3].toScalar().to<int>();
+    } else {
+      param.value.f = inputs[3].toScalar().to<float>();
+    }
     TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_input_shape_tensor());
   } else {
-    auto value = inputs[2].toScalar();
     auto ndim = self.dim();
     auto lpad = pad.size() / 2;
 
     param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    param.value.f = value.to<float>();
+    if (self.scalar_type() == c10::ScalarType::Int) {
+      param.value.i = inputs[2].toScalar().to<int>();
+    } else {
+      param.value.f = inputs[2].toScalar().to<float>();
+    }
     memset(param.pads, 0, sizeof(param.pads));
     for (unsigned int i = 0; i < lpad; i++) {
       param.pads[i] = pad[2 * i];
@@ -238,7 +245,11 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
 
   ns_PadKernelEx::Params param;
   param.mode = PadMode_t::PAD_MODE_CONSTANT;
-  param.value.f = inputs[3].toScalar().to<float>();
+  if (self.scalar_type() == c10::ScalarType::Int) {
+    param.value.i = inputs[3].toScalar().to<int>();
+  } else {
+    param.value.f = inputs[3].toScalar().to<float>();
+  }
   // pads value shall be picked from H2D tensor, set this to 0's to be safe
   memset(param.pads, 0, sizeof(param.pads));
   auto output = at::empty(shape, self.options());
