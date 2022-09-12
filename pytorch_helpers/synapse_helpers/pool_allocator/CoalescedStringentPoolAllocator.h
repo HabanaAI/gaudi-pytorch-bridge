@@ -71,9 +71,25 @@ class BinUtils {
       const Bin::FreeChunkSet::iterator& citer) const;
 };
 
+class RetryHandler {
+ public:
+  RetryHandler();
+
+  void* pool_alloc_chunk(
+      std::function<void*(size_t num_bytes)> alloc_func,
+      int max_millis_to_wait,
+      size_t bytes);
+  /* Called to notify clients that some memory was returned. */
+  void NotifyDealloc();
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable memory_returned_;
+};
+
 class CoalescedStringentPooling : public PoolingStrategy {
  public:
-  CoalescedStringentPooling(uint64_t max_count, bool enable_merge);
+  CoalescedStringentPooling();
   ~CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
@@ -111,13 +127,11 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable uint64_t bytes_in_use;
   mutable simple_coalesced_pool_t* prealloc_pool;
   mutable BinUtils* bin_utils;
-  mutable bool enable_lfu_merging;
-  mutable std::deque<Chunk*> chunks_to_merge;
-  uint64_t max_merge_count;
   mutable bool high_memory_allocated_ = false;
   mutable MemoryStats stats;
   mutable uint32_t mem_threshold;
   mutable bool enable_threshold_check = true;
+  mutable RetryHandler retry_handler;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;
@@ -125,7 +139,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   Chunk* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
   void try_splitting_chunks(Chunk* chunk, uint64_t size) const;
-  Chunk* try_to_merge(Chunk* c, bool freed_count) const;
+  Chunk* try_to_merge(Chunk* c) const;
   bool defragment_chunks(uint64_t size) const;
   void merge(Chunk* c1, Chunk* c2) const;
   Chunk* create_chunk() const;
@@ -172,6 +186,5 @@ class CoalescedStringentPooling : public PoolingStrategy {
 
   mutable std::unique_ptr<SmallAllocs> small_allocs_;
 };
-
 } // namespace pool_allocator
 } // namespace synapse_helpers

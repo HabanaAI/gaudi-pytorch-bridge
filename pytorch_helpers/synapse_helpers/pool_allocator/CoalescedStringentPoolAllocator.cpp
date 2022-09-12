@@ -90,9 +90,7 @@ void BinUtils::RemoveFreeChunkIterFromBin(
   c->bin_index = kInvalidBinNum;
 }
 
-CoalescedStringentPooling::CoalescedStringentPooling(
-    uint64_t max_count,
-    bool enable_merge) {
+CoalescedStringentPooling::CoalescedStringentPooling() {
   pool_id = 0;
   chunk_count = 0;
   allocted_chunk_size = 0;
@@ -103,13 +101,8 @@ CoalescedStringentPooling::CoalescedStringentPooling(
   prealloc_pool = nullptr;
   bin_utils = new BinUtils();
   small_allocs_ = nullptr;
-  max_merge_count = max_count;
-  enable_lfu_merging = enable_merge;
   auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC);
-  if (val > 100)
-    mem_threshold = 100;
-  else
-    mem_threshold = val;
+  mem_threshold = (val > 100) ? 100 : val;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -298,7 +291,6 @@ void CoalescedStringentPooling::pool_destroy() const {
       delete (m.second);
     }
     chunks.clear();
-    chunks_to_merge.clear();
     delete (s_pool);
     s_pool = nullptr;
     PT_DEVMEM_DEBUG("CS_POOL:: static coalesced pool destroyed");
@@ -540,33 +532,9 @@ uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   return ctgs_chunks_size;
 }
 
-Chunk* CoalescedStringentPooling::try_defragmenting(uint64_t size) const {
-  if (!chunks_to_merge.empty()) {
-    if (!defragment_chunks(size)) {
-      PT_DEVMEM_DEBUG("no chunks found for requested size after merge");
-      return nullptr;
-    }
-  }
-  auto free_chunk = get_free_chunk(size);
-  if (free_chunk == nullptr) {
-    PT_DEVMEM_DEBUG(
-        "CS_POOL:: no more reusable chunk after defragment: extend pool !!");
-    return nullptr;
-  }
-  PT_DEVMEM_DEBUG(
-      "CS_POOL:: reusing chunk after defragment:: ",
-      free_chunk->memptr,
-      " req size :: ",
-      size,
-      " chunk size :: ",
-      free_chunk->size);
-  bin_utils->RemoveFreeChunkFromBin(free_chunk);
-  free_chunk->used = true;
-  return free_chunk;
-}
-
 Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
-  auto free_chunk = get_free_chunk(size);
+  int bin_index = bin_utils->BinIndexForSize(size);
+  Chunk* free_chunk = (Chunk*)FindChunkPtr(bin_index, size);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no more reusable chunk: defragment or extend !!");
@@ -582,25 +550,6 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
   bin_utils->RemoveFreeChunkFromBin(free_chunk);
   free_chunk->used = true;
   return free_chunk;
-}
-
-Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
-  Chunk* chunk = nullptr;
-  chunk = get_any_available_free_chunk(size);
-  if (chunk) {
-    PT_DEVMEM_DEBUG(
-        "Get any available free chunk:: ", chunk, " of Size:: ", chunk->size);
-    if (chunk->size > size) {
-      bin_utils->RemoveFreeChunkFromBin(chunk);
-      try_splitting_chunks(chunk, size);
-      bin_utils->InsertFreeChunkIntoBin(chunk);
-    }
-    PT_DEVMEM_DEBUG("After split chunk:: ", chunk, " of Size:: ", chunk->size);
-    bin_utils->RemoveFreeChunkFromBin(chunk);
-    chunk->used = true;
-    return chunk;
-  }
-  return nullptr;
 }
 
 static bool check_mem_threshold_hit(
@@ -662,18 +611,11 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
       check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
     return nullptr;
   }
-  // merge lfu chunks if any
-  if (!chunks_to_merge.empty()) {
-    // Merge timestamped chunks whose counts have become safe for general use.
-    defragment_chunks(0);
-    tail_chunk = prealloc_pool->top;
-  }
-
   // if high memory is already allocated, extend the remaining memory for the
   // requested size
   if (high_memory_allocated_) {
     tail_chunk->used = false;
-    bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk, false));
+    bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk));
     tail_chunk = prealloc_pool->top;
   }
 
@@ -719,8 +661,20 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
 void* CoalescedStringentPooling::pool_alloc_chunk(
     uint64_t size,
     UNUSED bool is_workspace) const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  return alloc_chunk(size);
+  std::unique_lock<std::mutex> lock(sp_mutex);
+  void* ptr = alloc_chunk(size);
+  if (ptr != nullptr) {
+    return ptr;
+  } else {
+    lock.unlock();
+    static const int64_t kMaxMillisToWait =
+        GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_RETRY_WAIT_MS);
+    ptr = retry_handler.pool_alloc_chunk(
+        [this](size_t size) { return alloc_chunk(size); },
+        kMaxMillisToWait,
+        size);
+    return ptr;
+  }
 }
 
 void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
@@ -748,11 +702,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
-  }
-
-  if (!chunks_to_merge.empty()) {
-    // Merge chunks whose counts have become safe for general use.
-    defragment_chunks(0);
   }
 
   PT_DEVMEM_DEBUG(
@@ -787,27 +736,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     return (void*)old_chunk->memptr;
   }
 
-  if (!chunks_to_merge.empty()) {
-    // Merge chunks whose counts have become safe for general use.
-    defragment_chunks(0);
-  }
-
-  auto defrag_chunk = try_defragmenting(size);
-  if (defrag_chunk) {
-    ++chunk_count;
-    chunks[defrag_chunk->memptr] = defrag_chunk;
-    bytes_in_use += defrag_chunk->size;
-    stats.UpdateStats(defrag_chunk->size, true);
-    return (void*)defrag_chunk->memptr;
-  }
-  auto split_chunk = try_block_splitting(size);
-  if (split_chunk) {
-    ++chunk_count;
-    chunks[split_chunk->memptr] = split_chunk;
-    bytes_in_use += split_chunk->size;
-    stats.UpdateStats(split_chunk->size, true);
-    return (void*)split_chunk->memptr;
-  }
   PT_DEVMEM_DEBUG("CS_POOL:: pool exhausted !! for size :: ", size);
   return nullptr;
 }
@@ -978,110 +906,37 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       c1->size);
 }
 
-Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c, bool ignore_freed)
-    const {
-  if ((!ignore_freed) && c->freed_counter > 0)
-    return c;
+Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c) const {
   Chunk* coalesced_chunk = c;
 
   // If the next chunk is free, merge it into c and delete it.
   if (c->next != nullptr && !(c->next)->used) {
     Chunk* new_chunk = c->next;
-    if ((new_chunk->freed_counter == 0) || ignore_freed) {
-      bin_utils->RemoveFreeChunkFromBin(c->next);
-      merge(c, c->next);
-    }
+    PT_DEVMEM_DEBUG(
+        "Merging c->next ", new_chunk->memptr, " with c ", c->memptr);
+    bin_utils->RemoveFreeChunkFromBin(c->next);
+    merge(c, c->next);
   }
 
   // If the previous chunk is free, merge c into it and delete c.
   if (c->prev != nullptr && !(c->prev)->used) {
     Chunk* new_chunk = c->prev;
-    if ((new_chunk->freed_counter == 0) || ignore_freed) {
-      coalesced_chunk = c->prev;
-      bin_utils->RemoveFreeChunkFromBin(c->prev);
-      merge(c->prev, c);
-    }
+    PT_DEVMEM_DEBUG(
+        "Merging c ", c->memptr, " into c->prev ", new_chunk->memptr);
+    coalesced_chunk = c->prev;
+    bin_utils->RemoveFreeChunkFromBin(c->prev);
+    merge(c->prev, c);
   }
 
   return coalesced_chunk;
 }
 
-bool CoalescedStringentPooling::defragment_chunks(uint64_t size) const {
-  bool isFreeBlockAvailble = (size == 0);
-  std::list<uint64_t> to_merge;
-  std::deque<Chunk*> new_chunks_to_merge;
-
-  while (!chunks_to_merge.empty()) {
-    Chunk* c = chunks_to_merge.front();
-    chunks_to_merge.pop_front();
-    // Make sure chunk has not already been merged
-    if (c->used || (c->bin_index == kInvalidBinNum)) {
-      continue;
-    }
-    if (c->freed_counter == 0) {
-      to_merge.push_back(c->memptr);
-      continue;
-    }
-
-    HABANA_ASSERT(c->bin_index != kInvalidBinNum);
-    if (c->freed_counter < max_merge_count) {
-      c->freed_counter = 0;
-      to_merge.push_back(c->memptr);
-    } else if (size > 0) {
-      to_merge.push_back(c->memptr);
-    } else {
-      new_chunks_to_merge.push_back(c);
-    }
-  }
-  HABANA_ASSERT(chunks_to_merge.empty());
-  std::swap(chunks_to_merge, new_chunks_to_merge);
-
-  // All candidate chunks have been moved from chunks_to_merge to to_merge.
-  // size == 0  : standard merge, merge them all,
-  // otherwise  : merge just until a Chunk of the required size is produced.
-  Chunk* mergedChunk = nullptr;
-  Chunk* c = nullptr;
-  for (auto& ptr : to_merge) {
-    auto it = chunks.find(ptr);
-    if (it != chunks.end()) {
-      c = it->second;
-    } else if (mergedChunk) {
-      // A case where chunk memptr (of c2) is part of merged chunk.
-      // c1->c2->c3 <=merge=> c1<->c3.
-      PT_DEVMEM_DEBUG(" A case where chunk memptr is a part of merged chunk ");
-      c = mergedChunk;
-    } else {
-      continue;
-    }
-
-    if (size == 0 || !isFreeBlockAvailble) {
-      HABANA_ASSERT(c->bin_index != kInvalidBinNum);
-      HABANA_ASSERT(!c->used);
-      bin_utils->RemoveFreeChunkFromBin(c);
-      Chunk* new_chunk = try_to_merge(c, (size > 0));
-      mergedChunk = new_chunk;
-      bin_utils->InsertFreeChunkIntoBin(new_chunk);
-      if (size > 0) {
-        if (new_chunk->memptr != c->memptr && new_chunk->freed_counter > 0) {
-          chunks_to_merge.push_back(new_chunk);
-        }
-        if (new_chunk->size >= size) {
-          isFreeBlockAvailble = true;
-        }
-      }
-    } else {
-      // We were force merging Chunks, but managed
-      // to create a satisfying Chunk so just requeue the rest.
-      chunks_to_merge.push_back(c);
-    }
-  }
-  return isFreeBlockAvailble;
-}
-
 void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
   PT_DEVMEM_DEBUG("CS_POOL:: pool_free_chunk");
+  std::unique_lock<std::mutex> lock(sp_mutex);
   delete_chunk(ptr);
+  lock.unlock();
+  retry_handler.NotifyDealloc();
 }
 
 void CoalescedStringentPooling::delete_chunk(void* ptr) const {
@@ -1099,6 +954,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
     return;
   }
 
+  PT_DEVMEM_DEBUG("CS_POOL:: ptr to delete::", (uint64_t)ptr);
   auto it = chunks.find((uint64_t)ptr);
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
@@ -1111,13 +967,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk of size::", chunk->size);
   PT_DEVMEM_DEBUG("CS_POOL:: delete_chunk UpdateStats incr total_frees");
 
-  if (enable_lfu_merging) {
-    chunk->freed_counter += 1;
-    bin_utils->InsertFreeChunkIntoBin(chunk);
-    chunks_to_merge.push_back(chunk);
-  } else {
-    bin_utils->InsertFreeChunkIntoBin(try_to_merge(chunk, false));
-  }
+  bin_utils->InsertFreeChunkIntoBin(try_to_merge(chunk));
   Chunk* tail_chunk = prealloc_pool->top;
   if (tail_chunk != nullptr && tail_chunk == chunk) {
     high_memory_allocated_ = false;
@@ -1393,5 +1243,47 @@ void CoalescedStringentPooling::reset_peak_mem_stats() const {
   stats.peak_bytes_in_use = 0;
 }
 
+RetryHandler::RetryHandler() {}
+void* RetryHandler::pool_alloc_chunk(
+    std::function<void*(size_t num_bytes)> alloc_func,
+    int max_millis_to_wait,
+    size_t num_bytes) {
+  if (num_bytes == 0) {
+    PT_DEVMEM_DEBUG("Request to allocate 0 bytes");
+    return nullptr;
+  }
+  void* ptr = nullptr;
+  uint64_t deadline_micros = 0;
+  bool first = true;
+  while (ptr == nullptr) {
+    ptr = alloc_func(num_bytes);
+    if (ptr == nullptr) {
+      std::chrono::time_point<std::chrono::system_clock> time_now =
+          std::chrono::system_clock::now();
+      auto duration = time_now.time_since_epoch();
+      uint64_t now =
+          std::chrono::duration_cast<std::chrono::microseconds>(duration)
+              .count();
+      if (first) {
+        deadline_micros = now + max_millis_to_wait * 1000;
+        first = false;
+      }
+      if (now < deadline_micros) {
+        std::unique_lock<std::mutex> cond_lock(mutex_);
+        memory_returned_.wait_for(
+            cond_lock,
+            std::chrono::milliseconds((deadline_micros - now) / 1000));
+      } else {
+        return alloc_func(num_bytes);
+      }
+    }
+  }
+  return ptr;
+}
+
+inline void RetryHandler::NotifyDealloc() {
+  std::unique_lock<std::mutex> cond_lock(mutex_);
+  memory_returned_.notify_all();
+}
 } // namespace pool_allocator
 } // namespace synapse_helpers
