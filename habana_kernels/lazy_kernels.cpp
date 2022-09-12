@@ -2567,11 +2567,14 @@ Tensor& index_add_hpu_lazy_(
 
 Tensor index_put_frontend_impl_hpu_lazy(
     const Tensor& self,
-    TensorList indices_in,
+    const c10::List<c10::optional<at::Tensor>>& indices_list,
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
-  std::vector<Tensor> indices_vec{indices_in.vec()};
+  std::vector<at::Tensor> indices_vec;
+  for (c10::optional<Tensor> input : indices_list) {
+    indices_vec.push_back(input.value());
+  }
   std::vector<Tensor> indices_vec_out{};
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
@@ -2796,11 +2799,15 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
 
 Tensor index_put_hpu_lazy(
     const Tensor& self,
-    TensorList indices_in,
+    const c10::List<c10::optional<at::Tensor>>& indices_list,
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
-  std::vector<Tensor> indices_vec{indices_in.vec()};
+  std::vector<at::Tensor> indices_vec;
+  for (c10::optional<Tensor> input : indices_list) {
+    indices_vec.push_back(input.value());
+  }
+  TensorList indices_in(indices_vec);
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
@@ -2823,7 +2830,7 @@ Tensor index_put_hpu_lazy(
       return result;
     }
   }
-  if (indices_in[0].scalar_type() == c10::ScalarType::Bool) {
+  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
     TensorList indices_in_list(indices_vec);
     indices_vec = HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
     at::TensorList indices = indices_vec;
@@ -2884,7 +2891,7 @@ Tensor index_put_hpu_lazy(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     return index_put_frontend_impl_hpu_lazy(
-        self, indices_in, value_in, accumulate);
+        self, indices_list, value_in, accumulate);
   }
 
   LazyOp<at::Tensor> index_put_op{
@@ -2906,7 +2913,7 @@ Tensor& index_put_hpu_lazy_(
   auto isIndicesBool = indices_in[0].scalar_type() == c10::ScalarType::Bool;
   auto self_clone = self;
   auto index_put_result =
-      index_put_hpu_lazy(self_clone, indices_in, value, accumulate);
+      index_put_hpu_lazy(self_clone, indices, value, accumulate);
 
   LazyOp<at::Tensor&> k{
       "hpu::habana_d2d_memcpy_other", {index_put_result, self}};
@@ -2939,7 +2946,9 @@ Tensor& index_fill_hpu_lazy_(
     auto value_tensor = empty_hpu_lazy(
         value_dim, self.options(), self.suggest_memory_format(), true);
     fill_hpu_lazy_(value_tensor, value);
-    return index_put_hpu_lazy_(self, {index}, value_tensor, false);
+    c10::List<c10::optional<at::Tensor>> indices;
+    indices.push_back(index);
+    return index_put_hpu_lazy_(self, indices, value_tensor, false);
   } else {
     std::vector<int64_t> permute_dims(self.dim());
     std::iota(permute_dims.begin(), permute_dims.end(), 0);
@@ -2954,8 +2963,10 @@ Tensor& index_fill_hpu_lazy_(
         value_dim, self.options(), self.suggest_memory_format(), true);
     fill_hpu_lazy_(value_tensor, value);
 
+    c10::List<c10::optional<at::Tensor>> indices;
+    indices.push_back(index);
     permuted_self =
-        index_put_hpu_lazy_(permuted_self, {index}, value_tensor, false);
+        index_put_hpu_lazy_(permuted_self, indices, value_tensor, false);
     permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
     LazyOp<at::Tensor&> k{
         "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
@@ -2970,7 +2981,9 @@ Tensor& index_copy_hpu_lazy_(
     const Tensor& value) {
   auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   if (dim_ == 0) {
-    return index_put_hpu_lazy_(self, {index}, value, false);
+    c10::List<c10::optional<at::Tensor>> indices;
+    indices.push_back(index);
+    return index_put_hpu_lazy_(self, indices, value, false);
   } else {
     std::vector<int64_t> permute_dims(self.dim());
     std::iota(permute_dims.begin(), permute_dims.end(), 0);
@@ -2979,8 +2992,10 @@ Tensor& index_copy_hpu_lazy_(
     permute_dims[self.dim() - 1] = temp;
     auto permuted_self = permute_hpu_lazy(self, permute_dims);
     auto permuted_value = permute_hpu_lazy(value, permute_dims);
+    c10::List<c10::optional<at::Tensor>> indices;
+    indices.push_back(index);
     permuted_self =
-        index_put_hpu_lazy_(permuted_self, {index}, permuted_value, false);
+        index_put_hpu_lazy_(permuted_self, indices, permuted_value, false);
     permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
     LazyOp<at::Tensor&> k{
         "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
@@ -3000,7 +3015,9 @@ Tensor& masked_scatter_hpu_lazy_(
       1,
       std::multiplies<size_t>());
   auto flattened_values = at::reshape(source, {flattened_size});
-  return index_put_hpu_lazy_(self, {broadcasted_mask}, flattened_values, false);
+  c10::List<c10::optional<at::Tensor>> indices;
+  indices.push_back(broadcasted_mask);
+  return index_put_hpu_lazy_(self, indices, flattened_values, false);
 }
 
 Tensor gather2d_hpu_lazy(

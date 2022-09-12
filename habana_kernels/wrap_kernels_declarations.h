@@ -222,25 +222,9 @@ struct hpu_wrap {
       const at::Tensor& source,
       const at::Scalar& alpha,
       at::Tensor& out);
-  inline static at::Tensor index_put(
-      const at::Tensor& self,
-      const c10::List<c10::optional<at::Tensor>>& indices,
-      const at::Tensor& value,
-      bool accumulate);
   static at::Tensor index(
       const at::Tensor& self,
       const c10::List<c10::optional<at::Tensor>>& indices);
-  static at::Tensor& _index_put_impl_(
-      at::Tensor& self,
-      const c10::List<c10::optional<at::Tensor>>& indices,
-      const at::Tensor& value,
-      const bool accumulate,
-      const bool unsafe);
-  inline static at::Tensor& index_put_(
-      at::Tensor& self,
-      const c10::List<c10::optional<at::Tensor>>& indices,
-      const at::Tensor& value,
-      bool accumulate);
   inline static at::Tensor index_select(
       const at::Tensor& self,
       int64_t dim,

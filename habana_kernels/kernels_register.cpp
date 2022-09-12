@@ -1012,83 +1012,6 @@ Tensor& hpu_wrap::index_add_out(
   }
 }
 
-Tensor hpu_wrap::index_put(
-    const Tensor& self,
-    const c10::List<c10::optional<Tensor>>& indices,
-    const Tensor& value,
-    bool accumulate) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "index_put :",
-      " self=",
-      to_string(self),
-      " indices=",
-      to_string(indices),
-      " value=",
-      to_string(value),
-      " accumulate=",
-      to_string(accumulate));
-  if (!hpu_check_inputs_impl(
-          "index_put", {self, indices[0].value_or(Tensor()), value}) ||
-      self.dim() < value.dim())
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        index_put, PARAMS2(self, indices, value, accumulate))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_put_hpu_lazy(self, indices, value, accumulate);
-
-  } else {
-    // TODO: Need a better way to handle this rather than converting everywhere
-    std::vector<at::Tensor> indices_list;
-    for (const c10::optional<Tensor>& input : indices) {
-      indices_list.push_back(input.value_or(Tensor()));
-    }
-    return index_put_hpu(self, at::TensorList(indices_list), value, accumulate);
-  }
-};
-
-Tensor& hpu_wrap::index_put_(
-    Tensor& self,
-    const c10::List<c10::optional<Tensor>>& indices,
-    const Tensor& value,
-    bool accumulate) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "index_put_ :",
-      " self=",
-      to_string(self),
-      " indices=",
-      to_string(indices),
-      " value=",
-      to_string(value),
-      " accumulate=",
-      to_string(accumulate));
-  if (!hpu_check_inputs_impl(
-          "index_put_", {self, indices[0].value_or(Tensor()), value}) ||
-      self.dim() < value.dim())
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        index_put_, PARAMS2(self, indices, value, accumulate))
-
-  std::vector<at::Tensor> indices_list;
-  for (const c10::optional<Tensor>& input : indices) {
-    if (input.has_value() && !input->defined()) {
-      auto self_cpu =
-          at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put)>::call(
-              self, indices, value, accumulate);
-      return self.copy_(self_cpu);
-    } else {
-      indices_list.push_back(input.value_or(Tensor()));
-    }
-    // indices_list.push_back(input.value_or(Tensor()));
-  }
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_put_hpu_lazy_(self, indices, value, accumulate);
-
-  } else {
-    return index_put_hpu_(self, indices_list, value, accumulate);
-  }
-};
-
 Tensor& hpu_wrap::masked_scatter_(
     Tensor& self,
     const Tensor& mask,
@@ -1138,48 +1061,6 @@ Tensor hpu_wrap::index(
     return index_hpu(self, indices_list);
   }
 };
-
-Tensor& hpu_wrap::_index_put_impl_(
-    Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
-    const Tensor& value,
-    const bool accumulate,
-    const bool unsafe) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "_index_put_impl_ :",
-      " self=",
-      to_string(self),
-      " indices=",
-      to_string(indices),
-      " value=",
-      to_string(value),
-      " accumulate=",
-      to_string(accumulate),
-      " unsafe=",
-      to_string(unsafe));
-  if (!hpu_check_inputs_impl(
-          "_index_put_impl_", {self, indices[0].value_or(Tensor())}) ||
-      self.dim() < value.dim())
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        _index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
-
-  std::vector<at::Tensor> indices_list;
-  for (const c10::optional<Tensor>& input : indices) {
-    if (input.has_value() && !input->defined()) {
-      FALLBACK_IF_UNSUPPORTED_OP2(
-          _index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
-    } else {
-      indices_list.push_back(input.value());
-    }
-  }
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return _index_put_impl_hpu_lazy_(self, indices, value, accumulate, unsafe);
-  } else {
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        _index_put_impl_, PARAMS2(self, indices, value, accumulate, unsafe))
-  }
-}
 
 Tensor& hpu_wrap::index_fill_(
     Tensor& self,
