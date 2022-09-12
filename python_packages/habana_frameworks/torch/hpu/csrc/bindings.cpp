@@ -7,13 +7,13 @@
  *
  ******************************************************************************
  */
-#include <torch/csrc/api/include/torch/version.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 // clang-format off
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
 #include <ATen/autocast_mode.h>
 #endif
 // clang-format on
@@ -192,7 +192,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return std::make_tuple(event.device_index(), event.isCreated());
   });
   py::class_<at::hpu::HPUEvent>(m, "HPUEvent");
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
   });

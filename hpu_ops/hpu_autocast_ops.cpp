@@ -11,9 +11,9 @@
  *******************************************************************************
  */
 
-#include <torch/csrc/api/include/torch/version.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
 
 #include <ATen/ATen.h>
 #include <ATen/NativeFunctions.h>

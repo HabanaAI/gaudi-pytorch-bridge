@@ -10,7 +10,6 @@
 #include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_helpers/graph.h>
-#include <torch/csrc/api/include/torch/version.h>
 #include <algorithm>
 #include <mutex>
 
@@ -22,6 +21,7 @@
 #include "habana_device/tensor_builder.h"
 
 #include "habana_helpers/graph.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/habana_operator.h"
@@ -249,7 +249,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(
         {c10::ScalarType::Double, synDataType::syn_type_float},
         {c10::ScalarType::Bool, synDataType::syn_type_int8},
         {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
         {c10::ScalarType::Fp8r152, synDataType::syn_type_fp8_152},
 #endif
   };
@@ -1751,7 +1751,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
       return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
     }
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case c10::ScalarType::Fp8r152: {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
       return device_type == synDeviceGaudi2;

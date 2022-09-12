@@ -7,7 +7,6 @@
  *
  ******************************************************************************
  */
-#include <torch/csrc/api/include/torch/version.h>
 #include <torch/script.h>
 
 #include <perf_lib_layer_params.h>
@@ -18,6 +17,7 @@
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
@@ -110,7 +110,7 @@ get_platform_cast_map() {
       break;
   }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
   if (type == synDeviceGaudi2) {
     // fp8r152
     cast_map.insert(

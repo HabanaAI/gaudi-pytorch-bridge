@@ -11,12 +11,12 @@
  ******************************************************************************
  */
 
-#include <torch/csrc/api/include/torch/version.h>
-
 #include <vector>
+
 #include "cast_sequence.h"
 #include "enum_mapping_table.h"
 #include "logging.h"
+#include "pt_version_check.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 namespace habana_helpers {
@@ -167,7 +167,7 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
       return CastType::f32;
     case at::ScalarType::BFloat16:
       return CastType::bf16;
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case at::ScalarType::Fp8r152:
       return CastType::f8;
 #endif
@@ -195,7 +195,7 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::Float;
     case CastType::bf16:
       return at::ScalarType::BFloat16;
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case CastType::f8:
       return at::ScalarType::Fp8r152;
 #endif
