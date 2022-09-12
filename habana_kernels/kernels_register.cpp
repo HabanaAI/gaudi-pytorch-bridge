@@ -3773,8 +3773,7 @@ std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
 }
 
 Tensor hpu_wrap::alias(const at::Tensor& self) {
-  return hpu_wrap::as_strided(
-      self, self.sizes(), self.strides(), self.storage_offset());
+  return alias_hpu_lazy(self);
 }
 
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {

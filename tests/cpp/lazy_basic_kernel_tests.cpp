@@ -731,3 +731,83 @@ TEST_F(LazyBasicKernelTest, unsqeezeExpandTest) {
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, aliasTest) {
+  auto x = torch::randn({1, 2});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = at::alias(x);
+  auto hB = at::alias(hx);
+
+  auto C = B.reshape({2, 1});
+  auto hC = hB.reshape({2, 1});
+
+  auto C1 = at::alias(C);
+  auto hC1 = at::alias(hC);
+
+  auto C2 = C1.reshape({2, 1});
+  auto hC2 = hC1.reshape({2, 1});
+
+  EXPECT_EQ(allclose(C2, hC2.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, aliasTest1) {
+  auto x = torch::randn({1, 2});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = at::alias(x);
+  auto hB = at::alias(hx);
+
+  auto C = B.reshape({2, 1});
+  auto hC = hB.reshape({2, 1});
+
+  auto C1 = C.expand({2, 1});
+  auto hC1 = hC.expand({2, 1});
+
+  C1 = at::alias(C1);
+  hC1 = at::alias(hC1);
+
+  auto C2 = C1.reshape({2, 1});
+  auto hC2 = hC1.reshape({2, 1});
+
+  EXPECT_EQ(allclose(C2, hC2.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, aliasTest2) {
+  auto x = torch::randn({});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = at::alias(x);
+  auto hB = at::alias(hx);
+
+  auto C = B.reshape({1});
+  auto hC = hB.reshape({1});
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, aliasTest3) {
+  auto x = torch::randn({0});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = at::alias(x);
+  auto hB = at::alias(hx);
+
+  auto C = B.unsqueeze({-1});
+  auto hC = hB.unsqueeze({-1});
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, aliasTest4) {
+  auto x = torch::randn({});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = at::alias(x);
+  auto hB = at::alias(hx);
+
+  auto C = B.unsqueeze({-1});
+  auto hC = hB.unsqueeze({-1});
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}

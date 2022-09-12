@@ -322,6 +322,9 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
               params.params.expand_param.implicit,
               t_opt);
           break;
+        case kStridedOpIdentity:
+          out = add_identity_lazy(recent_orig_t, t_opt);
+          break;
         case kStridedOpDefault:
           add_asstrided_node = true;
           break;
@@ -658,6 +661,25 @@ Tensor HbLazyTensorViews::add_view_lazy(
   auto hb_result = GetHbLazyTensor(result);
   ir::Value& out = hb_result.CurrentIrValue();
   ir::NodePtr node = std::make_shared<ir::View>(self, inferred_size);
+  out.SetNode(
+      node,
+      hb_result.GetDevice(),
+      hb_result.GetSizes(),
+      hb_result.dtype_optional());
+  return result;
+}
+
+Tensor HbLazyTensorViews::add_identity_lazy(
+    const Tensor& self,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+
+  HABANA_ASSERT(out_t.has_value());
+  HABANA_ASSERT(out_t.has_value());
+  auto result = out_t.value();
+  auto hb_result = GetHbLazyTensor(result);
+  ir::Value& out = hb_result.CurrentIrValue();
+  ir::NodePtr node = std::make_shared<ir::Identity>(self, "hpu::identity");
   out.SetNode(
       node,
       hb_result.GetDevice(),

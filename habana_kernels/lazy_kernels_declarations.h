@@ -30,6 +30,7 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
+at::Tensor alias_hpu_lazy(const at::Tensor& self);
 void strided_insert_hpu_lazy(
     const at::Tensor&,
     const at::Tensor&,

@@ -2934,6 +2934,27 @@ Tensor slice_hpu_lazy(
   return out;
 }
 
+Tensor alias_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  auto hl_self_in = GetHbLazyTensor(self);
+  auto out = as_strided_hpu_lazy(
+      self, self.sizes(), self.strides(), self.storage_offset());
+  auto hb_result = GetHbLazyTensor(out);
+  {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    std::lock_guard<std::recursive_mutex> view_table_lock(
+        context->viewContext.GetViewTableMutex());
+    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
+    if (is_fallback_original_op(self, out)) {
+      strided_param->optype = kStridedOpIdentity;
+
+      PT_VIEWTABLE_DEBUG(
+          "alias-identity fallback tensor id ", hl_self_in.getTensorUniqueId());
+    }
+  }
+  return out;
+}
+
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;
   int64_t ndim = self.dim();

@@ -26,7 +26,8 @@ enum StridedOPType {
   kStridedOpPermute,
   kStridedOpSqueeze,
   kStridedOpUnsqueeze,
-  kStridedOpExpand
+  kStridedOpExpand,
+  kStridedOpIdentity
 };
 
 enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
@@ -221,6 +222,9 @@ class HbLazyTensorViews {
       bool is_allreduce,
       std::set<int64_t>& bucket_recent_id);
   static void StepMarkerAllReduce(const std::vector<at::Tensor>& inputs);
+  static at::Tensor add_identity_lazy(
+      const at::Tensor& self,
+      c10::optional<at::Tensor> out_t);
 };
 
 at::Tensor add_strided_insert_node(
