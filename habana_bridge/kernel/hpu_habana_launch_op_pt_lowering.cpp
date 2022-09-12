@@ -84,6 +84,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
 
   jit_to_synapse_node_idx_map.clear();
   collective_kernels_info.clear();
+  memory_reuse_pairs.clear();
 }
 
 void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {

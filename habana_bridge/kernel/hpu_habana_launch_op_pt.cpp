@@ -3349,8 +3349,17 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
 
     std::string node_str(node_qual_str);
 
+    // perform memory reuse if the chain has either strided inserts or inplace
+    // ops add control edges between consumers of inplace/ctrl edge nodes and
+    // the last strided insert
     if (node_str.find("strided_insert") == std::string::npos) {
-      break;
+      if (nodeRequiresControlEdge(input_node) ==
+          ControlEdgeType::kCONTROL_EDGE_NONE) {
+        break;
+      } else {
+        memory_reuse_pairs.emplace_back(
+            std::make_pair(input_node->output(0), node));
+      }
     }
 
     val_ins = input_node->inputs();
