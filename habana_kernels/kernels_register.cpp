@@ -3330,31 +3330,6 @@ at::Tensor hpu_wrap::min(const at::Tensor& self) {
   }
 };
 
-Tensor& hpu_wrap::any_out(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    Tensor& output) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "any_out :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " keepdim=",
-      to_string(keepdim),
-      " output=",
-      to_string(output));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      any_out, PARAMS1(self, output), PARAMS2(self, dim, keepdim, output))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return any_dim_out_hpu_lazy(self, dim, keepdim, output);
-  } else {
-    return any_dim_out_hpu(self, dim, keepdim, output);
-  }
-}
 Tensor hpu_wrap::any(const Tensor& self, int64_t dim, bool keepdim) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP_O(
@@ -3625,26 +3600,6 @@ Tensor hpu_wrap::empty_strided(
   return empty_strided_hpu(size, stride, options);
 }
 
-Tensor hpu_wrap::clone(
-    const Tensor& self,
-    c10::optional<MemoryFormat> memory_format) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "clone :",
-      " self=",
-      to_string(self),
-      " memory_format=",
-      to_string(memory_format));
-
-  FALLBACK_IF_UNSUPPORTED_OP(clone, PARAMS1(self), PARAMS2(self, memory_format))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return clone_hpu_lazy(self, memory_format);
-
-  } else {
-    return clone_hpu(self, memory_format);
-  }
-};
 Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
   PT_OP_TRACE;
   PT_OP_INFO(
