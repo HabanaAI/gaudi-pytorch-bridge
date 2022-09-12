@@ -1846,6 +1846,21 @@ eye.m_out:
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
+fill.Scalar_out:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Char, Byte, Short, Half]
+  op_backend: FillScalar
+  op_frontend: FillFE
+
+fill.Tensor_out:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  op_backend: Fill
+
 fill_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
@@ -1854,10 +1869,12 @@ fill_.Scalar:
   op_backend: FillScalar
   op_frontend: FillFE
   inplace_ids: [0]
-  scalar_ids: [1]
 
 fill_.Tensor:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: Fill
   inplace_ids: [0]
 
