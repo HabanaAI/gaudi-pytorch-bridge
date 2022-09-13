@@ -104,10 +104,16 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         num_instances = _get_world_size()
         instance_id = _get_rank()
 
+        DeviceType = htexp._get_device_type()
+        if isGaudi2(DeviceType):
+            media_device_type = "gaudi2"
+        else:
+            raise ValueError("Unsupported device")
+
         from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
         pipeline = HPUMediaPipe(a_torch_transforms=transform, a_root=root, a_annotation_file=annotate_file, a_batch_size=self.batch_size,
                                 a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                a_num_instances=num_instances, a_instance_id=instance_id, a_model_ssd=True, a_device="hpu")
+                                a_num_instances=num_instances, a_instance_id=instance_id, a_model_ssd=True, a_device=media_device_type)
 
         from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUSsdPytorchIterator
         self.iterator = HPUSsdPytorchIterator(mediapipe=pipeline)
@@ -240,7 +246,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 instance_id=_get_rank()
                 pipeline = HPUMediaPipe(a_torch_transforms=torch_transforms, a_root=root, a_batch_size=self.batch_size,
                                         a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device="hpu")
+                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device="gaudi2")
 
                 from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
