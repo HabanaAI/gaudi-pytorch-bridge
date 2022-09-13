@@ -720,9 +720,6 @@ void ProdDimOperator::AllocateAndAddSynapseNode(
   inputs[1] = IValue(dimArr);
 
   bool keepdim = inputs[2].toBool();
-  auto ndim = self.dim();
-  TORCH_CHECK(
-      keepdim || 1 != ndim, "Use torch.prod for Reduction to 0d tensor");
 
   Tensor output = habana_helpers::createPTTensor(
       self,
