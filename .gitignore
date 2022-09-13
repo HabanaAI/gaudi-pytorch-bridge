@@ -1,3 +1,4 @@
+.cache/
 **/*build*/**
 !.devops/build_profiles/**
 .idea/
