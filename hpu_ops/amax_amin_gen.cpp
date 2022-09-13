@@ -44,14 +44,16 @@ sizes_vec AminAmaxOutputShape(const at::Stack& stack, bool) {
 static std::vector<synapse_helpers::tensor> AminmaxCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    std::vector<synTensor> input_tensor,
+    const std::vector<synTensor>& input_tensor,
     const at::IntArrayRef output_shape,
-    const torch::Tensor self,
-    const std::vector<int64_t> dim,
+    const torch::Tensor& self,
+    const std::vector<int64_t>& dim,
     const bool keepdim,
     c10::optional<int> final_idx1 = c10::nullopt,
     c10::optional<int> final_idx2 = c10::nullopt) {
   std::vector<synapse_helpers::tensor> amin_max;
+  const auto& dtype_suffix =
+      habana_helpers::name_suffix_from_type(op->ScalarType());
 
   auto amin = HandleReductionDimAndKeepdim(
       op,
@@ -60,7 +62,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       {input_tensor},
       dim,
       keepdim,
-      "reduce_min_fwd",
+      "reduce_min_fwd_" + dtype_suffix,
       {{output_shape, self.scalar_type(), final_idx1},
        {output_shape, self.scalar_type()}});
 
@@ -71,7 +73,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       {input_tensor},
       dim,
       keepdim,
-      "reduce_max_fwd",
+      "reduce_max_fwd_" + dtype_suffix,
       {{output_shape, self.scalar_type(), final_idx2},
        {output_shape, self.scalar_type()}});
 
