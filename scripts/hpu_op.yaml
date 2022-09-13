@@ -4326,6 +4326,7 @@ sub.out:
 
 sum:
   force_default: false
+  op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -4334,6 +4335,7 @@ sum:
 
 sum.dim_IntList:
   force_default: false
+  op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]

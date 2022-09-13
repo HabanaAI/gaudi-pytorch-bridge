@@ -648,7 +648,11 @@ def frontend(
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
-        if ctxop.supports_type_promotion() or ctxop.promote_int_to_float() or ctxop.get_op_template() == "reduction":
+        if (
+            ctxop.supports_type_promotion()
+            or ctxop.promote_int_to_float()
+            or ctxop.get_op_template() == "reduction"
+        ):
             out_fn = "true" if is_out_fn(fname) else "false"
             safe_cast = "true" if ctxop.safe_cast_check() else "false"
             code += ", {}, {}".format(out_fn, safe_cast)
@@ -668,7 +672,6 @@ def frontend(
                 ", ".join(extract_reduction_vars_indices(param_vars))
             )
             code += "  hpu_op.Validate();\n"
-
 
         code += "  {}hpu_op.call({})".format(
             "" if rtype == "void" else "return ", lazyop_call_args
@@ -955,9 +958,22 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
     if ctxop.get_override_fn():
         op_backend = None
         op_backend_class = None
-        assert (
+
+        skip_check = (
             ctxop.get_op_frontend_class() == "LazyOp"
             and ctxop.get_op_backend_class() == "OpBackend"
+        )
+        # Allow reuse of type promotion, reduction template for cpu fallback checks with override_fn
+        skip_check |= (
+            ctxop.get_op_frontend_class() == "LazyOpWithTypePromotion"
+            or ctxop.get_op_frontend_class() == "PromoteIntToFloat"
+        )
+        skip_check |= (
+            ctxop.get_op_template() is not None
+            and ctxop.get_op_template() == "reduction"
+        )
+        assert (
+            skip_check
         ), "{} has defined override_fn, it cannot take op_frontend or op_backend".format(
             opname
         )
