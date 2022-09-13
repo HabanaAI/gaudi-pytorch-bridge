@@ -654,3 +654,40 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestHt) {
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
+
+TEST_F(LazyDynamicComputeOutputShapesTest, RoiAlignBwd) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  auto roi_align_test = [](int num_boxes, std::vector<int64_t> input_shape) {
+    auto images = torch::randn(input_shape).to(torch::kHPU);
+    auto boxes = torch::randn({num_boxes, 4}) * 64;
+    // ensure x2 > x1 and y2 > y1
+    auto tlist = boxes.split(2, 1);
+    tlist[1] = tlist[1] + tlist[0];
+    auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1).to(torch::kHPU);
+    auto num_rois =
+        torch::randint(0, 2, {num_boxes}, torch::kInt).to(torch::kHPU);
+    new_boxes.set_requires_grad(true);
+    auto output = roi_align_fwd_hpu_lazy(
+        images, new_boxes, num_rois, 7, 7, 0, 2, 0.25, true);
+    auto sizes = images.sizes();
+    auto temp = roi_align_bwd_hpu_lazy(
+        output,
+        new_boxes,
+        num_rois,
+        sizes[0],
+        sizes[1],
+        sizes[3],
+        sizes[4],
+        2,
+        0.25,
+        true);
+    output.to(torch::kCPU);
+  };
+  roi_align_test({6}, {2, 3, 25, 25});
+  roi_align_test({10}, {2, 3, 35, 35});
+  roi_align_test({12}, {2, 3, 50, 50});
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
