@@ -10,6 +10,8 @@
 #pragma once
 #include <ATen/ExpandUtils.h>
 #include <pthread.h>
+#include <torch/csrc/api/include/torch/version.h>
+#include <torch/library.h>
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
 
@@ -571,10 +573,18 @@ at::Tensor unsqueeze_hpu_lazy(const at::Tensor& self, const int64_t dim);
 at::Tensor& unsqueeze_hpu_lazy_(at::Tensor& self, const int64_t dim);
 at::Tensor permute_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor permute_cl_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor expand_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef size,
     bool implicit);
+#else
+at::Tensor expand_hpu_lazy(
+    const at::Tensor& self,
+    at::SymIntArrayRef size,
+    bool implicit);
+#endif
+
 std::vector<at::Tensor> split_with_sizes_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef split_sizes,

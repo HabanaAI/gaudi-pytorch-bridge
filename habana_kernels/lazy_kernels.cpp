@@ -10,6 +10,7 @@
 
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
+#include <c10/core/SymIntArrayRef.h>
 #include <cstdlib>
 #include <ctime>
 #include <utility>
@@ -5743,8 +5744,14 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   }
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   PT_LAZY_TRACE;
+#else
+Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
+  PT_LAZY_TRACE;
+  auto size_in = c10::asIntArrayRefSlow(size);
+#endif
   // This ZST output tensor should ideally be handled at Synapse level, but
   // since it is throwing errors in that case we are forced to add this
   // work-around. E.g. self.sizes() = {1} size_in = {0}
@@ -5762,7 +5769,7 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
     return result;
   }
 
-  auto out = at::native::expand(self, INTARRAY_PARAM(size_in), implicit);
+  auto out = at::native::expand(self, size_in, implicit);
   auto hl_self = GetHbLazyTensor(self);
   auto hb_result = GetHbLazyTensor(out);
   auto self_id = hl_self.getTensorUniqueId();
