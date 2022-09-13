@@ -4054,6 +4054,13 @@ prod:
   out_ids: [0]
   op_template: reduction
 
+prod.dim_int:
+  force_default: false
+  dtypes: [BFloat16, Float]
+  guid: reduce_prod_fwd
+  out_ids: [0]
+  op_template: reduction
+
 prod.int_out:
   dtypes: [BFloat16, Float]
   guid: reduce_prod_fwd

@@ -1103,33 +1103,6 @@ at::Tensor hpu_wrap::repeat_interleave(
       Tensor)
   return repeat_inlv_hpu_lazy(repeats, output_size);
 }
-
-Tensor hpu_wrap::prod(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "prod :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " keepdim=",
-      to_string(keepdim),
-      " dtype=",
-      to_string(dtype));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      prod, PARAMS1(self), PARAMS2(self, dim, keepdim, dtype), dim_int)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return prod_dim_hpu_lazy(self, dim, keepdim, dtype);
-
-  } else {
-    return prod_dim_hpu(self, dim, keepdim, dtype);
-  }
-};
 std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
     const at::Tensor& self,
     int64_t dim,

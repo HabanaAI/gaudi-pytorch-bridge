@@ -590,12 +590,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "prod",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Float}},
-            },
-            {
                 "max",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

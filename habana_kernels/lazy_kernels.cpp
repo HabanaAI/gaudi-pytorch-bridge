@@ -4843,49 +4843,6 @@ Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   return k.call();
 }
 
-Tensor prod_dim_hpu_lazy(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-
-  if (!dtype.has_value()) {
-    dtype = self.scalar_type();
-  }
-
-  vector_of_inputs = {self, dim, keepdim, dtype};
-  using T = at::Tensor;
-
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("hpu::prod_dim_Int", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim = inputs[1].toInt();
-      auto keepdim = inputs[2].toBool();
-      auto dtype = inputs[3].toScalarType();
-
-      std::vector<int64_t> outshape{self.sizes().vec()};
-      auto shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
-
-      return empty_hpu_lazy(
-          shape,
-          self.options().dtype(dtype),
-          self.suggest_memory_format(),
-          false);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  RUN_MAYBE_WITH_ACC_THREAD(prod, kernel)
-}
-
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
     c10::optional<synTensorType> tensor_type,

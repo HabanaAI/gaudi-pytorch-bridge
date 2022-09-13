@@ -510,11 +510,6 @@ at::Tensor sum_hpu(const at::Tensor& self, c10::optional<at::ScalarType> dtype);
 at::Tensor mean_hpu(
     const at::Tensor& self,
     c10::optional<at::ScalarType> dtype);
-at::Tensor prod_dim_hpu(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu(
     const at::Tensor& self,
     bool sorted,
