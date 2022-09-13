@@ -2623,6 +2623,38 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       "JIT_IR_Graph_END\n");
   idx += 1;
 
+  PT_TEST_DEBUG("JIT_IR_Graph_INPUTS_BEGIN");
+  for (size_t input_idx{0}; input_idx < input_refs.size(); input_idx++) {
+    ValPtr vp = jit_ir_graph->inputs().at(input_idx);
+    auto input_tensor = input_refs[input_idx].toTensor();
+    auto impl = habana_lazy::GetHbInternalTensorImpl(input_tensor);
+    if (impl) {
+      auto tensor_id = impl->unique_id;
+      PT_TEST_DEBUG(
+          "Input[",
+          input_idx,
+          "] ",
+          "Tensor id: ",
+          tensor_id,
+          ", ",
+          vp->debugName(),
+          " -> [",
+          input_tensor.sizes().vec(),
+          "]");
+    } else {
+      PT_TEST_DEBUG(
+          "Input[",
+          input_idx,
+          "]",
+          ", ",
+          vp->debugName(),
+          " -> [",
+          input_tensor.sizes().vec(),
+          "]");
+    }
+  }
+  PT_TEST_DEBUG("JIT_IR_Graph_INPUTS_END");
+
   // Handle everything related to graph when dynamic flag is set.
   if (refine_ds_enabled_) {
     jit_graph_and_meta_data->clear_cached_graph_info();

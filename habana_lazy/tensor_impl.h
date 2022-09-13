@@ -216,6 +216,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   /*template <typename T>
   void set_min_max(const std::vector<T>& min, const std::vector<T>& max);*/
   ShapeTensorStruct& get_shape_struct();
+  int64_t unique_id{0};
 
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
