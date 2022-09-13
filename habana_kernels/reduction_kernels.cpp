@@ -858,7 +858,7 @@ Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
   PT_KERNEL_END;
   return out.at(0);
 }
@@ -947,7 +947,7 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
   PT_KERNEL_END;
   return out.at(0);
 }
@@ -1315,7 +1315,7 @@ Tensor any_hpu(const Tensor& self) {
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
   PT_KERNEL_END;
   return out.at(0).to(c10::ScalarType::Bool);
 }

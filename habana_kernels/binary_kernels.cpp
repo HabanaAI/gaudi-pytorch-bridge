@@ -876,10 +876,10 @@ Tensor add_tensor_hpu(
   PT_KERNEL_BEGIN;
   Tensor output;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -905,7 +905,7 @@ Tensor add_scalar_hpu(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -931,10 +931,10 @@ Tensor sub_tensor_hpu(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -962,7 +962,7 @@ Tensor sub_scalar_hpu(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1007,7 +1007,7 @@ Tensor rsub_scalar_hpu(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1037,10 +1037,10 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -1063,7 +1063,7 @@ Tensor mul_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1084,10 +1084,10 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -1113,7 +1113,7 @@ Tensor div_scalar_hpu(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1134,10 +1134,10 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -1159,7 +1159,7 @@ Tensor pow_tensor_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1180,7 +1180,7 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -1226,10 +1226,10 @@ Tensor maximum_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -1252,10 +1252,10 @@ Tensor minimum_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -1379,11 +1379,11 @@ Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
   bool isSelf_0d = false;
   bool isOther_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
     isOther_0d = true;
   }
 
@@ -1413,13 +1413,13 @@ Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
 
   auto output = out.at(0);
   if (isSelf_0d && isOther_0d) {
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(output);
   }
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   if (isOther_0d) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(other);
   }
 
   PT_KERNEL_END;
@@ -1534,11 +1534,11 @@ Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
   bool isSelf_0d = false;
   bool isOther_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
     isOther_0d = true;
   }
   size_t device_id = self.device().index();
@@ -1566,10 +1566,10 @@ Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (isSelf_0d && isOther_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   if (isOther_0d) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(other);
   }
   PT_KERNEL_END;
 
@@ -1580,7 +1580,7 @@ Tensor remainder_scalar_hpu(const Tensor& self, const at::Scalar& other) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   size_t device_id = self.device().index();
@@ -1609,8 +1609,8 @@ Tensor remainder_scalar_hpu(const Tensor& self, const at::Scalar& other) {
 
   auto output = out.at(0);
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(output);
   }
   PT_KERNEL_END;
   return output;
@@ -1621,7 +1621,7 @@ Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
 
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   size_t device_id = self.device().index();
@@ -1649,7 +1649,7 @@ Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   PT_KERNEL_END;
 
@@ -1763,15 +1763,15 @@ Tensor& remainder_tensor_hpu_out(
   bool isSelf_0d = false;
   bool isOther_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
     isOther_0d = true;
   }
   if (result.dim() == 0) {
-    result.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(result);
   }
 
   auto out_shape = habana::BinaryOperator::compute_output_shape(self, other);
@@ -1808,13 +1808,13 @@ Tensor& remainder_tensor_hpu_out(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (isSelf_0d && isOther_0d) {
-    result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(result);
   }
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   if (isOther_0d) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(other);
   }
   PT_KERNEL_END;
   return result;
@@ -1828,11 +1828,11 @@ Tensor& remainder_scalar_hpu_out(
 
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (result.dim() == 0) {
-    result.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(result);
   }
 
   auto out_shape = self.sizes().vec();
@@ -1869,8 +1869,8 @@ Tensor& remainder_scalar_hpu_out(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(result);
   }
   PT_KERNEL_END;
   return result;

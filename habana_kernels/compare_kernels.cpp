@@ -403,7 +403,7 @@ Tensor gt_tensor_hpu(const Tensor& self, const Tensor& other) {
 Tensor gt_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -452,7 +452,7 @@ Tensor eq_tensor_hpu(const Tensor& self, const Tensor& other) {
 Tensor eq_tensor_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -469,7 +469,7 @@ Tensor eq_tensor_scalar_hpu(const Tensor& self, const Scalar& other) {
 Tensor lt_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -500,7 +500,7 @@ Tensor lt_tensor_hpu(const Tensor& self, const Tensor& other) {
 Tensor ge_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -532,15 +532,15 @@ Tensor le_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
   auto output = compare_op_hpu<LeOperator>(pt_inputs, stack, "less_equal");
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(output);
   }
   PT_KERNEL_END;
   return output;
@@ -556,11 +556,11 @@ Tensor le_tensor_hpu(const Tensor& self, const Tensor& other) {
   bool isSelf_0d = false;
   bool isOther_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
     isOther_0d = true;
   }
 
@@ -569,13 +569,13 @@ Tensor le_tensor_hpu(const Tensor& self, const Tensor& other) {
   auto output = compare_op_hpu<LeOperator>(pt_inputs, stack, "less_equal");
 
   if (isSelf_0d && isOther_0d) {
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(output);
   }
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   if (isOther_0d) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(other);
   }
 
   PT_KERNEL_END;
@@ -632,7 +632,7 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
 Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self_in.dim() == 0) {
-    self_in.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self_in);
   }
   auto self = self_in;
   if (self.scalar_type() == c10::ScalarType::Long) {

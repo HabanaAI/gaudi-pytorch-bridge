@@ -414,7 +414,7 @@ Tensor HbLazyTensorViews::add_strided_view_node(
   if (exec_mode == kLOWERING) {
     auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
     if (is_0d_tensor) {
-      result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+      SET_SIZE_STRIDE_0D(result);
     }
     return result;
   }
@@ -472,7 +472,7 @@ Tensor HbLazyTensorViews::add_strided_view_node(
   }
 
   if (is_0d_tensor) {
-    result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(result);
   }
 
   return result;
@@ -788,7 +788,7 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
 
   ir::NodePtr node = nullptr;
   if (node_str == "aten::unsqueeze" && !self.dim()) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     node = std::make_shared<ir::Identity>(self, "hpu::identity");
   } else {
     node = std::make_shared<ir::SqueezeBase>(self, dim, node_str);

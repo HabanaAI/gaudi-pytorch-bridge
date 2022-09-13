@@ -49,15 +49,28 @@ const std::string NULL_GUID("");
 // decision on naming the guid
 const std::string MULT_GUID = "mult_fwd_";
 
+// Set empty size and strides for 0d Tensor
+#define SET_SIZE_STRIDE_0D(self)                     \
+  self.unsafeGetTensorImpl()->set_sizes_and_strides( \
+      IntArrayRef{}, IntArrayRef{});
+
+// Set size and strides for 1d Tensor
+#define SET_SIZE_STRIDE_1D(self)                     \
+  self.unsafeGetTensorImpl()->set_sizes_and_strides( \
+      IntArrayRef{1}, IntArrayRef{1});
+
 // Utility Macros to handle 0d tensors input
-#define CONVERT_0D_TO_1D(self)                                   \
-  if (0 == self.dim()) {                                         \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1}); \
+#define CONVERT_0D_TO_1D(self)                         \
+  if (0 == self.dim()) {                               \
+    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
+        IntArrayRef{1}, IntArrayRef{1});               \
   }
-#define CONVERT_1D_TO_0D(self, out)                            \
-  if (0 == self.dim()) {                                       \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {}); \
-    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});  \
+#define CONVERT_1D_TO_0D(self, out)                    \
+  if (0 == self.dim()) {                               \
+    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
+        IntArrayRef{}, IntArrayRef{});                 \
+    out.unsafeGetTensorImpl()->set_sizes_and_strides(  \
+        IntArrayRef{}, IntArrayRef{});                 \
   }
 
 #define KERNEL_FN_DROP_ARG2(className)                     \

@@ -263,7 +263,7 @@ Tensor& leaky_relu_hpu_(Tensor& self, const at::Scalar& negative_slope) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -289,7 +289,7 @@ Tensor& leaky_relu_hpu_(Tensor& self, const at::Scalar& negative_slope) {
     Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
   }
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   PT_KERNEL_END;
   return self;
@@ -305,7 +305,7 @@ Tensor leaky_relu_hpu(const Tensor& self, at::Scalar negative_slope) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -335,8 +335,8 @@ Tensor leaky_relu_hpu(const Tensor& self, at::Scalar negative_slope) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   auto output = out.at(0);
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(output);
   }
   PT_KERNEL_END;
   return output;
@@ -351,11 +351,11 @@ at::Tensor leaky_relu_backward_hpu(
   bool isSelf_0d = false;
   bool isGradOutput_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
     isGradOutput_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -390,11 +390,11 @@ at::Tensor leaky_relu_backward_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   auto output = out.at(0);
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(output);
   }
   if (isGradOutput_0d) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(grad_output);
   }
   PT_KERNEL_END;
   return output;
@@ -1884,7 +1884,7 @@ Tensor sin_hpu(const Tensor& self) {
 
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
 
@@ -1898,8 +1898,8 @@ Tensor sin_hpu(const Tensor& self) {
 
   auto out = unary_op_hpu(self, node_type, &Op);
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(out);
   }
   PT_KERNEL_END;
   return out;
@@ -1915,7 +1915,7 @@ Tensor cos_hpu(const Tensor& self) {
 
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -1929,8 +1929,8 @@ Tensor cos_hpu(const Tensor& self) {
   auto out = unary_op_hpu(self, node_type, &Op);
 
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(out);
   }
   PT_KERNEL_END;
   return out;
@@ -2081,7 +2081,7 @@ Tensor silu_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -2094,8 +2094,8 @@ Tensor silu_hpu(const Tensor& self) {
 
   auto out = unary_op_hpu(self, node_type, &Op);
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(out);
   }
   PT_KERNEL_END;
   return out;
@@ -2250,7 +2250,7 @@ Tensor isnan_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
     isSelf_0d = true;
   }
   at::ScalarType scalar_type = self.scalar_type();
@@ -2283,8 +2283,8 @@ Tensor isnan_hpu(const Tensor& self) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   auto output = out[0];
   if (isSelf_0d) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
+    SET_SIZE_STRIDE_0D(output);
   }
   PT_KERNEL_END;
   return output;

@@ -65,7 +65,7 @@ Tensor& fill_hpu_(Tensor& self, const Scalar& value) {
   PT_KERNEL_BEGIN;
   auto self_dims = self.dim();
   if (self_dims == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto dtype = habana_helpers::scalar_type(value);
 
@@ -104,7 +104,7 @@ Tensor& fill_hpu_(Tensor& self, const Scalar& value) {
       PT_KERNEL_WARN("Unsupported data type used in fill");
   }
   if (self_dims == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(self);
   }
   PT_KERNEL_END;
   return self;

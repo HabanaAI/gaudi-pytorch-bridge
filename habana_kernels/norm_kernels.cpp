@@ -1125,7 +1125,7 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
 
   PT_KERNEL_END;
   return out.at(0);
@@ -1405,7 +1405,7 @@ Tensor fused_norm_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(
       out.size() == ((unsigned)num_params + 1), "Incorrect size of outputs");
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  SET_SIZE_STRIDE_1D(out.at(0));
 
   PT_KERNEL_END;
   return out[0];

@@ -625,7 +625,7 @@ Tensor dot_hpu(const Tensor& self, const Tensor& other) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   // PT expects 0-D
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
 
   PT_KERNEL_END;
   return out.at(0);

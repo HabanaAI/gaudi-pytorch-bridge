@@ -2986,7 +2986,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 
   // single op tests expect 0-D to be preserved at the front end.
   if (self.dim() == 1) {
-    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(out);
   }
   return out;
 }
@@ -4162,7 +4162,7 @@ Tensor norm_scalar_hpu_lazy(const Tensor& self, const Scalar& p) {
       {},
       {NormOperator::compute_output_shape(self, std::vector<int64_t>{}, 0)}};
   Tensor out = k.call();
-  out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out);
   return out;
 }
 

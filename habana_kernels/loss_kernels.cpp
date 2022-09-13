@@ -311,7 +311,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
-    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(out.at(0));
   }
 
   PT_KERNEL_END;
@@ -395,7 +395,7 @@ std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
-    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(out.at(0));
   }
 
   PT_KERNEL_END;
@@ -535,11 +535,11 @@ Tensor nll_loss_backward_hpu(
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
   }
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (total_weight.dim() == 0) {
-    total_weight.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(total_weight);
   }
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
@@ -612,11 +612,11 @@ Tensor nll_loss2d_backward_hpu(
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
   }
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (total_weight.dim() == 0) {
-    total_weight.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(total_weight);
   }
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
@@ -766,7 +766,7 @@ Tensor mse_loss_forward_hpu(
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
-    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(out.at(0));
   }
 
   PT_KERNEL_END;
@@ -819,7 +819,7 @@ Tensor mse_loss_backward_hpu(
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
   }
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -1010,7 +1010,7 @@ Tensor kl_div_hpu(
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
-    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    SET_SIZE_STRIDE_0D(out.at(0));
   }
 
   PT_KERNEL_END;
@@ -1129,7 +1129,7 @@ Tensor kl_div_backward_hpu(
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
   }
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -1299,7 +1299,7 @@ Tensor binary_cross_entropy_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   // Note: pytorch expects 0d tensor (scalar)
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
 
   PT_KERNEL_END;
   return out.at(0);
@@ -1422,7 +1422,7 @@ Tensor binary_cross_entropy_backward_hpu(
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
-    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(grad_output);
   }
 
   at::ScalarType scalar_type = grad_output.scalar_type();
@@ -1585,7 +1585,7 @@ Tensor binary_cross_entropy_with_logits_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   // Note: pytorch expects 0d tensor (scalar)
-  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  SET_SIZE_STRIDE_0D(out.at(0));
 
   PT_KERNEL_END;
   return out.at(0);

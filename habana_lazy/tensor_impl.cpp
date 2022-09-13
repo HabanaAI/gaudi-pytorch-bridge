@@ -177,12 +177,7 @@ void HbLazyTensorImpl::SetupSizeProperties() {
           if (dim == new_dim - 1) {
             sizes_and_strides_.stride_at_unchecked(dim) = 1;
           } else {
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR >= 13))
-            int64_t sizes = sizes_and_strides_.size_at_unchecked(dim + 1)
-                                .as_int_unchecked();
-#else
             int64_t sizes = sizes_and_strides_.size_at_unchecked(dim + 1);
-#endif
 
             // Keep stride monotonically increasing to match NumPy.
             sizes_and_strides_.stride_at_unchecked(dim) =
