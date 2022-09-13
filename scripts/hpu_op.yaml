@@ -809,6 +809,15 @@ argmax.out:
   guid: argmax_fwd
   op_backend: ArgMinMax
 
+argmin:
+  custom_output_shape: ArgMinMaxOutputShape
+  dtypes: [Float, BFloat16]
+  force_default: false
+  guid: argmin_fwd
+  op_frontend: ArgminmaxOutputType
+  op_backend: ArgMinMax
+  out_ids: [0]
+
 argmin.out:
   custom_output_shape: ArgMinMaxOutputShape
   dtypes: [Float, BFloat16]

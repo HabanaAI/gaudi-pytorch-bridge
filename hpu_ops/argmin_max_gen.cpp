@@ -28,6 +28,21 @@ sizes_vec ArgMinMaxOutputShape(const at::Stack& stack) {
   return {shape};
 }
 
+template <>
+ArgminmaxOutputType<at::Tensor>::ArgminmaxOutputType(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  set_scalar_type(c10::ScalarType::Long);
+}
+
+template <>
+at::Tensor ArgminmaxOutputType<at::Tensor>::get_result_overrideable() {
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return {};
+}
+
 void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
