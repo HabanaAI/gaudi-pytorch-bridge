@@ -302,11 +302,12 @@ void* device_memory::workspace_alloc(
     void* v_ptr{nullptr};
     alloc(&v_ptr, actual_size, true);
     ws_size = actual_size;
-    log_synDeviceWorkspace(
-        device_, reinterpret_cast<uint64_t>(v_ptr), req_size);
     if (v_ptr == nullptr && pool_strategy_ != pool_allocator::strategy_none) {
       suballoc_->print_pool_stats();
+      log_synDeviceAllocFail(device_, true, req_size);
     }
+    log_synDeviceWorkspace(
+        device_, reinterpret_cast<uint64_t>(v_ptr), req_size);
     return v_ptr;
   } else {
     if ((ws_size >= req_size) && (ptr != nullptr)) {
@@ -335,6 +336,11 @@ void* device_memory::workspace_alloc(
         while (recipe_counter.get_count() > 1) {
           recipe_counter.wait_for_next_decrease_call();
         }
+        PT_DEVMEM_DEBUG(
+            "workspace requested size::",
+            block_align(req_size),
+            " current size::",
+            ws_size);
         v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
       bool defragmentation_done = false;
@@ -356,6 +362,8 @@ void* device_memory::workspace_alloc(
       if (v_ptr != nullptr) {
         workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
         ws_size = block_align(req_size);
+        log_synDeviceWorkspace(
+            device_, reinterpret_cast<uint64_t>(v_ptr), block_align(req_size));
       } else {
         workspace_allocation_ = 0;
         suballoc_->print_pool_stats();
@@ -363,6 +371,7 @@ void* device_memory::workspace_alloc(
         get_memory_stats(&stats);
         PT_DEVMEM_DEBUG(
             "Memory Stats in case workspace failure", stats.DebugString());
+        log_synDeviceAllocFail(device_, true, block_align(req_size));
       }
       return v_ptr;
     }
@@ -874,6 +883,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   if (ptr == nullptr) {
     suballoc_->print_pool_stats();
     synapse_helpers::memstats_dump(device_, "Allocation failed.");
+    log_synDeviceAllocFail(device_, false, size);
     PT_DEVMEM_FATAL(
         "Allocation failed for size::",
         size,

@@ -452,7 +452,8 @@ synapse_error_o graph::launch(
 
   log_graph_info(
       recipe_handle.recipe_name_.c_str(),
-      device.get_device_memory().get_total_memory_required(addresses));
+      device.get_device_memory().get_total_memory_required(addresses),
+      workspace_size);
 
   {
     address_lock = absl::make_unique<device_ptr_lock>(
@@ -460,6 +461,13 @@ synapse_error_o graph::launch(
     auto iter = inputs_and_outputs_info.begin();
     size_t index = 0;
     for (auto address : *address_lock) {
+      if (GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ENABLE_TENSOR_INFO)) {
+        log_tensor_info(
+            ((iter->tensorName == nullptr) ? "" : iter->tensorName),
+            address,
+            addresses[index]);
+      }
+
       if (host_address_map.count(index)) {
         iter->pTensorAddress = host_address_map[index];
       } else {

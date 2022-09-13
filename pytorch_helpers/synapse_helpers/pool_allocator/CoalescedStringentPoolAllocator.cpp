@@ -707,7 +707,9 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   }
   bin_utils->RemoveFreeChunkFromBin(tail_chunk);
   tail_chunk->used = true;
-
+  PT_DEVMEM_DEBUG(
+      "Update status for new workspace allocation:: extra space::",
+      (tail_chunk->size - current_ws_size))
   stats.UpdateStats((tail_chunk->size - current_ws_size), true);
   bytes_in_use += (tail_chunk->size - current_ws_size);
   stats.scratch_mem_in_use = tail_chunk->size;
@@ -1310,15 +1312,33 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     for (auto& m : chunks) {
       chunks_ordered.insert(m);
     }
+    int occupied_chunks = 0;
+    int total_chunks = 0;
+    int total_extra_spaced_chunks = 0;
+    int free_chunks = 0;
+    uint64_t occupied_size = 0x80;
+    uint64_t total_size = 0x80;
+    uint64_t total_exta_size = 0;
+    uint64_t free_chunks_size = 0;
     uint64_t cntgs_free_chunks_size = 0;
     uint64_t available_chunks_size = 0;
     uint64_t max_cntgs_free_chunks_size = 0;
     for (auto& m : chunks_ordered) {
       auto chunk = m.second;
-      if (!chunk->used && (chunk->size != 0)) {
+      if (chunk->size == 0)
+        continue;
+      total_chunks++;
+      total_size += chunk->size;
+      if (chunk->extra_space && chunk->used) {
+        total_extra_spaced_chunks++;
+        total_exta_size += chunk->extra_space;
+      }
+      if (!chunk->used) {
         pool_status << free_mask;
         pool_status << "-" << chunk->size;
         pool_status << "]";
+        free_chunks++;
+        free_chunks_size += chunk->size;
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
         if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
@@ -1326,6 +1346,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         }
         cntgs_free_chunks_size = 0;
       } else {
+        occupied_chunks++;
+        occupied_size += chunk->size;
         pool_status << occupancy_mask;
         pool_status << "-" << chunk->size;
         pool_status << "]";
@@ -1338,6 +1360,16 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     }
     stats.fragmentation_percent = 100 *
         (1 - ((double)max_cntgs_free_chunks_size / available_chunks_size));
+    stats.total_chunks = total_chunks;
+    stats.total_size = total_size;
+    stats.occupied_chunks = occupied_chunks;
+    stats.occupied_size = occupied_size;
+    stats.free_chunks = free_chunks;
+    stats.free_chunks_size = free_chunks_size;
+    stats.max_cntgs_free_chunks_size = max_cntgs_free_chunks_size;
+    stats.total_extra_spaced_chunks = total_extra_spaced_chunks;
+    stats.total_extra_size = total_exta_size;
+
     stats.fragmentation_mask = pool_status.str();
     pool_status.str("");
     pool_status.clear();

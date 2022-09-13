@@ -84,8 +84,8 @@ void HlExec::Launch(
   habanaLoweringOp.set_node_bcast_map(node_bcast_map_);
   try {
     habanaLoweringOp.run(stack);
-  } catch (...) {
-    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception.");
+  } catch (const std::exception& e) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }

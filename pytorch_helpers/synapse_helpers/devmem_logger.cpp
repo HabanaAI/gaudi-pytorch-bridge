@@ -726,12 +726,56 @@ void log_synDeviceLockMemory(
 }
 
 /*
- * log graph info - name and total memory
+ * log graph info - name, total memory and size
  */
-void log_graph_info(std::string graph_name, size_t size) {
+void log_graph_info(std::string graph_name, size_t size, size_t wsize) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
-    dmd.record("GRAPH", graph_name, size);
+    std::stringstream msg;
+    msg << "GRAPH " << graph_name << " total Memory::" << size
+        << " WS::" << wsize;
+    synapse_helpers::print_live_allocations(msg.str().c_str());
+  }
+}
+
+/*
+ * log tensor info - tensor name, virtual addr  and device_addr
+ */
+void log_tensor_info(
+    std::string tensor_name,
+    uint64_t v_addr,
+    uint64_t d_addr) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    std::stringstream msg;
+    msg << "Tensor Name" << tensor_name << " virtual addr::" << v_addr
+        << " device_addr::" << d_addr;
+    synapse_helpers::print_live_allocations(msg.str().c_str());
+  }
+}
+
+/*
+ * log allocation failure stats
+ */
+void log_synDeviceAllocFail(
+    synapse_helpers::device& device,
+    bool is_workspace,
+    size_t size) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    synapse_helpers::MemoryStats stats;
+    device.get_device_memory().get_memory_stats(&stats);
+    std::stringstream msg;
+    if (is_workspace) {
+      msg << "Memory Allocation failure for workspace size::" << size
+          << std::endl
+          << stats.DebugString();
+    } else {
+      msg << "Memory Allocation failure for persistant Tensor size::" << size
+          << std::endl
+          << stats.DebugString();
+    }
+    synapse_helpers::print_live_allocations(msg.str().c_str());
   }
 }
 

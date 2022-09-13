@@ -343,6 +343,7 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_MEMORY_DEFRAGMENTATION, bool, true);
 ENV_STRUCT_DEFINITION(PT_ENABLE_DEFRAGMENTATION_INFO, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT, unsigned, 5);
 ENV_STRUCT_DEFINITION(PT_HPU_POOL_MEM_THRESHOLD_PERC, unsigned, 95);
+ENV_STRUCT_DEFINITION(PT_HPU_POOL_MEM_ENABLE_TENSOR_INFO, bool, true);
 
 // Option to pass layouts handling to new flow, which will be handled by Syanpse
 // No more need to permute layouts/weight via jit optimization passes.

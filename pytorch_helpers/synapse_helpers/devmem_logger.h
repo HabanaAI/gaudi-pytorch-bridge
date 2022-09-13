@@ -168,7 +168,13 @@ void log_synDeviceAlloc(
 void log_synDeviceDeallocate(synapse_helpers::device& device, uint64_t ptr);
 void log_synDeviceLockMemory(
     absl::Span<const synapse_helpers::device_ptr> ptrs);
-void log_graph_info(std::string graph_name, size_t size);
+void log_synDeviceAllocFail(
+    synapse_helpers::device& device,
+    bool is_workspace,
+    size_t size);
+
+void log_graph_info(std::string graph_name, size_t size, size_t wsize);
+void log_tensor_info(std::string tensor_name, uint64_t v_addr, uint64_t d_addr);
 void print_to_file(const char* msg);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);

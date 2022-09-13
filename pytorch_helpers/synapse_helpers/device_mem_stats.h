@@ -24,6 +24,16 @@ struct MemoryStats {
       fragmentation_percent; /* fragmentation % = 100 x (1-
                                 max_contiguous_free_chunk/total_free_chunk_memory)
                               */
+
+  uint64_t total_chunks;
+  uint64_t total_size;
+  uint64_t occupied_chunks;
+  uint64_t occupied_size;
+  uint64_t free_chunks;
+  uint64_t free_chunks_size;
+  uint64_t max_cntgs_free_chunks_size;
+  uint64_t total_extra_spaced_chunks;
+  uint64_t total_extra_size;
   std::string fragmentation_mask;
 
   MemoryStats()
@@ -37,23 +47,41 @@ struct MemoryStats {
         memory_limit(0),
         scratch_mem_in_use(0),
         fragmentation_percent(0),
+        total_chunks(0),
+        total_size(0),
+        occupied_chunks(0),
+        occupied_size(0),
+        free_chunks(0),
+        free_chunks_size(0),
+        max_cntgs_free_chunks_size(0),
+        total_extra_spaced_chunks(0),
+        total_extra_size(0),
         fragmentation_mask("") {}
 
   std::string DebugString() const {
     return absl::StrFormat(
-        "Pool ID:           %20lld\n"
-        "Limit:             %20lld (%.2f GB)\n"
-        "InUse:             %20lld (%.2f MB)\n"
-        "MaxInUse:          %20lld (%.2f MB)\n"
-        "NumAllocs:         %20lld\n"
-        "NumFrees:          %20lld\n"
-        "ActiveAllocs:      %20lld\n"
-        "ScratchMem:        %20lld (%.2f MB)\n"
-        "MaxAllocSize:      %20lld (%.2f MB)\n"
-        "TotalSystemAllocs: %20lld\n"
-        "TotalSystemFrees:  %20lld\n"
-        "TotActiveAllocs:   %20lld\n"
-        "Fragmentation:     %20lld\n"
+        "Pool ID:                     %20lld\n"
+        "Limit:                       %20lld (%.2f GB)\n"
+        "InUse:                       %20lld (%.2f MB)\n"
+        "MaxInUse:                    %20lld (%.2f MB)\n"
+        "NumAllocs:                   %20lld\n"
+        "NumFrees:                    %20lld\n"
+        "ActiveAllocs:                %20lld\n"
+        "ScratchMem:                  %20lld (%.2f MB)\n"
+        "MaxAllocSize:                %20lld (%.2f MB)\n"
+        "TotalSystemAllocs:           %20lld\n"
+        "TotalSystemFrees:            %20lld\n"
+        "TotActiveAllocs:             %20lld\n"
+        "Fragmentation:               %20lld\n"
+        "total_chunks:                %20lld\n"
+        "total_size:                  %20lld (%.2f MB)\n"
+        "occupied_chunks:             %20lld\n"
+        "occupied_size:               %20lld (%.2f MB)\n"
+        "free_chunks:                 %20lld\n"
+        "free_chunks_size:            %20lld (%.2f MB)\n"
+        "max_cntgs_free_size:         %20lld (%.2f MB)\n"
+        "total_extra_spaced_chunks:   %20lld\n"
+        "total_extra_size:            %20lld (%.2f MB)\n"
         "FragmentationMask: %20s\n",
         this->pool_id,
         this->memory_limit,
@@ -73,6 +101,20 @@ struct MemoryStats {
         this->total_frees,
         (int64_t)this->total_allocs - (int64_t)this->total_frees,
         this->fragmentation_percent,
+        this->total_chunks,
+        this->total_size,
+        this->total_size / (1024 * 1024.),
+        this->occupied_chunks,
+        this->occupied_size,
+        this->occupied_size / (1024 * 1024.),
+        this->free_chunks,
+        this->free_chunks_size,
+        this->free_chunks_size / (1024 * 1024.),
+        this->max_cntgs_free_chunks_size,
+        this->max_cntgs_free_chunks_size / (1024 * 1024.),
+        this->total_extra_spaced_chunks,
+        this->total_extra_size,
+        this->total_extra_size / (1024 * 1024.),
         this->fragmentation_mask);
   };
 
