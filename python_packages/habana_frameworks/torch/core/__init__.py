@@ -229,6 +229,6 @@ def is_enabled_synapse_layout_handling() -> bool:
 def enable_profiler_if_needed():
     import os
     if "HABANA_PROFILE" not in os.environ:
-        os.environ["HABANA_PROFILE"] = "profile_api"
+        os.environ["HABANA_PROFILE"] = "profile_api_light"
 
 enable_profiler_if_needed()
