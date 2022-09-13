@@ -78,40 +78,27 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
 }
 
-/*
- * Commenting out cpp test for matmul backward for now, due to an error in Test
- * Case code. Added a python unit test at
- * pytorch-integration/tests/test_lazy_matmul.py
- */
-/*
 TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
   auto matmulbwd_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1, torch::requires_grad());
     auto mat2 = torch::randn(size2, torch::requires_grad());
     auto mat1_h = mat1.to(torch::kHPU);
     auto mat2_h = mat2.to(torch::kHPU);
+    // retain_grad() as mat1_h and mat2_h are non-leaf tensors
+    mat1_h.retain_grad();
+    mat2_h.retain_grad();
 
     auto out = torch::matmul(mat1, mat2);
-
     auto grad_out = torch::ones_like(out);
-    //auto grad_out_h = grad_out.to(torch::kHPU);
     out.backward(grad_out);
-    auto grad_mat1 = mat1.grad();
-    auto grad_mat2 = mat2.grad();
+    auto grad_mat1 = mat1.grad().clone().detach();
+    auto grad_mat2 = mat2.grad().clone().detach();
 
     auto out_h = torch::matmul(mat1_h, mat2_h);
     auto grad_out_h = grad_out.to(torch::kHPU);
     out_h.backward(grad_out_h);
     auto grad_mat1_h = mat1_h.grad();
     auto grad_mat2_h = mat2_h.grad();
-    std::cout << "$$ grad_mat1 - " << grad_mat1 << std::endl;
-    std::cout << mat1_h.to(torch::kCPU).sizes().vec() << std::endl;
-
-    // torch::Tensor grad_mat1_h, grad_mat2_h;
-    // std::tie(grad_mat1_h, grad_mat2_h) =
-    //    hpu_wrap::matmul_backward(grad_out_h, mat1_h, mat2_h);
-
-    HbLazyTensor::StepMarker({});
 
     EXPECT_EQ(
         allclose(grad_mat1, grad_mat1_h.to(torch::kCPU), 0.01, 0.01), true);
@@ -125,7 +112,6 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
   matmulbwd_test({2, 2, 3, 4}, {2, 4, 3});
   matmulbwd_test({2, 3}, {3, 4});
 }
-*/
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
   torch::Tensor A = torch::randn({10, 3, 5});

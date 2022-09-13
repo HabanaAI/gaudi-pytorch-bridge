@@ -155,37 +155,35 @@ class MatmulBackwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
  private:
-  synapse_helpers::tensor_or_ref MatBwTranspose(
+  void MatBwTranspose(
       synapse_helpers::graph& graph,
       HabanaOperatorPtr Op,
       at::Tensor& mat,
-      synapse_helpers::tensor_or_ref syn_input);
+      synapse_helpers::tensor& syn_input);
 
-  std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
-  MatBwSpecialFold(
+  void MatBwSpecialFold(
       synapse_helpers::graph& graph,
       HabanaOperatorPtr Op,
       at::Tensor& mat1,
       at::Tensor& mat2,
-      synapse_helpers::tensor_or_ref syn_input1,
-      synapse_helpers::tensor_or_ref syn_input2);
+      synapse_helpers::tensor& syn_input1,
+      synapse_helpers::tensor& syn_input2);
 
-  std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
-  MatBwSize(
+  void MatBwSize(
       synapse_helpers::graph& graph,
       HabanaOperatorPtr Op,
       at::Tensor& mat1,
       at::Tensor& mat2,
       at::IntArrayRef sizes,
-      synapse_helpers::tensor_or_ref syn_input1,
-      synapse_helpers::tensor_or_ref syn_input2,
+      synapse_helpers::tensor& syn_input1,
+      synapse_helpers::tensor& syn_input2,
       const OutputMetaData& output_metadata);
 
-  synapse_helpers::tensor_or_ref MatBwReshape(
+  void MatBwReshape(
       synapse_helpers::graph& graph,
       at::Tensor& mat,
       std::vector<int64_t> sizes,
-      synapse_helpers::tensor_or_ref syn_input);
+      synapse_helpers::tensor& syn_input);
 
   std::vector<HabanaOperatorPtr> ReshapeOpList;
 };

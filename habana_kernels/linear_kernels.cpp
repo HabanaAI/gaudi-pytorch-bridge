@@ -1141,11 +1141,11 @@ Tensor matmul_hpu(const Tensor& tensor1, const Tensor& tensor2) {
   return out.at(0);
 }
 
-synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
+void habana::MatmulBackwardOperator::MatBwTranspose(
     synapse_helpers::graph& graph,
     HabanaOperatorPtr Op,
     Tensor& mat,
-    synapse_helpers::tensor_or_ref syn_input) {
+    synapse_helpers::tensor& syn_input) {
   auto dim = mat.dim();
   if (dim == 1) {
     // Add a identity node to graph (to get out = mat)
@@ -1176,15 +1176,13 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
     Op->AllocateAndAddSynapseNode(
         graph, stack, habana::OutputMetaDataVector(1));
   }
-
-  return syn_input;
 }
 
-synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwReshape(
+void habana::MatmulBackwardOperator::MatBwReshape(
     synapse_helpers::graph& graph,
     Tensor& mat,
     std::vector<int64_t> sizes,
-    synapse_helpers::tensor_or_ref syn_input) {
+    synapse_helpers::tensor& syn_input) {
   auto reshape =
       make_operator<ReshapeOperator>(mat.device().index(), mat.scalar_type());
   reshape->SetSynapseInput(syn_input);
@@ -1192,18 +1190,15 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwReshape(
   reshape->AllocateAndAddSynapseNode(
       graph, stack, habana::OutputMetaDataVector(1));
   ReshapeOpList.push_back(reshape);
-
-  return syn_input;
 }
 
-std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
-habana::MatmulBackwardOperator::MatBwSpecialFold(
+void habana::MatmulBackwardOperator::MatBwSpecialFold(
     synapse_helpers::graph& graph,
     HabanaOperatorPtr Op,
     Tensor& mat1,
     Tensor& mat2,
-    synapse_helpers::tensor_or_ref syn_input1,
-    synapse_helpers::tensor_or_ref syn_input2) {
+    synapse_helpers::tensor& syn_input1,
+    synapse_helpers::tensor& syn_input2) {
   /*
     # In matmul backward case of [b, m, n] * [b, n, p] => [m, p],
     # instead of doing [b, m, p] and then reduce to [m, p]
@@ -1213,7 +1208,7 @@ habana::MatmulBackwardOperator::MatBwSpecialFold(
   */
   auto transpose1 = make_operator<TransposeOperator>(
       mat1.device().index(), mat1.scalar_type());
-  syn_input1 = MatBwTranspose(graph, transpose1, mat1, std::move(syn_input1));
+  MatBwTranspose(graph, transpose1, mat1, syn_input1);
   auto transpose_out = transpose1->GetOutputs()[0];
 
   auto ReshapeListSizeIn = ReshapeOpList.size();
@@ -1224,11 +1219,10 @@ habana::MatmulBackwardOperator::MatBwSpecialFold(
       graph,
       transpose1->GetOutputs()[0],
       reshape_mat1_sizes,
-      std::move(transpose1->GetSynOutputs()[0]));
+      transpose1->GetSynOutputs()[0]);
 
   std::vector<int64_t> reshape_mat2_sizes{-1, mat2.size(mat2.dim() - 1)};
-  syn_input2 =
-      MatBwReshape(graph, mat2, reshape_mat2_sizes, std::move(syn_input2));
+  MatBwReshape(graph, mat2, reshape_mat2_sizes, syn_input2);
 
   auto transpose2 = make_operator<TransposeOperator>(
       mat2.device().index(), mat2.scalar_type());
@@ -1253,19 +1247,16 @@ habana::MatmulBackwardOperator::MatBwSpecialFold(
 
   ReshapeOpList.pop_back();
   ReshapeOpList.pop_back();
-
-  return std::make_tuple(std::move(syn_input1), std::move(syn_input2));
 }
 
-std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
-habana::MatmulBackwardOperator::MatBwSize(
+void habana::MatmulBackwardOperator::MatBwSize(
     synapse_helpers::graph& graph,
     HabanaOperatorPtr Op,
     Tensor& mat1,
     Tensor& mat2,
     IntArrayRef sizes,
-    synapse_helpers::tensor_or_ref syn_input1,
-    synapse_helpers::tensor_or_ref syn_input2,
+    synapse_helpers::tensor& syn_input1,
+    synapse_helpers::tensor& syn_input2,
     const OutputMetaData& output_metadata) {
   auto dim_out = sizes.size();
   auto dim1 = mat1.dim();
@@ -1274,8 +1265,7 @@ habana::MatmulBackwardOperator::MatBwSize(
   if (dim_out == 2 and dim1 == dim2 and dim1 >= 3) {
     /* out = AD_matmul_bw_special_fold(mat1, mat2) */
     auto mm = make_operator<habana::MMOperator>(mat1.device().index());
-    std::tie(syn_input1, syn_input2) = MatBwSpecialFold(
-        graph, mm, mat1, mat2, std::move(syn_input1), std::move(syn_input2));
+    MatBwSpecialFold(graph, mm, mat1, mat2, syn_input1, syn_input2);
 
     Op->SetSynapseInput(mm->GetSynOutputs()[0]);
     torch::jit::Stack stack = {IValue(mm->GetOutputs()[0]), IValue(sizes)};
@@ -1290,13 +1280,11 @@ habana::MatmulBackwardOperator::MatBwSize(
     */
     std::vector<int64_t> reshape1_sizes{mat1.sizes().vec()};
     reshape1_sizes.push_back(1);
-    syn_input1 =
-        MatBwReshape(graph, mat1, reshape1_sizes, std::move(syn_input1));
+    MatBwReshape(graph, mat1, reshape1_sizes, syn_input1);
 
     std::vector<int64_t> reshape2_sizes{mat2.sizes().vec()};
     reshape2_sizes.insert(reshape2_sizes.cbegin(), 1);
-    syn_input2 =
-        MatBwReshape(graph, mat2, reshape2_sizes, std::move(syn_input2));
+    MatBwReshape(graph, mat2, reshape2_sizes, syn_input2);
 
     auto matmul = make_operator<habana::MatMulOperator>(mat1.device().index());
     matmul->SetSynapseInput(ReshapeOpList.at(0)->GetSynOutputs()[0]);
@@ -1322,18 +1310,17 @@ habana::MatmulBackwardOperator::MatBwSize(
     */
     std::vector<int64_t> reshape2_sizes{mat2.sizes().vec()};
     reshape2_sizes.push_back(1);
-    syn_input2 =
-        MatBwReshape(graph, mat2, reshape2_sizes, std::move(syn_input2));
+    MatBwReshape(graph, mat2, reshape2_sizes, syn_input2);
 
     // Using MM directly since MatMul is anyway going to call MM for a 2x2 case
     auto matmul = make_operator<habana::MMOperator>(mat1.device().index());
-    std::tie(syn_input1, std::ignore) = MatBwSpecialFold(
+    MatBwSpecialFold(
         graph,
         matmul,
         mat1,
         ReshapeOpList.at(0)->GetOutputs()[0],
-        std::move(syn_input1),
-        std::move(ReshapeOpList.at(0)->GetSynOutputs()[0]));
+        syn_input1,
+        ReshapeOpList.at(0)->GetSynOutputs()[0]);
 
     std::vector<int64_t> reshape1_sizes{matmul->GetOutputs()[0].sizes().vec()};
     reshape1_sizes.pop_back();
@@ -1341,7 +1328,7 @@ habana::MatmulBackwardOperator::MatBwSize(
         graph,
         matmul->GetOutputs()[0],
         reshape1_sizes,
-        std::move(matmul->GetSynOutputs()[0]));
+        matmul->GetSynOutputs()[0]);
 
     Op->SetSynapseInput(ReshapeOpList.at(1)->GetSynOutputs()[0]);
     torch::jit::Stack stack = {
@@ -1353,8 +1340,7 @@ habana::MatmulBackwardOperator::MatBwSize(
     /* out = torch.matmul(mat1, mat2.unsqueeze(dim2)).squeeze(-1) */
     std::vector<int64_t> reshape2_sizes{mat2.sizes().vec()};
     reshape2_sizes.push_back(dim2);
-    syn_input2 =
-        MatBwReshape(graph, mat2, reshape2_sizes, std::move(syn_input2));
+    MatBwReshape(graph, mat2, reshape2_sizes, syn_input2);
 
     auto matmul = make_operator<habana::MatMulOperator>(mat1.device().index());
     matmul->SetSynapseInput(syn_input1);
@@ -1371,7 +1357,7 @@ habana::MatmulBackwardOperator::MatBwSize(
         graph,
         matmul->GetOutputs()[0],
         reshape1_sizes,
-        std::move(matmul->GetSynOutputs()[0]));
+        matmul->GetSynOutputs()[0]);
 
     Op->SetSynapseInput(ReshapeOpList.at(1)->GetSynOutputs()[0]);
     stack = {IValue(ReshapeOpList.at(1)->GetOutputs()[0]), IValue(sizes)};
@@ -1382,8 +1368,7 @@ habana::MatmulBackwardOperator::MatBwSize(
     /* out = torch.matmul(mat1.unsqueeze(-2), mat2).squeeze(-2) */
     std::vector<int64_t> reshape1_sizes{mat1.sizes().vec()};
     reshape1_sizes.insert(reshape1_sizes.cbegin(), 1);
-    syn_input1 =
-        MatBwReshape(graph, mat1, reshape1_sizes, std::move(syn_input1));
+    MatBwReshape(graph, mat1, reshape1_sizes, syn_input1);
 
     auto matmul = make_operator<habana::MatMulOperator>(mat1.device().index());
     matmul->SetSynapseInput(ReshapeOpList.at(0)->GetSynOutputs()[0]);
@@ -1400,7 +1385,7 @@ habana::MatmulBackwardOperator::MatBwSize(
         graph,
         matmul->GetOutputs()[0],
         reshape2_sizes,
-        std::move(matmul->GetSynOutputs()[0]));
+        matmul->GetSynOutputs()[0]);
 
     ReshapeOpList.clear();
 
@@ -1421,8 +1406,6 @@ habana::MatmulBackwardOperator::MatBwSize(
     stack = {IValue(matmul->GetOutputs()[0]), IValue(sizes)};
     Op->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
   }
-
-  return std::make_tuple(std::move(syn_input1), std::move(syn_input2));
 }
 
 void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
@@ -1454,25 +1437,23 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   auto identity = make_operator<IdentityOperator>(
       other.device().index(), other.scalar_type());
   if (other.dim() > 1) {
-    p_context_->syn_inputs_[2] = MatBwTranspose(
-        graph, transpose, other, std::move(p_context_->syn_inputs_[2]));
+    MatBwTranspose(graph, transpose, other, p_context_->syn_inputs_[2]);
   } else {
-    p_context_->syn_inputs_[2] = MatBwTranspose(
-        graph, identity, other, std::move(p_context_->syn_inputs_[2]));
+    MatBwTranspose(graph, identity, other, p_context_->syn_inputs_[2]);
   }
 
   auto gradsum = make_operator<GradSumToSizeOperator>(
       self.device().index(), self.scalar_type());
-  std::tie(p_context_->syn_inputs_[0], std::ignore) = MatBwSize(
+  MatBwSize(
       graph,
       gradsum,
       grad_out,
       (other.dim() > 1) ? transpose->GetOutputs()[0]
                         : identity->GetOutputs()[0],
       self.sizes(),
-      std::move(p_context_->syn_inputs_[0]),
-      (other.dim() > 1) ? std::move(transpose->GetSynOutputs()[0])
-                        : std::move(identity->GetSynOutputs()[0]),
+      p_context_->syn_inputs_[0],
+      (other.dim() > 1) ? transpose->GetSynOutputs()[0]
+                        : identity->GetSynOutputs()[0],
       output_metadata.at(0));
 
   p_context_->syn_outputs_.emplace_back(std::move(gradsum->GetSynOutputs()[0]));
@@ -1483,25 +1464,23 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   auto transpose1 = make_operator<TransposeOperator>(
       self.device().index(), self.scalar_type());
   if (self.dim() > 1) {
-    p_context_->syn_inputs_[1] = MatBwTranspose(
-        graph, transpose1, self, std::move(p_context_->syn_inputs_[1]));
+    MatBwTranspose(graph, transpose1, self, p_context_->syn_inputs_[1]);
   } else {
-    p_context_->syn_inputs_[1] = MatBwTranspose(
-        graph, identity, self, std::move(p_context_->syn_inputs_[1]));
+    MatBwTranspose(graph, identity, self, p_context_->syn_inputs_[1]);
   }
 
   auto gradsum1 = make_operator<GradSumToSizeOperator>(
       self.device().index(), self.scalar_type());
-  std::tie(std::ignore, p_context_->syn_inputs_[0]) = MatBwSize(
+  MatBwSize(
       graph,
       gradsum1,
       (self.dim() > 1) ? transpose1->GetOutputs()[0]
                        : identity->GetOutputs()[0],
       grad_out,
       other.sizes(),
-      (self.dim() > 1) ? std::move(transpose1->GetSynOutputs()[0])
-                       : std::move(identity->GetSynOutputs()[0]),
-      std::move(p_context_->syn_inputs_[0]),
+      (self.dim() > 1) ? transpose1->GetSynOutputs()[0]
+                       : identity->GetSynOutputs()[0],
+      p_context_->syn_inputs_[0],
       output_metadata.at(1));
 
   p_context_->syn_outputs_.emplace_back(

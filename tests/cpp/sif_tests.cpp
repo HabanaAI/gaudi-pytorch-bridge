@@ -41,6 +41,18 @@ class SifTest : public habana_lazy_test::LazyTest {
   void validate_shape_end() {
     UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
   }
+
+  void validate_sif_start() {
+    if (false == GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF))
+      SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, true, 1);
+    if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE))
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, true, 1);
+  }
+
+  void validate_sif_end() {
+    UNSET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
+  }
 };
 
 TEST_F(SifTest, Slice) {
@@ -480,10 +492,10 @@ TEST_F(SifTest, DISABLED_Fill_Add) {
   validate_shape_end();
 }
 
-// To Do: Enable this below test once ComputeOutputShape() is supported for
-// Index op
-TEST_F(SifTest, DISABLED_IndexSubCat) {
+// Hybrid SIF test, Tests Index, Sub - auto gen ops, Cat manual op
+TEST_F(SifTest, IndexSubCat) {
   validate_shape_start();
+  validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -533,15 +545,14 @@ TEST_F(SifTest, DISABLED_IndexSubCat) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   validate_shape_end();
+  validate_sif_end();
 }
 
 // Hybrid SIF test, Tests Index, Sub and Silu Bwd - auto gen ops
 // with enabled Compute Output shape.
-// To do refactor and Add Hybrid Sif tests with JIT IR Ops list
 TEST_F(SifTest, IndexSubSiluBwd) {
   validate_shape_start();
-  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, true, 1);
+  validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -590,6 +601,42 @@ TEST_F(SifTest, IndexSubSiluBwd) {
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
   validate_shape_end();
-  UNSET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
+  validate_sif_end();
+}
+
+// Hybrid SIF test, Tests Matmul/Matmul Bwd with out ComputeOutputShape
+// Matmul/Matmul Bwd does not support ComputeOutputShape
+// Skip ComputeOutputShape validation
+TEST_F(SifTest, MatmulFwdBwd) {
+  validate_sif_start();
+  std::vector<int> in_sizes{2, 4, 8};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
+    auto mat1 = torch::randn({2, in_sizes[i]}, torch::requires_grad());
+    auto mat2 = torch::randn({in_sizes[i], 4}, torch::requires_grad());
+    auto mat1_h = mat1.to(torch::kHPU);
+    auto mat2_h = mat2.to(torch::kHPU);
+    // retain_grad() as mat1_h and mat2_h are non-leaf tensors
+    mat1_h.retain_grad();
+    mat2_h.retain_grad();
+
+    auto out = torch::matmul(mat1, mat2);
+    auto grad_out = torch::ones_like(out);
+    out.backward(grad_out);
+    auto grad_mat1 = mat1.grad().clone().detach();
+    auto grad_mat2 = mat2.grad().clone().detach();
+
+    auto out_h = torch::matmul(mat1_h, mat2_h);
+    auto grad_out_h = grad_out.to(torch::kHPU);
+    out_h.backward(grad_out_h);
+    auto grad_mat1_h = mat1_h.grad();
+    auto grad_mat2_h = mat2_h.grad();
+
+    EXPECT_EQ(
+        allclose(grad_mat1, grad_mat1_h.to(torch::kCPU), 0.01, 0.01), true);
+    EXPECT_EQ(
+        allclose(grad_mat2, grad_mat2_h.to(torch::kCPU), 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
+  }
+  validate_sif_end();
 }
