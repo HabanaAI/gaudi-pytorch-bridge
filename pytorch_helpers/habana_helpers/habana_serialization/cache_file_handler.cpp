@@ -60,17 +60,26 @@ void CacheFileHandler::init(std::string path) {
   HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
   if (GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE)) {
     if (id == 0) {
-      auto de = fs::directory_iterator{dir_path};
-      while (de != fs::end(de)) {
+      try {
+        auto de = fs::directory_iterator{dir_path};
+        while (de != fs::end(de)) {
+          PT_HABHELPER_DEBUG(
+              CACHEFILE_LOG,
+              "Cleaning: ",
+              de->path(),
+              ", Rank: ",
+              std::dec,
+              getRank());
+          fs::remove(de->path());
+          de++;
+        }
+      } catch (fs::filesystem_error err) {
         PT_HABHELPER_DEBUG(
             CACHEFILE_LOG,
-            "Cleaning: ",
-            de->path(),
+            "Exception in cache removal on init, Please delete manually: ",
+            err.what(),
             ", Rank: ",
-            std::dec,
             getRank());
-        fs::remove(de->path());
-        de++;
       }
     }
   }
@@ -156,55 +165,65 @@ void BasicCacheFileHandler::checkAndDelete() {
   if (!fs::exists(dir_path))
     return;
 
-  auto de = fs::directory_iterator{dir_path};
-  while ((de != fs::end(de)) && (curFolderSize > getMaxFolderSize())) {
-    std::string cache_id;
+  try {
+    auto de = fs::directory_iterator{dir_path};
 
-    std::string fname = de->path();
-    std::string subName = fname.substr(0, fname.rfind("."));
+    while ((de != fs::end(de)) && (curFolderSize > getMaxFolderSize())) {
+      std::string cache_id;
 
-    fs::path p1{subName + RECIPE_SUFFIX};
-    fs::path p2{subName + METADATA_SUFFIX};
+      std::string fname = de->path();
+      std::string subName = fname.substr(0, fname.rfind("."));
 
-    if (!fs::exists(p1) || !fs::exists(p2)) {
-      de++;
-      continue;
+      fs::path p1{subName + RECIPE_SUFFIX};
+      fs::path p2{subName + METADATA_SUFFIX};
 
-    } else {
-      int fd = fileOpen(p2.c_str(), O_RDONLY);
-      if (fd < 0 || !fileLock(fd, false)) {
+      if (!fs::exists(p1) || !fs::exists(p2)) {
         de++;
         continue;
+
+      } else {
+        int fd = fileOpen(p2.c_str(), O_RDONLY);
+        if (fd < 0 || !fileLock(fd, false)) {
+          de++;
+          continue;
+        }
+
+        // Not closing file because we want to hold the lock
       }
 
-      // Not closing file because we want to hold the lock
-    }
-
-    fs::directory_entry de1{p1};
-    fs::directory_entry de2{p2};
+      fs::directory_entry de1{p1};
+      fs::directory_entry de2{p2};
 
 #if !defined __GNUC__ || __GNUC__ >= 8
-    uint64_t size = de1.file_size() + de2.file_size();
+      uint64_t size = de1.file_size() + de2.file_size();
 #else
-    uint64_t size = fs::file_size(p1) + fs::file_size(p2);
+      uint64_t size = fs::file_size(p1) + fs::file_size(p2);
 #endif
 
+      PT_HABHELPER_DEBUG(
+          CACHEFILE_LOG,
+          "Deleting: ",
+          subName,
+          ", Size: ",
+          std::dec,
+          size,
+          ", Rank: ",
+          getRank());
+
+      fs::remove(p1);
+      fs::remove(p2);
+
+      curFolderSize -= size;
+
+      de++;
+    }
+  } catch (fs::filesystem_error err) {
     PT_HABHELPER_DEBUG(
         CACHEFILE_LOG,
-        "Deleting: ",
-        subName,
-        ", Size: ",
-        std::dec,
-        size,
+        "Exception in cache removal on delete, Please delete manually: ",
+        err.what(),
         ", Rank: ",
         getRank());
-
-    fs::remove(p1);
-    fs::remove(p2);
-
-    curFolderSize -= size;
-
-    de++;
   }
 }
 
