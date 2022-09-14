@@ -594,6 +594,9 @@ void IdentityOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
+  if (self.dim() == 0) {
+    SET_SIZE_STRIDE_1D(self);
+  }
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();

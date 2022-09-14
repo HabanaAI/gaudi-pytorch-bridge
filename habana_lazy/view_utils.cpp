@@ -788,7 +788,6 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
 
   ir::NodePtr node = nullptr;
   if (node_str == "aten::unsqueeze" && !self.dim()) {
-    SET_SIZE_STRIDE_1D(self);
     node = std::make_shared<ir::Identity>(self, "hpu::identity");
   } else {
     node = std::make_shared<ir::SqueezeBase>(self, dim, node_str);
