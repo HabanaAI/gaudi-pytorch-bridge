@@ -96,6 +96,19 @@ void UniformOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+OutputShapeInfRetType RandomShuffleOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto self = inputs[0].toTensor();
+  out.AddOutputTensor(TensorMetaData(
+      self.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          self.sizes(), self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
+}
+
 /************************************************************************
  * @brief This function implements synapse node addition for random_shuffle
  * function with 2 input arguments (where all arguments are tensors)
@@ -155,6 +168,34 @@ at::Tensor RandpermOperator::GenerateAndCopySeedToHPU(
         "Input arg1 expected to be Tensor for RandpermOperatorHT Operator")
     return generate_seed(inputs[2], inputs[3]);
   }
+}
+
+OutputShapeInfRetType RandpermOperatorHT::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto host_tensor = inputs[0].toTensor();
+  auto shape_tensor = inputs[1].toTensor();
+  auto output = inputs[3].toTensor();
+  auto scalar_type = output.scalar_type();
+  auto arangeOutput = habana_helpers::createPTTensor(output, false);
+
+  auto arangeOp = make_operator<ArangeOperatorHT>(
+      this->p_context_->device_id_, scalar_type);
+  torch::jit::Stack stack{
+      IValue(host_tensor), IValue(arangeOutput), IValue(shape_tensor)};
+  auto arange_op_out = out.call_ComputeOutputShape(arangeOp, stack);
+
+  stack.clear();
+  stack.emplace_back(IValue(arangeOutput));
+  auto randShuffleOp = make_operator<RandomShuffleOperator>(
+      this->p_context_->device_id_, scalar_type);
+
+  auto randShuffle_op_out = out.call_ComputeOutputShape(randShuffleOp, stack);
+  auto randShuffle_op_tensor = randShuffle_op_out.GetOutputTensor()[0];
+
+  out.MoveToOutput(std::move(randShuffle_op_tensor));
+
+  return out;
 }
 
 void RandpermOperatorHT::AllocateAndAddSynapseNode(

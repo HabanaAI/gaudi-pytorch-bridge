@@ -691,3 +691,22 @@ TEST_F(LazyDynamicComputeOutputShapesTest, RoiAlignBwd) {
 
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+// Also validates ComputeOutputShape for RandPermHT
+TEST_F(LazyDynamicComputeOutputShapesTest, RandPermHT) {
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
+  std::vector<int> in_sizes{8, 10, 15};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int n = in_sizes[i];
+    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    at::TensorOptions hb_options =
+        at::TensorOptions().dtype(dtype).device(hb_device);
+    torch::manual_seed(0);
+    auto lazy = torch::randperm(n, hb_options);
+    auto lazy_cpu = lazy.to(torch::kCPU);
+  }
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR);
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+}

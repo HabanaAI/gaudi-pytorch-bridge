@@ -129,6 +129,10 @@ class RandomShuffleOperator : public HabanaOperator {
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
   }
+
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -160,6 +164,9 @@ class RandpermOperatorHT : public RandpermOperator {
  public:
   RandpermOperatorHT(int device_id, c10::ScalarType scalarType)
       : RandpermOperator(device_id, scalarType) {}
+
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
