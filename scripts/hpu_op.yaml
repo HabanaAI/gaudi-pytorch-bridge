@@ -2514,26 +2514,36 @@ log_sigmoid_forward.output:
 
 _log_softmax:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
   out_ids: [0]
 
 _log_softmax.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
 
 _log_softmax_backward_data:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   guid: logsoftmax_bwd
   custom_fill_params: FillLogSoftmaxBackwardParams
   op_backend: LogSoftmaxBackward
   out_ids: [0]
 
 _log_softmax_backward_data.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   guid: logsoftmax_bwd
   custom_fill_params: FillLogSoftmaxBackwardParams
   op_backend: LogSoftmaxBackward
