@@ -504,13 +504,6 @@ struct hpu_wrap {
       double momentum,
       double eps,
       bool cudnn_enabled);
-  static ::std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
-      const at::Tensor& input,
-      at::IntArrayRef kernel_size,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      at::IntArrayRef dilation,
-      bool ceil_mode);
   at::Tensor& max_pool2d_with_indices_backward_out(
       const at::Tensor& grad_output,
       const at::Tensor& self,
@@ -521,15 +514,6 @@ struct hpu_wrap {
       bool ceil_mode,
       const at::Tensor& indices,
       at::Tensor& grad_input);
-  static at::Tensor max_pool2d_with_indices_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& input,
-      at::IntArrayRef kernel_size,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      at::IntArrayRef dilation,
-      bool ceil_mode,
-      const at::Tensor& indices);
   static at::Tensor avg_pool2d(
       const at::Tensor& input,
       at::IntArrayRef kernel_size,

@@ -2518,42 +2518,6 @@ Tensor hpu_wrap::instance_norm(
   return InstanceNorm::apply(input, weight, bias, eps);
 }
 
-std::tuple<Tensor, Tensor> hpu_wrap::max_pool2d_with_indices(
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool ceil_mode) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "max_pool2d_with_indices :",
-      " input=",
-      to_string(input),
-      " kernel_size=",
-      to_string(kernel_size),
-      " stride=",
-      to_string(stride),
-      " padding=",
-      to_string(padding),
-      " dilation=",
-      to_string(dilation),
-      " ceil_mode=",
-      to_string(ceil_mode));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      max_pool2d_with_indices,
-      PARAMS1(input),
-      PARAMS2(input, kernel_size, stride, padding, dilation, ceil_mode))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return max_pool2d_with_indices_hpu_lazy(
-        input, kernel_size, stride, padding, dilation, ceil_mode);
-  } else {
-    return max_pool2d_with_indices_hpu(
-        input, kernel_size, stride, padding, dilation, ceil_mode);
-  }
-}
-
 Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
     const Tensor& grad_output,
     const Tensor& input,
@@ -2625,69 +2589,6 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
   }
 }
 
-Tensor hpu_wrap::max_pool2d_with_indices_backward(
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool ceil_mode,
-    const Tensor& indices) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "max_pool2d_with_indices_backward :",
-      " grad_output=",
-      to_string(grad_output),
-      " input=",
-      to_string(input),
-      " kernel_size=",
-      to_string(kernel_size),
-      " stride=",
-      to_string(stride),
-      " padding=",
-      to_string(padding),
-      " dilation=",
-      to_string(dilation),
-      " ceil_mode=",
-      to_string(ceil_mode),
-      " indices=",
-      to_string(indices));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      max_pool2d_with_indices_backward,
-      PARAMS1(grad_output, input, indices),
-      PARAMS2(
-          grad_output,
-          input,
-          kernel_size,
-          stride,
-          padding,
-          dilation,
-          ceil_mode,
-          indices))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return max_pool2d_with_indices_backward_hpu_lazy(
-        grad_output,
-        input,
-        kernel_size,
-        stride,
-        padding,
-        dilation,
-        ceil_mode,
-        indices);
-  } else {
-    return max_pool2d_with_indices_backward_hpu(
-        grad_output,
-        input,
-        kernel_size,
-        stride,
-        padding,
-        dilation,
-        ceil_mode,
-        indices);
-  }
-};
 Tensor hpu_wrap::avg_pool2d(
     const Tensor& input,
     IntArrayRef kernel_size,

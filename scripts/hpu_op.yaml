@@ -2681,6 +2681,27 @@ maximum.out:
   type_promotion: true
   safe_cast_check: true
 
+max_pool2d_with_indices:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Short, Char, Byte]
+  override_fn: max_pool2d_with_indices_hpu_lazy
+
+max_pool2d_with_indices_backward:
+  force_default: false
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      grad_output: [BFloat16, Float]
+      indices: [Byte, Short]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      grad_output: [BFloat16, Float, Half]
+      indices: [Byte, Short]
+  override_fn: max_pool2d_with_indices_backward_hpu_lazy
+
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool2d_with_indices.out:
 #   custom_fill_params: FillSpatialReduction2DParamsFwd
