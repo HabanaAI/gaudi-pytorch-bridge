@@ -2363,6 +2363,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       input_refs, graph_key, op_strs, cur_ds_token_);
   PT_TEST_DEBUG("cur_rargpsh = ", *cur_rargpsh);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
+  // Used only for compilation statistics purpose now
+  current_dbipsh_->SetLastUsedStepForBucket(
+      current_bucket_id_, current_dbipsh_->get_statistics()->GetCurrentStep());
 
   // Check for cached recipe
   if (enable_caching_) {
@@ -2426,8 +2429,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
               ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
           PT_DYNAMIC_SHAPE_DEBUG("OutputSif_END");
         }
+        bool refine_candidate =
+            (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
         current_dbipsh_->get_statistics()->LogUsedBucket(
-            current_bucket_id_, jit_ir_graph, ranges, 0);
+            current_bucket_id_, jit_ir_graph, ranges, refine_candidate);
       }
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
@@ -2476,7 +2481,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       RefinementEngine::GetEngine().AddGraphKey(
           rargpsh_graph->graphHashCode(),
           current_dbipsh_->get_statistics()->GetCurrentStep());
-
       PT_DYNAMIC_SHAPE_DEBUG(
           current_dbipsh_->digest_str(), current_dbipsh_->history_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
@@ -3351,8 +3355,14 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     current_dbipsh_->get_statistics()->LogShapes(
         jit_ir_graph, graph_input_info.act_input_tshapes);
     if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
+      bool refine_candidate =
+          (current_dbipsh_->GetMFUBucket() ==
+           graph_input_info.current_bucket_id);
       current_dbipsh_->get_statistics()->LogUsedBucket(
-          graph_input_info.current_bucket_id, jit_ir_graph, ranges, 0);
+          graph_input_info.current_bucket_id,
+          jit_ir_graph,
+          ranges,
+          refine_candidate);
     }
     current_dbipsh_->get_statistics()->LogSelectedRecipe(
         current_dbipsh_->GetRecipeKeyForBucket(

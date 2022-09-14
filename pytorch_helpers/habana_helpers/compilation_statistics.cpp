@@ -292,7 +292,8 @@ void CompilationStatistics::LogRefineCompilation(
   json_refine["recipe"] = signature;
   json_refine["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_refine["bucket id"] = bucket;
-  json_refine["start iter"] = GetRefineInitStep();
+  json_refine["parent bucket id"] = GetCurrentParentBucketID();
+  json_refine["start iter"] = GetCurrentParentLastStep();
   auto& json_refine_result = json_refine["result"];
   json_refine_result["status"] = result_str;
   json_refine_result["step"] = GetCurrentStep();
@@ -309,6 +310,22 @@ void CompilationStatistics::SetRefineInitStep(size_t step) {
 
 size_t CompilationStatistics::GetRefineInitStep() {
   return refine_init_step_;
+}
+
+void CompilationStatistics::SetCurrentParentBucketID(size_t bucket_id) {
+  curr_parent_bucket_id_ = bucket_id;
+}
+
+size_t CompilationStatistics::GetCurrentParentBucketID() {
+  return curr_parent_bucket_id_;
+}
+
+void CompilationStatistics::SetCurrentParentLastStep(size_t step) {
+  curr_parent_last_step_ = step;
+}
+
+size_t CompilationStatistics::GetCurrentParentLastStep() {
+  return curr_parent_last_step_;
 }
 
 void CompilationStatistics::DumpAndNextStep() {

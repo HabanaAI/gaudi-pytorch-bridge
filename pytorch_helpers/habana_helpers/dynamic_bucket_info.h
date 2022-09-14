@@ -252,6 +252,12 @@ class Bucket {
     return dynamic_dims_;
   }
   // Stats related functions
+  uint64_t GetLastUsedStep() {
+    return last_used_step_;
+  }
+  void SetLastUsedStep(uint64_t step) {
+    last_used_step_ = step;
+  }
   bool GetKeepRunTime() const {
     return keep_time_;
   };
@@ -397,6 +403,7 @@ class Bucket {
   uint64_t token_{uninitialized_token};
   size_t idx_{0};
   size_t recipe_key_{0};
+  uint64_t last_used_step_{0};
   bool is_first_launch_{true};
 
   DynamicRanges ranges_;
@@ -558,6 +565,12 @@ class DynamicBucketInfo {
         __LINE__);
     buckets_.at(bucket_idx).SetRecipeKey(key);
   };
+  void SetLastUsedStepForBucket(uint64_t bucket_idx, uint64_t step) {
+    buckets_.at(bucket_idx).SetLastUsedStep(step);
+  }
+  uint64_t GetMFUBucket() {
+    return mfu_bucket_id;
+  }
   void SetMinPolicy(DynamicDimsPolicy policy) {
     min_policy_ = policy;
   }

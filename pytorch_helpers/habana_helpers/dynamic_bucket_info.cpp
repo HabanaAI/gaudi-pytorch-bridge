@@ -355,7 +355,7 @@ void DynamicBucketInfo::ComputeMFUBucketDetails() {
       continue;
     }
     uint64_t cur_bucket_run_count{b.GetRunCount()};
-    if (mfu_bucket_run_count < cur_bucket_run_count) {
+    if (mfu_bucket_run_count <= cur_bucket_run_count) {
       mfu_bucket_run_count = cur_bucket_run_count;
       mfu_bucket_id = b.GetIndex();
     }
@@ -369,7 +369,7 @@ void DynamicBucketInfo::UpdateMFUBucketDetails(size_t bucket_id) {
   }
   current_run_count += 1;
   uint64_t cur_bucket_run_count{buckets_[bucket_id].GetRunCount()};
-  if (mfu_bucket_run_count < cur_bucket_run_count) {
+  if (mfu_bucket_run_count <= cur_bucket_run_count) {
     mfu_bucket_run_count = cur_bucket_run_count;
     mfu_bucket_id = bucket_id;
   }
@@ -497,6 +497,9 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
     return {};
   }
 
+  statistics_->SetCurrentParentBucketID(curr_mfu_id);
+  statistics_->SetCurrentParentLastStep(
+      buckets_[curr_mfu_id].GetLastUsedStep());
   if (buckets_[curr_mfu_id].IsRefinementCandidate() == false) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "Bucket ", curr_mfu_id, " is not a candidate for refinement");

@@ -172,6 +172,36 @@ class CompilationStatistics {
   virtual size_t GetRefineInitStep();
 
   /**
+   * @brief Set the parent bucket id used for current refinement
+   *
+   * @param bucket id considered for current refinement
+   */
+  virtual void SetCurrentParentBucketID(size_t bucket_id);
+
+  /**
+   * @brief Get the parent bucket id used for current refinement
+   *
+   * @return size_t current parent bucket id
+   */
+  virtual size_t GetCurrentParentBucketID();
+
+  /**
+   * @brief Set the last step in which the parent bucket have used
+   * before the refinement
+   *
+   * @param last step the parent bucket was used
+   */
+  virtual void SetCurrentParentLastStep(size_t step);
+
+  /**
+   * @brief Get the last step in which the parent bucket have used
+   * before the refinement
+   *
+   * @return size_t last step the parent bucket was used
+   */
+  virtual size_t GetCurrentParentLastStep();
+
+  /**
    * @brief Dump current json data and increase internal step counter
    *
    */
@@ -181,6 +211,8 @@ class CompilationStatistics {
   std::string path_;
   std::atomic<uint64_t> step_;
   size_t refine_init_step_;
+  size_t curr_parent_bucket_id_;
+  size_t curr_parent_last_step_;
   nlohmannV340::json json_file_;
   std::ofstream file_handle;
   std::string GetStep(uint64_t step);
