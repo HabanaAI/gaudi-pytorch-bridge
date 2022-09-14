@@ -549,7 +549,7 @@ class LazyOp {
       // out variant needs storage as it is a graph input
       out_t = empty_hpu_lazy(
           self.sizes(), self.options(), self.suggest_memory_format(), true);
-      for (size_t idx = m_inputs.size() - 1; idx >= 0; idx--) {
+      for (int idx = (int)m_inputs.size() - 1; idx >= 0; idx--) {
         auto t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
           m_inputs[idx] = out_t;

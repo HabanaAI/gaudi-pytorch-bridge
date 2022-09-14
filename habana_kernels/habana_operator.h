@@ -236,7 +236,7 @@ std::vector<T> SelectVectorIndices(
   std::vector<T> result;
   result.reserve(indices.size());
   for (auto index : indices) {
-    if (index >= 0 && index < src.size())
+    if ((int)index >= 0 && index < src.size())
       result.push_back(src.at(index));
   }
   HABANA_ASSERT(result.size() == indices.size());
