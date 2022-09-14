@@ -134,6 +134,17 @@ at::Tensor LazyBinaryOp<at::Tensor>::get_result_overrideable() {
       ? self.sizes()
       : LazyOp<at::Tensor>::get_out_shapes().at(0);
 
+  if (dst_dtype_ == at::ScalarType::Undefined) {
+    c10::optional<const at::IValue*> output = is_outfn_
+        ? c10::make_optional<const at::IValue*>(&inputs.back())
+        : c10::nullopt;
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            inputs, output, safe_cast_check_);
+
+    dst_dtype_ = dtype_helper.get_result_dtype();
+  }
+
   return empty_hpu_lazy(
       outshape,
       self.options().device(c10::kHPU).dtype(dst_dtype_),

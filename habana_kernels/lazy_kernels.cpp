@@ -1325,12 +1325,68 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   return out;
 }
 
+void add_tensor_hpu_lazy_parallel_impl(
+    const Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+    auto mul_out = torch::mul(other, alpha_tensor);
+    if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
+      // The operation has been split into intermediate multiply and then again
+      // add op tensor produced by this split resulted in inappropriate type
+      // deduction of whole add operation. alpha is always scalar, when also
+      // other is scalar then marking intermediate as wrapped number is also
+      // necessary to further proper deduction
+      mul_out.unsafeGetTensorImpl()->set_wrapped_number(true);
+    }
+    add_tensor_hpu_lazy_parallel_impl(self, mul_out, 1.0, out);
+  } else {
+    LazyBinaryOp<at::Tensor> k{
+        "aten::add",
+        {self, other, alpha},
+        false,
+        true,
+        {},
+        {BinaryOperator::compute_output_shape(self, other)},
+        -1};
+    k.call(out);
+  }
+}
+
 Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     const Scalar& alpha) {
   habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
+
+  if (habana_lazy::IsAccThreadEnabled()) {
+    LazyBinaryOp<at::Tensor> k{
+        "aten::add",
+        {self, other, alpha},
+        false,
+        true,
+        {},
+        {BinaryOperator::compute_output_shape(self, other)},
+        -1};
+
+    auto out = k.get_result();
+
+    auto op_func = [self, other, alpha, out]() mutable {
+      add_tensor_hpu_lazy_parallel_impl(self, other, alpha, out);
+    };
+
+    RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add, op_func, out);
+  }
+
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
     at::Tensor alpha_tensor =
@@ -1380,11 +1436,39 @@ Tensor& add_scalar_hpu_lazy_(
   return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 
+void add_tensor_hpu_lazy_inplace_parallel_impl(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+    auto mul_out = torch::mul(other, alpha_tensor);
+    add_tensor_hpu_lazy_inplace_parallel_impl(self, mul_out, 1.0);
+  } else {
+    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
+    op.call(self);
+  }
+}
+
 Tensor& add_tensor_hpu_lazy_(
     Tensor& self,
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
+
+  if (habana_lazy::IsAccThreadEnabled()) {
+    auto op_func = [self, other, alpha]() mutable {
+      add_tensor_hpu_lazy_inplace_parallel_impl(self, other, alpha);
+    };
+
+    RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
+  }
+
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
     at::Tensor alpha_tensor =
@@ -6373,6 +6457,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     // Index flipping to match the cpu results
     Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
     auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
+    habana_lazy::SyncAccThreadPool();
     inverse_result = view_hpu_lazy(inverse_result, self.sizes());
 
     flush_op(inverse_result);

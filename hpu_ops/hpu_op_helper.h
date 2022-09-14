@@ -170,7 +170,7 @@ inline float& get<float>(fint_t& u) {
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                                \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       auto result = lazy_op.get_result();                                     \
@@ -183,7 +183,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                  \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       self = lazy_op.get_result(self);                                        \
@@ -220,5 +220,21 @@ inline float& get<float>(fint_t& u) {
     }                                                                         \
   }                                                                           \
   return lazy_op.call(tuple);
+
+#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(op, func, out)                  \
+  if (habana_lazy::CanUseAccThread()) {                                     \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::GetAccThreadPool().run(                                    \
+        [func = std::move(func), out]() mutable {                           \
+          PT_LAZY_TRACE;                                                    \
+          func();                                                           \
+          habana_lazy::GetAccCleanupThreadPool().run(                       \
+              [func = std::move(func), out = std::move(out)]() {});         \
+        });                                                                 \
+    return out;                                                             \
+  } else {                                                                  \
+    func();                                                                 \
+    return out;                                                             \
+  }
 
 #define FALLBACK_CHECK(fn, args...) bool fn(args...)

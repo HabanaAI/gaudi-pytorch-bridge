@@ -35,6 +35,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "kl_div_backward",
     "any",
     "add",
+    "add_",
     "all",
     "convolution_overrideable",
     "constant_pad_nd",
@@ -62,17 +63,27 @@ at::PTThreadPool& GetAccCleanupThreadPool() {
   return thread_pool;
 }
 
+bool IsAccThreadEnabled() {
+  return GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0;
+}
+
+bool CanUseAccThread() {
+  if (IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool()) {
+    return true;
+  }
+
+  return false;
+}
+
 void SyncAccThreadPool() {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0 &&
-      !GetAccThreadPool()
-           .inThreadPool()) { // avoid syncing from within thread pool
+  if (CanUseAccThread()) { // avoid syncing from within thread pool
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
   }
 }
 
 void SyncCleanupThreadPool() {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0 &&
+  if (IsAccThreadEnabled() &&
       !GetAccCleanupThreadPool()
            .inThreadPool()) { // no syncing from within thread pool
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation cleanup thread ...");
@@ -81,7 +92,7 @@ void SyncCleanupThreadPool() {
 }
 
 void SyncManualOpIfNeeded(const std::string& op) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {
+  if (IsAccThreadEnabled()) {
     if (!SupportedNonAutogenOps.count(op)) {
       PT_LAZY_PARALLEL_ACC_DEBUG(
           op, " op not supported for parallel accumulation");

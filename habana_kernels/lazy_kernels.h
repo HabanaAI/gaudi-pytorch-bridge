@@ -1445,6 +1445,46 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     return LazyOp<T>::call(self);
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type call(
+      at::Tensor& self) {
+    auto inputs = LazyOp<T>::get_inputs();
+
+    // Perform type promotion and validate if promoted type can be casted to
+    // output data type.
+    at::IValue ivalue(self);
+    auto output = c10::make_optional<const at::IValue*>(&ivalue);
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            inputs, output, safe_cast_check_);
+
+    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+    dst_dtype_ = dtype_helper.get_result_dtype();
+
+    auto inputs_updated = false;
+    for (size_t i = 0; i < 2; ++i) {
+      auto tensor_promote = inputs[i].toTensor();
+      if (compute_dtype == tensor_promote.scalar_type()) {
+        continue;
+      }
+
+      inputs_updated = true;
+      auto self = empty_hpu_lazy(
+          tensor_promote.sizes(),
+          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
+          tensor_promote.suggest_memory_format(),
+          false);
+      self = copy_hpu_lazy_(self, tensor_promote, true);
+      inputs[i] = self;
+    }
+
+    if (inputs_updated) {
+      LazyOp<T>::set_inputs(inputs);
+    }
+
+    LazyOp<T>::call(self);
+  }
+
  private:
   c10::ScalarType dst_dtype_ = c10::ScalarType::Undefined;
   bool is_outfn_ = false;

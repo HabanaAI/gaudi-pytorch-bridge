@@ -33,6 +33,10 @@ at::PTThreadPool& GetAccThreadPool();
 // for GIL release.
 at::PTThreadPool& GetAccCleanupThreadPool();
 
+// checks if accumulation thread is enabled
+bool IsAccThreadEnabled();
+// checks if accumulation thread can be used
+bool CanUseAccThread();
 // synchronizes acc thread pool, if parallel accumulation is enabled
 void SyncAccThreadPool();
 // synchronizes acc cleanup thread pool, if parallel accumulation is enabled
