@@ -2382,18 +2382,27 @@ linspace.out:
   custom_output_shape: LinspaceOutputShape
 
 log.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: log_fwd
 
 log:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: log_fwd
   out_ids: [0]
 
 log_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: log_fwd
   inplace_ids: [0]
 
@@ -3406,17 +3415,26 @@ reciprocal.out:
   guid: reciprocal_fwd
 
 relu:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   out_ids: [0]
 
 relu_:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   inplace_ids: [0]
 
 relu.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: relu_fwd
 
 reflection_pad1d:
