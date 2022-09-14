@@ -5215,6 +5215,14 @@ Tensor clone_hpu_lazy(
     c10::optional<MemoryFormat> memory_format) {
   PT_LAZY_TRACE;
   static_cast<void>(memory_format);
+
+  if (habana_lazy::IsAccThreadEnabled()) {
+    LazyOp<at::Tensor> k{"hpu::habana_d2d_memcpy", {self}};
+    auto out = k.get_result();
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out.sizes()));
+    RUN_MAYBE_WITH_ACC_THREAD(clone, k);
+  }
+
   LazyOp<at::Tensor> k{"hpu::habana_d2d_memcpy", {self}};
   auto out = k.call();
   out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out.sizes()));

@@ -47,6 +47,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "one_hot",
     "cat",
     "cat_out",
+    "clone"
     "repeat"};
 // black list of aut-gen ops that do not support parallel accumulation
 const std::unordered_set<std::string> AccThreadOpsBlacklist = {
