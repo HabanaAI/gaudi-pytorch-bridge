@@ -18,6 +18,7 @@
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
+#include "pytorch_helpers/pt_ver/torch_reduce_op_shim.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 #include <hccl.h>
@@ -372,7 +373,7 @@ void HcclAllreduceOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
   TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
 
-  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  static_assert(sizeof(RedOpType) <= sizeof(uint8_t));
   reduce_op_ = (uint8_t)inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
@@ -427,7 +428,7 @@ void HcclAllreduceOperator::RunCollective(
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
               getHCCLDataType(scalar_type),
-              getHCCLReduceOp((c10d::ReduceOp)reduce_op),
+              getHCCLReduceOp((RedOpType)reduce_op),
               *comm->GetHcclHandle(),
               stream);
           TORCH_CHECK(
@@ -448,7 +449,7 @@ void HcclReduceOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
 
   dst_rank_ = inputs.at(1).toInt();
-  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  static_assert(sizeof(RedOpType) <= sizeof(uint8_t));
   reduce_op_ = (uint8_t)inputs.at(2).toInt();
   comm_id_ = inputs.at(3).toInt();
 
@@ -508,7 +509,7 @@ void HcclReduceOperator::RunCollective(
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
               getHCCLDataType(scalar_type),
-              getHCCLReduceOp((c10d::ReduceOp)reduce_op),
+              getHCCLReduceOp((RedOpType)reduce_op),
               dst_rank,
               *comm->GetHcclHandle(),
               stream);
@@ -669,7 +670,7 @@ void HcclReduceScatterOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[2].isScalar(), "Input arg 2 needs to be of scalar type");
   TORCH_CHECK(inputs[3].isTensor(), "Input arg 3 needs to be of tensor type");
   auto outputTensor = inputs.at(3).toTensor();
-  static_assert(sizeof(c10d::ReduceOp) <= sizeof(uint8_t));
+  static_assert(sizeof(RedOpType) <= sizeof(uint8_t));
   reduce_op_ = (uint8_t)inputs.at(1).toInt();
   comm_id_ = inputs.at(2).toInt();
 
@@ -714,7 +715,7 @@ void HcclReduceScatterOutOperator::RunCollective(
             recv_buffer,
             output->get_numel(),
             getHCCLDataType(scalar_type),
-            getHCCLReduceOp((c10d::ReduceOp)reduce_op),
+            getHCCLReduceOp((RedOpType)reduce_op),
             *comm->GetHcclHandle(),
             stream);
         return hccl_result;
