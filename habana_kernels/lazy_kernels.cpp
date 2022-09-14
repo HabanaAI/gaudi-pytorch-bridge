@@ -7297,7 +7297,6 @@ Tensor linear_non2d_hpu_lazy(
     const Tensor& weight,
     const c10::optional<Tensor>& bias_opt) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   /* Implements:
     auto output = at::matmul(input, weight.t());
     if (bias->defined()) {
@@ -7308,7 +7307,7 @@ Tensor linear_non2d_hpu_lazy(
   auto sizes = habana::MatMulOperator::compute_output_shape(
       input, weight, true /*weight transposed*/);
   LazyOp<at::Tensor> k("aten::linear", {input, weight, bias_opt}, {}, {sizes});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(linear, k)
 }
 
 std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
