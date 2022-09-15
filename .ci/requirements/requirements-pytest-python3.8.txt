@@ -3,7 +3,8 @@ dataclasses-json==0.5.7
 distro==1.5.0
 elasticsearch==7.9.1
 hypothesis==6.54.4
-junitparser==1.4.1
+jira==3.4.1
+junitparser==2.2.0
 matplotlib==3.5.3
 psutil==5.9.1
 py-cpuinfo==8.0.0
