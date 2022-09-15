@@ -1780,6 +1780,12 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       }
       return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
     }
+    case c10::ScalarType::ComplexHalf:
+    case c10::ScalarType::ComplexFloat:
+    case c10::ScalarType::ComplexDouble: {
+      TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
+      return false;
+    }
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case c10::ScalarType::Fp8r152: {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
