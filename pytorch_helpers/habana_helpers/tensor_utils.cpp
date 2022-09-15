@@ -1775,6 +1775,9 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       return true;
     case c10::ScalarType::Half: {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      if (device_type == synDeviceGaudi) {
+        HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
+      }
       return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
     }
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
