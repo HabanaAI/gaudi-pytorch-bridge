@@ -88,12 +88,15 @@ InterHostCache::InterHostCache(
   w_size = std::atoi(s_wsize);
   master_port = std::atoi(s_master_port) + SOCKET_TX_PORT_OFFSET;
   master_addr = s_master_addr;
-
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
-    PT_HABHELPER_WARN(INTERHOST_LOG, "Socket() failed");
-    invalidate_cache();
-    return;
+  // No need to initiate inter host communication if single node run
+  if ((rank == 0 && w_size > l_w_size) ||
+      (rank >= l_w_size && w_size > l_w_size)) {
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+      PT_HABHELPER_WARN(INTERHOST_LOG, "Socket() failed");
+      invalidate_cache();
+      return;
+    }
   }
 }
 
@@ -113,7 +116,7 @@ void InterHostCache::init() {
   int e;
   if (rank == 0) {
     e = bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
-  } else {
+  } else if (rank >= l_w_size) {
     int attempt = 0;
     e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     while (e < 0 && attempt < NUM_ATTEMPTS) {
@@ -143,10 +146,10 @@ void InterHostCache::init() {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
 
-    int client_count = 0;
+    int client_count = l_w_size;
     // Rank-0 will create a separate thread per client for listening
     std::vector<std::thread> tp;
-    while (client_count < (w_size - 1)) {
+    while (client_count < w_size) {
       int clientfd =
           accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
       tp.emplace_back(&InterHostCache::thread_function, this, clientfd);
@@ -241,7 +244,7 @@ void InterHostCache::thread_function(int clientfd) {
 }
 
 InterHostCache::~InterHostCache() {
-  if (rank != 0 && is_cache_valid_) {
+  if (rank != 0 && is_cache_valid_ && rank >= l_w_size) {
     send(sockfd, cmdEnd.c_str(), cmdSet.size() + 1, 0);
     int bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
     CHECK(bytes_recv, __LINE__);
@@ -316,7 +319,7 @@ bool InterHostCache::send_file(std::string cache_id) {
     return false;
   }
 
-  PT_HABHELPER_TRACE("InterHostCache Send");
+  PT_HABHELPER_TRACE("InterHostCache Send", cache_id);
 
   size_t num;
   int bytes_recv;
@@ -343,7 +346,7 @@ bool InterHostCache::send_file(std::string cache_id) {
 
 bool InterHostCache::recv_file(std::string cache_id) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (rank == 0 || !is_cache_valid_)
+  if (rank == 0 || !is_cache_valid_ || rank < l_w_size)
     return false;
 
   std::string recpfile = recipe_file_path(cache_path_, cache_id);
@@ -359,7 +362,7 @@ bool InterHostCache::recv_file(std::string cache_id) {
     return false;
   }
 
-  PT_HABHELPER_TRACE("InterHostCache Recv");
+  PT_HABHELPER_TRACE("InterHostCache Recv", cache_id);
 
   size_t num;
   int bytes_recv;
