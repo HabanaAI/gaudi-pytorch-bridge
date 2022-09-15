@@ -380,6 +380,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW, bool, true);
 // fp8 stochastic rounding
 ENV_STRUCT_DEFINITION(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING, bool, false);
 
+// Allow stitching together of ops in PT Bridge Lowering
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool, true);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

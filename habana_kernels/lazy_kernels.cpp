@@ -7028,6 +7028,7 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias_opt) {
+  PT_LAZY_TRACE;
   /*
   Implements:
     std::tuple<Tensor, Tensor> result;

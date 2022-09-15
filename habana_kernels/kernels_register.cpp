@@ -122,10 +122,10 @@ Tensor linear_(
       to_string(weight),
       " bias_opt=",
       to_string(bias_opt));
+
   auto bias = bias_opt.has_value()
       ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
       : c10::MaybeOwned<Tensor>::owned(c10::in_place);
-
   if (input.dim() == 2 && bias->defined()) {
     // Fused op is marginally faster.
     return at::addmm(*bias, input, weight.t());
@@ -2364,11 +2364,11 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
       Tensor input,
       Tensor weight,
       c10::optional<Tensor> bias_opt) {
+    auto bias = bias_opt.has_value()
+        ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
+        : c10::MaybeOwned<Tensor>::owned(c10::in_place);
+    ctx->save_for_backward({input, weight, *bias});
     at::Tensor result;
-    // ctx->save_for_backward<> does not take c10::optional<Tensor> bias_opt
-    // So create and use an "undefined" tensor if bias_opt does not have value
-    auto bias = bias_opt.value_or(Tensor());
-    ctx->save_for_backward({input, weight, bias});
     result = linear_(input, weight, bias_opt);
     return result;
   }
@@ -2397,7 +2397,22 @@ Tensor hpu_wrap::linear(
       to_string(weight),
       " bias_opt=",
       to_string(bias_opt));
-  return LinearFunction::apply(input, weight, bias_opt);
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS)) {
+    auto bias = bias_opt.has_value()
+        ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
+        : c10::MaybeOwned<Tensor>::owned(c10::in_place);
+    if (input.dim() == 2 && bias->defined()) {
+      // Fused op is marginally faster.
+      return at::addmm(*bias, input, weight.t());
+    }
+    auto output = at::matmul(input, weight.t());
+    if (bias->defined()) {
+      output.add_(*bias);
+    }
+    return output;
+  } else {
+    return LinearFunction::apply(input, weight, bias_opt);
+  }
 }
 
 struct AdaptiveAvgPool2DFunction
