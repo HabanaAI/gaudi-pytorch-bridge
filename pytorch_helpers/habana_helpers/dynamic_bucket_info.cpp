@@ -592,6 +592,16 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
     uint64_t new_bucket_id = buckets_.size() - 1;
     auto& new_bucket = buckets_.back();
 
+    std::string result_str{"OK"};
+    uint64_t current_step{statistics_->GetCurrentStep()};
+    statistics_->LogRefineCompilation(
+        new_range,
+        rvpsh->jit_graph_,
+        new_recipe_key,
+        new_bucket_id,
+        result_str,
+        current_step);
+
     // Append the input to be moved to inherited input of the new bucket
     inherited_input_hist_move.insert(
         inherited_input_hist_move.end(),

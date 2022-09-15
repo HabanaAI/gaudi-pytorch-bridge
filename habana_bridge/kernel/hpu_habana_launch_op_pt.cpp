@@ -2967,16 +2967,6 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   // Add the recipe to the corresponding bucket
   new_bucket.SetSynapseRecipePtr(cur_rvalpsh);
 
-  std::string result_str{"OK"};
-  uint64_t current_step{statpsh->GetCurrentStep()};
-  statpsh->LogRefineCompilation(
-      input_ranges,
-      jit_ir_graph,
-      new_recipe_key,
-      new_bucket.GetIndex(),
-      result_str,
-      current_step);
-
   PT_DYNAMIC_SHAPE_DEBUG(
       "HabanaOp recipe cache :: adding new recipe to cache ::",
       cur_rvalpsh->header_str(),
