@@ -563,6 +563,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::Char:
     case c10::ScalarType::Short:
     case c10::ScalarType::Bool:
+    case c10::ScalarType::Half:
       return true;
     default:
       return false;
@@ -636,9 +637,11 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       dims.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
   TORCH_CHECK(
-      (self.dim() <= HABANA_DIM_MAX) &&
-          is_hpu_supported_transpose_type(self.scalar_type()),
-      "Unsupported permute operation on Habana device");
+      (self.dim() <= HABANA_DIM_MAX),
+      "Number of tensor dims larger then allowed max limit");
+  TORCH_CHECK(
+      is_hpu_supported_transpose_type(self.scalar_type()),
+      "Unsupported data type permute operation on Habana device");
 
   std::vector<int64_t> new_sizes, new_strides;
   std::tie(new_sizes, new_strides) =
