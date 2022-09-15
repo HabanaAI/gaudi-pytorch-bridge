@@ -275,7 +275,7 @@ synapse_error_o graph::add_node(
     auto status = synNodeSetDeterministic(graph_handle_, nodeId, deterministic);
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN(
-          "Node " + node_type + "synNodeSetDeterministic", " Err: ", status);
+          "Node " + node_type + " synNodeSetDeterministic", " Err: ", status);
       HABANA_ASSERT(status == synStatus::synSuccess)
     }
   }

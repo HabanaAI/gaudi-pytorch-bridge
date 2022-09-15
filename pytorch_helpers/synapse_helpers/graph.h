@@ -78,7 +78,8 @@ class graph {
         node_type,
         nullptr,
         input_layouts,
-        output_layouts);
+        output_layouts,
+        deterministic);
   }
 
   synStatus set_synapse_control_edges_pt(

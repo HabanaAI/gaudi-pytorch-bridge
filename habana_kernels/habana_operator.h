@@ -262,8 +262,6 @@ std::vector<T> SelectVectorIndices(
 // synapse graph and compilation of synapse graph
 class HabanaOperator {
  public:
-  HabanaOperator() = delete;
-  //
   HabanaOperator(const std::string guid) : guid_(guid) {}
 
   // Given a target layout, get the permute order.
@@ -532,7 +530,7 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
-  bool deterministic;
+  bool deterministic{false};
 };
 
 class RegisterKernel {
