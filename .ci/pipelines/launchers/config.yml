@@ -52,7 +52,6 @@ launchers:
     files:
     - 'sim_pytorch_single_op_tests---t-dg.jenkinsfile'
 - testToLaunch: Test_pytorch_gaudi2_sim_single_op_dynamic_tests
-  silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
