@@ -5,6 +5,7 @@ import json
 import inspect
 import copy
 import os
+import itertools
 
 import torch.utils.data
 import torchvision.datasets
@@ -470,3 +471,67 @@ class HabanaDataLoader:
         return next(self.iter)
     def __len__(self):
         return len(self.dataloader)
+
+
+def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
+
+    assert len(imgs) > 0, "Got empty list of images"
+    if lbls is not None:
+        assert len(imgs) == len(lbls), f"Got {len(imgs)} images but {len(lbls)} lables"
+
+    num_workers = kwargs.get('num_workers', 0)
+    if num_workers != 0:
+        print("Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ", num_workers)
+
+    if kwargs["benchmark"]:  # Just to make sure the number of examples is large enough for benchmark run.
+        if mode == "train":
+            nbs = kwargs["train_batches"]
+        else:
+            raise ValueError("Unsupported mode {} for benchmark!".format(mode))
+
+        if kwargs["dim"] == 3:
+            nbs *= batch_size
+        imgs = list(itertools.chain(*(100 * [imgs])))[: nbs * kwargs["num_device"]]
+        lbls = list(itertools.chain(*(100 * [lbls])))[: nbs * kwargs["num_device"]]
+
+    pipe_kwargs = {
+        "imgs": imgs,
+        "lbls": lbls,
+        "dim": kwargs["dim"],
+        "seed": kwargs["seed"],
+        # "meta": kwargs["meta"],
+        "patch_size": kwargs["patch_size"],
+        "oversampling": kwargs["oversampling"],
+    }
+
+    if kwargs["benchmark"]:
+        if mode == "train":
+            pipeline = "BenchmarkPipeline_Train"
+        else:
+            raise ValueError("Unsupported mode {} for benchmark!".format(mode))
+
+        if kwargs["dim"] == 2:
+            pipe_kwargs.update({"batch_size_2d": batch_size})
+            batch_size = 1
+
+    elif mode == "train":
+        pipeline = "TrainPipeline"
+        if kwargs["dim"] == 2:
+            pipe_kwargs.update({"batch_size_2d": batch_size // kwargs["nvol"]})
+            batch_size = kwargs["nvol"]
+        pipe_kwargs.update({'augment': kwargs['augment'], 'set_aug_seed': kwargs['set_aug_seed']})
+    else:
+        raise ValueError("Unsupported mode {}!".format(mode))
+
+    num_instances = kwargs["num_device"]
+    instance_id = int(os.getenv("LOCAL_RANK", "0"))
+
+    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d import Unet3dMediaPipe
+    pipeline = Unet3dMediaPipe(a_device="gaudi2", a_batch_size=batch_size, a_prefetch_count=3,
+                               a_num_instances=num_instances, a_instance_id=instance_id,
+                               a_pipeline=pipeline, **pipe_kwargs)
+
+    from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUUnet3DPytorchIterator
+    iterator = HPUUnet3DPytorchIterator(mediapipe=pipeline)
+
+    return iterator
