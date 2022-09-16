@@ -36,6 +36,9 @@ void StridedViewContext::SetViewStatus(
   auto view_it = m_view_table.find(tensor_id);
   if (view_it != m_view_table.end()) {
     m_view_table[tensor_id].viewStatus = viewStatus;
+    if (viewStatus == kViewWrite) {
+      m_view_table[tensor_id].write_cnt++;
+    }
   }
 }
 
@@ -910,7 +913,8 @@ bool is_view_output(
       auto params_ptr = context->viewContext.GetViewTableEntry(id);
 
       if ((params_ptr != nullptr)) {
-        if (params_ptr->viewStatus == kViewWrite) {
+        if ((params_ptr->viewStatus == kViewWrite) &&
+            (params_ptr->write_cnt == 1)) {
           auto recent_orig_t =
               HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
           auto hl_recent_orig_t = GetHbLazyTensor(recent_orig_t);
@@ -987,6 +991,9 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
         } else {
           context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);
         }
+
+        // clear the writecnt
+        params_ptr->write_cnt = 0;
       }
       if (context->viewContext.GetOrigTensorMapEntry(id) != c10::nullopt) {
         context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);

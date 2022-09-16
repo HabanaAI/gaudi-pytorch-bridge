@@ -77,6 +77,7 @@ struct StrideParams {
   StridedOPType optype;
   OpParams params;
   ViewStatus viewStatus = kViewRead;
+  size_t write_cnt = 0;
 
   size_t Size() const {
     size_t size = sizeof(*this);
