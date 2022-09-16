@@ -462,9 +462,9 @@ _fused_dropout:
 
 _index_put_impl_:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float]
+    Gaudi: [BFloat16, Float, Char, Short, Int]
+    Gaudi2: [BFloat16, Float, Half, Char, Short, Int]
+    Greco: [BFloat16, Float, Char, Short, Int]
   fallback_check: [IndexFallbackCheck, indices]
   override_fn: _index_put_impl_hpu_lazy_
 
