@@ -139,6 +139,19 @@
   return dispatch_fallback<ATEN_OP2(input, overload)>::call(   \
       OpSupportLevel::Value::unsupported, param2);
 
+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)        \
+  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(input, {args}))) { \
+    return dispatch_fallback<ATEN_OP(opname)>::call(                     \
+        OpSupportLevel::Value::unsupported_dtype, args);                 \
+  }
+
+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...) \
+  if (ABSL_PREDICT_FALSE(                                                    \
+          !validator_##opname##_##overload.Validate(input, {args}))) {       \
+    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(              \
+        OpSupportLevel::Value::unsupported_dtype, args);                     \
+  }
+
 namespace habana {
 
 template <class Op>

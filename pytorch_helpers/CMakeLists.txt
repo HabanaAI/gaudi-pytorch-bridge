@@ -53,3 +53,6 @@ else ()
  find_program(SWIG swig)
  add_subdirectory(synapse_logger)
 endif ()
+
+add_subdirectory(synapse_utils_shim)
+

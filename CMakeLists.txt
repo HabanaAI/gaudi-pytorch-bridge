@@ -24,8 +24,10 @@ option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
 
 if(MANYLINUX)
   message("Building with shim layer")
+  set (PYTORCH_SYNAPSE_UTILS_LIB pytorch_synapse_utils_shim)
 else()
   message("Building without shim layer")
+  set (PYTORCH_SYNAPSE_UTILS_LIB SynapseUtils)
 endif()
 
 if(UPSTREAM_COMPILE)
@@ -219,6 +221,7 @@ target_link_libraries(habana_pytorch_plugin
     habana_serialization
     torch
     pytorch_synapse_helpers_abi11
+    ${PYTORCH_SYNAPSE_UTILS_LIB}
     json
     tensor_comparator_core
     -lstdc++fs
