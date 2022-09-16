@@ -74,7 +74,47 @@ inline void _allocate_or_resize_output_with_indices(
         at::empty(result_sizes, self.options().dtype(c10::ScalarType::Int));
   }
 }
+OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  // this will be cleaned once enabled by default in GC
+  auto env1 = std::getenv("ENABLE_EXPERIMENTAL_FLAGS");
+  bool enable_experimental_flags =
+      (env1 != nullptr) && (absl::string_view{env1} != "0");
 
+  auto env2 = std::getenv("ENABLE_TOPK_IN_CGUID");
+  bool enable_topk_in_cguid =
+      (env2 != nullptr) && (absl::string_view{env2} != "0");
+  if (!(enable_experimental_flags && enable_topk_in_cguid)) {
+    out.set_empty(true);
+    return out;
+  }
+
+  auto self = inputs[0].toTensor();
+  int64_t dim_ = inputs[2].toInt();
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  auto values = inputs[5].toTensor();
+  auto indices = inputs[6].toTensor();
+
+  int64_t k;
+  Tensor k_tensor = inputs[1].toTensor();
+  k = k_tensor.sizes().vec().at(0);
+
+  auto result_sizes = self.sizes().vec();
+  if (result_sizes.size() > 0) {
+    result_sizes[dim] = k;
+  }
+  auto tensor_meta_data = TensorMetaData(
+      result_sizes,
+      HabanaOperator::CalculateStrides(
+          self.sizes(), self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+
+  out.AddOutputTensor(tensor_meta_data);
+  out.AddOutputTensor(tensor_meta_data);
+  return out;
+}
 void TopkOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -356,7 +396,29 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
   PT_KERNEL_END;
   return std::forward_as_tuple(out.at(0), out.at(1));
 }
-
+OutputShapeInfRetType TopkOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  if (inputs.size() == 5) {
+    Tensor self = inputs[0].toTensor();
+    auto values = habana_helpers::createPTTensor(
+        self, {0}, self.options(), self.suggest_memory_format(), false);
+    auto indices = habana_helpers::createPTTensor(
+        self,
+        {0},
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        false);
+    inputs.push_back(IValue(values));
+    inputs.push_back(IValue(indices));
+  }
+  auto out = TopkOutOperator::ComputeOutputShape(inputs);
+  if (inputs.size() == 7) {
+    inputs.erase(inputs.cbegin() + 5);
+    inputs.erase(inputs.cbegin() + 6);
+  }
+  return out;
+}
 void TopkOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
