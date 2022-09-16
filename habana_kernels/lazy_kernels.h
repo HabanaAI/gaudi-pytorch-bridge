@@ -709,7 +709,7 @@ class LazyOp {
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()
         : m_out_shapes[0];
-    if (self.sizes() != out_shape) {
+    if (self.sizes() != out_shape || m_shape_was_changed) {
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
@@ -810,6 +810,27 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
+  get_result(at::Tensor& tensor) {
+    /* Same check happens in GetHbLazyTensor, but it's in acc thread.*/
+    /* Make sure in main thread, that we get HPU tensor .*/
+    HABANA_ASSERT(
+        tensor.device().type() == at::kHPU,
+        "Got a non-HPU tensor, expecting an HPU tensor");
+
+    // In case of _out ops, the output tensor may come with wrong or empty
+    // shape. There is mechanism to handle it at HandleLazy level, but we need
+    // to set the correct shape on at::Tensor so it's propagated to Python in
+    // main thread.
+    auto out_shape = m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[0];
+    if (tensor.sizes() != out_shape) {
+      tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+      set_shape_changed();
+    }
+    return tensor;
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
     PT_LAZY_TRACE;
@@ -845,6 +866,16 @@ class LazyOp {
       return empty_hpu_lazy(
           t.sizes(), t.options(), t.suggest_memory_format(), false);
     }
+  }
+
+  const std::vector<std::vector<int64_t>>& get_out_shapes() const {
+    return m_out_shapes;
+  }
+
+  // Helper function to mark, that output shape of at::Tensor has been changed.
+  // Needed for _out ops to make sure we add potential resize op.
+  void set_shape_changed() {
+    m_shape_was_changed = true;
   }
 
  private:
@@ -1032,10 +1063,6 @@ class LazyOp {
     m_inputs = inputsHpu;
   }
 
-  const std::vector<std::vector<int64_t>>& get_out_shapes() const {
-    return m_out_shapes;
-  }
-
   virtual ReturnType get_result_overrideable() {
     HABANA_ASSERT(
         0,
@@ -1203,6 +1230,7 @@ class LazyOp {
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
+  bool m_shape_was_changed = false;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {

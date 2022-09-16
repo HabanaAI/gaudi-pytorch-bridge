@@ -675,7 +675,7 @@ def frontend(
             code += "  hpu_op.Validate();\n"
 
         if is_acc_thread_supported(fname, ctxop, rtype):
-            if is_inplace_op(fname):
+            if is_inplace_or_out_op(fname):
                 code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, lazyop_call_args)
             else:
                 code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
@@ -885,12 +885,12 @@ def extract_reduction_vars_indices(param_vars):
 
 def is_acc_thread_supported(opname, ctxop, rtype):
     return (not ctxop.get_override_fn() # ops with custom lazy func, not LazyOp
-            and not opname.endswith("_out") # out ops
             and rtype.startswith("at::Tensor")) # regular or in-place ops
 
-def is_inplace_op(opname):
+def is_inplace_or_out_op(opname):
+    if opname.endswith("_out"):
+        return True
     if opname.startswith("__"): # shift specific ops
-        assert not opname.endswith("_out"), "Out ops not supported yet."
         return opname.startswith("__i") # inplace shift ops start with 'i' in name
     else:
         return opname.endswith("_")

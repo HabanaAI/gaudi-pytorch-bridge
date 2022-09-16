@@ -156,6 +156,7 @@ inline float& get<float>(fint_t& u) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      self = lazy_op.get_result(self);                                        \
       scheduleAccTask(std::move(lazy_op), self);                              \
       return self;                                                            \
     } else {                                                                  \
