@@ -108,28 +108,72 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
 OutputShapeInfRetType NonZeroOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
+  if (self.dim() > 4) {
+    auto output_shape = compute_output_shape(self);
+    std::vector<int64_t> shape_tensor_shape = {5};
+    OutputShapeInfRetType out;
+    auto metaData = TensorMetaData(
+        output_shape,
+        HabanaOperator::CalculateStrides(
+            output_shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format());
 
-  auto out_shape = NonZeroOperator::compute_output_shape(self);
-  std::vector<int64_t> shape_tensor_shape = {5};
-  OutputShapeInfRetType out;
+    out.AddOutputTensor(metaData);
+    auto shape_metaData = TensorMetaData(
+        shape_tensor_shape,
+        HabanaOperator::CalculateStrides(
+            shape_tensor_shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format());
+    out.AddShapeTensor(shape_metaData);
+    return out;
 
-  auto metaData = TensorMetaData(
-      out_shape,
-      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
-      self.scalar_type(),
-      self.suggest_memory_format());
+  } else {
+    SetGuid(
+        "non_zero_v2_fwd_" +
+        habana_helpers::name_suffix_from_type(self.scalar_type()));
+    OutputShapeInfRetType out;
+    // (i) This output_describing_shape_tensor is created to be used by
+    // "reshape" node within CGUID. This should be created within CGUID in
+    // future. (ii) This shape tensor should not be created in as part of
+    // accumulation (lazy_kernels) else relationship between input tensor and
+    // shape tensor st = f(input) is not preserved in all cases (e.g. min, max
+    // shape inference with Calculated or Local Historic policies). (iii)
+    // Creating shape tensor in back-end kernel is ok for cases where shape
+    // tensor is strictly a function of another input tensor(s) and not a scalar
+    // value coming from framework.
+    // (iv) Please consult with vgoel@habana.ai before removing or modifying
+    // this shape_tensor.
+    auto st_shape = compute_output_st_shape(self);
 
-  auto metaData2 = TensorMetaData(
-      shape_tensor_shape,
-      HabanaOperator::CalculateStrides(
-          shape_tensor_shape, self.suggest_memory_format()),
-      self.scalar_type(),
-      self.suggest_memory_format());
+    auto shape_metaData1 = TensorMetaData(
+        st_shape,
+        HabanaOperator::CalculateStrides(
+            st_shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format());
+    out.AddShapeTensor(shape_metaData1);
+    auto output_shape = compute_output_shape(self);
+    std::vector<int64_t> shape_tensor_shape = {5};
 
-  out.AddOutputTensor(metaData);
-  out.AddOutputTensor(metaData2);
+    auto metaData = TensorMetaData(
+        output_shape,
+        HabanaOperator::CalculateStrides(
+            output_shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format());
 
-  return out;
+    out.AddOutputTensor(metaData);
+    auto metaData2 = TensorMetaData(
+        shape_tensor_shape,
+        HabanaOperator::CalculateStrides(
+            shape_tensor_shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format());
+    out.AddOutputTensor(metaData2);
+    return out;
+  }
 }
 
 void NonZeroOperator::AllocateAndAddSynapseNode(
@@ -189,10 +233,9 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     // shape tensor st = f(input) is not preserved in all cases (e.g. min, max
     // shape inference with Calculated or Local Historic policies). (iii)
     // Creating shape tensor in back-end kernel is ok for cases where shape
-    // tensor is strictly a function of another input tensor(s) and not a scalar
-    // value coming from framework.
-    // (iv) Please consult with vgoel@habana.ai before removing or modifying
-    // this shape_tensor.
+    // tensor is strictly a function of another input tensor(s) and not a
+    // scalar value coming from framework. (iv) Please consult with
+    // vgoel@habana.ai before removing or modifying this shape_tensor.
     auto st_shape = compute_output_st_shape(self);
     Tensor reshape_shape_tensor = habana_helpers::createPTTensor(
         self, st_shape, self.options(), self.suggest_memory_format(), false);
