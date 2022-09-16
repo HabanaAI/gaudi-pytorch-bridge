@@ -77,7 +77,8 @@ class BatchedNMSOperator : public HabanaOperator {
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
-
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

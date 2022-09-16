@@ -1451,6 +1451,9 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
 }
 
 TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   torch::manual_seed(0);
   float score_th = 0.2;
 
@@ -1532,6 +1535,7 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
   // while (score_th < 1.0) {
   // score_th += score_inc;
   //}
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
