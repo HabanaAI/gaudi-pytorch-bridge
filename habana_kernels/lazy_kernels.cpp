@@ -5226,8 +5226,82 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   return fill_hpu_lazy_(self, 0);
 }
 
+static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
+  TORCH_CHECK(tensors.size() > 0, "Empty tensors list!");
+
+  auto non_empty_list = filter(tensors, is_nonempty_tensor);
+  auto first_tensor = tensors[0];
+
+  if (non_empty_list.empty()) {
+    return empty_hpu_lazy(
+        first_tensor.sizes(),
+        first_tensor.options(),
+        first_tensor.suggest_memory_format(),
+        true);
+  }
+
+  // calculate output shape
+  auto output_shape =
+      CatOutOperator::compute_output_shape(non_empty_list, dim_);
+
+  // allocate output tensor
+  auto out = empty_hpu_lazy(
+      output_shape,
+      first_tensor.options(),
+      first_tensor.suggest_memory_format(),
+      false);
+
+  std::vector<Tensor> tensors_copy;
+  std::copy(tensors.begin(), tensors.end(), std::back_inserter(tensors_copy));
+
+  // parallel function that will be executed in the accumulation thread
+  auto op_func = [tensors_ = std::move(tensors_copy),
+                  dim_,
+                  output_shape = std::move(output_shape),
+                  out]() mutable {
+    auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors_);
+    t_list = filter(t_list, is_nonempty_tensor);
+    const TensorList view_list{t_list};
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      auto output_shape_tensor = empty_hpu_lazy(
+          IntArrayRef(output_shape),
+          tensors_[0].options().dtype(c10::ScalarType::Int),
+          tensors_[0].suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+
+      LazyOp<at::Tensor> k{
+          "hpu::cat", {view_list, dim_, output_shape_tensor}, {1}, {}, 0};
+      k.call(out);
+
+      // need to ensure that no tensors will be destructured in the accumulation
+      // thread
+      if (habana_lazy::CanUseAccThread()) {
+        habana_lazy::GetAccCleanupThreadPool().run([op = std::move(k)]() {});
+      }
+
+    } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
+      LazyOp<at::Tensor> k{"aten::cat", {view_list, dim_}, {1}, {}, 0};
+      k.call(out);
+
+      // need to ensure that no tensors will be destructured in the accumulation
+      // thread
+      if (habana_lazy::CanUseAccThread()) {
+        habana_lazy::GetAccCleanupThreadPool().run([op = std::move(k)]() {});
+      }
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat, op_func, out);
+}
+
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   PT_LAZY_TRACE;
+
+  if (habana_lazy::IsAccThreadEnabled()) {
+    return cat_hpu_parallel_impl(tensors, dim_);
+  }
 
   // handle views
   auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);

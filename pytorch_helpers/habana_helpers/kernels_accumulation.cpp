@@ -45,6 +45,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "scatter_add",
     "bitwise_not_out",
     "one_hot",
+    "cat",
     "cat_out",
     "repeat"};
 // black list of aut-gen ops that do not support parallel accumulation
