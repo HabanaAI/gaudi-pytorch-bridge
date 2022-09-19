@@ -32,7 +32,7 @@ at::Tensor& LazyGeometric<at::Tensor&>::get_result_overrideable() {
 std::shared_ptr<void> FillRandomNegativeBinomialParams(
     const at::Stack& stack,
     size_t& size) {
-  PARAMS_STUB(ns_RandomNegativeBinomial::Params);
+  PARAMS_STUB(ns_RandomNegativeBinomial::ParamsV2);
   auto self = stack.at(0).toTensor();
   auto p = stack.at(1).toScalar().to<float>();
   auto seed = stack.at(2).toInt();
@@ -40,6 +40,8 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   params->p = p;
   params->k = 1.0;
   params->seed = seed;
+  params->isAdditionEnable = true;
+
   return params;
 }
 
@@ -49,26 +51,14 @@ void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillRandomNegativeBinomialParams(stack, size);
 
-  auto random_neg_binomial = BuildOp(
+  auto geometric = BuildOp(
       graph,
       "random_negative_binomial_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {},
-      {{outshape, ScalarType()}},
+      {{outshape, ScalarType(), 0}},
       params.get(),
       size);
-
-  auto constant = ConstantHelper(graph, 1, ScalarType(), outshape);
-
-  /* The geometric distribution Y is a special case of the negative binomial
-   * distribution, with k = 1. random_negative_binomial returns distributions as
-   * number of failures, but number of trials is expected by pytorch. Number of
-   * trials in case of k=1 is number of failures + 1 (success).*/
-  auto geometric = BuildOp(
-      graph,
-      "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {random_neg_binomial[0].get(), constant.get()},
-      {{outshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(geometric[0]);
 }

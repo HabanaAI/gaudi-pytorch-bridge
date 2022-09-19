@@ -80,3 +80,37 @@ TEST_F(HpuOpTest, geometric_out_bf16) {
 
   EXPECT_FALSE(torch::equal(result1, result2));
 }
+TEST_F(HpuOpTest, geometric_out_f32_seed) {
+  double p = GenerateScalar<double>(0.0, 1.0);
+
+  GenerateInputs(1);
+  auto result1 = torch::empty(0).to(torch::kHPU);
+  SetSeed();
+  torch::geometric_outf(
+      GetHpuInput(0), p, at::detail::getDefaultCPUGenerator(), result1);
+
+  GenerateInputs(1);
+  auto result2 = torch::empty(0).to(torch::kHPU);
+  SetSeed();
+  torch::geometric_outf(
+      GetHpuInput(0), p, at::detail::getDefaultCPUGenerator(), result1);
+
+  EXPECT_FALSE(torch::equal(result1, result2));
+}
+
+TEST_F(HpuOpTest, geometric_out_bf16_seed) {
+  double p = GenerateScalar<double>(0.0, 1.0);
+
+  GenerateInputs(1, torch::kBFloat16);
+  auto result1 = torch::empty(0, torch::kBFloat16).to(torch::kHPU);
+  SetSeed();
+  torch::geometric_outf(
+      GetHpuInput(0), p, at::detail::getDefaultCPUGenerator(), result1);
+
+  GenerateInputs(1, torch::kBFloat16);
+  auto result2 = torch::empty(0, torch::kBFloat16).to(torch::kHPU);
+  SetSeed();
+  torch::geometric_outf(
+      GetHpuInput(0), p, at::detail::getDefaultCPUGenerator(), result1);
+  EXPECT_FALSE(torch::equal(result1, result2));
+}
