@@ -185,10 +185,10 @@ Tensor& bitwise_and_out_hpu(
     const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
 
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
@@ -212,7 +212,7 @@ Tensor& bitwise_and_out_hpu(Tensor& out, const Tensor& self, Scalar other) {
   auto self_shape = self.sizes().vec();
   auto out_shape = out.sizes().vec();
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
 
   if (self_shape != out_shape) {
@@ -235,10 +235,10 @@ Tensor& bitwise_or_out_hpu(
     const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
 
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
@@ -263,10 +263,10 @@ Tensor& bitwise_xor_out_hpu(
     const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
 
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
@@ -288,7 +288,7 @@ Tensor& bitwise_xor_out_hpu(
 Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
 
   auto out_shape = self.sizes().vec();

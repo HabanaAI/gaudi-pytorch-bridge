@@ -139,10 +139,10 @@ Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
 
   auto self_hpu = get_hpu_tensor(self);
@@ -170,10 +170,10 @@ Tensor& div_tensor_hpu_out(
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
 
   auto self_hpu = get_hpu_tensor(self);

@@ -18,6 +18,7 @@
 #include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "pytorch_helpers/pt_ver/torch_params_shim.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch;
@@ -3153,7 +3154,13 @@ Tensor hpu_wrap::empty_strided(
       at::dtype_or_default(dtype),
       empty_strided,
       PARAMS1(),
-      PARAMS2(size, stride, dtype, layout, device, pin_memory))
+      PARAMS2(
+          INTARRAY_PARAM(size),
+          INTARRAY_PARAM(stride),
+          dtype,
+          layout,
+          device,
+          pin_memory))
 
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))

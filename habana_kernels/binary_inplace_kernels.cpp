@@ -407,10 +407,10 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   }
 
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -431,7 +431,7 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
 Tensor& mul_scalar_hpu_(Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -451,10 +451,10 @@ Tensor& mul_scalar_hpu_(Tensor& self, const Scalar& other) {
 Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -478,7 +478,7 @@ Tensor& div_scalar_hpu_(
   // at python level
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -498,10 +498,10 @@ Tensor& div_scalar_hpu_(
 Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -516,7 +516,7 @@ Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
 Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -532,10 +532,10 @@ Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -561,7 +561,7 @@ Tensor& add_scalar_hpu_(
                     // at python level
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};
@@ -585,10 +585,10 @@ Tensor& sub_tensor_hpu_(
     const Scalar& alpha) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   if (other.dim() == 0) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(other);
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
@@ -614,7 +614,7 @@ Tensor& sub_scalar_hpu_(
     const Scalar& alpha) { // TODO: No way to test this yet from python
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
   auto self_hpu = get_hpu_tensor(self);
   std::vector<at::Tensor> pt_inputs{self_hpu};

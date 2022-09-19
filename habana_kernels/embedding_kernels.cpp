@@ -795,12 +795,12 @@ Tensor embedding_bag_sum_hpu(
 
   // Convert index tensor from 0D to 1D if required
   if (indices.dim() == 0) {
-    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(indices);
   }
 
   // Convert offsets tensor from 0D to 1D if required
   if (offsets.dim() == 0) {
-    offsets.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(offsets);
   }
 
   auto indices_i32 = habana_helpers::cast_tensor_to_integer(indices);

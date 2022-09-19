@@ -570,7 +570,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   if (output.dim() == 0) {
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(output);
   }
 
   HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
@@ -636,7 +636,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   if (input.dim() == 0) {
-    input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(input);
   }
 
   auto output =

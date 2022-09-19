@@ -286,7 +286,7 @@ Tensor nonzero_hpu(const Tensor& self) {
   auto end = out.at(1)[1].item<int64_t>();
   if (end == 0) {
     out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides(
-        {0, dimensions}, {1, 1});
+        IntArrayRef{0, dimensions}, IntArrayRef{1, 1});
     PT_KERNEL_END;
     return out.at(0);
   }

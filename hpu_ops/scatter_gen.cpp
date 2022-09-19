@@ -11,6 +11,8 @@
 #include "generated/scatter.h"
 #include "hpu_op_helper.h"
 
+using namespace torch;
+
 namespace habana {
 
 void ScatterOperator::AddNode(
@@ -22,7 +24,7 @@ void ScatterOperator::AddNode(
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(index);
   }
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   ns_ScatterKernel::Params params{};

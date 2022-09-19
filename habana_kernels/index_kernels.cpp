@@ -245,7 +245,7 @@ void GatherOperator::AllocateAndAddSynapseNode(
 
   TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
   if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(index);
   }
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
@@ -266,7 +266,7 @@ OutputShapeInfRetType GatherOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto index = inputs[2].toTensor();
   if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(index);
   }
   auto output = AllocateOutput(inputs, OutputMetaData());
   OutputShapeInfRetType out;
@@ -443,7 +443,7 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
   auto index = inputs[2].toTensor();
   // auto src = inputs[3].toTensor();
   if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(index);
   }
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
@@ -841,7 +841,7 @@ Tensor index_add_hpu(
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
   if (indices.dim() == 0) {
-    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(indices);
   }
   auto index_int = habana_helpers::cast_tensor_to_integer(indices);
 
@@ -1855,7 +1855,7 @@ Tensor gather2d_hpu(
 
   // Convert index tensor from 0D to 1D if required
   if (indices.dim() == 0) {
-    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(indices);
   }
 
   auto indices_int = habana_helpers::cast_tensor_to_integer(indices);

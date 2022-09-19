@@ -120,7 +120,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   // At times we get 0-D tensor which cannot be handled by Synapse. Convert it
   // 1-D tensor before proceeding further.
   if (Input.dim() == 0) {
-    Input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(Input);
   }
 
   // Determine cast node_type to use based on src & dst dtypes

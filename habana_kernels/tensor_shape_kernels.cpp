@@ -1103,7 +1103,7 @@ Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
 
   // Convert index tensor from 0D to 1D if required
   if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    SET_SIZE_STRIDE_1D(self);
   }
 
   // Return early for trivial case
