@@ -3,6 +3,7 @@ binary_cross_entropy_with_logits
 cross_entropy
 div
 divide
+embedding
 embedding_bag
 log
 log2

@@ -9,6 +9,9 @@ conv_transpose2d
 conv_transpose3d
 dot
 dropout
+dropout1d
+dropout2d
+dropout3d
 group_norm
 instance_norm
 layer_norm
