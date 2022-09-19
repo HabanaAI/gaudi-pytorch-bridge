@@ -1200,6 +1200,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
 void HbLazyTensor::ExecuteCachedGraph(
     GraphPtr graph,
+    size_t hash,
+    size_t graphKey,
+    std::string opStrs,
     ir::ValueList& input_vals,
     ir::ValueList& output_vals,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
@@ -1227,6 +1230,15 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   // Fetch graph from device context
   hlexec.set_graph(graph);
+
+  // Set the graph hash
+  hlexec.set_hash(hash);
+
+  // Set the graph key
+  hlexec.set_graph_key(graphKey);
+
+  // Set the op strs
+  hlexec.set_opstrs(opStrs);
 
   // Launch the execution
   hlexec.Launch(stack, c10::hpu::getCurrentHPUStream(), {}, 0, 0);

@@ -1,7 +1,6 @@
 import torch
 import habana_frameworks.torch as ht
 
-
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()
 def warp_func(first):
@@ -14,11 +13,12 @@ def warp_func(first):
             g.capture_end()
     else:
         a = torch.full((1000,), 1, device="hpu")
+        ht.core.mark_step()
+        ht.hpu.default_stream().synchronize()
         g.replay()
 
 
 def test_graph_capture_simple():
-    tA_h = torch.zeros(10,2).to('hpu')
     for i in range(10):
         if i == 0:
             warp_func(True)

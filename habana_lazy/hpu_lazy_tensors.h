@@ -282,6 +282,9 @@ class HbLazyTensor {
 
   static void ExecuteCachedGraph(
       std::shared_ptr<torch::jit::Graph> graph,
+      size_t hash,
+      size_t graphKey,
+      std::string opStrs,
       ir::ValueList& input_vals,
       ir::ValueList& output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,

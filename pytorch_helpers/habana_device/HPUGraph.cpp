@@ -56,6 +56,9 @@ void HPUGraph::capture_end() {
   habana_lazy::HbLazyTensor::StepMarkerBind("");
   context->JoinPendingLaunchThread();
   graph_ = context->getGraph();
+  hash_ = context->getHash();
+  graphKey_ = context->getGraphKey();
+  opStrs_ = context->getOpStrs();
   input_vals_ = context->getInputs();
   output_vals_ = context->getOutputs();
   hblazy_tensors_ = context->getHbLazyTensors();
@@ -80,7 +83,14 @@ void HPUGraph::replay() {
   }
   if (graph_) {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
-        graph_, input_vals_, output_vals_, hblazy_tensors_, true);
+        graph_,
+        hash_,
+        graphKey_,
+        opStrs_,
+        input_vals_,
+        output_vals_,
+        hblazy_tensors_,
+        true /*is_cached*/);
   }
 }
 

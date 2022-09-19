@@ -33,6 +33,9 @@ struct HPUGraph {
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_;
+  size_t hash_{0};
+  size_t graphKey_{0};
+  std::string opStrs_ = "";
 };
 
 } // namespace hpu

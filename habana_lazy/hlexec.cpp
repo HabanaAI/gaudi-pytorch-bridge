@@ -66,6 +66,15 @@ void HlExec::Launch(
   // save the graph for perf mode
   context->saveGraph(mp_g_);
 
+  // save the hash for perf mode
+  context->saveHash(m_g_hash_);
+
+  // save the graph key for perf mode
+  context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
+
+  // save the graph key for perf mode
+  context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
+
   std::string opName = getHabanaLazyGraphName();
   if (lazyInfo) {
     opName = lazyInfo->get_lazy_op_name();

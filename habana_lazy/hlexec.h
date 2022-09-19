@@ -281,6 +281,26 @@ class HlExec {
     mp_g_and_meta_data_->set_cached_graph(mp_g_);
   }
 
+  void set_hash(size_t p_h) {
+    m_g_hash_ = p_h;
+  }
+
+  void set_graph_key(size_t graphKey) {
+    mp_g_and_meta_data_->set_cached_graph_key(graphKey);
+  }
+
+  size_t get_graph_key() {
+    return mp_g_and_meta_data_->get_cached_graph_key();
+  }
+
+  std::string get_opstrs() {
+    return mp_g_and_meta_data_->get_cached_opstrs();
+  }
+
+  void set_opstrs(std::string opStrs) {
+    mp_g_and_meta_data_->set_cached_opstrs(opStrs);
+  }
+
   void set_lazy_front_end_info(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info) {
     lazyInfo = info;

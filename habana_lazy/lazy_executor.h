@@ -143,6 +143,30 @@ class HbExecutionContext {
     return mp_g;
   }
 
+  void saveHash(size_t p_h) {
+    mp_g_hash = p_h;
+  }
+
+  size_t getHash() {
+    return mp_g_hash;
+  }
+
+  void saveGraphKey(size_t graphKey) {
+    mp_g_key = graphKey;
+  }
+
+  size_t getGraphKey() {
+    return mp_g_key;
+  }
+
+  void saveOpStrs(std::string opStrs) {
+    mp_g_op_strs = opStrs;
+  }
+
+  std::string getOpStrs() {
+    return mp_g_op_strs;
+  }
+
   void setCapturing(bool capture) {
     m_capturing_graph = capture;
   }
@@ -224,6 +248,9 @@ class HbExecutionContext {
 
  private:
   GraphPtr mp_g;
+  size_t mp_g_hash{0};
+  size_t mp_g_key{0};
+  std::string mp_g_op_strs = "";
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
