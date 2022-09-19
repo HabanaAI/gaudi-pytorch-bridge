@@ -506,10 +506,11 @@ void optimizer_lars_hpu_lazy(
     const float weight_decay,
     const float eps,
     const float lr) {
+  auto lr_t = get_tensor_for_scalar(lr, params[0].options());
   LazyOptimizationOp<void> lo(
       "hpu::habanaOptimizerLars",
-      {grads, params, skipMasks, eeta, weight_decay, eps, lr});
-  lo.call(grads);
+      {grads, params, lr_t, skipMasks, eeta, weight_decay, eps});
+  lo.call(grads, LARS);
   flush_op(grads);
 }
 

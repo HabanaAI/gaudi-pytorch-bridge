@@ -1262,14 +1262,17 @@ void OptimizerFusedLarsOperator::AddNode(
     const at::Stack& stack) {
   auto params = stack.at(1).toTensorList();
   auto grads = stack.at(0).toTensorList();
-  auto skipMasks = stack.at(2).toIntList();
-  auto eeta = stack.at(3).toDouble();
-  auto weightDecay = stack.at(4).toDouble();
-  auto eps = stack.at(5).toDouble();
-  auto lr = stack.at(6).toDouble();
+  auto skipMasks = stack.at(3).toIntList();
+  auto eeta = stack.at(4).toDouble();
+  auto weightDecay = stack.at(5).toDouble();
+  auto eps = stack.at(6).toDouble();
 
   auto dtype = grads.get(0).scalar_type();
   auto tlSize = grads.size();
+  // syn_in[] is arranged as [[grads],[params], lr]
+  // where grads and params are vectors of size tlSize
+  // and lr is a single tensor corr. to the float lr value.
+  auto syn_lr = syn_in(2 * tlSize);
 
   for (size_t i = 0; i < tlSize; ++i) {
     auto grad = grads.get(i);
@@ -1281,7 +1284,6 @@ void OptimizerFusedLarsOperator::AddNode(
     auto weightDecayTensor =
         ConstantHelper(graph, weightDecay, dtype, outshape);
     auto epsTensor = ConstantHelper(graph, eps, dtype, outshape);
-    auto lrTensor = ConstantHelper(graph, lr, dtype, outshape);
 
     auto syn_grad = syn_in(i);
 
@@ -1289,7 +1291,7 @@ void OptimizerFusedLarsOperator::AddNode(
       auto mul0 = BuildOp(
           graph,
           MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
-          {syn_grad, lrTensor.get()},
+          {syn_grad, syn_lr},
           {{outshape, dtype, i}});
       syn_out(i) = std::move(mul0[0]);
       continue;
@@ -1428,7 +1430,7 @@ void OptimizerFusedLarsOperator::AddNode(
     auto mul5 = BuildOp(
         graph,
         MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
-        {where2[0].get(), lrTensor.get()},
+        {where2[0].get(), syn_lr},
         {{outshape, dtype}});
 
     // param*weightDecayTensor

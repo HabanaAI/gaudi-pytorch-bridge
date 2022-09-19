@@ -12,7 +12,7 @@
 
 namespace habana_lazy {
 
-enum OPTIMIZER { ADAGRAD = 0, SGD_MOMENTUM, NO_OF_OPTIMIZER };
+enum OPTIMIZER { ADAGRAD = 0, SGD_MOMENTUM, LARS, OTHER, NO_OF_OPTIMIZER };
 
 template <typename ReturnType, typename NodeConstruct = void>
 class LazyOptimizationOp : public LazyOp<ReturnType> {
@@ -49,16 +49,40 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
-      at::TensorList& tList1) {
-    LazyOp<T>::viewUpdateInputs();
-
+      at::TensorList& tList1,
+      OPTIMIZER optimizer = OTHER) {
+    LazyOp<T>::viewUpdateInputs(); // TOCHECK: Is this needed
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();
 
     int64_t out_index = 0;
-    for (size_t i = 0; i < noOfTensor; ++i) {
-      HbLazyTensorViews::CustomKernelAddNodeInplace(tList1[i], node, out_index);
+    auto t = GetHbLazyTensor(tList1[0]);
+    ir::Value& out = t.CurrentIrValue();
+    node->set_as_output_tensor_list();
+    out.SetNode(node, t.GetDevice(), t.GetSizes(), t.dtype_optional());
+
+    ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
+
+    // In the Lars case, grads are updated. grads will be accessed as
+    // views in multichip scenario. With gradient bucket feature in,
+    // we should not be using CustomKernelAddNodeInplace in this case.
+    if (LARS == optimizer) {
+      for (size_t i = 0; i < noOfTensor; ++i) {
+        auto hl_result = GetHbLazyTensor(tList1[i]);
+        ir::Value& out = hl_result.CurrentIrValue();
+        out.SetNode(
+            node_unpack,
+            hl_result.GetDevice(),
+            hl_result.GetSizes(),
+            hl_result.dtype_optional(),
+            out_index++);
+      }
+    } else {
+      for (size_t i = 0; i < noOfTensor; ++i) {
+        HbLazyTensorViews::CustomKernelAddNodeInplace(
+            tList1[i], node_unpack, out_index);
+      }
     }
   }
 
