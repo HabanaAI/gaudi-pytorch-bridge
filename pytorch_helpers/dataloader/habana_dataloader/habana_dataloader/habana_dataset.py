@@ -53,7 +53,7 @@ def deviceStr(device):
 class SSDDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         import habana_dataloader.habana_dl_app
-        dataset = kwargs.get('dataset', args[0])
+        dataset = kwargs.get('dataset', args[0] if args else None)
         self.batch_size = kwargs.get('batch_size')
         num_workers = kwargs.get('num_workers')
         shuffle = kwargs.get('shuffle')
@@ -108,7 +108,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
 
 class SSDMediaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
-        dataset = kwargs.get('dataset', args[0])
+        dataset = kwargs.get('dataset', args[0] if args else None)
         transform = dataset.transform
         self.is_train =  not transform.val
         self._media_ssd_dl_handle_vars(kwargs)
@@ -417,7 +417,7 @@ def _is_hpumediapipe_available():
 
 class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
-        dataset = kwargs.get("dataset", args[0])
+        dataset = kwargs.get('dataset', args[0] if args else None)
         dataloader_type = None
         if isinstance(dataset, torchvision.datasets.ImageFolder):
             dataloader_type = ResnetDataLoader
