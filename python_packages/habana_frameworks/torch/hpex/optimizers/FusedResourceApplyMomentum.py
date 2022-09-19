@@ -14,6 +14,10 @@ def resource_apply_momentum(params_momentum_buffer_list: List[Tensor],
         lr: float,
         nesterov: bool):
 
+    # grads may not be present always and hence the list may be empty.
+    # eg. during warmup steps.
+    if len(params_momentum_buffer_list) == 0:
+        return
     # Check if it is first iteration
     if params_momentum_buffer_list[1] is None:
         for i, d_p in enumerate(d_p_list):

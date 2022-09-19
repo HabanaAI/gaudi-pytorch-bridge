@@ -38,9 +38,12 @@ class FusedLars(Optimizer):
                     param_list.append(p.data)
                     grad_list.append(p.grad.data)
                     skip_mask_list.append(self.skip_mask[idx])
-                htcore.mark_step()
-                _hpex_C.fused_lars(param_list, grad_list, skip_mask_list, self.eeta, weight_decay, self.eps, group['lr'])
-                htcore.mark_step()
+                # grads may not be present always and hence the list may be empty.
+                # eg. during warmup steps. Call fused op only if list has something.
+                if len(param_list) != 0:
+                    htcore.mark_step()
+                    _hpex_C.fused_lars(param_list, grad_list, skip_mask_list, self.eeta, weight_decay, self.eps, group['lr'])
+                    htcore.mark_step()
 
 
         self.optim.step()
