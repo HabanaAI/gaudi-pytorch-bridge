@@ -1596,7 +1596,5 @@ static auto& KernelRegistry =
         .add(
             "aten::binary_cross_entropy_with_logits",
             KERNEL_FN(BceLogitsFwdOperator))
-        .add("aten::mse_loss", KERNEL_FN(MSELossFwdOperator))
-        .add("aten::mse_loss_backward", KERNEL_FN(MSELossBwdOperator))
         .add("aten::kl_div", KERNEL_FN(KlDivOperator))
         .add("aten::kl_div_backward", KERNEL_FN(KlDivBwdOperator));

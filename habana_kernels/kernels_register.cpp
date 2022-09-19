@@ -1862,55 +1862,6 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
   return nll_loss2d_forward_hpu(self, target, weight, reduction, ignore_index);
 };
 
-Tensor hpu_wrap::mse_loss(
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "mse_loss :",
-      " self=",
-      to_string(self),
-      " target=",
-      to_string(target),
-      " reduction=",
-      to_string(reduction));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      mse_loss, PARAMS1(self, target), PARAMS2(self, target, reduction))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mse_loss_forward_hpu_lazy(self, target, reduction);
-  } else {
-    return mse_loss_forward_hpu(self, target, reduction);
-  }
-};
-Tensor hpu_wrap::mse_loss_backward(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "mse_loss_backward :",
-      " grad_output=",
-      to_string(grad_output),
-      " self=",
-      to_string(self),
-      " target=",
-      to_string(target),
-      " reduction=",
-      to_string(reduction));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      mse_loss_backward,
-      PARAMS1(grad_output, self, target),
-      PARAMS2(grad_output, self, target, reduction))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
-
-  } else {
-    return mse_loss_backward_hpu(grad_output, self, target, reduction);
-  }
-};
-
 Tensor hpu_wrap::kl_div(
     const Tensor& self,
     const Tensor& target,

@@ -263,15 +263,6 @@ at::Tensor addmm_hpu_lazy(
     const at::Scalar& beta,
     const at::Scalar& alpha);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
-at::Tensor mse_loss_forward_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    int64_t reduction);
-at::Tensor mse_loss_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Tensor& target,
-    int64_t reduction);
 at::Tensor binary_cross_entropy_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& target,

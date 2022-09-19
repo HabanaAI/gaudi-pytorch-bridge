@@ -3287,34 +3287,6 @@ Tensor addmm_hpu_lazy(
       "aten::addmm", {self, mat1, mat2, beta, alpha}, {}, {shape_out}};
   return k.call();
 }
-Tensor mse_loss_forward_hpu_lazy(
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k(
-      "aten::mse_loss",
-      {self, target, reduction},
-      {2}, // metadata_indices
-      {MSELossFwdOperator::compute_output_shape(self, reduction)});
-  return k.call();
-}
-
-Tensor mse_loss_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction) {
-  PT_LAZY_TRACE;
-  auto shape = MSELossBwdOperator::compute_output_shape(self);
-  LazyOp<at::Tensor> k(
-      "aten::mse_loss_backward",
-      {grad_output, self, target, reduction},
-      {3}, // metadata_indices
-      {shape});
-  return k.call();
-}
 
 Tensor binary_cross_entropy_hpu_lazy(
     const Tensor& self,

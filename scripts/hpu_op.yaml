@@ -3187,16 +3187,41 @@ mm.out:
   dtypes: [BFloat16,Float]
   guid: gemm
 
+mse_loss:
+  force_default: false
+  custom_fill_params: FillMseLossParams
+  custom_output_shape: MseLossFwdOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float]
+  guid: mse_loss_fwd
+  out_ids: [0]
+
+mse_loss_backward:
+  custom_fill_params: FillMseLossParams
+  custom_output_shape: MseLossBwdOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+  guid: mse_loss_bwd
+  out_ids: [0]
+
 mse_loss.out:
   custom_fill_params: FillMseLossParams
-  custom_output_shape: MseLossOutputShape
-  dtypes: [BFloat16, Float]
+  custom_output_shape: MseLossFwdOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float]
   guid: mse_loss_fwd
 
 mse_loss_backward.grad_input:
   custom_fill_params: FillMseLossParams
   custom_output_shape: MseLossBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   guid: mse_loss_bwd
 
 mul.Tensor:

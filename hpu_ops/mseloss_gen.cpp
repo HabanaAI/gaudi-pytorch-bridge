@@ -12,25 +12,18 @@
 
 namespace habana {
 
-static sizes_vec MseLossFwdBwdOutputShape(
-    const at::Tensor& self,
-    int64_t reduction) {
+sizes_vec MseLossFwdOutputShape(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  int64_t reduction = stack.at(2).toInt();
   if (reduction == at::Reduction::Reduction::None) {
     return {self.sizes().vec()};
   }
   return {{}};
 }
 
-sizes_vec MseLossOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  int64_t reduction = stack.at(2).toInt();
-  return MseLossFwdBwdOutputShape(self, reduction);
-}
-
 sizes_vec MseLossBwdOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  int64_t reduction = stack.at(3).toInt();
-  return MseLossFwdBwdOutputShape(self, reduction);
+  const torch::Tensor& self = stack_tensor(stack, 1);
+  return {self.sizes().vec()};
 }
 
 std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {
