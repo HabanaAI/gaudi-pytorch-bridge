@@ -45,7 +45,7 @@ setup(name='habana-torch-dataloader',
                                                 ['main.cpp'],
                                                 include_dirs=[
                                                       os.path.join(os.path.dirname(os.path.realpath(__file__)), 'include'),
-                                                      os.path.join(os.environ["THIRD_PARTIES_ROOT"], "pybind11", "include"),
+                                                      os.path.join(os.environ["PYTORCH_FORK_ROOT"], "third_party", "pybind11", "include"),
                                                       os.path.join(os.environ["THIRD_PARTIES_ROOT"], "json", "include")
                                                 ],
                                                 libraries=['aeon'],
