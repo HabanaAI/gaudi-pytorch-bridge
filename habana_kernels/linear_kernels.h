@@ -89,7 +89,9 @@ class BmmOperator : public BmmOutOperator {
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
-      const at::Tensor& mat2);
+      const at::Tensor& mat2,
+      bool mat1_transposed = false,
+      bool mat2_transposed = false);
 };
 
 //
@@ -141,6 +143,10 @@ class MatMulOperator : public HabanaOperator {
       const at::Tensor& self,
       const at::Tensor& mat2,
       bool other_transposed = false);
+
+  static bool is_gmemm_with_transpose_possible(
+      const at::Tensor& input,
+      const at::Tensor& weight);
 };
 
 class MatmulBackwardOperator : public HabanaOperator {
@@ -167,7 +173,8 @@ class MatmulBackwardOperator : public HabanaOperator {
       at::Tensor& mat1,
       at::Tensor& mat2,
       synapse_helpers::tensor& syn_input1,
-      synapse_helpers::tensor& syn_input2);
+      synapse_helpers::tensor& syn_input2,
+      bool avoid_mat1_transpose = false);
 
   void MatBwSize(
       synapse_helpers::graph& graph,
@@ -177,13 +184,21 @@ class MatmulBackwardOperator : public HabanaOperator {
       at::IntArrayRef sizes,
       synapse_helpers::tensor& syn_input1,
       synapse_helpers::tensor& syn_input2,
-      const OutputMetaData& output_metadata);
+      const OutputMetaData& output_metadata,
+      bool avoid_mat1_transpose = false);
 
   void MatBwReshape(
       synapse_helpers::graph& graph,
       at::Tensor& mat,
       std::vector<int64_t> sizes,
       synapse_helpers::tensor& syn_input);
+
+  bool is_specialfold_without_reshape_case(
+      int64_t dim1,
+      int64_t dim2,
+      int64_t dim_out) {
+    return (dim_out == 2 and dim1 == dim2 and dim1 >= 3);
+  }
 
   std::vector<HabanaOperatorPtr> ReshapeOpList;
 };
