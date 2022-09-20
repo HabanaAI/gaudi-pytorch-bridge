@@ -989,7 +989,8 @@ static const std::
                   at::ScalarType::Bool,
                   at::ScalarType::Char,
                   at::ScalarType::Float,
-                  at::ScalarType::Long}},
+                  at::ScalarType::Long,
+                  at::ScalarType::Fp8r152}},
             },
             {
                 "matmul",
@@ -1001,7 +1002,8 @@ static const std::
                   at::ScalarType::Bool,
                   at::ScalarType::Char,
                   at::ScalarType::Float,
-                  at::ScalarType::Long}},
+                  at::ScalarType::Long,
+                  at::ScalarType::Fp8r152}},
             },
             {
                 "_masked_scale",

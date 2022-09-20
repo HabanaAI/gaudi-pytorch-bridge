@@ -410,7 +410,7 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() >= 2 && inputs.size() <= 4,
       "Incorrect size of inputs expected for cast operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -419,6 +419,14 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   // auto output = inputs[1].toTensor();
   auto type = inputs[1].toScalarType();
+  if (inputs.size() > 2) {
+    TORCH_CHECK(
+        inputs[2].isBool(), "Input arg2 expected to be Bool for cast operator");
+  }
+  if (inputs.size() > 3) {
+    TORCH_CHECK(
+        inputs[3].isInt(), "Input arg3 expected to be Int for cast operator");
+  }
 
   std::string node_type{"cast_identity"};
   if (self.scalar_type() != type) {
@@ -1510,4 +1518,5 @@ static auto& BasicKernelsKernelRegistry =
         .add(
             "hpu::as_strided_layout",
             KERNEL_FN_GLOBAL(AsStridedLayoutOperator))
-        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator));
+        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator))
+        .add("hpu::habana_cast_sr_mode", KERNEL_FN_GLOBAL(CastLazyOperator));

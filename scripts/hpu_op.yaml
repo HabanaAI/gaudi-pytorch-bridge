@@ -1363,7 +1363,7 @@ bitwise_xor_.Tensor:
 bmm:
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
   force_default: false
   custom_output_shape: BmmOutputShape
@@ -1374,7 +1374,7 @@ bmm:
 bmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
@@ -3497,7 +3497,7 @@ mm:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: gemm
   out_ids: [0]
@@ -3507,7 +3507,7 @@ mm.out:
   custom_output_shape: MmOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: gemm
 

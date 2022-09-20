@@ -406,9 +406,23 @@ size_t habana_helpers::getRecipeKey(
 /**
  * @brief CastKernel params structure
  */
-ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
+ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder(
+    bool stochastic_rounding_override = false) {
   ns_CastKernel::Params params{};
-  params.round_mode = habana_helpers::get_cast_rounding_mode(GetGuid());
+  params.round_mode = stochastic_rounding_override
+      ? CAST_ROUND_SR
+      : habana_helpers::get_cast_rounding_mode(GetGuid());
+  return params;
+}
+
+ns_CastKernel::ParamsV2 CastOutOperator::synapse_cast_params_v2_builder(
+    bool stochastic_rounding_override = false,
+    int seed = 0) {
+  ns_CastKernel::ParamsV2 params{};
+  params.round_mode = stochastic_rounding_override
+      ? CAST_ROUND_SR
+      : habana_helpers::get_cast_rounding_mode(GetGuid());
+  params.seed = seed;
   return params;
 }
 
@@ -444,13 +458,26 @@ void CastOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() >= 2 && inputs.size() <= 4,
       "Incorrect size of inputs expected for cast operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for cast operator");
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
+  auto stochastic_rounding = false;
+  int seed{0};
+  if (inputs.size() > 2) {
+    TORCH_CHECK(
+        inputs[2].isBool(), "Input arg2 expected to be Bool for cast operator");
+    stochastic_rounding = inputs[2].toBool();
+  }
+  if (inputs.size() > 3) {
+    TORCH_CHECK(
+        inputs[3].isInt(), "Input arg3 expected to be Int for cast operator");
+    seed = inputs[3].toInt();
+  }
+
   if (self.scalar_type() == c10::ScalarType::Byte &&
       type == c10::ScalarType::Bool) {
     // cast doesn't handle Byte->Bool: So, use gt op.
@@ -474,12 +501,25 @@ void CastOperator::AllocateAndAddSynapseNode(
         type,
         output_metadata.at(0).persistent);
 
-    ns_CastKernel::Params params = synapse_cast_params_builder();
-    p_context_->params_.emplace<ns_CastKernel::Params>(params);
-    p_context_->params_size_ = sizeof(params);
+    void* params{nullptr};
+    if (seed != 0) {
+      // Usage of ParamsV2 type induces explicit seed mode in TPC
+      ns_CastKernel::ParamsV2 params_v2 =
+          synapse_cast_params_v2_builder(stochastic_rounding, seed);
+      p_context_->params_.emplace<ns_CastKernel::ParamsV2>(params_v2);
+      p_context_->params_size_ = sizeof(params_v2);
+      params = &params_v2;
+    } else {
+      // Usage of Params type induces LFSR-based seed mode in TPC
+      ns_CastKernel::Params params_v1 =
+          synapse_cast_params_builder(stochastic_rounding);
+      p_context_->params_.emplace<ns_CastKernel::Params>(params_v1);
+      p_context_->params_size_ = sizeof(params_v1);
+      params = &params_v1;
+    }
 
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
-    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    AddNodeToSynapseGraph(graph, params, p_context_->params_size_);
   }
 }
 

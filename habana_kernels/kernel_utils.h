@@ -95,7 +95,11 @@ class CastOutOperator : public habana::HabanaOperator {
       const habana::OutputMetaDataVector& output_metadata) override;
 
  protected:
-  ns_CastKernel::Params synapse_cast_params_builder();
+  ns_CastKernel::Params synapse_cast_params_builder(
+      bool stochastic_rounding_override);
+  ns_CastKernel::ParamsV2 synapse_cast_params_v2_builder(
+      bool stochastic_rounding_override,
+      int seed);
 };
 
 // Cast Operator

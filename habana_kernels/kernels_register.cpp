@@ -2253,6 +2253,28 @@ Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
   return self;
 }
 
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+Tensor habana_cast_to_fp8_wrap(
+    const at::Tensor& input,
+    bool stochastic_rounding,
+    int seed) {
+  PT_OP_TRACE;
+  PT_OP_INFO(
+      " habana_cast_to_fp8:",
+      " input=",
+      to_string(input),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding),
+      ", seed=",
+      to_string(seed));
+  if (synapse_helpers::HPURegistrar::get_device().type() == synDeviceGaudi2) {
+    return habana_cast_to_fp8_lazy(input, stochastic_rounding, seed);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+#endif
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2735,6 +2757,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::linear_non2d_bwd(Tensor grad_out, Tensor input, Tensor weight, Tensor? bias) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::identity(Tensor self) -> (Tensor)");
+  m.def(
+      "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

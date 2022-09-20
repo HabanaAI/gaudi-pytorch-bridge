@@ -716,4 +716,8 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias_opt);
+at::Tensor habana_cast_to_fp8_lazy(
+    const at::Tensor& input,
+    bool stochastic_rounding,
+    int seed);
 } // namespace habana_lazy

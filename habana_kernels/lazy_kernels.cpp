@@ -7113,4 +7113,19 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   }
   return res_vec;
 }
+
+at::Tensor habana_cast_to_fp8_lazy(
+    const at::Tensor& input,
+    bool stochastic_rounding,
+    int seed) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k_{
+      "hpu::habana_cast_sr_mode",
+      {input, c10::ScalarType::Fp8r152, stochastic_rounding, seed},
+      {input.sizes().vec()},
+      c10::ScalarType::Fp8r152};
+  RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8, k_)
+}
+
 } // namespace habana_lazy

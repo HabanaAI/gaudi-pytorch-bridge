@@ -135,6 +135,7 @@ optimizer_sparse_sgd_with_valid_count(
       0.0f,
       false);
 }
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   //////////////////////////// Optimizers /////////////////////////////////////
   m.def(
@@ -215,4 +216,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "roi_align_backward",
       &vision::ops::roi_align_bwd_wrap,
       "ROI Align backward");
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+  m.def(
+      "cast_to_fp8",
+      &habana_cast_to_fp8_wrap,
+      "Cast FP32 or BF16 to lower precission with optional stochastic rounding");
+#endif
 }
