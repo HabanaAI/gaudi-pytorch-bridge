@@ -1,6 +1,7 @@
 flake8
 lark
 ninja
+numpy>=1.21
 pyyaml
 cython
 yamllint
