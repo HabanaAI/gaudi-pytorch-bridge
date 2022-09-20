@@ -22,16 +22,14 @@ sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim =
       stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
+  int ndims = self.sizes().vec().size();
+  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndims);
   const bool keepdim = stack.at(3).toBool();
   return ReductionOutputShape(self, dim, keepdim);
 }
 
 sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
-  const bool keepdim = stack.at(3).toBool();
-  auto outshape = ReductionOutputShape(self, dim, keepdim)[0];
+  auto outshape = StdVarComputeOutShape(stack)[0];
   return {outshape, outshape};
 }
 
@@ -55,11 +53,9 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   auto num_dim = dim.size();
   const bool is_arrdim = num_dim > 1;
   int divisor = num_dim == 0 ? self.numel() : 1;
-  std::vector<int64_t> next_val(ndims);
-  std::iota(next_val.begin(), next_val.end(), 0);
   bool dim_continuous = false;
   for (auto i = 0u; i < num_dim && is_arrdim; i++) {
-    if (dim[i] == next_val[i]) {
+    if (dim[i] == i) {
       dim_continuous = true;
     } else {
       dim_continuous = false;
@@ -67,13 +63,13 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     }
   }
   const bool enable_reduce_sum = is_arrdim && !dim_continuous;
-  const bool is_bf16 = (op->ScalarType() == torch::kBFloat16) ? true : false;
+  const bool is_bf16 = op->ScalarType() == torch::kBFloat16;
   int min_dim = num_dim == 0 ? 0 : dim[0];
 
   for (unsigned i = 0; i < dim.size(); i++)
     divisor *= input_shape[dims[i]];
 
-  divisor = correction ? divisor - correction : divisor;
+  divisor = divisor - correction;
   std::vector<synapse_helpers::tensor> sum;
   std::vector<synapse_helpers::tensor> outputs;
 
