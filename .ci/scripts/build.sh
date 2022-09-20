@@ -1426,7 +1426,7 @@ run_pytorch_qa_tests()
        run_tox_command(){
            cmd_opts="$1"
            junit_xml_tox="$2"
-           __tox_cmdline="LOG_LEVEL_ALL=${__spdlog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
+           __tox_cmdline="PT_HPU_PLACE_ON_CPU=none LOG_LEVEL_ALL=${__spdlog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
        (set -x;export __tox_cmdline; eval $__tox_cmdline)
        }
 
