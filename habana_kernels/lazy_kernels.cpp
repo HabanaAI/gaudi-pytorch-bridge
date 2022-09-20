@@ -1329,6 +1329,7 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     const Scalar& alpha) {
+  habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
@@ -1366,7 +1367,7 @@ Tensor add_scalar_hpu_lazy(
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> op{
       "aten::add", {self, other, alpha}, {}, {self.sizes().vec()}};
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(add, op)
 }
 
 Tensor& add_scalar_hpu_lazy_(
@@ -1481,7 +1482,7 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   std::vector<int64_t> sizes =
       ReduceOperator::compute_output_shape(self, dim, keepdim);
   LazyOp<at::Tensor, ir::AllDim> op(node, {self, dim, keepdim}, {sizes});
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(all, op)
 }
 
 Tensor permute_wt_hpu(const Tensor& self) {
@@ -1537,7 +1538,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
         }
       };
       Kernel kernel{op_name, vector_of_inputs};
-      return kernel.call();
+      RUN_MAYBE_WITH_ACC_THREAD(permute_weight, kernel)
     }
   }
   return result;
@@ -1663,7 +1664,7 @@ Tensor convolution_hpu_lazy(
           is_weight_hwck,
           groups)},
       0);
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(convolution_overrideable, k)
 }
 
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
@@ -1856,7 +1857,7 @@ Tensor constant_pad_hpu_lazy(
       vector_of_inputs,
       metadata_indices,
       {PadOperator::compute_output_shape(self, pad)}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(constant_pad_nd, k)
 }
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
@@ -1883,7 +1884,7 @@ Tensor embedding_hpu_lazy(
       embedding_node,
       {weight, indices, padding_idx, scale_grad_by_freq, sparse},
       {size});
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(embedding, op)
 }
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
@@ -1899,7 +1900,7 @@ Tensor embedding_dense_backward_hpu_lazy(
       embedding_bwd_node,
       {grad, indices, num_weights, padding_idx, scale_grad_by_freq},
       {sizes});
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, op)
 }
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
@@ -1913,7 +1914,7 @@ Tensor embedding_bag_sum_hpu_lazy(
   std::vector<int64_t> sizes{offsets.sizes()[0] - 1, input.size(1)};
   LazyOp<at::Tensor, ir::EmbeddingBagSum> op(
       node, {input, indices, offsets, valid_count, kernel_mode}, {sizes});
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(embedding_bag_sum, op)
 }
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
@@ -1939,7 +1940,7 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
        grad_weight},
       {sizes}};
 
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_fwd, op)
 }
 Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     Tensor& out,
@@ -1951,7 +1952,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
   LazyOp<at::Tensor&> op{
       "aten::embedding_bag_sum_bwd",
       {out, input, indices_bwd, offsets_bwd, valid_count_bwd}};
-  return op.call(out);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_bwd_out, op, out)
 }
 Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     Tensor& out,
@@ -1965,7 +1966,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
       out, input, indices, offsets, valid_count, kernel_mode);
   LazyOp<at::Tensor&, ir::EmbeddingBagSumBwd> op(
       node, {out, input, indices, offsets, valid_count, kernel_mode});
-  return op.call(out);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_bwd_out, op, out)
 }
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
@@ -1978,11 +1979,11 @@ Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   if (value.isBoolean()) {
     int bool_val = value.toBool();
     LazyOp<at::Tensor&> k{"aten::fill_", {self, bool_val}};
-    return k.call(self);
+    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fill_, k, self)
   }
 
   LazyOp<at::Tensor&> k{"aten::fill_", {self, value}};
-  return k.call(self);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fill_, k, self)
 }
 
 Tensor& masked_fill_hpu_lazy_(
@@ -2026,7 +2027,7 @@ Tensor scatter_add_src_hpu_lazy(
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(scatter_add, k)
 }
 
 // scatter_add is producing wrong value randomly
@@ -3293,7 +3294,7 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
       {mat1, mat2},
       {},
       {MMOperator::compute_output_shape(mat1, mat2)}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(mm, k)
 }
 
 Tensor addmm_hpu_lazy(
@@ -3354,7 +3355,7 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
       {self, target, pos_weight, weight, reduction},
       {4},
       {sizes});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(binary_cross_entropy_with_logits, k)
 }
 
 Tensor kl_div_hpu_lazy(
@@ -3369,7 +3370,7 @@ Tensor kl_div_hpu_lazy(
       {self, target, reduction, log_target},
       {2, 3}, // metadata_indices
       {KlDivOperator::compute_output_shape(self, reduction)});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(kl_div, k)
 }
 
 Tensor kl_div_backward_hpu_lazy(
@@ -3385,7 +3386,7 @@ Tensor kl_div_backward_hpu_lazy(
       {grad_output, self, target, reduction, log_target},
       {3, 4}, // metadata_indices
       {self.sizes().vec()});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(kl_div_backward, k)
 }
 
 /*
@@ -4373,7 +4374,7 @@ Tensor adaptive_avg_pool2d_hpu_lazy(
 
   LazyOp<Tensor> k{
       "aten::_adaptive_avg_pool2d", {input, output_size}, {1}, {shape_out}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d, k)
 }
 
 Tensor adaptive_avg_pool2d_backward_hpu_lazy(
@@ -4385,7 +4386,7 @@ Tensor adaptive_avg_pool2d_backward_hpu_lazy(
       {grad_output, input},
       {},
       {input.sizes().vec()}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d_backward, k)
 }
 
 Tensor& randperm_hpu_lazy_ht(
@@ -4424,7 +4425,7 @@ Tensor& randperm_hpu_lazy_ht(
       {2},
       {},
       3};
-  return op.call(output);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out_ds_ht, op, output)
 }
 Tensor& randperm_hpu_lazy(
     int64_t n,
@@ -4461,14 +4462,14 @@ Tensor& randperm_hpu_lazy(
         {},
         {},
         2};
-    return op.call(output);
+    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out_ds, op, output)
   }
   LazyOp<Tensor&> op{
       "hpu::randperm_out",
       {Scalar((int32_t)n), std::move(gen), output},
       {1},
       {{n}}};
-  return op.call(output);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out, op, output)
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
@@ -4591,7 +4592,7 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
       vector_of_inputs,
       metadata_indices,
       {RepeatOperator::compute_output_shape(self, repeats)}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
 at::Tensor repeat_inlv_hpu_lazy(
@@ -4866,7 +4867,7 @@ Tensor prod_dim_hpu_lazy(
   };
 
   Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(prod, kernel)
 }
 
 Tensor& any_dim_out_hpu_lazy(
@@ -4881,7 +4882,7 @@ Tensor& any_dim_out_hpu_lazy(
 
   LazyOp<Tensor&> k{"aten::any", {self, dim, keepdim, output}, {}, {shape_out}};
 
-  return k.call(output);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(any_dim_out, k, output)
 }
 
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
@@ -4905,7 +4906,7 @@ Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
     bool keepdim;
   };
   Kernel kernel{self, dim, keepdim};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(any, kernel)
 }
 
 Tensor any_hpu_lazy(const Tensor& self) {
@@ -4925,7 +4926,7 @@ Tensor any_hpu_lazy(const Tensor& self) {
     at::Tensor self;
   };
   Kernel kernel{self};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(any, kernel)
 }
 
 void InitSizesAndStrides(
@@ -5239,7 +5240,7 @@ Tensor& cat_hpu_lazy_out(
 
   auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
   LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
-  return k.call(result);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(cat_out, k, result)
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
@@ -5503,7 +5504,7 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   };
 
   Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(permute_cl, kernel)
 }
 
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
@@ -5874,7 +5875,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   if (num_classes == -1) {
     num_classes = self.max().item().toLong() + 1;
   }
-  Tensor ret;
+
   struct Kernel : public LazyOp<at::Tensor> {
     explicit Kernel(const Tensor& self, int64_t num_classes)
         : LazyOp<at::Tensor>("aten::one_hot", {self, num_classes}, {}, {}, -1),
@@ -5895,8 +5896,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
     int64_t m_num_classes;
   };
   Kernel k{self, num_classes};
-  ret = k.call();
-  return ret;
+  RUN_MAYBE_WITH_ACC_THREAD(one_hot, k)
 }
 
 Tensor upsample_nearest2d_hpu_lazy(
@@ -6112,7 +6112,7 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
 Tensor gelu_hpu_lazy(const Tensor& self, c10::string_view sv) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::gelu", {self, sv}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(gelu, k)
 }
 
 Tensor gelu_backward_hpu_lazy(
@@ -6121,7 +6121,7 @@ Tensor gelu_backward_hpu_lazy(
     c10::string_view sv) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::gelu_backward", {grad, self, sv}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(gelu_backward, k)
 }
 
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
@@ -6138,10 +6138,9 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
 
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor> k_{
       "aten::isfinite", {input}, {input.sizes().vec()}, c10::ScalarType::Bool};
-  return k_.call();
+  RUN_MAYBE_WITH_ACC_THREAD(isfinite, k_)
 }
 
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
@@ -6280,7 +6279,7 @@ Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
 
   LazyOp<at::Tensor&> k{
       "hpu::bitwise_not_Tensor_out", {out, self}, {}, {out_shape}};
-  return k.call(out);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(bitwise_not_out, k, out)
 };
 
 std::tuple<Tensor, Tensor> _unique_hpu_lazy(
@@ -6598,6 +6597,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim) {
+  habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;
   vector_of_inputs = {self, dim, keepdim};
@@ -6634,13 +6634,13 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
 at::Tensor max_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::max", {self}, {}, {{}}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(max, k)
 }
 
 at::Tensor min_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::min", {self}, {}, {{}}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(min, k)
 }
 
 Tensor masked_scale_hpu_lazy(
@@ -6658,13 +6658,12 @@ Tensor masked_scale_hpu_lazy(
 
 Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<Tensor> k(
       "aten::matmul",
       {self, other},
       {},
       {MatMulOperator::compute_output_shape(self, other)});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(matmul, k)
 }
 
 std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
@@ -6804,8 +6803,8 @@ Tensor batched_nms_hpu_lazy(
     return output;
   }
   // Ensuring that the boxes and scores input to batched_nms is always FP32,
-  // this is because CGUID expects boxes to be f32. TBD: move this cast addition
-  // to HMP
+  // this is because CGUID expects boxes to be f32. TBD: move this cast
+  // addition to HMP
   Tensor boxes_cast = boxes;
   Tensor scores_cast = scores;
   if (boxes.scalar_type() == c10::ScalarType::BFloat16) {
@@ -6857,9 +6856,9 @@ Tensor batched_nms_hpu_lazy(
     }
   };
 
-  // max_classes set for COCO dataset for now, can be increased in future based
-  // on requirement. larger max_classes => smaller max size for num_boxes
-  // allowed because of memory trade-off.
+  // max_classes set for COCO dataset for now, can be increased in future
+  // based on requirement. larger max_classes => smaller max size for
+  // num_boxes allowed because of memory trade-off.
   constexpr int max_classes = 81;
 
   std::vector<int64_t> box_id_out_shape{scores.sizes()[0] * max_classes};
@@ -6916,7 +6915,6 @@ at::Tensor roi_align_fwd_hpu_lazy(
     bool aligned) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   // Assuming outshape to be NCHW
   std::vector<int64_t> out_shape{
       num_rois.sizes()[0], images.sizes()[1], output_h, output_w};
@@ -6941,7 +6939,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
        aligned},
       {},
       {out_shape});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(roi_align_fwd, k)
 }
 
 at::Tensor roi_align_bwd_hpu_lazy(
@@ -6957,7 +6955,6 @@ at::Tensor roi_align_bwd_hpu_lazy(
     bool aligned) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   std::vector<int64_t> out_shape = {bs, ch, h, w};
   auto input_shape = empty_hpu_lazy(
       out_shape, grad_out.options(), grad_out.suggest_memory_format(), true);
@@ -6972,7 +6969,7 @@ at::Tensor roi_align_bwd_hpu_lazy(
        aligned},
       {},
       {out_shape});
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(roi_align_bwd, k)
 }
 
 Tensor silu_hpu_lazy(const Tensor& self) {

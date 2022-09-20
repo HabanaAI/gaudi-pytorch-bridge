@@ -209,7 +209,6 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
 
   auto clip_norm = get_tensor_for_scalar(1.0);
   ir::NodePtr node =
@@ -219,7 +218,7 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
   LazyOp<at::Tensor, ir::LambFusedNorm> k(
       node, {grad[0], max_grad_norm, clip_norm}, {sizes});
 
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, k)
 }
 
 std::tuple<
