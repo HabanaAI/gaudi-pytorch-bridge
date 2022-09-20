@@ -1376,6 +1376,22 @@ clone:
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: clone_hpu_lazy
 
+convolution_overrideable:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: convolution_hpu_lazy
+
+convolution_backward_overrideable:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: convolution_backward_hpu_lazy
+
 copysign.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]

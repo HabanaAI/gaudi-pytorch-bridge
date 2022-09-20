@@ -696,152 +696,6 @@ Tensor hpu_wrap::all(const Tensor& self) {
   FALLBACK_IF_UNSUPPORTED_OP(all, PARAMS1(self), PARAMS2(self))
   return all_hpu(self);
 };
-Tensor hpu_wrap::convolution_overrideable(
-    const Tensor& input,
-    const Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool transposed,
-    IntArrayRef output_padding,
-    int64_t groups) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "Convolution :",
-      " input=",
-      to_string(input),
-      " weight=",
-      to_string(weight),
-      " bias_opt=",
-      to_string(bias_opt),
-      " stride=",
-      to_string(stride),
-      " padding=",
-      to_string(padding),
-      " dilation=",
-      to_string(dilation),
-      " transposed=",
-      to_string(transposed),
-      " output_padding=",
-      to_string(output_padding),
-      " groups=",
-      to_string(groups));
-  auto bias = bias_opt.value_or(Tensor());
-  FALLBACK_IF_UNSUPPORTED_OP(
-      convolution_overrideable,
-      PARAMS1(input, weight, bias),
-      PARAMS2(
-          input,
-          weight,
-          bias_opt,
-          stride,
-          padding,
-          dilation,
-          transposed,
-          output_padding,
-          groups))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return convolution_hpu_lazy(
-        input,
-        weight,
-        bias,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups);
-  } else {
-    return convolution_hpu(
-        input,
-        weight,
-        bias,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups);
-  }
-};
-std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
-    const Tensor& grad_output,
-    const Tensor& input,
-    const Tensor& weight,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool transposed,
-    IntArrayRef output_padding,
-    int64_t groups,
-    std::array<bool, 3> output_mask) {
-  PT_OP_TRACE;
-  PT_OP_INFO(
-      "Convolution Backward :",
-      " grad_output=",
-      to_string(grad_output),
-      " input=",
-      to_string(input),
-      " weight=",
-      to_string(weight),
-      " stride=",
-      to_string(stride),
-      " padding=",
-      to_string(padding),
-      " dilation=",
-      to_string(dilation),
-      " transposed=",
-      to_string(transposed),
-      " output_padding=",
-      to_string(output_padding),
-      " groups=",
-      to_string(groups),
-      " output_mask=",
-      to_string(output_mask));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      convolution_backward_overrideable,
-      PARAMS1(grad_output, input, weight),
-      PARAMS2(
-          grad_output,
-          input,
-          weight,
-          stride,
-          padding,
-          dilation,
-          transposed,
-          output_padding,
-          groups,
-          output_mask))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return convolution_backward_hpu_lazy(
-        grad_output,
-        input,
-        weight,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups,
-        output_mask);
-
-  } else {
-    return convolution_backward_hpu(
-        grad_output,
-        input,
-        weight,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups,
-        output_mask);
-  }
-};
 
 Tensor hpu_wrap::constant_pad_nd(
     const Tensor& self,
@@ -4527,8 +4381,8 @@ Tensor hpu_wrap::isfinite(const Tensor& self) {
 struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
   static at::Tensor forward(
       AutogradContext* ctx,
-      at::Tensor self,
-      at::Tensor other) {
+      const at::Tensor& self,
+      const at::Tensor& other) {
     at::Tensor result;
     ctx->save_for_backward({self, other});
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
@@ -4560,8 +4414,7 @@ struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
 
 Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
-  PT_OP_INFO(
-      " habana_nms:", " self=", to_string(self), "other=", to_string(other));
+  PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   return MatmulFunction::apply(self, other);
 };
 

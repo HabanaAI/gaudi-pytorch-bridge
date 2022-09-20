@@ -1544,7 +1544,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
-    const Tensor& bias,
+    const c10::optional<at::Tensor>& bias_opt,
     IntArrayRef stride,
     IntArrayRef padding,
     IntArrayRef dilation,
@@ -1552,6 +1552,7 @@ Tensor convolution_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups) {
   PT_LAZY_TRACE;
+  const auto& bias = bias_opt.value_or(Tensor());
   Tensor weight_hpu = weight;
   if (weight.device().type() == c10::DeviceType::CPU &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))

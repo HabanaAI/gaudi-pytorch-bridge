@@ -162,28 +162,6 @@ struct hpu_wrap {
   static at::Tensor ge(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor le(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor le(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor convolution_overrideable(
-      const at::Tensor& input,
-      const at::Tensor& weight,
-      const c10::optional<at::Tensor>& bias_opt,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      at::IntArrayRef dilation,
-      bool transposed,
-      at::IntArrayRef output_padding,
-      int64_t groups);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
-  convolution_backward_overrideable(
-      const at::Tensor& grad_output,
-      const at::Tensor& input,
-      const at::Tensor& weight,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      at::IntArrayRef dilation,
-      bool transposed,
-      at::IntArrayRef output_padding,
-      int64_t groups,
-      ::std::array<bool, 3> output_mask);
   static at::Tensor constant_pad_nd(
       const at::Tensor& self,
       at::IntArrayRef pad,

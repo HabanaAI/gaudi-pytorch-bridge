@@ -101,7 +101,7 @@ at::Tensor upsample_nearest3d_backward_hpu_lazy(
 at::Tensor convolution_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& bias_opt,
     at::IntArrayRef stride,
     at::IntArrayRef padding,
     at::IntArrayRef dilation,
