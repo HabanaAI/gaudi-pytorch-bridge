@@ -655,7 +655,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestHt) {
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
 
-TEST_F(LazyDynamicComputeOutputShapesTest, RoiAlignBwd) {
+TEST_F(LazyDynamicComputeOutputShapesTest, DISABLED_RoiAlignBwd) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
