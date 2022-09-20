@@ -1380,7 +1380,7 @@ void habana::MatmulBackwardOperator::MatBwSize(
     stack.clear();
 
     std::vector<int64_t> reshape2_sizes{matmul->GetOutputs()[0].sizes().vec()};
-    reshape2_sizes.pop_back();
+    reshape2_sizes.erase(reshape2_sizes.begin());
     MatBwReshape(
         graph,
         matmul->GetOutputs()[0],
