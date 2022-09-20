@@ -1,9 +1,10 @@
+**/*build*/**
+!.devops/build_profiles/**
 .idea/
 .vscode/*
-__pycache__/
 data/
 .pytest_cache/
-**/*build*/**
+__pycache__/
 *.log
 *.so
 *.bin
