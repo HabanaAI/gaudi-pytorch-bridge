@@ -960,7 +960,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
 
   if (!bias.defined()) {
     auto populateOp =
-        [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
+        [&](const std::shared_ptr<habana::HabanaOperator>& scOp) {
           scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
           scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
           scOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
@@ -982,7 +982,7 @@ void ConvOperator::AllocateAndAddSynapseNode(
   } else {
     if (!transposed) {
       auto populateOp =
-          [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
+          [&](const std::shared_ptr<habana::HabanaOperator>& scOp) mutable {
             scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[2]);
@@ -1004,17 +1004,19 @@ void ConvOperator::AllocateAndAddSynapseNode(
       }
     } else {
       auto populateOp =
-          [&](std::shared_ptr<habana::HabanaOperator> scOp) mutable {
+          [&](const std::shared_ptr<habana::HabanaOperator>& scOp) mutable {
             scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
             scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
             scOp->AllocateAndAddSynapseNode(
                 graph, inputs, OutputMetaDataVector(1));
 
             std::vector<c10::IValue> stack;
-            if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+            auto ReshapeOp = make_operator<ReshapeOperator>(
+                this->p_context_->device_id_, input.scalar_type());
+            bool need_reshape =
+                GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
+            if (need_reshape) {
               // reshape bias to match to NCHW output format
-              auto ReshapeOp = make_operator<ReshapeOperator>(
-                  this->p_context_->device_id_, input.scalar_type());
               ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[2]);
               int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
               c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
@@ -1025,14 +1027,13 @@ void ConvOperator::AllocateAndAddSynapseNode(
                   graph, stack, OutputMetaDataVector(1));
               stack.clear();
               bias = ReshapeOp->GetOutputs()[0];
-              p_context_->syn_inputs_[2] =
-                  std::move(ReshapeOp->GetSynOutputs()[0]);
             }
-
             auto addOp = make_operator<AddOperator>(
                 this->p_context_->device_id_, input.scalar_type());
             addOp->SetSynapseInput(scOp->GetSynOutputs()[0]);
-            addOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+            addOp->SetSynapseInput(
+                need_reshape ? ReshapeOp->GetSynOutputs()[0]
+                             : p_context_->syn_inputs_[2]);
             // Build Params for the graph
             Scalar alphaValue = 1.0;
             stack.emplace_back(IValue(scOp->GetOutputs()[0]));

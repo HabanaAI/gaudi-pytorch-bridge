@@ -72,6 +72,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
     reshapeOp->AllocateAndAddSynapseNode(
         graph, temp_stack, OutputMetaDataVector(1));
     synapse_helpers::tensor& syn_tensor = reshapeOp->GetSynOutputs()[0];
+    p_context_->syn_input_orig_.emplace_back(
+        std::move(p_context_->syn_inputs_[0]));
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
   ns_TileKernel::ParamsV2 params{};
