@@ -2,7 +2,7 @@ def stableBranch = GERRIT_BRANCH - '_next'
 src = library("pipeline-library@$stableBranch")
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
-def buildDependencies = ['SYNAPSE', 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL']
+def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL']
 def clangFormatValidation = [
     'clang-format validation': { util ->
         try {
@@ -55,6 +55,7 @@ def requiredArtifact = [
     'SWTOOLS_SDK': ['bin', 'shared'],
     'SYNAPSE': ['test', 'shared'],
     'SYNAPSE_PROFILER': ['bin', 'shared'],
+    "SYNAPSE_UTILS" : ["shared"],
     'COMPLEX_GUID': ['test', 'shared'],
     'HL_THUNK': ['test', 'shared'],
     'TPCSIM': ['shared', 'header'],
