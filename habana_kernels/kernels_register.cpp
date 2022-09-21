@@ -3274,16 +3274,6 @@ Tensor hpu_wrap::upsample_nearest3d_backward(
   }
 };
 
-Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
-  PT_OP_TRACE;
-  PT_OP_INFO("_local_scalar_dense :", " self=", to_string(self));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return _local_scalar_dense_hpu_lazy(self);
-  } else {
-    return _local_scalar_dense_hpu(self);
-  }
-}
-
 Tensor& hpu_wrap::bitwise_and_out(
     const Tensor& self,
     const Tensor& other,

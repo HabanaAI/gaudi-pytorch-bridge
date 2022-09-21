@@ -468,6 +468,9 @@ _index_put_impl_:
   fallback_check: [IndexFallbackCheck, indices]
   override_fn: _index_put_impl_hpu_lazy_
 
+_local_scalar_dense:
+  override_fn: _local_scalar_dense_hpu_lazy
+
 abs:
   force_default: false
   dtypes:
@@ -1843,19 +1846,28 @@ erfinv.out:
   guid: erfinv_fwd
 
 exp:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Short, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   out_ids: [0]
   force_default: false
 
 exp_:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Short, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   inplace_ids: [0]
   force_default: false
 
 exp.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Short, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
 
 exp2:

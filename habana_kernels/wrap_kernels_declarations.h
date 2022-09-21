@@ -677,7 +677,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& mask,
       double scale);
-  static at::Scalar _local_scalar_dense(const at::Tensor& self);
   static at::Tensor floor(const at::Tensor& self);
   static at::Tensor& floor_(at::Tensor& self);
   static at::Tensor matmul(const at::Tensor& self, const at::Tensor& other);
