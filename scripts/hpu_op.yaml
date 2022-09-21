@@ -4745,6 +4745,7 @@ topk.values:
     Gaudi2: [Float, Int]
     Greco: [Float, Int, Half, Char]
   override_fn: topk_out_hpu_lazy
+  fallback_check: [TopkFallbackCheck, sorted]
 
 trace:
   custom_output_shape: TraceOutputShape
