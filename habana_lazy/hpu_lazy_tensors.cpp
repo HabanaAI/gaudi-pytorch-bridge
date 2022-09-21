@@ -782,9 +782,6 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   // Make regular 0D tensors 1D
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
   bool is_shape_tensor = impl && impl->isShapeTensor();
-  if (impl) {
-    impl->unique_id = d->unique_id;
-  }
   if (pt_tensor.dim() == 0 &&
       !pt_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
     TORCH_CHECK(is_shape_tensor == false, "0D shape tensor encountered");
@@ -936,29 +933,6 @@ void LaunchSyncTensorsGraph(
   } else {
     try {
       hlexec.Launch(stack, stream, event_handle, event_stream, event_flag);
-      PT_TEST_DEBUG("JIT_IR_Graph_OUTPUTS_BEGIN");
-      size_t i = 0;
-      auto jit_ir_graph = hlexec.get_graph();
-      for (const torch::IValue& v : stack) {
-        auto st = v.toTensor();
-        auto out_tensor = (*tensors)[indices[i]];
-        auto tensor_id = out_tensor.getTensorUniqueId();
-        ValPtr vp = jit_ir_graph->outputs().at(i);
-        PT_TEST_DEBUG(
-            "Output[",
-            i,
-            "] ",
-            "Tensor id: ",
-            tensor_id,
-            ", ",
-            vp->debugName(),
-            " -> [",
-            st.sizes().vec(),
-            "]");
-        out_tensor.SetTensorData(st);
-        i += 1;
-      }
-      PT_TEST_DEBUG("JIT_IR_Graph_OUTPUTS_END");
       if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
         PT_LAZY_DEBUG(
@@ -1243,6 +1217,7 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   // Launch the execution
   hlexec.Launch(stack, c10::hpu::getCurrentHPUStream(), {}, 0, 0);
+
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
   size_t i = 0;
