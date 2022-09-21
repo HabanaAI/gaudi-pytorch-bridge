@@ -764,7 +764,7 @@ TEST_F(LazyDynamicShapesTest, AllDimTest) {
   all_test({12, 45}, /*dim*/ 0, /*keepdim*/ true);
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest) {
+TEST_F(LazyDynamicShapesTest, SliceTest) {
   int N = 1;
   int C = 4;
   int H = 24;
@@ -810,7 +810,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest6dim) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest2) {
+TEST_F(LazyDynamicShapesTest, SliceTest2) {
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
