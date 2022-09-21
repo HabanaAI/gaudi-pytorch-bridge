@@ -65,7 +65,6 @@ class PoolingStrategy {
     return true;
   }
   virtual void print_pool_stats() const {};
-  virtual void threshold_check(UNUSED bool enable) const {};
 };
 
 class SubAllocator {
@@ -146,9 +145,6 @@ class SubAllocator {
     return this->strategy_->print_pool_stats();
   }
 
-  void threshold_check(bool enable) const {
-    return this->strategy_->threshold_check(enable);
-  };
 };
 
 /// bump pooling ///

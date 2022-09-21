@@ -320,11 +320,6 @@ void* device_memory::workspace_alloc(
         return v_ptr;
       };
       auto& recipe_counter = device_.get_active_recipe_counter();
-      if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT)
-        suballoc_->threshold_check(true);
-      else
-        suballoc_->threshold_check(false);
-
       v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
 
       if (v_ptr == nullptr) {
@@ -395,13 +390,10 @@ device_ptr device_memory::fix_address(void* ptr) {
 
 void device_memory::check_and_limit_recipe_execution(size_t size) {
   auto& recipe_counter = device_.get_active_recipe_counter();
-  PT_DEVMEM_DEBUG("Recipes in queue", recipe_counter.get_count());
-  uint32_t counter_state{0};
-  if (recipe_counter.get_count() < DEFAULT_RECIPE_COUNT)
-    return;
-
-  if (recipe_counter.get_count() > device_.GetMaxRecipeLimitInQueue() ||
-      !suballoc_->is_memory_available(size)) {
+  PT_DEVMEM_DEBUG("Recipes in queue::", recipe_counter.get_count());
+  if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT &&
+      (size > DEFAULT_ALIGNMENT && !suballoc_->is_memory_available(size))) {
+    uint32_t counter_state{0};
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
     } while (counter_state > DEFAULT_RECIPE_COUNT);
@@ -772,10 +764,8 @@ device_ptr_lock device_memory::lock_addresses(
   // there is unpredictable behaviour because of
   // resource contraint. so limit the recipes in
   // queue.
-  if (device_.GetMaxRecipeLimitInQueue() > 0 ||
-      (total_mem > DEFAULT_ALIGNMENT &&
-       !suballoc_->is_memory_available(total_mem)))
-    check_and_limit_recipe_execution(total_mem);
+  check_and_limit_recipe_execution(total_mem);
+
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
@@ -828,10 +818,6 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   };
 
   auto& recipe_counter = device_.get_active_recipe_counter();
-  if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT)
-    suballoc_->threshold_check(true);
-  else
-    suballoc_->threshold_check(false);
 
   void* ptr = nullptr;
   size_t size = 0;
@@ -916,6 +902,7 @@ void device_memory::reset_peak_memory_stats() {
 
 bool device_memory::is_memory_available(size_t size) {
   if (pool_strategy_ != pool_allocator::strategy_none) {
+    check_and_limit_recipe_execution(size);
     return suballoc_->is_memory_available(size);
   }
   return true;

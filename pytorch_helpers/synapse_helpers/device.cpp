@@ -233,8 +233,6 @@ void dumpEnvSettings() {
     std::clog << " PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = "
               << GET_ENV_FLAG_NEW(PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT)
               << "\n";
-    std::clog << " PT_HPU_POOL_MEM_THRESHOLD_PERC = "
-              << GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC) << "\n";
     std::clog << " PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = "
               << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)
               << "\n";

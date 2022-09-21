@@ -101,8 +101,6 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
   prealloc_pool = nullptr;
   bin_utils = new BinUtils();
   small_allocs_ = nullptr;
-  auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC);
-  mem_threshold = (val > 100) ? 100 : val;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -236,12 +234,15 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.pool_id = pool_id;
   stats.memory_limit = max_pool_size;
   stats.bytes_in_use += 0x80;
+  bytes_in_use += 0x80;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
   small_allocs_ = absl::make_unique<SmallAllocs>(
       std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
           chunk_ptr, free_chunk));
   stats.num_allocs = 0;
+  stats.bytes_in_use += SmallAllocs::kSize;
+  bytes_in_use += SmallAllocs::kSize;
   return true;
 }
 
@@ -307,9 +308,8 @@ void CoalescedStringentPooling::pool_destroy() const {
 
 bool CoalescedStringentPooling::is_memory_available(size_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
-  size_t limit = (max_pool_size * (mem_threshold / 100.0));
 
-  if ((size + bytes_in_use) > limit) {
+  if ((size + bytes_in_use) > max_pool_size) {
     PT_DEVMEM_DEBUG("total requested memory size::", size, " not available");
     return false;
   }
@@ -360,10 +360,6 @@ void* CoalescedStringentPooling::FindChunkPtr(
   }
 
   return nullptr;
-}
-
-void CoalescedStringentPooling::threshold_check(bool enable) const {
-  enable_threshold_check = enable;
 }
 
 void CoalescedStringentPooling::print_pool_stats() const {
@@ -458,7 +454,6 @@ void CoalescedStringentPooling::print_pool_stats() const {
   free_chunks_size = 0;
   pool_status.str("");
   pool_status.clear();
-  GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_THRESHOLD_PERC);
   return;
 }
 
@@ -552,22 +547,6 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
   return free_chunk;
 }
 
-static bool check_mem_threshold_hit(
-    size_t limit,
-    size_t bytes_in_use,
-    uint32_t threshold) {
-  size_t threshold_val = (limit * (threshold / 100.0));
-  if (bytes_in_use > threshold_val) {
-    PT_DEVMEM_DEBUG(
-        "bytes exceed the threshold limit threshold::",
-        threshold_val,
-        " bytes_in_use::",
-        bytes_in_use);
-    return true;
-  }
-  return false;
-}
-
 void* CoalescedStringentPooling::extend_high_memory_allocation(
     uint64_t size,
     size_t current_ws_size) const {
@@ -605,12 +584,6 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
     return (void*)tail_chunk->memptr;
   }
 
-  // check if the memory threshold has reached, if reached
-  // return nullptr.
-  if (enable_threshold_check &&
-      check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
-    return nullptr;
-  }
   // if high memory is already allocated, extend the remaining memory for the
   // requested size
   if (high_memory_allocated_) {
@@ -689,13 +662,6 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
 
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
-    return nullptr;
-  }
-
-  // check if the memory threshold has reached, if reached
-  // return nullptr.
-  if (enable_threshold_check &&
-      check_mem_threshold_hit(max_pool_size, bytes_in_use, mem_threshold)) {
     return nullptr;
   }
 

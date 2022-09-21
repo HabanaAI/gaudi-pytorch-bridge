@@ -108,7 +108,6 @@ class CoalescedStringentPooling : public PoolingStrategy {
   std::tuple<void*, size_t, size_t> get_small_alloc_info() const override;
   bool is_memory_available(size_t size) const override;
   void print_pool_stats() const override;
-  void threshold_check(bool enable) const override;
 
  private:
   struct chunkcompare {
@@ -129,8 +128,6 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable BinUtils* bin_utils;
   mutable bool high_memory_allocated_ = false;
   mutable MemoryStats stats;
-  mutable uint32_t mem_threshold;
-  mutable bool enable_threshold_check = true;
   mutable RetryHandler retry_handler;
 
   void* alloc_chunk(uint64_t size) const;
