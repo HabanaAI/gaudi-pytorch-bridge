@@ -62,7 +62,7 @@ struct ScalarBinaryOpTraits<float, float16, BinaryOp> {
 };
 } // namespace Eigen
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 using namespace Eigen;
 
 template <class T>
@@ -225,4 +225,4 @@ template class TestMethods<int, int>;
 template class TestMethods<float, float>;
 template class TestMethods<short, short>;
 // template class TestMethods<unsigned short, unsigned short>;
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

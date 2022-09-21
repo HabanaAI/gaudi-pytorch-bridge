@@ -1,6 +1,6 @@
 #pragma once
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 template <typename ReferenceDataType, typename TensorDataType>
 struct TestMethods {
   static float calcL2NormRatio(
@@ -54,4 +54,4 @@ struct TestMethods {
       TensorDataType result[],
       unsigned length);
 };
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

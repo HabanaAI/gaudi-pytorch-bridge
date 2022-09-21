@@ -85,7 +85,7 @@ bool SBSDebug::NeedToCompare(const HbLazyTensor& hb_tensor, bool update) {
 }
 
 void SBSDebug::report(const std::string& log_message, size_t& log_counter) {
-  mp_tc->makeReport(m_report_file_name, TensorComparison::ExportType::CSV);
+  mp_tc->makeReport(m_report_file_name, TensorComparison_pt::ExportType::CSV);
   ++log_counter;
   PT_LAZY_DEBUG(
       "SBS: Current number of ",
@@ -255,7 +255,7 @@ void SBSDebug::compare_tensors_cos(
     return;
   }
   auto scalarType = cpu_res_compare.scalar_type();
-  TensorComparison::ComparisonMethods compare_method;
+  TensorComparison_pt::ComparisonMethods compare_method;
   compare_method.set(); // all test methods
 
   void* hpu_data = hpu_res_on_host_compare.data_ptr();
@@ -398,7 +398,7 @@ void SBSDebug::reset() {
 }
 
 SBSDebug::SBSDebug()
-    : mp_tc(std::make_shared<TensorComparison::TensorValidator>()),
+    : mp_tc(std::make_shared<TensorComparison_pt::TensorValidator>()),
       m_number_of_successful_compares(0),
       m_number_of_errors(0),
       m_number_of_accumulated_ops(0),

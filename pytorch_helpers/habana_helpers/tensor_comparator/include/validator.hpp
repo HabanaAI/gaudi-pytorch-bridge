@@ -3,7 +3,7 @@
 #include <functional>
 #include <iostream>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 class ValidatorBase {
  public:
   virtual bool validate(ResultMap&& results) = 0;
@@ -63,4 +63,4 @@ class ThresholdFileValidator : public ValidatorBase {
   const std::string m_thresholdsFile;
   ThresholdFileMap m_thresholds;
 };
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

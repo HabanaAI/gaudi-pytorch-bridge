@@ -11,7 +11,7 @@
 #include <types.hpp>
 #include <validator.hpp>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 TensorValidator::TensorValidator(
     const StaticThresholdMap& thresholdMap,
     unsigned num_threads)
@@ -170,4 +170,4 @@ template bool TensorValidator::compare(
 //                                                         ComparisonMethods,
 //                                                         bool);
 
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

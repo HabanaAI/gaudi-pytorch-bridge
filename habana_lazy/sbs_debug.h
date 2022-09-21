@@ -18,7 +18,7 @@
 // See more here:
 // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 class TensorValidator;
 }
 
@@ -74,7 +74,7 @@ class SBSDebug {
   const std::string m_report_file_name = "sbs_tensor_compare.csv";
   const std::string m_error_file_name = "sbs_error.csv";
   std::ofstream m_error_file;
-  std::shared_ptr<TensorComparison::TensorValidator> mp_tc;
+  std::shared_ptr<TensorComparison_pt::TensorValidator> mp_tc;
   size_t m_number_of_successful_compares;
   size_t m_number_of_errors;
   size_t m_number_of_accumulated_ops;

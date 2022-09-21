@@ -12,7 +12,7 @@
 
 #include <comparison_methods.hpp>
 #include <tensor_comparator.hpp>
-namespace TensorComparison {
+namespace TensorComparison_pt {
 class Comparator {
  public:
   Comparator(unsigned numThreads = 0)
@@ -113,4 +113,4 @@ class Comparator {
  private:
   ThreadPool m_pool;
 };
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

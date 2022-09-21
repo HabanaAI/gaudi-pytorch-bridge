@@ -8,7 +8,7 @@
 
 using json = nlohmannV340::json;
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 void to_json(json& j, ComparisonResult r) {
   for (unsigned i{}; i < METHODS_MAX; ++i) {
     if (r[i].is_set()) {
@@ -133,4 +133,4 @@ bool dump(ResultVec& m, const std::string& fileName) {
   return true;
 }
 } // namespace csv
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

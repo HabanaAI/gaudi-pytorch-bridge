@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 namespace jsn {
 ThresholdFileMap parse(const std::string& fileName);
 template <typename T>
@@ -14,4 +14,4 @@ namespace csv {
 bool dump(ResultMap& m, const std::string& fileName);
 bool dump(ResultVec& m, const std::string& fileName);
 } // namespace csv
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

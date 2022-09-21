@@ -8,7 +8,7 @@
 #include <serialization.hpp>
 #include <types.hpp>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 
 using FutureResult = std::future<ComparisonResult>;
 
@@ -89,4 +89,4 @@ class ResultsWarehouse {
   ResultVec m_results;
   std::mutex m_mutex;
 };
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

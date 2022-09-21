@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 namespace Names __attribute__((visibility("internal"))) {
   static const std::string ANGLE = "angle";
   static const std::string PEARSON = "pearson";
@@ -141,4 +141,4 @@ using ResultElem = std::pair<std::string, ComparisonResult>;
 using ResultVec = std::vector<ResultElem>;
 using ThresholdFileMap = std::map<std::string, std::map<std::string, float>>;
 using StaticThresholdMap = std::map<enum COMPARISON_METHODS, float>;
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

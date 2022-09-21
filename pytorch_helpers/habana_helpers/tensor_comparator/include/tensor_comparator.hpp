@@ -8,7 +8,7 @@
 #include <types.hpp>
 #include <validator.hpp>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 class TensorValidator {
  public:
   TensorValidator(
@@ -37,4 +37,4 @@ class TensorValidator {
   std::unique_ptr<ValidatorBase> m_validator;
   ResultsWarehouse m_resultsWarehouse;
 };
-} // namespace TensorComparison
+} // namespace TensorComparison_pt

@@ -5,7 +5,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace TensorComparison {
+namespace TensorComparison_pt {
 
 const std::array<std::function<bool(float, float)>, METHODS_MAX>
     ValidatorBase::m_comparisonCriteriaOp = {
@@ -169,4 +169,4 @@ bool StaticValidator::_validate(ComparisonResult& r) {
   }
   return true;
 }
-} // namespace TensorComparison
+} // namespace TensorComparison_pt
