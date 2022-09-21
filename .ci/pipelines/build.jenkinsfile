@@ -50,7 +50,7 @@ def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
     'Pytorch modules': 'build_pytorch_modules'
 ]
-def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM']
+def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL']
 def requiredArtifact = [
     'SWTOOLS_SDK': ['bin', 'shared'],
     'SYNAPSE': ['test', 'shared'],
@@ -66,7 +66,8 @@ def requiredArtifact = [
     'PYTORCH': ['test', 'data'],
     'CORAL_SIM': ['bin', 'test', 'shared', 'header'],
     'AEON': ['shared'],
-    'ENGINES_FW': ['config', 'data', 'shared', 'test']
+    'ENGINES_FW': ['config', 'data', 'shared', 'test'],
+    'HCL': ['shared']
 ]
 
 genericBuilder(
