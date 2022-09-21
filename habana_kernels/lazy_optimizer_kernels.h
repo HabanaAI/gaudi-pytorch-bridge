@@ -45,6 +45,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       HbLazyTensorViews::CustomKernelAddNodeInplace(
           tVector[i], node, out_index);
     }
+    flush_op({});
   }
 
   template <typename T = ReturnType>
@@ -84,6 +85,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
             tList1[i], node_unpack, out_index);
       }
     }
+    flush_op({});
   }
 
   template <typename T = ReturnType>
@@ -100,6 +102,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
           false,
           "Incorrect optmizer option. Only ADAGRAD/SGD_MOMENTUM can be called with 2 at::TensorList& arguments.")
     }
+    flush_op({});
   }
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(

@@ -511,7 +511,6 @@ void optimizer_lars_hpu_lazy(
       "hpu::habanaOptimizerLars",
       {grads, params, lr_t, skipMasks, eeta, weight_decay, eps});
   lo.call(grads, LARS);
-  flush_op(grads);
 }
 
 void optimizer_ResourceApplyMomentum_hpu_lazy(
@@ -522,6 +521,5 @@ void optimizer_ResourceApplyMomentum_hpu_lazy(
       "hpu::habanaOptimizerResourceApplyMomentum",
       {params_momentum_buffer_list, d_p_list, momentum});
   lo.call(params_momentum_buffer_list);
-  flush_op(params_momentum_buffer_list);
 }
 } // namespace habana_lazy
