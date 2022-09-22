@@ -1437,7 +1437,7 @@ def gen_manual_op_registrations(fgens, args):
                 aten_code += impl
 
     # TODO Remove duplicate manual implementations and enable this assert
-    # assert check_overrides(overrides, overridden)
+    assert check_overrides(overrides, overridden)
     print(
         "{} function manual overrides in {}".format(len(overridden), args.hputype),
         file=sys.stdout,

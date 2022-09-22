@@ -539,7 +539,6 @@ add.out:
   safe_cast_check: true
 
 add.Scalar_out:
-  force_default: false
   broadcast: true
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
@@ -2562,7 +2561,6 @@ hypot_:
   inplace_ids: [0]
 
 index.Tensor:
-  force_default: false
   custom_output_shape: IndexOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   fallback_check: [IndexFallbackCheck, indices]
@@ -3472,7 +3470,6 @@ mul.Scalar:
   safe_cast_check: true
 
 mul.Scalar_out:
-  force_default: false
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
@@ -5543,6 +5540,7 @@ xlogy.OutTensor:
   op_backend: XlogYOperator
 
 xlogy.OutScalar_Self:
+  force_default: false
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes:
@@ -5553,6 +5551,7 @@ xlogy.OutScalar_Self:
   op_backend: XlogYOperator
 
 xlogy.OutScalar_Other:
+  force_default: false
   custom_output_shape: XlogYOutputShape
   guid: log_fwd
   dtypes:

@@ -1246,22 +1246,6 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   flush_op(dst);
 }
 
-Tensor sin_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::sin", {self}};
-  return k.call();
-}
-Tensor cos_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::cos", {self}};
-  return k.call();
-}
-Tensor& tanh_hpu_lazy_(Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k{"aten::tanh_", {self}};
-  return k.call(self);
-}
-
 Tensor& set_hpu_lazy_(
     Tensor& self,
     Storage source,
@@ -2145,85 +2129,6 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   return self;
 }
 
-Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
-  PT_LAZY_TRACE;
-
-  std::vector<Tensor> indices_vec_out{};
-
-  std::vector<Tensor> indices_vec(indices_in.vec());
-  for (size_t i = 0; i < indices_vec.size(); i++) {
-    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-      indices_vec[i] = indices_vec[i].to(c10::kHPU);
-    }
-  }
-
-  // handle views for tensorlist indices
-  TensorList indices_in_list(indices_vec);
-  indices_vec = HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
-
-  // for case where indices are Boolean tensor(s), convert these to integer
-  // indices using nonzero operator before calling index
-  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
-    for (size_t i = 0; i < indices_vec.size(); i++) {
-      auto list = torch::nonzero_numpy(indices_vec.at(i));
-      habana_lazy::SyncAccThreadPool();
-      indices_vec_out.insert(
-          indices_vec_out.cend(), list.cbegin(), list.cend());
-    }
-  }
-  at::TensorList indices =
-      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
-                                                              : indices_vec;
-
-  auto indices_out_vec = HbLazyTensorViews::HandleViewsTensorList(indices);
-  TensorList indices_out_list(indices_out_vec);
-
-  // for this particular indices configuration gather_mxnet throws GC
-  // compilation error, therefore use simple gather for now
-  if (indices_out_list.size() == 1 && indices_out_list[0].dim() == 1) {
-    auto shape =
-        GatherOperator::compute_output_shape(self, 0, indices_out_list[0]);
-    LazyOp<at::Tensor> k{
-        "aten::gather", {self, 0, indices_out_list[0], false}, {1, 3}, {shape}};
-    return k.call();
-  }
-
-  // additional casts inserted for handling dtypes other than f32/bf16 because
-  // gather_mxnet TPC kernel used supports only f32/bf16
-  at::Tensor self_cast = self;
-  if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float &&
-      self.scalar_type() != c10::ScalarType::BFloat16) {
-    // i8/i16/i32 -> f32
-    LazyOp<at::Tensor> k_{
-        "hpu::cast",
-        {self, c10::ScalarType::Float},
-        {self.sizes().vec()},
-        c10::ScalarType::Float};
-    self_cast = k_.call();
-  }
-
-  LazyOp<at::Tensor> k{
-      "aten::index",
-      {self_cast, indices_out_list},
-      {},
-      {IndexOperator::compute_output_shape(self_cast, indices_out_list)}};
-  auto result = k.call();
-
-  if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float &&
-      self.scalar_type() != c10::ScalarType::BFloat16) {
-    auto out_type = (self.scalar_type() == c10::ScalarType::Long)
-        ? (c10::ScalarType::Int)
-        : self.scalar_type();
-    LazyOp<at::Tensor> k_{
-        "hpu::cast", {result, out_type}, {result.sizes().vec()}, out_type};
-    return k_.call();
-  }
-
-  return result;
-}
-
 Tensor& _index_put_impl_hpu_lazy_(
     Tensor& self,
     const c10::List<c10::optional<at::Tensor>>& indices,
@@ -3025,15 +2930,6 @@ Tensor& masked_scatter_hpu_lazy_(
   return index_put_hpu_lazy_(self, indices, flattened_values, false);
 }
 
-Tensor gather2d_hpu_lazy(
-    const Tensor& input,
-    const Tensor& indices,
-    int64_t validCount) {
-  PT_LAZY_TRACE;
-  HABANA_ASSERT(0);
-  return gather2d_hpu(input, indices, validCount);
-}
-
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
@@ -3399,49 +3295,6 @@ Tensor& arange_hpu_lazy(
   updateDstDependencies(hl_result, output);
   flush_op(output);
   return output;
-}
-
-Tensor addmm_hpu_lazy(
-    const Tensor& self,
-    const Tensor& mat1,
-    const Tensor& mat2,
-    const Scalar& beta,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  const std::vector<int64_t> shape_out = {mat1.size(0), mat2.size(1)};
-  LazyOp<Tensor> k{
-      "aten::addmm", {self, mat1, mat2, beta, alpha}, {}, {shape_out}};
-  return k.call();
-}
-
-Tensor binary_cross_entropy_hpu_lazy(
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
-    int64_t reduction) {
-  PT_LAZY_TRACE;
-  ir::NodePtr bce_loss_node =
-      std::make_shared<ir::BceLoss_forward>(self, target, weight, reduction);
-  auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
-  LazyOp<at::Tensor, ir::BceLoss_forward> k{
-      bce_loss_node, {self, target, weight, reduction}, {sizes}};
-  return k.call();
-}
-
-Tensor binary_cross_entropy_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
-    int64_t reduction) {
-  PT_LAZY_TRACE;
-  ir::NodePtr bce_bwd_loss_node = std::make_shared<ir::BceLoss_backward>(
-      grad_output, self, target, weight, reduction);
-  LazyOp<at::Tensor, ir::BceLoss_backward> k{
-      bce_bwd_loss_node,
-      {grad_output, self, target, weight, reduction},
-      {self.sizes().vec()}};
-  return k.call();
 }
 
 Tensor binary_cross_entropy_with_logits_hpu_lazy(
@@ -5013,26 +4866,6 @@ Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   RUN_MAYBE_WITH_ACC_THREAD(any, kernel)
 }
 
-Tensor any_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  struct Kernel : public LazyOp<at::Tensor> {
-    explicit Kernel(const Tensor& self)
-        : LazyOp<at::Tensor>("aten::any", {self}, {}, {}, -1), self(self) {}
-    at::Tensor get_result_overrideable() override {
-      std::vector<int64_t> shape_out{1};
-
-      return empty_hpu_lazy(
-          shape_out,
-          self.options().dtype(c10::ScalarType::Bool),
-          self.suggest_memory_format(),
-          false);
-    }
-    at::Tensor self;
-  };
-  Kernel kernel{self};
-  RUN_MAYBE_WITH_ACC_THREAD(any, kernel)
-}
-
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
     c10::optional<synTensorType> tensor_type,
@@ -6289,24 +6122,6 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
   return result;
 }
 
-Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
-  PT_LAZY_TRACE;
-  HABANA_ASSERT(0);
-  return tanh_out_hpu(out, self);
-}
-
-Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
-  PT_LAZY_TRACE;
-  HABANA_ASSERT(0);
-  return neg_out_hpu(result, input);
-}
-
-Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
-  PT_LAZY_TRACE;
-  HABANA_ASSERT(0);
-  return reciprocal_out_hpu(result, self);
-}
-
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k_{
@@ -6434,24 +6249,6 @@ Tensor fused_norm_hpu_lazy(
 
   return result;
 }
-
-Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
-  PT_LAZY_TRACE;
-
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
-  auto out_shape = self.sizes().vec();
-  // Resize output tensor(s) to correct shape if required
-  if (out.sizes().vec() != out_shape) {
-    auto out_reshaped = hl_out.getAttachedTensorImpl();
-    THHTensor_resizeNd(
-        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
-    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
-  }
-
-  LazyOp<at::Tensor&> k{
-      "hpu::bitwise_not_Tensor_out", {out, self}, {}, {out_shape}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(bitwise_not_out, k, out)
-};
 
 std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     const Tensor& self,

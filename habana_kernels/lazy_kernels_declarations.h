@@ -17,11 +17,6 @@
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
-#define HPU_LAZY_FUNC_DECL(op_code) \
-  at::Tensor op_code##_hpu_lazy(const at::Tensor& self);
-#define HPU_LAZY_FUNC_DECL_INPLACE(op_code) \
-  at::Tensor& op_code##hpu_lazy_(at::Tensor& self);
-
 namespace habana_lazy {
 at::Tensor& copy_hpu_lazy_(
     at::Tensor& self,
@@ -42,8 +37,6 @@ const at::Tensor& as_strided_hpu_lazy_(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-at::Tensor sin_hpu_lazy(const at::Tensor& self);
-at::Tensor cos_hpu_lazy(const at::Tensor& self);
 at::Tensor& set_hpu_lazy_(
     at::Tensor& self,
     at::Storage source,
@@ -182,7 +175,6 @@ at::Tensor& scatter_add_inplace_src_hpu_lazy(
     int64_t dim_,
     const at::Tensor& index,
     const at::Tensor& src);
-at::Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices);
 at::Tensor& _index_put_impl_hpu_lazy_(
     at::Tensor& self,
     const c10::List<c10::optional<at::Tensor>>& indices,
@@ -225,10 +217,6 @@ at::Tensor& masked_scatter_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,
     const at::Tensor& source);
-at::Tensor gather2d_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& indices,
-    int64_t validCount);
 at::Tensor slice_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
@@ -255,24 +243,7 @@ at::Tensor& masked_select_out_hpu_lazy(
     at::Tensor& out);
 at::Tensor nonzero_hpu_lazy(const at::Tensor& self);
 at::Tensor& nonzero_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
-at::Tensor addmm_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& mat1,
-    const at::Tensor& mat2,
-    const at::Scalar& beta,
-    const at::Scalar& alpha);
 at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
-at::Tensor binary_cross_entropy_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction);
-at::Tensor binary_cross_entropy_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Tensor& target,
-    const at::Tensor& weight,
-    int64_t reduction);
 at::Tensor binary_cross_entropy_with_logits_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& target,
@@ -482,9 +453,6 @@ at::Tensor& any_dim_out_hpu_lazy(
     int64_t dim,
     bool keepdim,
     at::Tensor& output);
-at::Tensor any_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
-at::Tensor any_hpu_lazy(const at::Tensor& self);
-at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
 at::Tensor _copy_from_and_resize_lazy(
     const at::Tensor& self,
     const at::Tensor& dst);
@@ -558,10 +526,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool descending);
-at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
-at::Tensor& tanh_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
-at::Tensor& reciprocal_out_hpu_lazy(at::Tensor& result, const at::Tensor& self);
 at::Tensor isfinite_hpu_lazy(const at::Tensor& self);
 at::Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>

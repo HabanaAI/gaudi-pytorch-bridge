@@ -16,17 +16,6 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
-  static at::Tensor _copy_from_and_resize(
-      const at::Tensor& self,
-      const at::Tensor& dst);
-  static at::Tensor& silu_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor& linspace_out(
-      const at::Scalar& start,
-      const at::Scalar& end,
-      int64_t steps,
-      at::Tensor& out);
-  static at::Tensor silu(const at::Tensor& self);
-  static at::Tensor isnan(const at::Tensor& self);
   static at::Tensor empty(
       at::IntArrayRef size,
       c10::optional<at::ScalarType> dtype,
@@ -41,7 +30,6 @@ struct hpu_wrap {
       c10::optional<at::Layout> layout,
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory);
-  static at::Tensor& fill_(at::Tensor& self, const at::Scalar& value);
   static at::Tensor _to_copy(
       const at::Tensor& self,
       c10::optional<at::ScalarType> dtype,
@@ -81,26 +69,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Scalar& other,
       const at::Scalar& alpha);
-  static at::Tensor addcmul(
-      const at::Tensor& self,
-      const at::Tensor& tensor1,
-      const at::Tensor& tensor2,
-      const at::Scalar& alpha);
-  static at::Tensor& addcmul_(
-      at::Tensor& self,
-      const at::Tensor& tensor1,
-      const at::Tensor& tensor2,
-      const at::Scalar& alpha);
-  static at::Tensor addcdiv(
-      const at::Tensor& self,
-      const at::Tensor& tensor1,
-      const at::Tensor& tensor2,
-      const at::Scalar& alpha);
-  static at::Tensor& addcdiv_(
-      at::Tensor& self,
-      const at::Tensor& tensor1,
-      const at::Tensor& tensor2,
-      const at::Scalar& alpha);
   static at::Tensor& add_(
       at::Tensor& self,
       const at::Scalar& other,
@@ -109,59 +77,7 @@ struct hpu_wrap {
       at::Tensor& self,
       const at::Tensor& other,
       const at::Scalar& alpha);
-  static at::Tensor sub(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      const at::Scalar& alpha);
-  static at::Tensor& sub_(
-      at::Tensor& self,
-      const at::Tensor& other,
-      const at::Scalar& alpha);
-  static at::Tensor sub(
-      const at::Tensor& self,
-      const at::Scalar& other,
-      const at::Scalar& alpha);
-  static at::Tensor& sub_(
-      at::Tensor& self,
-      const at::Scalar& other,
-      const at::Scalar& alpha);
-  static at::Tensor rsub(
-      const at::Tensor& self,
-      const at::Scalar& other,
-      const at::Scalar& alpha);
-  static at::Tensor& mul_(at::Tensor& self, const at::Tensor& other);
-  static at::Tensor mul(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor mul(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor& mul_(at::Tensor& self, const at::Scalar& other);
-  static at::Tensor floor_divide(
-      const at::Tensor& self,
-      const at::Tensor& other);
-  static at::Tensor pow(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor& pow_(at::Tensor& self, const at::Tensor& other);
-  static at::Tensor pow(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor& pow_(at::Tensor& self, const at::Scalar& other);
-  static at::Tensor pow(const at::Scalar& other, const at::Tensor& self);
-  static at::Tensor maximum(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor minimum(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor gt(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor gt(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor& eq_out(
-
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& output);
-  static at::Tensor eq(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor eq(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor ne(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor ne(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor all(const at::Tensor& self);
   static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
-  static at::Tensor lt(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor lt(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor ge(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor ge(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor le(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor le(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor constant_pad_nd(
       const at::Tensor& self,
       at::IntArrayRef pad,
@@ -185,26 +101,6 @@ struct hpu_wrap {
       at::Tensor& self,
       const at::Tensor& mask,
       const at::Tensor& source);
-  static at::Tensor gather(
-      const at::Tensor& self,
-      int64_t dim_,
-      const at::Tensor& index,
-      bool sparse_grad);
-  static at::Tensor& scatter_(
-      at::Tensor& self,
-      int64_t dim_,
-      const at::Tensor& index,
-      const at::Tensor& src);
-  static at::Tensor& scatter_(
-      at::Tensor& self,
-      int64_t dim_,
-      const at::Tensor& index,
-      const at::Scalar& value);
-  static at::Tensor scatter(
-      const at::Tensor& self,
-      int64_t dim_,
-      const at::Tensor& index,
-      const at::Tensor& src);
   static at::Tensor scatter_add(
       const at::Tensor& self,
       int64_t dim_,
@@ -222,13 +118,6 @@ struct hpu_wrap {
       const at::Tensor& source,
       const at::Scalar& alpha,
       at::Tensor& out);
-  static at::Tensor index(
-      const at::Tensor& self,
-      const c10::List<c10::optional<at::Tensor>>& indices);
-  inline static at::Tensor index_select(
-      const at::Tensor& self,
-      int64_t dim,
-      const at::Tensor& index);
   static at::Tensor& index_fill_(
       at::Tensor& self,
       int64_t dim,
@@ -275,95 +164,18 @@ struct hpu_wrap {
       const at::Tensor& mat2,
       const at::Scalar& beta,
       const at::Scalar& alpha);
-  static at::Tensor addmm(
-      const at::Tensor& self,
-      const at::Tensor& mat1,
-      const at::Tensor& mat2,
-      const at::Scalar& beta,
-      const at::Scalar& alpha);
-  static at::Tensor dot(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor mv(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor where(
-      const at::Tensor& condition,
-      const at::Tensor& self,
-      const at::Tensor& other);
-  static ::std::tuple<at::Tensor, at::Tensor> nll_loss_forward(
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction,
-      int64_t ignore_index);
-  static at::Tensor nll_loss_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction,
-      int64_t ignore_index,
-      const at::Tensor& total_weight);
-  static ::std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward(
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction,
-      int64_t ignore_index);
-  static at::Tensor nll_loss2d_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction,
-      int64_t ignore_index,
-      const at::Tensor& total_weight);
-  static at::Tensor mse_loss(
-      const at::Tensor& self,
-      const at::Tensor& target,
-      int64_t reduction);
-  static at::Tensor mse_loss_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Tensor& target,
-      int64_t reduction);
-  static at::Tensor kl_div(
-      const at::Tensor& input,
-      const at::Tensor& target,
-      int64_t reduction,
-      bool log_target);
   static at::Tensor kl_div_backward(
       const at::Tensor& grad,
       const at::Tensor& input,
       const at::Tensor& target,
       int64_t reduction,
       bool log_target);
-  static at::Tensor binary_cross_entropy(
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction);
-  static at::Tensor binary_cross_entropy_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Tensor& target,
-      const c10::optional<at::Tensor>& weight_opt,
-      int64_t reduction);
   static at::Tensor binary_cross_entropy_with_logits(
       const at::Tensor& self,
       const at::Tensor& target,
       const c10::optional<at::Tensor>& weight,
       const c10::optional<at::Tensor>& pos_weight,
       int64_t reduction);
-  static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
-  native_batch_norm_backward(
-      const at::Tensor& grad_out,
-      const at::Tensor& input,
-      const c10::optional<at::Tensor>& weight_opt,
-      const c10::optional<at::Tensor>& running_mean_opt,
-      const c10::optional<at::Tensor>& running_var_opt,
-      const c10::optional<at::Tensor>& save_mean_opt,
-      const c10::optional<at::Tensor>& save_invstd_opt,
-      bool train,
-      double eps,
-      ::std::array<bool, 3> output_mask);
   static ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
       const at::Tensor& input,
       double eps);
@@ -413,31 +225,6 @@ struct hpu_wrap {
       const at::Tensor& saved_g,
       const at::Tensor& saved_norms,
       int64_t dim);
-  static at::Tensor norm(const at::Tensor& self, const at::Scalar& p = 2);
-  static at::Tensor norm(
-      const at::Tensor& self,
-      const c10::optional<at::Scalar>& p,
-      at::IntArrayRef dim,
-      bool keepdim);
-  static at::Tensor& norm_out(
-      const at::Tensor& self,
-      const c10::optional<at::Scalar>& p,
-      at::IntArrayRef dim,
-      bool keepdim,
-      at::Tensor& out);
-  static at::Tensor norm(
-      const at::Tensor& self,
-      const c10::optional<at::Scalar>& p,
-      at::IntArrayRef dim,
-      bool keepdim,
-      at::ScalarType dtype);
-  static at::Tensor& norm_out(
-      const at::Tensor& self,
-      const c10::optional<at::Scalar>& p,
-      at::IntArrayRef dim,
-      bool keepdim,
-      at::ScalarType dtype,
-      at::Tensor& out);
   static at::Tensor instance_norm(
       const at::Tensor& input,
       const c10::optional<at::Tensor>& weight,
@@ -458,73 +245,14 @@ struct hpu_wrap {
       bool ceil_mode,
       const at::Tensor& indices,
       at::Tensor& grad_input);
-  static at::Tensor avg_pool2d(
-      const at::Tensor& input,
-      at::IntArrayRef kernel_size,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      bool ceil_mode,
-      bool count_include_pad,
-      c10::optional<int64_t> divisor_override);
-  static at::Tensor& avg_pool2d_backward_out(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      at::IntArrayRef kernel_size,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      bool ceil_mode,
-      bool count_include_pad,
-      c10::optional<int64_t> divisor_override,
-      at::Tensor& grad_input);
-  static at::Tensor avg_pool2d_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& input,
-      at::IntArrayRef kernel_size,
-      at::IntArrayRef stride,
-      at::IntArrayRef padding,
-      bool ceil_mode,
-      bool count_include_pad,
-      c10::optional<int64_t> divisor_override);
   static at::Tensor adaptive_avg_pool2d(
       const at::Tensor& self,
       at::IntArrayRef output_size);
-  static at::Tensor& uniform_(
-      at::Tensor& self,
-      double from = 0,
-      double to = 1,
-      c10::optional<at::Generator> gen = {});
-  static at::Tensor& normal_(
-      at::Tensor& self,
-      double mean = 0,
-      double std = 1,
-      c10::optional<at::Generator> gen = {});
-  static at::Tensor bernoulli(
-      const at::Tensor& self,
-      c10::optional<at::Generator> gen);
-  static at::Tensor& bernoulli_(
-      at::Tensor& self,
-      double p,
-      c10::optional<at::Generator> gen);
   static at::Tensor dropout(const at::Tensor& input, double p, bool train);
   static at::Tensor repeat(const at::Tensor& self, at::IntArrayRef repeats);
   static at::Tensor repeat_interleave(
       const at::Tensor& self,
       c10::optional<int64_t> output_size);
-  static at::Tensor& sum_out(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim,
-      c10::optional<at::ScalarType> dtype,
-      at::Tensor& output);
-  static at::Tensor& mean_out(
-      const at::Tensor& self,
-      at::IntArrayRef dim,
-      bool keepdim,
-      c10::optional<at::ScalarType> dtype,
-      at::Tensor& output);
-  static at::Tensor prod(
-      const at::Tensor& self,
-      c10::optional<at::ScalarType> dtype);
   static at::Tensor prod(
       const at::Tensor& self,
       int64_t dim,
@@ -541,8 +269,6 @@ struct hpu_wrap {
       bool keepdim);
   static at::Tensor max(const at::Tensor& self);
   static at::Tensor min(const at::Tensor& self);
-  static at::Tensor any(const at::Tensor& self, int64_t dim, bool keepdim);
-  static at::Tensor any(const at::Tensor& self);
   static at::Tensor cat(const at::TensorList tensors, int64_t dim_ = 0);
   static at::Tensor& cat_out(
       const at::TensorList tensors,
@@ -552,118 +278,17 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
       int64_t dim);
-  static at::Tensor threshold_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Scalar& threshold);
-  static at::Tensor elu(
-      const at::Tensor& self,
-      const at::Scalar& alpha,
-      const at::Scalar& scale,
-      const at::Scalar& input_scale);
-  static at::Tensor& elu_(
-      at::Tensor& self,
-      const at::Scalar& alpha,
-      const at::Scalar& scale,
-      const at::Scalar& input_scale);
-  static at::Tensor relu(const at::Tensor& input);
-  static at::Tensor& relu_(at::Tensor& self);
-  static at::Tensor& leaky_relu_(
-      at::Tensor& self,
-      const at::Scalar& negative_slope);
-  static at::Tensor leaky_relu_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Scalar& negative_slope,
-      bool self_is_result);
-  static at::Tensor leaky_relu(
-      const at::Tensor& self,
-      const at::Scalar& negative_slope);
-  static at::Tensor sigmoid(const at::Tensor& input);
-  static at::Tensor sigmoid_backward(
-      const at::Tensor& grad_in,
-      const at::Tensor& input);
-  static at::Tensor& hardsigmoid_(at::Tensor& self);
-  static at::Tensor hardsigmoid(const at::Tensor& self);
-  static at::Tensor hardsigmoid_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self);
-  static at::Tensor sqrt(const at::Tensor& input);
-  static at::Tensor tanh(const at::Tensor& input);
-  static at::Tensor& tanh_(at::Tensor& self);
-  static at::Tensor& tanh_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor tanh_backward(
-      const at::Tensor& grad_in,
-      const at::Tensor& input);
-  static at::Tensor gelu(
-      const at::Tensor& self,
-      c10::string_view approximate = "none");
-  static at::Tensor gelu_backward(
-      const at::Tensor& grad,
-      const at::Tensor& self,
-      c10::string_view approximate = "none");
-
-  static at::Tensor& erf_(at::Tensor& self);
-  static at::Tensor erf(const at::Tensor& self);
-  static at::Tensor& exp_(at::Tensor& self);
-  static at::Tensor exp(const at::Tensor& self);
-  static at::Tensor& neg_out(const at::Tensor& input, at::Tensor& result);
-  static at::Tensor& reciprocal_(at::Tensor& self);
-  static at::Tensor reciprocal(const at::Tensor& self);
-  static at::Tensor& reciprocal_out(const at::Tensor& self, at::Tensor& result);
-  static at::Tensor clamp_min(const at::Tensor& self, const at::Scalar& min);
-  static at::Tensor& clamp_(
-      at::Tensor& self,
-      const c10::optional<at::Scalar>& min,
-      const c10::optional<at::Scalar>& max);
-  static at::Tensor clamp(
-      const at::Tensor& self,
-      const c10::optional<at::Scalar>& min,
-      const c10::optional<at::Scalar>& max);
-  static at::Tensor abs(const at::Tensor& self);
-  static at::Tensor& abs_(at::Tensor& self);
-  static at::Tensor neg(const at::Tensor& self);
-  static at::Tensor sin(const at::Tensor& self);
-  static at::Tensor cos(const at::Tensor& self);
   static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
-  static at::Tensor _log_softmax(
-      const at::Tensor& self,
-      const int64_t dim,
-      const bool half_to_float);
-  inline static at::Tensor _log_softmax_backward_data(
-      const at::Tensor& grad,
-      const at::Tensor& output,
-      int64_t dim,
-      const at::Tensor& input);
   static at::Tensor softmax(
       const at::Tensor& self,
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
-  static at::Tensor _softmax(
-      const at::Tensor& self,
-      int64_t dim,
-      const bool half_to_float);
-  static at::Tensor _softmax_backward_data(
-      const at::Tensor& grad,
-      const at::Tensor& output,
-      int64_t dim,
-      at::ScalarType input_dtype);
   static at::Tensor _masked_scale(
       const at::Tensor& self,
       const at::Tensor& mask,
       double scale);
-  static at::Tensor floor(const at::Tensor& self);
-  static at::Tensor& floor_(at::Tensor& self);
   static at::Tensor matmul(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor round(const at::Tensor& self);
-  static at::Tensor& round_(at::Tensor& self);
-  static at::Tensor rsqrt(const at::Tensor& self);
-  static at::Tensor& rsqrt_(at::Tensor& self);
   static at::Tensor isfinite(const at::Tensor& self);
-  static at::Tensor log(const at::Tensor& self);
-  static at::Tensor& log_(at::Tensor& self);
-  static at::Tensor log2(const at::Tensor& self);
-  static at::Tensor& log2_(at::Tensor& self);
   static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
   static at::Tensor alias(const at::Tensor& self);
   static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
@@ -681,19 +306,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t split_size,
       int64_t dim);
-  static at::Tensor& bitwise_and_out(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& out);
-  static at::Tensor& bitwise_or_out(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& out);
-  static at::Tensor& bitwise_xor_out(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& out);
-  static at::Tensor& bitwise_not_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor upsample_nearest2d(
       const at::Tensor& input,
       at::OptionalIntArrayRef output_size,
@@ -712,25 +324,6 @@ struct hpu_wrap {
       at::OptionalIntArrayRef output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
-  static at::Tensor remainder(const at::Tensor& self, const at::Tensor& other);
-  static at::Tensor remainder(const at::Tensor& self, const at::Scalar& other);
-  static at::Tensor& remainder_(at::Tensor& self, const at::Tensor& other);
-  static at::Tensor& remainder_(at::Tensor& self, const at::Scalar& other);
-
-  static at::Tensor& remainder_out(
-      const at::Tensor& self,
-      const at::Tensor& other,
-      at::Tensor& result);
-  static at::Tensor& remainder_out(
-      const at::Tensor& self,
-      const at::Scalar& other,
-      at::Tensor& result);
-  static at::Tensor flip(const at::Tensor& self, at::IntArrayRef dims);
-  static at::Tensor diag(const at::Tensor& self, int64_t diagonal);
-  static at::Tensor& diag_out(
-      const at::Tensor& self,
-      int64_t diagonal,
-      at::Tensor& out);
   static bool is_pinned(
       const at::Tensor& self,
       c10::optional<c10::Device> device);
