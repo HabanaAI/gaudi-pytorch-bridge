@@ -10,8 +10,8 @@
  *
  *******************************************************************************
  */
-
 #include "synapse_helpers/memory_defragmentation.h"
+#include <optional>
 
 namespace synapse_helpers {
 namespace defragment_helpers {
@@ -399,7 +399,7 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
     r.free_memory_ = 0;
   };
 
-  std::vector<Region> regions;
+  std::optional<Region> region;
 
   Region r;
   reset_region(memory_blocks, r);
@@ -462,7 +462,8 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
     // add region to the list when there is enough free memory in the region
     // to satisfy memory allocation request
     if (r.free_memory_ >= allocation_size) {
-      regions.push_back(r);
+      if (!region.has_value() || r < region.value())
+        region = r;
 
       // set iterator to the next memory block and restart looking for the next
       // memory region meeting criteria
@@ -474,9 +475,8 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
     }
   }
 
-  PT_DEVMEM_DEBUG(
-      "END SelectRegionForResourceAllocation Region size:: ", regions.size());
-  if (regions.empty()) {
+  PT_DEVMEM_DEBUG("END SelectRegionForResourceAllocation Region size");
+  if (!region.has_value()) {
     PT_DEVMEM_DEBUG(
         "Not enough free memory for resource allocation. Requested allocation size: ",
         allocation_size,
@@ -486,12 +486,9 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
     return false;
   }
 
-  std::sort(regions.begin(), regions.end());
-
   // check if defragmentation needs to be performed
-  auto& first_region = regions.front();
   defragmentation_needed = false;
-  for (auto it = first_region.begin_; it != first_region.end_; ++it) {
+  for (auto it = region->begin_; it != region->end_; ++it) {
     if (it->state_ == defragment_helpers::MemoryState::FIXED) {
       PT_DEVMEM_FATAL(
           "Defragmentation algorithm error. Trying to move fixed memory region");
@@ -503,7 +500,7 @@ bool MemoryDefragementer::SelectRegionForResourceAllocation(
   }
 
   if (defragmentation_needed) {
-    result = absl::make_unique<Region>(regions.front());
+    result = absl::make_unique<Region>(*region);
   }
   return true;
 }

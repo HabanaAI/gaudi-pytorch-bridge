@@ -605,99 +605,104 @@ bool device_memory::defragment_memory(
   size_t total_moved_memory = 0;
   size_t total_moved_resources = 0;
   PT_DEVMEM_DEBUG("Starting memory defragmentation");
-  static const auto retries_limit =
-      GET_ENV_FLAG_NEW(PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT);
-  for (size_t i = 0; i < retries_limit; ++i) {
-    PT_DEVMEM_DEBUG("Defragmentation iteration ", i + 1);
+  PT_DEVMEM_DEBUG("Collecting memory information");
+  defragment_helpers::MemoryDefragementer defragmenter(
+      *suballoc_, handle2pointer_, alignment);
 
-    PT_DEVMEM_DEBUG("Collecting memory information");
-    defragment_helpers::MemoryDefragementer defragmenter(
-        *suballoc_, handle2pointer_, alignment);
-
-    std::vector<defragment_helpers::MemoryBlock> memory_blocks;
-    try {
-      if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
-        PT_DEVMEM_WARN(
-            "Defragmentation cannot be started. Invalid memory information.");
-        return false;
-      }
-    } catch (const std::exception& e) {
-      PT_DEVMEM_FATAL("Exception in Collect Memory information...\n", e.what());
-    }
-
-    bool defragmentation_needed = true;
-    std::unique_ptr<defragment_helpers::Region> region;
-    PT_DEVMEM_DEBUG("Looking for regions to defragment");
-    if (!defragmenter.Run(
-            memory_blocks,
-            workspace_grow,
-            allocation_size,
-            defragmentation_needed,
-            region)) {
+  std::vector<defragment_helpers::MemoryBlock> memory_blocks;
+  try {
+    if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
       PT_DEVMEM_WARN(
-          "Defragmentation cannot be started. No region that can be defragmented was found.");
+          "Defragmentation cannot be started. Invalid memory information.");
       return false;
     }
+  } catch (const std::exception& e) {
+    PT_DEVMEM_FATAL("Exception in Collect Memory information...\n", e.what());
+  }
 
-    if (not defragmentation_needed) {
-      PT_DEVMEM_DEBUG("Found a memory block satisying allocation request");
-      break;
-    }
+  bool defragmentation_needed = true;
+  std::unique_ptr<defragment_helpers::Region> region;
+  PT_DEVMEM_DEBUG("Looking for regions to defragment");
+  if (!defragmenter.Run(
+          memory_blocks,
+          workspace_grow,
+          allocation_size,
+          defragmentation_needed,
+          region)) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. No region that can be defragmented was found.");
+    return false;
+  }
 
-    if (not region) {
+  if (not defragmentation_needed) {
+    if (workspace_grow) {
       PT_DEVMEM_WARN(
-          "Defragmentation cannot be started. There is not enough free memory.");
-      return false;
+          "There is enough memory free memory to allocate ",
+          allocation_size,
+          "B. Running defragmentation may indicate a bug ");
+    } else {
+      PT_DEVMEM_WARN(
+          "There is enough memory free memory to extend workspace by ",
+          allocation_size,
+          "B. Running defragmentation may indicate a bug ");
+    }
+    return true;
+  }
+
+  if (not region) {
+    PT_DEVMEM_WARN(
+        "Defragmentation cannot be started. There is not enough free memory.");
+    return false;
+  }
+
+  std::vector<defragment::HandleMover> movers;
+  for (auto it = region->begin_; it != region->end_; ++it) {
+    if (it->state_ == defragment_helpers::MemoryState::FIXED) {
+      PT_DEVMEM_FATAL(
+          "Defragmentation algorithm error. Trying to move fixed memory region");
     }
 
-    std::vector<defragment::HandleMover> movers;
-    for (auto it = region->begin_; it != region->end_; ++it) {
-      if (it->state_ == defragment_helpers::MemoryState::FIXED) {
-        PT_DEVMEM_FATAL(
-            "Defragmentation algorithm error. Trying to move fixed memory region");
-      }
+    if (it->state_ == defragment_helpers::MemoryState::FREE) {
+      continue;
+    }
 
-      if (it->state_ == defragment_helpers::MemoryState::FREE) {
+    movers.emplace_back(it->handle_, it->ptr_, it->size_);
+  }
+
+  if (movers.empty()) {
+    PT_DEVMEM_WARN("No defragemtantion was done");
+  } else {
+    PT_DEVMEM_DEBUG("Moving ", movers.size(), " resources");
+    for (auto& mover : movers)
+      mover.Deallocate(*suballoc_);
+
+    for (auto& mover : movers) {
+      mover.Allocate(*suballoc_, handle2pointer_, workspace_grow);
+
+      if (not mover.moveRequired()) {
+        PT_DEVMEM_DEBUG("Skipping. Resource was not moved in memory");
         continue;
       }
-
-      movers.emplace_back(it->handle_, it->ptr_, it->size_);
-    }
-
-    if (movers.empty()) {
-      PT_DEVMEM_WARN("No defragemtantion was done");
-      break;
-    } else {
-      PT_DEVMEM_DEBUG("Moving ", movers.size(), " resources");
-      for (auto& mover : movers) {
-        mover.Deallocate(*suballoc_);
-        mover.Allocate(*suballoc_, handle2pointer_, workspace_grow);
-
-        if (not mover.moveRequired()) {
-          PT_DEVMEM_DEBUG("Skipping. Resource was not moved in memory");
-          continue;
+      auto previous_destination = mover.GetSource();
+      auto destination = mover.GetDestination();
+      if (previous_destination < destination) {
+        if (static_cast<void*>(
+                static_cast<int8_t*>(previous_destination) + mover.Size()) >
+            destination) {
+          PT_DEVMEM_FATAL(
+              "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
         }
-        auto previous_destination = mover.GetSource();
-        auto destination = mover.GetDestination();
-        if (previous_destination < destination) {
-          if (static_cast<void*>(
-                  static_cast<int8_t*>(previous_destination) + mover.Size()) >
-              destination) {
-            PT_DEVMEM_FATAL(
-                "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
-          }
-        }
-        ++total_moved_resources;
-        total_moved_memory += mover.Size();
-        mover.MoveData(device_);
       }
-      auto& handle = device_.get_device_to_device_stream();
-      if (synStatus::synSuccess != synStreamSynchronize(handle)) {
-        PT_DEVMEM_FATAL("Waiting for Move complete failed");
-      }
-      PT_DEVMEM_DEBUG(
-          "Move of resources completed no of resources::", movers.size());
+      ++total_moved_resources;
+      total_moved_memory += mover.Size();
+      mover.MoveData(device_);
     }
+    auto& handle = device_.get_device_to_device_stream();
+    if (synStatus::synSuccess != synStreamSynchronize(handle)) {
+      PT_DEVMEM_FATAL("Waiting for Move complete failed");
+    }
+    PT_DEVMEM_DEBUG(
+        "Move of resources completed no of resources::", movers.size());
   }
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
