@@ -463,7 +463,7 @@ TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tBias = bias.to(torch::kHPU);
-  auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  auto mean = torch::zeros(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaMean = mean.to(torch::kHPU);
   auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaVar = var.to(torch::kHPU);

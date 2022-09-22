@@ -144,12 +144,21 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  struct ns_BatchNormKernel::Params params;
+  ns_BatchNormKernel::Params params{};
   params.threshold.f = 0.0;
   params.momentum = static_cast<float>(momentum);
   params.epsilon = static_cast<float>(eps);
   p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
+  if (synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco) {
+    SetGuid(
+        "batch_norm_" +
+        habana_helpers::name_suffix_from_type(input.scalar_type()));
+    // Ignore mean and var
+    const auto& end = p_context_->syn_inputs_.end();
+    p_context_->syn_inputs_.erase(end - 2, end);
+  }
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
