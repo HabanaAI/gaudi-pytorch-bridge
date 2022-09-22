@@ -811,3 +811,32 @@ TEST_F(LazyBasicKernelTest, aliasTest4) {
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, multilevelview_1) {
+  torch::Tensor t1 = torch::randn({1});
+  torch::Tensor t2 = torch::randn({1});
+  auto ht1 = t1.to(torch::kHPU);
+  auto ht2 = t2.to(torch::kHPU);
+  auto t3 = t1.new_full({2, 1}, -100);
+  auto b1 = torch::slice(t3, 0, 0, 1, 1);
+  b1.copy_(t1);
+  auto b2 = torch::slice(t3, 0, 1, 2, 1);
+  b2.copy_(t2);
+  auto t4 = t3.new_full({3, 1}, -100);
+  auto b3 = torch::slice(t4, 0, 0, 2, 1);
+  b3.copy_(t3);
+
+  // HPU
+  torch::Tensor ht3 = ht1.new_full({2, 1}, -100);
+  auto hb1 = torch::slice(ht3, 0, 0, 1, 1);
+  hb1.copy_(ht1);
+  auto hb2 = torch::slice(ht3, 0, 1, 2, 1);
+  hb2.copy_(ht2);
+
+  torch::Tensor ht4 = ht3.new_full({3, 1}, -100);
+  auto hb3 = torch::slice(ht4, 0, 0, 2, 1);
+  hb3.copy_(ht3);
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(allclose(t4, ht4.cpu(), 0.001, 0.001), true);
+}

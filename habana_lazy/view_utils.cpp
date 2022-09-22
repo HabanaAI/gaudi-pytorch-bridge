@@ -604,8 +604,12 @@ bool HbLazyTensorViews::HandleViewsD2D(
       // directly instead of performing one more strided insert
       if (src_parent_id != orig_t_id) {
         auto recent_orig_t = get_recent_base_tensor(orig_t);
+        auto recent_src_t = get_recent_base_tensor(src);
         auto out = add_strided_insert_node(
-            recent_orig_t, src, params_ptr->strides, params_ptr->offset);
+            recent_orig_t,
+            recent_src_t,
+            params_ptr->strides,
+            params_ptr->offset);
 
         // update orig tensor map
         context->viewContext.AddOrigTensorMapEntry(orig_t_id, out);
