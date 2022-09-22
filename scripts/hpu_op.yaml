@@ -4537,22 +4537,22 @@ signbit.out:
 silu:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: Silu
+  guid: silu_fwd
   out_ids: [0]
 
 silu_:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: Silu
+  guid: silu_fwd
   inplace_ids: [0]
 
 silu.out:
   dtypes: [BFloat16, Float]
-  op_backend: Silu
+  guid: silu_fwd
 
 silu_backward.grad_input:
   dtypes: [BFloat16, Float]
-  op_backend: SiluBackward
+  guid: silu_bwd
 
 sin:
   force_default: false
