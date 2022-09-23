@@ -20,13 +20,13 @@ LazyGeometric<at::Tensor&>::LazyGeometric(
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
-  get_inputs().at(2) = static_cast<int64_t>(
-      get_seed_hpu(inputs.at(2).toOptional<at::Generator>()));
+  LazyGeometric<at::Tensor&>::get_inputs().at(2) =
+      get_seed_tensor_hpu(inputs.at(2).toOptional<at::Generator>());
 }
 
 template <>
 at::Tensor& LazyGeometric<at::Tensor&>::get_result_overrideable() {
-  return stack_tensor(get_inputs(), 0);
+  return stack_tensor(LazyGeometric<at::Tensor&>::get_inputs(), 0);
 }
 
 std::shared_ptr<void> FillRandomNegativeBinomialParams(
@@ -35,11 +35,9 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   PARAMS_STUB(ns_RandomNegativeBinomial::ParamsV2);
   auto self = stack.at(0).toTensor();
   auto p = stack.at(1).toScalar().to<float>();
-  auto seed = stack.at(2).toInt();
 
   params->p = p;
   params->k = 1.0;
-  params->seed = seed;
   params->isAdditionEnable = true;
 
   return params;
@@ -55,7 +53,7 @@ void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       "random_negative_binomial_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
-      {},
+      {syn_in(1)},
       {{outshape, ScalarType(), 0}},
       params.get(),
       size);

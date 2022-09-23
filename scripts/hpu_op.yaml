@@ -2106,14 +2106,14 @@ geometric_:
   inplace_ids: [0]
   op_frontend: LazyGeometric
   op_backend: Geometric
-  schema_args: "(Tensor(a!) self, float p, int seed) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, float p, Tensor seed) -> Tensor(a!)"
 
 geometric.out:
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
   op_frontend: LazyGeometric
   op_backend: Geometric
-  schema_args: "(Tensor self, float p, int seed, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, float p, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 glu:
   force_default: false
