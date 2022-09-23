@@ -177,7 +177,7 @@ void restoreTensorsize(
     std::unique_ptr<bool[]>& changed,
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
-    c10::intrusive_ptr<ProcessGroup::Work>& work) {
+    c10::intrusive_ptr<Work>& work) {
   for (int i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
     if ((at::kChar == btensor_type || at::kByte == btensor_type)) {
@@ -510,7 +510,7 @@ std::vector<std::shared_ptr<hccl_integration::device_context>> ProcessGroupHCCL:
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
     std::vector<at::Tensor>& tensors_,
     Fn fn,
     int peerRank,
@@ -596,7 +596,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
 }
 
 template <typename Fn>
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
     std::vector<at::Tensor>& tensors,
     Fn fn,
     int peerRank) {
@@ -610,7 +610,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
     Fn fn,
@@ -725,7 +725,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
 }
 
 template <typename Fn>
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
     Fn fn,
@@ -740,7 +740,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
       is_allreduce);
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
@@ -793,7 +793,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
@@ -870,14 +870,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce_coalesced(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce_coalesced(
     std::vector<at::Tensor>& tensors,
     const AllreduceCoalescedOptions& opts) {
   throw std::runtime_error(
       "allreduce_coalesced is currently not supported with HCCL");
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
@@ -937,7 +937,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     at::Tensor& outputTensor,
     at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
@@ -1048,7 +1048,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
@@ -1129,7 +1129,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::_allgather_base(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::_allgather_base(
     at::Tensor& outputBuffer,
     at::Tensor& inputBuffer,
     const AllgatherOptions& opts) {
@@ -1137,7 +1137,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::_allgather_base(
       "allgather_base is currently not supported with HCCL");
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather_coalesced(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather_coalesced(
     std::vector<std::vector<at::Tensor>>& /* unused */,
     std::vector<at::Tensor>& /* unused */,
     const AllgatherOptions& /* unused */) {
@@ -1145,7 +1145,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather_coalesced(
       "ProcessGroupHCCL does not support allgather_coalesced");
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
@@ -1154,7 +1154,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
   };
 
   std::vector<at::Tensor> outputs;
-  c10::intrusive_ptr<ProcessGroupHCCL::Work> work;
+  c10::intrusive_ptr<Work> work;
   if (getRank() == opts.rootRank) {
     TORCH_CHECK(outputTensors.size() == 1, "Requires a single element list");
     TORCH_CHECK(
@@ -1189,14 +1189,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::scatter(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ScatterOptions& opts) {
   throw std::runtime_error("ProcessGroupHCCL does not support scatter");
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
@@ -1310,7 +1310,7 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
   }
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
     int tag) {
@@ -1353,7 +1353,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
   return work;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
     int tag) {
@@ -1422,14 +1422,13 @@ void ProcessGroupHCCL::groupEnd() {
   }
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recvAnysource(
+c10::intrusive_ptr<Work> ProcessGroupHCCL::recvAnysource(
     std::vector<at::Tensor>& tensors,
     int tag) {
   throw std::runtime_error("ProcessGroupHCCL does not support recv");
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
-    const BarrierOptions& opts) {
+c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   std::vector<int> devices;
   for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();

@@ -176,7 +176,7 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupLazyHCCL::WorkLazy::
   return future_;
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::broadcast(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   size_t tensor_size = tensors.size();
@@ -192,7 +192,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::broadcast(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allreduce(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   HOST_SYNC()
@@ -216,16 +216,15 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allreduce(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::
-    allreduce_coalesced(
-        std::vector<at::Tensor>& tensors,
-        const AllreduceCoalescedOptions& opts) {
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce_coalesced(
+    std::vector<at::Tensor>& tensors,
+    const AllreduceCoalescedOptions& opts) {
   at::TensorList at_tensors(tensors);
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
   for (auto& t : tensors) {
@@ -248,7 +247,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allgather(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
@@ -299,7 +298,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::allgather(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::_allgather_base(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
     at::Tensor& outputBuffer,
     at::Tensor& inputBuffer,
     const AllgatherOptions& opts) {
@@ -308,23 +307,22 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::_allgather_base(
       "allgather_base is currently not supported with HCCL");
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::
-    allgather_coalesced(
-        std::vector<std::vector<at::Tensor>>& outputTensorLists,
-        std::vector<at::Tensor>& inputTensors,
-        const AllgatherOptions& opts) {
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
+    std::vector<std::vector<at::Tensor>>& outputTensorLists,
+    std::vector<at::Tensor>& inputTensors,
+    const AllgatherOptions& opts) {
   throw std::runtime_error(
       "allgather_coalesced is currently not supported with HCCL");
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::gather(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
   throw std::runtime_error("gather is currently not supported with HCCL");
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::alltoall_base(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     at::Tensor& outputTensor,
     at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
@@ -353,14 +351,14 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::alltoall_base(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::scatter(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ScatterOptions& opts) {
   throw std::runtime_error("scatter is currently not supported with HCCL");
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::reduce_scatter(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
@@ -416,7 +414,7 @@ void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
   }
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
     int tag) {
@@ -434,7 +432,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::send(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recv(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
     int tag) {
@@ -451,7 +449,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recv(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::recvAnysource(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recvAnysource(
     std::vector<at::Tensor>& tensors,
     int tag) {
   throw std::runtime_error(
@@ -492,7 +490,7 @@ void ProcessGroupLazyHCCL::hostBarrier() {
   PT_DISTRIBUTED_END;
 }
 
-c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupLazyHCCL::barrier(
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts) {
   hostBarrier();
   habana_lazy::HbLazyTensor::StepMarker();

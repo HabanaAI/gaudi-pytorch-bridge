@@ -17,6 +17,12 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+using Work = c10d::ProcessGroup::Work;
+#else
+using Work = c10d::Work;
+#endif
+
 namespace c10d {
 class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
  public:
@@ -27,8 +33,7 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
       const std::chrono::milliseconds& timeout);
   virtual ~ProcessGroupLazyHCCL();
 
-  class WorkLazy : public ProcessGroup::Work,
-                   public std::enable_shared_from_this<WorkLazy> {
+  class WorkLazy : public Work, public std::enable_shared_from_this<WorkLazy> {
    public:
     WorkLazy(const std::vector<at::Tensor>& outputs);
     WorkLazy(const WorkLazy& w) = delete;
@@ -49,85 +54,85 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
   const std::string getBackendName() const override {
     return std::string("hccl");
    }
-  c10::intrusive_ptr<ProcessGroup::Work> broadcast(
-      std::vector<at::Tensor>& tensors,
-      const BroadcastOptions& opts = BroadcastOptions()) override;
+   c10::intrusive_ptr<Work> broadcast(
+       std::vector<at::Tensor>& tensors,
+       const BroadcastOptions& opts = BroadcastOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> allreduce(
-      std::vector<at::Tensor>& tensors,
-      const AllreduceOptions& opts = AllreduceOptions()) override;
+   c10::intrusive_ptr<Work> allreduce(
+       std::vector<at::Tensor>& tensors,
+       const AllreduceOptions& opts = AllreduceOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> allreduce_coalesced(
-      std::vector<at::Tensor>& tensors,
-      const AllreduceCoalescedOptions& opts =
-          AllreduceCoalescedOptions()) override;
+   c10::intrusive_ptr<Work> allreduce_coalesced(
+       std::vector<at::Tensor>& tensors,
+       const AllreduceCoalescedOptions& opts =
+           AllreduceCoalescedOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> reduce(
-      std::vector<at::Tensor>& tensors,
-      const ReduceOptions& opts = ReduceOptions()) override;
+   c10::intrusive_ptr<Work> reduce(
+       std::vector<at::Tensor>& tensors,
+       const ReduceOptions& opts = ReduceOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> allgather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
+   c10::intrusive_ptr<Work> allgather(
+       std::vector<std::vector<at::Tensor>>& outputTensors,
+       std::vector<at::Tensor>& inputTensors,
+       const AllgatherOptions& opts = AllgatherOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> _allgather_base(
-      at::Tensor& outputBuffer,
-      at::Tensor& inputBuffer,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
+   c10::intrusive_ptr<Work> _allgather_base(
+       at::Tensor& outputBuffer,
+       at::Tensor& inputBuffer,
+       const AllgatherOptions& opts = AllgatherOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> allgather_coalesced(
-      std::vector<std::vector<at::Tensor>>& outputTensorLists,
-      std::vector<at::Tensor>& inputTensors,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
+   c10::intrusive_ptr<Work> allgather_coalesced(
+       std::vector<std::vector<at::Tensor>>& outputTensorLists,
+       std::vector<at::Tensor>& inputTensors,
+       const AllgatherOptions& opts = AllgatherOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> gather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
-      const GatherOptions& opts = GatherOptions()) override;
+   c10::intrusive_ptr<Work> gather(
+       std::vector<std::vector<at::Tensor>>& outputTensors,
+       std::vector<at::Tensor>& inputTensors,
+       const GatherOptions& opts = GatherOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> alltoall_base(
-      at::Tensor& outputTensor,
-      at::Tensor& inputTensor,
-      std::vector<int64_t>& outputSplitSizes,
-      std::vector<int64_t>& inputSplitSizes,
-      const AllToAllOptions& opts = AllToAllOptions()) override;
+   c10::intrusive_ptr<Work> alltoall_base(
+       at::Tensor& outputTensor,
+       at::Tensor& inputTensor,
+       std::vector<int64_t>& outputSplitSizes,
+       std::vector<int64_t>& inputSplitSizes,
+       const AllToAllOptions& opts = AllToAllOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> scatter(
-      std::vector<at::Tensor>& outputTensors,
-      std::vector<std::vector<at::Tensor>>& inputTensors,
-      const ScatterOptions& opts = ScatterOptions()) override;
+   c10::intrusive_ptr<Work> scatter(
+       std::vector<at::Tensor>& outputTensors,
+       std::vector<std::vector<at::Tensor>>& inputTensors,
+       const ScatterOptions& opts = ScatterOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> reduce_scatter(
-      std::vector<at::Tensor>& outputTensors,
-      std::vector<std::vector<at::Tensor>>& inputTensors,
-      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+   c10::intrusive_ptr<Work> reduce_scatter(
+       std::vector<at::Tensor>& outputTensors,
+       std::vector<std::vector<at::Tensor>>& inputTensors,
+       const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> send(
-      std::vector<at::Tensor>& tensors,
-      int dstRank,
-      int tag) override;
+   c10::intrusive_ptr<Work> send(
+       std::vector<at::Tensor>& tensors,
+       int dstRank,
+       int tag) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> recv(
-      std::vector<at::Tensor>& tensors,
-      int srcRank,
-      int tag) override;
+   c10::intrusive_ptr<Work> recv(
+       std::vector<at::Tensor>& tensors,
+       int srcRank,
+       int tag) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> recvAnysource(
-      std::vector<at::Tensor>& tensors,
-      int tag) override;
+   c10::intrusive_ptr<Work> recvAnysource(
+       std::vector<at::Tensor>& tensors,
+       int tag) override;
 
-  c10::intrusive_ptr<ProcessGroup::Work> barrier(
-      const BarrierOptions& opts = BarrierOptions()) override;
+   c10::intrusive_ptr<Work> barrier(
+       const BarrierOptions& opts = BarrierOptions()) override;
 
- private:
-  void hostBarrier();
-  void permutedSendTensorsToDense(at::Tensor& tensor);
-  c10::intrusive_ptr<Store> store_;
-  size_t barrier_cnt_;
+  private:
+   void hostBarrier();
+   void permutedSendTensorsToDense(at::Tensor& tensor);
+   c10::intrusive_ptr<Store> store_;
+   size_t barrier_cnt_;
 
- protected:
-  std::shared_ptr<habana::HcclCommunicator> comm_;
+  protected:
+   std::shared_ptr<habana::HcclCommunicator> comm_;
 };
 
 } // namespace c10d
