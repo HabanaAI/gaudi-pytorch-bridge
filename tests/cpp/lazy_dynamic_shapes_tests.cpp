@@ -520,6 +520,42 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
   }
 }
 
+// Reproducer for https://jira.habana-labs.com/browse/SW-94443
+TEST_F(LazyDynamicShapesTest, DISABLED_SingleOpAdd) {
+  std::vector<std::vector<int64_t>> in1 = {{10, 20, 30}, {10, 50, 30}};
+  std::vector<std::vector<int64_t>> in2 = {{10, 1, 1}, {10, 50, 30}};
+
+  for (size_t i = 0; i < in1.size(); i++) {
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------");
+    torch::Tensor c0 = torch::randn(in1[i], torch::requires_grad(false));
+    torch::Tensor c1 = torch::randn(in2[i], torch::requires_grad(false));
+
+    torch::Tensor c4 = torch::add(c0, c1);
+
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c0.shape : ", c0.sizes(), " c0.strides : ", c0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c1.shape : ", c1.sizes(), " c1.strides : ", c1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: c4.shape : ", c4.sizes(), " c4.strides : ", c4.strides());
+
+    torch::Tensor h0 = c0.to(torch::kHPU);
+    torch::Tensor h1 = c1.to(torch::kHPU);
+    torch::Tensor h4 = torch::add(h0, h1);
+    torch::Tensor h4_c = h4.to(torch::kCPU);
+
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h0.shape : ", h0.sizes(), " h0.strides : ", h0.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h1.shape : ", h1.sizes(), " h1.strides : ", h1.strides());
+    PT_TEST_DEBUG(
+        "PTI_DBG :: h4.shape : ", h4.sizes(), " h4.strides : ", h4.strides());
+
+    EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
   std::vector<std::pair<int, int>> v = {
       {3, 1},

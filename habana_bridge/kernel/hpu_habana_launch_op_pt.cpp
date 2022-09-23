@@ -2240,6 +2240,7 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
        * tensor created for the stack.
        */
       auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
+      new_impl->set_compile_host_ptr(impl);
       if (impl->get_shape_struct().has_shape_tensor_data()) {
         new_impl->get_shape_struct() = impl->get_shape_struct();
       }

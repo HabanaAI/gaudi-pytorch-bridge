@@ -320,8 +320,20 @@ void* HbInternalTensorImpl::get_compile_host_ptr() const {
   return compile_host_ptr_;
 }
 
+void HbInternalTensorImpl::set_compile_host_ptr(
+    const HbInternalTensorImpl* impl) {
+  if (impl->compile_host_ptr_) {
+    id_ = impl->id_;
+    size_ = impl->get_host_size();
+    el_size_ = impl->get_host_el_size();
+    dt_type_ = impl->get_host_dt_type();
+    total_elem_ = 2 * size_ * el_size_;
+    compile_host_ptr_ = impl->compile_host_ptr_;
+  }
+}
+
 size_t HbInternalTensorImpl::get_host_size() const {
-  return total_elem_;
+  return size_;
 }
 
 size_t HbInternalTensorImpl::get_host_el_size() const {

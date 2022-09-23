@@ -234,9 +234,13 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
     auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
     HABANA_ASSERT(impl);
+
     TORCH_CHECK(
         impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
-        "Incorrect datatype of HOST");
+        "Incorrect datatype of HOST ",
+        impl->get_host_dt_type(),
+        ", expecting ",
+        habana_lazy::HostDataType::INT32_T);
 
     // set min/max for repeats_ht, this min/max is used only for memory
     // allocations by synapse (not for actual compilation), therefore we can set

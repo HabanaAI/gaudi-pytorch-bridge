@@ -88,6 +88,27 @@ enum class HostDataType {
   FLOAT_T = 4
 };
 
+inline std::ostream& operator<<(std::ostream& O, const HostDataType& t) {
+  switch (t) {
+    case HostDataType::INVALID_T:
+      O << "INVALID";
+      break;
+    case HostDataType::INT32_T:
+      O << "INT32";
+      break;
+    case HostDataType::UINT32_T:
+      O << "UINT32";
+      break;
+    case HostDataType::UINT64_T:
+      O << "UINT64";
+      break;
+    case HostDataType::FLOAT_T:
+      O << "FLOAT";
+      break;
+  }
+  return O;
+}
+
 struct ShapeTensorStruct {
   bool contains_data = false;
   std::vector<int64_t> strides{};
@@ -140,7 +161,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
       const caffe2::TypeMeta& data_type);
 
   ~HbInternalTensorImpl() {
-    if (host_ptr_ || compile_host_ptr_) {
+    if (host_ptr_) {
       auto& device = synapse_helpers::HPURegistrar::get_device();
       device.get_host_memory().free(host_ptr_);
       device.get_host_memory().free(compile_host_ptr_);
@@ -210,7 +231,9 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   }
 
   void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
-  // void set_host_data(std::vector<int32_t> d);
+  // Shallow copy of compile_host_ptr_
+  void set_compile_host_ptr(const HbInternalTensorImpl* impl);
+
   void* get_host_ptr() const;
   void* get_compile_host_ptr() const;
   size_t get_host_size() const;
