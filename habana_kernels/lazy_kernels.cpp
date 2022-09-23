@@ -7553,4 +7553,21 @@ void handle_collective(const std::vector<at::Tensor>& vec) {
   }
 }
 
+at::Tensor habana_random_seed_lazy(const at::Tensor& input) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  std::vector<int64_t> out_shape = input.sizes().vec();
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(const Tensor& input, std::vector<int64_t> out_shape)
+        : LazyOp<at::Tensor>(
+              "hpu::habana_random_seed",
+              {input},
+              {},
+              {std::move(out_shape)},
+              0) {}
+  };
+  Kernel kernel{input, std::move(out_shape)};
+  return kernel.call();
+}
+
 } // namespace habana_lazy

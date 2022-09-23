@@ -9,6 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
+#include "hpu_ops/op_backend.h"
 namespace habana {
 
 at::Generator& getDefaultHPUGenerator();
@@ -171,6 +172,24 @@ class RandpermOperatorHT : public RandpermOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+};
+
+class HabanaRandomSeedOperator : public habana::OpBackend {
+ public:
+  HabanaRandomSeedOperator(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(
+            device_id,
+            "habana_random_seed",
+            scalar_type,
+            {},
+            {},
+            {},
+            false) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 } // namespace habana

@@ -1964,6 +1964,12 @@ std::vector<at::Tensor> linear_ex_backward_wrap(
       grad_output, input, weight, bias_opt, bias_grad_opt, dtype);
 }
 
+Tensor habana_random_seed_wrap(const at::Tensor& input) {
+  PT_OP_TRACE;
+  PT_OP_INFO(" habana_random_seed:", " input=", to_string(input));
+  return habana_random_seed_lazy(input);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2426,6 +2432,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
+  m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

@@ -820,4 +820,5 @@ native_group_norm_backward_hpu_lazy(
     c10::SymInt HxW,
     int64_t group,
     std::array<bool, 3> output_mask);
+at::Tensor habana_random_seed_lazy(const at::Tensor& input);
 } // namespace habana_lazy

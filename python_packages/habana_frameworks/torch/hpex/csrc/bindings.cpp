@@ -182,6 +182,10 @@ std::vector<at::Tensor> linear_ex_backward_wrap_py(
       torch::python::detail::py_object_to_dtype(dtype));
 }
 
+at::Tensor habana_random_seed(const at::Tensor& input) {
+  return habana_random_seed_wrap(input);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   //////////////////////////// Optimizers /////////////////////////////////////
   m.def(
@@ -278,4 +282,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "linear_ex_backward",
       &linear_ex_backward_wrap_py,
       "LinearBackward with explicit dtype");
+  m.def(
+      "random_seed",
+      &habana_random_seed,
+      "Sets random seed in the LFSR register");
 }

@@ -875,10 +875,97 @@ Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed) {
   return output;
 }
 
+void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const habana::OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for HabanaRandomSeedOperator operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for HabanaRandomSeedOperator operator");
+
+  Tensor input = inputs[0].toTensor();
+  TORCH_CHECK(
+      input.scalar_type() == at::ScalarType::Int,
+      "Input arg1.dtype expected to be Int for HabanaRandomSeedOperator operator");
+
+  const auto is_output_persistent = output_metadata.at(0).persistent;
+
+  synapse_helpers::tensor& input_syn_tensor = p_context_->syn_inputs_[0];
+  std::vector<synTensor> syn_inputs;
+  syn_inputs.push_back(input_syn_tensor.get());
+
+  // Add random_seed_u32 node to graph
+  auto input_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_input_layout);
+
+  auto guid = "random_seed_u32";
+
+  auto result = graph.add_node(
+      std::move(syn_inputs),
+      {},
+      nullptr,
+      0,
+      guid,
+      nullptr,
+      input_layouts.data(),
+      nullptr,
+      false);
+  HABANA_ASSERT(
+      ok(result),
+      "Adding ",
+      guid,
+      " to graph failed with ",
+      get_error(result).error);
+
+  auto output = habana_helpers::createPTTensor(
+      input,
+      input.sizes(),
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent);
+
+  // Create synapse output tensor
+  AllocateSynapseOutput(
+      graph,
+      output,
+      output_metadata.at(0),
+      false); // is_shape_tensor
+
+  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+  auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+      kernel_meta_data_.synapse_output_layout);
+
+  // Add random_seed_u32 node to graph
+  guid = "identity";
+
+  result = graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      guid,
+      nullptr,
+      input_layouts.data(),
+      output_layouts.data(),
+      false);
+  HABANA_ASSERT(
+      ok(result),
+      "Adding ",
+      guid,
+      " to graph failed with ",
+      get_error(result).error);
+}
+
 static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
         .add("hpu::randperm_out_ds", KERNEL_FN(RandpermOperator))
         .add("hpu::_fused_dropout", KERNEL_FN(DropoutOperator))
         .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator))
-        .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT));
+        .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT))
+        .add("hpu::habana_random_seed", KERNEL_FN(HabanaRandomSeedOperator));
