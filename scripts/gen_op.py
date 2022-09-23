@@ -732,9 +732,16 @@ def frontend(
 
         if is_acc_thread_supported(fname, ctxop, rtype):
             if is_inplace_or_out_op(fname):
-                code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, lazyop_call_args)
+                if rtype.startswith("::std::tuple<at::Tensor"):
+                    code += "  auto tuple = {};\n".format(lazyop_call_args)
+                    code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(fname)
+                else:
+                    code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, lazyop_call_args)
             else:
-                code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+                if rtype.startswith("::std::tuple<at::Tensor"):
+                    code += "  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+                else:
+                    code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
         else:
             code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", lazyop_call_args)
     return code + ";\n}"
@@ -941,7 +948,7 @@ def extract_reduction_vars_indices(param_vars):
 
 def is_acc_thread_supported(opname, ctxop, rtype):
     return (not ctxop.get_override_fn() # ops with custom lazy func, not LazyOp
-            and rtype.startswith("at::Tensor")) # regular or in-place ops
+            and (rtype.startswith("at::Tensor") or rtype.startswith("::std::tuple<at::Tensor"))) # regular, in-place
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):

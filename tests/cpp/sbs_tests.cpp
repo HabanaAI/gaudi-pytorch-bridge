@@ -13,6 +13,7 @@
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/sbs_runner.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 class SBSWithParamsTest
     : public ::testing::TestWithParam<std::tuple<habana_lazy::SBSModes, bool>>,
@@ -45,6 +46,7 @@ class SBSWithParamsTest
   bool m_perform_markstep = false;
 
   void ResetSBSHandlers() {
+    habana_lazy::SyncAccThreadPool(); // sync acc before reading SBS stats
     habana_lazy::SBSDebug::getInstance().reset();
     habana_lazy::SBSInterface::reset();
   }
@@ -76,6 +78,7 @@ class SBSWithParamsTest
   }
 
   void UpdateOpCounters() {
+    habana_lazy::SyncAccThreadPool(); // sync acc before reading SBS stats
     m_numberOfPotentialSBSOps +=
         habana_lazy::SBSDebug::getInstance().GetNumberOfAccumulatedOps();
     m_numberOfPotentialSBSOpTensors +=
@@ -93,6 +96,7 @@ class SBSWithParamsTest
   }
 
   void ValidateCounters() {
+    habana_lazy::SyncAccThreadPool(); // sync acc before reading SBS stats
     // in lazy1 we might skip comparing middle-graph tensors, as we don't sync
     // all of the tensors. This includes inplace tensors.
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {

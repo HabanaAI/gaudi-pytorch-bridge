@@ -78,18 +78,6 @@ void flush_op(
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
 
-template <class F, class... Ts, std::size_t... Is>
-void for_each_in_tuple(
-    std::tuple<Ts...>& tuple,
-    F func,
-    std::index_sequence<Is...>) {
-  (void)(int[]){0, ((void)func(std::get<Is>(tuple)), 0)...};
-}
-template <class F, class... Ts>
-void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
-  for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
-}
-
 template <class...>
 struct conjunction : std::true_type {};
 
@@ -103,9 +91,16 @@ struct conjunction<B1, Bn...>
 template <typename Tuple>
 struct is_tuple_of_tensor_ref;
 
+template <typename Tuple>
+struct is_tuple_of_tensors;
+
 template <typename... Ts>
 struct is_tuple_of_tensor_ref<std::tuple<Ts...>>
     : conjunction<std::is_same<at::Tensor&, Ts>...> {};
+
+template <typename... Ts>
+struct is_tuple_of_tensors<std::tuple<Ts...>>
+    : conjunction<std::is_same<at::Tensor, Ts>...> {};
 
 // TODO: Ideally we want a variant of HABANA_ASSERT like
 // TORCH_INTERNAL_ASSERT_DEBUG_ONLY
@@ -243,11 +238,12 @@ class LazyOp {
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
-    for_each_in_tuple(results, [&hl_results, &tensors](const auto& result) {
-      auto hl_result = GetHbLazyTensor(result);
-      tensors.push_back(result);
-      hl_results.push_back(hl_result);
-    });
+    habana::for_each_in_tuple(
+        results, [&hl_results, &tensors](const auto& result) {
+          auto hl_result = GetHbLazyTensor(result);
+          tensors.push_back(result);
+          hl_results.push_back(hl_result);
+        });
 
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
@@ -276,7 +272,8 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
-    PT_LAZY_DEBUG("Lazy Call not_Tuple_Of_Tensor :: ", m_symbol.toQualString());
+    PT_LAZY_DEBUG(
+        "Lazy Call not_Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -300,7 +297,36 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type HandleLazy(
+  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call(
+      T tensors) {
+    PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
+    bool isView = false;
+    isView = viewUpdateInputs();
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
+        std::make_shared<HbLazyFrontEndInfoToBackend>();
+    infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
+    if (is_optimized_lazy_eager_supported(
+            isView, context->viewContext.isLazyViewPresent)) {
+      size_t lazy_eager_key = 0;
+      bool IsOptimizedLazyEagerCached =
+          calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
+      infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
+      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
+    }
+
+    context->viewContext.isLazyViewPresent = false;
+
+    return HandleLazy(tensors, infoToBackEnd);
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<
+      (is_tuple_of_tensor_ref<T>::value || is_tuple_of_tensors<T>::value),
+      T>::type
+  HandleLazy(
       T results,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
@@ -314,9 +340,9 @@ class LazyOp {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         out_shapes.size() == std::tuple_size<T>::value);
 
-    for_each_in_tuple(
+    habana::for_each_in_tuple(
         results,
-        [&node, &i, &tensors, out_shapes, context](const auto& result) {
+        [&node, &i, &tensors, out_shapes, context, this](const auto& result) {
           auto hl_result = GetHbLazyTensor(result);
           tensors.push_back(result);
           updateDstDependencies(hl_result, result, true);
@@ -328,7 +354,9 @@ class LazyOp {
               hl_result.dtype_optional(),
               i);
           const auto& out_shape = out_shapes.at(i);
-          if (result.sizes() != out_shape) {
+          if (result.sizes() != out_shape ||
+              (!m_shape_was_changed_in_tuple.empty() &&
+               m_shape_was_changed_in_tuple[i])) {
             auto impl = hl_result.getAttachedTensorImpl();
             THHTensor_resizeNd(
                 impl, out_shape.size(), out_shape.data(), nullptr);
@@ -346,7 +374,7 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
       T results) {
-    PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
+    PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -471,7 +499,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   HandleLazy(
       at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
@@ -501,6 +529,7 @@ class LazyOp {
 
     runSBS(self);
     flush_op(self, info_to_lazy_backend, {hl_result});
+    return self;
   }
 
   template <typename T = ReturnType>
@@ -527,36 +556,6 @@ class LazyOp {
     context->viewContext.isLazyViewPresent = false;
 
     return HandleLazy(infoToBackEnd);
-  }
-
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type call(
-      at::Tensor& self) {
-    PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
-    bool isView = false;
-
-    // Handle views or fetch updated tensor for all the inputs
-    isView = viewUpdateInputs();
-
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
-        std::make_shared<HbLazyFrontEndInfoToBackend>();
-    infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
-
-    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-
-    // Temporarily disabled the switch - To Do
-    if (is_optimized_lazy_eager_supported(
-            isView, context->viewContext.isLazyViewPresent) &&
-        false) {
-      size_t lazy_eager_key = 0;
-      bool IsOptimizedLazyEagerCached =
-          calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
-
-      infoToBackEnd->set_optimized_lazy_eager_key(lazy_eager_key);
-      infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
-    }
-
-    HandleLazy(self, infoToBackEnd);
   }
 
   bool viewUpdateInputsProcessSingleTensor(at::Tensor& t, size_t& idx) {
@@ -723,11 +722,16 @@ class LazyOp {
     return self;
   }
 
-  // For inplace/out variants
+  // For inplace/out variants and regular variants with accumulation thread
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
-      at::Tensor& self) {
-    PT_LAZY_DEBUG("Lazy Call Inplace:self :: ", m_symbol.toQualString());
+  typename std::enable_if<
+      (std::is_same<T, at::Tensor&>::value ||
+       std::is_same<T, at::Tensor>::value),
+      T>::type
+  call(at::Tensor& self) {
+    PT_LAZY_DEBUG(
+        "Lazy Call Inplace/out or regular with acc thread:self :: ",
+        m_symbol.toQualString());
     bool isView = false;
 
     // Handle views or fetch updated tensor for all the inputs
@@ -822,12 +826,42 @@ class LazyOp {
     // shape. There is mechanism to handle it at HandleLazy level, but we need
     // to set the correct shape on at::Tensor so it's propagated to Python in
     // main thread.
-    auto out_shape = m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[0];
+    auto out_shape = m_out_shapes.empty()
+        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
+        : m_out_shapes[0];
     if (tensor.sizes() != out_shape) {
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       set_shape_changed();
     }
     return tensor;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type get_result(
+      T tensors) {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::tuple_size<T>::value == m_out_shapes.size());
+
+    habana::for_each_in_tuple(tensors, [&, this](auto& tensor) {
+      /* Same check happens in GetHbLazyTensor, but it's in acc thread.*/
+      /* Make sure in main thread, that we get HPU tensor .*/
+      HABANA_ASSERT(
+          tensor.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+      // In case of _out ops, the output tensor may come with wrong or empty
+      // shape. There is mechanism to handle it at HandleLazy level, but we
+      // need to set the correct shape on at::Tensor so it's propagated to
+      // Python in main thread.
+      auto out_shape = m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[0];
+      if (tensor.sizes() != out_shape) {
+        tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+        m_shape_was_changed_in_tuple.push_back(true);
+      } else {
+        m_shape_was_changed_in_tuple.push_back(false);
+      }
+    });
+
+    return tensors;
   }
 
   template <typename T = ReturnType>
@@ -868,6 +902,28 @@ class LazyOp {
     }
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
+  get_result() {
+    PT_LAZY_TRACE;
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::tuple_size<T>::value == m_out_shapes.size());
+
+    unsigned i = 0;
+    ReturnType results;
+
+    habana::for_each_in_tuple(results, [&](auto& result) {
+      auto t = get_inputs().at(m_out_index).toTensor();
+      result = empty_hpu_lazy(
+          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
+    });
+    return results;
+  }
+
   const std::vector<std::vector<int64_t>>& get_out_shapes() const {
     return m_out_shapes;
   }
@@ -885,28 +941,6 @@ class LazyOp {
         input.isNone() ||
         (input.isList() &&
          !input.toList().elementType()->cast<at::TensorType>());
-  }
-
-  template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
-  get_result() {
-    PT_LAZY_TRACE;
-    // Get results from derived class when index is negative
-    if (m_out_index < 0) {
-      return get_result_overrideable();
-    }
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        std::tuple_size<T>::value == m_out_shapes.size());
-
-    unsigned i = 0;
-    ReturnType results;
-
-    for_each_in_tuple(results, [&](auto& result) {
-      auto t = get_inputs().at(m_out_index).toTensor();
-      result = empty_hpu_lazy(
-          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
-    });
-    return results;
   }
 
   void create_inputs(
@@ -1230,7 +1264,11 @@ class LazyOp {
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
-  bool m_shape_was_changed = false;
+  bool m_shape_was_changed =
+      false; // bool for changed input shape for _out ops (non-tuple input)
+  std::vector<bool> m_shape_was_changed_in_tuple =
+      {}; // vector of bools for any changed shapes in input tuple for _out ops
+          // (tuple input)
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
     auto hl_tensor = TryGetHbLazyTensor(t);
     if (hl_tensor) {

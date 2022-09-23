@@ -18,14 +18,45 @@
 
 namespace habana {
 
-template <class T>
-void scheduleAccTask(T&& lazy_op, at::Tensor tensor) {
+template <class F, class... Ts, std::size_t... Is>
+void for_each_in_tuple(
+    std::tuple<Ts...>& tuple,
+    F func,
+    std::index_sequence<Is...>) {
+  (void)(int[]){0, ((void)func(std::get<Is>(tuple)), 0)...};
+}
+template <class F, class... Ts>
+void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
+  for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
+}
+
+template <class T, class InputType>
+void scheduleAccTask(T&& lazy_op, InputType tensor) {
   habana_lazy::GetAccThreadPool().run(
       [op = std::move(lazy_op), tensor]() mutable {
         PT_LAZY_TRACE;
         op.call(tensor);
         habana_lazy::GetAccCleanupThreadPool().run(
             [op = std::move(op), self = std::move(tensor)]() {});
+      });
+}
+
+template <class T, class TupleType>
+void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
+  std::vector<at::Tensor> tensors;
+  for_each_in_tuple(
+      tuple, [&tensors](const auto& result) { tensors.push_back(result); });
+  HABANA_ASSERT(tensors.size() <= 3, "Only tuples up to 3 are supported");
+  habana_lazy::GetAccThreadPool().run(
+      [op = std::move(lazy_op), tensors = std::move(tensors)]() mutable {
+        PT_LAZY_TRACE;
+        if (tensors.size() == 2) {
+          op.call(std::tie(tensors[0], tensors[1]));
+        } else if (tensors.size() == 3) {
+          op.call(std::tie(tensors[0], tensors[1], tensors[2]));
+        }
+        habana_lazy::GetAccCleanupThreadPool().run(
+            [op = std::move(op), tensors = std::move(tensors)]() {});
       });
 }
 
@@ -138,7 +169,6 @@ inline float& get<float>(fint_t& u) {
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
-
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                                \
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
@@ -164,5 +194,31 @@ inline float& get<float>(fint_t& u) {
     }                                                                         \
   }                                                                           \
   return lazy_op.call(self);
+
+#define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                          \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      auto tuple = lazy_op.get_result();                                      \
+      scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
+      return tuple;                                                           \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call();
+
+#define RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op, tuple)           \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      tuple = lazy_op.get_result(tuple);                                      \
+      scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
+      return tuple;                                                           \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call(tuple);
 
 #define FALLBACK_CHECK(fn, args...) bool fn(args...)
