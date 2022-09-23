@@ -1011,7 +1011,10 @@ baddbmm.out:
 
 bernoulli:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyTensorSeed
   legacy_eager: true
@@ -1020,7 +1023,10 @@ bernoulli:
   schema_args: "(Tensor self, *, Tensor seed) -> Tensor"
 
 bernoulli_.float:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: LazyBernoulliFrontend
@@ -1029,7 +1035,10 @@ bernoulli_.float:
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
 bernoulli_.Tensor:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: LazyTensorSeed
@@ -1037,14 +1046,20 @@ bernoulli_.Tensor:
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
 bernoulli.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyTensorOutSeed
   op_backend: Bernoulli
   schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyBernoulliOutFrontend
   op_backend: Bernoulli
