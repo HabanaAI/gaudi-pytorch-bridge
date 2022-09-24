@@ -50,7 +50,8 @@ void ComputeGraphHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode,
-    uint64_t unique_graph_cntr) {
+    uint64_t unique_graph_cntr,
+    std::vector<bool> node_bcast_details) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -160,6 +161,12 @@ void ComputeGraphHashCode(
   }
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
+
+  if (!node_bcast_details.empty()) {
+    std::hash<std::vector<bool>> hash_bcast;
+    graphHashCode =
+        at::hash_combine(graphHashCode, hash_bcast(node_bcast_details));
+  }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
     graphHashCode =
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
@@ -326,8 +333,11 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() {}
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
     const at::ArrayRef<torch::jit::IValue>& input_refs,
-    uint64_t ug_cntr)
-    : jit_graph_to_lowering(JitGraphToLowering), unique_graph_cntr(ug_cntr) {
+    uint64_t ug_cntr,
+    std::vector<bool> bcast_details)
+    : jit_graph_to_lowering(JitGraphToLowering),
+      unique_graph_cntr(ug_cntr),
+      node_bcast_details(bcast_details) {
   // Compute the graph hash
   ComputeGraphHashCode(JitGraphToLowering, input_refs);
 }
@@ -338,7 +348,13 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
   set_cached_graph_key(0);
   set_cached_opstrs(std::string());
   habana_lazy::ComputeGraphHashCode(
-      JitGraphToLowering, "", input_refs, opstrs, graphKey, unique_graph_cntr);
+      JitGraphToLowering,
+      "",
+      input_refs,
+      opstrs,
+      graphKey,
+      unique_graph_cntr,
+      node_bcast_details);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {

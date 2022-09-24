@@ -367,8 +367,8 @@ class Node {
     return m_is_output_tensor_list;
   }
 
-  bool is_broadcast_node() const {
-    return m_is_broadcast_node;
+  const std::vector<bool>& get_broadcast_details() const {
+    return m_bcast_details;
   }
 
   size_t get_post_order_pos() {
@@ -383,8 +383,8 @@ class Node {
     return m_id;
   }
 
-  void set_broadcast_flag(bool flag) {
-    m_is_broadcast_node = flag;
+  void set_broadcast_details(const std::vector<bool>& bcast_details) {
+    m_bcast_details = bcast_details;
   }
 
   bool getDeterministic() {
@@ -396,7 +396,7 @@ class Node {
   bool m_is_input = false;
   bool m_is_control_edge = false;
   bool m_is_output_tensor_list = false;
-  bool m_is_broadcast_node = false;
+  std::vector<bool> m_bcast_details;
   ValueList m_inputs;
   OutputList m_outputs;
   absl::flat_hash_set<Use, Use> m_uses;

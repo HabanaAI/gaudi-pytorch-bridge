@@ -29,7 +29,8 @@ void ComputeGraphHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::string& op_strs,
     size_t& graphHashCode,
-    uint64_t unique_graph_cntr = 0);
+    uint64_t unique_graph_cntr = 0,
+    std::vector<bool> node_bcast_details = {});
 /**
  * LazyGraphCache
  * ----------------
@@ -143,7 +144,8 @@ struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
-      uint64_t ug_cntr = 0);
+      uint64_t ug_cntr = 0,
+      std::vector<bool> node_bcast_details = {});
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -289,6 +291,7 @@ struct OptimizedJITGraphAndMetaData {
   bool dbg = false;
   size_t graph_index = 0;
   uint64_t unique_graph_cntr = 0;
+  std::vector<bool> node_bcast_details;
   std::string op_name = std::string();
   bool isOptimizedLazyEager = false;
   bool isJITCachedGraphInfoAvailable = false;

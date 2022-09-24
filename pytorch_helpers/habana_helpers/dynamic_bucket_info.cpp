@@ -424,8 +424,7 @@ void DynamicBucketInfo::UpdateMFUBucketDetails(size_t bucket_id) {
 
 size_t DynamicBucketInfo::GetBucketId(
     const InpTensorShapes& shapes,
-    const PadShapes& pad_shapes,
-    const std::vector<bool>& node_bcast_map) {
+    const PadShapes& pad_shapes) {
   TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
 
   cumu_run_count_++;
@@ -443,8 +442,6 @@ size_t DynamicBucketInfo::GetBucketId(
     current_input_idx_ = 0;
 
     buckets_[new_bucket_id].AppendInputHistIndex(current_input_idx_);
-    if (!node_bcast_map.empty())
-      buckets_[new_bucket_id].set_node_bcast_map(node_bcast_map);
 
     return new_bucket_id;
   }
@@ -461,10 +458,7 @@ size_t DynamicBucketInfo::GetBucketId(
   }
 
   for (size_t i = 0; i < buckets_.size(); i++) {
-    std::hash<std::vector<bool>> hash_bcast;
     bool in_range = buckets_[i].IsInRange(dims, skipped_ranges) &&
-        (hash_bcast(node_bcast_map) ==
-         hash_bcast(buckets_[i].get_node_bcast_map())) &&
         IsInRangeStaticDims(dims, buckets_[i].getDynamiDimsCount());
     // Choose a box with lower score meaning narrower ranges
     if (in_range &&
@@ -480,8 +474,6 @@ size_t DynamicBucketInfo::GetBucketId(
     UpdateMFUBucketDetails(best_bucket_id);
 
     buckets_[best_bucket_id].AppendInputHistIndex(current_input_idx_);
-    if (!node_bcast_map.empty())
-      buckets_[best_bucket_id].set_node_bcast_map(node_bcast_map);
     input_history_.hist_items_[current_input_idx_].bucket_index_ =
         best_bucket_id;
     return best_bucket_id;
@@ -500,8 +492,6 @@ size_t DynamicBucketInfo::GetBucketId(
   uint64_t new_bucket_id = buckets_.size() - 1;
   new_bucket.SetIndex(new_bucket_id);
   buckets_[new_bucket_id].AppendInputHistIndex(current_input_idx_);
-  if (!node_bcast_map.empty())
-    buckets_[new_bucket_id].set_node_bcast_map(node_bcast_map);
   // Update the bucket id of the history item
   input_history_.hist_items_[current_input_idx_].bucket_index_ = new_bucket_id;
   UpdateMFUBucketDetails(new_bucket_id);
@@ -1306,7 +1296,9 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         break;
       case DynamicDimsPolicy::LOCAL_HISTORIC:
       case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
-        if (shapes.at(el.num).dim_size(el.pos) == 1 || ref_dim_val == INT_MAX) {
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING) &&
+            (shapes.at(el.num).dim_size(el.pos) == 1 ||
+             ref_dim_val == INT_MAX)) {
           min_value = shapes.at(el.num).dim_size(el.pos);
         } else {
           min_value = ref_dim_val;
@@ -1354,7 +1346,8 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         break;
       case DynamicDimsPolicy::LOCAL_HISTORIC:
       case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
-        if (1 == min_value) {
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING) &&
+            1 == min_value) {
           max_value = 1;
         } else {
           auto& dim_map = max_dim_shapes.at(tensor_idx);
@@ -1376,7 +1369,8 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         break;
       case DynamicDimsPolicy::CALCULATED:
         // use default max multiplier
-        if (1 == min_value) {
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING) &&
+            1 == min_value) {
           max_value = 1;
         } else {
           max_value =
@@ -1411,18 +1405,20 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           (pad_output_dim_size - current_paddings_dim_size) *
               dim_max_multiplier;
     }
-    TORCH_CHECK(
-        min != 1 || max == 1,
-        "with min policy: ",
-        min_policy_,
-        ", and max policy: ",
-        max_policy_,
-        '\n',
-        "Incompatible min=",
-        min,
-        " and max=",
-        max,
-        " values are computed. Broadcast may break");
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING)) {
+      TORCH_CHECK(
+          min != 1 || max == 1,
+          "with min policy: ",
+          min_policy_,
+          ", and max policy: ",
+          max_policy_,
+          '\n',
+          "Incompatible min=",
+          min,
+          " and max=",
+          max,
+          " values are computed. Broadcast may break");
+    }
 
     result.emplace_back(std::make_pair(min, max));
   }

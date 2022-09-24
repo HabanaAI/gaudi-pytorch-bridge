@@ -305,6 +305,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, bool, false);
 // Option to enable UniqueGraph feature
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_UNIQUE_GRAPH, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, bool, true);
 // Option to enable and run Hybrid shape Inference
 ENV_STRUCT_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool, false);
 // Option to select JIT IR ops for Hybrid Shape Inference

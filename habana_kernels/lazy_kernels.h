@@ -584,7 +584,6 @@ class LazyOp {
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
-    infoToBackEnd->set_is_broadcasting_op(m_is_broadcasting_op);
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
@@ -842,7 +841,6 @@ class LazyOp {
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
-    infoToBackEnd->set_is_broadcasting_op(m_is_broadcasting_op);
     // Temporarily disabled the switch - To Do
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) && false) {
@@ -1126,8 +1124,8 @@ class LazyOp {
     return m_inputs;
   }
 
-  void set_broadcast(bool flag) {
-    m_is_broadcasting_op = flag;
+  void set_broadcast_details(const std::vector<bool>& bcast_vec) {
+    m_bcast_details = bcast_vec;
   }
 
   void set_inputs(const std::vector<at::IValue>& inputs) {
@@ -1308,7 +1306,7 @@ class LazyOp {
     }
 
     node->AddInputPtTensors(input_pt_vec);
-    node->set_broadcast_flag(m_is_broadcasting_op);
+    node->set_broadcast_details(m_bcast_details);
     return node;
   }
 
@@ -1316,7 +1314,7 @@ class LazyOp {
   std::vector<at::Tensor> m_input_pt_tensors;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
-  bool m_is_broadcasting_op = false;
+  std::vector<bool> m_bcast_details;
   const std::set<size_t> m_metadata_indices;
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
@@ -1450,7 +1448,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       LazyOp<T>::set_inputs(inputs);
     }
 
-    LazyOp<T>::set_broadcast(is_broadcast_op(
+    PT_LAZY_DEBUG("binary op");
+    LazyOp<T>::set_broadcast_details(get_broadcast_details(
         inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
 
     auto results = LazyOp<T>::call();
@@ -1494,6 +1493,10 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     if (inputs_updated) {
       LazyOp<T>::set_inputs(inputs);
     }
+
+    PT_LAZY_DEBUG("binary op inplace");
+    LazyOp<T>::set_broadcast_details(get_broadcast_details(
+        inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
 
     return LazyOp<T>::call(self);
   }
@@ -1545,23 +1548,34 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
   ReturnType get_result_overrideable() override;
 
-  bool is_broadcast_op(c10::IntArrayRef a, c10::IntArrayRef b) {
+  std::vector<bool> get_broadcast_details(
+      c10::IntArrayRef a,
+      c10::IntArrayRef b) {
     size_t dimsA = a.size();
     size_t dimsB = b.size();
     size_t ndim = dimsA > dimsB ? dimsA : dimsB;
-    bool is_broadcast = false;
+
+    std::vector<bool> bcast_vec;
     // Use ptrdiff_t to ensure signed comparison.
     for (ptrdiff_t i = (ptrdiff_t)ndim - 1; i >= 0; --i) {
+      bool is_broadcast_a = false;
+      bool is_broadcast_b = false;
       ptrdiff_t offset = ndim - 1 - i;
       ptrdiff_t dimA = dimsA - 1 - offset;
       ptrdiff_t dimB = dimsB - 1 - offset;
       int64_t sizeA = (dimA >= 0) ? a[dimA] : 1;
       int64_t sizeB = (dimB >= 0) ? b[dimB] : 1;
       if ((sizeA == 1) ^ (sizeB == 1)) {
-        is_broadcast = true;
+        if (sizeA == 1)
+          is_broadcast_a = true;
+        else
+          is_broadcast_b = true;
       }
+      bcast_vec.push_back(is_broadcast_a);
+      bcast_vec.push_back(is_broadcast_b);
     }
-    return is_broadcast;
+    PT_LAZY_DEBUG("bcast_vec : ", bcast_vec);
+    return bcast_vec;
   }
 };
 

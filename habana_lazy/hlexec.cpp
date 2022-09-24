@@ -264,7 +264,8 @@ void HlExec::GetOrCreate(
                   po_data.inputs,
                   po_data.value_input_nodes_map,
                   po_data.outputs,
-                  parent_vec)
+                  parent_vec,
+                  node_bcast_map_)
                   .hashCode();
   uint64_t unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
   m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
@@ -278,7 +279,7 @@ void HlExec::GetOrCreate(
         at::ArrayRef<torch::jit::IValue> input_refs =
             torch::jit::last(stack, mp_g_->inputs().size());
         mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>(
-            mp_g_, input_refs, unique_cntr);
+            mp_g_, input_refs, unique_cntr, node_bcast_map_);
       }};
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
@@ -287,7 +288,9 @@ void HlExec::GetOrCreate(
         m_g_hash_,
         ", graph_index ",
         GetGraphIndex(
-            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+        ", bcast_map = ",
+        node_bcast_map_.size());
     ConstructJITGraph();
     return;
   }
@@ -309,7 +312,9 @@ void HlExec::GetOrCreate(
           m_g_hash_,
           ", graph_index ",
           GetGraphIndex(
-              m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
+              m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+          ", bcast_map = ",
+          node_bcast_map_.size());
       PT_IRGRAPH_DEBUG("JIT Cache miss");
       // Cache miss handling
       // ===================
@@ -321,7 +326,9 @@ void HlExec::GetOrCreate(
         m_g_hash_,
         ", graph_index ",
         GetGraphIndex(
-            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())));
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+        ", bcast_map = ",
+        node_bcast_map_.size());
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     mp_g_ = mp_g_and_meta_data_->get_cached_graph();
     HABANA_ASSERT(mp_g_ != nullptr);
@@ -385,13 +392,14 @@ size_t HlExec::GetGraphIndex(
 }
 
 void HlExec::CreateNodeBcastMap(const ir::NodePtrList& nodes) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_UNIQUE_GRAPH)) {
-    for (const auto& node : nodes) {
-      if (c10::Symbol::fromQualString("prim::constant") != node->op() &&
-          (std::string(node->op().toQualString()).find("hpu::input") ==
-           std::string::npos)) {
-        node_bcast_map_.push_back(node->is_broadcast_node());
-      }
+  for (const auto& node : nodes) {
+    if (c10::Symbol::fromQualString("prim::constant") != node->op() &&
+        (std::string(node->op().toQualString()).find("hpu::input") ==
+         std::string::npos)) {
+      node_bcast_map_.insert(
+          node_bcast_map_.end(),
+          node->get_broadcast_details().begin(),
+          node->get_broadcast_details().end());
     }
   }
 }
