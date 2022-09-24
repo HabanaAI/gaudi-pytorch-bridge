@@ -278,13 +278,19 @@ class HbExecutionContextArena {
   void setExecutionMode(LazyExecutionMode m);
   static thread_local LazyExecutionMode execution_mode;
   void resetUniqueGraphCntr() {
-    uniqueGraphCntr = 0;
+    unique_graph_index_counter.clear();
   }
-  uint64_t getUniqueGraphCntr() {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_UNIQUE_GRAPH))
-      return uniqueGraphCntr++;
-    else
-      return 0;
+  uint64_t getGraphindexCntr(size_t hash_code) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_UNIQUE_GRAPH)) {
+      if (unique_graph_index_counter.find(hash_code) !=
+          unique_graph_index_counter.end()) {
+        unique_graph_index_counter[hash_code] += 1;
+      } else {
+        unique_graph_index_counter[hash_code] = 0;
+      }
+      return unique_graph_index_counter[hash_code];
+    }
+    return 0;
   }
 
  private:
@@ -292,7 +298,7 @@ class HbExecutionContextArena {
   // Right now we support  a single context per device, map maintains ID to
   // context map
   std::unordered_map<int, HbExecutionContext*> m_execution_context_list;
-  uint64_t uniqueGraphCntr;
+  std::unordered_map<size_t, uint64_t> unique_graph_index_counter;
 };
 
 // The global object for all contexts, we create contexts out of this per

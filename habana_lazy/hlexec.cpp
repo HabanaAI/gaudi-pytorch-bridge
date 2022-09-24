@@ -257,7 +257,6 @@ void HlExec::GetOrCreate(
   PruneDuplicateStackInputs(stack, is_duplicate_vec);
   CreateNodeBcastMap(po_data.post_order);
 
-  uint64_t unique_cntr = habana_lazy_executor.getUniqueGraphCntr();
   m_g_hash_ = habana_lazy::LazyArgumentSpec(
                   true,
                   stack,
@@ -265,10 +264,10 @@ void HlExec::GetOrCreate(
                   po_data.inputs,
                   po_data.value_input_nodes_map,
                   po_data.outputs,
-                  parent_vec,
-                  unique_cntr)
+                  parent_vec)
                   .hashCode();
-
+  uint64_t unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
+  m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
   auto ConstructJITGraph{
       // Create a JIT graph from the post order graph
       // Optimization is done during Create() itself

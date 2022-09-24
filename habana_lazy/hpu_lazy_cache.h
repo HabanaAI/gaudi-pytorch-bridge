@@ -98,7 +98,6 @@ class LazyArgumentSpec {
       const ir::ValueNodeListMap& value_input_nodes_map,
       const ir::ValueList& outputs,
       const std::vector<size_t>& parent_vec,
-      const size_t unique_cntr = 0,
       const std::vector<bool>& node_bcast_map = {});
 
   bool operator==(const LazyArgumentSpec& rv) const {
@@ -122,8 +121,7 @@ class LazyArgumentSpec {
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const ir::ValueList& inputs,
       const ir::ValueNodeListMap& value_input_nodes_map,
-      const ir::ValueList& outputs,
-      const size_t unique_cntr = 0);
+      const ir::ValueList& outputs);
 
   size_t GetInputHash(
       const ir::ValueList& inputs,

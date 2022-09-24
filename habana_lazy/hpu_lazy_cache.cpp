@@ -199,18 +199,11 @@ LazyArgumentSpec::LazyArgumentSpec(
     const ir::ValueNodeListMap& value_input_nodes_map,
     const ir::ValueList& outputs,
     const std::vector<size_t>& parent_vec,
-    const size_t unique_cntr,
     const std::vector<bool>& node_bcast_map) {
   PT_LAZY_TRACE;
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
-  GetArgSpecKey(
-      with_grad,
-      input_refs,
-      inputs,
-      value_input_nodes_map,
-      outputs,
-      unique_cntr);
+  GetArgSpecKey(with_grad, input_refs, inputs, value_input_nodes_map, outputs);
 
   m_post_order_nodes_hash = post_order_nodes_hash;
   HABANA_ASSERT(m_post_order_nodes_hash > 0);
@@ -227,7 +220,6 @@ LazyArgumentSpec::LazyArgumentSpec(
   for (const auto& a : parent_vec) {
     m_hash_code = at::hash_combine(m_hash_code, a);
   }
-  m_hash_code = at::hash_combine(m_hash_code, unique_cntr);
   if (!node_bcast_map.empty()) {
     std::hash<std::vector<bool>> hash_bcast;
     m_hash_code = at::hash_combine(m_hash_code, hash_bcast(node_bcast_map));
@@ -284,8 +276,7 @@ void LazyArgumentSpec::GetArgSpecKey(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const ir::ValueList& inputs,
     const ir::ValueNodeListMap& value_input_nodes_map,
-    const ir::ValueList& outputs,
-    const size_t unique_cntr) {
+    const ir::ValueList& outputs) {
   // ArgumentSpecCreator requires a JIT graph to be
   // passed, where the JIT graph inputs are the only
   // content used.
@@ -298,7 +289,7 @@ void LazyArgumentSpec::GetArgSpecKey(
 
   uint64_t input_hash{};
 
-  torch::jit::ArgumentSpec as((num_inputs + unique_cntr), 0);
+  torch::jit::ArgumentSpec as(num_inputs, 0);
   for (auto& input : input_refs) {
     as.addTensor(input, with_grad);
   }
