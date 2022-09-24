@@ -1,0 +1,402 @@
+Note: Unit tests have been moved from habana_kernels/pytorch-extensions/habana_custom-extension to
+tests/fused_ops as shown below. This file contains the status of pass/failure for these tests executed from
+the original dir at the time of moving.
+
+
+        deleted:    habana_kernels/pytorch-extensions/habana_custom-extension/readme.txt
+        deleted:    habana_kernels/pytorch-extensions/habana_custom-extension/setup.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/adagrad_ut.py -> tests/fused_ops/adagrad_ut.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/adamw_ut.py -> tests/fused_ops/adamw_ut.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/ema_ut.py -> tests/fused_ops/ema_ut.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/lamb_ut.py -> tests/fused_ops/lamb_ut.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/norm_ut.py -> tests/fused_ops/norm_ut.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/norm_ut_nn.py -> tests/fused_ops/norm_ut_nn.py
+        renamed:    habana_kernels/pytorch-extensions/habana_custom-extension/tests/sgd_ut.py -> tests/fused_ops/sgd_ut.py
+
+
+
+running adagrad_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+[09-24 10:39:24::202222][140667273672384]Graph compile failed. Err: 26 /home/jayachandranb/trees/npu-stack/pytorch-integration/pytorch_helpers/synapse_helpers/graph.cpp:308	compile
+Loading Habana modules from /home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/habana_frameworks/torch/lib
+input ::
+tensor([[0.5476, 0.1872, 0.6757,  ..., 0.2992, 0.5220, 0.7592],
+        [0.6012, 0.0310, 0.1093,  ..., 0.2543, 0.7018, 0.6121]])
+input ::
+tensor([[0.2974, 0.4106, 0.4487,  ..., 0.6029, 0.9665, 0.4055],
+        [0.4057, 0.7175, 0.9694,  ..., 0.0408, 0.7408, 0.3791]])
+after  adagrad.step x ::
+tensor([[0.8450, 0.5978, 1.1244,  ..., 0.9021, 1.4885, 1.1647],
+        [1.0069, 0.7485, 1.0788,  ..., 0.2951, 1.4426, 0.9912]],
+       grad_fn=<ToCopyBackward0>)
+Traceback (most recent call last):
+  File "adagrad_ut.py", line 66, in <module>
+    print('after  adagrad_habana.step y ::\n{}'.format(y.to(cpu)))
+RuntimeError: FATAL ERROR :: MODULE:BRIDGE syn compile encountered : Graph compile failed. 26 compile time 413724 ns
+running adamw_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+ Input shape torch.Size([320, 256, 3])
+Shape 1 torch.Size([320, 256, 3])
+Traceback (most recent call last):
+  File "adamw_ut.py", line 98, in <module>
+    fused_adam_test(3)
+  File "adamw_ut.py", line 77, in fused_adam_test
+    loss_y.backward()
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/_tensor.py", line 396, in backward
+    torch.autograd.backward(self, gradient, retain_graph, create_graph, inputs=inputs)
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/autograd/__init__.py", line 173, in backward
+    Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+RuntimeError: 0 <= device.index() && device.index() < static_cast<c10::DeviceIndex>(device_ready_queues_.size()) INTERNAL ASSERT FAILED at "../torch/csrc/autograd/engine.cpp":1191, please report a bug to PyTorch. 
+running ema_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+
+ EMA Optimizer SD match :: True
+
+ EMA Optimizer SD match :: True
+
+ EMA Optimizer SD match :: True
+
+ EMA Optimizer SD match :: True
+
+ Optimizer output match :: True
+
+ Optimizer output match :: True
+
+ Optimizer output match :: True
+
+ Optimizer output match :: True
+running lamb_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+Loading Habana modules from /home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/habana_frameworks/torch/lib
+input u ::
+tensor([[0.2193, 0.2182, 0.8922,  ..., 0.3088, 0.9542, 0.8542],
+        [0.4400, 0.1998, 0.8336,  ..., 0.4714, 0.5621, 0.9725]])
+input w ::
+tensor([[0.4869, 0.7668, 0.1140,  ..., 0.3960, 0.3676, 0.6952],
+        [0.9025, 0.1905, 0.9428,  ..., 0.2206, 0.6720, 0.1983]])
+before lamb_habana.step x ::
+tensor([[0.2193, 0.2182, 0.8922,  ..., 0.3088, 0.9542, 0.8542],
+        [0.4400, 0.1998, 0.8336,  ..., 0.4714, 0.5621, 0.9725]],
+       grad_fn=<ToCopyBackward0>)
+before lamb_habana.step s ::
+tensor([[0.4869, 0.7668, 0.1140,  ..., 0.3960, 0.3676, 0.6952],
+        [0.9025, 0.1905, 0.9428,  ..., 0.2206, 0.6720, 0.1983]],
+       grad_fn=<ToCopyBackward0>)
+after  lamb_habana.step x ::
+tensor([[0.2188, 0.2176, 0.8916,  ..., 0.3083, 0.9536, 0.8536],
+        [0.4394, 0.1992, 0.8330,  ..., 0.4708, 0.5616, 0.9719]],
+       grad_fn=<ToCopyBackward0>)
+after  lamb_habana.step s ::
+tensor([[0.4863, 0.7662, 0.1134,  ..., 0.3954, 0.3671, 0.6947],
+        [0.9019, 0.1899, 0.9422,  ..., 0.2200, 0.6714, 0.1977]],
+       grad_fn=<ToCopyBackward0>)
+before NVlamb.step y ::
+tensor([[0.2193, 0.2182, 0.8922,  ..., 0.3088, 0.9542, 0.8542],
+        [0.4400, 0.1998, 0.8336,  ..., 0.4714, 0.5621, 0.9725]],
+       grad_fn=<ToCopyBackward0>)
+before NVlamb.step z ::
+tensor([[0.4869, 0.7668, 0.1140,  ..., 0.3960, 0.3676, 0.6952],
+        [0.9025, 0.1905, 0.9428,  ..., 0.2206, 0.6720, 0.1983]],
+       grad_fn=<ToCopyBackward0>)
+after NVLamb.step y ::
+tensor([[0.2188, 0.2176, 0.8916,  ..., 0.3083, 0.9536, 0.8536],
+        [0.4394, 0.1992, 0.8330,  ..., 0.4708, 0.5616, 0.9719]],
+       grad_fn=<ToCopyBackward0>)
+after NVLamb.step z ::
+tensor([[0.4863, 0.7662, 0.1134,  ..., 0.3954, 0.3671, 0.6947],
+        [0.9019, 0.1899, 0.9422,  ..., 0.2200, 0.6714, 0.1977]],
+       grad_fn=<ToCopyBackward0>)
+Optimizer output match :: True
+running norm_ut_nn.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+/home/jayachandranb/.local/lib/python3.8/site-packages/torchvision/io/image.py:11: UserWarning: Failed to load image Python extension: libc10_cuda.so: cannot open shared object file: No such file or directory
+  warn(f"Failed to load image Python extension: {e}")
+Loading Habana modules from /home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/habana_frameworks/torch/lib
+Traceback (most recent call last):
+  File "norm_ut_nn.py", line 82, in <module>
+    out_hpu = m_hpu(i_hpu)
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "norm_ut_nn.py", line 21, in forward
+    x = F.relu(self.conv1(x))
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 457, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 453, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: Given groups=1, weight of size [5, 5, 1, 20], expected input[1, 1, 28, 28] to have 5 channels, but got 1 channels instead
+running norm_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+Loading Habana modules from /home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/habana_frameworks/torch/lib
+Traceback (most recent call last):
+  File "norm_ut.py", line 27, in <module>
+    fn_hpu = FusedClipNorm(max_norm_val)
+TypeError: __init__() missing 1 required positional argument: 'max_norm'
+running sgd_ut.py
+=============================HABANA PT BRIDGE CONFIGURATION =========================== 
+ PT_HPU_LAZY_MODE = 1
+ PT_HPU_LAZY_EAGER_OPTIM_CACHE = 1
+ PT_HPU_ENABLE_COMPILE_THREAD = 0
+ PT_HPU_ENABLE_EXECUTION_THREAD = 1
+ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = 1
+ PT_ENABLE_INTER_HOST_CACHING = 0
+ PT_ENABLE_INFERENCE_MODE = 1
+ PT_ENABLE_HABANA_CACHING = 1
+ PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = 0
+ PT_HPU_MAX_COMPOUND_OP_SIZE = 9223372036854775807
+ PT_HPU_MAX_COMPOUND_OP_SIZE_SS = 10
+ PT_HPU_ENABLE_STAGE_SUBMISSION = 1
+ PT_HPU_PGM_ENABLE_CACHE = 1
+ PT_HPU_ENABLE_LAZY_COLLECTIVES = 0
+ PT_HCCL_SLICE_SIZE_MB = 16
+ PT_HCCL_MEMORY_ALLOWANCE_MB = 384
+ PT_HPU_INITIAL_WORKSPACE_SIZE = 0
+ PT_HABANA_POOL_SIZE = 24
+ PT_HPU_POOL_STRATEGY = 5
+ PT_HPU_POOL_LOG_FRAGMENTATION_INFO = 0
+ PT_ENABLE_MEMORY_DEFRAGMENTATION = 1
+ PT_ENABLE_DEFRAGMENTATION_INFO = 0
+ PT_HPU_MEMORY_DEFRAGMENTATION_RETRIES_LIMIT = 5
+ PT_HPU_POOL_MEM_THRESHOLD_PERC = 95
+ PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = 1
+ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = 1
+ PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = 1
+ PT_HPU_FORCE_USE_DEFAULT_STREAM = 0
+ PT_RECIPE_CACHE_PATH = 
+ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = 0
+ PT_HPU_DYNAMIC_MIN_POLICY_ORDER = 3,1
+ PT_HPU_DYNAMIC_MAX_POLICY_ORDER = 2,3,1
+=============================SYSTEM CONFIGURATION ========================================= 
+Num CPU Cores = 12
+CPU RAM = 40864248 KB 
+============================================================================================ 
+input ::
+tensor([[0.4963, 0.7682, 0.0885,  ..., 0.1876, 0.2099, 0.7210]])
+input ::
+tensor([[0.4650, 0.0278, 0.2117,  ..., 0.5875, 0.8263, 0.2909]])
+Loading Habana modules from /home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/habana_frameworks/torch/lib
+Traceback (most recent call last):
+  File "sgd_ut.py", line 81, in <module>
+    loss_y.backward()
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/_tensor.py", line 396, in backward
+    torch.autograd.backward(self, gradient, retain_graph, create_graph, inputs=inputs)
+  File "/home/jayachandranb/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/autograd/__init__.py", line 173, in backward
+    Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+RuntimeError: 0 <= device.index() && device.index() < static_cast<c10::DeviceIndex>(device_ready_queues_.size()) INTERNAL ASSERT FAILED at "../torch/csrc/autograd/engine.cpp":1191, please report a bug to PyTorch. 
