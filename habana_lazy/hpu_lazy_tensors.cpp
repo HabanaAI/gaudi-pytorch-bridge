@@ -79,12 +79,17 @@ void HbContextArena::UnregisterTensor(Data* data) {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
   }
+
+  c10::optional<HbLazyTensor> shallowCopyHbTensor;
   c10::optional<at::Tensor> viewEntryTensor;
   StrideParams strideParams;
   {
     // clear the entry in view tables
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
+    shallowCopyHbTensor =
+        context->viewContext.GetShallowCopyMapEntry(unique_id);
+    context->viewContext.DelShallowCopyMapEntry(unique_id);
     viewEntryTensor = context->viewContext.GetOrigTensorMapEntry(unique_id);
     context->viewContext.DelOrigTensorMapEntry(unique_id);
     auto* params_ptr = context->viewContext.GetViewTableEntry(unique_id);
@@ -102,12 +107,16 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   PT_LAZY_TRACE;
   std::vector<HbLazyTensor> tensors;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+
   // Live tensor collection is not allowed if the launch thread execution is  in
   // progeress.
   if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
         (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
     HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
   }
+
+  std::lock_guard<std::recursive_mutex> view_table_lock(
+      context->viewContext.GetViewTableMutex());
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
 
   HbLazyTensorViews::HandleViewsLiveTensors(
@@ -1237,75 +1246,22 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 }
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
-  // Handle views before doing shallow copy
+  PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto hl_t = *this;
+  if (dest->IsExecutionInProgress() || hl_t.IsExecutionInProgress()) {
+    context->JoinPendingLaunchThread();
+  }
+
   auto src_id = this->getTensorUniqueId();
   auto dst_id = dest->getTensorUniqueId();
 
-  // if src is a view, create an entry in view table for dst as well
-  {
-    std::lock_guard<std::recursive_mutex> view_table_lock(
-        context->viewContext.GetViewTableMutex());
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(src_id);
-    if (params_ptr != nullptr) {
-      // avoid circular links. Example:
-      // param.data = permute(param.data). In this case dst_id can be same as
-      // params.parent's id. In this case, evaluate the tensor before shallow
-      // copy
-      auto parent_id = GetHbLazyTensor(params_ptr->parent).getTensorUniqueId();
-      if (dst_id != parent_id) {
-        context->viewContext.AddViewTableEntry(dst_id, *params_ptr);
-      } else {
-        // evaluate the tensor
-        auto aten_t = AtenFromHbLazyTensor(
-            *this, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
-        HbLazyTensorViews::HandleViews(aten_t, *this);
-        std::vector<HbLazyTensor> tensors = {*this};
-        HbLazyTensor::SyncTensorsGraph(&tensors);
-      }
-    }
-
-    // if src has an updated version, create an entry in orig_tensor_map for the
-    // destination
-    auto ori_tensor_map_val =
-        context->viewContext.GetOrigTensorMapEntry(src_id);
-    if (ori_tensor_map_val != c10::nullopt) {
-      context->viewContext.AddOrigTensorMapEntry(
-          dst_id, ori_tensor_map_val.value());
-      PT_VIEWTABLE_DEBUG(
-          "[hbcopyTensor] Mem_stat.  ",
-          " orig_tensor_map map size: ",
-          context->viewContext.tensorMapSize(),
-          ", total bytes: ",
-          context->viewContext.tensorMapBytes());
-    }
+  auto hl_opt = context->viewContext.GetShallowCopyMapEntry(src_id);
+  if (hl_opt != c10::nullopt) {
+    hl_t = hl_opt.value();
   }
 
-  // We can add stuff related to view tensors later
-  // SW-43241: The shallow copy copies the ir_value etc from one tensor
-  // to another. If the same ir_value is used in both the tensors, then
-  // they will have a weak pointer to the same Data pointer from the
-  // first lazy tensor.
-  // If the first lazy tensor is destroyed, the associated Data will
-  // also get removed, making the weak pointer to the Data in the
-  // second lazy tensor ir_value to be expired.
-  // To avoid this, create a new ir_value with data pointer from the dest
-  // tensor. This ensures that the ir_value within each tensor points to
-  // its own Data pointer. Additionally, copy the ir node from the source
-  // ir_value so that the dest ir_value also has the same ir node parent.
-  // However, prevent adding this ir_value as another output to the ir node.
-  // Since we do the post order traversal from output values backward to its
-  // ir nodes, both the ir_value will reach the same ir node.
-  habana_lazy::ir::Value val{dest->GetIrValue().m_data_ptr.lock()};
-  val.SetNodeForShallowCopy(GetIrValue().mp_node);
-  dest->AssignIrValue(val);
-  // If the src tensor has an evaluated tensor internally on the device, then
-  // the lazy tensor shallow copy needs to ensure the desc lazy tensor also
-  // points to the same internal device tensor.
-  auto data_tensor = CurrentTensorData();
-  if (data_tensor.has_value()) {
-    dest->SetTensorData(*data_tensor);
-  }
+  context->viewContext.AddShallowCopyMapEntry(dst_id, hl_t);
 }
 
 void HbLazyTensor::StepMarkerBind(const std::string& device_str) {

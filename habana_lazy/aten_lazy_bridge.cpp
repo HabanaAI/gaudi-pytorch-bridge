@@ -97,6 +97,13 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
   auto id = hl_t.getTensorUniqueId();
+
+  auto hl_temp = context->viewContext.GetShallowCopyMapEntry(id);
+  if (hl_temp != c10::nullopt) {
+    hl_t = hl_temp.value();
+    id = hl_t.getTensorUniqueId();
+  }
+
   if (get_updated) {
     std::lock_guard<std::recursive_mutex> view_table_lock(
         context->viewContext.GetViewTableMutex());
@@ -104,12 +111,13 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
         context->viewContext.GetOrigTensorMapEntry(id);
     if (base_tensor != c10::nullopt) {
       impl = GetHbLazyTensorImpl(base_tensor.value());
+      hl_t = impl->tensor();
     }
   }
-  auto hl_t_updated = impl->tensor();
+
   // if producer is collective, mark step
   if (handle_collective) {
-    const auto ir_value = hl_t_updated.CurrentIrValue();
+    const auto ir_value = hl_t.CurrentIrValue();
     if (ir_value && ir_value.mp_node) {
       const auto& ir_op = ir_value.mp_node->op();
       PT_LAZY_DEBUG(
@@ -121,7 +129,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     }
   }
 
-  return hl_t_updated;
+  return hl_t;
 }
 
 HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor) {

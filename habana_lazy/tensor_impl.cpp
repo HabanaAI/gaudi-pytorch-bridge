@@ -12,6 +12,7 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <torch/csrc/api/include/torch/version.h>
+#include "aten_lazy_bridge.h"
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -71,12 +72,17 @@ void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
     const c10::VariableVersion& version_counter,
     bool allow_tensor_metadata_change) const {
-  auto impl = c10::make_intrusive<HbLazyTensorImpl>(m_tensor);
+  auto aten_t = AtenFromHbLazyTensor(
+      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  auto impl = c10::make_intrusive<HbLazyTensorImpl>(
+      HbLazyTensor::Create(aten_t, aten_t.device()));
+
   copy_tensor_metadata(
       /*src_impl=*/this,
       /*dest_impl=*/impl.get(),
       /*version_counter=*/version_counter,
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
+  this->m_tensor.ShallowCopyTo(&impl->m_tensor);
   impl.get()->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
@@ -86,12 +92,17 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
     c10::VariableVersion&& version_counter,
     bool allow_tensor_metadata_change) const {
-  auto impl = c10::make_intrusive<HbLazyTensorImpl>(m_tensor);
+  auto aten_t = AtenFromHbLazyTensor(
+      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  auto impl = c10::make_intrusive<HbLazyTensorImpl>(
+      HbLazyTensor::Create(aten_t, aten_t.device()));
+
   copy_tensor_metadata(
       /*src_impl=*/this,
       /*dest_impl=*/impl.get(),
       /*version_counter=*/std::move(version_counter),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
+  this->m_tensor.ShallowCopyTo(&impl->m_tensor);
   impl.get()->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();

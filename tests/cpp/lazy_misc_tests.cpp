@@ -85,26 +85,28 @@ TEST_F(LazyMiscTest, SliceInsertTest) {
 }
 
 TEST_F(LazyMiscTest, SliceInsertIRTest) {
-  torch::Tensor tensor_in1 = torch::randn({2, 10}).to(torch::kHPU);
-  tensor_in1 = tensor_in1.slice(1, 1, 9, 3);
-  tensor_in1 = tensor_in1.add_(1);
-  auto tensor_in2 = tensor_in1.relu();
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT)) {
+    torch::Tensor tensor_in1 = torch::randn({2, 10}).to(torch::kHPU);
+    tensor_in1 = tensor_in1.slice(1, 1, 9, 3);
+    tensor_in1 = tensor_in1.add_(1);
+    auto tensor_in2 = tensor_in1.relu();
 
-  auto hl_result = GetHbLazyTensor(tensor_in2);
-  std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
+    auto hl_result = GetHbLazyTensor(tensor_in2);
+    std::vector<HbLazyTensor> tensors = {hl_result};
+    std::vector<int> indices = {0};
 
-  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-  std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
+    auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+    std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
 
-  auto stack = torch::jit::Stack(
-      std::make_move_iterator(input_list.begin()),
-      std::make_move_iterator(input_list.end()));
+    auto stack = torch::jit::Stack(
+        std::make_move_iterator(input_list.begin()),
+        std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->GetOrCreate(po_data, stack);
+    exec::HlExec* hlexec = new exec::HlExec();
+    hlexec->GetOrCreate(po_data, stack);
 
-  torch::jit::testing::FileCheck()
-      .check_count("hpu::slice_insert", 1, true)
-      ->run(*hlexec->get_graph());
+    torch::jit::testing::FileCheck()
+        .check_count("hpu::slice_insert", 1, true)
+        ->run(*hlexec->get_graph());
+  }
 }
