@@ -1578,8 +1578,8 @@ void DynamicBucketInfoMap::clear() {
   map_.clear();
 }
 
-void DynamicBucketInfoMap::save_ds_checkpoint(std::string path) {
-  std::ofstream ds_checkpoint(path, std::ofstream::binary);
+void DynamicBucketInfoMap::save_ds_checkpoint(std::string checkpoint_path) {
+  std::ofstream ds_checkpoint(checkpoint_path, std::ofstream::binary);
   if (!ds_checkpoint.is_open()) {
     HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
     return;
@@ -1589,11 +1589,18 @@ void DynamicBucketInfoMap::save_ds_checkpoint(std::string path) {
   DynamicBucketInfoMap::get_instance().Serialize(os);
   ds_checkpoint << os.rdbuf();
   ds_checkpoint.close();
+
+  const bool is_ds_cache_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
+  if (is_ds_cache_enabled) {
+    std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    RecipeCacheLRU::get_cache().Serialize(cache_path);
+  }
 }
 
-void DynamicBucketInfoMap::load_ds_checkpoint(std::string path) {
+void DynamicBucketInfoMap::load_ds_checkpoint(std::string checkpoint_path) {
   std::stringstream is;
-  std::ifstream ds_checkpoint(path, std::ifstream::binary);
+  std::ifstream ds_checkpoint(checkpoint_path, std::ifstream::binary);
   if (!ds_checkpoint) {
     HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
     return;
@@ -1601,6 +1608,13 @@ void DynamicBucketInfoMap::load_ds_checkpoint(std::string path) {
   is << ds_checkpoint.rdbuf();
   ds_checkpoint.close();
   DynamicBucketInfoMap::get_instance().Deserialize(is);
+
+  const bool is_ds_cache_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
+  if (is_ds_cache_enabled) {
+    std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    RecipeCacheLRU::get_cache().Deserialize(cache_path);
+  }
 }
 
 void DynamicBucketInfoMap::Serialize(std::ostream& os) const {
@@ -1642,6 +1656,22 @@ size_t RecipeCacheLRU::Size() const {
     size += recipeValueSpec->Size();
   }
   return size;
+}
+
+void RecipeCacheLRU::Serialize(std::string recipe_cache_path) {
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+
+  for (const auto& ele : list_) {
+    auto val = disk_cache_->Find(*(ele.first));
+    if (val == nullptr) {
+      disk_cache_->Add(*(ele.second), *(ele.first));
+    }
+  }
+}
+
+void RecipeCacheLRU::Deserialize(std::string recipe_cache_path) {
+  SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, false, 1);
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 size_t RecipeCacheLRU::SynapseRecipeSize() const {

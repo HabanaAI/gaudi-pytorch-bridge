@@ -344,7 +344,8 @@ void CompilationStatistics::GetDigest(
     size_t graph_key,
     size_t bucket_id,
     uint64_t token,
-    size_t recipe_key) {
+    size_t recipe_key,
+    bool cache_hit) {
   std::string recipe_trace_path = GET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
   if (recipe_trace_path == "") {
     return;
@@ -358,10 +359,12 @@ void CompilationStatistics::GetDigest(
            << "token"
            << ","
            << "recipe_key"
+           << ","
+           << "cache_hit"
            << "\n";
     }
     csv_ << graph_key << "," << bucket_id << "," << token << "," << recipe_key
-         << "\n";
+         << "," << cache_hit << "\n";
   }
 }
 

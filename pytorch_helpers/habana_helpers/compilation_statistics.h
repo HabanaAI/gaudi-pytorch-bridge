@@ -210,7 +210,8 @@ class CompilationStatistics {
       size_t graph_key,
       size_t bucket_id,
       uint64_t token,
-      size_t recipe_key);
+      size_t recipe_key,
+      bool cache_hit);
 
   void Serialize(std::ostream& os) const;
   CompilationStatistics(std::istream& is);

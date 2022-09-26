@@ -2366,11 +2366,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // Used only for compilation statistics purpose now
   current_dbipsh_->SetLastUsedStepForBucket(
       current_bucket_id_, current_dbipsh_->get_statistics()->GetCurrentStep());
-  current_dbipsh_->get_statistics()->GetDigest(
-      cur_rargpsh->graphHashCode(),
-      current_bucket_id_,
-      cur_ds_token_,
-      cur_rargpsh->hashCode());
 
   // Check for cached recipe
   if (enable_caching_) {
@@ -2505,6 +2500,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         habana_helpers::DynamicBucketInfo::update_improvement_map(
             cur_rargpsh->hashCode(), (t_ns < t_ns_base));
       }
+      current_dbipsh_->get_statistics()->GetDigest(
+          cur_rargpsh->graphHashCode(),
+          current_bucket_id_,
+          cur_ds_token_,
+          cur_rargpsh->hashCode(),
+          true);
 
       current_dbipsh_->get_statistics()->DumpAndNextStep();
       ClearMembers();
@@ -2521,6 +2522,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   CompileAndRunDynamicGraph(graph_input_info);
   habana_helpers::DynamicBucketInfo::inc_original_recipe_count();
+  current_dbipsh_->get_statistics()->GetDigest(
+      cur_rargpsh->graphHashCode(),
+      current_bucket_id_,
+      cur_ds_token_,
+      cur_rargpsh->hashCode(),
+      false);
 
   current_dbipsh_->get_statistics()->DumpAndNextStep();
   PT_BRIDGE_END;

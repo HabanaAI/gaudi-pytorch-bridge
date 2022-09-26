@@ -511,6 +511,8 @@ class RecipeCacheLRU {
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
+  void Serialize(std::string recipe_cache_path);
+  void Deserialize(std::string recipe_cache_path);
 
   static void SetHostMemoryThreshold(
       uint32_t host_memory_threshold = default_host_memory_threshold);
@@ -580,8 +582,8 @@ class DynamicBucketInfoMap {
   static void DumpHistoryMemoryStat();
   void clear();
 
-  static void load_ds_checkpoint(std::string path = "ds_checkpoint.pt");
-  static void save_ds_checkpoint(std::string path = "ds_checkpoint.pt");
+  static void load_ds_checkpoint(std::string checkpoint_path);
+  static void save_ds_checkpoint(std::string checkpoint_path);
   void Serialize(std::ostream& os) const;
   void Deserialize(std::istream& is);
 

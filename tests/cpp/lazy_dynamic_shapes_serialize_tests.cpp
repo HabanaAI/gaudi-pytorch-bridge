@@ -67,9 +67,9 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
   for (int i = 0; i < channel_sizes.size() - 2; i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
-  habana::DynamicBucketInfoMap::save_ds_checkpoint();
+  habana::DynamicBucketInfoMap::save_ds_checkpoint("ds_checkpoint.pt");
   habana::ClearDynamicBucketRecipeInfo();
-  habana::DynamicBucketInfoMap::load_ds_checkpoint();
+  habana::DynamicBucketInfoMap::load_ds_checkpoint("ds_checkpoint.pt");
 
   for (int i = 2; i < channel_sizes.size(); i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
