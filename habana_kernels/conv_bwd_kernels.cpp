@@ -956,7 +956,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     auto populateDedxOp =
         [&](std::shared_ptr<habana::HabanaOperator>& ConvInputDiffOp) mutable {
           if (output_mask_in[0]) {
-            // node_type = "dedx";
             if (is_conv_3d) {
               ConvInputDiffOp =
                   make_operator<Conv3dInputDifferentiationOperator>(
@@ -1003,7 +1002,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                 graph,
                 output_metadata.at(0).persistent,
                 output_metadata.at(0).external,
-                c10::nullopt));
+                grad_input_nhwc.scalar_type()));
             p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
           }
 
@@ -1021,7 +1020,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                 graph,
                 output_metadata.at(1).persistent,
                 output_metadata.at(1).external,
-                c10::nullopt));
+                grad_weight.scalar_type()));
             p_context_->pt_outputs_.emplace_back(grad_weight);
           }
         };
@@ -1029,7 +1028,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     std::shared_ptr<habana::HabanaOperator> ConvWeightDiffOp;
     std::shared_ptr<habana::HabanaOperator> ConvInputDiffOp;
     populateDedwOp(ConvWeightDiffOp);
-
     populateDedxOp(ConvInputDiffOp);
 
     // Although we have "dedw" node first in the graph followed by "dedx",

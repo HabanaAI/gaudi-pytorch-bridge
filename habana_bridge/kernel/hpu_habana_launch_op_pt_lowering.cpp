@@ -169,7 +169,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       HABANA_ASSERT(persistent_to_tensor_id.count(info.tensorId));
       auto tensor_id = persistent_to_tensor_id[info.tensorId];
       if (info.tensorType == TENSOR_TYPE_INVALID) {
-        PT_BRIDGE_WARN(
+        PT_BRIDGE_DEBUG(
             "Synapse returned a TENSOR_TYPE_INVALID when querying the persistent tensors for permutations, in tensor: ",
             tensor_id,
             " . It means that the synapse tensor is not in the recipe, probably not attached to a node");
