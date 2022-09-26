@@ -13,9 +13,9 @@
 namespace habana {
 
 void HpuFallbackHelper::enumerate_fallback() {
-  std::string fallback_list{GET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU)};
+  const char* fallback_list = std::getenv("PT_HPU_PLACE_ON_CPU");
 
-  if (!fallback_list.empty()) {
+  if (fallback_list) {
     std::stringstream ss(fallback_list);
     while (ss.good()) {
       std::string substr;

@@ -141,12 +141,14 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   tensor_dump_numel_ = -2;
 
-  if (!is_optimized_lazy_eager &&
-      IS_ENV_FLAG_DEFINED_NEW(HABANA_PGM_DUMP_TENSOR_NUMEL)) {
-    tensor_dump_numel_ = GET_ENV_FLAG_NEW(HABANA_PGM_DUMP_TENSOR_NUMEL);
-
-    std::string wfile_name{GET_ENV_FLAG_NEW(HABANA_PGM_WATCHLIST_FILE)};
-    if (watchlist_.empty() && !wfile_name.empty()) {
+  char* snumel = nullptr;
+  if (!is_optimized_lazy_eager) {
+    snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
+  }
+  if (snumel != nullptr) {
+    tensor_dump_numel_ = atoi(snumel);
+    char* wfile_name = getenv("HABANA_PGM_WATCHLIST_FILE");
+    if (watchlist_.empty() && wfile_name) {
       std::ifstream wfile(wfile_name);
       TORCH_CHECK(
           wfile.is_open(), "Unable to open watchlist file ", wfile_name);

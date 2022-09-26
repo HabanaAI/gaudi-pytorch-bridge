@@ -137,6 +137,16 @@ void flushWithMarkStep() {
 
   // By default, we want to trigger 50% of the time
   auto aggressiveness = 50;
+  if (const auto envp =
+          std::getenv("INTERNAL_PT_HPU_LAZY_MARK_STEP_TEST_TRIGGER")) {
+    aggressiveness = std::stoul(envp, nullptr, 10);
+    // Cap the trigger to at least 1% to at most 100%
+    if (aggressiveness < 1) {
+      aggressiveness = 0;
+    } else if (aggressiveness > 100) {
+      aggressiveness = 100;
+    }
+  }
   if (rand_num < aggressiveness) {
     PT_LAZY_DEBUG("Triggering a mark_step");
     HbLazyTensor::StepMarker({});
