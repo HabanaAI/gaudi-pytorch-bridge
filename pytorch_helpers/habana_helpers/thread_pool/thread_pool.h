@@ -42,6 +42,7 @@ class ThreadPool {
   ~ThreadPool();
   bool m_stop;
   std::atomic<bool> has_work{false};
+  std::atomic<bool> has_queued_items{false};
 
  private:
   std::vector<std::thread> m_workers;

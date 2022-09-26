@@ -883,7 +883,12 @@ void PostLaunch(
 
   SBSDebug::getInstance().CompareTensors(*tensors);
 
-  retained_tensor_list.clear();
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+    PT_LAZY_DEBUG("retained_tensor_list : ", retained_tensor_list);
+    // TODO: To clear at the right place: retained_tensor_list.clear()
+  } else {
+    retained_tensor_list.clear();
+  }
 
   // Restore the optimizations which are cleared forcefully in getlivetensors
   exec::OptPassCfg::GetInstance()->RestoreOptPass();
@@ -894,6 +899,7 @@ void LaunchSyncTensorsGraph(
     std::vector<int> indices,
     exec::HlExec hlexec,
     torch::jit::Stack stack,
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
     std::vector<at::Tensor> retained_tensor_list,
     bool async,
     std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
@@ -921,6 +927,10 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetEventHandle(event_handle);
     optimized_path_jit_ir_and_mdata->SetEventRecordStream(event_stream);
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+      auto& input_values = lazyFrontEndInfo->get_input_values();
+      stack = PrepareInputStack(tensors, indices, input_values, true);
+    }
 
     try {
       habanaLoweringOp.run(stack);
@@ -1060,9 +1070,12 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       // Setting output shapes for the lazy eager shape agnostic graph
       optimized_path_jit_ir_and_mdata->set_output_shapes(out_shapes);
     }
-    context->JoinPendingLaunchThread();
-    std::vector<ir::Value>& input_values = lazyFrontEndInfo->get_input_values();
-    stack = PrepareInputStack(tensors, indices, input_values, true);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+      context->JoinPendingLaunchThread();
+      std::vector<ir::Value>& input_values =
+          lazyFrontEndInfo->get_input_values();
+      stack = PrepareInputStack(tensors, indices, input_values, true);
+    }
   } else {
     po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
     stack = PrepareInputStack(
@@ -1148,6 +1161,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
               std::vector<int>(indices),
               exec::HlExec(hlexec),
               torch::jit::Stack(stack),
+              lazyFrontEndInfo,
               context->m_retained_tensor_list,
               async,
               optimized_path_jit_ir_and_mdata,
@@ -1166,6 +1180,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           std::vector<int>(indices),
           exec::HlExec(hlexec),
           torch::jit::Stack(stack),
+          lazyFrontEndInfo,
           context->m_retained_tensor_list,
           async,
           optimized_path_jit_ir_and_mdata,
@@ -1183,6 +1198,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         std::vector<int>(indices),
         exec::HlExec(hlexec),
         torch::jit::Stack(stack),
+        lazyFrontEndInfo,
         context->m_retained_tensor_list,
         async,
         optimized_path_jit_ir_and_mdata,

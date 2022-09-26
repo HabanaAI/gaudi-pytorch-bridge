@@ -62,6 +62,11 @@ void HbExecutionContext::JoinPendingLaunchThread() {
         if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
             (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
           SingleTonExecThreadPool::work();
+        } else if (
+            !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+          SingleTonExecThreadPool::queueStatus();
+          m_launch_thread_handle.get();
         } else {
           m_launch_thread_handle.get();
         }

@@ -56,6 +56,15 @@ class SingleTonExecThreadPool {
     return;
   }
 
+  static void queueStatus() {
+    while (getInstance().has_queued_items.load()) {
+      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
  private:
   SingleTonExecThreadPool() = default;
   SingleTonExecThreadPool(const SingleTonExecThreadPool&) = delete;

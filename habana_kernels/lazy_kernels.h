@@ -948,6 +948,7 @@ class LazyOp {
       std::vector<at::Tensor>& input_pt_vec,
       ir::MetaData& metadata,
       bool is_optimized_lazy_eager) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
       if (m_metadata_indices.count(i)) {
@@ -990,6 +991,9 @@ class LazyOp {
             auto it = find(values.begin(), values.end(), val);
             if (it == values.end()) {
               values.emplace_back(val);
+            }
+            if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+              context->m_retained_tensor_list.emplace_back(t);
             }
           }
         } else {
@@ -1036,6 +1040,9 @@ class LazyOp {
               if (it == values.end()) {
                 values.emplace_back(val);
               }
+            }
+            if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+              context->m_retained_tensor_list.emplace_back(t);
             }
           }
         }
