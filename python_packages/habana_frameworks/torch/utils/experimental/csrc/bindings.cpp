@@ -53,6 +53,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value("synDeviceGaudi", synDeviceGaudi)
       .value("synDeviceGaudiM", synDeviceGaudiM)
       .value("synDeviceGaudi2", synDeviceGaudi2)
+      .value("synDeviceGreco", synDeviceGreco)
       .export_values();
 
   m.doc() =

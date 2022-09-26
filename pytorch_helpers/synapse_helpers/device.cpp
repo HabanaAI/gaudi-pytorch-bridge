@@ -601,6 +601,9 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
     case synDeviceGaudi2:
       stream << " Gaudi2 ";
       break;
+    case synDeviceGreco:
+      stream << " Greco ";
+      break;
     default:
       stream << " UNKNOWN ";
   }
@@ -1163,7 +1166,8 @@ std::set<synDeviceType> device::get_supported_devices() {
   return {
       synDeviceType::synDeviceGaudi,
       synDeviceType::synDeviceGaudiM,
-      synDeviceType::synDeviceGaudi2};
+      synDeviceType::synDeviceGaudi2,
+      synDeviceType::synDeviceGreco};
 }
 
 void device::synchronize() {

@@ -37,6 +37,19 @@ def isGaudi(device):
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
+def isGreco(device):
+    return device == htexp.synDeviceType.synDeviceGreco
+
+def deviceStr(device):
+    if isGaudi(device):
+        return "gaudi"
+    elif isGaudi2(device):
+        return "gaudi2"
+    elif isGreco(device):
+        return "greco"
+    else:
+        raise ValueError("Unsupported device")
+
 class SSDDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         import habana_dataloader.habana_dl_app
@@ -107,6 +120,8 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         DeviceType = htexp._get_device_type()
         if isGaudi2(DeviceType):
             media_device_type = "gaudi2"
+        elif isGreco(DeviceType):
+            media_device_type = "greco"
         else:
             raise ValueError("Unsupported device")
 
@@ -207,7 +222,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 self.aeon_fallback_activated = os.getenv('PT_HPU_MEDIA_PIPE').lower() in ('false', '0', 'f')
 
             # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
+            if (not self.aeon_fallback_activated) and (isGaudi2(self.DeviceType) or isGreco(self.DeviceType)):
                 try:
                     from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
 
@@ -237,7 +252,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                                                                         )
                 print("Running with Habana aeon DataLoader")
 
-            elif isGaudi2(self.DeviceType):
+            elif isGaudi2(self.DeviceType) or isGreco(self.DeviceType):
 
                 self._media_dl_handle_vars(keyword_args)
                 root = self.dataset.root
@@ -246,7 +261,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 instance_id=_get_rank()
                 pipeline = HPUMediaPipe(a_torch_transforms=torch_transforms, a_root=root, a_batch_size=self.batch_size,
                                         a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device="gaudi2")
+                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device=deviceStr(self.DeviceType))
 
                 from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
@@ -267,6 +282,8 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
             return len(self.aeon)
         elif isGaudi2(self.DeviceType):
             return len(self.iterator)
+        elif isGreco(self.DeviceType):
+            return len(self.iterator)
         else:
             assert False, "Invalid device type"
 
@@ -276,6 +293,8 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return iter(self.aeon)
         elif isGaudi2(self.DeviceType):
+            return iter(self.iterator)
+        elif isGreco(self.DeviceType):
             return iter(self.iterator)
         else:
             assert False, "Invalid device type"
@@ -415,7 +434,7 @@ class HabanaDataLoader:
                     media_multi = os.getenv('PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD').lower() in ('true', '1', 't')
 
             # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
+            if (not self.aeon_fallback_activated) and (isGaudi2(self.DeviceType) or isGreco(self.DeviceType)):
                 num_instances = _get_world_size()
                 if _is_hpumediapipe_available() == False:
                     print("Fallback to aeon dataloader")
@@ -427,6 +446,8 @@ class HabanaDataLoader:
             if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
                 dataloader_type = SSDDataLoader
             elif isGaudi2(self.DeviceType):
+                dataloader_type = SSDMediaDataLoader
+            elif isGreco(self.DeviceType):
                 dataloader_type = SSDMediaDataLoader
 
         try:
