@@ -1361,6 +1361,10 @@ run_pytorch_qa_tests()
     topology_ci)
         #set the default habanaqa path; the path is set in the code
         ;;
+    subgraph)
+        _not_set_testpath=1
+        __pytorch_qa_test_path+="/../torch_feature_val/subgraph/"
+        ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
         usage $__scriptname
@@ -1392,6 +1396,8 @@ run_pytorch_qa_tests()
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"gc_eager_single_op.xml"" --mode gc_eager)
         #run pytorch single_op tests with suite_type = ops
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
+    elif [ "$__pytest_marks" == "-m=dsd_subgraph" ] && [ "$__suite_type" == "subgraph" ]; then
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"dynamic_subgraph.xml" " --mode lazy --dynamic)
 
     else
        if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "all" ]; then
