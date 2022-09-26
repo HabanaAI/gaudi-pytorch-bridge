@@ -60,7 +60,8 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
 }
 
 TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
-  setenv("HABANA_TRANSFORM_GRAPH_FILE", "pattern.json", 1);
+  const char* fpath = "/tmp/pattern.json";
+  setenv("HABANA_TRANSFORM_GRAPH_FILE", fpath, 1);
 
   // write to .json file patterens
   std::string patterns =
@@ -81,8 +82,9 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       " }\n"
       "}\n";
 
+  std::string marker_begin = "{\n";
+
   std::string patterns0 =
-      "{\n"
       " \"MmReluPattern0\" :\n"
       " {\n"
       "   \"Pattern\" : [\n"
@@ -96,11 +98,9 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "                   \" %r = aten::matmul[alpha=0](%a, %b)\",\n"
       "                   \" return (%r)\"\n"
       "                 ]\n"
-      " }\n"
-      "}\n";
+      "},\n";
 
   std::string patterns1 =
-      "{\n"
       " \"MmReluPattern1\" :\n"
       " {\n"
       "   \"Pattern\" : [\n"
@@ -114,15 +114,18 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "                   \" %r = aten::matmul[alpha=1](%a, %b)\",\n"
       "                   \" return (%r)\"\n"
       "                 ]\n"
-      " }\n"
       "}\n";
 
-  std::ofstream out("pattern.json");
+  std::string marker_end = "\n}";
+
+  std::ofstream out(fpath, std::ofstream::out);
   if (!(GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE))) {
     out << patterns;
   }
+  out << marker_begin;
   out << patterns0;
   out << patterns1;
+  out << marker_end;
   out.close();
 
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
@@ -146,13 +149,20 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 
   hlexec->GetOrCreate(po_data, stack);
 
-  torch::jit::testing::FileCheck()
-      .check_not("= aten::mm")
-      ->check_not("= aten::relu")
-      ->check_count("= aten::matmul", 1)
-      ->run(*hlexec->get_graph());
+  if ((GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE))) {
+    torch::jit::testing::FileCheck()
+        .check_not("= aten::mm")
+        ->check_not("= aten::relu")
+        ->run(*hlexec->get_graph());
+  } else {
+    torch::jit::testing::FileCheck()
+        .check_not("= aten::mm")
+        ->check_not("= aten::relu")
+        ->check_count("= aten::matmul", 1)
+        ->run(*hlexec->get_graph());
+  }
   unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
-  remove("pattern.json");
+  remove(fpath);
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
