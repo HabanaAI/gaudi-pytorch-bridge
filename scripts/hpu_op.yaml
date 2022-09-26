@@ -1454,41 +1454,62 @@ channel_shuffle:
 
 clamp:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_frontend: LazyClamp
   out_ids: [0]
 
 clamp.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
   out_ids: [0]
 
 clamp_:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_frontend: LazyClamp
   inplace_ids: [0]
 
 clamp_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
   inplace_ids: [0]
 
 clamp.out:
   custom_fill_params: FillClampParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
 
 clamp.Tensor_out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
 
 clamp_max:
   force_default: false
   custom_fill_params: FillClampMaxParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   out_ids: [0]
   type_promotion: true
@@ -1496,7 +1517,10 @@ clamp_max:
 
 clamp_max.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   out_ids: [0]
   type_promotion: true
@@ -1505,7 +1529,10 @@ clamp_max.Tensor:
 clamp_max_:
   force_default: false
   custom_fill_params: FillClampMaxParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   inplace_ids: [0]
   type_promotion: true
@@ -1513,7 +1540,10 @@ clamp_max_:
 
 clamp_max_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   inplace_ids: [0]
   type_promotion: true
@@ -1521,13 +1551,19 @@ clamp_max_.Tensor:
 
 clamp_max.out:
   custom_fill_params: FillClampMaxParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   type_promotion: true
   safe_cast_check: true
 
 clamp_max.Tensor_out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   type_promotion: true
   safe_cast_check: true
@@ -1535,7 +1571,10 @@ clamp_max.Tensor_out:
 clamp_min:
   force_default: false
   custom_fill_params: FillClampMinParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   out_ids: [0]
   type_promotion: true
@@ -1543,7 +1582,10 @@ clamp_min:
 
 clamp_min.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   out_ids: [0]
   type_promotion: true
@@ -1552,7 +1594,10 @@ clamp_min.Tensor:
 clamp_min_:
   force_default: false
   custom_fill_params: FillClampMinParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   inplace_ids: [0]
   type_promotion: true
@@ -1560,7 +1605,10 @@ clamp_min_:
 
 clamp_min_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   inplace_ids: [0]
   type_promotion: true
@@ -1568,13 +1616,19 @@ clamp_min_.Tensor:
 
 clamp_min.out:
   custom_fill_params: FillClampMinParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   type_promotion: true
   safe_cast_check: true
 
 clamp_min.Tensor_out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   type_promotion: true
   safe_cast_check: true
