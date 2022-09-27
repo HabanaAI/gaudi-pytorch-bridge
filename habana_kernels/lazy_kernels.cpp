@@ -7174,10 +7174,9 @@ at::Tensor& broadcast_hpu_lazy_(
     int64_t root_rank,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::broadcast_", {tensor, root_rank, comm_id}, {1, 2}, {}, 0);
-  return k.call(tensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(broadcast_, k, tensor)
 }
 
 at::Tensor& allreduce_hpu_lazy_(
@@ -7185,10 +7184,9 @@ at::Tensor& allreduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::allreduce_", {tensor, reduce_op, comm_id}, {1, 2}, {}, 0);
-  return k.call(tensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allreduce_, k, tensor)
 }
 
 at::Tensor& reduce_hpu_lazy_(
@@ -7197,14 +7195,13 @@ at::Tensor& reduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::reduce_",
       {tensor, dst_rank, reduce_op, comm_id},
       {1, 2, 3},
       {},
       0);
-  return k.call(tensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(reduce_, k, tensor)
 }
 
 at::Tensor& alltoall_hpu_lazy_out(
@@ -7212,10 +7209,9 @@ at::Tensor& alltoall_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::alltoall_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
-  return k.call(outputTensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(alltoall_out, k, outputTensor)
 }
 
 at::Tensor& allgather_hpu_lazy_out(
@@ -7223,10 +7219,9 @@ at::Tensor& allgather_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::allgather_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
-  return k.call(outputTensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allgather_out, k, outputTensor)
 }
 
 at::Tensor& reduce_scatter_hpu_lazy_out(
@@ -7235,14 +7230,13 @@ at::Tensor& reduce_scatter_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::reduce_scatter_out",
       {inputTensor, reduce_op, comm_id, outputTensor},
       {1, 2},
       {},
       3);
-  return k.call(outputTensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(reduce_scatter_out, k, outputTensor)
 }
 
 at::Tensor& send_hpu_lazy_(
@@ -7251,10 +7245,9 @@ at::Tensor& send_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::send_", {tensor, dst_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
-  return k.call(tensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(send_, k, tensor)
 }
 
 at::Tensor& recv_hpu_lazy_(
@@ -7266,7 +7259,7 @@ at::Tensor& recv_hpu_lazy_(
   habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::recv_", {tensor, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
-  return k.call(tensor);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
 }
 
 Tensor linear_non2d_hpu_lazy(
