@@ -606,8 +606,8 @@ class DynamicBucketInfoMap {
   static void DumpHistoryMemoryStat();
   void clear();
 
-  static void load_ds_checkpoint(std::string checkpoint_path);
-  static void save_ds_checkpoint(std::string checkpoint_path);
+  static void load_ds_checkpoint(const char* path);
+  static void save_ds_checkpoint(const char* path);
   void Serialize(std::ostream& os) const;
   void Deserialize(std::istream& is);
 

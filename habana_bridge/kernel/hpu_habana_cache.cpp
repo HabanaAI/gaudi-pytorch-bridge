@@ -1800,8 +1800,9 @@ void DynamicBucketInfoMap::clear() {
   map_.clear();
 }
 
-void DynamicBucketInfoMap::save_ds_checkpoint(std::string checkpoint_path) {
-  std::ofstream ds_checkpoint(checkpoint_path, std::ofstream::binary);
+void DynamicBucketInfoMap::save_ds_checkpoint(const char* checkpoint_path) {
+  std::ofstream ds_checkpoint(
+      std::string(checkpoint_path), std::ofstream::binary);
   if (!ds_checkpoint.is_open()) {
     HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
     return;
@@ -1820,9 +1821,10 @@ void DynamicBucketInfoMap::save_ds_checkpoint(std::string checkpoint_path) {
   }
 }
 
-void DynamicBucketInfoMap::load_ds_checkpoint(std::string checkpoint_path) {
+void DynamicBucketInfoMap::load_ds_checkpoint(const char* checkpoint_path) {
   std::stringstream is;
-  std::ifstream ds_checkpoint(checkpoint_path, std::ifstream::binary);
+  std::ifstream ds_checkpoint(
+      std::string(checkpoint_path), std::ifstream::binary);
   if (!ds_checkpoint) {
     HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
     return;

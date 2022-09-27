@@ -132,10 +132,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana::RecipeCacheLRU::DumpDynamicShapeMemoryStat();
   });
   m.def("load_ds_checkpoint", [](std::string path) {
-    habana::DynamicBucketInfoMap::load_ds_checkpoint(path);
+    habana::DynamicBucketInfoMap::load_ds_checkpoint(path.c_str());
   });
   m.def("save_ds_checkpoint", [](std::string path) {
-    habana::DynamicBucketInfoMap::save_ds_checkpoint(path);
+    habana::DynamicBucketInfoMap::save_ds_checkpoint(path.c_str());
   });
   m.def("is_enabled_synapse_layout_handling", []() {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
