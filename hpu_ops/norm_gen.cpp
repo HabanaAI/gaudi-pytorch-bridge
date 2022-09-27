@@ -211,30 +211,12 @@ static synapse_helpers::tensor NegPosInfNormPreprocess(
   return std::move(abs.at(0));
 }
 
-static synapse_helpers::tensor NormCommon(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    synTensor input_tensor,
+void VecNormCheck(
+    const torch::Tensor& self,
     const at::ScalarType& dtype,
-    const torch::Tensor self,
-    std::vector<int64_t> dim,
-    const bool keepdim,
     at::Scalar ord,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr) {
+    const std::vector<int64_t>& dim) {
   auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
-  auto norm_ord = ord.toFloat();
-  auto self_shape = self.sizes().vec();
-  struct vec_norm_inputs {
-    std::string guid;
-    std::function<synapse_helpers::tensor(
-        OpBackend*,
-        synapse_helpers::graph&,
-        std::vector<synTensor>,
-        const at::IntArrayRef,
-        const at::ScalarType&)>
-        pre_fn{};
-  };
-
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       dtype == torch::kBFloat16 || dtype == torch::kFloat,
       "linalg.vector_norm: Expected input dtype to be Float or kBFloat16, but got ",
@@ -262,8 +244,46 @@ static synapse_helpers::tensor NormCommon(
           "dimension because the operation does not have an identity");
     }
   }
+}
+
+void NormCheck(const at::ScalarType& dtype) {
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+      dtype == torch::kBFloat16 || dtype == torch::kFloat,
+      "norm: Expected input dtype to be Float or kBFloat16, but got ",
+      dtype);
+}
+
+static synapse_helpers::tensor NormCommon(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor input_tensor,
+    const at::ScalarType& dtype,
+    const torch::Tensor& self,
+    std::vector<int64_t> dim,
+    const bool keepdim,
+    at::Scalar ord,
+    std::vector<NodeAttr::NodeOutputAttr> output_attr,
+    const bool is_vec_norm) {
+  auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
+  auto norm_ord = ord.toFloat();
+  auto self_shape = self.sizes().vec();
+  struct vec_norm_inputs {
+    std::string guid;
+    std::function<synapse_helpers::tensor(
+        OpBackend*,
+        synapse_helpers::graph&,
+        std::vector<synTensor>,
+        const at::IntArrayRef,
+        const at::ScalarType&)>
+        pre_fn{};
+  };
+  if (is_vec_norm)
+    VecNormCheck(self, dtype, ord, dim);
+  else
+    NormCheck(dtype);
+
   if (self.numel() == 0) {
-    at::Scalar s = p < 0 ? INF : 0;
+    at::Scalar s = (p < 0) && is_vec_norm ? INF : 0;
     return OpBackend::BuildConstant(op, graph, s, dtype, 1, 0);
   }
 
@@ -330,7 +350,77 @@ void VecNormOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim,
       keepdim,
       ord,
-      {{output_shape, dtype, 0}});
+      {{output_shape, dtype, 0}},
+      true /* vec_norm */);
+  syn_out(0) = std::move(result);
+}
+
+void NormOpWithDtype::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto optional_ord = stack.at(1).toOptional<at::Scalar>();
+  std::vector<int64_t> dim = stack.at(2).toIntVector();
+  const at::Scalar ord = optional_ord.value_or(2);
+  const at::ScalarType& dtype = stack.at(4).toScalarType();
+  const bool keepdim = stack.at(3).toBool();
+  auto output_shape = NormOpOutputShape(stack)[0];
+
+  auto result = NormCommon(
+      this,
+      graph,
+      syn_in(0),
+      dtype,
+      self,
+      dim,
+      keepdim,
+      ord,
+      {{output_shape, dtype, 0}},
+      false /* norm */);
+  syn_out(0) = std::move(result);
+}
+
+void NormOpWithOutDtype::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto optional_ord = stack.at(1).toOptional<at::Scalar>();
+  std::vector<int64_t> dim = stack.at(2).toIntList().vec();
+  const at::Scalar ord = optional_ord.value_or(2);
+  const bool keepdim = stack.at(3).toBool();
+  auto output_shape = NormOpOutputShape(stack)[0];
+
+  auto result = NormCommon(
+      this,
+      graph,
+      syn_in(0),
+      ScalarType(),
+      self,
+      dim,
+      keepdim,
+      ord,
+      {{output_shape, ScalarType(), 0}},
+      false /* norm */);
+  syn_out(0) = std::move(result);
+}
+
+void NormOpScalar::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto ord = stack.at(1).toScalar();
+
+  auto result = NormCommon(
+      this,
+      graph,
+      syn_in(0),
+      ScalarType(),
+      self,
+      {},
+      false,
+      ord,
+      {{1, ScalarType(), 0}},
+      false /* norm */);
   syn_out(0) = std::move(result);
 }
 } // namespace habana

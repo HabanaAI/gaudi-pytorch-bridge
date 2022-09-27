@@ -1088,49 +1088,6 @@ void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for LP Norm (Frobenius norm) kernel
-          output = torch.norm(self, p=2)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] output - output tensor, 1-4D, FP32/BF16
- * @param [in] p - optional input, default = 2
- ************************************************************************/
-Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  NormOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(p)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  SET_SIZE_STRIDE_0D(out.at(0));
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1968,9 +1925,6 @@ static auto& KernelRegistry =
         .add(
             "aten::native_layer_norm_backward",
             KERNEL_FN(LayerNormBackwardOperator))
-        .add("aten::norm.Scalar", KERNEL_FN(NormOperator))
-        .add("aten::norm.ScalarOpt_dim", KERNEL_FN(NormOperator))
-        .add("aten::norm.ScalarOpt_dim_dtype", KERNEL_FN(NormOperator))
         .add("hpu::instance_norm", KERNEL_FN(InstanceNormOperator))
         .add(
             "hpu::instance_norm_backward",
