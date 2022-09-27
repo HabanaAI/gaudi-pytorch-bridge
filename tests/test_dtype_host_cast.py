@@ -59,6 +59,13 @@ def test_double_to_float_expect_pass():
     print(in_tensor)
     hpu_tensor = in_tensor.to(hpu)
 
+def test_inf_nan_double_to_float_expect_pass():
+    in_tensor=torch.DoubleTensor([float('inf'), -float('inf'), float('nan')])
+    print("in cpu : ",in_tensor)
+    hpu_tensor = in_tensor.to(hpu)
+    print("in hpu : ",hpu_tensor)
+    print(torch.eq(in_tensor,hpu_tensor))
+
 if __name__ == "__main__":
     test_long_to_int_expect_fail_positive()
     test_long_to_int_expect_fail_negative()
@@ -66,4 +73,4 @@ if __name__ == "__main__":
     test_double_to_float_expect_fail_positive()
     test_double_to_float_expect_fail_negative()
     test_double_to_float_expect_pass()
-
+    test_inf_nan_double_to_float_expect_pass()

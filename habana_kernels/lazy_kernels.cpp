@@ -189,12 +189,54 @@ template <typename SRC_DTYPE, typename DST_DTYPE>
 inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK)) {
     if (IsDefined(src) && src.numel() > 0) {
-      auto src_max_val = src.detach().max().item().to<SRC_DTYPE>();
-      auto src_min_val = src.detach().min().item().to<SRC_DTYPE>();
       auto max_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::max();
       auto min_int_val = (SRC_DTYPE)std::numeric_limits<DST_DTYPE>::lowest();
+      auto src_detached = src.detach();
+      auto src_max_val = src_detached.max().item().to<SRC_DTYPE>();
+      auto src_min_val = src_detached.min().item().to<SRC_DTYPE>();
+      bool condition = src_max_val <= max_int_val && src_min_val >= min_int_val;
+      if constexpr (std::is_floating_point_v<SRC_DTYPE>) {
+        if (!condition) {
+          // When condition is not met lets try again without Nans and Infs
+          // We can't eliminate them before first check as it causes performance
+          // drop.
+          //
+          // Different approach was tried here
+          // Performance results for double tensor with 1.000.000 elements
+          // Averaged over 10 consecutive measurements
+          //
+          // CASE 1: No Nans and Infs special handling:
+          // t = 810 us
+          //
+          // CASE 2: nan_to_num(c10::nullopt, max_int_val, min_int_val);
+          // t = 2190 us (x2.7 with respect to CASE 1)
+          //
+          // CASE 3: In place nan_to_num_(c10::nullopt, max_int_val,
+          // min_int_val);
+          // t = 1050 us (x1.3 with respect to CASE 1)
+          // It can't be used as it changes src tensor contents
+          //
+          // CASE 4: torch::where(torch::isfinite(src_detached), src_detached,
+          // 0);
+          // t = 4480 us (x5.5 with respect to CASE 1)
+          //
+          // CASE 5: manual min/max calculation in for loop
+          // with nan/inf replacement, using data_ptr and numel
+          // t = 2170 us for src.data_ptr()
+          // t = 3200 us for src.detach().data_ptr()
+          //
+          // INF's have to be replaced by destination type extreme values not
+          // source type. Source type extreme values can be out of range for
+          // destination type and cause unwanted error.
+          src_detached =
+              src_detached.nan_to_num(c10::nullopt, max_int_val, min_int_val);
+          src_max_val = src_detached.max().item().to<SRC_DTYPE>();
+          src_min_val = src_detached.min().item().to<SRC_DTYPE>();
+          condition = src_max_val <= max_int_val && src_min_val >= min_int_val;
+        }
+      }
       TORCH_CHECK(
-          src_max_val <= max_int_val && src_min_val >= min_int_val,
+          condition,
           "Error when trying to cast ",
           src.scalar_type(),
           " to ",
