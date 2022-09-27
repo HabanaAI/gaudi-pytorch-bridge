@@ -360,6 +360,7 @@ void strided_insert_hpu_lazy(
   // pick the most recent version
   Tensor recent_orig_t =
       HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
+  auto recent_insert_t = HbLazyTensorViews::get_recent_base_tensor(insert_t);
   // Incase of slice operator on multi axes, it comes as different
   // slice operation on differnt axes, we combine them into single slice
   // operation.
@@ -379,12 +380,13 @@ void strided_insert_hpu_lazy(
       use_strided_insert) {
     out = add_strided_insert_node(
         recent_orig_t,
-        insert_t,
+        recent_insert_t,
         params_ptr->strides,
         params_ptr->offset,
         is_flush);
   } else {
-    out = add_slice_insert_node(recent_orig_t, insert_t, back_to_back_slices);
+    out = add_slice_insert_node(
+        recent_orig_t, recent_insert_t, back_to_back_slices);
   }
   // update orig tensor map
   auto param_id = GetHbLazyTensor(params_ptr->base).getTensorUniqueId();
