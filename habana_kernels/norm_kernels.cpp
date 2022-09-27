@@ -278,7 +278,7 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
     AT_ERROR(ss.str());
   }
 
-  const int axis = input_ndim - normalized_ndim;
+  const int64_t axis = input_ndim - normalized_ndim;
   int64_t m =
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   int64_t n =
@@ -347,12 +347,15 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
-  synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
-  syn_outputs.push_back(syn_out_ln_mean.get());
-  synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
-  syn_outputs.push_back(syn_out_ln_istd.get());
+  if (synapse_helpers::HPURegistrar::get_device().type() !=
+      synDeviceType::synDeviceGreco) {
+    synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
+    syn_outputs.push_back(syn_out_ln_mean.get());
+    synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
+    syn_outputs.push_back(syn_out_ln_istd.get());
+  }
 
-  struct ns_LayerNormKernel::Params params;
+  ns_LayerNormKernel::Params params{};
   params.eps = static_cast<float>(eps);
   params.epsValid = true;
 
@@ -415,7 +418,7 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
     AT_ERROR(ss.str());
   }
 
-  const int axis = input_ndim - normalized_ndim;
+  const int64_t axis = input_ndim - normalized_ndim;
   int64_t m =
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
 
@@ -446,12 +449,15 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
-  synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
-  syn_outputs.push_back(syn_out_ln_mean.get());
-  synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
-  syn_outputs.push_back(syn_out_ln_istd.get());
+  if (synapse_helpers::HPURegistrar::get_device().type() !=
+      synDeviceType::synDeviceGreco) {
+    synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
+    syn_outputs.push_back(syn_out_ln_mean.get());
+    synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
+    syn_outputs.push_back(syn_out_ln_istd.get());
+  }
 
-  struct ns_LayerNormKernel::ParamsNorm params;
+  ns_LayerNormKernel::ParamsNorm params{};
   params.eps = static_cast<float>(eps);
   params.epsValid = true;
   params.NormAxisBmp =

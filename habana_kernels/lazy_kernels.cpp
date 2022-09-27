@@ -4188,10 +4188,10 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
               {6, 7},
               {},
               -1),
-          dY{std::move(dY)},
-          normalized_shape{std::move(normalized_shape)},
-          weight_opt{std::move(weight_opt)},
-          grad_input_mask{std::move(grad_input_mask)} {}
+          dY{dY},
+          normalized_shape{normalized_shape},
+          weight_opt{weight_opt},
+          grad_input_mask{grad_input_mask} {}
 
    private:
     T get_result_overrideable() override {
