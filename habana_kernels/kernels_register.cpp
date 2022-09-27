@@ -142,21 +142,27 @@ Tensor linear_(
   return linear_non2d_hpu_lazy(input, weight, bias_opt);
 }
 
-Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_OP_TRACE;
   PT_OP_INFO(
       "copy_ :",
       " self=",
       to_string(self),
       " src=",
-      to_string(src),
+      to_string(src_),
       " non_blocking=",
       to_string(non_blocking));
+  Tensor src = src_;
   if (src.device().type() == c10::DeviceType::HPU &&
       self.device().type() == c10::DeviceType::HPU) {
     if (src.scalar_type() == c10::ScalarType::Float &&
         self.scalar_type() == c10::ScalarType::Byte) {
       FALLBACK_IF_UNSUPPORTED_OP2(copy_, PARAMS2(self, src, non_blocking))
+    }
+    // WA: There is no direct bf16 to bool(i8) cast available in gaudi.
+    if (src.scalar_type() == c10::ScalarType::BFloat16 &&
+        self.scalar_type() == c10::ScalarType::Bool) {
+      src = src_.to(c10::ScalarType::Float);
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
