@@ -932,7 +932,8 @@ Tensor HbLazyTensorViews::add_expand_lazy(
 bool is_view_output(
     HbLazyTensor hl_t,
     bool is_allreduce,
-    std::set<int64_t> bucket_recent_id) {
+    std::set<int64_t> bucket_recent_id,
+    size_t& view_out_size) {
   bool is_out = false;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
@@ -961,6 +962,7 @@ bool is_view_output(
             if ((bucket_recent_id.count(recent_base_id)) &&
                 (recalc_stride == params_ptr->strides)) {
               is_out = true;
+              view_out_size += c10::multiply_integers(params_ptr->sizes);
             }
           }
         }
@@ -1001,6 +1003,12 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
     bool is_allreduce,
     std::set<int64_t>& bucket_recent_id) {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  size_t view_out_sizes = 0;
+  size_t bucket_sizes = 0;
+
+  // view outputs will be added only if the total grad view outputs match the
+  // bucket size.
+  std::vector<HbLazyTensor> maybe_view_outputs;
 
   for (auto& uid_wptr : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
@@ -1008,26 +1016,51 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
       auto hl_t = HbLazyTensor(std::move(data));
       auto id = hl_t.getTensorUniqueId();
 
+      if (is_allreduce) {
+        if (bucket_recent_id.count(id)) {
+          bucket_sizes += c10::multiply_integers(hl_t.GetSizes());
+        }
+      }
+
       // exclude the views
       auto ir_value = hl_t.CurrentIrValue();
       auto params_ptr = context->viewContext.GetViewTableEntry(id);
       auto is_view = params_ptr != nullptr;
       if (is_view) {
-        auto is_view_out = is_view_output(hl_t, is_allreduce, bucket_recent_id);
+        auto is_view_out = is_view_output(
+            hl_t, is_allreduce, bucket_recent_id, view_out_sizes);
         if (is_view_out) {
-          // add_strided
-          add_strided_view_output_node(hl_t, id, params_ptr, context);
+          // collect potential view out candidates
+          maybe_view_outputs.emplace_back(hl_t);
         } else {
           context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);
+          // clear the writecnt
+          params_ptr->write_cnt = 0;
         }
-
-        // clear the writecnt
-        params_ptr->write_cnt = 0;
       }
       if (context->viewContext.GetOrigTensorMapEntry(id) != c10::nullopt) {
         context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);
       }
     } // (data != nullptr)
+  }
+
+  bool is_view_out = false;
+  if (bucket_sizes && bucket_sizes == view_out_sizes) {
+    is_view_out = true;
+  }
+
+  for (auto hl_t : maybe_view_outputs) {
+    auto id = hl_t.getTensorUniqueId();
+    auto params_ptr = context->viewContext.GetViewTableEntry(id);
+
+    if (is_view_out) {
+      add_strided_view_output_node(hl_t, id, params_ptr, context);
+    } else {
+      context->viewContext.hb_tensors_exclude_out_view.emplace_back(hl_t);
+    }
+
+    // clear the writecnt
+    params_ptr->write_cnt = 0;
   }
 
   if (!context->viewContext.view_outputs.size()) {
