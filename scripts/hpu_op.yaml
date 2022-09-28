@@ -1769,6 +1769,7 @@ embedding_dense_backward:
     Greco:
       grad_output: [BFloat16, Float]
       indices: [Int]
+  fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
   override_fn: embedding_dense_backward_hpu_lazy
 
 equal:

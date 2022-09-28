@@ -91,10 +91,6 @@ class OpAttributeCheck {
         {"elu",
          {{3, {c10::IValue(1), c10::IValue(1.0)}},
           {4, {c10::IValue(1), c10::IValue(1.0)}}}},
-        // Checking for embedding fwd operator for argument 4 which is
-        // scale_grad_by_freq
-        // and for argument 5 which checks if its a sparse embedding
-        {"embedding", {{4, {c10::IValue(false)}}, {5, {c10::IValue(false)}}}},
         // checking sparse_grad = false
         {"gather", {{4, {c10::IValue(false)}}}},
         // checking for half_to_float = false
