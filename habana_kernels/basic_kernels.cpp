@@ -836,7 +836,38 @@ OutputShapeInfRetType SliceInsertOperator::ComputeOutputShape(
   return out;
 }
 
-void SliceInsertOperator::ModifySliceParams(
+void SliceInsertOperator::ReuseMemoryAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+    const habana::OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() >= 4, "Incorrect number of arguments for slice insert op");
+  // orig, insert, offset, graph_input
+  auto graph_input = inputs.back().toTensor();
+  auto self = inputs[0].toTensor();
+  TORCH_CHECK(graph_input.sizes() == self.sizes(), "incorrect graph input");
+  bool have_shape_tensor = inputs[2].isTensor();
+  if (have_shape_tensor) {
+    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
+  }
+
+  auto paramsList = inputs[2].toIntList();
+  synSliceParamsNDims params;
+  ComputeParams(params, self, paramsList, graph);
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          syn_t_vec[0], graph, output_metadata.at(0).external));
+  p_context_->pt_outputs_.emplace_back(graph_input);
+
+  if (have_shape_tensor) {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
+}
+
+void SliceInsertOperator::FixSliceParams(
     at::Tensor self,
     int64_t& dim,
     int64_t& start,
@@ -874,6 +905,43 @@ void SliceInsertOperator::ModifySliceParams(
   }
 }
 
+void SliceInsertOperator::ComputeParams(
+    synSliceParamsNDims& params,
+    at::Tensor self,
+    c10::List<int64_t> paramsList,
+    const synapse_helpers::graph& graph) {
+  // set defaults
+  std::fill_n(params.axes, HABANA_DIM_MAX, 0);
+  std::fill_n(params.starts, HABANA_DIM_MAX, 0);
+  std::fill_n(params.ends, HABANA_DIM_MAX, 0);
+  std::fill_n(params.steps, HABANA_DIM_MAX, 1);
+
+  int num_slice_params = paramsList.size() / 4;
+  for (int i = 0; i < num_slice_params; i++) {
+    int64_t dim = paramsList[i * 4];
+    int64_t start = paramsList[i * 4 + 1];
+    int64_t end = paramsList[i * 4 + 2];
+    int64_t step = paramsList[i * 4 + 3];
+    FixSliceParams(self, dim, start, end, step);
+    params.axes[i] = self.dim() - dim - 1;
+    params.starts[i] = start;
+    params.ends[i] = end;
+    params.steps[i] = step;
+    bool needs_params_handling = false;
+    if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
+        end > self.sizes().vec()[dim]) {
+      needs_params_handling = true;
+    }
+    if (needs_params_handling) {
+      synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
+      auto tensor_id = syn_input_tensor.id();
+      std::vector<int64_t> min, max;
+      std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
+      params.ends[i] = static_cast<int>(max[dim]);
+    }
+  }
+}
+
 void SliceInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -906,36 +974,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     auto paramsList = inputs[2].toIntList();
 
     synSliceParamsNDims params;
-    // set defaults
-    std::fill_n(params.axes, HABANA_DIM_MAX, 0);
-    std::fill_n(params.starts, HABANA_DIM_MAX, 0);
-    std::fill_n(params.ends, HABANA_DIM_MAX, 0);
-    std::fill_n(params.steps, HABANA_DIM_MAX, 1);
-
-    int num_slice_params = paramsList.size() / 4;
-    for (int i = 0; i < num_slice_params; i++) {
-      int64_t dim = paramsList[i * 4];
-      int64_t start = paramsList[i * 4 + 1];
-      int64_t end = paramsList[i * 4 + 2];
-      int64_t step = paramsList[i * 4 + 3];
-      ModifySliceParams(self, dim, start, end, step);
-      params.axes[i] = self.dim() - dim - 1;
-      params.starts[i] = start;
-      params.ends[i] = end;
-      params.steps[i] = step;
-      bool needs_params_handling = false;
-      if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
-          end > self.sizes().vec()[dim]) {
-        needs_params_handling = true;
-      }
-      if (needs_params_handling) {
-        synapse_helpers::tensor& syn_input_tensor = p_context_->syn_inputs_[0];
-        auto tensor_id = syn_input_tensor.id();
-        std::vector<int64_t> min, max;
-        std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-        params.ends[i] = static_cast<int>(max[dim]);
-      }
-    }
+    ComputeParams(params, self, paramsList, graph);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }

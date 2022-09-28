@@ -1801,10 +1801,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // applicable for both persistent strided view and strided insert tensors
     if (((outputs_metadata.size() == 1) && (!is_shape_inference) &&
          (outputs_metadata.at(0).persistent == true)) &&
-        ((std::string(opname).find("strided_insert") != std::string::npos) ||
+        ((opname.find("strided_insert") != std::string::npos) ||
+         (opname.find("slice_insert") != std::string::npos) ||
          (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW) &&
-          (std::string(opname).find("strided_view_out") !=
-           std::string::npos)))) {
+          (opname.find("strided_view_out") != std::string::npos)))) {
       ProcessStridedInsertAtOutput(
           node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {
@@ -3608,10 +3608,11 @@ void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
 
     std::string node_str(node_qual_str);
 
-    // perform memory reuse if the chain has either strided inserts or inplace
-    // ops add control edges between consumers of inplace/ctrl edge nodes and
-    // the last strided insert
-    if (node_str.find("strided_insert") == std::string::npos) {
+    // perform memory reuse if the chain has either strided/slice inserts or
+    // inplace ops add control edges between consumers of inplace/ctrl edge
+    // nodes and the last strided insert
+    if (node_str.find("strided_insert") == std::string::npos &&
+        node_str.find("slice_insert") == std::string::npos) {
       if (nodeRequiresControlEdge(input_node) ==
           ControlEdgeType::kCONTROL_EDGE_NONE) {
         break;

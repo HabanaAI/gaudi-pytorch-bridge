@@ -173,15 +173,27 @@ class SliceInsertOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
 
-  void ModifySliceParams(
+  void FixSliceParams(
       at::Tensor self,
       int64_t& dim,
       int64_t& start,
       int64_t& end,
       int64_t& step);
 
+  void ComputeParams(
+      synSliceParamsNDims& params,
+      at::Tensor self,
+      c10::List<int64_t> paramsList,
+      const synapse_helpers::graph& graph);
+
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
+
+  void ReuseMemoryAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 class StridedInsertOperator : public habana::HabanaOperator {
