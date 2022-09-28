@@ -10,6 +10,7 @@
 #include "generated/gelu.h"
 #include "generated/gelu_backward.h"
 #include "hpu_op_helper.h"
+#include "op_backend.h"
 
 namespace habana {
 
@@ -19,6 +20,16 @@ std::vector<synapse_helpers::tensor> GeluCommonFunc(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     c10::optional<int> final_result_index = c10::nullopt) {
+  if (synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco) {
+    return OpBackend::BuildNode(
+        op,
+        graph,
+        {"gelu_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+         std::move(input),
+         {{outshape, op->ScalarType(), final_result_index}}});
+  }
+
   return OpBackend::BuildNode(
       op,
       graph,
