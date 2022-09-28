@@ -1008,6 +1008,8 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
         if rtype == "void":
             if cptype == "TensorList" or cptype == "Tensor":
                 call_args.append(pname)
+        elif rtype == "const at::Tensor &" and cptype == "Tensor":
+             call_args.append(pname)
 
         if fc and pname in fc[1:]:
             param_types = re.findall(r"([^(,)]+)(?!.*\()", funsig)

@@ -761,9 +761,9 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   HandleLazy(
+      const at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    const at::Tensor& self = get_inputs().at(0).toTensor();
     auto hl_self = GetHbLazyTensor(self);
     const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
@@ -787,13 +787,13 @@ class LazyOp {
     context->MarkTensorStatus(
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     runSBS(self);
-    flush_op(self, info_to_lazy_backend);
+    flush_op(self, std::move(info_to_lazy_backend));
     return self;
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
-  call() {
+  call(const at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace :: ", m_symbol.toQualString());
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
@@ -810,7 +810,7 @@ class LazyOp {
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
-    return HandleLazy(infoToBackEnd);
+    return HandleLazy(self, infoToBackEnd);
   }
 
   template <typename T = ReturnType>
