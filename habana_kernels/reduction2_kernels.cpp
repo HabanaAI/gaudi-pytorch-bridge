@@ -42,14 +42,19 @@ void Reduce2Operator::AllocateAndAddSynapseNode(
   params.reductionDimension = self.dim() - dim - 1;
   auto output = habana_helpers::createPTTensor(
       self, out_shape, self.options(), output_metadata.at(0).persistent);
-  auto index = habana_helpers::createPTTensor(
-      self,
-      out_shape,
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      output_metadata.at(1).persistent);
-  AllocateSynapseOutputs(graph, {output, index}, output_metadata);
+  if (synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco) {
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  } else {
+    auto index = habana_helpers::createPTTensor(
+        self,
+        out_shape,
+        self.options(),
+        self.suggest_memory_format(),
+        c10::ScalarType::Int,
+        output_metadata.at(1).persistent);
+    AllocateSynapseOutputs(graph, {output, index}, output_metadata);
+  }
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
