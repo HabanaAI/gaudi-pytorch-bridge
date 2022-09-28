@@ -485,89 +485,6 @@ struct HandleMover {
         handle_, HandlesMap::PtrSize(destination_pointer_, size_));
   }
 
-  void MoveData(device& dev) const {
-    if (!moveRequired()) {
-      return;
-    }
-
-    if (destination_pointer_ == nullptr) {
-      PT_DEVMEM_FATAL(
-          "destination_pointer_ not set. Moving data not possible.");
-    }
-    synEventHandle handle{};
-    auto status = synEventCreate(&handle, dev.id(), 0);
-    if (synStatus::synSuccess != status) {
-      PT_DEVMEM_FATAL("synEventCreate failed ", status);
-    }
-
-    uint64_t src_base_addr = reinterpret_cast<uint64_t>(source_pointer_);
-    uint64_t dst_base_addr = reinterpret_cast<uint64_t>(destination_pointer_);
-    uint64_t src_end_addr = src_base_addr + size_;
-    uint64_t dst_end_addr = dst_base_addr + size_;
-
-    if (!(dst_end_addr <= src_base_addr || src_end_addr <= dst_base_addr)) {
-      PT_DEVMEM_DEBUG(
-          "Address overlapping...",
-          "src_base_addr::",
-          src_base_addr,
-          " src_end_addr::",
-          src_end_addr,
-          " dst_base_addr::",
-          dst_base_addr,
-          " dst_end_addr::",
-          dst_end_addr);
-      size_t size_base = dst_end_addr - src_base_addr;
-
-      auto status = synMemCopyAsync(
-          dev.get_device_to_device_stream(),
-          src_base_addr,
-          size_base,
-          dst_base_addr,
-          synDmaDir::DRAM_TO_DRAM);
-      if (synStatus::synSuccess != status) {
-        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
-      }
-
-      size_t remaning_size = size_ - size_base;
-      src_base_addr = src_base_addr + size_base;
-      dst_base_addr = dst_base_addr + size_base;
-      status = synMemCopyAsync(
-          dev.get_device_to_device_stream(),
-          src_base_addr,
-          remaning_size,
-          dst_base_addr,
-          synDmaDir::DRAM_TO_DRAM);
-      if (synStatus::synSuccess != status) {
-        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
-      }
-
-    } else {
-      auto status = synMemCopyAsync(
-          dev.get_device_to_device_stream(),
-          reinterpret_cast<uint64_t>(source_pointer_),
-          size_,
-          reinterpret_cast<uint64_t>(destination_pointer_),
-          synDmaDir::DRAM_TO_DRAM);
-      if (synStatus::synSuccess != status) {
-        PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
-      }
-    }
-    status = synEventRecord(handle, dev.get_device_to_device_stream());
-    if (synStatus::synSuccess != status) {
-      PT_DEVMEM_FATAL("synEventRecord failed ", status);
-    }
-
-    status = synStreamWaitEvent(dev.get_device_to_device_stream(), handle, 0);
-    if (synStatus::synSuccess != status) {
-      PT_DEVMEM_FATAL("synStreamWaitEvent failed: ", status);
-    }
-
-    status = synEventDestroy(handle);
-    if (synStatus::synSuccess != status) {
-      PT_DEVMEM_FATAL("synEventDestroy failed: ", status);
-    }
-  }
-
   mem_handle::id_t handle_;
   void* source_pointer_;
   void* destination_pointer_;
@@ -575,6 +492,35 @@ struct HandleMover {
 };
 } // namespace defragment
 } // namespace
+
+void device_memory::MoveData(
+    device& dev,
+    std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address) {
+  std::vector<uint64_t> srcs(move_address.size());
+  std::vector<uint64_t> dsts(move_address.size());
+  std::vector<uint64_t> lens(move_address.size());
+  for (std::size_t i = 0; i < move_address.size(); ++i) {
+    srcs[i] = std::get<0>(move_address[i]);
+    dsts[i] = std::get<1>(move_address[i]);
+    lens[i] = std::get<2>(move_address[i]);
+  }
+
+  auto status = synMemCopyAsyncMultiple(
+      dev.get_device_to_device_stream(),
+      srcs.data(),
+      lens.data(),
+      dsts.data(),
+      synDmaDir::DRAM_TO_DRAM,
+      move_address.size());
+  if (synStatus::synSuccess != status) {
+    PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
+  }
+
+  auto& handle = device_.get_device_to_device_stream();
+  if (synStatus::synSuccess != synStreamSynchronize(handle)) {
+    PT_DEVMEM_FATAL("Waiting for Move complete failed");
+  }
+}
 
 bool device_memory::defragment_memory(
     size_t alignment,
@@ -673,6 +619,7 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_WARN("No defragemtantion was done");
   } else {
     PT_DEVMEM_DEBUG("Moving ", movers.size(), " resources");
+    std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address;
     for (auto& mover : movers)
       mover.Deallocate(*suballoc_);
 
@@ -693,14 +640,38 @@ bool device_memory::defragment_memory(
               "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
         }
       }
+      uint64_t src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
+      uint64_t dst_base_addr =
+          reinterpret_cast<uint64_t>(mover.GetDestination());
+      size_t size = mover.Size();
+      uint64_t src_end_addr = src_base_addr + size;
+      uint64_t dst_end_addr = dst_base_addr + size;
+      if (!(dst_end_addr <= src_base_addr || src_end_addr <= dst_base_addr)) {
+        PT_DEVMEM_DEBUG(
+            "Address overlapping...",
+            "src_base_addr::",
+            src_base_addr,
+            " src_end_addr::",
+            src_end_addr,
+            " dst_base_addr::",
+            dst_base_addr,
+            " dst_end_addr::",
+            dst_end_addr);
+        size_t size_base = dst_end_addr - src_base_addr;
+        move_address.push_back({src_base_addr, dst_base_addr, size_base});
+
+        size_t remaning_size = size - size_base;
+        src_base_addr = src_base_addr + size_base;
+        dst_base_addr = dst_base_addr + size_base;
+        move_address.push_back({src_base_addr, dst_base_addr, remaning_size});
+      } else {
+        move_address.push_back({src_base_addr, dst_base_addr, size});
+      }
+
       ++total_moved_resources;
       total_moved_memory += mover.Size();
-      mover.MoveData(device_);
     }
-    auto& handle = device_.get_device_to_device_stream();
-    if (synStatus::synSuccess != synStreamSynchronize(handle)) {
-      PT_DEVMEM_FATAL("Waiting for Move complete failed");
-    }
+    MoveData(device_, move_address);
     PT_DEVMEM_DEBUG(
         "Move of resources completed no of resources::", movers.size());
   }
@@ -857,7 +828,8 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     /* defragment memory now*/
     bool defragmentation_done = false;
     if (device_.IsMemorydefragmentationEnabled()) {
-      PT_DEVMEM_WARN("Memory allocation failed. Attempt to defragment memory.");
+      PT_DEVMEM_DEBUG(
+          "Memory allocation failed. Attempt to defragment memory.");
       defragmentation_done = defragment_memory(DEFAULT_ALIGNMENT, size, false);
     }
     if (defragmentation_done) {

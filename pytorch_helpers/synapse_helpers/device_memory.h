@@ -81,6 +81,9 @@ class device_memory {
       size_t alignment,
       size_t allocation_size,
       bool workspace_grow);
+  void MoveData(
+      device& dev,
+      std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address);
   std::shared_ptr<synapse_helpers::synchronous_counter>
       threads_in_defragmenter_critical_section_ =
           std::make_shared<synapse_helpers::synchronous_counter>();

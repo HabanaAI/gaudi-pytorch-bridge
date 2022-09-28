@@ -136,7 +136,10 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
           GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB)};
       hccl_allowance_bytes = 1048576 * HCCL_MEMORY_ALLOWANCE_MB;
     }
-    size = (0.99 * free_mem) - hccl_allowance_bytes;
+
+    auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC);
+    uint32_t mem_acquire_perc = (val > 100) ? 100 : val;
+    size = ((mem_acquire_perc / 100.0) * free_mem) - hccl_allowance_bytes;
 
     PT_DEVMEM_DEBUG(
         "CS_POOL:: use 99% of freepool size, free mem :: ",
@@ -635,19 +638,29 @@ void* CoalescedStringentPooling::pool_alloc_chunk(
     uint64_t size,
     UNUSED bool is_workspace) const {
   std::unique_lock<std::mutex> lock(sp_mutex);
+  // for perf mode, the retry_on_failure has to disabled.
+  bool retry_on_failure = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_ENABLE_RETRY);
   void* ptr = alloc_chunk(size);
-  if (ptr != nullptr) {
-    return ptr;
-  } else {
-    lock.unlock();
-    static const int64_t kMaxMillisToWait =
-        GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_RETRY_WAIT_MS);
-    ptr = retry_handler.pool_alloc_chunk(
-        [this](size_t size) { return alloc_chunk(size); },
-        kMaxMillisToWait,
-        size);
-    return ptr;
+
+  if (retry_on_failure) {
+    if (ptr != nullptr) {
+      return ptr;
+    } else {
+      lock.unlock();
+      // If return value is nullptr, then wait up to 'max_millis_to_wait'
+      // milliseconds, retrying each time a call to DeleteChunk() is detected,
+      // until either a good pointer is returned or the deadline is exhausted.
+      // for perf mode this needs to be disabled.
+      static const int64_t kMaxMillisToWait =
+          GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_RETRY_WAIT_MS);
+      ptr = retry_handler.pool_alloc_chunk(
+          [this](size_t size) { return alloc_chunk(size); },
+          kMaxMillisToWait,
+          size);
+      return ptr;
+    }
   }
+  return ptr;
 }
 
 void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
@@ -699,6 +712,11 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
     stats.UpdateStats(old_chunk->size, true);
+    PT_DEVMEM_DEBUG(
+        "CS_POOL:: alloc_chunk chunk::",
+        old_chunk->memptr,
+        " Size::",
+        old_chunk->size);
     return (void*)old_chunk->memptr;
   }
 
