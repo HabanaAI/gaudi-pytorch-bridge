@@ -42,7 +42,7 @@ std::shared_ptr<void> FillExponentialParams(
       lambd >= 0.0,
       "exponential_ expects lambda >= 0.0, but found lambda=",
       lambd);
-  params->beta = 1.0 / lambd;
+  params->beta = 1.0f / lambd;
   return params;
 }
 
@@ -56,11 +56,15 @@ void ExponentialSeedTensorInput::AddNode(
   auto outshape = stack_tensor(stack, 0).sizes();
   size_t size = 0;
   auto params = FillExponentialParams(stack, size);
+
+  std::vector<synTensor> inputs = {syn_in(0)};
+  CreateShapeTensorInput(graph, ScalarType(), outshape, inputs);
+
   auto exponential = BuildOp(
       graph,
       "random_exponential_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0)},
+      inputs,
       {{outshape, ScalarType(), 0}},
       params.get(),
       size);

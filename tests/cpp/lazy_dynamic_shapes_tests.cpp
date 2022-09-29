@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <random>
 #include <stdexcept>
 
 #include <gtest/gtest.h>
@@ -2292,4 +2293,26 @@ TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
 
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(hout.cpu(), out, 0.001, 0.001), true);
+}
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#define EXP_FN torch::exponential_functional
+#else
+#define EXP_FN torch::exponential
+#endif
+
+TEST_F(LazyDynamicShapesTest, ExponentialDynTest) {
+  std::uniform_int_distribution<> dist(-127, 128);
+  std::mt19937 m_mt_;
+  double lambd = dist(m_mt_);
+  std::vector<int> sizes = {3, 9, 12, 20, 60, 80};
+  for (int i = 0; i < sizes.size(); i++) {
+    torch::Tensor t0 =
+        torch::randint(-127, 128, {3, sizes[i]}).to(torch::kFloat);
+    torch::Tensor t0_h = t0.to("hpu");
+    auto result0 = EXP_FN(t0_h, lambd);
+    auto result1 = EXP_FN(t0_h, lambd);
+
+    EXPECT_FALSE(torch::equal(result0.cpu(), result1.cpu()));
+  }
 }
