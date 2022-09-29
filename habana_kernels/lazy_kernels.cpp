@@ -95,7 +95,12 @@ bool is_inplace(at::Symbol symbol) {
   %6 : Float(*, requires_grad=0, device=hpu:0) = aten::fill_(%5, %1)
   */
 
-  if (strcmp(node_name, "aten::fill_")) {
+  // TODO think of better way to avoid these string comparisons for multiple ops
+  bool is_normal_inplace =
+      (strcmp(node_name, "aten::fill_") && strcmp(node_name, "hpu::uniform_") &&
+       strcmp(node_name, "hpu::bernoulli_"));
+
+  if (is_normal_inplace) {
     size_t len = strlen(node_name);
     char endch = node_name[len - 1];
 
