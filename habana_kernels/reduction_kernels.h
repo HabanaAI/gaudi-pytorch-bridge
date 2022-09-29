@@ -232,60 +232,6 @@ class SumSquareOperator : public SumOperator {
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-//
-// AnyDimOut Operator
-class AnyDimOutOperator : public HabanaOperator {
- public:
-  AnyDimOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-//
-// AnyDim Operator
-class AnyDimOperator : public HabanaOperator {
- public:
-  AnyDimOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-// Any Operator
-class AnyOperator : public HabanaOperator {
- public:
-  AnyOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 // _grad_sum_to_size Operator
 class GradSumToSizeOperator : public HabanaOperator {
  public:

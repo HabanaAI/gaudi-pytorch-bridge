@@ -4921,45 +4921,6 @@ Tensor prod_dim_hpu_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(prod, kernel)
 }
 
-Tensor& any_dim_out_hpu_lazy(
-    const Tensor& self,
-    int64_t dim,
-    bool keepdim,
-    Tensor& output) {
-  PT_LAZY_TRACE;
-
-  std::vector<int64_t> shape_out =
-      ReduceOperator::compute_output_shape(self, dim, keepdim);
-
-  LazyOp<Tensor&> k{"aten::any", {self, dim, keepdim, output}, {}, {shape_out}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(any_dim_out, k, output)
-}
-
-Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
-  PT_LAZY_TRACE;
-
-  struct Kernel : public LazyOp<at::Tensor> {
-    explicit Kernel(const Tensor& self, int64_t dim, bool keepdim)
-        : LazyOp<at::Tensor>("aten::any", {self, dim, keepdim}, {}, {}, -1),
-          self(self),
-          dim(dim),
-          keepdim(keepdim) {}
-    at::Tensor get_result_overrideable() override {
-      return empty_hpu_lazy(
-          ReduceOperator::compute_output_shape(self, dim, keepdim),
-          self.options().dtype(c10::ScalarType::Bool),
-          self.suggest_memory_format(),
-          false);
-    }
-    at::Tensor self;
-    int64_t dim;
-    bool keepdim;
-  };
-  Kernel kernel{self, dim, keepdim};
-  RUN_MAYBE_WITH_ACC_THREAD(any, kernel)
-}
-
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
     c10::optional<synTensorType> tensor_type,
