@@ -3569,16 +3569,17 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         last_compilation_pass);
     current_dbipsh_->get_statistics()->LogShapes(
         jit_ir_graph, graph_input_info.act_input_tshapes);
+    bool refine_candidate = false;
     if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
-      bool refine_candidate =
+      refine_candidate =
           (current_dbipsh_->GetMFUBucket() ==
            graph_input_info.current_bucket_id);
-      current_dbipsh_->get_statistics()->LogUsedBucket(
-          graph_input_info.current_bucket_id,
-          jit_ir_graph,
-          ranges,
-          refine_candidate);
     }
+    current_dbipsh_->get_statistics()->LogUsedBucket(
+        graph_input_info.current_bucket_id,
+        jit_ir_graph,
+        ranges,
+        refine_candidate);
     current_dbipsh_->get_statistics()->LogSelectedRecipe(
         current_dbipsh_->GetRecipeKeyForBucket(
             graph_input_info.current_bucket_id),
