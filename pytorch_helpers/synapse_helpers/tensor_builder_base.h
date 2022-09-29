@@ -218,6 +218,12 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& mark_const_section(const bool is_const_section = true) {
+    is_const_section_ = is_const_section;
+    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& mark_shape_tensor() {
     tensor_type_ = SHAPE_TENSOR;
     data_type_ = syn_type_uint32;
@@ -296,6 +302,7 @@ class tensor_builder_base {
         is_external_,
         memory_section_,
         is_const_,
+        is_const_section_,
         host_ptr_,
         host_ptr_size_,
         offset_,
@@ -329,6 +336,7 @@ class tensor_builder_base {
   bool is_persistent_{false};
   bool is_external_{false};
   bool is_const_{false};
+  bool is_const_section_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t host_ptr_size_{0};

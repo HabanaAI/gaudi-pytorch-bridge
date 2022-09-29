@@ -102,6 +102,7 @@ tensor::tensor(
     bool is_external,
     shared_memory_section section,
     bool is_const,
+    bool is_const_section,
     void* host_ptr,
     const uint64_t host_ptr_size,
     const uint64_t offset,
@@ -120,6 +121,7 @@ tensor::tensor(
       memory_section_{std::move(section)},
       graph_{graph},
       is_const_{is_const},
+      is_const_section_{is_const_section},
       host_ptr_{host_ptr},
       host_ptr_size_{host_ptr_size},
       offset_(offset),
@@ -139,6 +141,7 @@ tensor::tensor(
     bool is_external,
     shared_memory_section section,
     bool is_const,
+    bool is_const_section,
     void* host_ptr,
     const uint64_t host_ptr_size,
     const uint64_t offset,
@@ -157,6 +160,7 @@ tensor::tensor(
       memory_section_{std::move(section)},
       graph_{graph},
       is_const_{is_const},
+      is_const_section_{is_const_section},
       host_ptr_{host_ptr},
       host_ptr_size_{host_ptr_size},
       offset_(offset),
@@ -179,6 +183,7 @@ tensor::tensor(tensor&& other) noexcept
       memory_section_{std::move(other.memory_section_)},
       graph_{other.graph_},
       is_const_{other.is_const_},
+      is_const_section_{other.is_const_section_},
       host_ptr_{other.host_ptr_},
       host_ptr_size_{other.host_ptr_size_},
       offset_{other.offset_},
@@ -210,6 +215,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   memory_section_ = std::move(other.memory_section_);
   graph_ = other.graph_;
   is_const_ = other.is_const_;
+  is_const_section_ = other.is_const_section_;
   host_ptr_ = other.host_ptr_;
   host_ptr_size_ = other.host_ptr_size_;
   tensor_type_ = other.tensor_type_;
@@ -395,6 +401,15 @@ synapse_error_o tensor::create() {
     std::copy_n(
         shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
 
+    if (is_const_section_) {
+      auto err = synHostMalloc(device_id_, total_size_bytes_, 0, &host_ptr_);
+      HABANA_ASSERT(err != synOutOfHostMemory);
+      status = synTensorSetHostPtr(
+          tensor_, host_ptr_, total_size_bytes_, data_type_, false);
+      SYNAPSE_SUCCESS_CHECK_WITH_OP(
+          "synTensorSetHostPtr min sizes failed.", status, cleanup());
+    }
+
     minGeometry.dims = shape_.min().rank().value;
     memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
     status =
@@ -420,6 +435,16 @@ synapse_error_o tensor::create() {
           *this,
           " new mem section created with offset ",
           offset_);
+      if (is_const_section_) {
+        status = synSectionSetConst(*memory_section_, true);
+        SYNAPSE_SUCCESS_CHECK_WITH_OP(
+            "synSectionSetConst failed.", status, cleanup());
+        // to do:: currently fixing section group to 1, later need to be cleaned
+        status = synSectionSetGroup(*memory_section_, 1);
+        SYNAPSE_SUCCESS_CHECK_WITH_OP(
+            "synSectionSetGroup failed.", status, cleanup());
+      }
+
       status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "synTensorAssignToSection failed.", status, cleanup());
@@ -455,6 +480,10 @@ tensor::~tensor() {
 
 void tensor::cleanup() {
   if (tensor_) {
+    if (is_const_section_ && host_ptr_) {
+      synHostFree(device_id_, host_ptr_, 0);
+      host_ptr_ = nullptr;
+    }
     PT_SYNHELPER_DEBUG("cleaning ", *this);
     memory_section_ = nullptr;
     // No need to destroy tensors explicitly as those would be destroyed

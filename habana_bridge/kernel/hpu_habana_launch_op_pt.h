@@ -468,6 +468,8 @@ class HabanaLaunchOpPT {
 
   // No need to allocate for lazy eager shape agnostic cache hit scenario
   void CompileSynapseGraph(bool allocate_rval = true);
+  void PreCompilationStepForConstTensors();
+  void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
   void UpdateSynapsePermutations();
   void ConstructPatchingTable();

@@ -82,6 +82,10 @@ class memory_section {
     return memory_section_;
   }
 
+  synSectionHandle GetSectionHandle() {
+    return memory_section_;
+  }
+
  private:
   synSectionHandle memory_section_;
 };
@@ -371,6 +375,14 @@ class tensor final {
     pt_strides_ = pt_stride;
   }
 
+  void set_host_ptr(void* host_ptr) {
+    host_ptr_ = host_ptr;
+  }
+
+  uint64_t get_host_ptr() const {
+    return reinterpret_cast<uint64_t>(host_ptr_);
+  }
+
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
 
   std::string DebugString() const {
@@ -410,6 +422,7 @@ class tensor final {
       bool is_external = false,
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
+      bool is_const_section = false,
       void* host_ptr = nullptr,
       const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
@@ -429,6 +442,7 @@ class tensor final {
       bool is_external = false,
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
+      bool is_const_section = false,
       void* host_ptr = nullptr,
       const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
@@ -459,6 +473,7 @@ class tensor final {
   shared_memory_section memory_section_{nullptr};
   synGraphHandle graph_{nullptr};
   bool is_const_{false};
+  bool is_const_section_{false};
   void* host_ptr_{nullptr};
   uint64_t host_ptr_size_{0};
   const uint64_t offset_{0};

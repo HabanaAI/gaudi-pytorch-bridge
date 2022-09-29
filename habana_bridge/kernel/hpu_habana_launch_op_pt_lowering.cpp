@@ -301,6 +301,96 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   }
 }
 
+void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
+  for (auto iter = pt_to_synapse_tensors.begin();
+       iter != pt_to_synapse_tensors.end();
+       ++iter) {
+    auto& src = iter->first->toTensor();
+    PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
+    if (src.has_storage()) {
+      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(src);
+      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
+      for (synapse_helpers::tensor& tensor : *(iter->second)) {
+        if (hb_tensor->IsConstTensor()) {
+          PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
+          auto device_id = tensor.device_id();
+          auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+          std::atomic<bool> copyDone{false};
+          auto syn_error = device.copy_data_to_host(
+              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+              (void*)tensor.get_host_ptr(),
+              reinterpret_cast<synapse_helpers::device_ptr>(
+                  src.storage().data_ptr().get()),
+              src.nbytes(),
+              [&copyDone]() { copyDone = true; },
+              true);
+          TORCH_CHECK(syn_error.status == 0, syn_error.error);
+          // wait for copy completion
+          while (!copyDone) {
+            std::this_thread::yield();
+          }
+        }
+      }
+    }
+  }
+}
+
+void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
+    RecipeValueSpec& rv) {
+  for (auto iter = pt_to_synapse_tensors.begin();
+       iter != pt_to_synapse_tensors.end();
+       ++iter) {
+    auto& src = iter->first->toTensor();
+    PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
+    if (src.has_storage()) {
+      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(src);
+      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
+      for (synapse_helpers::tensor& tensor : *(iter->second)) {
+        if (hb_tensor->IsConstTensor()) {
+          PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
+          uint64_t section_size = 0, section_data = 0;
+          synStatus status;
+          status = synRecipeSectionGetProp(
+              rv.recipe->syn_recipe_handle_,
+              tensor.memorysection()->GetSectionHandle(),
+              SECTION_SIZE,
+              &section_size);
+          HABANA_ASSERT(status == synStatus::synSuccess);
+          PT_BRIDGE_DEBUG("section_size:: ", section_size);
+          status = synRecipeSectionGetProp(
+              rv.recipe->syn_recipe_handle_,
+              tensor.memorysection()->GetSectionHandle(),
+              SECTION_DATA,
+              &section_data);
+          HABANA_ASSERT(status == synStatus::synSuccess);
+          std::copy(
+              reinterpret_cast<uint8_t*>(section_data),
+              reinterpret_cast<uint8_t*>(section_data) + section_size,
+              (uint8_t*)tensor.get_host_ptr());
+          auto device_id = tensor.device_id();
+          auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+          auto& dst = iter->first->toTensor();
+          std::atomic<bool> copyDone{false};
+          auto syn_error = device.copy_data_to_device(
+              (void*)tensor.get_host_ptr(),
+              reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+              reinterpret_cast<synapse_helpers::device_ptr>(
+                  dst.storage().data_ptr().get()),
+              section_size,
+              [&copyDone]() { copyDone = true; },
+              false,
+              true);
+          TORCH_CHECK(syn_error.status == 0, syn_error.error);
+          // wait for copy completion
+          while (!copyDone) {
+            std::this_thread::yield();
+          }
+        }
+      }
+    }
+  }
+}
+
 void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
@@ -323,6 +413,10 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
       cur_rvalpsh->jit_graph_ = jit_ir_graph;
     }
     return;
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    HabanaLaunchOpPT::PreCompilationStepForConstTensors();
   }
 
   std::chrono::steady_clock::time_point t_start;
@@ -359,6 +453,10 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
       "[LAZY EAGER SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
       cur_rvalpsh->recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    HabanaLaunchOpPT::PostCompilationStepForConstTensors(rv);
+  }
 
   // Get workspace size of the compiled recipe
   auto&& ws_size_result{

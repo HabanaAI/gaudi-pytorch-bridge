@@ -110,6 +110,9 @@ SYN_API_PTR(synTensorSetGeometryExt);
 SYN_API_PTR(synTensorSetDeviceDataType);
 SYN_API_PTR(synTensorSetHostPtr);
 SYN_API_PTR(synTensorSetPermutation);
+SYN_API_PTR(synSectionSetConst);
+SYN_API_PTR(synSectionSetGroup);
+SYN_API_PTR(synRecipeSectionGetProp);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDestroyTensor);
@@ -179,6 +182,9 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
   SYN_API_INIT_PTR(synTensorSetPermutation);
+  SYN_API_INIT_PTR(synSectionSetConst);
+  SYN_API_INIT_PTR(synSectionSetGroup);
+  SYN_API_INIT_PTR(synRecipeSectionGetProp);
 }
 
 } // namespace lib_synapse
@@ -841,6 +847,45 @@ synStatus SYN_API_CALL synTensorAssignToSection(
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synTensorAssignToSection, tensor, section, byteOffset)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synSectionSetConst(synSectionHandle sectionHandle, bool sectionIsConst) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsConst));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSectionSetConst, sectionHandle, sectionIsConst)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synSectionSetGroup(synSectionHandle sectionHandle, uint64_t sectionGroup) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionGroup));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSectionSetGroup, sectionHandle, sectionGroup)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeSectionGetProp(
+    const synRecipeHandle pRecipeHandle,
+    const synSectionHandle sectionHandle,
+    const synSectionProp prop,
+    uint64_t* propertyPtr) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(pRecipeHandle), ARG(sectionHandle), ARG(prop), ARG(propertyPtr));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synRecipeSectionGetProp,
+      pRecipeHandle,
+      sectionHandle,
+      prop,
+      propertyPtr)
   API_LOG_RESULT();
   return status;
 }

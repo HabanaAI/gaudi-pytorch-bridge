@@ -80,6 +80,8 @@
   visitor(synSectionGetPersistent);            \
   visitor(synSectionSetPersistent);            \
   visitor(synSectionDestroy);                  \
+  visitor(synSectionSetConst);                 \
+  visitor(synRecipeSectionGetProp);            \
   visitor(synRecipeSerialize);                 \
   visitor(synRecipeDeSerialize);               \
   visitor(synRecipeGetAttribute);              \

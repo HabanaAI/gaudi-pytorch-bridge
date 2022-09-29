@@ -836,6 +836,13 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       dont_allow_permutation = hb_weight_impl->GetDontAllowPermutation();
     }
   }
+
+  bool const_section = false;
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
+    auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+    PT_BRIDGE_DEBUG("const tensor:  ", hb_tensor->IsConstTensor());
+    const_section = hb_tensor->IsConstTensor();
+  }
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
@@ -845,7 +852,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .mark_persistence(persistent)
           .mark_external(external)
           .with_permutation(permutation)
-          .with_dont_allow_permutation(dont_allow_permutation);
+          .with_dont_allow_permutation(dont_allow_permutation)
+          .mark_const_section(const_section);
   if (!name.empty()) {
     builder.use_suffix(name);
   }

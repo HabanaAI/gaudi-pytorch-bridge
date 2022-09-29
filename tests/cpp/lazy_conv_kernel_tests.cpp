@@ -544,3 +544,24 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+// Also validates ComputeOutputShape for Conv2d
+TEST_F(LazyConvKernelTest, ConvInferenceTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
+
+  auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
+  auto wt = torch::randn({5, 4, 3, 3}, torch::dtype(torch::kFloat)); // kchw
+  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+  auto h_in = in.to(torch::kHPU);
+  auto h_wt = wt.to(torch::kHPU);
+
+  torch::Tensor result =
+      torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE);
+}

@@ -155,6 +155,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     tensor_layout = layout;
   }
 
+  bool IsConstTensor() const {
+    return is_const_tensor_;
+  }
+
+  void SetConstTensor(bool is_const_tensor) {
+    is_const_tensor_ = is_const_tensor;
+  }
+
   synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
     return m_memory_permutation;
   }
@@ -220,6 +228,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
  private:
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
+  bool is_const_tensor_ = false;
 
   // Memory permutation represents how tensor layout is set in memory
   synapse_helpers::layouts::MemoryPermutation m_memory_permutation;

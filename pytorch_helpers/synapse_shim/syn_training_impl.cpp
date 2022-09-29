@@ -229,6 +229,20 @@ synStatus SYN_API_CALL synSectionDestroy(synSectionHandle sectionHandle) {
   return syn_api->synSectionDestroy(sectionHandle);
 }
 
+synStatus SYN_API_CALL
+synSectionSetConst(synSectionHandle sectionHandle, bool sectionIsConst) {
+  return syn_api->synSectionSetConst(sectionHandle, sectionIsConst);
+}
+
+synStatus SYN_API_CALL synRecipeSectionGetProp(
+    const synRecipeHandle pRecipeHandle,
+    const synSectionHandle sectionHandle,
+    const synSectionProp prop,
+    uint64_t* propertyPtr) {
+  return syn_api->synRecipeSectionGetProp(
+      pRecipeHandle, sectionHandle, prop, propertyPtr);
+}
+
 synStatus SYN_API_CALL synNodeCreate(
     const synGraphHandle graphHandle,
     const synTensor* pInputsTensorList,
