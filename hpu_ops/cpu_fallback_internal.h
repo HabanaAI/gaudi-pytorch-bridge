@@ -14,6 +14,7 @@
 // clang-format off
 #include <ATen/EmptyTensor.h>
 #include <ATen/core/TensorBody.h>
+#include <ATen/core/IListRef.h>
 #include <ATen/Operators.h>
 #include <ATen/autocast_mode.h>
 #include <ATen/native/CPUFallback.h>
@@ -201,6 +202,12 @@ at::ScalarType expected_result_dtype(
   return tarr[0].scalar_type();
 }
 
+template <class... ParameterTypes>
+at::ScalarType expected_result_dtype(
+    const c10::IListRef<at::Tensor>& tarr,
+    ParameterTypes...) {
+  return tarr.front().scalar_type();
+}
 /*
  * Wrapper that executes a fallback path when op cannot be executed as is.
  * Partial specializations follow patterns of BoxedKernelWrapper (see
