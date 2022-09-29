@@ -1494,33 +1494,51 @@ copysign.Tensor:
 
 cos:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco:  [BFloat16, Float, Half]
   guid: cos_fwd
   out_ids: [0]
 
 cos.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco:  [BFloat16, Float, Half]
   guid: cos_fwd
 
 cos_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco:  [BFloat16, Float, Half]
   guid: cos_fwd
   inplace_ids: [0]
 
 cosh:
   force_default: false
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float, Half]
+    Greco: [Float, Half]
   guid: cosh_fwd
   out_ids: [0]
 
 cosh.out:
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float, Half]
+    Greco: [Float, Half]
   guid: cosh_fwd
 
 cosh_:
   force_default: false
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float, Half]
+    Greco: [Float, Half]
   guid: cosh_fwd
   inplace_ids: [0]
 
@@ -1549,7 +1567,10 @@ cumprod_:
 cumsum:
   force_default: false
   custom_fill_params: FillCumsumParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   op_frontend: LazyCumsum
   op_backend: CumsumHabanaOperator
