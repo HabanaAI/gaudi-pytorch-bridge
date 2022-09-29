@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <iostream>
 #include "habana_lazy_test_infra.h"
 
 // In this class both the pass fallback and compilation fallback are disabled
@@ -38,6 +39,15 @@ class LazyDynamicShapesSerializtionTest : public habana_lazy_test::LazyTest {
   }
 };
 
+std::string read_csv_file(std::string path) {
+  std::string text = "", line;
+  std::ifstream file(path);
+  while (std::getline(file, line)) {
+    text += line + "\n";
+  }
+  return text;
+}
+
 void AddNonzeroOpsTest(std::vector<int64_t> input_shape) {
   torch::Tensor input1 = torch::randn(input_shape, torch::requires_grad(false));
   torch::Tensor input2 = torch::randn(input_shape, torch::requires_grad(false));
@@ -55,6 +65,7 @@ void AddNonzeroOpsTest(std::vector<int64_t> input_shape) {
 TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
   std::vector<int> channel_sizes{6, 8, 10, 4};
   SET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH, "recipe_trace.csv", 1);
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD, true, 1);
 
   for (int i = 0; i < channel_sizes.size(); i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
@@ -75,4 +86,17 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
   UNSET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
+
+  std::string f1 = read_csv_file("recipe_trace.csv");
+  std::string f2 = read_csv_file("recipe_trace_rerun.csv");
+  const bool is_match = (f1.compare(f2) == 0);
+
+  if (is_match) {
+    std::remove("ds_checkpoint.pt");
+    std::remove("recipe_trace.csv");
+    std::remove("recipe_trace_rerun.csv");
+  } else {
+    PT_DYNAMIC_SHAPE_WARN("Recipe traces are not matching");
+  }
 }
