@@ -192,9 +192,17 @@ inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
           src.scalar_type(),
           " to ",
           dstScalarType,
-          ", Input values range exceeds ",
+          ", Input values range [",
+          src_min_val,
+          ", ",
+          src_max_val,
+          "] exceeds ",
           dstScalarType,
-          " range");
+          " range [",
+          min_int_val,
+          ", ",
+          max_int_val,
+          "]");
     }
   } else {
     PT_LAZY_DEBUG(
