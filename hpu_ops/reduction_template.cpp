@@ -267,9 +267,11 @@ static synapse_helpers::tensor FlattenInput(
     OpBackend* op,
     synapse_helpers::graph& graph,
     synTensor syn_in,
-    const std::vector<int64_t>& reshaped_self_sizes) {
+    const std::vector<int64_t>& reshaped_self_sizes,
+    c10::optional<at::ScalarType> dtype) {
+  auto in_dtype = dtype ? *dtype : op->ScalarType();
   return OpBackend::BuildReshape(
-      op, graph, syn_in, reshaped_self_sizes, op->ScalarType());
+      op, graph, syn_in, reshaped_self_sizes, in_dtype);
 }
 
 static void GuidOutCount(
@@ -309,7 +311,8 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     std::function<std::shared_ptr<
         void>(const int64_t, size_t&, int64_t, c10::optional<at::Scalar>)>
         fill_param_fn,
-    c10::optional<at::Scalar> ord) {
+    c10::optional<at::Scalar> ord,
+    c10::optional<at::ScalarType> in_dtype) {
   struct Reduction_Param {
     std::shared_ptr<void> param;
     size_t size{};
@@ -337,7 +340,8 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     std::vector<int64_t> reshaped_self_sizes;
     CombineDims(self, dim, keepdim, reshaped_self_sizes);
 
-    auto flat_input = FlattenInput(op, graph, inputs[0], reshaped_self_sizes);
+    auto flat_input =
+        FlattenInput(op, graph, inputs[0], reshaped_self_sizes, in_dtype);
     flatten_input.emplace_back(std::move(flat_input));
     orig_shape = reshaped_self_sizes;
     ndims = reshaped_self_sizes.size();

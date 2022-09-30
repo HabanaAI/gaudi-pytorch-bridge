@@ -311,6 +311,21 @@ static synapse_helpers::tensor NormCommon(
     return std::move(norm_itr.at(0));
   } else {
     auto inputs = mod_inputs[norm_ord];
+    if (norm_ord != INF && norm_ord != -INF) {
+      auto norm_itr = HandleReductionDimAndKeepdim(
+          op,
+          graph,
+          self,
+          {inputs.pre_fn
+               ? inputs.pre_fn(op, graph, {input_tensor}, self_shape, dtype)
+                     .get()
+               : input_tensor},
+          dim,
+          keepdim,
+          inputs.guid + habana_helpers::name_suffix_from_type(dtype),
+          output_attr);
+      return std::move(norm_itr.at(0));
+    }
     auto norm_itr = HandleReductionDimAndKeepdim(
         op,
         graph,
@@ -321,8 +336,102 @@ static synapse_helpers::tensor NormCommon(
         dim,
         keepdim,
         inputs.guid + habana_helpers::name_suffix_from_type(dtype),
-        output_attr);
-    return std::move(norm_itr.at(0));
+        {{output_attr[0].sizes, output_attr[0].dtype}});
+
+    // Handle Inf values
+    ns_IsInfKernel::Params params{1, 1};
+    auto isinf_output = OpBackend::BuildNode(
+        op,
+        graph,
+        {"isinf_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+         {input_tensor},
+         {{self_shape, torch::kInt8}},
+         &params,
+         sizeof(params)});
+
+    auto isinf_casted = OpBackend::BuildCast(
+        op,
+        graph,
+        isinf_output[0].get(),
+        self_shape,
+        torch::kInt8,
+        torch::kInt32);
+
+    auto isinf_reduced = HandleReductionDimAndKeepdim(
+        op,
+        graph,
+        self,
+        {isinf_casted.get()},
+        dim,
+        keepdim,
+        inputs.guid + "i32",
+        {{output_attr[0].sizes, torch::kInt32}},
+        torch::kInt32);
+
+    auto isinf_condition = OpBackend::BuildCast(
+        op,
+        graph,
+        isinf_reduced.at(0).get(),
+        output_attr[0].sizes,
+        torch::kInt32,
+        torch::kInt8);
+
+    auto const_inf =
+        OpBackend::BuildConstant(op, graph, INF, dtype, output_attr[0].sizes);
+
+    auto intermediate = OpBackend::BuildNode(
+        op,
+        graph,
+        {"where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+         {isinf_condition.get(), const_inf.get(), norm_itr.at(0).get()},
+         {{output_attr[0].sizes, dtype}}});
+
+    // Handle NaN values
+    auto isnan_output = OpBackend::BuildNode(
+        op,
+        graph,
+        {"isnan_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+         {input_tensor},
+         {{self_shape, torch::kInt8}}});
+
+    auto isnan_casted = OpBackend::BuildCast(
+        op,
+        graph,
+        isnan_output[0].get(),
+        self_shape,
+        torch::kInt8,
+        torch::kInt32);
+
+    auto isnan_reduced = HandleReductionDimAndKeepdim(
+        op,
+        graph,
+        self,
+        {isnan_casted.get()},
+        dim,
+        keepdim,
+        "reduce_max_fwd_i32",
+        {{output_attr[0].sizes, torch::kInt32}},
+        torch::kInt32);
+
+    auto isnan_condition = OpBackend::BuildCast(
+        op,
+        graph,
+        isnan_reduced.at(0).get(),
+        output_attr[0].sizes,
+        torch::kInt32,
+        torch::kInt8);
+
+    auto const_nan =
+        OpBackend::BuildConstant(op, graph, NAN, dtype, output_attr[0].sizes);
+
+    auto out = OpBackend::BuildNode(
+        op,
+        graph,
+        {"where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+         {isnan_condition.get(), const_nan.get(), intermediate.at(0).get()},
+         {{output_attr[0].sizes, dtype, 0}}});
+
+    return std::move(out.at(0));
   }
 }
 
