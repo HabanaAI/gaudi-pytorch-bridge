@@ -1607,14 +1607,20 @@ cumsum:
 diag:
   force_default: false
   custom_output_shape: DiagOutShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float]
   out_ids: [0]
   custom_fill_params: FillDiagParams
   op_backend: Diag
 
 diag.out:
   custom_output_shape: DiagOutShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float]
   custom_fill_params: FillDiagParams
   op_backend: Diag
 
@@ -1682,14 +1688,20 @@ div_.Tensor_mode:
 
 dot:
   custom_output_shape: DotOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Int, Short, Char]
   op_backend: Dot
   out_ids: [0]
 
 dot.out:
   force_default: false
   custom_output_shape: DotOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Int, Short, Char]
   op_backend: Dot
 
 elu:
