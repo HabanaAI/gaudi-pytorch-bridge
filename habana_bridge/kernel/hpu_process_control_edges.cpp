@@ -344,18 +344,8 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
         } // if (c_edge == ControlEdgeType::kCONTROL_EDGE_INPLACE)
 
         if (blocked_syn_nodes_vec.size()) {
-          for (const auto& bln : blocked_syn_nodes_vec) {
-            blocking_syn_nodes_vec.erase(
-                std::remove(
-                    blocking_syn_nodes_vec.begin(),
-                    blocking_syn_nodes_vec.end(),
-                    bln),
-                blocking_syn_nodes_vec.end());
-          }
-          if (!blocking_syn_nodes_vec.empty()) {
             syn_graph_ptr->set_synapse_control_edges_pt(
                 blocking_syn_nodes_vec, blocked_syn_nodes_vec);
-          }
         }
       }
       blocking_nodes_vec.clear();

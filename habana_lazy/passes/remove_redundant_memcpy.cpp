@@ -76,10 +76,10 @@ void remove_redundant_memcpy(std::shared_ptr<Graph>& graph) {
   // collect redundant_memcpy_nodes
   for (Node* node : graph_nodes) {
     if (isRedundantMemcpyCandidate(node) &&
-        !isGraphOutput(graph, node->output(0)) &&
-        !isInList(graph->outputs().vec(), node->input(0)) &&
         !isInList(graph->inputs().vec(), node->input(0)) &&
-        !isInplaceOp(node->input(0)) && !isInplaceOp(node->output(0))) {
+        !isInList(graph->outputs().vec(), node->input(0)) &&
+        node->output(0)->uses().size() == 1 && !isInplaceOp(node->input(0)) &&
+        !isInplaceOp(node->output(0))) {
       redundant_memcpy_nodes.emplace_back(node);
     }
   }
