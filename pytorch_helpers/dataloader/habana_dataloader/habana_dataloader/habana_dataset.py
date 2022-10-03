@@ -6,6 +6,7 @@ import inspect
 import copy
 import os
 import itertools
+from typing import Any, Callable, Optional, Tuple
 
 import torch.utils.data
 import torchvision.datasets
@@ -206,6 +207,78 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         if kwargs.get(var_name) is not None and kwargs.get(var_name) != expected_value:
             raise ValueError(f"'{var_name}' is supported only as {expected_value}")
 
+class ImageFolderWithManifest(torchvision.datasets.DatasetFolder):
+    def __init__(
+        self,
+        root: str,
+        manifest: dict,
+        loader: Callable[[str], Any] = torchvision.datasets.folder.default_loader,
+        extensions: Optional[Tuple[str, ...]] = torchvision.datasets.folder.IMG_EXTENSIONS,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        is_valid_file: Optional[Callable[[str], bool]] = None,
+    ) -> None:
+        self.root = root
+        self.manifest = manifest
+        self.loader = loader
+        self.extensions = extensions
+
+        has_separate_transform = transform is not None or target_transform is not None
+
+        # for backwards-compatibility
+        self.transform = transform
+        self.target_transform = target_transform
+
+        transforms = None
+        if has_separate_transform:
+            transforms = torchvision.datasets.vision.StandardTransform(transform, target_transform)
+        self.transforms = transforms
+
+        self.is_valid_file = is_valid_file
+
+        self._cashed_samples = None
+        self._cashed_classes = None
+        self._cashed_class_to_idx = None
+        self._cashed_targets = None
+        self._cashed_imgs = None
+
+    @property
+    def samples(self):
+        if not self._cashed_samples:
+            self._cashed_samples = self.make_dataset(self.root, self.class_to_idx, self.extensions, self.is_valid_file)
+        return self._cashed_samples
+
+    @property
+    def classes(self):
+        if not self._cashed_classes:
+            self._cashed_classes, self._cashed_class_to_idx = self.find_classes(self.root)
+        return self._cashed_classes
+
+    @property
+    def class_to_idx(self):
+        if not self._cashed_class_to_idx:
+            self._cashed_classes, self._cashed_class_to_idx = self.find_classes(self.root)
+        return self._cashed_class_to_idx
+
+    @property
+    def targets(self):
+        if not self._cashed_targets:
+            self._cashed_targets = [s[1] for s in self.samples]
+        return self._cashed_targets
+
+    @property
+    def imgs(self):
+        if not self._cashed_imgs:
+            self._cashed_imgs = self.samples
+        return self._cashed_imgs
+
+    def __len__(self) -> int:
+        file_list = self.manifest.get('file_list', None)
+        if file_list:
+            return len(file_list)
+        else:
+            return len(self.samples)
+
 class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
@@ -258,11 +331,12 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 self._media_dl_handle_vars(keyword_args)
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
+                manifest = self.dataset.manifest if isinstance(self.dataset, ImageFolderWithManifest) else None
                 num_instances=_get_world_size()
                 instance_id=_get_rank()
                 pipeline = HPUMediaPipe(a_torch_transforms=torch_transforms, a_root=root, a_batch_size=self.batch_size,
                                         a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device=deviceStr(self.DeviceType))
+                                        a_num_instances=num_instances, a_instance_id=instance_id, a_device=deviceStr(self.DeviceType), a_dataset_manifest=manifest)
 
                 from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
@@ -420,7 +494,7 @@ class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get('dataset', args[0] if args else None)
         dataloader_type = None
-        if isinstance(dataset, torchvision.datasets.ImageFolder):
+        if isinstance(dataset, torchvision.datasets.ImageFolder) or isinstance(dataset, ImageFolderWithManifest):
             dataloader_type = ResnetDataLoader
         elif _is_coco_dataset(dataset):
             self.DeviceType = htexp._get_device_type()
