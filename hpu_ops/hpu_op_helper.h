@@ -41,6 +41,38 @@ void scheduleAccTask(T&& lazy_op, InputType tensor) {
       });
 }
 
+template <class T>
+void scheduleAccTask(
+    T&& lazy_op,
+    std::vector<at::Tensor> result // pass explicit as copy to keep alive
+) {
+  habana_lazy::GetAccThreadPool().run(
+      [op = std::move(lazy_op), result]() mutable {
+        PT_LAZY_TRACE;
+        op.call(result);
+        habana_lazy::GetAccCleanupThreadPool().run(
+            [op = std::move(op), result = std::move(result)]() {});
+      });
+}
+
+template <class T>
+void scheduleAccTask(
+    T&& lazy_op,
+    std::vector<at::Tensor> result, // pass explicit as copy to keep alive
+    std::vector<at::Tensor>&& tensor_list_copy) {
+  habana_lazy::GetAccThreadPool().run(
+      [op = std::move(lazy_op),
+       result,
+       tensor_list_copy = std::move(tensor_list_copy)]() mutable {
+        PT_LAZY_TRACE;
+        op.call(result);
+        habana_lazy::GetAccCleanupThreadPool().run(
+            [op = std::move(op),
+             result = std::move(result),
+             tensor_list_copy = std::move(tensor_list_copy)]() {});
+      });
+}
+
 template <class T, class TupleType>
 void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
   std::vector<at::Tensor> tensors;
@@ -236,5 +268,51 @@ inline float& get<float>(fint_t& u) {
     func();                                                                 \
     return out;                                                             \
   }
+
+#define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)               \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      std::vector<at::Tensor> tensors_copy;                                   \
+      std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
+      auto result = lazy_op.get_result();                                     \
+      scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
+      return result;                                                          \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call();
+
+#define RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1, tl2)         \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      std::vector<at::Tensor> tensors_copy;                                   \
+      std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
+      std::copy(tl2.begin(), tl2.end(), std::back_inserter(tensors_copy));    \
+      auto result = lazy_op.get_result();                                     \
+      scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
+      return result;                                                          \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call();
+
+#define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)    \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      std::vector<at::Tensor> tensors_copy;                                   \
+      std::copy(                                                              \
+          result.begin(), result.end(), std::back_inserter(tensors_copy));    \
+      scheduleAccTask(std::move(lazy_op), tensors_copy);                      \
+      return;                                                                 \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  return lazy_op.call(result);
 
 #define FALLBACK_CHECK(fn, args...) bool fn(args...)

@@ -70,11 +70,7 @@ bool IsAccThreadEnabled() {
 }
 
 bool CanUseAccThread() {
-  if (IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool()) {
-    return true;
-  }
-
-  return false;
+  return IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool();
 }
 
 void SyncAccThreadPool() {

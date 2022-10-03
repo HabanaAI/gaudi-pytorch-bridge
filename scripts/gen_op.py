@@ -632,7 +632,7 @@ def fallback_if_unsupported(tinputs, opname, overload, param_vars, check_per_ten
 
 
 def frontend(
-    ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, lazyop_call_args
+    ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, lazyop_call_args, sig
 ):
     ns = "hpu" if ctxop.custom_schema() else "aten"
     aten_opname = get_aten_opname(aten_sig)
@@ -730,16 +730,27 @@ def frontend(
             )
             code += "  hpu_op.Validate();\n"
 
-        if is_acc_thread_supported(fname, ctxop, rtype):
+        if is_acc_thread_supported(fname, ctxop, rtype, sig):
             if is_inplace_or_out_op(fname):
                 if rtype.startswith("::std::tuple<at::Tensor"):
                     code += "  auto tuple = {};\n".format(lazyop_call_args)
                     code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(fname)
+                elif "TensorList" in sig:
+                    assert sig.count('TensorList') == 1, f"Only 1 TensorList input supported for inplace ops. Sig: {sig}"
+                    code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
                 else:
                     code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, lazyop_call_args)
             else:
                 if rtype.startswith("::std::tuple<at::Tensor"):
                     code += "  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+                elif "TensorList" in sig:
+                    if sig.count('TensorList') == 1:
+                        code += "  RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
+                    elif sig.count('TensorList') == 2:
+                        code += "  RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, f"{param_vars[0]}, {param_vars[1]}")
+                        pass
+                    else:
+                        raise Exception(f"Only up to 2 TensorList inputs are supported. Sig: {sig}")
                 else:
                     code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
         else:
@@ -946,9 +957,11 @@ def extract_reduction_vars_indices(param_vars):
 
     return reduction_vars_indices
 
-def is_acc_thread_supported(opname, ctxop, rtype):
-    return (not ctxop.get_override_fn() # ops with custom lazy func, not LazyOp
-            and (rtype.startswith("at::Tensor") or rtype.startswith("::std::tuple<at::Tensor"))) # regular, in-place
+def is_acc_thread_supported(opname, ctxop, rtype, sig):
+    return (not ctxop.get_override_fn() # not ops with custom lazy func, only LazyOp
+            and (rtype.startswith("at::Tensor") # regular, in-place, _out ops
+                 or rtype.startswith("::std::tuple<at::Tensor") # tuple ops
+                 or "TensorList" in sig)) # TensorList ops
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):
@@ -966,7 +979,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
 
     tfetcher = TensorFetcher("metatens")
     rtype = get_return_type_str(rwxtree, rwsig)
-    if not is_acc_thread_supported(fname, ctxop, rtype):
+    if not is_acc_thread_supported(fname, ctxop, rtype, sig):
         op_frontend += "  habana_lazy::SyncAccThreadPool();\n"
     param_vars = []
     meta_param_vars = []
@@ -1036,6 +1049,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
         param_vars,
         meta_param_vars,
         lazyop_call_args,
+        sig
     )
 
     if ctxop.get_override_fn():

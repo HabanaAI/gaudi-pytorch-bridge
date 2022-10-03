@@ -441,6 +441,29 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      const std::vector<at::Tensor>& tensors) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    const auto& node = create_node();
+    int i = 0;
+
+    for (const auto& tensor : tensors) {
+      auto hl_result = GetHbLazyTensor(tensor);
+      updateDstDependencies(hl_result, tensor, true);
+      hl_result.CurrentIrValue().SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional(),
+          i++);
+      context->MarkTensorStatus(
+          hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+    }
+    runSBS(tensors);
+    flush_op(tensors);
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
       type
       call() {
@@ -462,6 +485,27 @@ class LazyOp {
     flush_op(tensors);
 
     return tensors;
+  }
+
+  template <typename T = ReturnType>
+  typename std::
+      enable_if<std::is_same<T, std::vector<at::Tensor>>::value, void>::type
+      call(const std::vector<at::Tensor>& tensors) {
+    const auto& node = create_node();
+    int i = 0;
+
+    for (const auto& tensor : tensors) {
+      auto hl_result = GetHbLazyTensor(tensor);
+      hl_result.CurrentIrValue().SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional(),
+          i++);
+      updateDstDependencies(hl_result, tensor, false);
+    }
+    runSBS(tensors);
+    flush_op(tensors);
   }
 
   template <typename T = ReturnType>
@@ -922,6 +966,15 @@ class LazyOp {
           m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
     });
     return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
+      type
+      get_result() {
+    PT_LAZY_TRACE;
+    // Get results from derived class always for std::vector LazyOps
+    return get_result_overrideable();
   }
 
   const std::vector<std::vector<int64_t>>& get_out_shapes() const {
