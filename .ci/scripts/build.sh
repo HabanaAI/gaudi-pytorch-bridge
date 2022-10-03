@@ -1387,18 +1387,25 @@ run_pytorch_qa_tests()
     test_path=""
 
     if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
         #run pytorch single_op tests with suite_type = ops
+        # run in eager mode
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
+        __test_status_1=$?
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"strided_lazy_single_op.xml"" --mode lazy --strided)
+        __test_status_2=$?
+        __test_status=$((__test_status_1 | __test_status_2))
     elif [ "$__pytest_marks" == "-m=drs_dynamic_smoke" ] && [ "$__suite_type" == "ops" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op_drs_dynamic.xml" " --mode lazy --drs 3 --dynamic)
+        __test_status=$?
     elif [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi2" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"gc_eager_single_op.xml"" --mode gc_eager)
-        #run pytorch single_op tests with suite_type = ops
+        __test_status_1=$?
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
+        __test_status_2=$?
+        __test_status=$((__test_status_1 | __test_status_2))
     elif [ "$__pytest_marks" == "-m=dsd_subgraph" ] && [ "$__suite_type" == "subgraph" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"dynamic_subgraph.xml" " --mode lazy --dynamic)
-
+        __test_status=$?
     else
        if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "all" ]; then
             #run single_op and topologies smoke tests
@@ -1408,7 +1415,6 @@ run_pytorch_qa_tests()
        elif [ "$__suite_type" == "topology_ci" ]; then
             #run topology smoke tests  with suite_type topology
             test_path="topologies_tests"
-
        elif [ "$__pytest_marks" == "-m=smoke_dist" ] && [ "$__suite_type" == "distributed" ]; then
           #run distributed tests other than topology
             (set -x; LOCK_GAUDI_SYNAPSE_API=1 PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $opts ${__pytorch_qa_test_path}"dist_operations" "--junit-xml=${__xml}_"distributed_ci.xml"")
@@ -1458,9 +1464,8 @@ run_pytorch_qa_tests()
            run_tox_command "$opts_noforked" "${__xml}_aurora"
            __test_status_noforked=$?
        fi
+       __test_status=$((__test_status_forked | __test_status_noforked))
     fi
-
-    __test_status=$((__test_status_forked | __test_status_noforked))
     popd
 
     # Don't cleas up the requirement python packages
