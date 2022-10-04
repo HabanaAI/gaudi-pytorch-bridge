@@ -6,6 +6,7 @@ from functools import wraps
 from typing import Union
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
+from habana_frameworks.torch.utils import _experimental_C
 
 from torch.functional import Tensor
 name_stack = deque()
@@ -13,6 +14,38 @@ name_stack = deque()
 # expose habana_frameworks.torch.hpu as torch.hpu
 from habana_frameworks.torch import hpu
 torch._register_device_module('hpu', hpu)
+
+def _record_quant_param(name, min, max) -> None:
+    if hpu.is_available():
+        _experimental_C.record_quant_param(name, min, max)
+
+def handle_quant_stats(model=None):
+    if model is not None:
+        min_calibration_data = dict()
+        max_calibration_data = dict()
+        for name, param in model.state_dict().items():
+            if name.endswith('.min_val'):
+                min_calibration_data[name.rstrip('.min_val')] = param.item()
+            if name.endswith('.max_val'):
+                max_calibration_data[name.rstrip('.max_val')] = param.item()
+        for name, param in min_calibration_data.items():
+            try:
+                _record_quant_param(name, min_calibration_data[name], max_calibration_data[name])
+            except:
+                pass
+        for submodule_name, submodule in model.named_modules():
+            if isinstance(submodule, torch.nn.Module) and not names_hook_already_registered(submodule):
+               try:
+                   submodule.custom_name = submodule_name
+                   submodule.register_forward_pre_hook(pre_fwd_hook)
+                   submodule.register_forward_hook(post_fwd_hook)
+                   submodule.names_hook = True
+               except (RuntimeError):
+                   pass
+
+def hpu_initialize(model=None, optimizer=None, args=None):
+    if model is not None:
+        handle_quant_stats(model)
 
 def pre_fwd_hook(module, input):
     new_name = name_stack[-1] + "/" + module.custom_name if name_stack else module.custom_name

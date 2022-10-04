@@ -345,6 +345,16 @@ synapse_error_o tensor::create() {
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorHandleCreate failed.", status, cleanup());
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor_type_ == DATA_TENSOR) {
+    status = synTensorSetQuantizationData(
+        tensor_,
+        SYN_QUANT_DYNAMIC_RANGE,
+        &dynamic_range_,
+        sizeof(synQuantDynamicRange));
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "synTensorSetQuantizationData failed.", status, cleanup());
+  }
+
   synTensorGeometryExt maxGeometry;
   // Add tensor dimension via synTensorGeometryExt
   // Max geometry is also used as the actual geometry. In synapse side,

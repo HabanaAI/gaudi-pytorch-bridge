@@ -37,6 +37,10 @@ intptr_t GetDataPtr(const at::Tensor& t) {
   return reinterpret_cast<intptr_t>(address);
 }
 
+void RecordQuantParams(std::string name, float min, float max) {
+  PT_BRIDGE_DEBUG(name, " = min  : ", min, " max : ", max);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_device_type", []() { return GetDeviceType(); });
   m.def(
@@ -49,6 +53,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     void* stream = (void*)d.get_compute_stream(hpu_stream.id());
     return reinterpret_cast<intptr_t>(stream);
   });
+  m.def(
+      "record_quant_param",
+      [](std::string name, float min, float max) {
+        RecordQuantParams(name, min, max);
+      },
+      py::arg("name"),
+      py::arg("min"),
+      py::arg("max"));
   py::enum_<synDeviceType>(m, "synDeviceType")
       .value("synDeviceGaudi", synDeviceGaudi)
       .value("synDeviceGaudiM", synDeviceGaudiM)

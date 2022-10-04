@@ -460,6 +460,7 @@ class tensor final {
   uint64_t tensor_id_{INVALID_SYN_TENSOR_ID};
   synDeviceId device_id_;
   synDataType data_type_;
+  synQuantDynamicRange dynamic_range_{0, 0};
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
   dynamic_shape_t shape_;
