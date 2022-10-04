@@ -22,5 +22,5 @@ mean
 mm
 mul
 mv
-relu
-t
+softmax
+log_softmax
