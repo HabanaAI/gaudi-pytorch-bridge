@@ -16,6 +16,7 @@
 #include "pytorch_helpers/habana_device//hpu_cached_devices.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
+
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
   pt_stack = &input_st;
@@ -335,6 +336,42 @@ void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
   }
 }
 
+// Based on:
+// synapse/tests/gaudi_tests/gaudi_test_infra.cpp
+static void getTensorSectionId(
+    const synRecipeHandle& recipeHandle,
+    const synTensor& tensor,
+    synSectionId& sectionId) {
+  synStatus status;
+  uint32_t numOfTensors = 0;
+  status = synTensorRetrieveLaunchAmount(recipeHandle, &numOfTensors);
+  HABANA_ASSERT(status == synStatus::synSuccess);
+  uint64_t ids[numOfTensors];
+  status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
+  HABANA_ASSERT(status == synStatus::synSuccess);
+  synRetrievedLaunchTensorInfo tensorInfos[numOfTensors];
+  for (unsigned i = 0; i < numOfTensors; i++) {
+    tensorInfos[i].tensorId = ids[i];
+  }
+  status =
+      synTensorRetrieveLaunchInfoById(recipeHandle, numOfTensors, tensorInfos);
+  HABANA_ASSERT(status == synStatus::synSuccess);
+
+  // get tensor name
+  char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
+  status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
+  HABANA_ASSERT(status == synStatus::synSuccess);
+
+  // search for tensor according to tensor name and set it's sectionId
+  for (unsigned tensorIdx = 0; tensorIdx < numOfTensors; tensorIdx++) {
+    if (strcmp(tensorInfos[tensorIdx].tensorName, tensorName) == 0) {
+      sectionId = tensorInfos[tensorIdx].tensorSectionId;
+      return;
+    }
+  }
+  sectionId = INVALID_SECTION_ID;
+}
+
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     RecipeValueSpec& rv) {
   for (auto iter = pt_to_synapse_tensors.begin();
@@ -349,17 +386,21 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
         if (hb_tensor->IsConstTensor()) {
           PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
           uint64_t section_size = 0, section_data = 0;
+          synSectionId tensorSectionId;
+          getTensorSectionId(
+              rv.recipe->syn_recipe_handle_, tensor.get(), tensorSectionId);
+          HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
           synStatus status;
           status = synRecipeSectionGetProp(
               rv.recipe->syn_recipe_handle_,
-              tensor.memorysection()->GetSectionHandle(),
+              tensorSectionId,
               SECTION_SIZE,
               &section_size);
           HABANA_ASSERT(status == synStatus::synSuccess);
           PT_BRIDGE_DEBUG("section_size:: ", section_size);
           status = synRecipeSectionGetProp(
               rv.recipe->syn_recipe_handle_,
-              tensor.memorysection()->GetSectionHandle(),
+              tensorSectionId,
               SECTION_DATA,
               &section_data);
           HABANA_ASSERT(status == synStatus::synSuccess);

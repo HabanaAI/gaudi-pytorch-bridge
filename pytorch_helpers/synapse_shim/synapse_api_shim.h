@@ -102,7 +102,11 @@
   visitor(synTensorSetQuantizationData);       \
   visitor(synTensorGetQuantizationData);       \
   visitor(synTensorCreate);                    \
+  visitor(synTensorGetName);                   \
   visitor(synTensorSetPermutation);            \
+  visitor(synTensorRetrieveLaunchAmount);      \
+  visitor(synTensorRetrieveLaunchIds);         \
+  visitor(synTensorRetrieveLaunchInfoById);    \
   visitor(synTensorRetrieveLaunchInfoByIdExt); \
   visitor(synConstTensorCreate);               \
   visitor(synDestroyTensor);                   \

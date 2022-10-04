@@ -104,7 +104,11 @@ SYN_API_PTR(synSectionCreate);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorHandleCreate);
+SYN_API_PTR(synTensorGetName);
 SYN_API_PTR(synTensorSetExternal);
+SYN_API_PTR(synTensorRetrieveLaunchAmount);
+SYN_API_PTR(synTensorRetrieveLaunchIds);
+SYN_API_PTR(synTensorRetrieveLaunchInfoById);
 SYN_API_PTR(synTensorRetrieveLaunchInfoByIdExt);
 SYN_API_PTR(synTensorSetGeometryExt);
 SYN_API_PTR(synTensorSetDeviceDataType);
@@ -176,7 +180,11 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorHandleCreate);
+  SYN_API_INIT_PTR(synTensorGetName);
   SYN_API_INIT_PTR(synTensorSetExternal);
+  SYN_API_INIT_PTR(synTensorRetrieveLaunchAmount);
+  SYN_API_INIT_PTR(synTensorRetrieveLaunchIds);
+  SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
   SYN_API_INIT_PTR(synTensorSetGeometryExt);
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
@@ -873,17 +881,16 @@ synSectionSetGroup(synSectionHandle sectionHandle, uint64_t sectionGroup) {
 
 synStatus SYN_API_CALL synRecipeSectionGetProp(
     const synRecipeHandle pRecipeHandle,
-    const synSectionHandle sectionHandle,
+    const synSectionId sectionId,
     const synSectionProp prop,
     uint64_t* propertyPtr) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(
-      ARG(pRecipeHandle), ARG(sectionHandle), ARG(prop), ARG(propertyPtr));
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(sectionId), ARG(prop), ARG(propertyPtr));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synRecipeSectionGetProp,
       pRecipeHandle,
-      sectionHandle,
+      sectionId,
       prop,
       propertyPtr)
   API_LOG_RESULT();
@@ -1335,6 +1342,16 @@ synStatus SYN_API_CALL synTensorHandleCreate(
   return status;
 }
 
+synStatus SYN_API_CALL
+synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(size), ARG(name));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorGetName, tensor, size, name);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synTensorSetExternal(synTensor tensor, bool isExternal) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(tensor), ARG(isExternal));
@@ -1353,7 +1370,51 @@ synTensorSetDeviceDataType(synTensor tensor, const synDataType dataType) {
   return status;
 }
 
+synStatus SYN_API_CALL synTensorRetrieveLaunchAmount(
+    const synRecipeHandle pRecipeHandle,
+    uint32_t* numOfTensors) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(numOfTensors));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorRetrieveLaunchAmount, pRecipeHandle, numOfTensors);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchIds(
+    const synRecipeHandle pRecipeHandle,
+    uint64_t* tensorsIds,
+    const uint32_t numOfTensors) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(tensorsIds), ARG(numOfTensors));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorRetrieveLaunchIds,
+      pRecipeHandle,
+      tensorsIds,
+      numOfTensors);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
+    const synRecipeHandle pRecipeHandle,
+    const uint32_t numOfTensors,
+    synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(numOfTensors), ARG(tensorsLaunchInfo));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorRetrieveLaunchInfoById,
+      pRecipeHandle,
+      numOfTensors,
+      tensorsLaunchInfo);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
     const synRecipeHandle pRecipeHandle,
     const uint32_t numOfTensors,
     synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {

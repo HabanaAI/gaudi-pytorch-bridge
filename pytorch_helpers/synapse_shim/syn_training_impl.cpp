@@ -236,11 +236,11 @@ synSectionSetConst(synSectionHandle sectionHandle, bool sectionIsConst) {
 
 synStatus SYN_API_CALL synRecipeSectionGetProp(
     const synRecipeHandle pRecipeHandle,
-    const synSectionHandle sectionHandle,
+    const synSectionId sectionId,
     const synSectionProp prop,
     uint64_t* propertyPtr) {
   return syn_api->synRecipeSectionGetProp(
-      pRecipeHandle, sectionHandle, prop, propertyPtr);
+      pRecipeHandle, sectionId, prop, propertyPtr);
 }
 
 synStatus SYN_API_CALL synNodeCreate(
@@ -579,6 +579,33 @@ synStatus SYN_API_CALL synDestroyTensor(synTensor tensor) {
 synStatus SYN_API_CALL
 synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
   return syn_api->synTensorSetAllowPermutation(tensor, allowPermutation);
+}
+
+synStatus SYN_API_CALL
+synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
+  return syn_api->synTensorGetName(tensor, size, name);
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchAmount(
+    const synRecipeHandle pRecipeHandle,
+    uint32_t* numOfTensors) {
+  return syn_api->synTensorRetrieveLaunchAmount(pRecipeHandle, numOfTensors);
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchIds(
+    const synRecipeHandle pRecipeHandle,
+    uint64_t* tensorsIds,
+    const uint32_t numOfTensors) {
+  return syn_api->synTensorRetrieveLaunchIds(
+      pRecipeHandle, tensorsIds, numOfTensors);
+}
+
+synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
+    const synRecipeHandle pRecipeHandle,
+    const uint32_t numOfTensors,
+    synRetrievedLaunchTensorInfo* tensorsLaunchInfo) {
+  return syn_api->synTensorRetrieveLaunchInfoById(
+      pRecipeHandle, numOfTensors, tensorsLaunchInfo);
 }
 
 synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
