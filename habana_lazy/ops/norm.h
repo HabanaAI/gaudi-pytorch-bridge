@@ -26,14 +26,15 @@ class LayerNormForward : public ir::Node {
     BIAS_INDEX,
     EPS_INDEX
   };
-  LayerNormForward() = delete;
-  LayerNormForward(
+  LayerNormForward()
+      : Node(c10::Symbol::fromQualString("aten::native_layer_norm")) {}
+
+  void Init(
       const at::Tensor& input,
       at::IntArrayRef normalized_shape,
       const c10::optional<at::Tensor>& weight_opt,
       const c10::optional<at::Tensor>& bias_opt,
-      double eps)
-      : Node(c10::Symbol::fromQualString("aten::native_layer_norm")) {
+      double eps) {
     auto weight = weight_opt.value();
     auto bias = bias_opt.value();
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
@@ -78,8 +79,10 @@ class LayerNormBackward : public ir::Node {
     BIAS_INDEX,
     MASK_INDEX
   };
-  LayerNormBackward() = delete;
-  LayerNormBackward(
+  LayerNormBackward()
+      : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {}
+
+  void Init(
       const at::Tensor& dY,
       const at::Tensor& X,
       at::IntArrayRef normalized_shape,
@@ -87,8 +90,7 @@ class LayerNormBackward : public ir::Node {
       const at::Tensor& rstd,
       const c10::optional<at::Tensor>& weight_opt,
       const c10::optional<at::Tensor>& bias_opt,
-      std::array<bool, 3> grad_input_mask)
-      : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {
+      std::array<bool, 3> grad_input_mask) {
     auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHPU);
     hl_dY = HbLazyTensorViews::HandleViewsOrUpdate(dY, hl_dY);
     AddInput(hl_dY.GetIrValue());

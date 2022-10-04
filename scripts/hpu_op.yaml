@@ -459,6 +459,7 @@ _fused_dropout:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
   override_fn: fused_dropout_hpu_lazy
+  acc_thread: true
 
 _index_put_impl_:
   dtypes:
@@ -535,6 +536,7 @@ add.Tensor:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy
+  acc_thread: true
   type_promotion: true
 
 add.Scalar:
@@ -544,6 +546,7 @@ add.Scalar:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy
+  acc_thread: true
   type_promotion: true
 
 add_.Scalar:
@@ -562,6 +565,7 @@ add_.Tensor:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy_
+  acc_thread: true
   type_promotion: true
 
 add.out:
@@ -1534,6 +1538,7 @@ clone:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: clone_hpu_lazy
+  acc_thread: true
 
 convolution_overrideable:
   force_default: false
@@ -1726,6 +1731,7 @@ diag.out:
 
 div.out:
   override_fn: div_tensor_hpu_lazy_out
+  acc_thread: true
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
@@ -1736,6 +1742,7 @@ div.out_mode:
 div.Scalar:
   force_default: false
   override_fn: div_scalar_hpu_lazy
+  acc_thread: true
 
 div.Scalar_mode:
   force_default: false
@@ -1750,6 +1757,7 @@ div.Scalar_mode:
 div_.Scalar:
   force_default: false
   override_fn: div_scalar_hpu_lazy_
+  acc_thread: true
 
 div_.Scalar_mode:
   force_default: false
@@ -1764,6 +1772,7 @@ div_.Scalar_mode:
 div.Tensor:
   force_default: false
   override_fn: div_tensor_hpu_lazy
+  acc_thread: true
 
 div.Tensor_mode:
   force_default: false
@@ -1777,6 +1786,7 @@ div.Tensor_mode:
 div_.Tensor:
   force_default: false
   override_fn: div_tensor_hpu_lazy_
+  acc_thread: true
 
 div_.Tensor_mode:
   force_default: false
@@ -1858,6 +1868,7 @@ embedding:
       indices: [Int]
   fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
   override_fn: embedding_hpu_lazy
+  acc_thread: true
 
 embedding_dense_backward:
   dtypes:
@@ -1872,6 +1883,7 @@ embedding_dense_backward:
       indices: [Int]
   fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
   override_fn: embedding_dense_backward_hpu_lazy
+  acc_thread: true
 
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -2684,6 +2696,7 @@ kl_div:
   force_default: false
   dtypes: [BFloat16, Float]
   override_fn: kl_div_hpu_lazy
+  acc_thread: true
 
 l1_loss:
   force_default: false
@@ -3301,6 +3314,7 @@ max_pool2d_with_indices:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: max_pool2d_with_indices_hpu_lazy
+  acc_thread: true
 
 max_pool2d_with_indices_backward:
   force_default: false
@@ -3314,6 +3328,7 @@ max_pool2d_with_indices_backward:
       grad_output: [BFloat16, Float, Half]
       indices: [Byte, Short]
   override_fn: max_pool2d_with_indices_backward_hpu_lazy
+  acc_thread: true
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool2d_with_indices.out:
@@ -3680,12 +3695,14 @@ native_batch_norm:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   override_fn: batch_norm_hpu_lazy
+  acc_thread: true
 
 native_batch_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
   override_fn: batch_norm_bwd_hpu_lazy
+  acc_thread: true
 
 native_layer_norm:
   force_default: false
@@ -3694,12 +3711,14 @@ native_layer_norm:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   override_fn: layer_norm_hpu_lazy
+  acc_thread: true
 
 native_layer_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
   override_fn: layer_norm_backward_hpu_lazy
+  acc_thread: true
 
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
@@ -4102,6 +4121,7 @@ randperm.generator_out:
     Gaudi2: [Int]
     Greco: [Int]
   override_fn: randperm_hpu_lazy
+  acc_thread: true
 
 reciprocal:
   force_default: false
@@ -5126,6 +5146,7 @@ topk:
     Greco: [Float, Int, Half, Char]
   override_fn: topk_hpu_lazy
   fallback_check: [TopkFallbackCheck, sorted]
+  acc_thread: true
 
 topk.values:
   dtypes:
@@ -5134,6 +5155,7 @@ topk.values:
     Greco: [Float, Int, Half, Char]
   override_fn: topk_out_hpu_lazy
   fallback_check: [TopkFallbackCheck, sorted]
+  acc_thread: true
 
 trace:
   custom_output_shape: TraceOutputShape
@@ -5737,3 +5759,4 @@ zero_:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   override_fn: zero_hpu_lazy
+  acc_thread: true

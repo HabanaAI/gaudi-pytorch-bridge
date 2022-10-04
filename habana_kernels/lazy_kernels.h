@@ -346,7 +346,7 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
 
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        out_shapes.size() == std::tuple_size<T>::value);
+        out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
 
     habana::for_each_in_tuple(
         results,
@@ -355,14 +355,16 @@ class LazyOp {
           auto hl_result = GetHbLazyTensor(result);
           tensors.push_back(result);
           hl_results.push_back(hl_result);
-          const auto& out_shape = out_shapes.at(i);
-          if (result.sizes() != out_shape ||
-              (!m_shape_was_changed_in_tuple.empty() &&
-               m_shape_was_changed_in_tuple[i])) {
-            auto impl = hl_result.getAttachedTensorImpl();
-            THHTensor_resizeNd(
-                impl, out_shape.size(), out_shape.data(), nullptr);
-            result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+          if (!out_shapes.empty()) {
+            const auto& out_shape = out_shapes.at(i);
+            if (result.sizes() != out_shape ||
+                (!m_shape_was_changed_in_tuple.empty() &&
+                 m_shape_was_changed_in_tuple[i])) {
+              auto impl = hl_result.getAttachedTensorImpl();
+              THHTensor_resizeNd(
+                  impl, out_shape.size(), out_shape.data(), nullptr);
+              result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+            }
           }
           context->MarkTensorStatus(
               hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);

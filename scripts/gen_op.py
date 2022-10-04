@@ -341,6 +341,9 @@ class Op(object):
     def get_override_fn(self):
         return self.op.get("override_fn", None)
 
+    def get_acc_thread(self):
+        return self.op.get("acc_thread", False)
+
 
 class Context(object):
     def __init__(self, functions, yamlfile):
@@ -957,10 +960,12 @@ def extract_reduction_vars_indices(param_vars):
     return reduction_vars_indices
 
 def is_acc_thread_supported(opname, ctxop, rtype, sig):
-    return (not ctxop.get_override_fn() # not ops with custom lazy func, only LazyOp
-            and (rtype.startswith("at::Tensor") # regular, in-place, _out ops
-                 or rtype.startswith("::std::tuple<at::Tensor") # tuple ops
-                 or "TensorList" in sig)) # TensorList ops
+    if ctxop.get_override_fn():
+        return ctxop.get_acc_thread() # only custom lazy func ops that are supported
+    else:
+        return (rtype.startswith("at::Tensor") # regular, in-place, _out ops
+                or rtype.startswith("::std::tuple<at::Tensor") # tuple ops
+                or "TensorList" in sig) # TensorList ops
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):

@@ -3633,7 +3633,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_training(
        training,
        momentum,
        eps});
-  return op.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_batch_norm_training, op)
 }
 
 Tensor _batch_norm_fwd_inference(
@@ -3656,7 +3656,7 @@ Tensor _batch_norm_fwd_inference(
        training,
        momentum,
        eps});
-  return op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(native_batch_norm_inf, op)
 }
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
@@ -3812,7 +3812,7 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd(
     }
   };
   BN op({input, grad_out, mean, invstd, weight, train, eps, 0.0 /*momentum*/});
-  return op.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_batch_norm_backward, op)
 }
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
@@ -4103,13 +4103,31 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     bias = torch::zeros(normalized_shape_vec, options);
   }
 
-  ir::NodePtr node = std::make_shared<ir::LayerNormForward>(
-      input, normalized_shape, weight, bias, eps);
-
   auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
+
+  ir::NodePtr node = std::make_shared<ir::LayerNormForward>();
   LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
       node, {input, normalized_shape, weight, bias, eps}, sizes};
-  return k.call();
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [node = std::move(node),
+               op = std::move(k),
+               out_v = std::move(out_v),
+               input,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               weight,
+               bias,
+               eps]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::LayerNormForward>(node);
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    node_derived->Init(input, normalized_shape, weight, bias, eps);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm, func, out)
 }
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& dY,
@@ -4121,15 +4139,6 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::LayerNormBackward>(
-      dY,
-      X,
-      normalized_shape,
-      mean,
-      rstd,
-      weight_opt,
-      bias_opt,
-      grad_input_mask);
   // Get Output Image
   using T = std::tuple<Tensor, Tensor, Tensor>;
   using U = ir::LayerNormBackward;
@@ -4186,6 +4195,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     std::array<bool, 3> grad_input_mask;
   };
 
+  ir::NodePtr node = std::make_shared<ir::LayerNormBackward>();
+  std::vector<int64_t> normalized_shape_vec = normalized_shape.vec();
   Kernel k(
       node,
       dY,
@@ -4196,7 +4207,37 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       weight_opt,
       bias_opt,
       grad_input_mask);
-  return k.call();
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [op = std::move(k),
+               out_v = std::move(out_v),
+               node = std::move(node),
+               dY,
+               X,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               mean,
+               rstd,
+               weight_opt,
+               bias_opt,
+               grad_input_mask = std::move(grad_input_mask)]() mutable {
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    auto derived_node = std::dynamic_pointer_cast<ir::LayerNormBackward>(node);
+    derived_node->Init(
+        dY,
+        X,
+        normalized_shape,
+        mean,
+        rstd,
+        weight_opt,
+        bias_opt,
+        grad_input_mask);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm_backward, func, out)
 }
 Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
   std::vector<int64_t> size = {};
@@ -4223,8 +4264,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
       {input.sizes().vec(), mean_var_shape, mean_var_shape} // out_shapes
   );
 
-  T results = k.call();
-  return results;
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(instance_norm, k)
 }
 
 std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
@@ -4247,8 +4287,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
       // out_shapes
   );
 
-  T results = k.call();
-  return results;
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(instance_norm_backward, k)
 }
 
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
@@ -4259,8 +4298,6 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode) {
   PT_LAZY_TRACE;
-  ir::NodePtr maxpool_node = std::make_shared<ir::MaxPool>(
-      input, kernel_size, stride, padding, dilation, ceil_mode);
   using T = std::tuple<Tensor, Tensor>;
   using U = ir::MaxPool;
   class Kernel : public LazyOp<T, U> {
@@ -4325,9 +4362,37 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     bool ceil_mode;
   };
 
-  Kernel k(
-      maxpool_node, input, kernel_size, stride, padding, dilation, ceil_mode);
-  return k.call();
+  ir::NodePtr node = std::make_shared<ir::MaxPool>();
+  std::vector<int64_t> kernel_size_vec = kernel_size.vec();
+  std::vector<int64_t> stride_vec = stride.vec();
+  std::vector<int64_t> padding_vec = padding.vec();
+  std::vector<int64_t> dilation_vec = dilation.vec();
+  Kernel k(node, input, kernel_size, stride, padding, dilation, ceil_mode);
+
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [out_v = std::move(out_v),
+               op = std::move(k),
+               node = std::move(node),
+               input,
+               kernel_size_vec = std::move(kernel_size_vec),
+               stride_vec = std::move(stride_vec),
+               padding_vec = std::move(padding_vec),
+               dilation_vec = std::move(dilation_vec),
+               ceil_mode]() mutable {
+    IntArrayRef kernel_size = kernel_size_vec;
+    IntArrayRef stride = stride_vec;
+    IntArrayRef padding = padding_vec;
+    IntArrayRef dilation = dilation_vec;
+    auto node_derived = std::dynamic_pointer_cast<ir::MaxPool>(node);
+    node_derived->Init(
+        input, kernel_size, stride, padding, dilation, ceil_mode);
+    op.call(std::tie(out_v[0], out_v[1]));
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(max_pool2d_with_indices, func, out)
 }
 
 Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
@@ -4366,15 +4431,6 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
     bool ceil_mode,
     const Tensor& indices) {
   PT_LAZY_TRACE;
-  ir::NodePtr maxpool_bwd_node = std::make_shared<ir::MaxPoolBackWard>(
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode,
-      indices);
 
   // shape inferrence
   // since grad_input should match memory format only checking for input
@@ -4395,6 +4451,12 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       (indices.scalar_type() == c10::ScalarType::Byte) ||
       (indices.scalar_type() == c10::ScalarType::Short));
 
+  ir::NodePtr maxpool_bwd_node = std::make_shared<ir::MaxPoolBackWard>();
+  std::vector<int64_t> kernel_size_vec = kernel_size.vec();
+  std::vector<int64_t> stride_vec = stride.vec();
+  std::vector<int64_t> padding_vec = padding.vec();
+  std::vector<int64_t> dilation_vec = dilation.vec();
+
   LazyOp<at::Tensor, ir::MaxPoolBackWard> k{
       maxpool_bwd_node,
       {grad_output,
@@ -4407,7 +4469,39 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
        indices},
       {2, 3, 4, 5, 6},
       {input.sizes().vec()}};
-  return k.call();
+  auto out = k.get_result();
+
+  auto func = [op = std::move(k),
+               out,
+               input,
+               node = std::move(maxpool_bwd_node),
+               grad_output,
+               kernel_size_vec = std::move(kernel_size_vec),
+               stride_vec = std::move(stride_vec),
+               padding_vec = std::move(padding_vec),
+               dilation_vec = std::move(dilation_vec),
+               ceil_mode,
+               indices]() mutable {
+    IntArrayRef kernel_size = kernel_size_vec;
+    IntArrayRef stride = stride_vec;
+    IntArrayRef padding = padding_vec;
+    IntArrayRef dilation = dilation_vec;
+    auto node_derived = std::dynamic_pointer_cast<ir::MaxPoolBackWard>(node);
+    node_derived->Init(
+        grad_output,
+        input,
+        kernel_size,
+        stride,
+        padding,
+        dilation,
+        ceil_mode,
+        indices);
+
+    op.call(out);
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(
+      max_pool2d_with_indices_backward, func, out)
 }
 
 Tensor adaptive_avg_pool2d_hpu_lazy(
@@ -4562,7 +4656,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
   // use gen to create a seed and forward it to the op
   auto seed = habana::get_seed_tensor_hpu(gen);
   FusedDropout op(self, p, seed);
-  return op.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_fused_dropout, op)
 }
 
 at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
@@ -5620,7 +5714,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
   };
 
   Kernel kernel{self, k, dim, op_name, vector_of_inputs, metadata_indices};
-  return kernel.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(topk, kernel)
 }
 
 std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
@@ -5697,7 +5791,8 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
       vector_of_inputs,
       metadata_indices,
       out_shapes};
-  return kernel.call(std::tie(values, indices));
+  auto out = std::tie(values, indices);
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(topk_out, kernel, out)
 }
 
 std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
@@ -6427,7 +6522,6 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim) {
-  habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;
   vector_of_inputs = {self, dim, keepdim};
@@ -6458,7 +6552,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
   };
 
   Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(max, kernel)
 }
 
 at::Tensor max_hpu_lazy(const at::Tensor& self) {
