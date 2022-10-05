@@ -32,7 +32,15 @@ log = logging.getLogger(__file__)
 BuildEnv = namedtuple("BuildEnv", ["py_ver", "pt_ver", "venv_dir", "optional"])
 WheelConfig = namedtuple(
     "WheelConfig",
-    ["full_wheel_name", "py_ver", "pt_vers", "optional", "file_path_pattern"],
+    [
+        "target",
+        "full_wheel_name",
+        "py_ver",
+        "pt_vers",
+        "optional",
+        "file_path_pattern",
+        "source_dir",
+    ],
 )
 venv_base_dir = os.path.join(os.environ["HOME"], ".venvs")
 
@@ -408,11 +416,13 @@ class WheelSpec:
             self.pt_versions = [
                 ver if ver == "nightly" else Version(ver) for ver in spec[1].split(",")
             ]
-            self.optional = True if spec[2] == "optional" else False
+            self.optional = (True if spec[2] == "optional" else False,)
+            self.wheel_src_dir = spec[3]
         elif "wheel_name" in kwargs and "pt_versions" in kwargs:
             self.wheel_name = kwargs.get("wheel_name")
             self.pt_versions = kwargs.get("pt_versions")
             self.optional = False
+            self.wheel_src_dir = kwargs.get("wheel_src_dir")
         else:
             log.error("Internal error: Incorrect signature in WheelSpec")
             sys.exit(1)
@@ -431,6 +441,9 @@ def get_installed_packages():
     return [r.decode().split("==")[0] for r in reqs.split()]
 
 
+WheelNameAndSource = namedtuple("WheelTarget", ["wheel_name", "src_dir"])
+
+
 def prepare_build_envs(
     py_versions,
     wheel_specs,
@@ -438,7 +451,7 @@ def prepare_build_envs(
     current_python_version,
     current_pt_version=None,
     recreate_venv=RecreateVenv.AS_NEEDED,
-):
+) -> Dict[BuildEnv, List[WheelNameAndSource]]:
     """Based on selected Python versions and PT versions/wheel spec,
     prepares build environments needed to build all requested configurations.
     Also, for each build env we are mapping wheels, that should contain binaries
@@ -451,7 +464,7 @@ def prepare_build_envs(
         current_pt_version: PT version present in the current environment
         recreate_venv: enum which describes the behavior of venv creation
     Returns:
-        result: dict {BuildEnvs: list(wheel_names)}
+        result: dict {BuildEnvs: list(WheelTarget)}
     """
     result = defaultdict(list)
     created_venvs = dict()
@@ -495,7 +508,9 @@ def prepare_build_envs(
                     else:
                         venv_dir, pt_ver = created_venvs[venv_dir_key]
                 build_env = BuildEnv(py_ver, pt_ver, venv_dir, wheel_spec.optional)
-                result[build_env].append(wheel_spec.wheel_name)
+                result[build_env].append(
+                    WheelNameAndSource(wheel_spec.wheel_name, wheel_spec.wheel_src_dir)
+                )
                 log.debug(f"Build env {build_env} ready")
     return result
 
@@ -531,7 +546,8 @@ def prepare_build_dirs(
         def pmake(*args):
             print(*args, file=makefile)
 
-        define_top_level_targets(wheels_per_build_envs, cmake_configurations, pmake)
+        envs = wheels_per_build_envs.keys()
+        define_top_level_targets(envs, cmake_configurations, pmake)
 
         combinations = collect_build_combinations(
             wheels_per_build_envs, cmake_configurations
@@ -587,12 +603,16 @@ def prepare_build_dirs(
             wheels_per_build_envs, whl_build_dir, pmake
         )
 
-        pmake(f"ctest: $(addsuffix /ctest,$(SUBNAMES))")
-        pmake_collect_binaries_target(
+        create_ctest_target(pmake)
+        create_collect_binaries_target(
             pmake, wheels_per_build_envs, cmake_configurations, ("all",)
         )
 
     return cmake_build_configs, wheel_configs
+
+
+def create_ctest_target(pmake):
+    pmake(f"ctest: $(addsuffix /ctest,$(SUBNAMES))")
 
 
 def target_reldir(py_ver, pt_ver, cmake_config, target=None):
@@ -607,7 +627,7 @@ def target_absdir(py_ver, pt_ver, cmake_config, target=None):
     return os.path.abspath(target_reldir(py_ver, pt_ver, cmake_config, target=target))
 
 
-def pmake_collect_binaries_target(
+def create_collect_binaries_target(
     pmake, wheels_per_build_envs, cmake_configurations, targets
 ):
     """Using pmake produce gnu-makefile with the following dependency pattern:
@@ -682,10 +702,10 @@ def pmake_collect_binaries_target(
 # fi;
 
 
-def prepare_wheel_target(
+def create_wheel_target_for_single_python(
     pmake,
     py_ver,
-    wheel_name,
+    wheel_name_and_src,
     optional,
     whl_build_dir,
     serializer,
@@ -694,19 +714,19 @@ def prepare_wheel_target(
 ):
     pt_wheel_vers = ",".join(map(lambda x: str(x), pt_vers))
 
-    wheel_target = "wheel"
+    wheel_name = wheel_name_and_src.wheel_name
+    wheel_target = "wheel_" + wheel_name
     full_wheel_name = wheel_name
-    whl_source_dir = "python_packages"
+    whl_source_dir = wheel_name_and_src.src_dir
     activate = f"source {venv_dir}/bin/activate" if venv_dir != "." else "true"
 
     pmake(f".PHONY: {wheel_target}/linux")
     pmake(f"{wheel_target}/linux:\n\t")
 
+    new_serializer = f"py{py_ver}/{wheel_name}/{wheel_target}/linux_serial"
+    pmake(f".PHONY: py{py_ver}/{wheel_name}/{wheel_target}/linux {new_serializer}")
     pmake(
-        f".PHONY: py{py_ver}/{wheel_name}/{wheel_target}/linux py{py_ver}/{wheel_name}/{wheel_target}/linux_serial"
-    )
-    pmake(
-        f"py{py_ver}/{wheel_name}/{wheel_target}/linux py{py_ver}/{wheel_name}/{wheel_target}/linux_serial:"
+        f"py{py_ver}/{wheel_name}/{wheel_target}/linux {new_serializer}:"
         f"$(addsuffix /wheel_install, $(SUBNAMES_PY_{py_ver}_RELEASE))|${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs"
     )
     pmake(
@@ -721,48 +741,54 @@ def prepare_wheel_target(
         f"\tmv $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl ${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs/"
     )
 
-    pmake(f"py{py_ver}/{wheel_name}/{wheel_target}/linux_serial: {serializer}")
-    new_serializer = f"py{py_ver}/{wheel_name}/{wheel_target}/linux_serial"
+    pmake(f"{new_serializer}: {serializer}")
 
     expected_wheel_pattern = (
         f"{os.environ['PYTORCH_MODULES_RELEASE_BUILD']}/pkgs/"
         f"{full_wheel_name.replace('-', '_')}-*-cp{str(py_ver).replace('.', '')}*.whl"
     )
-    wheel_config = WheelConfig(
-        full_wheel_name, py_ver, pt_vers, optional, expected_wheel_pattern
-    )
 
     # make final wheel(s) target depend on py-version specific parts
-    pmake(f"{wheel_target}/linux: py{py_ver}/{wheel_name}/{wheel_target}/linux_serial")
+    pmake(f"{wheel_target}/linux: {new_serializer}")
+
+    wheel_config = WheelConfig(
+        wheel_target,
+        full_wheel_name,
+        py_ver,
+        pt_vers,
+        optional,
+        expected_wheel_pattern,
+        whl_source_dir,
+    )
 
     return new_serializer, wheel_config
 
 
 def create_wheel_targets(
-    wheels_per_build_envs, whl_build_dir, pmake
+    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, pmake
 ) -> List[WheelConfig]:
     """Returns a list of wheel configs to be built"""
     wheel_configs = []
 
     pt_vers_config = defaultdict(list)
     ref_venv_configs = dict()
-    for e, whl_names in wheels_per_build_envs.items():
-        for whl_name in whl_names:
-            pt_vers_config[(e.py_ver, whl_name)].append(e.pt_ver)
-            ref_venv_configs[(e.py_ver, whl_name)] = (
+    for e, wheels in wheels_per_build_envs.items():
+        for wheel in wheels:
+            pt_vers_config[(e.py_ver, wheel)].append(e.pt_ver)
+            ref_venv_configs[(e.py_ver, wheel)] = (
                 e.venv_dir,
                 e.optional,
             )
     serializer = ""
     for key, val in ref_venv_configs.items():
         venv_dir, optional = val
-        py_ver, wheel_name = key
+        py_ver, wheel_name_and_src = key
         pt_vers = pt_vers_config[key]
 
-        serializer, wheel_config = prepare_wheel_target(
+        serializer, wheel_config = create_wheel_target_for_single_python(
             pmake,
             py_ver,
-            wheel_name,
+            wheel_name_and_src,
             optional,
             whl_build_dir,
             serializer,
@@ -781,27 +807,41 @@ def create_wheel_targets(
     return wheel_configs
 
 
-def create_wheel_finalization_target(wheel_configs, pmake):
+def create_wheel_finalization_target(wheel_configs: WheelConfig, pmake) -> str:
+    """Puts wheels in wheelhouse and repairs them for manylinux"""
+
+    wheelhouse = "wheelhouse"
+    moving_target = add_target_for_moving_wheels_to_wheelhouse(
+        wheel_configs, pmake, wheelhouse
+    )
+    return add_target_to_repair_all_wheels(pmake, moving_target, wheelhouse)
+
+
+def add_target_for_moving_wheels_to_wheelhouse(wheel_configs, pmake, wheelhouse) -> str:
+    linux_targets = [f"{wheel.target}/linux" for wheel in wheel_configs]
     wheel_files = " ".join(
         [f"{wheel_config.file_path_pattern}" for wheel_config in wheel_configs]
     )
 
-    wheel = "wheel"
-    wheelhouse = "wheelhouse"
-
-    pmake(f".PHONY: {wheel}/intermediate")
-    pmake(f"{wheel}/intermediate:{wheel}/linux")
+    moving_target = "wheel/put_in_wheelhouse"
+    pmake(f".PHONY: {moving_target}")
+    pmake(f"{moving_target}: {''.join(linux_targets)}")
     pmake(f"\tmkdir -p {wheelhouse} && \\")
     pmake(f"\tfind {wheelhouse} -type f -delete && \\")
     pmake(f"\tmv {wheel_files} {wheelhouse}")
+    return moving_target
 
-    pmake(f".PHONY: {wheel}/manylinux")
-    pmake(f"{wheel}/manylinux: {wheel}/intermediate")
 
+def add_target_to_repair_all_wheels(pmake, moving_target, wheelhouse) -> str:
+    """Repairing wheels makes them manylinux ones"""
+    target = "wheel/manylinux"
+    pmake(f".PHONY: {target}")
+    pmake(f"{target}: {moving_target}")
     pmake(
         f"\tfind {wheelhouse} -name '*-linux*.whl' -exec ${{PYTORCH_MODULES_ROOT_PATH}}/.devops/manylinux/repair_wheel.py "
         f"--wheel-dir=${{PYTORCH_MODULES_RELEASE_BUILD}} {{}} \\;"
     )
+    return target
 
 
 class CMakeFlags:
@@ -916,7 +956,10 @@ def run_cmake_build_generation(
         sys.exit(1)
 
 
-def collect_build_combinations(wheels_per_build_envs, cmake_configurations):
+def collect_build_combinations(
+    wheels_per_build_envs, cmake_configurations
+) -> List[Tuple[str, str]]:
+    """Returns a list of pairs: venv path and CMake flags"""
     build_envs_by_venv = defaultdict(list)
     for e in wheels_per_build_envs.keys():
         build_envs_by_venv[e.venv_dir].append(e)
@@ -931,7 +974,7 @@ def collect_build_combinations(wheels_per_build_envs, cmake_configurations):
     return combinations
 
 
-def define_top_level_targets(wheels_per_build_envs, cmake_configurations, pmake):
+def define_top_level_targets(build_envs, cmake_configurations, pmake):
     pmake(f"# This file has been autogenerated with {__file__}")
     pmake(".SUFFIXES:")
     pmake("SUBNAMES =")
@@ -940,7 +983,7 @@ def define_top_level_targets(wheels_per_build_envs, cmake_configurations, pmake)
     pmake(
         "\n".join(
             f"SUBNAMES_PY_{e.py_ver}_{cmake_config.upper()} ="
-            for e in wheels_per_build_envs.keys()
+            for e in build_envs
             for cmake_config in cmake_configurations.keys()
         )
     )
@@ -1454,7 +1497,7 @@ class ManylinuxRunner(object):
         sp.check_call(command, shell=True)
 
 
-def gather_wheel_targets(args, wheel_configs) -> Tuple[Set, List]:
+def gather_wheel_targets(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, List]:
     wheel_targets = set()
     selected_wheel_configs = []
 
@@ -1465,7 +1508,8 @@ def gather_wheel_targets(args, wheel_configs) -> Tuple[Set, List]:
 
     if not args.no_ext_build:
         selected_wheel_configs.extend(wheel_configs)
-        wheel_targets.add("wheel/" + platform)
+        for config in wheel_configs:
+            wheel_targets.add(f"{config.target}/" + platform)
         ensure_wheel_is_installed()
     return wheel_targets, selected_wheel_configs
 
@@ -1477,7 +1521,7 @@ def ensure_wheel_is_installed():
         install_wheel()
 
 
-def log_produced_wheels_and_dump_manifest(selected_wheel_configs):
+def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConfig]):
     log.info("Produced wheels:")
     wheel_manifest = []
     for no, wheel_config in enumerate(selected_wheel_configs):
@@ -1531,14 +1575,29 @@ def prepare_wheel_specs(args, current_pt_version):
                 )
                 sys.exit(1)
             wheel_specs = [
-                WheelSpec(wheel_name="habana_torch_plugin", pt_versions={supported})
+                WheelSpec(
+                    wheel_name="habana_torch_plugin",
+                    pt_versions={supported},
+                    wheel_src_dir="python_packages",
+                ),
+                WheelSpec(
+                    wheel_name="habana_torch_dataloader",
+                    pt_versions={supported},
+                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
+                ),
             ]
         elif "all" in args.pt_versions:
             wheel_specs = [
                 WheelSpec(
                     wheel_name="habana_torch_plugin",
                     pt_versions=set(supported_pt_versions),
-                )
+                    wheel_src_dir="python_packages",
+                ),
+                WheelSpec(
+                    wheel_name="habana_torch_dataloader",
+                    pt_versions=set(supported_pt_versions),
+                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
+                ),
             ]
         else:
             wheel_specs = [
@@ -1548,7 +1607,16 @@ def prepare_wheel_specs(args, current_pt_version):
                         ver if ver == "nightly" else Version(ver)
                         for ver in args.pt_versions
                     ),
-                )
+                    wheel_src_dir="python_packages",
+                ),
+                WheelSpec(
+                    wheel_name="habana_torch_dataloader",
+                    pt_versions=set(
+                        ver if ver == "nightly" else Version(ver)
+                        for ver in args.pt_versions
+                    ),
+                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
+                ),
             ]
     return current_pt_version, wheel_specs
 
@@ -1646,7 +1714,7 @@ def main():
         log.debug(
             f"Selected PyTorch versions: {set([item for sublist in wheel_specs for item in sublist.pt_versions])}"
         )
-        build_envs = prepare_build_envs(
+        wheels_per_build_envs = prepare_build_envs(
             selected_python_versions,
             wheel_specs,
             pt_modules_root,
@@ -1658,7 +1726,7 @@ def main():
         cmake_configurations = get_cmake_configurations(args)
         cmake_build_configs, wheel_configs = prepare_build_dirs(
             build_dir,
-            build_envs,
+            wheels_per_build_envs,
             cmake_configurations,
             pt_modules_root,
             clean=args.configure,
