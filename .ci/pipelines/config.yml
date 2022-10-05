@@ -5,3 +5,6 @@ config:
     - repository: pytorch-lightning-fork
     - repository: pytorch-vision-fork
     - repository: pytorch-integration
+  dependantComponents:
+    - component: deepspeed_fork
+      silentMode: true
