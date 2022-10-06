@@ -8,12 +8,12 @@ import copy
 import random
 import habana_frameworks.torch.core as htcore
 
+sys.path.append(os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "tests/fused_ops"))
 
-import habana_frameworks.torch.core as htcore
-from habana_frameworks.torch.hpex.optimizers import ResourceApplyMomentum
+from lars import ResourceApplyMomentum
+from lars import Lars
 from habana_frameworks.torch.hpex.optimizers import FusedResourceApplyMomentum
 from habana_frameworks.torch.hpex.optimizers import FusedLars
-from habana_frameworks.torch.hpex.optimizers import Lars
 
 def cosine_sim(a,b):
     a=a.detach().numpy().flatten().astype(np.float64)
