@@ -12,6 +12,30 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, mm_float32) {
+  GenerateInputs(2, {{2, 3}, {3, 3}});
+
+  auto expected = torch::mm(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::mm(GetHpuInput(0), GetHpuInput(1));
+
+  Compare(expected, result);
+}
+
+/*
+Note: Below testcase fails for BFloat16 with default tolerance
+Issue raised : https://jira.habana-labs.com/browse/SW-71743
+*/
+TEST_F(HpuOpTest, mm_bfloat16) {
+  torch::ScalarType dtype = torch::kBFloat16;
+
+  GenerateInputs(2, {{30, 5}, {5, 25}}, dtype);
+
+  auto expected = torch::mm(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::mm(GetHpuInput(0), GetHpuInput(1));
+
+  Compare(expected, result, 1e-3, 1e-1);
+}
+
 TEST_F(HpuOpTest, mm_out_float32) {
   GenerateInputs(2, {{2, 3}, {3, 3}});
 
@@ -30,7 +54,6 @@ TEST_F(HpuOpTest, mm_out_float32) {
 Note: Below testcase fails for BFloat16 with default tolerance
 Issue raised : https://jira.habana-labs.com/browse/SW-71743
 */
-
 TEST_F(HpuOpTest, mm_out_bfloat16) {
   torch::ScalarType dtype = torch::kBFloat16;
 

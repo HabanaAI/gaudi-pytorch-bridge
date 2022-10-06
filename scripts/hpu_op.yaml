@@ -3301,16 +3301,22 @@ mish_backward:
   out_ids: [0]
 
 mm:
+  custom_output_shape: MmOutputShape
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
-  override_fn: mm_hpu_lazy
+  guid: gemm
+  out_ids: [0]
+
 
 mm.out:
   custom_output_shape: MmOutputShape
-  dtypes: [BFloat16,Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: gemm
 
 mse_loss:

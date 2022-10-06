@@ -3401,16 +3401,6 @@ Tensor& arange_hpu_lazy(
   return output;
 }
 
-Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor> k{
-      "aten::mm",
-      {mat1, mat2},
-      {},
-      {MMOperator::compute_output_shape(mat1, mat2)}};
-  RUN_MAYBE_WITH_ACC_THREAD(mm, k)
-}
-
 Tensor addmm_hpu_lazy(
     const Tensor& self,
     const Tensor& mat1,
