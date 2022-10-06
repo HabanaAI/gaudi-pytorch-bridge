@@ -899,6 +899,18 @@ any.out:
     Greco: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AnyDim
 
+arange.start_out:
+  op_frontend: ArangeInputs
+  op_backend: Arange
+  guid: range
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Greco: [Float, BFloat16, Int, Short, Char, Byte, Half]
+  custom_output_shape: ArangeOutputShape
+  custom_fill_params: FillArangeParams
+  schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
+
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
   dtypes: [Float, BFloat16, Int, Char]

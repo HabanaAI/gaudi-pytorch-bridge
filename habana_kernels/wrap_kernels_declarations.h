@@ -97,11 +97,6 @@ struct hpu_wrap {
       c10::optional<int64_t> start,
       c10::optional<int64_t> end,
       int64_t step);
-  static at::Tensor& arange_out(
-      const at::Scalar& start,
-      const at::Scalar& end,
-      const at::Scalar& step,
-      at::Tensor& output);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor kl_div_backward(
       const at::Tensor& grad,

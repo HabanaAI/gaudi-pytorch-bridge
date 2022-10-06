@@ -563,33 +563,6 @@ Tensor& hpu_wrap::index_copy_(
   }
 };
 
-Tensor& hpu_wrap::arange_out(
-    const Scalar& start,
-    const Scalar& end,
-    const Scalar& step,
-    Tensor& output) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "arange_out:",
-      " start=",
-      to_string(start),
-      " end=",
-      to_string(end),
-      " step=",
-      to_string(step),
-      " output=",
-      to_string(output));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      arange, PARAMS1(output), PARAMS2(start, end, step, output), start_out)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return arange_hpu_lazy(output, start, end, step);
-
-  } else {
-    return arange_hpu(output, start, end, step);
-  }
-};
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
@@ -2471,11 +2444,6 @@ TORCH_LIBRARY(hpu, m) {
       "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def(
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
-  m.def(
-      "arange_out(Scalar start, Scalar end, Scalar step, Tensor(a!) out) -> Tensor(a!)");
-  m.def("arange_out_ds(Tensor shape, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "arange_out_ds_ht(Tensor host, Tensor(a!) out, Tensor out_shape) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor(a!) out) -> Tensor(a!)");
   m.def("randperm_out(int n, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(

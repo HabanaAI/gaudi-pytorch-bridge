@@ -299,11 +299,6 @@ at::Tensor slice_hpu(
     c10::optional<int64_t> end,
     int64_t step);
 at::Tensor select_hpu(const at::Tensor& self, int64_t dim, int64_t index);
-at::Tensor& arange_hpu(
-    at::Tensor& output,
-    const at::Scalar& start,
-    const at::Scalar& end,
-    const at::Scalar& step);
 at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2);
 at::Tensor addmm_hpu(
     const at::Tensor& self,

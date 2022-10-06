@@ -2992,85 +2992,6 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
   }
 }
 
-/*************************************************************************
- * @brief Kernel implementation for torch.arange operator
- * @param output - output tensor
- * @param start - start index of the sequence
- * @param end - end index of the sequence
- * @param step - step value of the sequence
- ************************************************************************/
-
-Tensor& arange_hpu(
-    Tensor& output,
-    const Scalar& start,
-    const Scalar& end,
-    const Scalar& step) {
-  PT_KERNEL_BEGIN;
-
-  // resizing the output as it is coming as empty from model
-  int depth = ArangeOperator::GetOutputSize(start, end, step);
-  auto shape = DimVector({depth});
-  auto tht_result = output.unsafeGetTensorImpl();
-  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
-  Tensor output_int;
-  if (output.scalar_type() == ScalarType::Long) {
-    output_int = habana_helpers::createPTTensor(
-        output,
-        output.sizes(),
-        output.options(),
-        output.suggest_memory_format(),
-        c10::ScalarType::Int,
-        true);
-  }
-  at::ScalarType scalar_type;
-  if (output.scalar_type() == ScalarType::BFloat16) {
-    scalar_type = c10::ScalarType::BFloat16;
-  } else {
-    scalar_type = c10::ScalarType::Float;
-  }
-
-  std::string node_type =
-      "range_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = output.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  ArangeOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<c10::IValue> stack = {IValue(start), IValue(end), IValue(step)};
-
-  if (output.scalar_type() == ScalarType::Long) {
-    stack.push_back(IValue(output_int));
-    pt_inputs.emplace_back(output_int);
-  } else {
-    stack.push_back(IValue(output));
-    pt_inputs.emplace_back(output);
-  }
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  if (output.scalar_type() == ScalarType::Long) {
-    output.copy_(habana_helpers::cast_tensor_to_long(out.at(0)));
-  } else if (output.scalar_type() == ScalarType::Bool) {
-    out.at(0).to(c10::ScalarType::Bool);
-  }
-  PT_KERNEL_END;
-  return output;
-}
-
 // brodcast index tensor shape and get the correct shape and size
 std::vector<int64_t> broadcast_size(at::TensorList indices) {
   auto size = indices[0].sizes().vec();
@@ -3854,9 +3775,6 @@ static auto& IndexKernelsKernelRegistry =
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
         .add("hpu::_unique", KERNEL_FN(Unique_Operator))
         .add("hpu::unique_dim", KERNEL_FN(UniqueDimOperator))
-        .add("hpu::arange_out", KERNEL_FN(ArangeOperator))
-        .add("hpu::arange_out_ds", KERNEL_FN(ArangeOperator))
-        .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
         .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
         .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator))
         .add("aten::index_copy", KERNEL_FN(IndexCopyOperator))

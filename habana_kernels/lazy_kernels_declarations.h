@@ -261,11 +261,6 @@ at::Tensor select_backward_hpu_lazy(
     int64_t index);
 #endif
 
-at::Tensor& arange_hpu_lazy(
-    at::Tensor& output,
-    const at::Scalar& start,
-    const at::Scalar& end,
-    const at::Scalar& step);
 at::Tensor masked_select_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mask);

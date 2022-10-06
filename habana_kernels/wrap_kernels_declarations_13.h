@@ -103,11 +103,6 @@ struct hpu_wrap {
       c10::optional<c10::SymInt> start,
       c10::optional<c10::SymInt> end,
       c10::SymInt step);
-  static at::Tensor& arange_out(
-      const at::Scalar& start,
-      const at::Scalar& end,
-      const at::Scalar& step,
-      at::Tensor& output);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
   static ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
       const at::Tensor& input,
