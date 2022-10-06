@@ -419,6 +419,26 @@ class IndexAddOperator : public HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
+// IndexCopyOperator
+class IndexCopyOperator : public HabanaOperator {
+ public:
+  IndexCopyOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "index_copy_fwd_filler" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
 //
 // Arange Operator
 class ArangeOperator : public HabanaOperator {

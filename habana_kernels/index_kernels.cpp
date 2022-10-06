@@ -832,6 +832,78 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
 }
 
+void IndexCopyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4, "Incorrect size of inputs for index_copy operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input 0 type expected to be Tensor for index_copy operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input 1 type expected to be int64_t for index_copy operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input 2 type expected to be Tensor for index_copy operator");
+  TORCH_CHECK(
+      inputs[3].isTensor(),
+      "Input 3 type expected to be Tensor for index_copy operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  auto value = inputs[3].toTensor();
+
+  std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
+  torch::jit::Stack temp_stack;
+
+  // Expand 1D index tensor to same number of dimensions as value tensor
+  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
+  expanded_sizes[dim] = index.sizes()[0];
+
+  ////auto index_expanded = index.view(expanded_sizes)
+  auto reshapeOp = make_operator<ReshapeOperator>(
+      this->p_context_->device_id_, index.scalar_type());
+  temp_stack = {IValue(index), IValue(expanded_sizes)};
+  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+  reshapeOp->AllocateAndAddSynapseNode(
+      graph, temp_stack, OutputMetaDataVector(1));
+  temp_stack.clear();
+
+  // Broadcast index tensor to same shape as value tensor
+  bool implicit =
+      false; // The value of implicit is currently ignored in broadcast kernel
+  auto bcastOp = make_operator<BroadcastOperator>(
+      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
+  temp_stack = {
+      IValue(reshapeOp->GetOutputs()[0]),
+      IValue(value.sizes()),
+      IValue(implicit)};
+  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
+  bcastOp->AllocateAndAddSynapseNode(
+      graph, temp_stack, OutputMetaDataVector(1));
+  temp_stack.clear();
+
+  auto scatterOp = make_operator<ScatterHelperOperator>(
+      this->p_context_->device_id_, self.scalar_type());
+  temp_stack = {
+      IValue(self),
+      IValue(dim),
+      IValue(bcastOp->GetOutputs()[0]),
+      IValue(value)};
+
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+  scatterOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+  scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(scatterOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
+}
+
 Tensor index_add_hpu(
     Tensor& self,
     int64_t dim_,
@@ -3742,4 +3814,5 @@ static auto& KernelRegistry =
         .add("hpu::arange_out_ds_ht", KERNEL_FN(ArangeOperatorHT))
         .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
         .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator))
+        .add("aten::index_copy", KERNEL_FN(IndexCopyOperator))
         .add("aten::one_hot", KERNEL_FN(OneHotOperator));

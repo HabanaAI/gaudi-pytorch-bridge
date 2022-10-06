@@ -2887,30 +2887,26 @@ Tensor& index_fill_hpu_lazy_(
 Tensor& index_copy_hpu_lazy_(
     Tensor& self,
     int64_t dim,
-    const Tensor& index,
-    const Tensor& value) {
+    const Tensor& indices,
+    const Tensor& source) {
+  PT_LAZY_TRACE;
+  // TPC doesn't support inplace index add natively
+  // Implement using out of place index add followed by D2D copy
+  // TODO revisit once strided mem copy feature is mature
   auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  if (dim_ == 0) {
-    c10::List<c10::optional<at::Tensor>> indices;
-    indices.push_back(index);
-    return index_put_hpu_lazy_(self, indices, value, false);
-  } else {
-    std::vector<int64_t> permute_dims(self.dim());
-    std::iota(permute_dims.begin(), permute_dims.end(), 0);
-    auto temp = permute_dims[self.dim() - dim_ - 1];
-    permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
-    permute_dims[self.dim() - 1] = temp;
-    auto permuted_self = permute_hpu_lazy(self, permute_dims);
-    auto permuted_value = permute_hpu_lazy(value, permute_dims);
-    c10::List<c10::optional<at::Tensor>> indices;
-    indices.push_back(index);
-    permuted_self =
-        index_put_hpu_lazy_(permuted_self, indices, permuted_value, false);
-    permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
-    LazyOp<at::Tensor&> k{
-        "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
-    return k.call(self);
-  }
+  auto hl_self = GetOrCreateHbLazyTensor(self);
+
+  LazyOp<Tensor> index_copy_op(
+      "aten::index_copy",
+      {self, dim_, indices, source},
+      {1}, // metadata_indices
+      {self.sizes().vec()} // out_shapes
+  );
+
+  Tensor index_copy_out = index_copy_op.call();
+
+  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_copy_out, self}};
+  return k.call(self);
 }
 
 Tensor& masked_scatter_hpu_lazy_(
