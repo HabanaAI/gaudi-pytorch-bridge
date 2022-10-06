@@ -2006,23 +2006,35 @@ fill_.Tensor:
   inplace_ids: [0]
 
 flip:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Char]
   op_backend: Flip
   out_ids: [0]
 
 floor:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: floor_fwd
   out_ids: [0]
 
 floor.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: floor_fwd
 
 floor_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: floor_fwd
   inplace_ids: [0]
 
@@ -2142,7 +2154,10 @@ fmod_.Tensor:
 gather:
   custom_fill_params: FillGatherParams
   custom_output_shape: GatherOutputShape
-  dtypes: [BFloat16, Float, Int, Short, Byte, Char]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Half]
   force_default: false
   op_backend: GatherHabanaOperator
   out_ids: [0]
@@ -2150,7 +2165,10 @@ gather:
 gather.out:
   custom_fill_params: FillGatherParams
   custom_output_shape: GatherOutputShape
-  dtypes: [BFloat16, Float, Int, Short, Byte, Char]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Half]
   op_backend: GatherHabanaOperator
 
 ge.Scalar_out:
