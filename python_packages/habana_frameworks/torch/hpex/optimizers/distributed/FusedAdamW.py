@@ -47,7 +47,7 @@ class FusedAdamW(object):
             raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 < weight_decay: #  changed the condition. Habana impl. supports weight decay of 0. PT impl. does not.
+        if not 0.0 <= weight_decay:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
         # Habana impl. does not support True for these as of now
