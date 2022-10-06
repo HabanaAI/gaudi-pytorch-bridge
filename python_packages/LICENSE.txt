@@ -389,3 +389,13 @@ License :
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+Module: FusedLars, FusedResourceApplyMomentum
+Source : TensorFlow Lars Optimizer
+reference: https://github.com/tensorflow/models/blob/master/official/modeling/optimization/lars_optimizer.py
+Source : NVDIA Apex LARC optimizer
+reference: https://github.com/NVIDIA/apex/blob/master/apex/parallel/LARC.py
+
+License: Apache License, Version 2.0 (for TensorFlow Lars Optimizer)
+         BSD-3 (for NVDIA  Apex LARC optimizer)
+         Conforms to the license texts for Apache V2 and BSD-3 as found elsewhere in this license file.
