@@ -3628,12 +3628,21 @@ std::vector<int64_t> SqueezeOperator::compute_output_shape(
     int64_t dim) {
   std::vector<int64_t> out_shape;
   auto dims = self.dim();
-  if (dims == 0 || self.sizes()[dim] != 1) {
-    out_shape = self.sizes().vec();
+  TORCH_CHECK(dim <= HABANA_DIM_MAX, "incorrect dim for SqueezeOperator");
+  if (dim < HABANA_DIM_MAX) {
+    if (dims == 0 || self.sizes()[dim] != 1) {
+      out_shape = self.sizes().vec();
+    } else {
+      for (const auto d : c10::irange(dims)) {
+        if (d != dim || self.sizes()[dim] != 1) {
+          out_shape.push_back(self.sizes()[d]);
+        }
+      }
+    }
   } else {
-    for (const auto d : c10::irange(dims)) {
-      if (d != dim || self.sizes()[dim] != 1) {
-        out_shape.push_back(self.sizes()[d]);
+    for (const auto s : self.sizes()) {
+      if (s != 1) {
+        out_shape.push_back(s);
       }
     }
   }
@@ -3679,10 +3688,14 @@ void SqueezeOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  const auto syn_axis = input.dim() - dim - 1;
-  synAxisParams params{static_cast<unsigned int>(syn_axis)};
+  if (dim < HABANA_DIM_MAX) {
+    const auto syn_axis = input.dim() - dim - 1;
+    synAxisParams params{static_cast<unsigned int>(syn_axis)};
 
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  } else {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  }
 }
 
 std::vector<int64_t> UnsqueezeOperator::compute_output_shape(

@@ -5369,14 +5369,22 @@ Tensor t_hpu_lazy(const Tensor& self) {
 Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   PT_LAZY_TRACE;
 
-  auto dim = at::maybe_wrap_dim(dim_, self.dim());
+  auto dim = dim_;
+  Tensor out;
 
-  // no degenerate axis to squeeze
-  if ((self.sizes()[dim] != 1) || (self.dim() == 1)) {
-    return self;
+  if (dim != HABANA_DIM_MAX) {
+    dim = at::maybe_wrap_dim(dim_, self.dim());
+
+    // no degenerate axis to squeeze
+    if ((self.sizes()[dim] != 1) || (self.dim() == 1)) {
+      return self;
+    }
+
+    out = at::native::squeeze(self, dim);
+  } else {
+    out = at::native::squeeze(self);
   }
 
-  auto out = at::native::squeeze(self, dim);
   if (is_fallback_original_op(self, out)) {
     auto hb_result = GetHbLazyTensor(out);
     {

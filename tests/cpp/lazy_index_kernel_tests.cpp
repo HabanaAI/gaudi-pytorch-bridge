@@ -777,3 +777,13 @@ TEST_F(LazyIndexKernelTest, squeezeTest) {
 
   EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyIndexKernelTest, squeezeTestNodim) {
+  auto x = torch::randn({1, 2, 1, 3});
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x);
+  auto hB = torch::squeeze(hx);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
