@@ -4903,14 +4903,12 @@ Tensor empty_hpu_lazy(
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
   auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
-  if (!habana_helpers::is_supported_type(type)) {
-    HABANA_ASSERT(shape_tensor == false);
-    auto layout = options.layout();
-    auto pinned_mem = options.pinned_memory();
-    auto dev = c10::DeviceType::CPU;
-    return at::empty(
-        size, type, layout, dev, pinned_mem, optional_memory_format);
-  }
+  TORCH_CHECK(
+      options.pinned_memory() == false,
+      "habana allocator doesn't supported pinned memory");
+  c10::Allocator* allocator = habana::getHABANADeviceAllocator();
+  HABANA_ASSERT(habana_helpers::is_supported_type(type));
+
   // Dont allocate 8 bytes for double/long as we are anyway going to cast at
   // CPU and then copy to device @ 4byts per element
   type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
@@ -4918,12 +4916,6 @@ Tensor empty_hpu_lazy(
   auto new_dtype = scalarTypeToTypeMeta(type);
 
   if (create_storage || shape_tensor) {
-    c10 ::Allocator* allocator;
-    if (options.pinned_memory()) {
-      TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
-    } else {
-      allocator = habana::getHABANADeviceAllocator();
-    }
     int64_t nelements = multiply_integers(size);
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data

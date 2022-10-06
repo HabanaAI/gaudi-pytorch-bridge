@@ -1342,10 +1342,10 @@ Tensor hpu_wrap::empty(
       " optional_memory_format=",
       to_string(optional_memory_format));
   at::TensorOptions options = at::TensorOptions()
-                                  .dtype(std::move(dtype))
-                                  .layout(std::move(layout))
-                                  .pinned_memory(std::move(pin_memory))
-                                  .device(std::move(device));
+                                  .dtype(dtype)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory)
+                                  .device(device);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return empty_hpu_lazy(size, options, optional_memory_format);
