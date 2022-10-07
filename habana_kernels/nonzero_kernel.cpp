@@ -91,7 +91,9 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   auto elements = self.numel();
-  if ((self.dim() <= 4)) {
+  if ((synapse_helpers::HPURegistrar::get_device().type() !=
+       synDeviceType::synDeviceGreco) and
+      (self.dim() <= 4)) {
     elements = 1;
     auto last_dim_rounded = round_dims(self, 64);
     for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
@@ -145,7 +147,9 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       "output_metadata expected to be vector of size 2");
 
   auto self = inputs[0].toTensor();
-  if (self.dim() > 4) {
+  if ((synapse_helpers::HPURegistrar::get_device().type() ==
+       synDeviceType::synDeviceGreco) or
+      (self.dim() > 4)) {
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
     auto cordinates_of_true = habana_helpers::createPTTensor(
