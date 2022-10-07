@@ -2826,7 +2826,10 @@ hypot_:
 
 index.Tensor:
   custom_output_shape: IndexOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Half]
   fallback_check: [IndexFallbackCheck, indices]
   guid: index
   op_backend: IndexHabanaOperator
@@ -2836,7 +2839,10 @@ index.Tensor:
 
 isnan:
   custom_output_shape: IsNanOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Half]
   guid: isnan_fwd
   op_backend: IsNanOperator
   op_frontend: LazyIsNan
@@ -2872,6 +2878,23 @@ l1_loss_backward.grad_input:
   custom_output_shape: L1LossBackwardOutputShape
   dtypes: [BFloat16, Float]
   op_backend: L1LossBwdOperator
+
+index_add_:
+  force_default: false
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int]
+      index: [Int]
+      source: [BFloat16, Float, Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Half]
+      index: [Int]
+      source: [BFloat16, Float, Int, Half]
+    Greco:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      source: [BFloat16, Float, Half]
+  override_fn: index_add_hpu_lazy_
 
 index_select:
   out_ids: [0]

@@ -188,7 +188,8 @@ at::Tensor& index_add_hpu_lazy_(
     at::Tensor& self,
     int64_t dim_,
     const at::Tensor& indices,
-    const at::Tensor& source);
+    const at::Tensor& source,
+    const at::Scalar& alpha);
 at::Tensor& index_add_hpu_lazy_out(
     const at::Tensor& self,
     int64_t dim,

@@ -2651,7 +2651,8 @@ Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim,
     const Tensor& indices,
-    const Tensor& source) {
+    const Tensor& source,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
 
   // TPC doesn't support inplace index add natively
@@ -2662,7 +2663,7 @@ Tensor& index_add_hpu_lazy_(
 
   LazyOp<Tensor> index_add_op(
       "aten::index_add",
-      {self, dim_, indices, source},
+      {self, dim_, indices, source, alpha},
       {1}, // metadata_indices
       {self.sizes().vec()} // out_shapes
   );
