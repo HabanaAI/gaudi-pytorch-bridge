@@ -1003,7 +1003,10 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
   // bucket size.
   std::vector<HbLazyTensor> maybe_view_outputs;
 
-  for (auto& uid_wptr : devctx->tensors_data) {
+  for (auto& uid_wptr :
+       (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION))
+           ? devctx->tensors_data_opt
+           : devctx->tensors_data) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
       auto hl_t = HbLazyTensor(std::move(data));

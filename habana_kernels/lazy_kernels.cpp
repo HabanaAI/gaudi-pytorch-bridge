@@ -5038,6 +5038,11 @@ Tensor empty_hpu_lazy(
       auto at_internal_impl = GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
 
+      // Any lazy tensor created with storage should be marked as executed
+      if (create_storage) {
+        hb_tensor.getDataPtr()->execution_status = kEXECUTION_COMPLETE;
+      }
+
       // As its an inplace op and we want this op to execute
       // we want to wind back status of this tensor to registered
       // so that when post order is created, we actually execute it

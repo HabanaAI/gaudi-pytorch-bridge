@@ -373,6 +373,7 @@ class HbLazyTensor {
 // training loops.
 struct HbContext {
   std::map<int64_t, std::weak_ptr<Data>> tensors_data;
+  std::map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
   ir::Value seed_ir_value;
 };
 

@@ -185,6 +185,28 @@ void Value::SetNode(
   mp_node = std::move(node);
 
   mp_node->m_outputs.emplace_back(Output(*this));
+
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION)) {
+    HbContext* devctx =
+        habana_lazy::HbContextArena::Get()->GetHbContext(device);
+
+    auto shared_ptr = m_data_ptr.lock();
+    // Collect data_ptr corresponding to all non input lazy tensors (graph
+    // outputs)
+    // Skip nodes without valid data ptr, e.g. meta-data nodes
+    if (shared_ptr == nullptr) {
+      return;
+    }
+    if (!mp_node->is_input()) {
+      devctx->tensors_data_opt[shared_ptr->unique_id] = m_data_ptr;
+      // Set execution status again to Registered because in case of .out op
+      // variants, same tensor may have been considered as input earlier and
+      // marked with Execution Complete
+      shared_ptr->execution_status = kREGISTERED;
+    } else {
+      shared_ptr->execution_status = kEXECUTION_COMPLETE;
+    }
+  }
 }
 
 std::string Value::ToString() const {

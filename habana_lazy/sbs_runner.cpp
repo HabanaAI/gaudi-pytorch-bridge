@@ -437,6 +437,10 @@ at::Tensor SBSRunner::prepareTensorToCPU(
     UNUSED size_t index) {
   PT_LAZY_DEBUG("SBSRunner::", __FUNCTION__, " index=", index);
   auto hb_tensor = GetHbLazyTensor(tensor);
+  // if we are moving a tensor to CPU, it means that it has valid storage
+  // attached and therefore its execution status can be unconditionally marked
+  // complete
+  hb_tensor.getDataPtr()->execution_status = kEXECUTION_COMPLETE;
 
   // Saving current tensor name, to be used later
   PT_LAZY_DEBUG(
