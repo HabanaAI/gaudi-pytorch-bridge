@@ -247,6 +247,10 @@ class tensor final {
   };
 
   static tensor create_placeholder(
+      const std::vector<int64_t>& pt_shape,
+      const std::vector<int64_t>& pt_stride);
+
+  static tensor create_placeholder(
       synDeviceId device_id,
       const std::vector<int64_t>& pt_shape,
       const std::vector<int64_t>& pt_stride,

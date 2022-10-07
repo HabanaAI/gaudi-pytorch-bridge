@@ -506,6 +506,25 @@ void tensor::cleanup() {
   }
 }
 
+// Method for creating dummy tensor with sizes and strides info only
+tensor tensor::create_placeholder(
+    const std::vector<int64_t>& pt_shape,
+    const std::vector<int64_t>& pt_stride) {
+  tensor tensor{
+      0,
+      synDataType::syn_type_na,
+      0,
+      shape_t{0_D},
+      shape_t{0_D},
+      std::string(),
+      0,
+      nullptr};
+  tensor.pt_shape_ = pt_shape;
+  tensor.pt_strides_ = pt_stride;
+  tensor.placeholder_ = true;
+  return tensor;
+}
+
 tensor tensor::create_placeholder(
     synDeviceId syn_device,
     const std::vector<int64_t>& pt_shape,

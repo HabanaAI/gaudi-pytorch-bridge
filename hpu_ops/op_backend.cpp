@@ -421,12 +421,14 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     std::vector<synapse_helpers::tensor> out;
 
     for (const auto& attr : node_attr.output_attrs) {
-      const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
+      const auto& attr_strides = HabanaOperator::CalculateStrides(
+          attr.sizes.vec(), at::MemoryFormat::Contiguous);
       const auto& md = TensorMetaData(
-          t.sizes().vec(),
-          t.strides().vec(),
+          attr.sizes.vec(),
+          attr_strides,
           attr.dtype,
           at::MemoryFormat::Contiguous);
+
       if (habana_helpers::is_shape_tensor(attr.tensor_type)) {
         meta.AddShapeTensor(md);
       }
@@ -437,8 +439,10 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       } else {
         meta.AddIntermediateTensor(md);
       }
+
+      // create dummy tensor with only sizes and strides info
       out.emplace_back(synapse_helpers::tensor::create_placeholder(
-          0, t.sizes().vec(), t.strides().vec()));
+          attr.sizes.vec(), attr_strides));
     }
 
     return out;
