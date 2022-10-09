@@ -330,6 +330,15 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
 }
 
+c10::optional<at::Tensor>& HbLazyTensor::GetTensorData() {
+  auto& tens = data()->tensor_data;
+  if (tens != c10::nullopt) {
+    bool isHPU = tens.value().device().type() == c10::DeviceType::HPU;
+    HABANA_ASSERT(isHPU);
+  }
+  return tens;
+}
+
 void HbLazyTensor::SetCPUTensorData(at::Tensor cpu_tensor_data) {
   PT_BRIDGE_DEBUG(
       "Type is ", c10::DeviceTypeName(cpu_tensor_data.device().type()));

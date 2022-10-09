@@ -94,3 +94,26 @@ TEST_F(DebugUtilsTest, DebugCustomOp3) {
 
   EXPECT_EQ(allclose(C, O), true);
 }
+
+TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
+  auto S = torch::randn({2, 4}, torch::requires_grad(false));
+  auto C = torch::relu(S);
+  auto hS = S.to(torch::kHPU);
+  HbLazyTensor::StepMarker({});
+
+  auto hT = torch::relu(hS);
+  HbLazyTensor::StepMarker({});
+
+  at::Tensor hR = at::empty({0}, hS.options());
+
+  at::TensorImpl* impl = hR.unsafeGetTensorImpl();
+  auto storage = hS.storage();
+  impl->set_storage_keep_dtype(storage);
+  impl->set_storage_offset(0);
+  impl->set_sizes_and_strides({2, 4}, {4, 1});
+
+  auto hO = torch::relu(hR);
+  auto O = hO.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(C, O), true);
+}
