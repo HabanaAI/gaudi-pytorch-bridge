@@ -88,3 +88,10 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: Test_pytorch_greco_sim_cpp
+  silentMode: true
+  gerritTriggerMap:
+  - repository: jenkins_files
+    isStable: true
+    files:
+    - 'sim_pytorch_tests---t-dg.jenkinsfile'
