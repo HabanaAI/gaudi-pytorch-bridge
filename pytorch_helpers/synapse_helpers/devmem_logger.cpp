@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include <absl/strings/str_format.h>
+#include "device_mem_reporter.h"
 #include "devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -41,6 +42,7 @@ deviceMallocData::deviceMallocData() {
   enable_recording = false;
   print_memory_stats = false;
   logging_enabled_ = true;
+  mem_reporter_enable_ = false;
   switch (log_level) {
     case MEM_LOG_ALL:
       print_free_bt = true;
@@ -67,6 +69,9 @@ deviceMallocData::deviceMallocData() {
     case MEM_LOG_RECORD:
       enable_recording = true;
       break;
+    case MEM_REPORTER:
+      mem_reporter_enable_ = true;
+      break;
     case MEM_LOG_DISABLE:
     default:
       logging_enabled_ = false;
@@ -77,11 +82,31 @@ deviceMallocData::deviceMallocData() {
   logging_enabled_ = (take_bt || print_free_bt || print_alloc_bt);
   if (logging_enabled_ || enable_recording || print_memory_stats)
     out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
+
+  if (mem_reporter_enable_) {
+    SET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO, true, 1);
+    // TODO: support .txt and .json, default .json support
+    memory_reporter_out.open(
+        "memory.reporter.json", std::ofstream::out | std::ofstream::trunc);
+    // Redirect output to logfile
+    auto coutbuf = std::cout.rdbuf(); // save old buf
+    std::cout.rdbuf(memory_reporter_out.rdbuf());
+    std::cout << "[\n";
+    std::cout.rdbuf(coutbuf); // reset to standard output again
+  }
 }
 
 deviceMallocData::~deviceMallocData() {
   if (out.is_open()) {
     out.close();
+  }
+  if (memory_reporter_out.is_open()) {
+    UNSET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
+    auto coutbuf = std::cout.rdbuf(); // save old buf
+    std::cout.rdbuf(memory_reporter_out.rdbuf());
+    std::cout << "]\n";
+    std::cout.rdbuf(coutbuf); // reset to standard output again
+    memory_reporter_out.close();
   }
 }
 
@@ -814,6 +839,111 @@ void memstats_dump(synapse_helpers::device& device, const char* msg) {
     std::string updated_msg = msg;
     updated_msg = updated_msg + "\n" + stats.DebugString();
     synapse_helpers::print_live_allocations(updated_msg.c_str());
+  }
+}
+
+void deviceMallocData::create_memory_reporter_event(
+    synapse_helpers::MemoryStats& mem_stats,
+    std::string& event_name) {
+  // Redirect output to logfile
+  static int status_id = 0;
+  auto coutbuf = std::cout.rdbuf(); // save old buf
+  int event_ts = status_id++;
+  std::string event_line_begin_header = std::string("{ \"tid\":") +
+      std::to_string(event_ts) + std::string(", \"pid\":") +
+      std::to_string(getpid()) + std::string(", \"ts\":") +
+      std::to_string(event_ts);
+  std::string event_line_end_header = std::string("{ \"tid\":") +
+      std::to_string(event_ts) + std::string(", \"pid\":") +
+      std::to_string(getpid()) + std::string(", \"ts\":") +
+      std::to_string(event_ts + 1);
+  std::string report_event_begin = event_line_begin_header;
+  report_event_begin += std::string(", \"name\":\"") + event_name +
+      std::string("\", \"ph\":\"B\", \"cat\":\"ReportEvent\"") +
+      std::string("},\n");
+  std::string report_event_end = event_line_end_header;
+  report_event_end += std::string(", \"name\":\"") + event_name +
+      std::string("\", \"ph\":\"E\", \"cat\":\"ReportEvent\"") +
+      std::string("},\n");
+
+  std::cout.rdbuf(memory_reporter_out.rdbuf());
+  std::cout << report_event_begin;
+
+  std::cout << event_line_begin_header + std::string(", \"name\":\"") +
+          "TotalMemoryAvailable" +
+          std::string("\", \"ph\":\"B\", \"cat\":\"TotalMemoryAvailable\"") +
+          std::string(", \"args\": { ") +
+          TO_REPORT_EVENT_GB("TotalMemoryAvailable", mem_stats.memory_limit) +
+          std::string("}},\n");
+  std::cout << event_line_end_header + std::string(", \"name\":\"") +
+          "TotalMemoryAvailable" +
+          std::string("\", \"ph\":\"E\", \"cat\":\"TotalMemoryAvailable\"") +
+          std::string("},\n");
+
+  // memory consumption event create
+  synapse_helpers::MemoryConsumption mem_consume;
+  mem_consume.total_allocs_bytes = mem_stats.bytes_in_use;
+  mem_consume.max_alloc_bytes = mem_stats.largest_alloc_size;
+  mem_consume.pre_allocated_bytes = mem_stats.pre_allocate_size;
+  mem_consume.workspace_allocated = mem_stats.scratch_mem_in_use;
+  mem_consume.persistent_tensor_size =
+      (mem_stats.bytes_in_use - mem_stats.scratch_mem_in_use -
+       mem_consume.pre_allocated_bytes);
+  std::cout << mem_consume.toJsonEvent(
+      event_line_begin_header, event_line_end_header);
+
+  // memory allocator stats event create
+  synapse_helpers::MemoryAllocatorStats mem_alloc_stats;
+  mem_alloc_stats.total_num_allocs = mem_stats.total_allocs;
+  mem_alloc_stats.new_num_allocs = mem_stats.num_allocs;
+  mem_alloc_stats.total_num_frees = mem_stats.total_frees;
+  mem_alloc_stats.new_num_frees = mem_stats.num_frees;
+  std::cout << mem_alloc_stats.toJsonEvent(
+      event_line_begin_header, event_line_end_header);
+
+  // fragmentation stats event create
+  synapse_helpers::FragmentationStats frag_stats;
+  frag_stats.fragmentation_percent = mem_stats.fragmentation_percent;
+  frag_stats.total_num_chunks = mem_stats.total_chunks;
+  frag_stats.total_num_alloc_chunks = mem_stats.occupied_chunks;
+  frag_stats.total_num_free_chunks = mem_stats.free_chunks;
+  frag_stats.total_alloc_size = mem_stats.occupied_size;
+  frag_stats.total_free_size = mem_stats.free_chunks_size;
+  frag_stats.max_cntg_chunk_free_size = mem_stats.max_cntgs_free_chunks_size;
+  frag_stats.min_chunk_size = mem_stats.min_chunk_size;
+  frag_stats.max_chunk_size = mem_stats.max_chunk_size;
+  frag_stats.fragmentation_histogram = mem_stats.fragmentation_mask;
+  std::cout << frag_stats.toJsonEvent(
+      event_line_begin_header, event_line_end_header);
+
+  std::cout << report_event_end;
+
+  std::cout.rdbuf(coutbuf); // reset to standard output again
+}
+
+void memory_reporter_event_create(
+    synapse_helpers::device& device,
+    synapse_helpers::mem_reporter_type event_type) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_mem_reporter_enabled()) {
+    std::string event_name = "";
+    switch (event_type) {
+      case MEM_REPORTER_GRAPH_LAUNCH:
+        event_name = "GRAPH_LAUNCH_EVENT";
+        break;
+      case MEM_REPORTER_ALLOC_FAILS:
+        event_name = "ALLOC_FAIL_EVENT";
+        break;
+      case MEM_REPORTER_OOM:
+        event_name = "OOM_EVENT";
+        break;
+      case MEM_REPORTER_USER_CALL:
+        event_name = "USER_REQUEST_EVENT";
+        break;
+    }
+    synapse_helpers::MemoryStats mem_stats;
+    device.get_device_memory().get_memory_stats(&mem_stats);
+    dmd.create_memory_reporter_event(mem_stats, event_name);
   }
 }
 

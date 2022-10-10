@@ -173,6 +173,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
         (uint64_t)suballoc_->pool_alloc_chunk(block_align(size), is_workspace);
 
     if ((void*)ptr == nullptr) {
+      memory_reporter_event_create(device_, MEM_REPORTER_ALLOC_FAILS);
       PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
       status = synFail;
     }
@@ -362,6 +363,7 @@ void* device_memory::workspace_alloc(
         PT_DEVMEM_DEBUG(
             "Memory Stats in case workspace failure", stats.DebugString());
         log_synDeviceAllocFail(device_, true, block_align(req_size));
+        memory_reporter_event_create(device_, MEM_REPORTER_OOM);
       }
       return v_ptr;
     }

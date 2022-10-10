@@ -28,6 +28,14 @@ enum mem_log_level {
   MEM_LOG_ALLOC_FREE_NOBT, /*logs alloc and free, no backtrace */
   MEM_LOG_MEMORY_STATS, /*logs memory allocation/free and the mem status*/
   MEM_LOG_RECORD, /* logs memory allocations and deallocation */
+  MEM_REPORTER, /* memory reporter */
+};
+
+enum mem_reporter_type {
+  MEM_REPORTER_GRAPH_LAUNCH = 0, /* report event when graph launch */
+  MEM_REPORTER_ALLOC_FAILS, /* report event when alloc fails */
+  MEM_REPORTER_OOM, /* report event when oom */
+  MEM_REPORTER_USER_CALL, /* report event when user request */
 };
 
 class deviceMallocData final {
@@ -51,6 +59,7 @@ class deviceMallocData final {
   bool print_memory_stats = false;
   size_t bt_depth;
   bool logging_enabled_;
+  bool mem_reporter_enable_{false};
 
   uint64_t dram_start_, dram_size_;
   std::ofstream out;
@@ -117,6 +126,14 @@ class deviceMallocData final {
     return print_memory_stats;
   }
 
+  bool is_mem_reporter_enabled() const {
+    return mem_reporter_enable_;
+  }
+
+  void create_memory_reporter_event(
+      synapse_helpers::MemoryStats& mem_stats,
+      std::string& event_name);
+
   auto lock() {
     return std::unique_lock<std::mutex>(m);
   }
@@ -155,6 +172,8 @@ class deviceMallocData final {
   std::mutex m;
 
  private:
+  std::ofstream memory_reporter_out;
+
   deviceMallocData();
 };
 
@@ -185,4 +204,7 @@ void log_DRAM_size(uint64_t dram_size);
 void set_back_trace(bool enable);
 void set_memstats_check_flag(bool flag);
 void memstats_dump(synapse_helpers::device& device, const char* msg);
+void memory_reporter_event_create(
+    synapse_helpers::device& device,
+    synapse_helpers::mem_reporter_type event_type);
 } // namespace synapse_helpers

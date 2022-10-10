@@ -937,10 +937,34 @@ void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
     uint64_t cntgs_free_chunks_size = 0;
     uint64_t available_chunks_size = 0;
     uint64_t max_cntgs_free_chunks_size = 0;
+    int occupied_chunks = 0;
+    int total_chunks = 0;
+    int total_extra_spaced_chunks = 0;
+    int free_chunks = 0;
+    uint64_t occupied_size = 0x80;
+    uint64_t total_size = 0x80;
+    uint64_t total_exta_size = 0;
+    uint64_t free_chunks_size = 0;
+    uint64_t min_chunk_size = 0;
+    uint64_t max_chunk_size = 0;
     for (auto& m : chunks_ordered) {
       auto chunk = m.second;
-      if (!chunk->used && (chunk->size != 0)) {
+      if (chunk->size == 0)
+        continue;
+      total_chunks++;
+      total_size += chunk->size;
+      if (min_chunk_size == 0)
+        min_chunk_size = chunk->size;
+      min_chunk_size = std::min(min_chunk_size, chunk->size);
+      max_chunk_size = std::max(max_chunk_size, chunk->size);
+      if (chunk->extra_space && chunk->used) {
+        total_extra_spaced_chunks++;
+        total_exta_size += chunk->extra_space;
+      }
+      if (!chunk->used) {
         pool_status << free_mask;
+        free_chunks++;
+        free_chunks_size += chunk->size;
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
         if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
@@ -948,12 +972,25 @@ void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
         }
         cntgs_free_chunks_size = 0;
       } else {
+        occupied_chunks++;
+        occupied_size += chunk->size;
         pool_status << occupancy_mask;
       }
     }
     stats.fragmentation_percent = 100 *
         (1 - ((double)max_cntgs_free_chunks_size / available_chunks_size));
     stats.fragmentation_mask = pool_status.str();
+    stats.total_chunks = total_chunks;
+    stats.total_size = total_size;
+    stats.occupied_chunks = occupied_chunks;
+    stats.occupied_size = occupied_size;
+    stats.free_chunks = free_chunks;
+    stats.free_chunks_size = free_chunks_size;
+    stats.max_cntgs_free_chunks_size = max_cntgs_free_chunks_size;
+    stats.total_extra_spaced_chunks = total_extra_spaced_chunks;
+    stats.total_extra_size = total_exta_size;
+    stats.min_chunk_size = min_chunk_size;
+    stats.max_chunk_size = max_chunk_size;
     pool_status.str("");
     pool_status.clear();
   }

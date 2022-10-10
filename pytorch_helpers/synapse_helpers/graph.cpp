@@ -532,6 +532,7 @@ synapse_error_o graph::launch(
       recipe_handle.recipe_name_.c_str(),
       device.get_device_memory().get_total_memory_required(addresses),
       workspace_size);
+  memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
 
   {
     address_lock = absl::make_unique<device_ptr_lock>(

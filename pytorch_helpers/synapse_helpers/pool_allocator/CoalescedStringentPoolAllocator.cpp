@@ -136,6 +136,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
           GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB)};
       hccl_allowance_bytes = 1048576 * HCCL_MEMORY_ALLOWANCE_MB;
     }
+    stats.pre_allocate_size += hccl_allowance_bytes;
 
     auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC);
     uint32_t mem_acquire_perc = (val > 100) ? 100 : val;
@@ -238,6 +239,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.memory_limit = max_pool_size;
   stats.bytes_in_use += 0x80;
   bytes_in_use += 0x80;
+  stats.pre_allocate_size += 0x80;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
   small_allocs_ = absl::make_unique<SmallAllocs>(
@@ -1157,12 +1159,18 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     uint64_t cntgs_free_chunks_size = 0;
     uint64_t available_chunks_size = 0;
     uint64_t max_cntgs_free_chunks_size = 0;
+    uint64_t min_chunk_size = 0;
+    uint64_t max_chunk_size = 0;
     for (auto& m : chunks_ordered) {
       auto chunk = m.second;
       if (chunk->size == 0)
         continue;
       total_chunks++;
       total_size += chunk->size;
+      if (min_chunk_size == 0)
+        min_chunk_size = chunk->size;
+      min_chunk_size = std::min(min_chunk_size, chunk->size);
+      max_chunk_size = std::max(max_chunk_size, chunk->size);
       if (chunk->extra_space && chunk->used) {
         total_extra_spaced_chunks++;
         total_exta_size += chunk->extra_space;
@@ -1203,6 +1211,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     stats.max_cntgs_free_chunks_size = max_cntgs_free_chunks_size;
     stats.total_extra_spaced_chunks = total_extra_spaced_chunks;
     stats.total_extra_size = total_exta_size;
+    stats.min_chunk_size = min_chunk_size;
+    stats.max_chunk_size = max_chunk_size;
 
     stats.fragmentation_mask = pool_status.str();
     pool_status.str("");

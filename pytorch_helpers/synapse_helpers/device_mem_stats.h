@@ -36,6 +36,10 @@ struct MemoryStats {
   uint64_t total_extra_size;
   std::string fragmentation_mask;
 
+  uint64_t pre_allocate_size;
+  uint64_t min_chunk_size;
+  uint64_t max_chunk_size;
+
   MemoryStats()
       : num_allocs(0),
         total_allocs(0),
@@ -56,7 +60,10 @@ struct MemoryStats {
         max_cntgs_free_chunks_size(0),
         total_extra_spaced_chunks(0),
         total_extra_size(0),
-        fragmentation_mask("") {}
+        fragmentation_mask(""),
+        pre_allocate_size(0),
+        min_chunk_size(0),
+        max_chunk_size(0) {}
 
   std::string DebugString() const {
     return absl::StrFormat(
