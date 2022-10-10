@@ -98,6 +98,8 @@ bool is_inplace(at::Symbol symbol) {
   // TODO think of better way to avoid these string comparisons for multiple ops
   bool is_normal_inplace =
       (strcmp(node_name, "aten::fill_") && strcmp(node_name, "hpu::uniform_") &&
+       strcmp(node_name, "hpu::random_") && strcmp(node_name, "hpu::normal_") &&
+       strcmp(node_name, "hpu::geometric_") &&
        strcmp(node_name, "hpu::bernoulli_"));
 
   if (is_normal_inplace) {
