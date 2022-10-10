@@ -2,6 +2,7 @@
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <torch/torch.h>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 
@@ -227,4 +228,59 @@ TEST(HabanaSerializationTest, StringTest) {
   serialization::deserialize(ss, restored_testArray);
 
   ASSERT_EQ(testArray, restored_testArray);
+}
+
+TEST(HabanaSerializationTest, serializeDeserializeRecipeEvictTest) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
+    GTEST_SKIP();
+  }
+  std::string cache_path_ = "/tmp/cache_dir";
+  std::string curr_path = fs::current_path();
+  std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB, 2, 1);
+
+  if (cache_path == "") {
+    cache_path = cache_path_;
+    SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, cache_path.c_str(), 1);
+  }
+  RecipeCacheLRU::get_cache().ResetDiskCache();
+  // make sure dir is empty.
+  if (fs::exists(fs::path(cache_path))) {
+    auto removedFilesCount = removeFiles(cache_path.c_str());
+    size_t cache_size = 0;
+    bool dropped = false;
+    do {
+      dropped = RecipeCacheLRU::get_cache().drop_lru(cache_size);
+    } while (cache_size > 0 && dropped);
+    HABANA_ASSERT(RecipeCacheLRU::get_cache().empty());
+  }
+  int size = 0;
+  for (int i = 0; i < 100; i++) {
+    auto in =
+        torch::randn({64 + i, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
+    auto wt = torch::randn({4, 5, 3, 3}, torch::dtype(torch::kFloat)); // ckhw
+    auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
+
+    auto h_in = in.to(torch::kHPU);
+    auto h_wt = wt.to(torch::kHPU);
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+        !habana_lazy::exec::OptPassCfg::GetInstance()
+             ->IsEnabledWeightPermutePass()) {
+      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+      h_wt = wt_hwck.to(torch::kHPU);
+    }
+
+    torch::Tensor result =
+        torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
+    habana_lazy::HbLazyTensor::StepMarker({});
+
+    for (const auto& entry :
+         std::filesystem::recursive_directory_iterator(cache_path.c_str())) {
+      if (entry.is_regular_file() && !entry.is_symlink()) {
+        size += entry.file_size();
+      }
+    }
+  }
+  int exp_size = (3 * 1024 * 1024);
+  ASSERT_GE(size, exp_size);
 }
