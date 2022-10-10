@@ -36,7 +36,7 @@ void scheduleAccTask(T&& lazy_op, InputType tensor) {
       [op = std::move(lazy_op), tensor]() mutable {
         PT_LAZY_TRACE;
         op.call(tensor);
-        habana_lazy::GetAccCleanupThreadPool().run(
+        habana_lazy::PushCleanupTask(
             [op = std::move(op), self = std::move(tensor)]() {});
       });
 }
@@ -50,7 +50,7 @@ void scheduleAccTask(
       [op = std::move(lazy_op), result]() mutable {
         PT_LAZY_TRACE;
         op.call(result);
-        habana_lazy::GetAccCleanupThreadPool().run(
+        habana_lazy::PushCleanupTask(
             [op = std::move(op), result = std::move(result)]() {});
       });
 }
@@ -66,7 +66,7 @@ void scheduleAccTask(
        tensor_list_copy = std::move(tensor_list_copy)]() mutable {
         PT_LAZY_TRACE;
         op.call(result);
-        habana_lazy::GetAccCleanupThreadPool().run(
+        habana_lazy::PushCleanupTask(
             [op = std::move(op),
              result = std::move(result),
              tensor_list_copy = std::move(tensor_list_copy)]() {});
@@ -87,7 +87,7 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
         } else if (tensors.size() == 3) {
           op.call(std::tie(tensors[0], tensors[1], tensors[2]));
         }
-        habana_lazy::GetAccCleanupThreadPool().run(
+        habana_lazy::PushCleanupTask(
             [op = std::move(op), tensors = std::move(tensors)]() {});
       });
 }
@@ -260,7 +260,7 @@ inline float& get<float>(fint_t& u) {
         [func = std::move(func), out]() mutable {                           \
           PT_LAZY_TRACE;                                                    \
           func();                                                           \
-          habana_lazy::GetAccCleanupThreadPool().run(                       \
+          habana_lazy::PushCleanupTask(                                     \
               [func = std::move(func), out = std::move(out)]() {});         \
         });                                                                 \
     return out;                                                             \

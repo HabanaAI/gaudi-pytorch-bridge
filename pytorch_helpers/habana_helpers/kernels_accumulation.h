@@ -20,8 +20,8 @@ namespace habana_lazy {
 // returns main accumulation thread pool
 at::PTThreadPool& GetAccThreadPool();
 
-// returns thread pool used by accumulation thread pool to release any resources
-// moved to it. Its purpose is to avoid deadlock on GIL.
+// store cleanup tasks that are holding any resources used by accumulation
+// thread pool Its purpose is to avoid deadlock on GIL.
 //
 // Deadlock in GIL happens when main thread is calling C++ code from Python
 // (that acquires GIL by default) and accumulation thread is finishing a
@@ -31,7 +31,12 @@ at::PTThreadPool& GetAccThreadPool();
 // resources. It is avoided by moving any resource from accumulation to cleanup
 // thread. Cleanup thread is not synchronized by main thread and can safely wait
 // for GIL release.
-at::PTThreadPool& GetAccCleanupThreadPool();
+void PushCleanupTask(std::function<void()>&& task);
+
+// In order to avoid non-deterministic order of resource deallocation, this is
+// called only in one place in StepMarker together with AccThread
+// synchronization before execution.
+void ExecuteAllCleanupTasks();
 
 // checks if accumulation thread is enabled
 bool IsAccThreadEnabled();
@@ -39,8 +44,6 @@ bool IsAccThreadEnabled();
 bool CanUseAccThread();
 // synchronizes acc thread pool, if parallel accumulation is enabled
 void SyncAccThreadPool();
-// synchronizes acc cleanup thread pool, if parallel accumulation is enabled
-void SyncCleanupThreadPool();
 // synchronizes acc thread pool if the input manual 'op' is not supported
 // for parallel accumulation.
 //

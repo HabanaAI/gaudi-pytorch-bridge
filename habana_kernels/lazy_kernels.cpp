@@ -5154,7 +5154,7 @@ static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
       // need to ensure that no tensors will be destructured in the accumulation
       // thread
       if (habana_lazy::CanUseAccThread()) {
-        habana_lazy::GetAccCleanupThreadPool().run([op = std::move(k)]() {});
+        habana_lazy::PushCleanupTask([op = std::move(k)]() {});
       }
 
     } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
@@ -5164,7 +5164,7 @@ static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
       // need to ensure that no tensors will be destructured in the accumulation
       // thread
       if (habana_lazy::CanUseAccThread()) {
-        habana_lazy::GetAccCleanupThreadPool().run([op = std::move(k)]() {});
+        habana_lazy::PushCleanupTask([op = std::move(k)]() {});
       }
     }
   };

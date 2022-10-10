@@ -55,9 +55,19 @@ at::PTThreadPool& GetAccThreadPool() {
   return thread_pool;
 }
 
-at::PTThreadPool& GetAccCleanupThreadPool() {
-  static at::PTThreadPool thread_pool(1); // single thread only
-  return thread_pool;
+static std::queue<std::function<void()>> cleanup_tasks;
+
+void PushCleanupTask(std::function<void()>&& task) {
+  cleanup_tasks.emplace(std::move(task));
+}
+
+void ExecuteAllCleanupTasks() {
+  PT_LAZY_TRACE
+  std::function<void()> task;
+  while (!cleanup_tasks.empty()) {
+    cleanup_tasks
+        .pop(); // let's assume for now, that bodies of cleanup funcs are empty
+  }
 }
 
 bool IsAccThreadEnabled() {
@@ -72,15 +82,6 @@ void SyncAccThreadPool() {
   if (CanUseAccThread()) { // avoid syncing from within thread pool
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
-  }
-}
-
-void SyncCleanupThreadPool() {
-  if (IsAccThreadEnabled() &&
-      !GetAccCleanupThreadPool()
-           .inThreadPool()) { // no syncing from within thread pool
-    PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation cleanup thread ...");
-    GetAccCleanupThreadPool().waitWorkComplete();
   }
 }
 

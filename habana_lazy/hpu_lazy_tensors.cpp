@@ -1348,13 +1348,17 @@ void HbLazyTensor::StepMarker(
     std::set<int64_t> bucket_id,
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
 
   if (!synapse_helpers::HPURegistrar::isInitialized()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");
     return;
   }
+
+  // Sync accumulation thread if needed and clean up all accumulation resources
+  habana_lazy::SyncAccThreadPool();
+  habana_lazy::ExecuteAllCleanupTasks();
+
   c10::Device device = GetDeviceOrCurrent(device_str);
   if (!device.is_hpu()) {
     PT_LAZY_DEBUG(
