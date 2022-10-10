@@ -397,13 +397,26 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   // output_nhwc is created with is_output_persistent[0]. When adding
   // AllocateSynapseOutputs, the order is revered and the is_output_persistent
   // flag also need to be accordingly reversed.
-  OutputMetaDataVector output_metadata_reordered = {
-      output_metadata.at(1), output_metadata.at(0)};
-  AllocateSynapseOutputs(
-      graph, {output_idx_nhwc, output_nhwc}, output_metadata_reordered);
-  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
-  std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
-  std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);
+
+  if (synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco) {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        output_idx_nhwc,
+        graph,
+        output_metadata.at(1).persistent,
+        output_metadata.at(1).external,
+        c10::nullopt,
+        output_metadata.at(1).name));
+    p_context_->pt_outputs_.emplace_back(output_idx_nhwc);
+  } else {
+    OutputMetaDataVector output_metadata_reordered = {
+        output_metadata.at(1), output_metadata.at(0)};
+    AllocateSynapseOutputs(
+        graph, {output_idx_nhwc, output_nhwc}, output_metadata_reordered);
+    AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+    std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
+    std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);
+  }
 }
 
 habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOutOperator::
