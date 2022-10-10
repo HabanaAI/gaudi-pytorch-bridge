@@ -496,28 +496,30 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
 }
 
 at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
-  const auto& context = habana_lazy_executor.getDeviceExecutionContext(0);
-
   const auto& t =
       empty_hpu_lazy({}, scalar_tensor.options(), c10::nullopt, true);
-  t.unsafeGetTensorImpl()->set_wrapped_number(true);
 
-  bool processed = false;
-  const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
+  auto func = [scalar_tensor, t]() {
+    const auto& context = habana_lazy_executor.getDeviceExecutionContext(0);
+    t.unsafeGetTensorImpl()->set_wrapped_number(true);
 
-  // Mark as input
-  HbLazyTensor hb_tensor = GetHbLazyTensor(t);
-  setTensorAsInputNode(hb_tensor);
-  context->MarkTensorStatus(
-      hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
+    bool processed = false;
+    const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
 
-  auto internal_tensor = hb_tensor.GetHbLazyTensorData().value();
-  internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
+    // Mark as input
+    HbLazyTensor hb_tensor = GetHbLazyTensor(t);
+    setTensorAsInputNode(hb_tensor);
+    context->MarkTensorStatus(
+        hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 
-  // Actual Copy is done during JIT graph creation/lowering
-  context->copy_scalar_to_hpu_tensor_list.emplace_back(tensor, internal_tensor);
+    auto internal_tensor = hb_tensor.GetHbLazyTensorData().value();
+    internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
 
-  return t;
+    // Actual Copy is done during JIT graph creation/lowering
+    context->copy_scalar_to_hpu_tensor_list.emplace_back(
+        tensor, internal_tensor);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(append_to_batch_h2d_list, func, t)
 }
 
 /**
@@ -1535,37 +1537,41 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   // 8x all reduce optimization to avoid out variant that requires tensor with
   // storage. //TODO enhance lazy op framework to convert out variant to out of
   // place variant
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  auto id = GetHbLazyTensor(out).getTensorUniqueId();
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-    if (params_ptr != nullptr) {
-      auto orig_out = out;
-      auto temp = torch::mul(self, other);
-      Tensor temp_cast = temp;
-      if (temp.scalar_type() != orig_out.scalar_type()) {
-        // Cast temp tensor to orig_out tensor data type
-        LazyOp<Tensor> k_{
-            "hpu::cast",
-            {temp, orig_out.scalar_type()},
-            {},
-            {temp.sizes().vec()}};
-        temp_cast = k_.call();
-      }
-      strided_insert_hpu_lazy(orig_out, temp_cast);
-    } else {
-      std::vector<at::Tensor> metatens_tensors = {self, other, out};
-      auto metatens = habana::GetMetaTensorList(metatens_tensors);
-      at::TensorList metavar =
-          at::mul_outf(metatens[0], metatens[1], metatens[2]);
-      LazyBinaryOp<at::Tensor&> hpu_op{
-          "aten::mul", {self, other, out}, true, true, metavar};
-      return hpu_op.call(out);
-    }
-  }
+  auto func = [self, other, out]() mutable {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    auto id = GetHbLazyTensor(out).getTensorUniqueId();
+    {
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
 
-  return out;
+      if (params_ptr != nullptr) {
+        auto orig_out = out;
+        auto temp = torch::mul(self, other);
+        Tensor temp_cast = temp;
+        if (temp.scalar_type() != orig_out.scalar_type()) {
+          // Cast temp tensor to orig_out tensor data type
+          LazyOp<Tensor> k_{
+              "hpu::cast",
+              {temp, orig_out.scalar_type()},
+              {},
+              {temp.sizes().vec()}};
+          temp_cast = k_.call();
+        }
+        strided_insert_hpu_lazy(orig_out, temp_cast);
+      } else {
+        std::vector<at::Tensor> metatens_tensors = {self, other, out};
+        auto metatens = habana::GetMetaTensorList(metatens_tensors);
+        at::TensorList metavar =
+            at::mul_outf(metatens[0], metatens[1], metatens[2]);
+        LazyBinaryOp<at::Tensor&> hpu_op{
+            "aten::mul", {self, other, out}, true, true, metavar};
+        hpu_op.call(out);
+      }
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -2192,20 +2198,21 @@ Tensor& masked_fill_hpu_lazy_(
   // TPC doesn't support inplace where natively
   // Implement using out of place where followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
+  auto masked_fill_func_ = [self, mask, value]() mutable {
+    LazyOp<Tensor> where_op(
+        "aten::where",
+        {mask, value, self},
+        {},
+        {},
+        2 /*output metadata is picked from self*/);
 
-  LazyOp<Tensor> where_op(
-      "aten::where",
-      {mask, value, self},
-      {},
-      {},
-      2 /*output metadata is picked from self*/);
-
-  Tensor where_out = where_op.call();
-  // add a control edge as we add a loop using d2d copy back to self
-  auto hl_self = GetOrCreateHbLazyTensor(self);
-  // Adding memcpy to copy the output back to self as this is an inplace op
-  AddMemcpy(where_out, self);
-  return self;
+    Tensor where_out = where_op.call();
+    // add a control edge as we add a loop using d2d copy back to self
+    auto hl_self = GetOrCreateHbLazyTensor(self);
+    // Adding memcpy to copy the output back to self as this is an inplace op
+    AddMemcpy(where_out, self);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(masked_fill_, masked_fill_func_, self)
 }
 
 Tensor& masked_fill_scalar_hpu_lazy_(

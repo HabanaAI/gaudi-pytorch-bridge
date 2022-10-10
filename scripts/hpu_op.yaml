@@ -3650,6 +3650,7 @@ mul.out:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   override_fn: mul_out_hpu_lazy
+  acc_thread: true
 
 multinomial:
   dtypes: [BFloat16, Float]

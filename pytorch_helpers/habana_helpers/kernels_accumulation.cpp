@@ -47,13 +47,11 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "max",
     "min",
     "one_hot",
+    "masked_fill_",
     "repeat",
     "scatter_add"};
 // black list of aut-gen ops that do not support parallel accumulation
-const std::unordered_set<std::string> AccThreadOpsBlacklist = {
-    "mul" // due to using hpu::mul() in mul_out_hpu_lazy(), there is deadlock on
-          // recursive lock used for view handling
-};
+const std::unordered_set<std::string> AccThreadOpsBlacklist = {};
 
 static std::queue<AccThreadPool::AccTask> cleanup_tasks;
 
