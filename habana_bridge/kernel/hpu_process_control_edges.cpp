@@ -166,36 +166,26 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
     } // for (auto& u : src_node_uses)
   }
 
-  /*skip adding the parent node for inplace op as input tensor is not duplicated
-  unlike a explicit control edge node Avoiding explicit control edge nodes also
-  avoids write after read issue in GC b.copy_(a) c = control_edge_(b)
-  c.add_(1.0)
-  Here read of c needs to wait until b is written. If we avoid the control edges
-  it comes b.copy_(a) b.add_(1.0) Here there is no need for control edges a is
-  the parent of b
-  */
-  if (control_type != ControlEdgeType::kCONTROL_EDGE_INPLACE) {
-    // Add the parent node as well
-    auto parent_node = node->input(0)->node();
+  // Add the parent node as well
+  auto parent_node = node->input(0)->node();
 
-    // if the parent node is a list node, traverse one level up
-    if (isListNode(parent_node)) {
-      parent_node = parent_node->input(0)->node();
-    }
+  // if the parent node is a list node, traverse one level up
+  if (isListNode(parent_node)) {
+    parent_node = parent_node->input(0)->node();
+  }
 
-    // traverse up until a non control edge node is reached
-    auto c_edge = nodeRequiresControlEdge(parent_node);
-    while ((c_edge == ControlEdgeType::kCONTROL_EDGE_) ||
-           (c_edge == ControlEdgeType::kCONTROL_EDGE_OTHER_)) {
-      parent_node = parent_node->input(0)->node();
-      c_edge = nodeRequiresControlEdge(parent_node);
-    }
+  // traverse up until a non control edge node is reached
+  auto c_edge = nodeRequiresControlEdge(parent_node);
+  while ((c_edge == ControlEdgeType::kCONTROL_EDGE_) ||
+         (c_edge == ControlEdgeType::kCONTROL_EDGE_OTHER_)) {
+    parent_node = parent_node->input(0)->node();
+    c_edge = nodeRequiresControlEdge(parent_node);
+  }
 
-    // exclude invalid nodes like prim:Param, prim Return
-    if (IsValidNode(parent_node)) {
-      blocking_nodes_vec.emplace_back(parent_node);
-      HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
-    }
+  // exclude invalid nodes like prim:Param, prim Return
+  if (IsValidNode(parent_node)) {
+    blocking_nodes_vec.emplace_back(parent_node);
+    HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
   }
 }
 

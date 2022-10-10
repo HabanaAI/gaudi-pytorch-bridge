@@ -91,31 +91,14 @@ static bool is_nonempty_tensor(const at::Tensor& tensor) {
 
 bool is_inplace(at::Symbol symbol) {
   bool is_inplace = false;
-
   auto node_name = symbol.toQualString();
-  /*
-  Since as_strided_lazy is now out of place op, we need a control edge to create
-  new tensor for fill to avoid GC error
-  %5 : Float(*, requires_grad=0,
-  device=hpu:0) = hpu::as_strided_lazy(%id:3, %2, %3, %4)
-  %6 : Float(*, requires_grad=0, device=hpu:0) = aten::fill_(%5, %1)
-  */
+  size_t len = strlen(node_name);
+  char endch = node_name[len - 1];
 
-  // TODO think of better way to avoid these string comparisons for multiple ops
-  bool is_normal_inplace =
-      (strcmp(node_name, "aten::fill_") && strcmp(node_name, "hpu::uniform_") &&
-       strcmp(node_name, "hpu::random_") && strcmp(node_name, "hpu::normal_") &&
-       strcmp(node_name, "hpu::geometric_") &&
-       strcmp(node_name, "hpu::bernoulli_"));
-
-  if (is_normal_inplace) {
-    size_t len = strlen(node_name);
-    char endch = node_name[len - 1];
-
-    if (endch == '_') {
-      is_inplace = true;
-    }
+  if (endch == '_') {
+    is_inplace = true;
   }
+
   return is_inplace;
 }
 
