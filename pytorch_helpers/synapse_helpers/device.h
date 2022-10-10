@@ -397,6 +397,8 @@ class device {
       return 2;
     if (type_ == synDeviceGaudi2)
       return 4;
+    if (type_ == synDeviceGreco)
+      return 4;
     return 1;
   }
 
