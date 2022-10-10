@@ -79,7 +79,6 @@ _XPARSER = lark.Lark(
 _FN_AUTOGRAD_HPU = set(
     [
         "isfinite(Tensor) -> Tensor",
-        "one_hot(Tensor, int64_t) -> Tensor",
         "matmul(Tensor, Tensor) -> Tensor",
         "adaptive_avg_pool2d(Tensor, IntArrayRef) -> Tensor",
         "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",

@@ -1204,22 +1204,7 @@ Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
       " num_classes=",
       to_string(num_classes));
   FALLBACK_IF_UNSUPPORTED_OP(one_hot, PARAMS1(self), PARAMS2(self, num_classes))
-  struct OneHot : public torch::autograd::Function<OneHot> {
-    static at::Tensor forward(
-        torch::autograd::AutogradContext*,
-        const at::Tensor& self,
-        int64_t num_classes) {
-      return one_hot_hpu_lazy(self, num_classes);
-    }
-
-    static torch::autograd::variable_list backward(
-        torch::autograd::AutogradContext*,
-        const torch::autograd::variable_list&) {
-      return {};
-    }
-  };
-
-  return OneHot::apply(self, num_classes);
+  return one_hot_hpu_lazy(self, num_classes);
 }
 
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
