@@ -4098,7 +4098,10 @@ norm.dtype_out:
 norm.Scalar:
   force_default: false
   custom_output_shape: NormOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormOpScalar
   out_ids: [0]
 

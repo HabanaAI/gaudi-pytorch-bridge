@@ -548,12 +548,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "frobenius_norm",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Float}},
-            },
-            {
                 "max_pool2d_with_indices_backward_out",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
