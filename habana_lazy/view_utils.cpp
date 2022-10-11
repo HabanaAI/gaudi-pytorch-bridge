@@ -25,14 +25,14 @@ namespace habana_lazy {
 void StridedViewContext::AddViewTableEntry(
     int64_t tensor_id,
     StrideParams params) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   m_view_table[tensor_id] = params;
 }
 
 void StridedViewContext::SetViewStatus(
     int64_t tensor_id,
     ViewStatus viewStatus) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto view_it = m_view_table.find(tensor_id);
   if (view_it != m_view_table.end()) {
     m_view_table[tensor_id].viewStatus = viewStatus;
@@ -43,7 +43,7 @@ void StridedViewContext::SetViewStatus(
 }
 
 void StridedViewContext::DelViewTableEntry(int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto view_it = m_view_table.find(tensor_id);
   if (view_it != m_view_table.end()) {
     m_view_table.erase(view_it);
@@ -60,7 +60,7 @@ void StridedViewContext::DelViewTableEntry(int64_t tensor_id) {
 }
 
 StrideParams* StridedViewContext::GetViewTableEntry(int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto it = m_view_table.find(tensor_id);
   if (it != m_view_table.end()) {
     return &it->second;
@@ -71,12 +71,12 @@ StrideParams* StridedViewContext::GetViewTableEntry(int64_t tensor_id) {
 void StridedViewContext::AddOrigTensorMapEntry(
     int64_t tensor_id,
     at::Tensor tensor) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   m_orig_tensor_map[tensor_id] = tensor;
 }
 
 void StridedViewContext::DelOrigTensorMapEntry(int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto it = m_orig_tensor_map.find(tensor_id);
   if (it != m_orig_tensor_map.end()) {
     m_orig_tensor_map.erase(it);
@@ -93,7 +93,7 @@ void StridedViewContext::DelOrigTensorMapEntry(int64_t tensor_id) {
 
 c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
     int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto it = m_orig_tensor_map.find(tensor_id);
   if (it != m_orig_tensor_map.end()) {
     return it->second;
@@ -104,12 +104,12 @@ c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
 void StridedViewContext::AddShallowCopyMapEntry(
     int64_t tensor_id,
     HbLazyTensor hb_t) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   m_shallow_copy_map[tensor_id] = hb_t;
 }
 
 void StridedViewContext::DelShallowCopyMapEntry(int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto it = m_shallow_copy_map.find(tensor_id);
   if (it != m_shallow_copy_map.end()) {
     m_shallow_copy_map.erase(it);
@@ -118,7 +118,7 @@ void StridedViewContext::DelShallowCopyMapEntry(int64_t tensor_id) {
 
 c10::optional<HbLazyTensor> StridedViewContext::GetShallowCopyMapEntry(
     int64_t tensor_id) {
-  std::lock_guard<std::recursive_mutex> view_table_lock(GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(*this);
   auto it = m_shallow_copy_map.find(tensor_id);
   if (it != m_shallow_copy_map.end()) {
     return it->second;
@@ -289,8 +289,7 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
   StrideParams params;
   StrideParams* params_ptr = nullptr;
   {
-    std::lock_guard<std::recursive_mutex> view_table_lock(
-        context->viewContext.GetViewTableMutex());
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
     params_ptr = context->viewContext.GetViewTableEntry(id);
     if (params_ptr != nullptr) {
       params = *params_ptr;
@@ -543,8 +542,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     auto t_updated = t;
     StrideParams* params_ptr = nullptr;
     {
-      std::lock_guard<std::recursive_mutex> view_table_lock(
-          context->viewContext.GetViewTableMutex());
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
       params_ptr = context->viewContext.GetViewTableEntry(id);
     }
 
@@ -603,8 +601,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
   auto id = hlresult.getTensorUniqueId();
 
   {
-    std::lock_guard<std::recursive_mutex> view_table_lock(
-        context->viewContext.GetViewTableMutex());
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
     StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
     if (params_ptr != nullptr) {
       is_view = true;
@@ -661,8 +658,7 @@ StrideParams* HbLazyTensorViews::getViewTableParams(HbLazyTensor& hl_view_t) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = hl_view_t.getTensorUniqueId();
-  std::lock_guard<std::recursive_mutex> view_table_lock(
-      context->viewContext.GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(context->viewContext);
   StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
   TORCH_CHECK(
       params_ptr != nullptr, "incorrect tensor id for view table access ", id);

@@ -116,6 +116,10 @@ class StridedViewContext {
     return size;
   }
 
+  std::lock_guard<std::recursive_mutex> LockViewTableMutex() {
+    return std::lock_guard<std::recursive_mutex>(m_view_table_mtx);
+  }
+
   std::recursive_mutex& GetViewTableMutex() {
     return m_view_table_mtx;
   }
@@ -248,3 +252,6 @@ at::Tensor add_slice_insert_node(
 
 bool is_aliased_view(HbLazyTensorImpl& self, HbLazyTensorImpl& other);
 } // namespace habana_lazy
+
+#define LOCK_VIEW_TABLE_MUTEX(viewContext) \
+  auto viev_table_lock{(viewContext).LockViewTableMutex()};

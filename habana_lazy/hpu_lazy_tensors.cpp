@@ -88,8 +88,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
   StrideParams strideParams;
   {
     // clear the entry in view tables
-    std::lock_guard<std::recursive_mutex> view_table_lock(
-        context->viewContext.GetViewTableMutex());
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
     shallowCopyHbTensor =
         context->viewContext.GetShallowCopyMapEntry(unique_id);
     context->viewContext.DelShallowCopyMapEntry(unique_id);
@@ -118,8 +117,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
   }
 
-  std::lock_guard<std::recursive_mutex> view_table_lock(
-      context->viewContext.GetViewTableMutex());
+  LOCK_VIEW_TABLE_MUTEX(context->viewContext);
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
 
   HbLazyTensorViews::HandleViewsLiveTensors(
@@ -809,8 +807,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   {
     auto context =
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    std::lock_guard<std::recursive_mutex> view_table_lock(
-        context->viewContext.GetViewTableMutex());
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
 
     if (context->viewContext.view_outputs.size()) {
       // delete the origtensor map entry only when view outputs are present

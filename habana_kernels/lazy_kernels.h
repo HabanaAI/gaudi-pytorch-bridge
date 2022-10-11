@@ -611,8 +611,7 @@ class LazyOp {
       // it is a view
       auto id = hl_t.getTensorUniqueId();
       {
-        std::lock_guard<std::recursive_mutex> view_table_lock(
-            context->viewContext.GetViewTableMutex());
+        LOCK_VIEW_TABLE_MUTEX(context->viewContext);
         c10::optional<at::Tensor> base_tensor =
             context->viewContext.GetOrigTensorMapEntry(id);
         if (base_tensor != c10::nullopt) {
