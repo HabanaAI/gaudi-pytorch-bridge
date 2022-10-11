@@ -127,8 +127,10 @@ void HabanaLaunchOpPT::create_synapse_inputs(
     torch::jit::Node* node,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
+    torch::jit::Stack& stack) {
   int input_idx = 0;
+  auto node_qual_str = node->kind().toQualString();
   for (const auto value_in : node->inputs()) {
     auto value_exists = val_to_ival_map.find(value_in);
     HABANA_ASSERT(value_exists != std::end(val_to_ival_map));
@@ -152,6 +154,25 @@ void HabanaLaunchOpPT::create_synapse_inputs(
               prev_value_in, habana_op, syn_graph, val_to_ival_map);
         }
       }
+    } else if (
+        (!strcmp("hpu::randperm_out", node_qual_str) && 0 == input_idx) ||
+        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx) ||
+        (!strcmp("hpu::randperm_out_ds_ht", node_qual_str) && 2 == input_idx)) {
+      // Create the seed tensor
+      // TODO : update for seed tensor usage as per SW-107126 fix
+      at::Tensor seed_tensor =
+          RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
+      PT_TEST_DEBUG(
+          "For rand perm node input %",
+          value_in->debugName(),
+          " adding seed tensor ",
+          habana_helpers::DebugString(seed_tensor));
+
+      auto& syn_tensor =
+          habana_op->AllocateSynapseInput(syn_graph, seed_tensor, true);
+      PT_TEST_DEBUG(
+          "Allocated synpase tensor for rand perm input tensor: ",
+          syn_tensor.id());
     } else {
       PT_TEST_DEBUG(
           "Not creating synapse tensor for the ivalue for %",
@@ -486,7 +507,8 @@ void HabanaLaunchOpPT::RunHybridSif(
           op_name);
 
       // Create the synapse inputs from aten tensors
-      create_synapse_inputs(node, habana_op, syn_graph, val_to_ival_map);
+      create_synapse_inputs(
+          node, habana_op, syn_graph, val_to_ival_map, op_input_stack);
 
       // Setup the config params for the kernels
       auto outputs_metadata = populate_node_output_metadata(node);

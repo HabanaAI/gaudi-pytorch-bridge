@@ -568,7 +568,8 @@ class HabanaLaunchOpPT {
       torch::jit::Node* node,
       const HabanaOperatorPtr& habana_op,
       synapse_helpers::graph& syn_graph,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
+      torch::jit::Stack& stack);
 
   int64_t get_output_tensors_count(
       const HabanaOperatorPtr& habana_op,

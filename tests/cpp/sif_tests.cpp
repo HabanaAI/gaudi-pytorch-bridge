@@ -640,3 +640,27 @@ TEST_F(SifTest, MatmulFwdBwd) {
   }
   validate_sif_end();
 }
+
+// Hybrid SIF test, Tests RandPermHT
+// with enabled Compute Output shape.
+TEST_F(SifTest, RandPermHT) {
+  validate_sif_start();
+  validate_shape_start();
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
+  std::vector<int> in_sizes{8, 10, 15};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int n = in_sizes[i];
+    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    at::TensorOptions hb_options =
+        at::TensorOptions().dtype(dtype).device(hb_device);
+    torch::manual_seed(0);
+    auto lazy = torch::randperm(n, hb_options);
+    auto lazy_cpu = lazy.to(torch::kCPU);
+  }
+  validate_sif_end();
+  validate_shape_end();
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR);
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+}
