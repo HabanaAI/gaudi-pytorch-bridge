@@ -22,6 +22,7 @@
 
 #include "habana_helpers/graph.h"
 #include "habana_helpers/pt_version_check.h"
+#include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/habana_operator.h"
@@ -838,11 +839,19 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   bool const_section = false;
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
-    auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
-    PT_BRIDGE_DEBUG("const tensor:  ", hb_tensor->IsConstTensor());
-    const_section = hb_tensor->IsConstTensor();
+  PtTensorInferenceData::InferenceRangePair inference_range;
+  bool range_found = false;
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    if (tensor.has_storage()) {
+      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+      PT_BRIDGE_DEBUG("const tensor:  ", hb_tensor->IsConstTensor());
+      const_section = hb_tensor->IsConstTensor();
+    }
+    inference_range =
+        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+            name.c_str(), range_found);
   }
+
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
@@ -854,6 +863,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .with_permutation(permutation)
           .with_dont_allow_permutation(dont_allow_permutation)
           .mark_const_section(const_section);
+  // Add a check to validate the inference_range
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && range_found)
+    builder = builder.with_inference_range(
+        inference_range.first, inference_range.second);
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -1016,6 +1029,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     }
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+
     auto builder = synapse_helpers::tensor_builder(
                        input_shapes, synDataType::syn_type_uint32)
                        .with_dynamic_shape(dynamic_shape);

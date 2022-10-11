@@ -383,6 +383,12 @@ class tensor final {
     host_ptr_ = host_ptr;
   }
 
+  void set_inference_range(float min, float max) {
+    have_quantization_data_ = true;
+    dynamic_range_.min = min;
+    dynamic_range_.max = max;
+  }
+
   uint64_t get_host_ptr() const {
     return reinterpret_cast<uint64_t>(host_ptr_);
   }
@@ -471,6 +477,7 @@ class tensor final {
   dynamic_shape_t stride_;
   synTensor tensor_{nullptr};
   bool placeholder_{false};
+  bool have_quantization_data_{false};
   bool is_persistent_{false};
   bool is_external_{false};
   bool is_intermediate_shape_{false};

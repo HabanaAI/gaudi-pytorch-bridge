@@ -345,7 +345,8 @@ synapse_error_o tensor::create() {
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorHandleCreate failed.", status, cleanup());
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor_type_ == DATA_TENSOR) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_ &&
+      tensor_type_ == DATA_TENSOR) {
     status = synTensorSetQuantizationData(
         tensor_,
         SYN_QUANT_DYNAMIC_RANGE,
@@ -353,6 +354,11 @@ synapse_error_o tensor::create() {
         sizeof(synQuantDynamicRange));
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "synTensorSetQuantizationData failed.", status, cleanup());
+    PT_SYNHELPER_DEBUG(
+        "syn Tensor Quantization set ",
+        tensor_name_,
+        dynamic_range_.min,
+        dynamic_range_.max);
   }
 
   synTensorGeometryExt maxGeometry;

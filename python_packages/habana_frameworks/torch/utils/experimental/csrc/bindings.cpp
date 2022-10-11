@@ -16,6 +16,7 @@
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
+#include "pytorch_helpers/habana_helpers/tensor_info.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 
 int GetDeviceType() {
@@ -43,6 +44,7 @@ intptr_t GetDataPtr(const at::Tensor& t) {
 }
 
 void RecordQuantParams(std::string name, float min, float max) {
+  PtTensorInferenceData::get_instance().SetInferenceTensorRange(name, min, max);
   PT_BRIDGE_DEBUG(name, " = min  : ", min, " max : ", max);
 }
 

@@ -124,6 +124,13 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& with_inference_range(const float min, const float max) {
+    have_quantization_data = true;
+    inference_min = min;
+    inference_max = max;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& with_dynamic_shape(
       const tensor::dynamic_shape_t& dynamic_shape) {
     HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
@@ -308,6 +315,8 @@ class tensor_builder_base {
         offset_,
         tensor_type_,
         permutation_);
+    if (have_quantization_data)
+      t.set_inference_range(inference_min, inference_max);
     t.set_dont_allow_permute(dont_allow_permutation_);
 
     auto create_result{t.create()};
@@ -337,6 +346,8 @@ class tensor_builder_base {
   bool is_external_{false};
   bool is_const_{false};
   bool is_const_section_{false};
+  bool have_quantization_data{false};
+  float inference_min = 0, inference_max = 0;
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t host_ptr_size_{0};
