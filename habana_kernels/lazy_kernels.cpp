@@ -5279,109 +5279,54 @@ Tensor& cat_hpu_lazy_out(
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
   habana_lazy::SyncAccThreadPool();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
-    auto hl_self = GetHbLazyTensor(self);
-    auto out = at::native::transpose(self, dim0_, dim1_);
-    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
-    auto out_id = GetHbLazyTensor(out).getTensorUniqueId();
+  auto hl_self = GetHbLazyTensor(self);
+  auto out = at::native::transpose(self, dim0_, dim1_);
+  auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
+  auto out_id = GetHbLazyTensor(out).getTensorUniqueId();
 
-    // at::native::transpose can return back self w/o invoking as_strided under
-    // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
-    if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
-      auto hb_result = GetHbLazyTensor(out);
-      {
-        auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-        std::lock_guard<std::recursive_mutex> view_table_lock(
-            context->viewContext.GetViewTableMutex());
-        auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-        strided_param->optype = kStridedOpTranspose;
-        StridedOpTransposeParams transpose_param = {dim0_, dim1_};
-        strided_param->params.transpose_param = transpose_param;
+  // at::native::transpose can return back self w/o invoking as_strided under
+  // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
+  if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
+    auto hb_result = GetHbLazyTensor(out);
+    {
+      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+      std::lock_guard<std::recursive_mutex> view_table_lock(
+          context->viewContext.GetViewTableMutex());
+      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
+      strided_param->optype = kStridedOpTranspose;
+      StridedOpTransposeParams transpose_param = {dim0_, dim1_};
+      strided_param->params.transpose_param = transpose_param;
 
-        PT_VIEWTABLE_DEBUG(
-            "transpose fallback tensor id ",
-            hl_self.getTensorUniqueId(),
-            " dim0 ",
-            dim0_,
-            " dim1 ",
-            dim1_);
-      }
+      PT_VIEWTABLE_DEBUG(
+          "transpose fallback tensor id ",
+          hl_self.getTensorUniqueId(),
+          " dim0 ",
+          dim0_,
+          " dim1 ",
+          dim1_);
     }
-    return out;
   }
-
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self, dim0_, dim1_};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("aten::transpose", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim0_ = inputs[1].toInt();
-      auto dim1_ = inputs[2].toInt();
-
-      std::vector<int64_t> new_sizes, new_strides;
-      std::tie(new_sizes, new_strides) =
-          TransposeOperator::compute_output_shape(self, dim0_, dim1_);
-      return empty_strided_hpu_lazy(
-          new_sizes, new_strides, self.options(), false);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  return out;
 }
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   habana_lazy::SyncAccThreadPool();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_TRANSPOSE_WITH_STRIDED_VIEW)) {
-    auto out = at::native::t(self);
-    if (is_fallback_original_op(self, out)) {
-      auto hb_result = GetHbLazyTensor(out);
-      {
-        auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-        std::lock_guard<std::recursive_mutex> view_table_lock(
-            context->viewContext.GetViewTableMutex());
-        auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-        strided_param->optype = kStridedOpT;
+  auto out = at::native::t(self);
+  if (is_fallback_original_op(self, out)) {
+    auto hb_result = GetHbLazyTensor(out);
+    {
+      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+      std::lock_guard<std::recursive_mutex> view_table_lock(
+          context->viewContext.GetViewTableMutex());
+      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
+      strided_param->optype = kStridedOpT;
 
-        PT_VIEWTABLE_DEBUG(
-            "t fallback tensor id ", GetHbLazyTensor(self).getTensorUniqueId());
-      }
+      PT_VIEWTABLE_DEBUG(
+          "t fallback tensor id ", GetHbLazyTensor(self).getTensorUniqueId());
     }
-    return out;
-  } else {
-    std::vector<at::IValue> vector_of_inputs;
-    vector_of_inputs = {self};
-
-    using T = at::Tensor;
-    class Kernel : public LazyOp<T> {
-     public:
-      Kernel(const std::vector<at::IValue>& vector_of_inputs)
-          : LazyOp<T>("aten::t", vector_of_inputs, {}, {}, -1) {}
-
-     private:
-      T get_result_overrideable() override {
-        auto inputs = get_inputs();
-        auto self = inputs[0].toTensor();
-        std::vector<int64_t> new_sizes, new_strides;
-        std::tie(new_sizes, new_strides) =
-            TOperator::compute_output_shape(self);
-        return empty_strided_hpu_lazy(
-            new_sizes, new_strides, self.options(), false);
-      }
-    };
-
-    Kernel kernel{vector_of_inputs};
-    return kernel.call();
   }
+  return out;
 }
 
 Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {

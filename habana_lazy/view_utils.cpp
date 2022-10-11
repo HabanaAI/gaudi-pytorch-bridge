@@ -306,59 +306,52 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
     Tensor out;
     auto t_opt = c10::make_optional(t);
     bool add_asstrided_node = true;
-    if (GET_ENV_FLAG_NEW(PT_HPU_DONT_USE_STRIDED_VIEW)) {
-      add_asstrided_node = false;
-      switch (params.optype) {
-        case kStridedOpView:
-          out = add_view_lazy(recent_orig_t, params.sizes, t_opt);
-          break;
-        case kStridedOpSlice:
-          if (GET_ENV_FLAG_NEW(PT_HPU_USE_STRIDED_VIEW_FOR_SLICE)) {
-            add_asstrided_node = true;
-          } else {
-            add_slice_lazy(recent_orig_t, params.params.slice_param, t_opt);
-          }
-          break;
-        case kStridedOpTranspose:
-          add_transpose_lazy(
-              recent_orig_t, params.params.transpose_param, t_opt);
-          break;
-        case kStridedOpT:
-          add_t_lazy(recent_orig_t, t_opt);
-          break;
-        case kStridedOpPermute:
-          add_permute_lazy(recent_orig_t, params.sizes, t_opt);
-          break;
-        case kStridedOpSqueeze:
-          add_squeeze_unsqueeze_lazy(
-              recent_orig_t,
-              params.params.squeeze_param.dim,
-              t_opt,
-              "aten::squeeze");
-          break;
-        case kStridedOpUnsqueeze:
-          add_squeeze_unsqueeze_lazy(
-              recent_orig_t,
-              params.params.squeeze_param.dim,
-              t_opt,
-              "aten::unsqueeze");
-          break;
-        case kStridedOpExpand:
-          add_expand_lazy(
-              recent_orig_t,
-              params.sizes,
-              params.params.expand_param.implicit,
-              t_opt);
-          break;
-        case kStridedOpIdentity:
-          out = add_identity_lazy(recent_orig_t, t_opt);
-          break;
-        case kStridedOpDefault:
-          add_asstrided_node = true;
-          break;
-        default:
-          HABANA_ASSERT(0);
-      }
+    add_asstrided_node = false;
+    switch (params.optype) {
+      case kStridedOpView:
+        out = add_view_lazy(recent_orig_t, params.sizes, t_opt);
+        break;
+      case kStridedOpSlice:
+        add_slice_lazy(recent_orig_t, params.params.slice_param, t_opt);
+        break;
+      case kStridedOpTranspose:
+        add_transpose_lazy(recent_orig_t, params.params.transpose_param, t_opt);
+        break;
+      case kStridedOpT:
+        add_t_lazy(recent_orig_t, t_opt);
+        break;
+      case kStridedOpPermute:
+        add_permute_lazy(recent_orig_t, params.sizes, t_opt);
+        break;
+      case kStridedOpSqueeze:
+        add_squeeze_unsqueeze_lazy(
+            recent_orig_t,
+            params.params.squeeze_param.dim,
+            t_opt,
+            "aten::squeeze");
+        break;
+      case kStridedOpUnsqueeze:
+        add_squeeze_unsqueeze_lazy(
+            recent_orig_t,
+            params.params.squeeze_param.dim,
+            t_opt,
+            "aten::unsqueeze");
+        break;
+      case kStridedOpExpand:
+        add_expand_lazy(
+            recent_orig_t,
+            params.sizes,
+            params.params.expand_param.implicit,
+            t_opt);
+        break;
+      case kStridedOpIdentity:
+        out = add_identity_lazy(recent_orig_t, t_opt);
+        break;
+      case kStridedOpDefault:
+        add_asstrided_node = true;
+        break;
+      default:
+        HABANA_ASSERT(0);
     }
 
     // add strided view node only if is not already evaluated
