@@ -163,9 +163,32 @@ Node::~Node() {
   }
   m_uses_reverse_nodes.clear();
   m_uses.clear();
+  for (const auto& k : m_pt_vec_to_input_ival) {
+    auto& tensor = m_input_pt_tensors.at(k.first);
+    auto inp = m_inputs.at(k.second);
+    if (!inp.IsHpuInputNode() && inp.mp_node &&
+        (tensor.getIntrusivePtr().use_count() > 1 ||
+         inp.mp_node->GetUses().size() > 1)) {
+      PT_LAZY_DEBUG(
+          "Node ",
+          GetName(),
+          " input is ",
+          inp.mp_node->GetName(),
+          " Uses ",
+          inp.mp_node->GetUses().size(),
+          " Tensor use_count ",
+          tensor.getIntrusivePtr().use_count());
+
+      HABANA_ASSERT(
+          inp.mp_node->m_inputs[0].IsHpuInputNode(),
+          "Expected mp_node to be inplace, but that's not the case.");
+      inp.mp_node->m_input_pt_tensors.emplace_back(tensor);
+    }
+  }
   m_inputs.clear();
   m_outputs.clear();
   m_input_pt_tensors.clear();
+  m_pt_vec_to_input_ival.clear();
 }
 
 void Value::SetNode(
@@ -258,6 +281,19 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
     }
     input_pt_idx++;
   }
+
+  auto input_idx = 0;
+  auto pt_idx = m_input_pt_tensors.size();
+  for (const auto& inp : m_inputs) {
+    if (inp.IsInplaceOnInput()) {
+      PT_LAZY_DEBUG(
+          "Node ", GetName(), " candidate Inplace Op ", inp.mp_node->GetName());
+      m_input_pt_tensors.emplace_back(inp.mp_node->m_input_pt_tensors[0]);
+      inp.mp_node->m_input_pt_tensors.clear();
+      m_pt_vec_to_input_ival[pt_idx++] = input_idx;
+    }
+    input_idx++;
+  }
 }
 
 NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
@@ -289,6 +325,21 @@ size_t Node::get_hash() {
 bool Value::IsHpuInputNode() const {
   // Does it point to an Input node (hpu::input)?
   return mp_node && mp_node->is_input();
+}
+
+bool Value::IsInplaceOnInput() const {
+  if (mp_node && !mp_node->is_control_edge()) {
+    std::string node_name = (std::string)mp_node->op().toQualString();
+    auto len = node_name.length();
+    if (len && node_name.back() == '_') {
+      auto input_mp_node = mp_node->m_inputs[0].mp_node;
+      if (input_mp_node && input_mp_node->is_input() &&
+          mp_node->m_input_pt_tensors.size() == 1) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool Value::DataPtrValid() const {

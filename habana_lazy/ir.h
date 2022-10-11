@@ -408,6 +408,7 @@ class Node {
   std::shared_ptr<std::string> m_scope;
   uint64_t m_id;
   bool deterministic = 0;
+  std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
@@ -477,6 +478,8 @@ struct Value {
   std::string ToStringIrGraph() const;
 
   bool IsHpuInputNode() const;
+
+  bool IsInplaceOnInput() const;
 
   bool DataPtrValid() const;
 

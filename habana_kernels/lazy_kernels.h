@@ -1344,7 +1344,6 @@ class LazyOp {
   }
 
  private:
-  std::vector<at::Tensor> m_input_pt_tensors;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   std::vector<bool> m_bcast_details;
