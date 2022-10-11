@@ -94,6 +94,10 @@ int CacheFileHandler::fileClose(int fd) {
   return close(fd);
 }
 
+int CacheFileHandler::fileUnLock(int fd) {
+  return flock(fd, LOCK_UN);
+}
+
 bool CacheFileHandler::fileLock(int fd, bool block) {
   auto flags = LOCK_EX | (block ? 0 : LOCK_NB);
 

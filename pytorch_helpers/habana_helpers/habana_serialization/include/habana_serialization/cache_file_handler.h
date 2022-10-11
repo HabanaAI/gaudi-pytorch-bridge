@@ -68,6 +68,7 @@ class CacheFileHandler {
   static int fileOpen(const std::string& fname, int flags);
   static int fileClose(int fd);
   static bool fileLock(int fd, bool block);
+  static int fileUnLock(int fd);
   // Lock file and get size
   static bool fileLock(int fd, bool block, size_t& size);
   // Open, Lock, and get Size

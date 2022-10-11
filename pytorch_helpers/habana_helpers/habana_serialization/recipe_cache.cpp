@@ -123,6 +123,7 @@ void RecipeCache::store(
     auto status = synRecipeSerialize(
         recipeHandle->syn_recipe_handle_, recipe_path.c_str());
     if (status != synSuccess) {
+      cfHandler->fileUnLock(meta_fd_to_unlock);
       cfHandler->fileClose(meta_fd_to_unlock);
       PT_HABHELPER_WARN(
           "Failed to serialized recipe(", recipe_path, "). Err: ", status);
@@ -133,6 +134,7 @@ void RecipeCache::store(
   std::ofstream metadata_file(metadata_path.c_str(), std::ofstream::binary);
   if (!metadata_file.is_open()) {
     auto err_str = strerror(errno);
+    cfHandler->fileUnLock(meta_fd_to_unlock);
     cfHandler->fileClose(meta_fd_to_unlock);
     PT_HABHELPER_WARN(
         "Failed to separately open metadata file(",
@@ -148,6 +150,7 @@ void RecipeCache::store(
   cfHandler->addFileInfo(cache_id);
 
   PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
+  cfHandler->fileUnLock(meta_fd_to_unlock);
   cfHandler->fileClose(meta_fd_to_unlock);
 
   if (send_thread.valid()) {
@@ -198,6 +201,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
           "Metadata file ",
           metadata_path,
           " is not empty. Found valid cache entry.");
+      cfHandler->fileUnLock(fd);
       cfHandler->fileClose(fd);
       PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
       return get_recipe_handle(metadata_path, metadata, recipe_path);
