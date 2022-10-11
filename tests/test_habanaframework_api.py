@@ -9,6 +9,8 @@ def test_basic_apis():
     print("hpu device name", htorch.hpu.get_device_name())
     print("hpu current device", htorch.hpu.current_device())
     print("hpu synchronize", htorch.hpu.synchronize())
+    print("hpu memory_usage", htorch.hpu.memory_usage())
+    print("hpu utilization", htorch.hpu.utilization())
     print("hpu is_bf16_supported", htorch.hpu.is_bf16_supported())
     d = torch.device('hpu')
     print("hpu get_device_capability", htorch.hpu.get_device_capability(d))

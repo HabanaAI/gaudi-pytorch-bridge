@@ -12,6 +12,7 @@
 
 import collections
 import os
+from torch.types import Device
 import threading
 import warnings
 from typing import Any, List, Optional, Union
@@ -287,3 +288,39 @@ class device_of(device):
     def __init__(self, obj):
         idx = obj.get_device() if obj.is_hpu else -1
         super(device_of, self).__init__(idx)
+
+def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
+    r"""Returns the memory used. as given by `hl-smi`.
+
+    Args:
+        device (torch.device or int, optional): selected device. Returns
+            statistic for the current device, given by :func:`~torch.cuda.current_device`,
+            if :attr:`device` is ``None`` (default).
+    """
+    init()
+    device_idx = _get_device_index(device)
+    if device_idx < 0 or device_idx >= device_count():
+        raise AssertionError("Invalid device id")
+    return _hpu_C.get_mem_stats(device_idx)["InUse"]
+
+def utilization(device: Optional[Union[Device, int]] = None) -> int:
+    r"""Returns the usage as given by `hl-smi`.
+
+    Args:
+        device (torch.device or int, optional): selected device. Returns
+            statistic for the current device, given by :func:`~torch.cuda.current_device`,
+            if :attr:`device` is ``None`` (default).
+    """
+    init()
+    device_idx = _get_device_index(device)
+    if device_idx < 0 or device_idx >= torch.hpu.device_count():
+        raise AssertionError("Invalid device id")
+    try:
+        import pyhlml  # type: ignore[import]
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError("pyhlml module not found, please install pyhlml")
+    pyhlml.hlmlInit()
+    pyhlml_device = pyhlml.hlmlDeviceGetHandleByIndex(device_idx)
+    usage = pyhlml.hlmlDeviceGetUtilizationRates(pyhlml_device)
+    pyhlml.hlmlShutdown()
+    return usage

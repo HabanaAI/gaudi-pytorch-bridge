@@ -12,3 +12,4 @@ pkginfo
 requests
 packaging
 wheel==0.38.4
+habana_pyhlml
