@@ -1607,7 +1607,7 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   std::vector<int64_t> sizes =
       ReduceOperator::compute_output_shape(self, dim, keepdim);
   LazyOp<at::Tensor, ir::AllDim> op(node, {self, dim, keepdim}, {sizes});
-  RUN_MAYBE_WITH_ACC_THREAD(all, op)
+  return op.call();
 }
 
 Tensor permute_wt_hpu(const Tensor& self) {
@@ -1663,7 +1663,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
         }
       };
       Kernel kernel{op_name, vector_of_inputs};
-      RUN_MAYBE_WITH_ACC_THREAD(permute_weight, kernel)
+      return kernel.call();
     }
   }
   return result;
@@ -1789,7 +1789,7 @@ Tensor convolution_hpu_lazy(
           is_weight_hwck,
           groups)},
       0);
-  RUN_MAYBE_WITH_ACC_THREAD(convolution_overrideable, k)
+  return k.call();
 }
 
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
@@ -1982,7 +1982,7 @@ Tensor constant_pad_hpu_lazy(
       vector_of_inputs,
       metadata_indices,
       {PadOperator::compute_output_shape(self, pad)}};
-  RUN_MAYBE_WITH_ACC_THREAD(constant_pad_nd, k)
+  return k.call();
 }
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
@@ -2009,7 +2009,7 @@ Tensor embedding_hpu_lazy(
       embedding_node,
       {weight, indices, padding_idx, scale_grad_by_freq, sparse},
       {size});
-  RUN_MAYBE_WITH_ACC_THREAD(embedding, op)
+  return op.call();
 }
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
@@ -2025,7 +2025,7 @@ Tensor embedding_dense_backward_hpu_lazy(
       embedding_bwd_node,
       {grad, indices, num_weights, padding_idx, scale_grad_by_freq},
       {sizes});
-  RUN_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, op)
+  return op.call();
 }
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
@@ -2039,7 +2039,7 @@ Tensor embedding_bag_sum_hpu_lazy(
   std::vector<int64_t> sizes{offsets.sizes()[0] - 1, input.size(1)};
   LazyOp<at::Tensor, ir::EmbeddingBagSum> op(
       node, {input, indices, offsets, valid_count, kernel_mode}, {sizes});
-  RUN_MAYBE_WITH_ACC_THREAD(embedding_bag_sum, op)
+  return op.call();
 }
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
@@ -2086,12 +2086,13 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
+  habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::EmbeddingBagSumBwd>(
       out, input, indices, offsets, valid_count, kernel_mode);
   LazyOp<at::Tensor&, ir::EmbeddingBagSumBwd> op(
       node, {out, input, indices, offsets, valid_count, kernel_mode});
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_bwd_out, op, out)
+  return op.call(out);
 }
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
@@ -4404,7 +4405,7 @@ Tensor& randperm_hpu_lazy_ht(
       {2},
       {},
       3};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out_ds_ht, op, output)
+  return op.call(output);
 }
 Tensor& randperm_hpu_lazy(
     int64_t n,
@@ -4441,14 +4442,14 @@ Tensor& randperm_hpu_lazy(
         {},
         {},
         2};
-    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out_ds, op, output)
+    return op.call(output);
   }
   LazyOp<Tensor&> op{
       "hpu::randperm_out",
       {Scalar((int32_t)n), std::move(gen), output},
       {1},
       {{n}}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_out, op, output)
+  return op.call(output);
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
@@ -5273,7 +5274,7 @@ Tensor& cat_hpu_lazy_out(
 
   auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
   LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(cat_out, k, result)
+  return k.call(result);
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
@@ -6879,7 +6880,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
        aligned},
       {},
       {out_shape});
-  RUN_MAYBE_WITH_ACC_THREAD(roi_align_fwd, k)
+  return k.call();
 }
 
 at::Tensor roi_align_bwd_hpu_lazy(

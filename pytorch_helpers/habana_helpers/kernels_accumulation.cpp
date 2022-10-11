@@ -22,33 +22,28 @@ namespace habana_lazy {
 
 // list of manual ops that support parallel accumulation
 const std::unordered_set<std::string> SupportedNonAutogenOps = {
+    "add",
+    "add_",
+    "any",
+    "binary_cross_entropy_with_logits",
+    "cat",
+    "clone",
+    "constant_pad_nd",
     "div",
     "div_",
     "div_out",
-    "max",
-    "min",
+    "embedding_bag_sum_bwd_out",
+    "embedding_bag_sum_fwd",
     "gelu",
     "gelu_backward",
-    "matmul",
-    "binary_cross_entropy_with_logits",
     "kl_div",
     "kl_div_backward",
-    "any",
-    "add",
-    "add_",
-    "all",
-    "convolution_overrideable",
-    "constant_pad_nd",
-    "embedding",
-    "embedding_bag_sum_fwd",
-    "embedding_bag_sum_bwd_out",
-    "scatter_add",
-    "bitwise_not_out",
+    "matmul",
+    "max",
+    "min",
     "one_hot",
-    "cat",
-    "cat_out",
-    "clone"
-    "repeat"};
+    "repeat",
+    "scatter_add"};
 // black list of aut-gen ops that do not support parallel accumulation
 const std::unordered_set<std::string> AccThreadOpsBlacklist = {
     "mul" // due to using hpu::mul() in mul_out_hpu_lazy(), there is deadlock on
