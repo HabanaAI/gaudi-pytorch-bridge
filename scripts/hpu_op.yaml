@@ -762,13 +762,13 @@ all.all_out:
   dtypes: [Char]
   op_backend: All
 
-all.dim :
+all.dim:
   force_default: false
   custom_output_shape: AllAnyDimOutputShape
   dtypes: [Char]
   op_frontend: AllAnyOutputType
   op_backend: AllDim
-  out_ids : [0]
+  out_ids: [0]
 
 all.out:
   custom_output_shape: AllAnyDimOutputShape
@@ -778,27 +778,27 @@ all.out:
 amax:
   force_default: false
   dtypes: [Float, BFloat16, Int]
-  guid:  reduce_max_fwd
+  guid: reduce_max_fwd
   custom_output_shape: AminAmaxOutputShape
   op_backend: AminAmax
   out_ids: [0]
 
 amax.out:
   dtypes: [Float, BFloat16, Int]
-  guid:  reduce_max_fwd
+  guid: reduce_max_fwd
   op_template: reduction
 
 amin:
   force_default: false
   dtypes: [Float, BFloat16, Int]
-  guid:  reduce_min_fwd
+  guid: reduce_min_fwd
   custom_output_shape: AminAmaxOutputShape
   op_backend: AminAmax
   out_ids: [0]
 
 amin.out:
   dtypes: [Float, BFloat16, Int]
-  guid:  reduce_min_fwd
+  guid: reduce_min_fwd
   op_template: reduction
 
 aminmax:
@@ -1071,7 +1071,7 @@ binary_cross_entropy_with_logits:
   force_default: false
 
 bitwise_and.Scalar:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1083,7 +1083,7 @@ bitwise_and.Scalar:
   scalar_ids: [1]
 
 bitwise_and.Scalar_out:
-  force_default : false
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1094,7 +1094,7 @@ bitwise_and.Scalar_out:
   scalar_ids: [1]
 
 bitwise_and.Scalar_Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1106,7 +1106,7 @@ bitwise_and.Scalar_Tensor:
   scalar_ids: [0]
 
 bitwise_and.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1124,7 +1124,7 @@ bitwise_and.Tensor_out:
   guid: bitwise_and_fwd
 
 bitwise_and_.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1207,13 +1207,13 @@ bitwise_not_:
   inplace_ids: [0]
 
 bitwise_or.Scalar_out:
-  force_default : false
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
-  op_frontend:  LazyBitwiseScalar
+  op_frontend: LazyBitwiseScalar
   guid: bitwise_or_fwd
   scalar_ids: [1]
 
@@ -1230,7 +1230,7 @@ bitwise_or.Scalar_Tensor:
   scalar_ids: [0]
 
 bitwise_or.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1248,7 +1248,7 @@ bitwise_or.Tensor_out:
   guid: bitwise_or_fwd
 
 bitwise_or_.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1315,13 +1315,13 @@ bitwise_right_shift_.Tensor_Scalar:
   scalar_ids: [1]
 
 bitwise_xor.Scalar_out:
-  force_default : false
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
-  op_frontend:  LazyBitwiseScalar
+  op_frontend: LazyBitwiseScalar
   guid: bitwise_xor_fwd
   scalar_ids: [1]
 
@@ -1338,7 +1338,7 @@ bitwise_xor.Scalar_Tensor:
   scalar_ids: [0]
 
 bitwise_xor.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1356,7 +1356,7 @@ bitwise_xor.Tensor_out:
   guid: bitwise_xor_fwd
 
 bitwise_xor_.Tensor:
-  force_default: False
+  force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
@@ -1366,13 +1366,12 @@ bitwise_xor_.Tensor:
   inplace_ids: [0]
 
 bmm:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
-  force_default: false
   custom_output_shape: BmmOutputShape
-  force_default: false
   guid: batch_gemm
   out_ids: [0]
 
@@ -1545,7 +1544,7 @@ convolution_overrideable:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float] # Half to be added after fixing SW-106630
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_hpu_lazy
 
@@ -1553,7 +1552,7 @@ convolution_backward_overrideable:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float] # Half to be added after fixing SW-106630
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_backward_hpu_lazy
 
@@ -1612,7 +1611,7 @@ cos:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
-    Greco:  [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cos_fwd
   out_ids: [0]
 
@@ -1620,7 +1619,7 @@ cos.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
-    Greco:  [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cos_fwd
 
 cos_:
@@ -1628,7 +1627,7 @@ cos_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
-    Greco:  [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: cos_fwd
   inplace_ids: [0]
 
@@ -2219,7 +2218,7 @@ frexp.Tensor:
   op_backend: Frexp
   force_default: false
   guid: frexp
-  out_ids: [0,0]
+  out_ids: [0, 0]
 
 frexp.Tensor_out:
   custom_output_shape: FrexpOutputShape
@@ -2678,13 +2677,13 @@ heaviside_:
 hypot:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   op_backend: Hypot
   out_ids: [0]
 
 hypot.out:
   broadcast: true
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   op_backend: Hypot
 
 hypot_:
@@ -3206,19 +3205,19 @@ logical_xor.out:
 
 logit:
   custom_fill_params: FillLogitForwardParams
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   guid: logit_fwd
   out_ids: [0]
 
 logit_:
   custom_fill_params: FillLogitForwardParams
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   guid: logit_fwd
   inplace_ids: [0]
 
 logit.out:
   custom_fill_params: FillLogitForwardParams
-  dtypes: [BFloat16,Float]
+  dtypes: [BFloat16, Float]
   guid: logit_fwd
 
 logit_backward:
@@ -3342,7 +3341,7 @@ max_pool2d_with_indices:
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   op_backend: MaxPool2DWithIndicesOut
   op_frontend: LazyMaxPool2d
-  out_ids: [0,0]
+  out_ids: [0, 0]
   force_default: false
 
 max_pool2d_with_indices_backward:
@@ -3397,7 +3396,7 @@ max_pool3d_with_indices:
   synapse_layouts:
   - [WHDCN]
   - [WHDCN, WHDCN]
-  out_ids: [0,0]
+  out_ids: [0, 0]
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
 # max_pool3d_with_indices.out:
@@ -3481,7 +3480,7 @@ median.dim:
     Gaudi2: [Float, Int]
     Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
-  out_ids: [0,0]
+  out_ids: [0, 0]
 
 median.dim_values:
   custom_output_shape: MediandimOutputShape
@@ -3506,7 +3505,7 @@ min.dim:
   guid: reduce_min_fwd
   op_frontend: LazyMinMax
   op_backend: MinMaxOut
-  out_ids: [0,0]
+  out_ids: [0, 0]
 
 min.dim_min:
   custom_output_shape: MinMaxOutputShape
@@ -3868,7 +3867,7 @@ nll_loss_forward:
       weight: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLossFwd
-  out_ids: [0,0]
+  out_ids: [0, 0]
 
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
@@ -3911,7 +3910,7 @@ nll_loss2d_forward:
       weight: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
-  out_ids: [0,0]
+  out_ids: [0, 0]
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
   - [WHN]
@@ -4932,8 +4931,8 @@ special_entr:
   out_ids: [0]
 
 special_entr.out:
-   dtypes: [Float]
-   op_backend: SpecialEntr
+  dtypes: [Float]
+  op_backend: SpecialEntr
 
 sqrt:
   force_default: false

@@ -3,3 +3,4 @@ lark
 ninja
 pyyaml
 cython
+yamllint
