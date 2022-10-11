@@ -400,6 +400,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
 
   if (synapse_helpers::HPURegistrar::get_device().type() ==
       synDeviceType::synDeviceGreco) {
+    AllocateSynapseOutput(graph, output_nhwc, output_metadata.at(0));
+    AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
         output_idx_nhwc,
         graph,
