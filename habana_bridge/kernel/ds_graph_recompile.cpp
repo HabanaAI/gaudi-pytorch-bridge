@@ -68,9 +68,9 @@ void habana::PrintStack(torch::jit::Stack& st) {
   }
 }
 
-bool habana::RefineBucketDS(size_t graph_key, size_t curr_step) {
+bool habana::RefineBucketDS(size_t graph_key) {
   bool is_refined{true};
-  DynamicBucketInfoMap::get_instance().refine_graph(graph_key, curr_step);
+  DynamicBucketInfoMap::get_instance().refine_graph(graph_key);
   return is_refined;
 }
 

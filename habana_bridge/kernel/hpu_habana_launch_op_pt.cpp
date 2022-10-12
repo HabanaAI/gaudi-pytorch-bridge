@@ -2500,9 +2500,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       UpdateOutputs(rv);
       ReturnCachedRecipe(rv);
 
-      RefinementEngine::GetEngine().AddGraphKey(
-          rargpsh_graph->graphHashCode(),
-          current_dbipsh_->get_statistics()->GetCurrentStep());
+      RefinementEngine::GetEngine().AddGraphKey(rargpsh_graph->graphHashCode());
       PT_DYNAMIC_SHAPE_DEBUG(
           current_dbipsh_->digest_str(), current_dbipsh_->history_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");

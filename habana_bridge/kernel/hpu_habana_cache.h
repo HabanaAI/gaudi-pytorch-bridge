@@ -599,7 +599,7 @@ class DynamicBucketInfoMap {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> get(
       std::shared_ptr<RecipeArgumentSpec>& key);
 
-  void refine_graph(size_t graph_key, size_t step);
+  void refine_graph(size_t graph_key);
   size_t Size() const;
   size_t HistSize() const;
   static void DumpBucketMemoryStat();

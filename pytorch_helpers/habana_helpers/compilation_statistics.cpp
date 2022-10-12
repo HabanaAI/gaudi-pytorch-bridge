@@ -306,14 +306,6 @@ uint64_t CompilationStatistics::GetCurrentStep() {
   return step_;
 }
 
-void CompilationStatistics::SetRefineInitStep(size_t step) {
-  refine_init_step_ = step;
-}
-
-size_t CompilationStatistics::GetRefineInitStep() {
-  return refine_init_step_;
-}
-
 void CompilationStatistics::SetCurrentParentBucketID(size_t bucket_id) {
   curr_parent_bucket_id_ = bucket_id;
 }

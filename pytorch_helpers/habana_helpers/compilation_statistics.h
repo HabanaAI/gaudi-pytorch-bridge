@@ -158,20 +158,6 @@ class CompilationStatistics {
   virtual uint64_t GetCurrentStep();
 
   /**
-   * @brief Set the step at which refine initialized
-   *
-   * @param step iteration where this graph key inserted for bucket refinement
-   */
-  virtual void SetRefineInitStep(size_t step);
-
-  /**
-   * @brief Get the refine initialized step
-   *
-   * @return size_t current refinement invocked step
-   */
-  virtual size_t GetRefineInitStep();
-
-  /**
    * @brief Set the parent bucket id used for current refinement
    *
    * @param bucket id considered for current refinement

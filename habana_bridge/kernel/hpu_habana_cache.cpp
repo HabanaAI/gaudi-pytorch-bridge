@@ -1971,11 +1971,10 @@ void DynamicBucketInfoMap::add(
   map_.emplace(key, val);
 }
 
-void DynamicBucketInfoMap::refine_graph(size_t graph_key, size_t curr_step) {
+void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
   for (auto& p : map_) {
     auto dbipsh = p.second;
     if (dbipsh->GetGraphKey() == graph_key) {
-      dbipsh->get_statistics()->SetRefineInitStep(curr_step);
       dbipsh->CheckForSplitBucket(dbipsh);
       return;
     }
