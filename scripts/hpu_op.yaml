@@ -3963,7 +3963,7 @@ max_pool2d_with_indices:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   op_backend: MaxPool2DWithIndicesOut
-  op_frontend: LazyMaxPool2d
+  op_frontend: LazyMaxPool
   out_ids: [0, 0]
   force_default: false
 
@@ -4018,8 +4018,9 @@ max_pool3d_with_indices:
   custom_output_shape: MaxPool3DIndicesOutputShape
   dtypes:
     self: [BFloat16, Float]
-    indices: [BFloat16, Float]
-  op_backend: MaxPool3DWithIndices
+    indices: [Int]
+  op_backend: MaxPool3DWithIndicesOut
+  op_frontend: LazyMaxPool
   synapse_layouts:
   - [WHDCN]
   - [WHDCN, WHDCN]
@@ -4044,7 +4045,7 @@ max_pool3d_with_indices_backward:
   dtypes:
     self: [BFloat16, Float]
     grad_output: [BFloat16, Float]
-    indices: [BFloat16, Float]
+    indices: [Int]
   op_backend: MaxPool3DWithIndicesBwd
   synapse_layouts:
   - [WHDCN, WHDCN]

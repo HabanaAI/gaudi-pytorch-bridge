@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -35,7 +35,7 @@ static void DummyOutput(
 }
 
 template <>
-LazyMaxPool2d<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool2d(
+LazyMaxPool<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
@@ -46,13 +46,15 @@ LazyMaxPool2d<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool2d(
           -1) {}
 
 template <>
-std::tuple<at::Tensor, at::Tensor> LazyMaxPool2d<
+std::tuple<at::Tensor, at::Tensor> LazyMaxPool<
     std::tuple<at::Tensor, at::Tensor>>::get_result_overrideable() {
   auto inputs = get_inputs();
   auto t = inputs.at(0).toTensor();
-  auto out_shape = MaxPool2DOutputShape(inputs)[0];
+  auto out_shape = get_out_shapes()[0];
   at::Tensor maxpool = habana_lazy::empty_hpu_lazy(
       out_shape, t.options(), t.suggest_memory_format(), false);
+  // TODO Analyse memory performance for the dtype change
+  // (https://jira.habana-labs.com/browse/SW-108396),
   at::Tensor indices = habana_lazy::empty_hpu_lazy(
       out_shape,
       t.options().dtype(c10::ScalarType::Long),
@@ -76,12 +78,18 @@ static int OutputShapeComputation(
 }
 
 sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
+  std::vector<long int> pad = {0, 0, 0};
+  std::vector<long int> dil = {1, 1, 1};
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector();
-  auto padding = stack.at(3).toIntVector();
-  auto dilation = stack.at(4).toIntVector();
-  auto ceil_mode = stack.at(5).toBool();
+  auto stride = stack.at(2).toIntVector().size() == 0
+      ? kernel
+      : stack.at(2).toIntVector();
+  auto padding =
+      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+  auto dilation =
+      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+  const bool ceil_mode = stack.at(5).toBool();
 
   TORCH_CHECK(
       self.dim() == 5 || self.dim() == 4,
@@ -107,63 +115,43 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   std::vector<int64_t> input_shape = self.sizes().vec();
   std::vector<int64_t> output_shape = self.sizes().vec();
 
-  // updating the width dimension
-  output_shape.rbegin()[0] = OutputShapeComputation(
-      input_shape.rbegin()[0],
-      kernel[2],
-      stride[2],
-      padding[2],
-      dilation[2],
-      ceil_mode);
-
-  // updating the height dimension
-  output_shape.rbegin()[1] = OutputShapeComputation(
-      input_shape.rbegin()[1],
-      kernel[1],
-      stride[1],
-      padding[1],
-      dilation[1],
-      ceil_mode);
-
-  // updating the depth dimension
-  output_shape.rbegin()[2] = OutputShapeComputation(
-      input_shape.rbegin()[2],
-      kernel[0],
-      stride[0],
-      padding[0],
-      dilation[0],
-      ceil_mode);
+  int n = kernel.size();
+  // updating the width, height, & depth dimension
+  for (int i = 0; i < n; i++) {
+    output_shape.rbegin()[i] = OutputShapeComputation(
+        input_shape.rbegin()[i],
+        kernel[n - i - 1],
+        stride[n - i - 1],
+        padding[n - i - 1],
+        dilation[n - i - 1],
+        ceil_mode);
+  }
 
   // ensure that the last pooling starts inside the image
   // needed to avoid problems in ceil mode
-  if (padding[2]) {
-    if ((output_shape.rbegin()[0] - 1) * stride[2] >=
-        input_shape.rbegin()[0] + padding[2])
-      --output_shape.rbegin()[0];
+  if (ceil_mode) {
+    for (int i = 0; i < n; i++) {
+      if ((output_shape.rbegin()[i] - 1) * stride[n - i - 1] >=
+          input_shape.rbegin()[i] + padding[n - i - 1])
+        --output_shape.rbegin()[i];
+    }
   }
-
-  if (padding[1]) {
-    if ((output_shape.rbegin()[1] - 1) * stride[1] >=
-        input_shape.rbegin()[1] + padding[1])
-      --output_shape.rbegin()[1];
-  }
-
-  if (padding[0]) {
-    if ((output_shape.rbegin()[2] - 1) * stride[0] >=
-        input_shape.rbegin()[2] + padding[0])
-      --output_shape.rbegin()[2];
-  }
-
   return {output_shape, output_shape};
 }
 
 sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
+  std::vector<long int> pad = {0, 0};
+  std::vector<long int> dil = {1, 1};
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector();
-  auto padding = stack.at(3).toIntVector();
-  auto dilation = stack.at(4).toIntVector();
-  auto ceil_mode = stack.at(5).toBool();
+  auto stride = stack.at(2).toIntVector().size() == 0
+      ? kernel
+      : stack.at(2).toIntVector();
+  auto padding =
+      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+  auto dilation =
+      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+  const bool ceil_mode = stack.at(5).toBool();
   TORCH_CHECK(
       self.dim() == 4 || self.dim() == 3,
       "Maxpool2d expects Input size must be 4 or 3, but got ",
@@ -187,36 +175,26 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
   std::vector<int64_t> input_shape = self.sizes().vec();
   std::vector<int64_t> output_shape = self.sizes().vec();
 
-  // updating the width dimension
-  output_shape.rbegin()[0] = OutputShapeComputation(
-      input_shape.rbegin()[0],
-      kernel[1],
-      stride[1],
-      padding[1],
-      dilation[1],
-      ceil_mode);
-
-  // updating the height dimension
-  output_shape.rbegin()[1] = OutputShapeComputation(
-      input_shape.rbegin()[1],
-      kernel[0],
-      stride[0],
-      padding[0],
-      dilation[0],
-      ceil_mode);
+  int n = kernel.size();
+  // updating the width & height dimension
+  for (int i = 0; i < n; i++) {
+    output_shape.rbegin()[i] = OutputShapeComputation(
+        input_shape.rbegin()[i],
+        kernel[n - i - 1],
+        stride[n - i - 1],
+        padding[n - i - 1],
+        dilation[n - i - 1],
+        ceil_mode);
+  }
 
   // ensure that the last pooling starts inside the image
   // needed to avoid problems in ceil mode
-  if (padding[1]) {
-    if ((output_shape.rbegin()[0] - 1) * stride[1] >=
-        input_shape.rbegin()[0] + padding[1])
-      --output_shape.rbegin()[0];
-  }
-
-  if (padding[0]) {
-    if ((output_shape.rbegin()[1] - 1) * stride[0] >=
-        input_shape.rbegin()[1] + padding[0])
-      --output_shape.rbegin()[1];
+  if (ceil_mode) {
+    for (int i = 0; i < n; i++) {
+      if ((output_shape.rbegin()[i] - 1) * stride[n - i - 1] >=
+          input_shape.rbegin()[i] + padding[n - i - 1])
+        --output_shape.rbegin()[i];
+    }
   }
 
   return {output_shape, output_shape};
@@ -289,7 +267,8 @@ static std::shared_ptr<void> FillSpatialReduction3DParams(
   params->dilation_h = dilation[1];
   params->dilation_d = dilation[0];
   if (ceil_mode)
-    params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_FULL;
+    params->pooling_convention =
+        EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
   else
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
   return params;
@@ -298,12 +277,17 @@ static std::shared_ptr<void> FillSpatialReduction3DParams(
 std::shared_ptr<void> FillSpatialReduction3DParamsFwd(
     const at::Stack& stack,
     size_t& size) {
-  auto self = stack.at(0).toTensor();
+  std::vector<long int> pad = {0, 0, 0};
+  std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector();
-  auto padding = stack.at(3).toIntVector();
-  auto dilation = stack.at(4).toIntVector();
-  auto ceil_mode = stack.at(5).toBool();
+  auto stride = stack.at(2).toIntVector().size() == 0
+      ? kernel
+      : stack.at(2).toIntVector();
+  auto padding =
+      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+  auto dilation =
+      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+  const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction3DParams(
       kernel, stride, padding, dilation, ceil_mode, size);
@@ -312,12 +296,17 @@ std::shared_ptr<void> FillSpatialReduction3DParamsFwd(
 std::shared_ptr<void> FillSpatialReduction3DParamsBwd(
     const at::Stack& stack,
     size_t& size) {
-  auto self = stack.at(1).toTensor();
+  std::vector<long int> pad = {0, 0, 0};
+  std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(2).toIntVector();
-  auto stride = stack.at(3).toIntVector();
-  auto padding = stack.at(4).toIntVector();
-  auto dilation = stack.at(5).toIntVector();
-  auto ceil_mode = stack.at(6).toBool();
+  auto stride = stack.at(3).toIntVector().size() == 0
+      ? kernel
+      : stack.at(3).toIntVector();
+  auto padding =
+      stack.at(4).toIntVector().size() == 0 ? pad : stack.at(4).toIntVector();
+  auto dilation =
+      stack.at(5).toIntVector().size() == 0 ? dil : stack.at(5).toIntVector();
+  const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction3DParams(
       kernel, stride, padding, dilation, ceil_mode, size);
@@ -342,7 +331,8 @@ static std::shared_ptr<void> FillSpatialReduction2DParams(
   params->dilation_w = dilation[1];
   params->dilation_h = dilation[0];
   if (ceil_mode)
-    params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_FULL;
+    params->pooling_convention =
+        EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
   else
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
   return params;
@@ -351,12 +341,17 @@ static std::shared_ptr<void> FillSpatialReduction2DParams(
 std::shared_ptr<void> FillSpatialReduction2DParamsFwd(
     const at::Stack& stack,
     size_t& size) {
-  auto self = stack.at(0).toTensor();
+  std::vector<long int> pad = {0, 0};
+  std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector();
-  auto padding = stack.at(3).toIntVector();
-  auto dilation = stack.at(4).toIntVector();
-  auto ceil_mode = stack.at(5).toBool();
+  auto stride = stack.at(2).toIntVector().size() == 0
+      ? kernel
+      : stack.at(2).toIntVector();
+  auto padding =
+      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+  auto dilation =
+      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+  const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction2DParams(
       kernel, stride, padding, dilation, ceil_mode, size);
@@ -365,12 +360,17 @@ std::shared_ptr<void> FillSpatialReduction2DParamsFwd(
 std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
     const at::Stack& stack,
     size_t& size) {
-  auto self = stack.at(1).toTensor();
+  std::vector<long int> pad = {0, 0};
+  std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(2).toIntVector();
-  auto stride = stack.at(3).toIntVector();
-  auto padding = stack.at(4).toIntVector();
-  auto dilation = stack.at(5).toIntVector();
-  auto ceil_mode = stack.at(6).toBool();
+  auto stride = stack.at(3).toIntVector().size() == 0
+      ? kernel
+      : stack.at(3).toIntVector();
+  auto padding =
+      stack.at(4).toIntVector().size() == 0 ? pad : stack.at(4).toIntVector();
+  auto dilation =
+      stack.at(5).toIntVector().size() == 0 ? dil : stack.at(5).toIntVector();
+  const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction2DParams(
       kernel, stride, padding, dilation, ceil_mode, size);
@@ -550,7 +550,9 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
   return output;
 }
 
-void MaxPool3DWithIndices::AddNode(
+// Since the out varriant intices tensor has some issue
+// (https://jira.habana-labs.com/browse/SW-74263)
+void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto output = Maxpool3dWithIndicesFwdCommonFunc(
@@ -564,99 +566,24 @@ void MaxPool3DWithIndices::AddNode(
   std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263), so that the implementation is
-// commented till the issue got resolved.
-/**void MaxPool3DWithIndicesOut::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output = Maxpool3dWithIndicesFwdCommonFunc(
-      this, graph, stack, {syn_in(0)}, ScalarType());
-
-  syn_out(0) = std::move(output.at(0));
-  syn_out(1) = std::move(output.at(1));
-}**/
-
 void MaxPool3DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack);
-  const torch::Tensor& self = stack.at(1).toTensor();
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  // TODO: SW-86955 move build op to code gen
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    const auto& transpose_input_shape = TransposeShape(
-        stack.at(0).toTensor().sizes().vec(), MaxpoolVariant::MAXPOOL3D);
-    const auto& transpose_output_shape =
-        TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL3D);
+  std::vector<synTensor> grad = {syn_in(0), syn_in(2)};
+  this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape[0], grad);
 
-    const auto& output_transposeshape =
-        TransposeShape(out_shape[0], MaxpoolVariant::MAXPOOL3D);
+  auto grad_output = BuildOp(
+      graph,
+      "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      grad,
+      {{out_shape[0], ScalarType(), 0}},
+      params.get(),
+      size);
 
-    // Transpose params
-    synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
-
-    // TPC expects inputs in N D H W C or D H W C format so we use transpose
-    // guid for reordering.
-    std::vector<std::vector<int>> permutation_order =
-        GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL3D, self.dim());
-
-    trans_params = ChangeTransposePermutation(
-        trans_params, permutation_order[0], self.dim());
-    auto index_type = FindIndexType(self.scalar_type());
-
-    auto input_transpose = ShapeTranspose(
-        this,
-        graph,
-        {syn_in(0)},
-        transpose_input_shape,
-        ScalarType(),
-        trans_params);
-
-    auto index_transpose = ShapeTranspose(
-        this,
-        graph,
-        {syn_in(2)},
-        transpose_input_shape,
-        index_type,
-        trans_params);
-
-    auto maxpool3d_gradout = BuildOp(
-        graph,
-        "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {input_transpose[0].get(), index_transpose[0].get()},
-        {{transpose_output_shape, ScalarType()}},
-        params.get(),
-        size);
-
-    // After aplying maxpool3d, need to change the order of both indices and
-    // output tensor to N C D H W or C D H W format
-    trans_params = ChangeTransposePermutation(
-        trans_params, permutation_order[1], self.dim());
-
-    auto grad_output = ShapeTranspose(
-        this,
-        graph,
-        {maxpool3d_gradout[0].get()},
-        out_shape[0],
-        ScalarType(),
-        trans_params,
-        0);
-
-    syn_out(0) = std::move(grad_output.at(0));
-  }
-  // PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
-  else {
-    auto maxpool3d_gradout = BuildOp(
-        graph,
-        "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0), syn_in(2)},
-        {{out_shape[0], ScalarType(), 0}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(maxpool3d_gradout.at(0));
-  }
+  syn_out(0) = std::move(grad_output.at(0));
 }
 
 // Since the out varriant intices tensor has some issue
