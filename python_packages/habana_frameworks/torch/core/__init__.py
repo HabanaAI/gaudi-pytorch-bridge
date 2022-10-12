@@ -7,6 +7,7 @@ from typing import Union
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch.utils import _experimental_C
+from torch.fx import symbolic_trace
 
 from torch.functional import Tensor
 name_stack = deque()
@@ -23,11 +24,25 @@ def handle_quant_stats(model=None):
     if model is not None:
         min_calibration_data = dict()
         max_calibration_data = dict()
+        placeholder_dict = dict()
+        gm : torch.fx.GraphModule = symbolic_trace(model)
+        for node in gm.graph.nodes:
+            for i in range(len(node.all_input_nodes)):
+                if node.all_input_nodes[i].op == "placeholder":
+                   name = '.'.join([node.all_input_nodes[i].target, node.target, "placeholder",str(i)])
+                   placeholder_dict[node.all_input_nodes[i].target] = name
         for name, param in model.state_dict().items():
             if name.endswith('.min_val'):
                 min_calibration_data[name.rstrip('.min_val')] = param.item()
             if name.endswith('.max_val'):
                 max_calibration_data[name.rstrip('.max_val')] = param.item()
+        for name, param in placeholder_dict.items():
+            if name in min_calibration_data.keys():
+               min_calibration_data[param] = min_calibration_data[name]
+               min_calibration_data.pop(name)
+            if name in max_calibration_data.keys():
+               max_calibration_data[param] = max_calibration_data[name]
+               max_calibration_data.pop(name)
         for name, param in min_calibration_data.items():
             try:
                 _record_quant_param(name, min_calibration_data[name], max_calibration_data[name])
