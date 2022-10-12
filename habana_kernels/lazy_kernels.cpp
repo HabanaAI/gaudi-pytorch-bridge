@@ -5080,21 +5080,15 @@ Tensor empty_strided_hpu_lazy(
 
 Tensor clone_hpu_lazy(
     const Tensor& self,
-    c10::optional<MemoryFormat> memory_format) {
+    c10::optional<MemoryFormat> /* memory_format */) {
   PT_LAZY_TRACE;
-  static_cast<void>(memory_format);
-
-  if (habana_lazy::IsAccThreadEnabled()) {
-    LazyOp<at::Tensor> k{"hpu::habana_d2d_memcpy", {self}};
-    auto out = k.get_result();
-    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out.sizes()));
-    RUN_MAYBE_WITH_ACC_THREAD(clone, k);
-  }
 
   LazyOp<at::Tensor> k{"hpu::habana_d2d_memcpy", {self}};
-  auto out = k.call();
-  out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out.sizes()));
-  return out;
+  auto result_func = [](at::Tensor& result) {
+    result.unsafeGetTensorImpl()->set_sizes_contiguous(
+        IntArrayRef(result.sizes()));
+  };
+  RUN_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(clone, k, result_func);
 }
 
 Tensor& zero_hpu_lazy(Tensor& self) {

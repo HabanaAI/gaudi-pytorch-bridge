@@ -214,6 +214,22 @@ inline float& get<float>(fint_t& u) {
   }                                                                           \
   return lazy_op.call();
 
+#define RUN_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(op, lazy_op, result_func)     \
+  if (habana_lazy::CanUseAccThread()) {                                       \
+    if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
+      PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+      auto result = lazy_op.get_result();                                     \
+      result_func(result);                                                    \
+      scheduleAccTask(std::move(lazy_op), result);                            \
+      return result;                                                          \
+    } else {                                                                  \
+      habana_lazy::SyncAccThreadPool();                                       \
+    }                                                                         \
+  }                                                                           \
+  auto result = lazy_op.call();                                               \
+  result_func(result);                                                        \
+  return result;
+
 #define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                  \
   if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
