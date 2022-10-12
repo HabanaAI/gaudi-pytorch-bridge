@@ -90,6 +90,7 @@ function pytorch_usage()
         echo -e "       --py-version           Python version"
         echo -e "  -i,  --install-ext          Install extensions"
         echo -e "  -l,  --no_cpp_tests         do not build cpp tests"
+        echo -e "       --op-stats             Generate Operator statistics"
         echo -e "       --upstream_compile     compile for upstream workspace"
     fi
 
@@ -180,6 +181,7 @@ build_pytorch_modules()
     local __result=""
     local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
     local __build_cpp_tests="ON"
+    local  __generate_op_stats="false"
     local __build_with_shim="ON"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __build_manylinux_whl="false"
@@ -237,6 +239,9 @@ build_pytorch_modules()
             ;;
         -l  | --no_cpp_tests )
              __build_cpp_tests="OFF"
+            ;;
+        --op-stats )
+             __generate_op_stats="true"
             ;;
         --no_shim )
              __build_with_shim="OFF"
@@ -462,6 +467,18 @@ build_pytorch_modules()
         if [ $__build_res -ne 0 ]; then
             restore_python_version
             return $__build_res
+        fi
+
+        if [ "z$__generate_op_stats" == "ztrue" ]; then
+            printf "\n\nGenerating Operator statistics....\n\n"
+            OP_DECLARATION_PATH=$($__python_cmd -m site --user-site)/torch/include/ATen/RegistrationDeclarations.h
+            (set -x;$__python_cmd $PYTORCH_MODULES_ROOT_PATH/scripts/op_stats.py --ops_decl=$OP_DECLARATION_PATH \
+                    --pt_integ_path=$PYTORCH_MODULES_ROOT_PATH \
+                    --gen_files_path=$PYTORCH_MODULES_RELEASE_BUILD/generated/)
+            cp consolidate_ops_list.csv unique_ops_list.csv unique_ops_list2.csv summary.csv \
+                    consolidate_ops_list.json summary.json $PYTORCH_MODULES_RELEASE_BUILD/
+            mv consolidate_ops_list.csv unique_ops_list.csv unique_ops_list2.csv summary.csv \
+                    consolidate_ops_list.json summary.json $HABANA_LOGS/
         fi
 
         cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE
