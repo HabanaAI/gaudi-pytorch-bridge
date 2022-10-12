@@ -5,6 +5,7 @@ import os
 import csv
 import glob
 import yaml
+import pandas as pd
 
 def match_any(l, match):
     for m in match:
@@ -19,23 +20,6 @@ def extract_signature_list(lst):
     return sl
 
 def write_consolidated_op_list(name, op_d):
-
-    #tcs_csv = open(name+'.csv', 'w', newline='')
-
-    #header = ['tensor_name', 'dim','size_elems', hk['min'][dev1], hk['min'][dev2], hk['mean'][dev1], hk['mean'][dev2],
-    #            hk['max'][dev1], hk['max'][dev2], hk['std'][dev1], hk['std'][dev2],hk['norm'][dev1], hk['norm'][dev2],
-    #            'norm_ratio_t', 'minabs_e','maxabs_e','distribution%_abs_e', 'ms_e', 'rms_e', 'angle', 'cosine_sim_ok']
-    #writer = csv.DictWriter(tcs_csv, fieldnames=header)
-    #writer.writeheader()
-
-
-    #writer.writerow(tensor_cmp_stat_dict)
-    #tcs_csv.close()
-    op_csv = open(name, 'w', newline='')
-    header = ["OpName", "Relevant", "OpType", "OpType2", "Implemented","ImplMethod", "OpSignature"]
-    writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
-    writer.writeheader()
-
 
     Total = 0
     rv = 0
@@ -54,8 +38,10 @@ def write_consolidated_op_list(name, op_d):
     rv_dt_df_impl_a = 0
     rv_dt_df_impl_m = 0
 
-    with open(name,"w") as f:
-        #for k,v in op_d.items():
+    with open(name,"w", newline='') as op_csv:
+        header = ["OpName", "Relevant", "OpType", "OpType2", "Implemented","ImplMethod", "OpSignature"]
+        writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
+        writer.writeheader()
         for k in sorted(op_d.keys()):
             v = op_d.get(k)
             row = {}
@@ -97,53 +83,43 @@ def write_consolidated_op_list(name, op_d):
 
     rv_non_mandat_t = rv_df_dt_t + rv_dt_dt_t
 
-    with open("summary.txt", "w") as f:
-        f.write("Total , " + str(Total))
-        f.write("\nRelevant on HPU , "+ str(rv))
-        f.write("\nNot Relevant on HPU , "+ str(nrv))
+    with open("summary.csv", "w", newline='') as summary_csv:
+        header = ["Total", "Relevant on HPU", "Not Relevant on HPU", "Non-Mandatory Total", "df_dt Total", "df_dt implemented", "dt_dt Total", "dt_dt implemented", "dt_dt implemented auto", "dt_dt implemented manual", "dt_dt remaining", "Mandatory Total", "dt_df implemented", "dt_df implemented auto", "dt_df implemented manual", "dt_df remaining"]
+        writer = csv.DictWriter(summary_csv, fieldnames=header, delimiter="|")
+        writer.writeheader()
+        row = {}
 
-        f.write("\nNon-Mandatory Total , "+ str(rv_non_mandat_t))
-        f.write("\ndf_dt Total , "+ str(rv_df_dt_t))
-        f.write("\ndf_dt implemented , "+ str(rv_df_dt_impl))
+        row["Total"] = Total
+        row["Relevant on HPU"] = rv
+        row["Not Relevant on HPU"] = nrv
 
-        f.write("\ndt_dt Total , "+ str(rv_dt_dt_t))
-        f.write("\ndt_dt implemented , "+ str(rv_dt_dt_impl))
-        f.write("\ndt_dt implemented auto, "+ str(rv_dt_dt_impl_a))
-        f.write("\ndt_dt implemented manual, "+ str(rv_dt_dt_impl_m))
+        row["Non-Mandatory Total"] = rv_non_mandat_t
+        row["df_dt Total"] = rv_df_dt_t
+        row["df_dt implemented"] = rv_df_dt_impl
 
-        f.write("\ndt_dt remaining , "+ str(rv_dt_dt_nimpl))
+        row["dt_dt Total"] = rv_dt_dt_t
+        row["dt_dt implemented"] = rv_dt_dt_impl
+        row["dt_dt implemented auto"] = rv_dt_dt_impl_a
+        row["dt_dt implemented manual"] = rv_dt_dt_impl_m
+
+        row["dt_dt remaining"] = rv_dt_dt_nimpl
 
 
-        f.write("\nMandatory Total , "+ str(rv_dt_df_t))
-        f.write("\ndt_df implemented , "+ str(rv_dt_df_impl))
-        f.write("\ndt_df implemented auto , "+ str(rv_dt_df_impl_a))
-        f.write("\ndt_df implemented manual , "+ str(rv_dt_df_impl_m))
-        f.write("\ndt_df remaining , "+ str(rv_dt_df_nimpl))
+        row["Mandatory Total"] = rv_dt_df_t
+        row["dt_df implemented"] = rv_dt_df_impl
+        row["dt_df implemented auto"] = rv_dt_df_impl_a
+        row["dt_df implemented manual"] = rv_dt_df_impl_m
+        row["dt_df remaining"] = rv_dt_df_nimpl
+        writer.writerow(row)
 
-        op_csv.close()
-        """
-        with open(name,"w") as f:
-            for k,v in op_d.items():
-                f.write( k + '|')
-                for k1,v1 in v.items():
-                    f.write(v1 + '|')
-                #f.write(v["relevant"] + '|')
-                #f.write(v["type"] + '|')
-                #f.write(v["impld"] + '|')
-                #f.write(v["impl_method"] + '|')
-                #f.write(v["impl_method"] + '|')
-                f.write('\n')
-        """
+
 
 def write_unique_op_list_v1(name, op_d):
-    op_csv = open(name, 'w', newline='')
-    header = ["Unique Op Name", "Relevant", "Variants", "Non-Cmpnd Not Implmntd", "Non-Cmpnd Implmntd", "Cmpnd Implmntd", "Cmpnd Not Implmntd", "Total Non-Cmpnd", "Total Cmpnd"]
-    writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
-    writer.writeheader()
-#total_variants" : 0, "cvi" : 0, "cvni": 0, "ncvi": 0, "ncvni":0
 
-    with open(name,"w") as f:
-        #for k,v in op_d.items():
+    with open(name,"w", newline='') as op_csv:
+        header = ["Unique Op Name", "Relevant", "Variants", "Non-Cmpnd Not Implmntd", "Non-Cmpnd Implmntd", "Cmpnd Implmntd", "Cmpnd Not Implmntd", "Total Non-Cmpnd", "Total Cmpnd"]
+        writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
+        writer.writeheader()
         for k in sorted(op_d.keys()):
             v = op_d.get(k)
             row = {}
@@ -157,25 +133,13 @@ def write_unique_op_list_v1(name, op_d):
             row["Total Non-Cmpnd"] = v["tnc"]
             row["Total Cmpnd"] = v["tc"]
             writer.writerow(row)
-        op_csv.close()
-    """
-    with open(name,"w") as f:
-        for k,v in op_d.items():
-            f.write( k + '|')
-            for k1,v1 in v.items():
-                f.write(str(v1) + '|')
-            f.write('\n')
-    """
 
 def write_unique_op_list_v2(name, op_d):
-    op_csv = open(name, 'w', newline='')
-    header = ["Unique Op Name", "Relevant", "Variants", "df_df Not Impl", "df_df Impl", "df_dt Not Impl", "df_dt Impl", "dt_df Not Impl", "dt_df Impl", "dt_dt Not Impl", "dt_dt Impl","Total df_df", "Total df_dt", "Total dt_df", "Total dt_dt"]
-    writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
-    writer.writeheader()
-#total_variants" : 0, "cvi" : 0, "cvni": 0, "ncvi": 0, "ncvni":0
 
-    with open(name,"w") as f:
-        #for k,v in op_d.items():
+    with open(name,"w") as op_csv:
+        header = ["Unique Op Name", "Relevant", "Variants", "df_df Not Impl", "df_df Impl", "df_dt Not Impl", "df_dt Impl", "dt_df Not Impl", "dt_df Impl", "dt_dt Not Impl", "dt_dt Impl","Total df_df", "Total df_dt", "Total dt_df", "Total dt_dt"]
+        writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
+        writer.writeheader()
         for k in sorted(op_d.keys()):
             v = op_d.get(k)
             row = {}
@@ -195,7 +159,6 @@ def write_unique_op_list_v2(name, op_d):
             row["Total dt_df"] = v["t_dt_df"]
             row["Total dt_dt"] = v["t_dt_dt"]
             writer.writerow(row)
-        op_csv.close()
 
 def get_unique_op_name(n):
     s = n.split(".")[0]
@@ -214,7 +177,6 @@ def unique_ops_stats_v1(unique_ops, pt_op_dict):
             if uop == p_uop:
                 unique_op_dict[uop] = unique_op_dict.get(uop, def_dict)
                 unique_op_dict[uop]["total_variants"] = unique_op_dict[uop].get("total_variants", 0) +1
-                #print("XXXXXX: ", pt_op_dict[k])
                 if pt_op_dict[k]["relevant"] == "yes":
                     unique_op_dict[uop]["rlv"] = "yes"
                 else:
@@ -244,7 +206,6 @@ def unique_ops_stats_v2(unique_ops, pt_op_dict):
             if uop == p_uop:
                 unique_op_dict[uop] = unique_op_dict.get(uop, def_dict)
                 unique_op_dict[uop]["total_variants"] = unique_op_dict[uop].get("total_variants", 0) +1
-                #print("XXXXXX: ", pt_op_dict[k])
                 if pt_op_dict[k]["relevant"] == "yes":
                     unique_op_dict[uop]["rlv"] = "yes"
                 else:
@@ -442,13 +403,11 @@ def main(args):
     print("len  unique ops = ", len(unique_ops))
     print("********************************") 
     print(unique_ops)
- #test_errors_freq[l] = test_errors_freq.get(l, 0) + 1
     unique_op_dict_v1 = unique_ops_stats_v1(unique_ops, pt_op_dict)
     unique_op_dict_v2 = unique_ops_stats_v2(unique_ops, pt_op_dict)
     print(unique_op_dict_v1)
     print(unique_op_dict_v2)
 
-    print(unique_op_dict_v1["remainder"])
     write_unique_op_list_v1("unique_ops_list.csv",unique_op_dict_v1)
     write_unique_op_list_v2("unique_ops_list2.csv",unique_op_dict_v2)
     print("len valid_op_decl = ", len(valid_op_decl))
@@ -456,6 +415,15 @@ def main(args):
     print("len valid_manual_ops_decl = ", len(valid_manual_ops_decl))
     print("len valid_auto_ops_decl = ", len(valid_auto_ops_decl))
     print("\nOps with following strings in their names are considered not relevant on HPU", exclude)
+
+    csv_json_files = ["summary", "consolidate_ops_list"]
+
+    for f in csv_json_files:
+        fc = f +".csv"
+        fj = f +".json"
+        df = pd.read_csv (fc, sep ="|")
+        df.to_json (fj)
+
     return
     
 
