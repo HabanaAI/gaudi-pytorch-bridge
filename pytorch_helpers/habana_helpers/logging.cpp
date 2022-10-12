@@ -10,9 +10,16 @@
 #include "logging.h"
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
+#include <sys/types.h>
 #include "habana_lazy/debug_utils.h"
 
 namespace Logger {
+
+uint64_t get_tid() {
+  static thread_local uint64_t tid{static_cast<uint64_t>(gettid())};
+  return tid;
+}
+
 void habana_assert(
     const char* func,
     const char* file,
@@ -31,5 +38,3 @@ void habana_assert(
           c10::get_backtrace(1)));
 }
 } // namespace Logger
-
-

@@ -207,7 +207,14 @@ graph::~graph() {
   }
 }
 
-template <typename T, typename Alloc, template <typename, typename> class V>
+template <
+    typename T,
+    typename Alloc,
+    template <typename, typename>
+    class V,
+    typename std::enable_if<std::negation<typename std::is_same<
+        std::string,
+        typename V<T, Alloc>::value>::value>::type>::type>
 std::ostream& operator<<(std::ostream& out, const V<T, Alloc>& collection) {
   auto item{collection.begin()};
   if (item == collection.end()) {
