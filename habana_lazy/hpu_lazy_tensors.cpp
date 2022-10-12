@@ -1299,7 +1299,13 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hl_t = *this;
   if (dest->IsExecutionInProgress() || hl_t.IsExecutionInProgress()) {
-    context->JoinPendingLaunchThread();
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+        context->JoinPendingLaunchThread();
+      }
+    } else {
+      context->JoinPendingLaunchThread();
+    }
   }
 
   auto src_id = this->getTensorUniqueId();
