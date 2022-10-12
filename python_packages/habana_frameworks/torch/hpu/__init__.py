@@ -102,6 +102,13 @@ def set_sync_debug_mode(debug_mode) -> None:
         debug_mode: True/False
     ."""
     os.environ['PT_ENABLE_HABANA_STREAMASYNC'] = str(debug_mode)
+
+def get_sync_debug_mode() -> int:
+    r"""Returns current value of debug mode for Asynchronous Streams."""
+
+    import os
+    return int(os.environ['PT_ENABLE_HABANA_STREAMASYNC'])
+
 def setDeterministic(val: bool) -> None:
     if not is_initialized():
        init()
