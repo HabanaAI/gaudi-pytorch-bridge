@@ -65,6 +65,8 @@ struct MemoryConsumption {
         std::string(",") +
         TO_REPORT_EVENT_GB("PreAllocatedSize", this->pre_allocated_bytes) +
         std::string(",") +
+        TO_REPORT_EVENT_GB("MaxAllocateSize", this->max_alloc_bytes) +
+        std::string(",") +
         TO_REPORT_EVENT_GB("ScratchMemoryAllocateSize",
                            this->workspace_allocated) +
         std::string(",") +
