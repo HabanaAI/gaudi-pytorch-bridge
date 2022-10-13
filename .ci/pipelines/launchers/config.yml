@@ -95,3 +95,10 @@ launchers:
     isStable: true
     files:
     - 'sim_pytorch_tests---t-dg.jenkinsfile'
+- testToLaunch: Test_pytorch_gaudi2_sim_cpp
+  silentMode: true
+  gerritTriggerMap:
+  - repository: jenkins_files
+    isStable: true
+    files:
+    - 'sim_pytorch_tests---t-dg.jenkinsfile'
