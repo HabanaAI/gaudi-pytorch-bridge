@@ -41,20 +41,6 @@ class FusedAdamW(Optimizer):
         self.neg_step_list = []
         self.device = self.param_groups[0]["params"][0].device
 
-        # State initialization
-        for group in self.param_groups:
-            for p in group["params"]:
-                # we don't need to add storage for something that doesn't affect the parameter optimization
-                if p.requires_grad is False:
-                    continue
-                state = self.state[p]
-                if len(state) == 0:
-                    state["step"] = 0
-                    # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
-                    # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
-        htcore.mark_step()
 
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
@@ -80,6 +66,7 @@ class FusedAdamW(Optimizer):
         self.neg_step_list.clear()
 
         for group in self.param_groups:
+            htcore.mark_step()
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
 
             for p in group["params"]:
@@ -94,6 +81,12 @@ class FusedAdamW(Optimizer):
                     )
 
                 state = self.state[p]
+                if len(state) == 0:
+                    state["step"] = 0
+                    # Exponential moving average of gradient values
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(self.device)
+                    # Exponential moving average of squared gradient values
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(self.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -127,7 +120,7 @@ class FusedAdamW(Optimizer):
             neg_step = -step_size
             neg_step_t = torch.tensor(
                 [neg_step], dtype=torch.float, requires_grad=False
-            ).to(self.device, non_blocking=True)
+            ).to(wt_list[0].dtype).to(self.device, non_blocking=True)
             self.neg_step_list.append(neg_step_t)
 
             # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
