@@ -22,6 +22,7 @@ namespace habana_lazy {
 
 // list of manual ops that support parallel accumulation
 const std::unordered_set<std::string> SupportedNonAutogenOps = {
+    "_masked_scale",
     "add",
     "add_",
     "any",
