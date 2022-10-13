@@ -38,6 +38,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "empty_strided",
     "gelu",
     "gelu_backward",
+    "fused_norm",
     "kl_div",
     "kl_div_backward",
     "matmul",
