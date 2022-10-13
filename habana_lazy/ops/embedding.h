@@ -25,14 +25,13 @@ class Embedding_forward : public ir::Node {
     SCALE_GRADE_BY_FREQ_INDEX,
     SPARSE_INDEX
   };
-  Embedding_forward() = delete;
-  Embedding_forward(
+  Embedding_forward() : Node(c10::Symbol::fromQualString("aten::embedding")) {}
+  void Init(
       const at::Tensor& weight,
       const at::Tensor& indices,
       int64_t padding_idx,
       bool scale_grad_by_freq,
-      bool sparse)
-      : Node(c10::Symbol::fromQualString("aten::embedding")) {
+      bool sparse) {
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
     hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
     AddInput(hl_weight.GetIrValue());
@@ -72,14 +71,14 @@ class Embedding_backward : public ir::Node {
     PADDING_INDEX,
     SCALE_GRADE_BY_FREQ_INDEX
   };
-  Embedding_backward() = delete;
-  Embedding_backward(
+  Embedding_backward()
+      : Node(c10::Symbol::fromQualString("aten::embedding_dense_backward")) {}
+  void Init(
       const at::Tensor& grad,
       const at::Tensor& indices,
       int64_t num_weights,
       int64_t padding_idx,
-      bool scale_grad_by_freq)
-      : Node(c10::Symbol::fromQualString("aten::embedding_dense_backward")) {
+      bool scale_grad_by_freq) {
     auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
     hl_grad = HbLazyTensorViews::HandleViewsOrUpdate(grad, hl_grad);
     AddInput(hl_grad.GetIrValue());

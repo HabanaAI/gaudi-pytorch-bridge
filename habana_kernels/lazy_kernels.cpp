@@ -1982,8 +1982,7 @@ Tensor embedding_hpu_lazy(
     bool scale_grad_by_freq,
     bool sparse) {
   PT_LAZY_TRACE;
-  ir::NodePtr embedding_node = std::make_shared<ir::Embedding_forward>(
-      weight, indices, padding_idx, scale_grad_by_freq, sparse);
+  ir::NodePtr embedding_node = std::make_shared<ir::Embedding_forward>();
 
   // allocate Output storage
   auto size = indices.sizes().vec();
@@ -1996,12 +1995,34 @@ Tensor embedding_hpu_lazy(
       size.push_back(d);
     }
   }
+
   LazyOp<at::Tensor, ir::Embedding_forward> op(
       embedding_node,
       {weight, indices, padding_idx, scale_grad_by_freq, sparse},
       {size});
-  return op.call();
+  auto out = op.get_result();
+
+  auto func = [op = std::move(op),
+               node = std::move(embedding_node),
+               out,
+               weight,
+               indices,
+               padding_idx,
+               scale_grad_by_freq,
+               sparse]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::Embedding_forward>(node);
+    node_derived->Init(
+        weight, indices, padding_idx, scale_grad_by_freq, sparse);
+
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+    }
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding, func, out)
 }
+
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& indices,
@@ -2009,14 +2030,36 @@ Tensor embedding_dense_backward_hpu_lazy(
     int64_t padding_idx,
     bool scale_grad_by_freq) {
   PT_LAZY_TRACE;
-  ir::NodePtr embedding_bwd_node = std::make_shared<ir::Embedding_backward>(
-      grad, indices, num_weights, padding_idx, scale_grad_by_freq);
+  ir::NodePtr embedding_bwd_node = std::make_shared<ir::Embedding_backward>();
   std::vector<int64_t> sizes{num_weights, grad.size(-1)};
+
   LazyOp<at::Tensor, ir::Embedding_backward> op(
       embedding_bwd_node,
       {grad, indices, num_weights, padding_idx, scale_grad_by_freq},
       {sizes});
-  return op.call();
+
+  auto out = op.get_result();
+
+  auto func = [op = std::move(op),
+               node = std::move(embedding_bwd_node),
+               out,
+               grad,
+               indices,
+               num_weights,
+               padding_idx,
+               scale_grad_by_freq]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::Embedding_backward>(node);
+    node_derived->Init(
+        grad, indices, num_weights, padding_idx, scale_grad_by_freq);
+
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, func, out)
 }
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
@@ -2025,12 +2068,32 @@ Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& valid_count,
     int64_t kernel_mode) {
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::EmbeddingBagSum>(
-      input, indices, offsets, valid_count, kernel_mode);
+
+  ir::NodePtr node = std::make_shared<ir::EmbeddingBagSum>();
   std::vector<int64_t> sizes{offsets.sizes()[0] - 1, input.size(1)};
+
   LazyOp<at::Tensor, ir::EmbeddingBagSum> op(
       node, {input, indices, offsets, valid_count, kernel_mode}, {sizes});
-  return op.call();
+  auto out = op.get_result();
+
+  auto func = [op = std::move(op),
+               node = std::move(node),
+               out,
+               input,
+               indices,
+               offsets,
+               valid_count,
+               kernel_mode]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::EmbeddingBagSum>(node);
+    node_derived->Init(input, indices, offsets, valid_count, kernel_mode);
+
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+    }
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_bag_sum, func, out)
 }
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
@@ -2077,13 +2140,30 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  habana_lazy::SyncAccThreadPool();
   PT_LAZY_TRACE;
-  ir::NodePtr node = std::make_shared<ir::EmbeddingBagSumBwd>(
-      out, input, indices, offsets, valid_count, kernel_mode);
+
+  ir::NodePtr node = std::make_shared<ir::EmbeddingBagSumBwd>();
   LazyOp<at::Tensor&, ir::EmbeddingBagSumBwd> op(
       node, {out, input, indices, offsets, valid_count, kernel_mode});
-  return op.call(out);
+
+  auto func = [op = std::move(op),
+               node = std::move(node),
+               out,
+               input,
+               indices,
+               offsets,
+               valid_count,
+               kernel_mode]() mutable {
+    auto derived_node = std::dynamic_pointer_cast<ir::EmbeddingBagSumBwd>(node);
+    derived_node->Init(out, input, indices, offsets, valid_count, kernel_mode);
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_bwd_out, func, out)
 }
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {

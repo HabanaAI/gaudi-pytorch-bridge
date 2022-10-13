@@ -18,14 +18,14 @@ namespace ir {
 class EmbeddingBagSum : public ir::Node {
  public:
   enum class EmbeddingBagSumParams { KERNEL_MODE_INDEX = 4 };
-  EmbeddingBagSum() = delete;
-  EmbeddingBagSum(
+  EmbeddingBagSum()
+      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum")) {}
+  void Init(
       const at::Tensor& input,
       const at::Tensor& indices,
       const at::Tensor& offsets,
       const at::Tensor& valid_count,
-      int64_t kernel_mode)
-      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum")) {
+      int64_t kernel_mode) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
     auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHPU);
@@ -63,15 +63,16 @@ class EmbeddingBagSum : public ir::Node {
 class EmbeddingBagSumBwd : public ir::Node {
  public:
   enum class EmbeddingBagSumBwdParams { KERNEL_MODE_INDEX = 5 };
-  EmbeddingBagSumBwd() = delete;
-  EmbeddingBagSumBwd(
+  EmbeddingBagSumBwd()
+      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum_bwd_out")) {}
+
+  void Init(
       at::Tensor& out,
       const at::Tensor& input,
       const at::Tensor& indices,
       const at::Tensor& offsets,
       const at::Tensor& valid_count,
-      int64_t kernel_mode)
-      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum_bwd_out")) {
+      int64_t kernel_mode) {
     auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
