@@ -34,6 +34,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "div_out",
     "embedding_bag_sum_bwd_out",
     "embedding_bag_sum_fwd",
+    "empty_strided",
     "gelu",
     "gelu_backward",
     "kl_div",
@@ -79,6 +80,7 @@ bool CanUseAccThread() {
 }
 
 void SyncAccThreadPool() {
+  PT_LAZY_TRACE
   if (CanUseAccThread()) { // avoid syncing from within thread pool
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
