@@ -1,5 +1,5 @@
 #common
-protobuf==3.19.4
+protobuf==3.19.5
 regex==2020.10.28
 pandas==1.4.1
 
