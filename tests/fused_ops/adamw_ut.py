@@ -4,6 +4,11 @@ import sys
 import torch
 from torch.optim import AdamW
 
+import habana_frameworks.torch.core as htcore
+from habana_frameworks.torch.hpex.optimizers import FusedAdamW
+
+habana = torch.device("hpu")
+cpu = torch.device("cpu")
 
 def permute_4d_5d_tensor(tensor, to_filters_last):
     import habana_frameworks.torch.utils.debug as htdebug
@@ -21,8 +26,7 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
             tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
     return tensor
 
-def fused_adam_test( dim=4):
-    cpu = torch.device("cpu")
+def fused_adam_test(dim=4):
     torch.manual_seed(0)
     d1, d2, lr, wd = 320, 256, 0.1, 0.1
     eps = 1e-6
@@ -51,12 +55,7 @@ def fused_adam_test( dim=4):
     x_cpu = x
 
     # Enable this env to validate lazy path
-    os.environ['PT_HPU_LAZY_MODE'] = "1"
-    from habana_frameworks.torch.hpex.optimizers import FusedAdamW
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-
-    habana = torch.device("hpu")
-    import habana_frameworks.torch.core as htcore
+    #os.environ['PT_HPU_LAZY_MODE'] = "1"
 
     y = v.detach().to(habana)
     y = permute_4d_5d_tensor(y,True)
