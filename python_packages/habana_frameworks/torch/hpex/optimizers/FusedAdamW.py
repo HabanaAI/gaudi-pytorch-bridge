@@ -44,6 +44,9 @@ class FusedAdamW(Optimizer):
         # State initialization
         for group in self.param_groups:
             for p in group["params"]:
+                # we don't need to add storage for something that doesn't affect the parameter optimization
+                if p.requires_grad is False:
+                    continue
                 state = self.state[p]
                 if len(state) == 0:
                     state["step"] = 0
