@@ -159,7 +159,7 @@ class ThreadQueueLockFree : public Queue<T> {
   }
 
   bool is_full() {
-    return ((q_head & capacityMask) == ((q_tail & capacityMask) + 1));
+    return (size() >= queueCapacity());
   }
 
   bool emplace(const T& data) {
