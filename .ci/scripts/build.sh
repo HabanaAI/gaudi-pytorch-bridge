@@ -134,6 +134,7 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
+        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
         echo -e "  -h,  --help                         Prints this help"
     fi
 
@@ -1173,6 +1174,7 @@ run_pytorch_modules_tests()
     local __test_status=0
     local __suite_type="all"
     local __dut="gaudi"
+    local __spdlog=3
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -1200,9 +1202,13 @@ run_pytorch_modules_tests()
             shift
             __suite_type="$1"
             ;;
-	--dut )
+	     --dut )
             shift
             __dut="$1"
+            ;;
+        -spdlog )
+            shift
+            __spdlog=$1
             ;;
         -x  | --xml )
             shift
@@ -1245,10 +1251,10 @@ run_pytorch_modules_tests()
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
     	if [ "$__dut" == "gaudi" ]; then
-        	(set -x; eval PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml)
+        (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
-		(set -x; eval PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.masked_select_usual_mix:*UniqueParameterizedTestFixture.tests:HpuOpTest.matmul_5dx1d:LazyConvKernelTest.ConvTranspose3dG2Test:LazyDynamicShapesTest.DS_PadTest_HT:LazyTensorShapeKernelTest.SplitViewTest6D:HpuOpTest.nll_loss2d_fwd_out_bf16:HpuOpTest.prod_dim_with_dtype6d:HpuOpTest.prod_dim7d:HpuOpTest.prod_dim_with_dtype8d:HpuOpTest.multinomial_without_replacement:HpuOpTest.multinomial_with_replacement:LazyBinaryKernelTest.MaxOneInput8DLong:LazyBinaryKernelTest.MinOneInput8DLong:LazyBinaryKernelTest.MaxDim8DimDimNe7Keepdim:LazyBinaryKernelTest.MaxDim8DimDim7:LazyDynamicComputeOutputShapesTest.RoiAlignBwd:LazyDynamicShapesTest.DS_RoiAlignFwdTest:LazyDynamicShapesTest.RepeatInlv1:LazyDynamicShapesTest.RepeatInlv2:LazyDynamicShapesTest.RepeatInlv3:LazyReductionKernelTest.ArgMaxTestNe1:LazyReductionKernelTest.MaxTest:HpuOpTest.multinomial)
+		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.masked_select_usual_mix:*UniqueParameterizedTestFixture.tests:HpuOpTest.matmul_5dx1d:LazyConvKernelTest.ConvTranspose3dG2Test:LazyDynamicShapesTest.DS_PadTest_HT:LazyTensorShapeKernelTest.SplitViewTest6D:HpuOpTest.nll_loss2d_fwd_out_bf16:HpuOpTest.prod_dim_with_dtype6d:HpuOpTest.prod_dim7d:HpuOpTest.prod_dim_with_dtype8d:HpuOpTest.multinomial_without_replacement:HpuOpTest.multinomial_with_replacement:LazyBinaryKernelTest.MaxOneInput8DLong:LazyBinaryKernelTest.MinOneInput8DLong:LazyBinaryKernelTest.MaxDim8DimDimNe7Keepdim:LazyBinaryKernelTest.MaxDim8DimDim7:LazyDynamicComputeOutputShapesTest.RoiAlignBwd:LazyDynamicShapesTest.DS_RoiAlignFwdTest:LazyDynamicShapesTest.RepeatInlv1:LazyDynamicShapesTest.RepeatInlv2:LazyDynamicShapesTest.RepeatInlv3:LazyReductionKernelTest.ArgMaxTestNe1:LazyReductionKernelTest.MaxTest:HpuOpTest.multinomial)
     		__test_status=$?
 	fi
     fi
