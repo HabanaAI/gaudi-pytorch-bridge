@@ -472,7 +472,7 @@ build_pytorch_modules()
 
         if [ "z$__generate_op_stats" == "ztrue" ]; then
             printf "\n\nGenerating Operator statistics....\n\n"
-            OP_DECLARATION_PATH=$($__python_cmd -m site --user-site)/torch/include/ATen/RegistrationDeclarations.h
+            OP_DECLARATION_PATH=$($__pip_cmd show torch | grep "Location:" | sed "s/Location: //")/torch/include/ATen/RegistrationDeclarations.h
             (set -x;$__python_cmd $PYTORCH_MODULES_ROOT_PATH/scripts/op_stats.py --ops_decl=$OP_DECLARATION_PATH \
                     --pt_integ_path=$PYTORCH_MODULES_ROOT_PATH \
                     --gen_files_path=$PYTORCH_MODULES_RELEASE_BUILD/generated/)
