@@ -528,6 +528,27 @@ synapse_helpers::tensor OpBackend::BuildCast(
       "_to_" + habana_helpers::name_suffix_from_type(to);
   HABANA_ASSERT(from != to, guid, " cannot be used.");
 
+  // We want either 1 or 0 as results and not the entire i8 range as a bool
+  // output.
+  if (to == at::kBool) {
+    auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
+
+    auto eq = OpBackend::BuildNode(
+        op,
+        graph,
+        {"equal_fwd_" + habana_helpers::name_suffix_from_type(from),
+         {syn_in, zero_tensor.get()},
+         {{sizes, c10::ScalarType::Bool}}});
+
+    auto ne = OpBackend::BuildNode(
+        op,
+        graph,
+        {"not_fwd_i8",
+         {eq[0].get()},
+         {{sizes, c10::ScalarType::Bool, final_result_index}}});
+    return std::move(ne[0]);
+  }
+
   habana_helpers::CastTypes cast_types{
       habana_helpers::DataTypeToCastType(from),
       habana_helpers::DataTypeToCastType(to)};

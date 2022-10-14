@@ -14,9 +14,7 @@
 #include "hpu_op_helper.h"
 #include "reduction_template.h"
 
-constexpr float cmp_value = 0; // value to compare with the reduce sum result
 namespace habana {
-
 sizes_vec AllAnyOutputShape(const at::Stack&) {
   return {{}};
 }
@@ -43,7 +41,7 @@ at::Tensor AllAnyOutputType<at::Tensor>::get_result_overrideable() {
   return {};
 }
 
-std::vector<synapse_helpers::tensor> AnyCommonFunc(
+synapse_helpers::tensor AnyCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
@@ -51,6 +49,7 @@ std::vector<synapse_helpers::tensor> AnyCommonFunc(
     const bool keepdim,
     synapse_helpers::tensor& input_,
     const at::IntArrayRef outshape) {
+  // TODO: for integral types, use reduce_sum_fwd_i32 instead
   const auto& dtype = at::kFloat;
   std::unique_ptr<synapse_helpers::tensor> cast;
   synTensor& input = input_.get();
@@ -75,14 +74,8 @@ std::vector<synapse_helpers::tensor> AnyCommonFunc(
       "reduce_sum_fwd_f32",
       {{outshape}});
 
-  auto zero_tensor = OpBackend::BuildConstant(op, graph, cmp_value);
-
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {"greater_fwd_f32",
-       {reduce_sum[0].get(), zero_tensor.get()},
-       {{outshape, c10::ScalarType::Bool, 0}}});
+  return OpBackend::BuildCast(
+      op, graph, reduce_sum[0].get(), outshape, dtype, at::kBool, 0);
 }
 
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -94,7 +87,7 @@ void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto any_out =
       AnyCommonFunc(this, graph, self, dim, keepdim, input, outshape);
-  syn_out(0) = std::move(any_out[0]);
+  syn_out(0) = std::move(any_out);
 }
 
 void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -103,6 +96,6 @@ void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = ComputeOutputShapes(stack)[0];
 
   auto any_out = AnyCommonFunc(this, graph, self, {}, false, input, outshape);
-  syn_out(0) = std::move(any_out[0]);
+  syn_out(0) = std::move(any_out);
 }
 } // namespace habana

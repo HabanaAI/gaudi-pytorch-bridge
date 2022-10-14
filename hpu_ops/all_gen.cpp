@@ -39,23 +39,8 @@ static auto AllCommon(
       "reduce_prod_fwd_f32",
       {{final_shape, at::kFloat}});
 
-  auto zero_tensor = OpBackend::BuildConstant(op, graph, 0.f);
-
-  // Use not_equal directly after getting
-  // https://jira.habana-labs.com/browse/SW-107386 fixed
-  auto equal = OpBackend::BuildNode(
-      op,
-      graph,
-      {"equal_fwd_f32",
-       {reduce_prod[0].get(), zero_tensor.get()},
-       {{final_shape, c10::ScalarType::Bool}}});
-
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {"not_fwd_i8",
-       {equal[0].get()},
-       {{final_shape, c10::ScalarType::Bool, 0}}});
+  return OpBackend::BuildCast(
+      op, graph, reduce_prod[0].get(), final_shape, at::kFloat, at::kBool, 0);
 }
 
 void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -71,13 +56,13 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim,
       keepdim,
       ComputeOutputShapes(stack)[0]);
-  syn_out(0) = std::move(out[0]);
+  syn_out(0) = std::move(out);
 }
 
 void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out = AllCommon(
       this, graph, self, syn_in(0), {}, false, ComputeOutputShapes(stack)[0]);
-  syn_out(0) = std::move(out[0]);
+  syn_out(0) = std::move(out);
 }
 } // namespace habana
