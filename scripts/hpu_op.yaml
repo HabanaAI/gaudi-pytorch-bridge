@@ -1506,7 +1506,7 @@ convolution_overrideable:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float] # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_hpu_lazy
 
@@ -1514,7 +1514,7 @@ convolution_backward_overrideable:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float] # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_backward_hpu_lazy
 
