@@ -157,7 +157,6 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src_, bool non_blocking) {
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    habana_lazy::SyncAccThreadPool();
     return copy_hpu_lazy_(self, src, non_blocking);
   } else {
     if (src.device().type() == c10::DeviceType::HPU &&
