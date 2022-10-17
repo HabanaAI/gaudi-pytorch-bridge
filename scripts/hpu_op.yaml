@@ -2195,6 +2195,7 @@ exp2_:
 expand:
   force_default: false
   override_fn: expand_hpu_lazy
+  acc_thread: true
 
 expm1:
   force_default: false
@@ -4309,6 +4310,7 @@ one_hot:
 permute:
   force_default: false
   override_fn: permute_hpu_lazy
+  acc_thread: true
 
 poisson:
   custom_fill_params: FillPoissonParams
@@ -5470,6 +5472,7 @@ sum.IntList_out:
 t:
   force_default: false
   override_fn: t_hpu_lazy
+  acc_thread: true
 
 take:
   dtypes:
@@ -5599,6 +5602,7 @@ trace:
 transpose.int:
   force_default: false
   override_fn: transpose_hpu_lazy
+  acc_thread: true
 
 tril:
   force_default: false
@@ -5683,6 +5687,7 @@ unsqueeze_:
 unsqueeze:
   force_default: false
   override_fn: unsqueeze_hpu_lazy
+  acc_thread: true
 
 upsample_bicubic2d:
   force_default: false
@@ -6257,6 +6262,7 @@ vdot.out:
 
 view:
   override_fn: view_hpu_lazy
+  acc_thread: true
 
 where.self:
   custom_output_shape: WhereOutputShape

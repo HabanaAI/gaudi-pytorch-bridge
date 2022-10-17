@@ -50,7 +50,22 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "one_hot",
     "masked_fill_",
     "repeat",
-    "scatter_add_"};
+    "scatter_add_",
+    "as_strided",
+    "t",
+    "select",
+    "transpose",
+    "permute",
+    "unsqueeze",
+    "alias",
+    "slice",
+    "split",
+    "split_with_sizes",
+    "squeeze",
+    "expand",
+    "view",
+    "_reshape_alias",
+    "_unsafe_view"};
 // black list of aut-gen ops that do not support parallel accumulation
 const std::unordered_set<std::string> AccThreadOpsBlacklist = {};
 

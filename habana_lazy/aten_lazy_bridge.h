@@ -83,6 +83,10 @@ HbLazyTensor GetHbLazyTensor(
     bool get_updated = true,
     bool handle_collective = true);
 
+int64_t GetHbLazyTensorId(
+    const at::Tensor& tensor,
+    bool get_updated = true,
+    bool handle_collective = true);
 HbLazyTensor CheckAndUpdateSizeStride(
     HbLazyTensor hl_t,
     const at::Tensor& tensor);

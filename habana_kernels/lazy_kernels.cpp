@@ -17,10 +17,7 @@
 #include <utility>
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/basic_kernels.h"
-#include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"
-#include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -28,52 +25,36 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
-#include "habana_kernels/lowering_util.h"
 #include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/reduction2_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/softmax_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_kernels/triangular_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/ops/cast_ops.h"
-#include "habana_lazy/ops/cat.h"
-#include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
-#include "habana_lazy/ops/custom_op.h"
 #include "habana_lazy/ops/embedding.h"
 #include "habana_lazy/ops/embedding_bag.h"
-#include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/ops/index.h"
-#include "habana_lazy/ops/loss.h"
-#include "habana_lazy/ops/matmul.h"
-#include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
-#include "habana_lazy/ops/optimizer.h"
-#include "habana_lazy/ops/pool.h"
-#include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/sbs_debug.h"
-#include "habana_lazy/view.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/pt_ver/torch_params_shim.h"
-#include "pytorch_helpers/synapse_helpers/util.h"
 
 using namespace habana;
 using namespace at;
@@ -403,8 +384,7 @@ void strided_insert_hpu_lazy(
     const Tensor& insert_t,
     bool is_flush) {
   PT_LAZY_TRACE;
-  auto hl_self = GetHbLazyTensor(self);
-  auto id = hl_self.getTensorUniqueId();
+  auto id = GetHbLazyTensorId(self);
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   LOCK_VIEW_TABLE_MUTEX(context->viewContext);
@@ -426,8 +406,7 @@ void strided_insert_hpu_lazy(
   auto params_ptr_link = params_ptr;
   while (params_ptr_link && params_ptr_link->optype == kStridedOpSlice) {
     back_to_back_slices.push_back(params_ptr_link->params.slice_param);
-    auto parent_id =
-        GetHbLazyTensor(params_ptr_link->parent).getTensorUniqueId();
+    auto parent_id = GetHbLazyTensorId(params_ptr_link->parent);
     params_ptr_link = context->viewContext.GetViewTableEntry(parent_id);
   }
   bool use_strided_insert = (params_ptr_link != nullptr);
@@ -447,7 +426,7 @@ void strided_insert_hpu_lazy(
         recent_orig_t, recent_insert_t, back_to_back_slices);
   }
   // update orig tensor map
-  auto param_id = GetHbLazyTensor(params_ptr->base).getTensorUniqueId();
+  auto param_id = GetHbLazyTensorId(params_ptr->base);
   context->viewContext.AddOrigTensorMapEntry(param_id, out);
 
   PT_VIEWTABLE_DEBUG("orig tensor map entry created for ", param_id);
@@ -468,7 +447,7 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
     // trace until the base tensor is reached and check if there are any
     // as_strided ops fall back not possible if there are as_strided ops in the
     // sequence.
-    auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
+    auto self_id = GetHbLazyTensorId(self);
     {
       LOCK_VIEW_TABLE_MUTEX(context->viewContext);
       StrideParams* params_ptr =
@@ -479,20 +458,33 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
           break;
         }
 
-        auto parent_id =
-            GetHbLazyTensor(params_ptr->parent).getTensorUniqueId();
+        auto parent_id = GetHbLazyTensorId(params_ptr->parent);
         params_ptr = context->viewContext.GetViewTableEntry(parent_id);
       }
     }
     return is_fallback;
   } else {
-    auto hb_result = GetHbLazyTensor(out);
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-    return (
-        GetHbLazyTensor(self).getTensorUniqueId() ==
-        GetHbLazyTensor(strided_param->base).getTensorUniqueId());
+    auto strided_param =
+        HbLazyTensorViews::getViewTableParams(GetHbLazyTensorId(out));
+    return (GetHbLazyTensorId(self) == GetHbLazyTensorId(strided_param->base));
+  }
+}
+
+void lazy_view_fallback_handle(
+    const Tensor& self,
+    const Tensor& out,
+    std::function<void(const Tensor&, StrideParams*)> func,
+    std::function<bool(const Tensor&, const Tensor&)> additional_predicate =
+        [](const Tensor&, const Tensor&) { return true; }) {
+  PT_LAZY_TRACE;
+  if (additional_predicate(self, out) && is_fallback_original_op(self, out)) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext)
+    auto strided_param =
+        HbLazyTensorViews::getViewTableParams(GetHbLazyTensorId(out));
+    func(self, strided_param);
   }
 }
 
@@ -626,7 +618,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
       // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
       auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
-      auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
+      auto src_parent_id = GetHbLazyTensorId(src_parent);
 
       if (src_parent_id == dst_id) {
         return;
@@ -641,7 +633,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
 
       auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      auto id = GetHbLazyTensor(self).getTensorUniqueId();
+      auto id = GetHbLazyTensorId(self);
       StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
       if (params_ptr != nullptr) {
         // add strided insert at the cast output
@@ -940,7 +932,7 @@ static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
   };
 
   Kernel kernel{vector_of_inputs};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(permute, kernel);
 }
 
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
@@ -1301,7 +1293,6 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef stride_in,
     c10::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
 
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
@@ -1314,11 +1305,21 @@ Tensor as_strided_hpu_lazy(
       storage_offset_val,
       true /*is_update_view*/,
       c10::nullopt);
+
   if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
-    flush_op(out);
+    if (habana_lazy::CanUseAccThread() &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
+      habana_lazy::GetAccThreadPool().run([out]() {
+        PT_LAZY_TRACE;
+        flush_op(out);
+        habana_lazy::PushCleanupTask([out = std::move(out)]() {});
+      });
+    } else {
+      flush_op(out);
+    }
   }
   return out;
-};
+}
 
 const Tensor& as_strided_hpu_lazy_(
     const Tensor& self,
@@ -1412,88 +1413,53 @@ Tensor& set_hpu_lazy_(
   return self;
 }
 
+void view_hpu_lazy_parallel_impl(
+    const Tensor& self_,
+    IntArrayRef size,
+    const Tensor& out) {
+  Tensor self = self_;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  std::lock_guard<std::recursive_mutex> view_table_lock(
+      context->viewContext.GetViewTableMutex());
+  auto self_params =
+      context->viewContext.GetViewTableEntry(GetHbLazyTensorId(self));
+  // multilevel view optimization
+  // v1 = view(a, out_size1)
+  // v2 = view(v1, out_size2)
+  // The above sequence can be compressed to v2 = view(a, out_size2)
+  if (self_params != nullptr) {
+    if (self_params->optype == kStridedOpView) {
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      self = self_params->parent;
+      PT_VIEWTABLE_DEBUG("invoked multilevel view optimization");
+    }
+  }
+  lazy_view_fallback_handle(
+      self, out, [size = size.vec()](const Tensor& self, StrideParams* params) {
+        // There could be some cases where slice/select/etc followed by view, in
+        // those cases use as_strided instead of using the ViewOP.
+        params->optype = kStridedOpView;
+
+        PT_VIEWTABLE_DEBUG(
+            "view fallback- tensor id: ",
+            GetHbLazyTensorId(self),
+            "size ",
+            size);
+      });
+}
+
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   PT_LAZY_TRACE;
-
-  auto self = self_;
-
-  auto hl_self = GetHbLazyTensor(self);
-
-  // multilevel view optimization
-  // v1 = view(a, out_size1)
-  // v2 = view(v1, out_size2)
-  // The above sequence can be compressed to v2 = view(a, out_size2)
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto self_id = hl_self.getTensorUniqueId();
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(self_id);
-    if (params_ptr != nullptr) {
-      if (params_ptr->optype == kStridedOpView) {
-        self = params_ptr->parent;
-        PT_VIEWTABLE_DEBUG("invoked multilevel view optimization");
-      }
-    }
-  }
-  auto inferred_size = habana_helpers::infer_size(size, self.numel());
-  auto stride =
-      at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
-  TORCH_CHECK(
-      stride.has_value(),
-      "view size is "
-      "not compatible with input tensor's size and stride (at least one dimension"
-      " spans across two contiguous subspaces). Use .reshape(...) instead.");
-  auto stride_value = *stride;
-
-  auto out = as_strided_hpu_lazy(
-      self, inferred_size, stride_value, self.storage_offset());
-  auto hb_result = GetHbLazyTensor(out);
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-    // There could be some cases where slice/select/etc followed by view, in
-    // those cases use as_strided instead of using the ViewOP.
-    if (is_fallback_original_op(self, out)) {
-      strided_param->optype = kStridedOpView;
-
-      PT_VIEWTABLE_DEBUG(
-          "view fallback- tensor id: ",
-          hl_self.getTensorUniqueId(),
-          "size ",
-          size);
-    }
-  }
-  return out;
-}
+  auto size_ = size;
 #else
 Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
   PT_LAZY_TRACE;
-
-  auto self = self_;
-
-  auto hl_self = GetHbLazyTensor(self);
-
-  // multilevel view optimization
-  // v1 = view(a, out_size1)
-  // v2 = view(v1, out_size2)
-  // The above sequence can be compressed to v2 = view(a, out_size2)
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto self_id = hl_self.getTensorUniqueId();
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(self_id);
-    if (params_ptr != nullptr) {
-      if (params_ptr->optype == kStridedOpView) {
-        self = params_ptr->parent;
-        PT_VIEWTABLE_DEBUG("invoked multilevel view optimization");
-      }
-    }
-  }
-  auto inferred_size =
-      habana_helpers::infer_size(asIntArrayRefSlow(size), self.numel());
+  auto size_ = asIntArrayRefSlow(size);
+#endif
+  auto inferred_size = habana_helpers::infer_size(size_, self_.numel());
   auto stride =
-      at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
+      at::detail::computeStride(self_.sizes(), self_.strides(), inferred_size);
   TORCH_CHECK(
       stride.has_value(),
       "view size is "
@@ -1502,26 +1468,16 @@ Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
   auto stride_value = *stride;
 
   auto out = as_strided_hpu_lazy(
-      self, inferred_size, stride_value, self.storage_offset());
-  auto hb_result = GetHbLazyTensor(out);
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-    // There could be some cases where slice/select/etc followed by view, in
-    // those cases use as_strided instead of using the ViewOP.
-    if (is_fallback_original_op(self, out)) {
-      strided_param->optype = kStridedOpView;
+      self_, inferred_size, stride_value, self_.storage_offset());
 
-      PT_VIEWTABLE_DEBUG(
-          "view fallback- tensor id: ",
-          hl_self.getTensorUniqueId(),
-          "size ",
-          asIntArrayRefSlow(size));
-    }
+  auto func = std::bind(view_hpu_lazy_parallel_impl, self_, size_.vec(), out);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
+    RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(view, func, out);
+  } else {
+    func();
+    return out;
   }
-  return out;
 }
-#endif
 
 void add_tensor_hpu_lazy_parallel_impl(
     const Tensor& self,
@@ -1538,11 +1494,11 @@ void add_tensor_hpu_lazy_parallel_impl(
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
     auto mul_out = torch::mul(other, alpha_tensor);
     if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
-      // The operation has been split into intermediate multiply and then again
-      // add op tensor produced by this split resulted in inappropriate type
-      // deduction of whole add operation. alpha is always scalar, when also
-      // other is scalar then marking intermediate as wrapped number is also
-      // necessary to further proper deduction
+      // The operation has been split into intermediate multiply and then
+      // again add op tensor produced by this split resulted in inappropriate
+      // type deduction of whole add operation. alpha is always scalar, when
+      // also other is scalar then marking intermediate as wrapped number is
+      // also necessary to further proper deduction
       mul_out.unsafeGetTensorImpl()->set_wrapped_number(true);
     }
     add_tensor_hpu_lazy_parallel_impl(self, mul_out, 1.0, out);
@@ -1710,7 +1666,7 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   auto func = [self, other, out, shape_changed]() mutable {
     auto context =
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    auto id = GetHbLazyTensor(out).getTensorUniqueId();
+    auto id = GetHbLazyTensorId(out);
     {
       LOCK_VIEW_TABLE_MUTEX(context->viewContext);
       StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
@@ -3183,8 +3139,8 @@ Tensor& index_put_hpu_lazy_(
 
   HbLazyTensorViews::HandleViewsD2D(index_put_result, self);
   // In DS case changing shapes will not cause a cache miss, therefore no need
-  // to break index_put op from subsequent graph whereas in other cases changing
-  // shapes will cause cache misses therefore breaking graph.
+  // to break index_put op from subsequent graph whereas in other cases
+  // changing shapes will cause cache misses therefore breaking graph.
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
       (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
        isIndicesBool && (accumulate || value.dim()))) {
@@ -3285,58 +3241,41 @@ Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
-  auto hl_self_in = GetHbLazyTensor(self_in);
 
   // Native fork implementation to slice op is introduced to
   // allocate correct autograd gradient function for view tensor.
   auto out = at::native::slice(self_in, dim, start, end, step);
-  auto hb_result = GetHbLazyTensor(out);
-  {
-    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-    // There could be some cases where view/select/etc followed by slice, in
-    // those cases use as_strided instead of using the SliceOP.
-    if (is_fallback_original_op(self_in, out)) {
-      strided_param->optype = kStridedOpSlice;
-      StridedOpSliceParams slice_param = {dim, start, end, step};
-      strided_param->params.slice_param = slice_param;
-
-      PT_VIEWTABLE_DEBUG(
-          "slice fallback tensor id ",
-          hl_self_in.getTensorUniqueId(),
-          " dim ",
-          dim,
-          " start ",
-          start.has_value() ? start.value() : 0,
-          " end ",
-          end.has_value() ? end.value() : -1,
-          " step ",
-          step);
-    }
-  }
-  return out;
+  auto param_setter = [dim, start, end, step](
+                          const Tensor& self_in, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpSlice;
+    StridedOpSliceParams slice_param = {dim, start, end, step};
+    strided_param->params.slice_param = slice_param;
+    PT_VIEWTABLE_DEBUG(
+        "slice fallback tensor id ",
+        GetHbLazyTensorId(self_in),
+        " dim ",
+        dim,
+        " start ",
+        start.has_value() ? start.value() : 0,
+        " end ",
+        end.has_value() ? end.value() : -1,
+        " step ",
+        step);
+  };
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(slice, self_in, out, param_setter);
 }
 
 Tensor alias_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self_in = GetHbLazyTensor(self);
   auto out = as_strided_hpu_lazy(
       self, self.sizes(), self.strides(), self.storage_offset());
-  auto hb_result = GetHbLazyTensor(out);
-  {
-    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-    if (is_fallback_original_op(self, out)) {
-      strided_param->optype = kStridedOpIdentity;
+  auto param_setter = [](const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpIdentity;
 
-      PT_VIEWTABLE_DEBUG(
-          "alias-identity fallback tensor id ", hl_self_in.getTensorUniqueId());
-    }
-  }
-  return out;
+    PT_VIEWTABLE_DEBUG(
+        "alias-identity fallback tensor id ", GetHbLazyTensorId(self));
+  };
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(alias, self, out, param_setter);
 }
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
@@ -3696,8 +3635,8 @@ static inline Tensor bn_reshape_to_4d(const Tensor& in_t) {
   std::vector<int64_t> ret_shape(4, 1);
   auto in_shape = in_t.sizes().vec();
   Tensor in_ = in_t;
-  // TPC  BN supports only 4D inputs. This means that any higher dims have to be
-  // flattened
+  // TPC  BN supports only 4D inputs. This means that any higher dims have to
+  // be flattened
   if (in_shape.size() > 4) {
     // Input is in dims format N,C,D1,D2,D3,...,Dm,H,W
     std::vector<int64_t> permute_dims(in_shape.size(), 0);
@@ -4320,7 +4259,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
       LayerNormOperator::is_tpc_affine_path(input, normalized_shape_, weight);
   std::vector<int64_t> normalized_shape_vec = normalized_shape_.vec();
   if (use_tpc_affine_path) { // if optimized path, then we can't have
-                             // N/mini-batch-size for generating weights/biases
+                             // N/mini-batch-size for generating
+                             // weights/biases
     sizes_vec.erase(sizes_vec.begin());
     // NOTE: Add Hack to indicate to lowering kernel that
     // elementwise_affine=False Without this we have to change the schema and
@@ -5000,13 +4940,13 @@ at::Tensor repeat_inlv_hpu_lazy(
     c10::optional<int64_t> output_size) {
   // if output_size is not provided by user, there is no way to compute output
   // shape without peeking into the "repeats" tensor. See desc. from PyT docs,
-  // "output_size (int, optional) – Total output size for the given axis ( e.g.
-  // sum of repeats). If given, it will avoid stream syncronization needed to
-  // calculate output shape of the tensor."
+  // "output_size (int, optional) – Total output size for the given axis (
+  // e.g. sum of repeats). If given, it will avoid stream syncronization
+  // needed to calculate output shape of the tensor."
 
   // In our case because of the use of H2D tensor for repeats, we will always
-  // break the graph if model puts repeats tensor on HPU, but this should be ok
-  // as this will not cause a blocking synchronization
+  // break the graph if model puts repeats tensor on HPU, but this should be
+  // ok as this will not cause a blocking synchronization
   int64_t out_size;
   // repeats can only by "long" or "int", if long, cast to int because synapse
   // cannot handle long tensors
@@ -5570,53 +5510,46 @@ Tensor& cat_hpu_lazy_out(
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
-  auto hl_self = GetHbLazyTensor(self);
+
   auto out = at::native::transpose(self, dim0_, dim1_);
-  auto self_id = GetHbLazyTensor(self).getTensorUniqueId();
-  auto out_id = GetHbLazyTensor(out).getTensorUniqueId();
 
   // at::native::transpose can return back self w/o invoking as_strided under
   // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
-  if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
-    auto hb_result = GetHbLazyTensor(out);
-    {
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-      strided_param->optype = kStridedOpTranspose;
-      StridedOpTransposeParams transpose_param = {dim0_, dim1_};
-      strided_param->params.transpose_param = transpose_param;
+  auto additional_predicate = [](const Tensor& self, const Tensor& out) {
+    auto self_id = GetHbLazyTensorId(self);
+    auto out_id = GetHbLazyTensorId(out);
+    return out_id != self_id;
+  };
+  auto param_setter = [dim0_, dim1_](
+                          const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpTranspose;
+    StridedOpTransposeParams transpose_param = {dim0_, dim1_};
+    strided_param->params.transpose_param = transpose_param;
 
-      PT_VIEWTABLE_DEBUG(
-          "transpose fallback tensor id ",
-          hl_self.getTensorUniqueId(),
-          " dim0 ",
-          dim0_,
-          " dim1 ",
-          dim1_);
-    }
-  }
+    PT_VIEWTABLE_DEBUG(
+        "transpose fallback tensor id ",
+        GetHbLazyTensorId(self),
+        " dim0 ",
+        dim0_,
+        " dim1 ",
+        dim1_);
+  };
+  RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(
+      transpose, self, out, param_setter, additional_predicate);
+
   return out;
 }
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   auto out = at::native::t(self);
-  if (is_fallback_original_op(self, out)) {
-    auto hb_result = GetHbLazyTensor(out);
-    {
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-      strided_param->optype = kStridedOpT;
+  auto param_setter = [](const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpT;
 
-      PT_VIEWTABLE_DEBUG(
-          "t fallback tensor id ", GetHbLazyTensor(self).getTensorUniqueId());
-    }
-  }
-  return out;
+    PT_VIEWTABLE_DEBUG("t fallback tensor id ", GetHbLazyTensorId(self));
+  };
+
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(t, self, out, param_setter);
 }
 
 Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
@@ -5638,24 +5571,16 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
     out = at::native::squeeze(self);
   }
 
-  if (is_fallback_original_op(self, out)) {
-    auto hb_result = GetHbLazyTensor(out);
-    {
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-      strided_param->optype = kStridedOpSqueeze;
-      StridedOpSqueezeParams squeeze_param = {dim};
-      strided_param->params.squeeze_param = squeeze_param;
+  auto param_setter = [dim](const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpSqueeze;
+    StridedOpSqueezeParams squeeze_param = {dim};
+    strided_param->params.squeeze_param = squeeze_param;
 
-      PT_VIEWTABLE_DEBUG(
-          "squeeze fallback tensor id ",
-          GetHbLazyTensor(self).getTensorUniqueId(),
-          " dim ",
-          dim);
-    }
-  }
-  return out;
+    PT_VIEWTABLE_DEBUG(
+        "squeeze fallback tensor id ", GetHbLazyTensorId(self), " dim ", dim);
+  };
+
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(squeeze, self, out, param_setter);
 }
 
 Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
@@ -5664,24 +5589,15 @@ Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim() + 1);
 
   auto out = at::native::unsqueeze(self, dim);
-  if (is_fallback_original_op(self, out)) {
-    auto hb_result = GetHbLazyTensor(out);
-    {
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-      strided_param->optype = kStridedOpUnsqueeze;
-      StridedOpSqueezeParams squeeze_param = {dim};
-      strided_param->params.squeeze_param = squeeze_param;
+  auto param_setter = [dim](const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpUnsqueeze;
+    StridedOpSqueezeParams squeeze_param = {dim};
+    strided_param->params.squeeze_param = squeeze_param;
 
-      PT_VIEWTABLE_DEBUG(
-          "unsqueeze fallback tensor id ",
-          GetHbLazyTensor(self).getTensorUniqueId(),
-          " dim ",
-          dim);
-    }
-  }
-  return out;
+    PT_VIEWTABLE_DEBUG(
+        "unsqueeze fallback tensor id ", GetHbLazyTensorId(self), " dim ", dim);
+  };
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(unsqueeze, self, out, param_setter);
 }
 
 Tensor& unsqueeze_hpu_lazy_(Tensor& self, int64_t dim) {
@@ -5784,24 +5700,18 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
-    auto hl_self = GetHbLazyTensor(self);
     auto out = at::native::permute(self, dims_in);
-    if (is_fallback_original_op(self, out)) {
-      auto hb_result = GetHbLazyTensor(out);
-      {
-        auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-        LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-        auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-        strided_param->optype = kStridedOpPermute;
-        strided_param->sizes = dims_in.vec();
-        PT_VIEWTABLE_DEBUG(
-            "permute fallback tensor id ",
-            hl_self.getTensorUniqueId(),
-            " dims_in ",
-            dims_in.vec());
-      }
-    }
-    return out;
+    auto param_setter = [dims_in = dims_in.vec()](
+                            const Tensor& self, StrideParams* strided_param) {
+      strided_param->optype = kStridedOpPermute;
+      strided_param->sizes = dims_in;
+      PT_VIEWTABLE_DEBUG(
+          "permute fallback tensor id ",
+          GetHbLazyTensorId(self),
+          " dims_in ",
+          dims_in);
+    };
+    RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(permute, self, out, param_setter);
   } else {
     return permute_hpu_lazy_phy(self, dims_in);
   }
@@ -5833,28 +5743,28 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   }
 
   auto out = at::native::expand(self, size_in, implicit);
-  auto hl_self = GetHbLazyTensor(self);
-  auto hb_result = GetHbLazyTensor(out);
-  auto self_id = hl_self.getTensorUniqueId();
-  auto out_id = hb_result.getTensorUniqueId();
 
-  if ((out_id != self_id) && (is_fallback_original_op(self, out))) {
-    {
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
-      strided_param->optype = kStridedOpExpand;
-      strided_param->sizes = size_in.vec();
-      StridedOpExpandParams expand_param = {implicit};
-      strided_param->params.expand_param = expand_param;
-    }
+  auto additional_predicate = [](const Tensor& self, const Tensor& out) {
+    auto self_id = GetHbLazyTensorId(self);
+    auto out_id = GetHbLazyTensorId(out);
+    return out_id != self_id;
+  };
+
+  auto param_setter = [size_in = size_in.vec(), implicit](
+                          const Tensor& self, StrideParams* strided_param) {
+    strided_param->optype = kStridedOpExpand;
+    strided_param->sizes = size_in;
+    StridedOpExpandParams expand_param = {implicit};
+    strided_param->params.expand_param = expand_param;
     PT_VIEWTABLE_DEBUG(
         "expand fallback tensor id ",
-        hl_self.getTensorUniqueId(),
+        GetHbLazyTensorId(self),
         " sizes ",
-        size_in.vec());
-  }
-  return out;
+        size_in);
+  };
+
+  RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(
+      expand, self, out, param_setter, additional_predicate);
 }
 
 std::vector<Tensor> split_with_sizes_hpu_lazy(
@@ -6175,7 +6085,7 @@ Tensor fused_norm_hpu_lazy(
     bool is_view_evaluated = true;
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     for (size_t i = 0; i < grad.size(); i++) {
-      auto id = GetHbLazyTensor(grad[i]).getTensorUniqueId();
+      auto id = GetHbLazyTensorId(grad[i]);
       StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
 
       if (params_ptr != nullptr) {

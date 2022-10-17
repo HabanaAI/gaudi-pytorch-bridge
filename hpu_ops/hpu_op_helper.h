@@ -296,6 +296,42 @@ inline float& get<float>(fint_t& u) {
     func();                                                                  \
   }
 
+#define RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(                     \
+    op, self, out, param_setter, additional_predicate)                        \
+  if (habana_lazy::CanUseAccThread() &&                                       \
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {                 \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");   \
+    habana_lazy::GetAccThreadPool().run(                                      \
+        [self, out, param_setter, additional_predicate]() {                   \
+          lazy_view_fallback_handle(                                          \
+              self, out, param_setter, additional_predicate);                 \
+          habana_lazy::PushCleanupTask(                                       \
+              [self_in = std::move(self),                                     \
+               out = std::move(out),                                          \
+               param_setter = std::move(param_setter),                        \
+               additional_predicate = std::move(additional_predicate)]() {}); \
+        });                                                                   \
+  } else {                                                                    \
+    lazy_view_fallback_handle(self, out, param_setter, additional_predicate); \
+  }                                                                           \
+  return out;
+
+#define RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(op, self, out, param_setter)      \
+  if (habana_lazy::CanUseAccThread() &&                                     \
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {               \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::GetAccThreadPool().run([self, out, param_setter]() {       \
+      lazy_view_fallback_handle(self, out, param_setter);                   \
+      habana_lazy::PushCleanupTask(                                         \
+          [self_in = std::move(self),                                       \
+           out = std::move(out),                                            \
+           param_setter = std::move(param_setter)]() {});                   \
+    });                                                                     \
+  } else {                                                                  \
+    lazy_view_fallback_handle(self, out, param_setter);                     \
+  }                                                                         \
+  return out;
+
 #define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)               \
   if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \

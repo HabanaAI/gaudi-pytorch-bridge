@@ -212,6 +212,14 @@ class HbLazyTensorViews {
       std::vector<at::Tensor>&);
   static bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst);
   static std::vector<at::Tensor> HandleViewsTensorList(const at::TensorList&);
+  static void add_strided_view_node_parallel_impl(
+      const at::Tensor& self,
+      at::IntArrayRef size_in,
+      at::IntArrayRef stride_in,
+      int64_t storage_offset,
+      bool is_update_view,
+      at::Tensor& out,
+      bool is_out = false);
   static at::Tensor add_strided_view_node(
       const at::Tensor& self,
       at::IntArrayRef size_in,
@@ -222,6 +230,7 @@ class HbLazyTensorViews {
       bool is_out = false);
   static void updateViewTable(at::Tensor& result, StrideParams& params);
   static StrideParams* getViewTableParams(HbLazyTensor& hl_view_t);
+  static StrideParams* getViewTableParams(int64_t id);
   static at::Tensor get_base_tensor(const at::Tensor& self);
   static const at::Tensor get_recent_base_tensor(const at::Tensor& self);
   static void CustomKernelAddNodeInplace(

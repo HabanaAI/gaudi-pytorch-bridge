@@ -347,6 +347,15 @@ HbLazyTensor GetHbLazyTensor(
   return *hb_tensor;
 }
 
+int64_t GetHbLazyTensorId(const at::Tensor& tensor, bool get_updated, bool) {
+  HABANA_ASSERT(
+      tensor.device().type() == at::kHPU,
+      "Got a non-HPU tensor, expecting an HPU tensor");
+  auto hb_tensor = TryGetHbLazyTensor(tensor, get_updated, false);
+  HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
+  return hb_tensor->getTensorUniqueId();
+}
+
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
     const c10::Device& device) {
