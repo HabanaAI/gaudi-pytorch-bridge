@@ -90,7 +90,7 @@ void HuberLossBwdOperator::AddNode(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_abs.at(0).get(), delta_const.get()},
-      {{inputshape, ScalarType()}});
+      {{inputshape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
@@ -131,7 +131,7 @@ void HuberLossOperator::AddNode(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {abs.at(0).get(), delta_const.get()},
-      {{inputshape, ScalarType()}});
+      {{inputshape, at::kBool}});
 
   auto sq_out = BuildOp(
       graph,

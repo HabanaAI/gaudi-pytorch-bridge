@@ -134,7 +134,7 @@ void SmoothL1LossBwdOperator::AddNode(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_abs.at(0).get(), t_mask_const.get()},
-      {{inputshape, ScalarType()}});
+      {{inputshape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
@@ -218,7 +218,7 @@ void SmoothL1LossOperator::AddNode(
       graph,
       "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {t_absdiff.at(0).get(), t_beta.get()},
-      {{inputshape, ScalarType()}});
+      {{inputshape, at::kBool}});
 
   auto loss_params = std::make_shared<ns_MSELossKernel::Params>();
   loss_params->mode = MSELossMode_t::MSE_LOSS_REDUCTION_MODE_NONE;
