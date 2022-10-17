@@ -152,7 +152,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
       cast_stage_matrix = cast_stage_matrix_greco;
       break;
     default:
-      HABANA_ASSERT(false, "Unknown device");
+      HABANA_ASSERT(false, "Unknown device: ", syn_device_type);
       break;
   }
 
@@ -161,18 +161,24 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
 
 } // namespace
 
+std::ostream& operator<<(std::ostream& os, const CastType& obj) {
+  os << static_cast<std::underlying_type<CastType>::type>(obj);
+  return os;
+}
+
 CastType DataTypeToCastType(const at::ScalarType& dt) {
   switch (dt) {
     case at::ScalarType::Float:
       return CastType::f32;
     case at::ScalarType::BFloat16:
       return CastType::bf16;
+    case at::ScalarType::Half:
+      return CastType::fp16;
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case at::ScalarType::Fp8r152:
       return CastType::f8;
 #endif
     case at::ScalarType::Char:
-      return CastType::i8;
     case at::ScalarType::Bool:
       return CastType::i8;
     case at::ScalarType::Short:
@@ -184,7 +190,7 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
     case at::ScalarType::Byte:
       return CastType::u8;
     default:
-      HABANA_ASSERT(false, "Unknown data type");
+      HABANA_ASSERT(false, "Unknown data type: ", dt);
       return CastType::u8;
   }
 }
@@ -195,6 +201,8 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::Float;
     case CastType::bf16:
       return at::ScalarType::BFloat16;
+    case CastType::fp16:
+      return at::ScalarType::Half;
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case CastType::f8:
       return at::ScalarType::Fp8r152;
@@ -210,7 +218,7 @@ at::ScalarType CastTypeToDataType(CastType ct) {
     case CastType::u8:
       return at::ScalarType::Byte;
     default:
-      HABANA_ASSERT(false, "Unknown data type");
+      HABANA_ASSERT(false, "Unknown data type: ", ct);
       return at::ScalarType::Undefined;
   }
 }

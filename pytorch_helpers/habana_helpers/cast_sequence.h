@@ -43,6 +43,8 @@ namespace habana_helpers {
 enum class CastType : uint8_t { CAST_TYPE_DATA __count };
 #undef ENTRY
 
+std::ostream& operator<<(std::ostream& os, const CastType& obj);
+
 struct CastTypes {
   CastType from_;
   CastType to_;
