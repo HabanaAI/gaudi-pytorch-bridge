@@ -1538,6 +1538,10 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       LazyOp<T>::set_inputs(inputs);
     }
 
+    PT_LAZY_DEBUG("binary op");
+    LazyOp<T>::set_broadcast_details(get_broadcast_details(
+        inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
+
     LazyOp<T>::call(self);
   }
 
