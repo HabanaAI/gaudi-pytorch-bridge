@@ -355,7 +355,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
         duplicate_graph_handle_,
         name.c_str(),
         nullptr);
-    PT_SHAPE_AGNOSTIC_DEBUG(
+    PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER SHAPE AGNOSTIC] duplicate graph name : ",
         name.c_str(),
         " graph handle : ",

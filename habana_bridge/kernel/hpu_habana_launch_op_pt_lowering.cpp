@@ -490,7 +490,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   } else {
     cur_rvalpsh->recipe = cur_recipe;
   }
-  PT_SHAPE_AGNOSTIC_DEBUG(
+  PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
       cur_rvalpsh->recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
@@ -1236,7 +1236,7 @@ void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
 
 void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
   num_inputs = jit_ir_graph->inputs().size();
-  PT_SHAPE_AGNOSTIC_DEBUG(
+  PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
   TORCH_CHECK(
       num_inputs == input_st.size(),

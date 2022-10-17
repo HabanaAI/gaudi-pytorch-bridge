@@ -2655,7 +2655,7 @@ void HabanaLaunchOpPT::DuplicateSynapseGraph() {
   // second duplicate call to to get the tensor and nodes map
   syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
 
-  if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SHAPE_AGNOSTIC)) {
+  if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
     PrintDuplicateGraphInformation(
         syn_graph_ptr, tensorsMap, nodesMap, "cache miss");
   }
@@ -2681,7 +2681,7 @@ void HabanaLaunchOpPT::StoreShapeAgnosticGraph() {
 
 // shape agnostic : prepare tensor id to tensor handle map
 void HabanaLaunchOpPT::PrepareTensorIdToTensorHandleMap() {
-  PT_SHAPE_AGNOSTIC_DEBUG(
+  PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] pt_to_synapse_tensors size : ",
       pt_to_synapse_tensors.size());
 
@@ -2690,7 +2690,7 @@ void HabanaLaunchOpPT::PrepareTensorIdToTensorHandleMap() {
        iter != pt_to_synapse_tensors.end();
        ++iter) {
     for (synapse_helpers::tensor& tensor : *(iter->second)) {
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] tensor id : ",
           tensor.id(),
           " tensor handle : ",
@@ -2709,11 +2709,11 @@ void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
     std::vector<synTensorHandleMap>& tensors_map,
     std::vector<synNodeHandleMap>& nodes_map UNUSED,
     std::string cache_hit_or_miss) {
-  PT_SHAPE_AGNOSTIC_DEBUG(
+  PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] === ",
       cache_hit_or_miss,
       " duplicate graph information ====");
-  PT_SHAPE_AGNOSTIC_DEBUG(
+  PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] original graph handle : ",
       graph_ptr->get_graph_handle(),
       " duplicate graph handle : ",
@@ -2724,7 +2724,7 @@ void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
       graph_ptr->get_num_of_nodes());
 
   for (size_t i = 0; i < tensors_map.size(); i++) {
-    PT_SHAPE_AGNOSTIC_DEBUG(
+    PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER SHAPE AGNOSTIC] org handle : ",
         tensors_map.at(i).origHandle,
         " new handle : ",
@@ -2843,14 +2843,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // shape agnostic caching :: begin
   if (enable_shape_agnostic_caching_) {
     if (is_jit_cached_graph_info_available == false) {
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
       auto syn_graph =
           habana_helpers::create_graph(device.id(), GetSynapseGraphName());
       BuildSynapseGraph(syn_graph);
 
       if (syn_graph_ptr->is_empty()) {
-        PT_SHAPE_AGNOSTIC_DEBUG(
+        PT_LAZY_EAGER_DEBUG(
             "Empty synapse graph. Nothing to duplicate. will update outputs directly.");
         UpdateOutputs();
         return;
@@ -2866,10 +2866,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
       ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (end)");
     } else {
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       cur_rvalpsh = jit_graph_and_meta_data->get_shape_agnostic_recipe();
       syn_graph_ptr = cur_rvalpsh->shape_agnostic_synapse_graph_.get();
@@ -2880,14 +2880,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
       syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
 
-      if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SHAPE_AGNOSTIC)) {
+      if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
         PrintDuplicateGraphInformation(
             syn_graph_ptr, tensorsMap, nodesMap, "cache hit");
       }
 
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           id_str,
           ": ",
           "HabanaOp shape agnostic graph cache hit :: key ",
@@ -2896,7 +2896,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           rv.header_str(),
           "\n",
           rv.digest_str());
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "HabanaOp shape agnostic graph cache hit :: static shapes");
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
@@ -2959,7 +2959,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
 
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (end)");
     }
 

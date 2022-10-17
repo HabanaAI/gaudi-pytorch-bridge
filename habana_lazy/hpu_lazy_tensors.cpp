@@ -892,10 +892,13 @@ void PostLaunch(
 
   SBSDebug::getInstance().CompareTensors(*tensors);
 
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-    PT_LAZY_DEBUG("retained_tensor_list : ", retained_tensor_list);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER MT] retained_tensor_list : ", retained_tensor_list);
     // TODO: To clear at the right place: retained_tensor_list.clear()
   } else {
+    PT_LAZY_DEBUG("retained_tensor_list : ", retained_tensor_list);
     retained_tensor_list.clear();
   }
 
@@ -939,6 +942,9 @@ void LaunchSyncTensorsGraph(
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
       auto& input_values = lazyFrontEndInfo->get_input_values();
       stack = PrepareInputStack(tensors, indices, input_values, true);
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER MT] PrepareInputStack in Launch for key: ",
+          optimizedLazyEagerKey);
     }
 
     try {
@@ -1049,7 +1055,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     for (auto idx : indices) {
       auto& out_tensor = (*tensors)[idx];
       out_shapes.push_back(out_tensor.GetSizes());
-      PT_SHAPE_AGNOSTIC_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] output idx : ",
           idx,
           " shape : ",
@@ -1084,6 +1090,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       std::vector<ir::Value>& input_values =
           lazyFrontEndInfo->get_input_values();
       stack = PrepareInputStack(tensors, indices, input_values, true);
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER MT] JoinPendingLaunchThread in Sync for key: ",
+          optimized_lazy_eager_key);
     }
   } else {
     po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
@@ -1302,6 +1311,8 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
       if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
         context->JoinPendingLaunchThread();
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] JoinPendingLaunchThread in ShallowCopyTo");
       }
     } else {
       context->JoinPendingLaunchThread();
