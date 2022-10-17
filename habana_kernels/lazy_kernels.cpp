@@ -1842,98 +1842,115 @@ Tensor constant_pad_hpu_lazy(
     IntArrayRef pad,
     const Scalar& value) {
   PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-  std::string op_name;
-  std::set<size_t> metadata_indices;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    // Keep IDST implementation also, but use H2D implementation by default
-    bool isIDST =
-        (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR) == false);
-    if (isIDST) {
-      op_name = "hpu::constant_pad_nd";
-      std::vector<int64_t> pad_before(MAX_DIMENSIONS_NUM);
-      std::vector<int64_t> pad_after(MAX_DIMENSIONS_NUM);
 
-      for (unsigned int i = 0; i < pad.size() / 2; i++) {
-        pad_before[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i];
-        pad_after[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i + 1];
+  auto sizes = PadOperator::compute_output_shape(self, pad);
+  auto out = empty_hpu_lazy(
+      sizes, self.options(), self.suggest_memory_format(), false);
+
+  std::vector<int64_t> pad_vec = pad.vec();
+  auto func = [pad_vec = std::move(pad_vec), out, self, value]() mutable {
+    IntArrayRef pad = pad_vec;
+    std::vector<at::IValue> vector_of_inputs;
+    std::string op_name;
+    std::set<size_t> metadata_indices;
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      // Keep IDST implementation also, but use H2D implementation by default
+      bool isIDST =
+          (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR) == false);
+      if (isIDST) {
+        op_name = "hpu::constant_pad_nd";
+        std::vector<int64_t> pad_before(MAX_DIMENSIONS_NUM);
+        std::vector<int64_t> pad_after(MAX_DIMENSIONS_NUM);
+
+        for (unsigned int i = 0; i < pad.size() / 2; i++) {
+          pad_before[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i];
+          pad_after[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i + 1];
+        }
+
+        auto pad_before_tensor = empty_hpu_lazy(
+            IntArrayRef(pad_before),
+            self.options().dtype(c10::ScalarType::Int),
+            self.suggest_memory_format(),
+            false,
+            INPUT_DESCRIBING_SHAPE_TENSOR);
+        auto pad_after_tensor = empty_hpu_lazy(
+            IntArrayRef(pad_after),
+            self.options().dtype(c10::ScalarType::Int),
+            self.suggest_memory_format(),
+            false,
+            INPUT_DESCRIBING_SHAPE_TENSOR);
+
+        vector_of_inputs = {self, pad_before_tensor, pad_after_tensor, value};
+      } else {
+        op_name = "hpu::constant_pad_nd_ht";
+        std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
+        // assuming that "pad" has a pair of pad values corresponding to each
+        // dim that needs to be padded.
+        for (unsigned int i = 0; i < pad.size() / 2; i++) {
+          // Host tensor layout 1D - 10 elements: pad_before[0]...pad_before[4],
+          // pad_after[0] ... pad_after[4] (for dimensionality IFM less then 5
+          // some elements not in use)
+          pad_ht_vec[i] = pad[2 * i];
+          pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
+        }
+
+        auto pad_tensor = empty_hpu_lazy(
+            pad_ht_vec.size(),
+            self.options().dtype(c10::ScalarType::Int),
+            self.suggest_memory_format(),
+            false,
+            HOST_TO_DEVICE_TENSOR);
+        auto output_shape_tensor = empty_hpu_lazy(
+            IntArrayRef(PadOperator::compute_output_shape(self, pad)),
+            self.options().dtype(c10::ScalarType::Int),
+            self.suggest_memory_format(),
+            false,
+            SHAPE_TENSOR);
+        // Mark this front end shape tensor as it does not need synapse tensor
+        auto hl_output_shape_tensor =
+            GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
+        auto hl_output_shape_tensor_internal =
+            hl_output_shape_tensor.CurrentTensorAttached().value();
+        auto stImpl = habana_lazy::GetHbInternalTensorImpl(
+            hl_output_shape_tensor_internal);
+        if (stImpl) {
+          stImpl->setH2DFrontEndShapeTensor();
+        }
+        auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
+
+        auto hl_param_internal =
+            hl_params_shape.CurrentTensorAttached().value();
+        habana_lazy::HbInternalTensorImpl* impl =
+            habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
+        HABANA_ASSERT(impl);
+        impl->set_host_data(
+            pad_ht_vec.data(),
+            pad_ht_vec.size(),
+            sizeof(uint32_t),
+            HostDataType::UINT32_T);
+        vector_of_inputs = {self, pad_tensor, output_shape_tensor, value};
+        metadata_indices = {3};
       }
-
-      auto pad_before_tensor = empty_hpu_lazy(
-          IntArrayRef(pad_before),
-          self.options().dtype(c10::ScalarType::Int),
-          self.suggest_memory_format(),
-          false,
-          INPUT_DESCRIBING_SHAPE_TENSOR);
-      auto pad_after_tensor = empty_hpu_lazy(
-          IntArrayRef(pad_after),
-          self.options().dtype(c10::ScalarType::Int),
-          self.suggest_memory_format(),
-          false,
-          INPUT_DESCRIBING_SHAPE_TENSOR);
-
-      vector_of_inputs = {self, pad_before_tensor, pad_after_tensor, value};
     } else {
-      op_name = "hpu::constant_pad_nd_ht";
-      std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
-      // assuming that "pad" has a pair of pad values corresponding to each dim
-      // that needs to be padded.
-      for (unsigned int i = 0; i < pad.size() / 2; i++) {
-        // Host tensor layout 1D - 10 elements: pad_before[0]...pad_before[4],
-        // pad_after[0] ... pad_after[4] (for dimensionality IFM less then 5
-        // some elements not in use)
-        pad_ht_vec[i] = pad[2 * i];
-        pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
-      }
-
-      auto pad_tensor = empty_hpu_lazy(
-          pad_ht_vec.size(),
-          self.options().dtype(c10::ScalarType::Int),
-          self.suggest_memory_format(),
-          false,
-          HOST_TO_DEVICE_TENSOR);
-      auto output_shape_tensor = empty_hpu_lazy(
-          IntArrayRef(PadOperator::compute_output_shape(self, pad)),
-          self.options().dtype(c10::ScalarType::Int),
-          self.suggest_memory_format(),
-          false,
-          SHAPE_TENSOR);
-      // Mark this front end shape tensor as it does not need synapse tensor
-      auto hl_output_shape_tensor =
-          GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
-      auto hl_output_shape_tensor_internal =
-          hl_output_shape_tensor.CurrentTensorAttached().value();
-      auto stImpl =
-          habana_lazy::GetHbInternalTensorImpl(hl_output_shape_tensor_internal);
-      if (stImpl) {
-        stImpl->setH2DFrontEndShapeTensor();
-      }
-      auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
-
-      auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-      habana_lazy::HbInternalTensorImpl* impl =
-          habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-      HABANA_ASSERT(impl);
-      impl->set_host_data(
-          pad_ht_vec.data(),
-          pad_ht_vec.size(),
-          sizeof(uint32_t),
-          HostDataType::UINT32_T);
-      vector_of_inputs = {self, pad_tensor, output_shape_tensor, value};
-      metadata_indices = {3};
+      op_name = "aten::constant_pad_nd";
+      vector_of_inputs = {self, pad, value};
+      metadata_indices = {1, 2};
     }
-  } else {
-    op_name = "aten::constant_pad_nd";
-    vector_of_inputs = {self, pad, value};
-    metadata_indices = {1, 2};
-  }
-  LazyOp<at::Tensor> k{
-      op_name,
-      vector_of_inputs,
-      metadata_indices,
-      {PadOperator::compute_output_shape(self, pad)}};
-  return k.call();
+    LazyOp<at::Tensor> k{
+        op_name,
+        vector_of_inputs,
+        metadata_indices,
+        {PadOperator::compute_output_shape(self, pad)}};
+    k.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask(
+          [op = std::move(k), pv = std::move(pad_vec)]() {});
+    }
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(constant_pad_nd, func, out)
 }
+
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
     const Tensor& indices,
@@ -4397,7 +4414,7 @@ Tensor adaptive_avg_pool2d_backward_hpu_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d_backward, k)
 }
 
-Tensor& randperm_hpu_lazy_ht(
+void randperm_hpu_lazy_ht(
     Tensor& output,
     int64_t n,
     c10::optional<Generator> gen) {
@@ -4433,51 +4450,68 @@ Tensor& randperm_hpu_lazy_ht(
       {2},
       {},
       3};
-  return op.call(output);
+  op.call(output);
+
+  if (habana_lazy::CanUseAccThread()) {
+    habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+  }
 }
 Tensor& randperm_hpu_lazy(
     int64_t n,
     c10::optional<Generator> gen,
     Tensor& output) {
   PT_LAZY_TRACE;
+  auto func = [output, n, gen = std::move(gen)]() mutable {
+    // resizing the output as it is coming as empty from model
+    auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
+    auto out_shape = DimVector({n});
+    auto out_reshaped = hl_result.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
 
-  // resizing the output as it is coming as empty from model
-  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
-  auto out_shape = DimVector({n});
-  auto out_reshaped = hl_result.getAttachedTensorImpl();
-  THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
-  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+    // Currently synapse support dynamic shape arange only for int datatypes.
+    // For any other output datatype, will fallback to normal flow.
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+        (output.scalar_type() == c10::ScalarType::Int ||
+         output.scalar_type() == c10::ScalarType::Long)) {
+      if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
+        randperm_hpu_lazy_ht(output, n, gen);
+      } else {
+        std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
+        auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
+        auto params_shape = empty_hpu_lazy(
+            input_size,
+            output.options(),
+            output.suggest_memory_format(),
+            false,
+            INPUT_DESCRIBING_SHAPE_TENSOR);
+        LazyOp<Tensor&> op{
+            "hpu::randperm_out_ds",
+            {params_shape, std::move(gen), output},
+            {},
+            {},
+            2};
+        op.call(output);
 
-  // Currently synapse support dynamic shape arange only for int datatypes.
-  // For any other output datatype, will fallback to normal flow.
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-      (output.scalar_type() == c10::ScalarType::Int ||
-       output.scalar_type() == c10::ScalarType::Long)) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
-      return randperm_hpu_lazy_ht(output, n, gen);
+        if (habana_lazy::CanUseAccThread()) {
+          habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+        }
+      }
+    } else {
+      LazyOp<Tensor&> op{
+          "hpu::randperm_out",
+          {Scalar((int32_t)n), std::move(gen), output},
+          {1},
+          {{n}}};
+      op.call(output);
+
+      if (habana_lazy::CanUseAccThread()) {
+        habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+      }
     }
-    std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
-    auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
-    auto params_shape = empty_hpu_lazy(
-        input_size,
-        output.options(),
-        output.suggest_memory_format(),
-        false,
-        INPUT_DESCRIBING_SHAPE_TENSOR);
-    LazyOp<Tensor&> op{
-        "hpu::randperm_out_ds",
-        {params_shape, std::move(gen), output},
-        {},
-        {},
-        2};
-    return op.call(output);
-  }
-  LazyOp<Tensor&> op{
-      "hpu::randperm_out",
-      {Scalar((int32_t)n), std::move(gen), output},
-      {1},
-      {{n}}};
-  return op.call(output);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(randperm_out, func, output)
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
@@ -5201,12 +5235,46 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   }
 }
 
+Tensor& cat_hpu_out_parallel_impl(
+    Tensor& result,
+    const TensorList tensors,
+    int64_t dim_) {
+  if (filter(tensors, is_nonempty_tensor).empty()) {
+    return result;
+  }
+
+  std::vector<Tensor> tensors_copy;
+  std::copy(tensors.begin(), tensors.end(), std::back_inserter(tensors_copy));
+
+  auto func = [result, tensors = std::move(tensors_copy), dim_]() mutable {
+    auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
+    t_list = filter(t_list, is_nonempty_tensor);
+    if (t_list.empty())
+      return;
+
+    const TensorList view_list{t_list};
+
+    auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
+    LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
+
+    k.call(result);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(k)]() {});
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat_out, func, result)
+}
+
 Tensor& cat_hpu_lazy_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
   PT_LAZY_TRACE;
-
+  if (habana_lazy::IsAccThreadEnabled()) {
+    return cat_hpu_out_parallel_impl(result, tensors, dim_);
+  }
   // handle views
   auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
   t_list = filter(t_list, is_nonempty_tensor);
@@ -6781,6 +6849,8 @@ at::Tensor roi_align_fwd_hpu_lazy(
     bool aligned) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
+  std::shared_ptr<LazyOp<Tensor>> cast_op_ptr;
+
   // Assuming outshape to be NCHW
   std::vector<int64_t> out_shape{
       num_rois.sizes()[0], images.sizes()[1], output_h, output_w};
@@ -6788,9 +6858,9 @@ at::Tensor roi_align_fwd_hpu_lazy(
   // TPC expects rois to be always fp32, therefore adding this cast
   if (rois.scalar_type() == c10::ScalarType::BFloat16) {
     // Cast temp tensor to orig_out tensor data type
-    LazyOp<Tensor> k_{
-        "hpu::cast", {rois, c10::ScalarType::Float}, {}, {rois.sizes().vec()}};
-    rois_f32 = k_.call();
+    cast_op_ptr = std::make_shared<LazyOp<Tensor>>(LazyOp<Tensor>{
+        "hpu::cast", {rois, c10::ScalarType::Float}, {}, {rois.sizes().vec()}});
+    rois_f32 = cast_op_ptr.get()->get_result();
   }
   LazyOp<at::Tensor> k(
       "hpu::roi_align_fwd",
@@ -6805,7 +6875,24 @@ at::Tensor roi_align_fwd_hpu_lazy(
        aligned},
       {},
       {out_shape});
-  return k.call();
+  auto out = k.get_result();
+
+  auto func = [op = std::move(k),
+               cast_op_ptr = std::move(cast_op_ptr),
+               rois_f32,
+               out]() mutable {
+    if (cast_op_ptr) {
+      cast_op_ptr.get()->call(rois_f32);
+    }
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask(
+          [cast = std::move(cast_op_ptr), op = std::move(op)]() {});
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(roi_align_fwd, func, out)
 }
 
 at::Tensor roi_align_bwd_hpu_lazy(

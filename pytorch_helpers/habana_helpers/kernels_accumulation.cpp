@@ -28,6 +28,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "any",
     "binary_cross_entropy_with_logits",
     "cat",
+    "cat_out",
     "clone",
     "constant_pad_nd",
     "div",
