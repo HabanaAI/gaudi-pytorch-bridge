@@ -821,7 +821,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
 
     // check and wait for recipe execution to complete
     uint32_t counter_state{0};
-    if (!recipe_counter.is_zero()) {
+    if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
       do {
         counter_state = recipe_counter.wait_for_next_decrease_call();
         PT_DEVMEM_DEBUG(
@@ -831,7 +831,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
             " requested size ",
             size);
         std::tie(ptr, size) = get_and_alloc_mem();
-      } while (counter_state > 1 && ptr == nullptr);
+      } while (counter_state > DEFAULT_RECIPE_COUNT && ptr == nullptr);
     }
   }
 
