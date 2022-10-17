@@ -1370,6 +1370,12 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   }
 
   context->viewContext.AddShallowCopyMapEntry(dst_id, hl_t);
+
+  // copy the src memory to dst to avoid double allocation
+  auto data_tensor = CurrentTensorData();
+  if (data_tensor.has_value()) {
+    dest->SetTensorData(*data_tensor);
+  }
 }
 
 void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
