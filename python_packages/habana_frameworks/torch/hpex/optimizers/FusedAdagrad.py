@@ -44,6 +44,8 @@ class FusedAdagrad(Optimizer):
         # State initialization
         for group in self.param_groups:
             for p in group["params"]:
+                if p.grad is None:
+                    continue
                 state = self.state[p]
                 # accumulated weight variance values
                 # state['sum'] = torch.zeros(p.shape).to(hpu)

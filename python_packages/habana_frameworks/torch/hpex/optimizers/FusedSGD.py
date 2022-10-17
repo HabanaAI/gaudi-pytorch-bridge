@@ -44,6 +44,8 @@ class FusedSGD(Optimizer):
         for group in self.param_groups:
             if momentum != 0:
                 for p in group["params"]:
+                    if p.grad is None:
+                        continue
                     state = self.state[p]
                     state["momentum_buffer"] = torch.zeros_like(p).to(
                         hpu, non_blocking=True
