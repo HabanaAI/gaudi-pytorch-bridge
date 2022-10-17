@@ -4316,7 +4316,10 @@ reflection_pad3d_backward.grad_input:
 
 remainder.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [0]
   type_promotion: true
@@ -4325,7 +4328,10 @@ remainder.Tensor:
 
 remainder.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [0]
   scalar_ids: [1]
@@ -4334,7 +4340,10 @@ remainder.Scalar:
 
 remainder_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   inplace_ids: [0]
   type_promotion: true
@@ -4343,7 +4352,10 @@ remainder_.Tensor:
 
 remainder_.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   inplace_ids: [0]
   scalar_ids: [1]
@@ -4351,7 +4363,10 @@ remainder_.Scalar:
   safe_cast_check: true
 
 remainder.Scalar_Tensor:
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [1]
   scalar_ids: [0]
@@ -4359,7 +4374,10 @@ remainder.Scalar_Tensor:
   safe_cast_check: true
 
 remainder.Tensor_out:
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   type_promotion: true
   broadcast: true
@@ -4367,7 +4385,10 @@ remainder.Tensor_out:
 
 remainder.Scalar_out:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   scalar_ids: [1]
   type_promotion: true
