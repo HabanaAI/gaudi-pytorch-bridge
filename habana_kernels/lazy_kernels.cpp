@@ -70,6 +70,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/pt_ver/torch_params_shim.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -1472,25 +1473,20 @@ Tensor& add_tensor_hpu_lazy_(
   PT_LAZY_TRACE;
 
   if (habana_lazy::IsAccThreadEnabled()) {
-    auto op_func = [self, other, alpha]() mutable {
-      add_tensor_hpu_lazy_inplace_parallel_impl(self, other, alpha);
-    };
-
-    RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
+    // try to construct DTypeHelper to make sure,
+    // that type promotion does not throw due to incompatible dtypes
+    at::IValue ivalue(self);
+    auto output = c10::make_optional<const at::IValue*>(&ivalue);
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            {self, other}, output, true);
   }
 
-  auto alpha_double = alpha.toDouble();
-  if (alpha_double != 1.0) {
-    at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other.options());
+  auto op_func = [self, other, alpha]() mutable {
+    add_tensor_hpu_lazy_inplace_parallel_impl(self, other, alpha);
+  };
 
-    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = torch::mul(other, alpha_tensor);
-    return add_tensor_hpu_lazy_(self, mul_out, 1.0);
-  } else {
-    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
-    return op.call(self);
-  }
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
 }
 
 Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
