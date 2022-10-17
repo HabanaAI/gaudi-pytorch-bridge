@@ -30,11 +30,16 @@ intptr_t GetDataPtr(const at::Tensor& t) {
   } else {
     data_ptr = reinterpret_cast<void*>(t.storage().data_ptr().get());
   }
-  size_t device_id = t.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
-  return reinterpret_cast<intptr_t>(address);
+  if (data_ptr) {
+    size_t device_id = t.device().index();
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+    auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
+    return reinterpret_cast<intptr_t>(address);
+  }
+
+  return 0;
 }
 
 void RecordQuantParams(std::string name, float min, float max) {

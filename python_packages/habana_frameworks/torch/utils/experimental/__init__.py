@@ -8,6 +8,9 @@ _model_params_initialized = False
 _optim_state_initialized = False
 
 def _data_ptr(t) -> int:
+    # Note: Ensure whether _data_ptr(t) is returning a valid pointer, this function
+    # can return null pointer as well.
+    # Eg: if the size of tensor is [0], this will return null
     if hpu.is_available():
         hpu.init()
         return _experimental_C.data_ptr(t)
