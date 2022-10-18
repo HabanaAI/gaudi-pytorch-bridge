@@ -4735,20 +4735,29 @@ prelu:
   op_backend: Prelu
 
 prod:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   out_ids: [0]
   op_template: reduction
 
 prod.dim_int:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   out_ids: [0]
   op_template: reduction
 
 prod.int_out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   op_template: reduction
 
