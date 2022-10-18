@@ -11,12 +11,13 @@
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include "habana_lazy/debug_utils.h"
 
 namespace Logger {
 
-uint64_t get_tid() {
-  static thread_local uint64_t tid{static_cast<uint64_t>(gettid())};
+uint64_t get_tid_internal() {
+  static thread_local uint64_t tid{static_cast<uint64_t>(syscall(__NR_gettid))};
   return tid;
 }
 

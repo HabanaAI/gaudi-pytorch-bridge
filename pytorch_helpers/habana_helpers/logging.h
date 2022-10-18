@@ -59,7 +59,12 @@ inline std::string _str_wrapper(const Args&... args) {
   return ss.str();
 }
 
-uint64_t get_tid();
+uint64_t get_tid_internal();
+
+inline uint64_t get_tid() {
+  static thread_local uint64_t tid{static_cast<uint64_t>(get_tid_internal())};
+  return tid;
+}
 
 inline void append_hdr(std::string& result) {
   auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch();
@@ -244,7 +249,7 @@ class PtLogger {
     TRACE = 0x2,
     DEBUG = 0x4,
     PROFILE = 0x8,
-    RUNTIME_TRACING = 0x10
+    RUNTIME_PROFILE = 0x10
   };
 
   enum ModuleMask {
@@ -328,8 +333,7 @@ class PTFuncLog {
       : module(module), pName(pn), name(n), isActive(isActive) {
     if (isActive) {
       auto message{Logger::print_hdr()};
-      absl::StrAppend(
-          &message, "HABANA_LOG: begin of ", module, " ", pName, "\n");
+      absl::StrAppend(&message, module, ": begin of ", pName, "\n");
       std::clog << message;
     }
     synapse_helpers::trace_start(name.data());
@@ -337,8 +341,7 @@ class PTFuncLog {
   ~PTFuncLog() {
     if (isActive) {
       auto message{Logger::print_hdr()};
-      absl::StrAppend(
-          &message, "HABANA_LOG: end of ", module, " ", pName, "\n");
+      absl::StrAppend(&message, module, ": end of ", pName, "\n");
       std::clog << message;
     }
     synapse_helpers::trace_end(name.data());
