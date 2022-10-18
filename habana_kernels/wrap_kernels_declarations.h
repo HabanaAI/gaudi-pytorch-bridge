@@ -129,25 +129,6 @@ struct hpu_wrap {
       const at::Scalar& step,
       at::Tensor& output);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor baddbmm(
-      const at::Tensor& self,
-      const at::Tensor& mat1,
-      const at::Tensor& mat2,
-      const at::Scalar& beta,
-      const at::Scalar& alpha);
-  static at::Tensor& baddbmm_out(
-      const at::Tensor& self,
-      const at::Tensor& mat1,
-      const at::Tensor& mat2,
-      const at::Scalar& beta,
-      const at::Scalar& alpha,
-      at::Tensor& out);
-  static at::Tensor& baddbmm_(
-      at::Tensor& self,
-      const at::Tensor& mat1,
-      const at::Tensor& mat2,
-      const at::Scalar& beta,
-      const at::Scalar& alpha);
   static at::Tensor kl_div_backward(
       const at::Tensor& grad,
       const at::Tensor& input,

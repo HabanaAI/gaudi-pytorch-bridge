@@ -1535,6 +1535,58 @@ Tensor& add_tensor_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
 }
 
+Tensor baddbmm_hpu_lazy(
+    const Tensor& self,
+    const Tensor& batch1,
+    const Tensor& batch2,
+    const Scalar& beta,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  Tensor out = torch::mul(torch::bmm(batch1, batch2), alpha);
+  if (beta.toFloat() != 0) {
+    out.add_(self, beta);
+  }
+  return out;
+}
+
+Tensor& baddbmm_out_hpu_lazy(
+    const Tensor& self,
+    const Tensor& batch1,
+    const Tensor& batch2,
+    const Scalar& beta,
+    const Scalar& alpha,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+  if (beta.toFloat() == 0) {
+    torch::bmm_outf(batch1, batch2, out);
+    out.mul_(alpha);
+  } else {
+    Tensor r_bmul = torch::mul(self, beta);
+    torch::bmm_outf(batch1, batch2, out);
+    out.mul_(alpha);
+    out.add_(r_bmul, 1);
+  }
+  return out;
+}
+
+Tensor& baddbmm_hpu_lazy_(
+    Tensor& self,
+    const Tensor& batch1,
+    const Tensor& batch2,
+    const Scalar& beta,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  if (beta.toFloat() == 0) {
+    torch::bmm_outf(batch1, batch2, self);
+    self.mul_(alpha);
+  } else {
+    Tensor r_bmm = torch::bmm(batch1, batch2);
+    self.mul_(beta);
+    self.add_(r_bmm, alpha);
+  }
+  return self;
+}
+
 Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
