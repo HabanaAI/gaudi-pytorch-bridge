@@ -790,44 +790,6 @@ void HbGeluOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-void IsfiniteOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 1,
-      "Incorrect size of inputs expected for IsfiniteOperator operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for IsfiniteOperator operator");
-
-  auto self = inputs[0].toTensor();
-
-  auto output = habana_helpers::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Bool,
-      output_metadata.at(0).persistent);
-
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
-OutputShapeInfRetType IsfiniteOperator::ComputeOutputShape(
-    torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
-  auto self = inputs[0].toTensor();
-  out.AddOutputTensor(TensorMetaData(
-      self.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          self.sizes().vec(), self.suggest_memory_format()),
-      c10::ScalarType::Bool,
-      self.suggest_memory_format()));
-  return out;
-}
-
 /*************************************************************************
  * @brief Kernel implementation for gelu
  *output = 0.5 * x *(1.0 + tf.tanh(
@@ -1827,45 +1789,6 @@ Tensor& rsqrt_hpu_(Tensor& self) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for output = torch.isfinite(self)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] self - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor isfinite_hpu(const Tensor& self) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "isfinite_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  IsfiniteOperator Op(device_id, scalar_type);
-
-  std::vector<c10::IValue> stack = {IValue(self)};
-  std::vector<at::Tensor> pt_inputs{self};
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty(
-        self.sizes(),
-        self.options().dtype(c10::ScalarType::Bool),
-        self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
-/*************************************************************************
  * @brief Kernel implementation for output = torch.neg(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
@@ -2340,6 +2263,5 @@ void CumsumOperator::AllocateAndAddSynapseNode(
 
 static auto& UnaryKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::isfinite", KERNEL_FN(IsfiniteOperator))
         .add("aten::hbgelu2", KERNEL_FN(HbGeluOperator))
         .add("aten::hbgelu2_backward", KERNEL_FN(GeluBackwardOperator));

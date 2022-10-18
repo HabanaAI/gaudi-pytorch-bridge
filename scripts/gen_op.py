@@ -78,7 +78,6 @@ _XPARSER = lark.Lark(
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
 _FN_AUTOGRAD_HPU = set(
     [
-        "isfinite(Tensor) -> Tensor",
         "matmul(Tensor, Tensor) -> Tensor",
         "adaptive_avg_pool2d(Tensor, IntArrayRef) -> Tensor",
         "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",

@@ -2293,40 +2293,6 @@ Tensor habana_cast_to_fp8_wrap(
  **********************************************************************************/
 using namespace torch::autograd;
 
-// Pytorch fork's isfinite is a compound op that is realized through a
-// sequence of simpler ops. For better performance, using the underlying TPC
-// kernel.
-
-struct IsfiniteFunction : public torch::autograd::Function<IsfiniteFunction> {
-  static at::Tensor forward(AutogradContext* ctx, at::Tensor input) {
-    at::Tensor result;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      result = isfinite_hpu_lazy(input);
-    } else {
-      result = isfinite_hpu(input);
-    }
-
-    static_cast<void>(ctx);
-    return result;
-  }
-
-  static variable_list backward(
-      AutogradContext* ctx,
-      variable_list grad_output) {
-    static_cast<void>(ctx);
-    static_cast<void>(grad_output);
-    return {};
-  }
-};
-
-Tensor hpu_wrap::isfinite(const Tensor& self) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(" isfinite:", " self=", to_string(self));
-  FALLBACK_IF_UNSUPPORTED_OP(isfinite, PARAMS1(self), PARAMS2(self))
-  return IsfiniteFunction::apply(self);
-}
-
 struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
   static at::Tensor forward(
       AutogradContext* ctx,

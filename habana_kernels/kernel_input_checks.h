@@ -1271,12 +1271,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "isfinite",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
                 "remainder",
                 {{at::ScalarType::Char,
                   at::ScalarType::Bool,
@@ -2213,12 +2207,6 @@ static const std::
             },
             {
                 "instance_norm_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "isfinite_",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},

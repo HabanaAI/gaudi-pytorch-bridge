@@ -2936,8 +2936,18 @@ index.Tensor:
   schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
   out_ids: [0]
 
+isfinite:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  op_frontend: IsFinite
+  op_backend: _IsFinite
+  guid: isfinite_fwd
+  out_ids: [0]
+
 isnan:
-  custom_output_shape: IsNanOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]

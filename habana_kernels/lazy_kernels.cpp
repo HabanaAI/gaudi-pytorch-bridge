@@ -6021,13 +6021,6 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   RUN_MAYBE_WITH_ACC_THREAD(one_hot, k)
 }
 
-Tensor isfinite_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k_{
-      "aten::isfinite", {input}, {input.sizes().vec()}, c10::ScalarType::Bool};
-  RUN_MAYBE_WITH_ACC_THREAD(isfinite, k_)
-}
-
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   Scalar out;

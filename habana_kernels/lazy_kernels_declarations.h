@@ -560,7 +560,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool descending);
-at::Tensor isfinite_hpu_lazy(const at::Tensor& self);
 at::Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_lazy(
