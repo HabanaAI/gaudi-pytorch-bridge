@@ -121,6 +121,7 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
 
@@ -133,6 +134,7 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
 
@@ -146,6 +148,7 @@ class LazyOp {
         m_metadata_indices{},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     if (out_shapes_fn) {
       m_out_shapes = out_shapes_fn(inputs);
     }
@@ -165,6 +168,7 @@ class LazyOp {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
 
@@ -183,6 +187,7 @@ class LazyOp {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
 
@@ -195,7 +200,7 @@ class LazyOp {
         m_out_meta_tensors{output_meta_tensors},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
     set_inputs(inputs);
-
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     for (const auto& out : m_out_meta_tensors) {
       m_out_shapes.emplace_back(out.sizes().vec());
     }
@@ -212,6 +217,7 @@ class LazyOp {
         m_out_index{},
         m_scalar_type(scalar_type),
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+    module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
 
@@ -1333,7 +1339,7 @@ class LazyOp {
 
     create_inputs(values, input_pt_vec, metadata, false);
     auto node = ir::Node::Create(m_symbol, values);
-
+    node->SetModuleName(module_name);
     if (metadata.size()) {
       node->SetMetaData(metadata);
     }
@@ -1354,6 +1360,7 @@ class LazyOp {
   std::vector<at::IValue> m_inputs = {};
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
+  std::string module_name = std::string();
   bool m_shape_was_changed =
       false; // bool for changed input shape for _out ops (non-tuple input)
   std::vector<bool> m_shape_was_changed_in_tuple =

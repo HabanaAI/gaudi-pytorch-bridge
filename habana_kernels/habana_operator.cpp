@@ -354,7 +354,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         output_metadata.persistent,
         output_metadata.external,
         c10::nullopt,
-        output_metadata.name));
+        output_metadata.name,
+        output_metadata.module_name));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output,
@@ -380,7 +381,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         output_metadata.persistent,
         output_metadata.external,
         synType,
-        output_metadata.name));
+        output_metadata.name,
+        output_metadata.module_name));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output,

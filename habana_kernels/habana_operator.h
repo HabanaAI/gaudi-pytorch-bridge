@@ -241,6 +241,7 @@ typedef struct KernelMetaData {
 class OutputMetaData {
  public:
   std::string name;
+  std::string module_name;
   bool persistent{false};
   bool external{false};
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};

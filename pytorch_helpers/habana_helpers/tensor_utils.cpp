@@ -732,7 +732,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     bool external,
     const c10::optional<c10::ScalarType> dtype,
-    const std::string& name) {
+    const std::string& name,
+    const std::string& inference_name) {
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -839,17 +840,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   bool const_section = false;
-  PtTensorInferenceData::InferenceRangePair inference_range;
-  bool range_found = false;
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    if (tensor.has_storage()) {
-      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
-      PT_BRIDGE_DEBUG("const tensor:  ", hb_tensor->IsConstTensor());
-      const_section = hb_tensor->IsConstTensor();
-    }
-    inference_range =
-        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-            name.c_str(), range_found);
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
+    auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+    PT_BRIDGE_DEBUG("const tensor:  ", hb_tensor->IsConstTensor());
+    const_section = hb_tensor->IsConstTensor();
   }
 
   auto builder =
@@ -864,9 +858,16 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .with_dont_allow_permutation(dont_allow_permutation)
           .mark_const_section(const_section);
   // Add a check to validate the inference_range
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && range_found)
-    builder = builder.with_inference_range(
-        inference_range.first, inference_range.second);
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    bool range_found = false;
+    PtTensorInferenceData::InferenceRangePair inference_range =
+        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+            inference_name.c_str(), range_found);
+    if (range_found)
+      builder = builder.with_inference_range(
+          inference_range.first, inference_range.second);
+  }
+
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -892,7 +893,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     bool external,
     const synDataType synType,
-    const std::string& name) {
+    const std::string& name,
+    const std::string& inference_name) {
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -976,6 +978,15 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .with_permutation(permutation)
           .with_dont_allow_permutation(dont_allow_permutation);
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    bool range_found = false;
+    PtTensorInferenceData::InferenceRangePair inference_range =
+        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+            inference_name.c_str(), range_found);
+    if (range_found)
+      builder = builder.with_inference_range(
+          inference_range.first, inference_range.second);
+  }
   if (!name.empty()) {
     builder.use_suffix(name);
   }

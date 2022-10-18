@@ -302,6 +302,14 @@ class Node {
     return m_scope;
   }
 
+  void SetModuleName(std::string name) {
+    module_name = name;
+  }
+
+  std::string GetModuleName() {
+    return module_name;
+  }
+
   virtual std::string ToString() const;
   virtual std::string ToStringIrGraph() const;
 
@@ -409,6 +417,7 @@ class Node {
   uint64_t m_id;
   bool deterministic = 0;
   std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
+  std::string module_name = std::string();
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {

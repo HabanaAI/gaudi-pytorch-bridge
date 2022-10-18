@@ -1797,7 +1797,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     OutputMetaDataVector& outputs_metadata =
         jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
-
+    std::string module_name = node->scope()->name().toUnqualString();
+    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && module_name.size() > 0) {
+      auto string_pos = module_name.find('/', 1);
+      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
+      module_name =
+          module_name.substr(string_pos, module_name.length() - string_pos);
+      std::replace(module_name.begin(), module_name.end(), '/', '.');
+      outputs_metadata.at(0).module_name = module_name;
+    }
     // applicable for both persistent strided view and strided insert tensors
     if (((outputs_metadata.size() == 1) && (!is_shape_inference) &&
          (outputs_metadata.at(0).persistent == true)) &&

@@ -483,17 +483,25 @@ void HlExec::Create(
       });
       HABANA_ASSERT(j == args_vector.size());
       std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
-      if (node->GetScope()) {
+      auto scope_name = node->GetModuleName().empty()
+          ? (node->GetScope() ? *node->GetScope() : "")
+          : node->GetModuleName();
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0)
+              ? !node->GetModuleName().empty()
+              : node->GetScope() != NULL) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(
             *mp_g_,
             c10::make_intrusive<torch::jit::Scope>(
                 torch::jit::ScopePtr(),
-                c10::Symbol::fromQualString("debug::" + *node->GetScope())));
+                c10::Symbol::fromQualString("debug::" + scope_name)));
       }
-
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
-
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {
+        jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
+            torch::jit::ScopePtr(),
+            c10::Symbol::fromQualString("debug::" + scope_name)));
+      }
       if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
         auto one = torch::jit::attr::alpha;
         jit_node->i_(one, node->getDeterministic());

@@ -73,28 +73,10 @@ class PtTensorInferenceData {
   void SetInferenceTensorRange(std::string tensor_name, float min, float max) {
     inference_tensor_map.emplace(tensor_name, std::make_pair(min, max));
   }
-  std::string getResolvedName(std::string name) {
-    if (name.empty())
-      return name;
-    std::vector<std::string> split_name;
-    char del = '/';
-    std::stringstream ss(name);
-    std::string word;
-    std::string infered_name;
-    while (!ss.eof()) {
-      std::getline(ss, word, del);
-      split_name.push_back(word);
-    }
-    if (split_name.size() > 3)
-      return split_name[split_name.size() - 3] + "." +
-          split_name[split_name.size() - 2];
-    return split_name[split_name.size() - 2];
-  }
 
   InferenceRangePair GetInferenceTensorRange(
       std::string tensor_name,
       bool& range_found) {
-    tensor_name = getResolvedName(tensor_name);
     if (exists(tensor_name)) {
       range_found = true;
       return inference_tensor_map[tensor_name];
@@ -102,6 +84,7 @@ class PtTensorInferenceData {
     range_found = false;
     return std::make_pair(-1, -1);
   }
+
   bool exists(std::string tensor_name) {
     bool ret_flag{false};
     if (inference_tensor_map.end() != inference_tensor_map.find(tensor_name)) {

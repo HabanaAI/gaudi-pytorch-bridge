@@ -165,7 +165,8 @@ synapse_helpers::tensor create_tensor(
     bool persistent,
     bool external,
     const c10::optional<c10::ScalarType> dtype = c10::nullopt,
-    const std::string& name = std::string());
+    const std::string& name = std::string(),
+    const std::string& inference_name = std::string());
 
 synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
@@ -195,7 +196,8 @@ synapse_helpers::tensor create_tensor(
     bool persistent,
     bool external,
     const synDataType dtype,
-    const std::string& name = std::string());
+    const std::string& name = std::string(),
+    const std::string& inference_name = std::string());
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
