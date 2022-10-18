@@ -33,9 +33,9 @@ def handle_quant_stats(model=None):
                    placeholder_dict[node.all_input_nodes[i].target] = name
         for name, param in model.state_dict().items():
             if name.endswith('.min_val'):
-                min_calibration_data[name.rstrip('.min_val')] = param.item()
+                min_calibration_data[name.replace(".min_val","")] = param.item()
             if name.endswith('.max_val'):
-                max_calibration_data[name.rstrip('.max_val')] = param.item()
+                max_calibration_data[name.replace(".max_val","")] = param.item()
         for name, param in placeholder_dict.items():
             if name in min_calibration_data.keys():
                min_calibration_data[param] = min_calibration_data[name]
