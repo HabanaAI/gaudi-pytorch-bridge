@@ -12,3 +12,5 @@ data/
 *.eggs/
 dist
 *.pbtxt
+.cache/
+tests/test_pt_integration

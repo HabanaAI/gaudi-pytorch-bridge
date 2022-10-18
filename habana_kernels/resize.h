@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -22,23 +22,27 @@
 
 namespace at {
 namespace native {
-inline  StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
-// Within PyTorch, the invariant is that storage_ is always
-// initialized; we never have tensors that don't have any storage.
-// However, for Caffe2, this is not true, because they have permitted
-// tensors to be allocated without specifying what scalar type
-// they should be, only to be filled when GetMutableData is called
-// for the first time (providing the necessary type). It is an ERROR to
-// invoke any PyTorch operations on such a half-constructed storage,
-// and this check tests for that case.
-TORCH_CHECK(tensor->storage(), "Cannot use PyTorch operations on a half-constructed "
-"tensor. If this tensor came from Caffe2, please call GetMutableData on "
-"it first; otherwise, this is a bug, please report it.");
-return tensor->storage().unsafeGetStorageImpl();
+inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
+  // Within PyTorch, the invariant is that storage_ is always
+  // initialized; we never have tensors that don't have any storage.
+  // However, for Caffe2, this is not true, because they have permitted
+  // tensors to be allocated without specifying what scalar type
+  // they should be, only to be filled when GetMutableData is called
+  // for the first time (providing the necessary type). It is an ERROR to
+  // invoke any PyTorch operations on such a half-constructed storage,
+  // and this check tests for that case.
+  TORCH_CHECK(
+      tensor->storage(),
+      "Cannot use PyTorch operations on a half-constructed "
+      "tensor. If this tensor came from Caffe2, please call GetMutableData on "
+      "it first; otherwise, this is a bug, please report it.");
+  return tensor->storage().unsafeGetStorageImpl();
 }
 
-//inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
-inline void THStorage_resizeBytes(c10::StorageImpl* self, ptrdiff_t size_bytes) {
+// inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
+inline void THStorage_resizeBytes(
+    c10::StorageImpl* self,
+    ptrdiff_t size_bytes) {
   TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::HPUDeviceAllocator::allocator_active_device_id;
@@ -109,6 +113,8 @@ inline TensorImpl* resize_impl_hpu_(
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
     UNUSED bool device_guard = true) {
+  HABANA_ASSERT(
+      self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
   }
@@ -148,7 +154,7 @@ inline TensorImpl* resize_impl_hpu_(
 // THH = TorcH Habana
 // TODO: put it in proper namespace
 inline void THHTensor_resizeNd(
-    //THTensor* self,
+    // THTensor* self,
     c10::TensorImpl* self,
     int nDimension,
     const int64_t* size,
@@ -167,7 +173,7 @@ inline void THHTensor_resizeNd(
 }
 
 inline void THHTensor_resizeNd_nonpersistent(
-    //THTensor* self,
+    // THTensor* self,
     c10::TensorImpl* self,
     int nDimension,
     const int64_t* size,
