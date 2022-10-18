@@ -3768,19 +3768,28 @@ native_layer_norm_backward:
 
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Byte, Char]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   type_promotion: true
 
 ne.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Byte, Char]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
   type_promotion: true
 
 ne_.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   scalar_ids: [1]
   inplace_ids: [0]
@@ -3788,14 +3797,20 @@ ne_.Scalar:
 
 ne_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   inplace_ids: [0]
   type_promotion: true
 
 ne.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
   op_backend: NE
   scalar_ids: [1]
@@ -3805,7 +3820,10 @@ ne.Scalar:
 ne.Tensor:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
   op_backend: NE
   out_ids: [0]
