@@ -1127,7 +1127,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       // Setting output shapes for the lazy eager shape agnostic graph
       optimized_path_jit_ir_and_mdata->set_output_shapes(out_shapes);
     }
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) ||
+        !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
       context->JoinPendingLaunchThread();
       std::vector<ir::Value>& input_values =
           lazyFrontEndInfo->get_input_values();
