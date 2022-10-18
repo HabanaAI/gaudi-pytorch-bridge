@@ -3340,6 +3340,15 @@ lt.Tensor:
   op_backend: CompareOp
   type_promotion: true
 
+_masked_scale:
+  custom_output_shape: MaskedScaleOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
+  op_backend: MaskedScale
+  out_ids: [0]
+
 max:
   custom_output_shape: AllAnyOutputShape
   dtypes: [BFloat16, Float, Int]

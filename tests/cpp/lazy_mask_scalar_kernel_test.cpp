@@ -29,13 +29,13 @@ TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
   // Eager section:
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
-  auto hExpected = masked_scale_hpu(hA, hB, scale);
+  auto hExpected = at::_masked_scale(hA, hB, scale);
   Tensor expected = hExpected.to(torch::kCPU);
 
   // Lazy Section
   auto hAL = A.to(torch::kHPU);
   auto hBL = B.to(torch::kHPU);
-  auto hOut = _masked_scale(hAL, hBL, scale);
+  auto hOut = masked_scale_hpu_lazy(hAL, hBL, scale);
   Tensor out = hOut.to(kCPU);
 
   EXPECT_EQ(allclose(out, expected), true);

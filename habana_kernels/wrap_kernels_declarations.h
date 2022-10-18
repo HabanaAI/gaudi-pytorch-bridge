@@ -235,10 +235,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
-  static at::Tensor _masked_scale(
-      const at::Tensor& self,
-      const at::Tensor& mask,
-      double scale);
   static at::Tensor matmul(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor isfinite(const at::Tensor& self);
   static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);

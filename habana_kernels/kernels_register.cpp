@@ -2057,29 +2057,6 @@ Tensor batched_nms_hpu_wrap(
   return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
 }
 
-Tensor hpu_wrap::_masked_scale(
-    const Tensor& self,
-    const Tensor& mask,
-    double scale) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " _masked_scale:",
-      " self=",
-      to_string(self),
-      "mask=",
-      to_string(mask),
-      "scale=",
-      to_string(scale));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      _masked_scale, PARAMS1(self, mask), PARAMS2(self, mask, scale))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_scale_hpu_lazy(self, mask, scale);
-  } else {
-    return masked_scale_hpu(self, mask, scale);
-  }
-}
-
 Tensor habana_d2d_memcpy(const Tensor& self) {
   HABANA_ASSERT(0);
   return self;
@@ -2351,7 +2328,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
     variable_list saved_vars = ctx->get_saved_variables();
     auto mask = saved_vars[0];
     at::Tensor result;
-    result = hpu_wrap::_masked_scale(grad_output[0], mask, 1.0 / p);
+    result = masked_scale_hpu_lazy(grad_output[0], mask, 1.0 / p);
     return {result, torch::Tensor(), torch::Tensor()};
   }
 };
