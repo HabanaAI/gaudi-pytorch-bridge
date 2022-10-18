@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -491,6 +491,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
           absl::holds_alternative<synapse_helpers::synapse_error>(
               error_variant))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
+
     PT_BRIDGE_FATAL(
         "syn compile encountered : ",
         error.error,

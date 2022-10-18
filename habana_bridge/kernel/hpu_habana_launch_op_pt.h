@@ -1,13 +1,15 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-
 #pragma once
 
 #include <sys/stat.h>
@@ -60,8 +62,19 @@ enum ControlEdgeType {
   kCONTROL_EDGE_NONE = 0,
   kCONTROL_EDGE_,
   kCONTROL_EDGE_OTHER_,
-  kCONTROL_EDGE_INPLACE
+  kCONTROL_EDGE_INPLACE_INPUT_0,
+  kCONTROL_EDGE_INPLACE_INPUT_1,
 };
+
+inline bool IsControlEdgeTypeInplace(ControlEdgeType cet) {
+  switch (cet) {
+    case kCONTROL_EDGE_INPLACE_INPUT_0:
+    case kCONTROL_EDGE_INPLACE_INPUT_1:
+      return true;
+    default:
+      return false;
+  }
+}
 
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 

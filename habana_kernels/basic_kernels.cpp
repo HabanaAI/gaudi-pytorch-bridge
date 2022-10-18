@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <ATen/ATen.h>
 #include <ATen/CPUFunctions.h>
@@ -362,6 +365,10 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
+    // Important:
+    // Conditions for calling 'duplicate_tensor_in_memory_section' below
+    // must match conditions in 'inplaceInputId' function in
+    // jitgraph_utils.cpp
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
             p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
@@ -778,28 +785,28 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
         inputs[2].isIntList(),
         "Input slice params type expected to be integer list");
   }
-    std::vector<int64_t> shape = self.sizes().vec();
-    Tensor output = habana_helpers::createPTTensor(
-        self,
-        shape,
-        self.options(),
-        self.suggest_memory_format(),
-        output_metadata.at(0).persistent);
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  std::vector<int64_t> shape = self.sizes().vec();
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-    if (have_shape_tensor) {
-      AddNodeToSynapseGraph(graph, nullptr, 0);
-    } else {
-      // Allocate Shape tensor
-      if (graph.is_dynamic_graph()) {
-        AllocateSynapseShapeTensor(graph, output);
-      }
-      auto paramsList = inputs[2].toIntList();
-
-      synSliceParamsNDims params;
-      ComputeParams(params, self, paramsList, graph);
-      AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  if (have_shape_tensor) {
+    AddNodeToSynapseGraph(graph, nullptr, 0);
+  } else {
+    // Allocate Shape tensor
+    if (graph.is_dynamic_graph()) {
+      AllocateSynapseShapeTensor(graph, output);
     }
+    auto paramsList = inputs[2].toIntList();
+
+    synSliceParamsNDims params;
+    ComputeParams(params, self, paramsList, graph);
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 bool StridedInsertOperator::verifyViewMemoryAccess(
