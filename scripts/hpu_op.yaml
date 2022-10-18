@@ -4392,17 +4392,26 @@ ne.Tensor:
   type_promotion: true
 
 neg.out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: neg_fwd
 
 neg_:
   force_default: false
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: neg_fwd
   inplace_ids: [0]
 
 neg:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: neg_fwd
   force_default: false
   out_ids: [0]
