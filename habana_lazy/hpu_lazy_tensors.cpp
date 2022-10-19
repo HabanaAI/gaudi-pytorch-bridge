@@ -142,7 +142,10 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
         tensors.emplace_back(hl_t);
       }
     }
-    devctx->tensors_data_opt.clear();
+    {
+      std::lock_guard<std::recursive_mutex> lock(GetMutex());
+      devctx->tensors_data_opt.clear();
+    }
   } else {
     for (auto& uid_wptr : devctx->tensors_data) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
