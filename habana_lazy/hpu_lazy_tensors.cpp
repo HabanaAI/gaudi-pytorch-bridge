@@ -112,10 +112,10 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   // Live tensor collection is not allowed if the launch thread execution is  in
   // progeress.
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
-    HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
-  }
+  // if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+  //       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
+  //   HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
+  // }
 
   LOCK_VIEW_TABLE_MUTEX(context->viewContext);
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
@@ -851,6 +851,16 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   return pt_tensor;
 }
 
+bool CheckPrevLaunchDependancy(habana_lazy::ir::ValueList& inputs) {
+  for (const auto& in : inputs) {
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    if (d && (!d->tensor_data.has_value())) {
+      return true;
+    }
+  }
+  return false;
+}
+
 torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices,
@@ -1058,9 +1068,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // To check if it is Optimized Lazy Cached graph
     isOptimizedLazyEager = lazyFrontEndInfo->get_is_optimized_lazy_eager();
   }
-  if (!isOptimizedLazyEager) {
-    context->JoinPendingLaunchThread();
-  }
 
   std::vector<int> indices = {};
   // collect_sync_tensors will be true when the markstep is invoked and the live
@@ -1139,6 +1146,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     }
   } else {
     po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
+        !async || CheckPrevLaunchDependancy(po_data.inputs)) {
+      context->JoinPendingLaunchThread();
+    }
+
     stack = PrepareInputStack(
         tensors, indices, po_data.inputs, false, &po_data.post_order);
 
@@ -1435,11 +1447,6 @@ void HbLazyTensor::StepMarker(
   }
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = false;
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && lazy_front_end_info &&
-        lazy_front_end_info->get_optimized_lazy_eager_key())) {
-    context->JoinPendingLaunchThread();
-  }
-
   HbLazyTensor::SyncLiveTensorsGraph(
       &device,
       lazy_front_end_info,
