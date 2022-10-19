@@ -31,6 +31,9 @@ class CustomOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
  private:
   custom_op::HabanaCustomOpDescriptor op_desc_;
 };

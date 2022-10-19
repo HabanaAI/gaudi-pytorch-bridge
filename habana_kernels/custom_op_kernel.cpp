@@ -58,4 +58,26 @@ void CustomOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, params.get(), params_size);
 }
 
+OutputShapeInfRetType CustomOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto self = inputs[0].toTensor();
+  auto outputs_desc = op_desc_.getOutputs();
+  for (unsigned i = 0; i < op_desc_.getOutputsSize(); ++i) {
+    std::vector<int64_t> result_sizes = self.sizes().vec();
+    if (op_desc_.hasOutputShapeFunc(i)) {
+      custom_op::compute_output_shape_function output_shape_func =
+          op_desc_.getOutputShapeFunc(i);
+      result_sizes = output_shape_func(inputs);
+    }
+    out.AddOutputTensor(TensorMetaData(
+        result_sizes,
+        HabanaOperator::CalculateStrides(
+            result_sizes, self.suggest_memory_format()),
+        outputs_desc[i].dtype,
+        self.suggest_memory_format()));
+  }
+  return out;
+}
+
 } // namespace habana

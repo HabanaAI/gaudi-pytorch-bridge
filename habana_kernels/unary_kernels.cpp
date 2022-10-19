@@ -815,6 +815,19 @@ void IsfiniteOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+OutputShapeInfRetType IsfiniteOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto self = inputs[0].toTensor();
+  out.AddOutputTensor(TensorMetaData(
+      self.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          self.sizes().vec(), self.suggest_memory_format()),
+      c10::ScalarType::Bool,
+      self.suggest_memory_format()));
+  return out;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for gelu
  *output = 0.5 * x *(1.0 + tf.tanh(

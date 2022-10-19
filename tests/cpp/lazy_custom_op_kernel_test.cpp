@@ -162,6 +162,9 @@ TORCH_LIBRARY_IMPL(custom_op, HPU, m) {
 }
 
 TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   SetSeed();
   torch::Tensor input_a_cpu = torch::randn({2, 2}, torch::dtype(torch::kFloat));
   torch::Tensor input_b_cpu = torch::randn({2, 2}, torch::dtype(torch::kFloat));
@@ -193,9 +196,13 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
 
   bool equal = results_cpu.allclose(result.to(torch::kCPU), 0, 0);
   EXPECT_TRUE(equal);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   SetSeed();
   torch::Tensor input_a_cpu = torch::randn({2, 2}, torch::dtype(torch::kFloat));
   torch::Tensor input_a = input_a_cpu.to(torch::kHPU);
@@ -224,9 +231,13 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
 
   bool equal = results_cpu.allclose(result.to(torch::kCPU), 0.5, 0.5);
   EXPECT_TRUE(equal);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyCustomKernelKernelTest, ShapeInference) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+
   torch::Tensor input_cpu = torch::randn({6, 6}, torch::dtype(torch::kFloat));
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -241,4 +252,5 @@ TEST_F(LazyCustomKernelKernelTest, ShapeInference) {
           .allclose(std::get<1>(results_habana).to(torch::kCPU), 0, 0);
   EXPECT_TRUE(equal);
   EXPECT_TRUE(equal_indices);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
