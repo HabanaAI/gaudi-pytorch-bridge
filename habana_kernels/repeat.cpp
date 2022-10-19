@@ -208,6 +208,21 @@ std::vector<int64_t> RepeatInlvOperator::compute_output_shape(
   return outshape;
 }
 
+OutputShapeInfRetType RepeatInlvOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto input = inputs[0].toTensor();
+  auto out_shape = inputs[3].toTensor();
+  auto out_metadata = TensorMetaData(
+      out_shape.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          out_shape.sizes().vec(), input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+  out.AddOutputTensor(out_metadata);
+  return out;
+}
+
 void RepeatInlvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

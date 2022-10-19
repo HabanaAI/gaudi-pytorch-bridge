@@ -53,7 +53,7 @@ class RepeatInlvOperator : public HabanaOperator {
             "repeat_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     CreateSynContext(device_id);
   }
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

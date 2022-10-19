@@ -2086,7 +2086,7 @@ void runIndexPutDynamicTestIntVect(
   }
 }
 
-static void repeatInlvTest(
+void repeatInlvTest(
     at::Tensor A,
     std::vector<int64_t> rpt_vals,
     int64_t dim = -1) {

@@ -656,9 +656,6 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestHt) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, DISABLED_RoiAlignBwd) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
   auto roi_align_test = [](int num_boxes, std::vector<int64_t> input_shape) {
     auto images = torch::randn(input_shape).to(torch::kHPU);
     auto boxes = torch::randn({num_boxes, 4}) * 64;
@@ -688,8 +685,6 @@ TEST_F(LazyDynamicComputeOutputShapesTest, DISABLED_RoiAlignBwd) {
   roi_align_test({6}, {2, 3, 25, 25});
   roi_align_test({10}, {2, 3, 35, 35});
   roi_align_test({12}, {2, 3, 50, 50});
-
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 // Also validates ComputeOutputShape for RandPermHT
@@ -712,9 +707,6 @@ TEST_F(LazyDynamicComputeOutputShapesTest, RandPermHT) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Mean) {
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
-    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
-  }
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -725,5 +717,16 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Mean) {
     EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
     PT_TEST_DEBUG("PTI_DBG: Iteration End -- ", i, " ----\n");
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+void repeatInlvTest(
+    at::Tensor A,
+    std::vector<int64_t> rpt_vals,
+    int64_t dim = -1);
+
+TEST_F(LazyDynamicComputeOutputShapesTest, repeatInlv) {
+  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
+  repeatInlvTest(torch::tensor({4, 5}), {10, 7});
+  repeatInlvTest(torch::randn({4, 5}), {2, 1, 1, 1, 1}, 1);
+  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
