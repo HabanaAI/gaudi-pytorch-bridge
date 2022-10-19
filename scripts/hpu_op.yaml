@@ -3436,7 +3436,10 @@ max.dim_max:
 maximum:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+     Gaudi: [BFloat16, Float, Int]
+     Gaudi2: [BFloat16, Float, Int, Half]
+     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   out_ids: [0]
   type_promotion: true
@@ -3444,7 +3447,10 @@ maximum:
 
 maximum.out:
   broadcast: true
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+     Gaudi: [BFloat16, Float, Int]
+     Gaudi2: [BFloat16, Float, Int, Half]
+     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   type_promotion: true
   safe_cast_check: true
