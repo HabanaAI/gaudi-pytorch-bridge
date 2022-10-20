@@ -2841,7 +2841,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   CreateValueToIvalueMapForInputs();
 
   // shape agnostic caching :: begin
-  if (enable_shape_agnostic_caching_) {
+  if (enable_shape_agnostic_caching_ &&
+      jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
     if (is_jit_cached_graph_info_available == false) {
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
@@ -2859,6 +2860,21 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       PrepareTensorIdToTensorHandleMap();
 
       DuplicateSynapseGraph();
+      if ((syn_graph_ptr->get_num_of_tensors() !=
+           pt_to_synapse_tensors.size()) ||
+          (habana_kernels.size() > 1)) {
+        jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+            " total number of tensors : ",
+            syn_graph_ptr->get_num_of_tensors(),
+            " number of persistent tensors : ",
+            pt_to_synapse_tensors.size(),
+            " number of kernels : ",
+            habana_kernels.size(),
+            "number of nodes : ",
+            syn_graph_ptr->get_num_of_nodes());
+      }
       CompileSynapseGraph();
       StoreShapeAgnosticGraph();
       ConstructPatchingTable();
@@ -2978,6 +2994,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());
   BuildSynapseGraph(syn_graph);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+    syn_graph_ptr->copy_graph_handle_to_duplicate();
+  }
   CompileSynapseGraph();
   ConstructPatchingTable();
   UpdateSynapsePermutations();

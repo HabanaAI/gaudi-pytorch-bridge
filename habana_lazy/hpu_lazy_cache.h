@@ -284,6 +284,14 @@ struct OptimizedJITGraphAndMetaData {
     syn_tensor_id_to_tensor_handle = tensor_id_to_tensor_handle_map;
   }
 
+  bool get_is_shape_agnostic_supported() {
+    return is_shape_agnostic_supported;
+  }
+
+  void set_is_shape_agnostic_supported(bool flag) {
+    is_shape_agnostic_supported = flag;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -308,6 +316,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<std::vector<int64_t>> output_shapes{};
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   std::unordered_map<uint64_t, synTensor> syn_tensor_id_to_tensor_handle{};
+  bool is_shape_agnostic_supported = true;
 };
 
 /**

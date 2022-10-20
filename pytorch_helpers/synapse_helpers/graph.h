@@ -223,6 +223,10 @@ class graph {
     return duplicate_graph_handle_;
   }
 
+  void copy_graph_handle_to_duplicate() {
+    duplicate_graph_handle_ = graph_handle_;
+  }
+
   uint32_t get_num_of_tensors() const {
     return numTensors;
   }
