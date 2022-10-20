@@ -939,48 +939,6 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-
-  // Cast Boolean (I8) inputs to Float since TPC kernel supports only f32 and
-  // bf16. Only use-case for sum() on Bool input seen is to count the number of
-  // "True" or "False" entries where this solution should be fine.
-  auto self = self_in;
-  if (self_in.scalar_type() == c10::ScalarType::Bool) {
-    self = habana_helpers::hpu_cast_tensor(
-        self_in, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-  }
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  // Create the operator
-  SumOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Add nodes to the graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  SET_SIZE_STRIDE_0D(out.at(0));
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 OutputShapeInfRetType MeanOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
@@ -1370,7 +1328,6 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
 static auto& ReductionKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
-        .add("aten::sum", KERNEL_FN(SumOperator))
         .add("aten::mean", KERNEL_FN(MeanOperator))
         .add("hpu::sum_dim_IntList", KERNEL_FN(SumDimOperator))
         .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))

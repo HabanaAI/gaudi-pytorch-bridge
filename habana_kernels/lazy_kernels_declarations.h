@@ -407,9 +407,6 @@ at::Tensor sum_dim_IntList_hpu_lazy(
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor sum_hpu_lazy(
-    const at::Tensor& self,
-    c10::optional<at::ScalarType> dtype);
 at::Tensor mean_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::ScalarType> dtype);

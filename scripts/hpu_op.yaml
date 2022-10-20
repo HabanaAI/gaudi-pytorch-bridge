@@ -5037,7 +5037,8 @@ sum:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
-  override_fn: sum_hpu_lazy
+  guid: reduce_sum_fwd
+  out_ids: [0]
 
 sum.dim_IntList:
   force_default: false
