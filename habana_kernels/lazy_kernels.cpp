@@ -4807,10 +4807,11 @@ void randperm_hpu_lazy_ht(
       SHAPE_TENSOR);
   auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
 
+  auto seed = habana::get_seed_tensor_hpu(gen);
   LazyOp<Tensor&> op{
       "hpu::randperm_out_ds_ht",
-      {params_shape, result_shape, std::move(gen), output},
-      {2},
+      {params_shape, result_shape, seed, output},
+      {},
       {},
       3};
   op.call(output);

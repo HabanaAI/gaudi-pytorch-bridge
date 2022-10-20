@@ -156,10 +156,8 @@ void HabanaLaunchOpPT::create_synapse_inputs(
       }
     } else if (
         (!strcmp("hpu::randperm_out", node_qual_str) && 0 == input_idx) ||
-        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx) ||
-        (!strcmp("hpu::randperm_out_ds_ht", node_qual_str) && 2 == input_idx)) {
+        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx)) {
       // Create the seed tensor
-      // TODO : update for seed tensor usage as per SW-107126 fix
       at::Tensor seed_tensor =
           RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
       PT_TEST_DEBUG(

@@ -212,13 +212,13 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
       "Input arg0 expected to be Tensor for RandpermOperatorHT");
   TORCH_CHECK(
       inputs[1].isTensor(),
-      "Input arg0 expected to be Tensor for RandpermOperatorHT");
+      "Input arg1 expected to be Tensor for RandpermOperatorHT");
   TORCH_CHECK(
-      inputs[2].isGenerator() || inputs[2].isNone(),
-      "Input arg1 expected to be Generator for RandpermOperatorHT");
+      inputs[2].isTensor(),
+      "Input arg2 expected to be Tensor for RandpermOperatorHT");
   TORCH_CHECK(
       inputs[3].isTensor(),
-      "Input arg2 expected to be Tensor for RandpermOperatorHT");
+      "Input arg3 expected to be Tensor for RandpermOperatorHT");
 
   auto host_tensor = inputs[0].toTensor();
   auto shape_tensor = inputs[1].toTensor();
@@ -233,12 +233,6 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
       IValue(host_tensor), IValue(arangeOutput), IValue(shape_tensor)};
   arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
-  // Move inputs[2] as output tensor
-  synapse_helpers::tensor& syn_out_t = p_context_->syn_inputs_[2];
-  p_context_->syn_outputs_.emplace_back(syn_out_t);
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[2]);
-  p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin() + 2);
-  p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin() + 2);
 
   // create RandomShuffle operator
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
@@ -247,8 +241,10 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-  p_context_->syn_outputs_[0] = std::move(randShuffleOp->GetSynOutputs()[0]);
-  p_context_->pt_outputs_[0] = std::move(randShuffleOp->GetOutputs()[0]);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(randShuffleOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(
+      std::move(randShuffleOp->GetOutputs()[0]));
 }
 
 void RandpermOperator::AllocateAndAddSynapseNode(
