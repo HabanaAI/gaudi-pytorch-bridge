@@ -197,7 +197,6 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                     # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
                     #     static_input_surface[i].copy_(inputs[i])
                     static_input_surface[i].copy_(inputs[i])
-                htorch.hpu.synchronize()
                 fwd_graph.replay()
                 assert isinstance(static_outputs, tuple)
                 return tuple(o.detach() for o in static_outputs)
@@ -212,7 +211,6 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                         # if g.data_ptr() != grad.data_ptr():
                         #     g.copy_(grad)
                         g.copy_(grad)
-                htorch.hpu.synchronize()
                 bwd_graph.replay()
 
                 # Input args that didn't require grad expect a None gradient.
