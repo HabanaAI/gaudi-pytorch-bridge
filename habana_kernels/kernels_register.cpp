@@ -2287,6 +2287,7 @@ struct IsfiniteFunction : public torch::autograd::Function<IsfiniteFunction> {
 Tensor hpu_wrap::isfinite(const Tensor& self) {
   PT_OP_TRACE;
   PT_OP_INFO(" isfinite:", " self=", to_string(self));
+  FALLBACK_IF_UNSUPPORTED_OP(isfinite, PARAMS1(self), PARAMS2(self))
   return IsfiniteFunction::apply(self);
 }
 

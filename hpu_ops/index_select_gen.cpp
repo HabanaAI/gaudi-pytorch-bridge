@@ -15,6 +15,13 @@ constexpr int64_t index_of_dim = 1;
 constexpr int64_t index_of_index_position = 2;
 
 namespace habana {
+FALLBACK_CHECK(IndexSelectFallbackCheck, const at::Tensor& self) {
+  if (self.dim() > 5) {
+    return false;
+  }
+  return true;
+};
+
 std::shared_ptr<void> FillIndexSelectParams(
     const at::Stack& stack,
     size_t& size) {

@@ -2719,6 +2719,7 @@ index_select:
     Greco: [BFloat16, Float, Int, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
+  fallback_check: [IndexSelectFallbackCheck, self]
 
 index_select.out:
   custom_output_shape: IndexSelectOutShape
@@ -2728,6 +2729,7 @@ index_select.out:
     Greco: [BFloat16, Float, Int, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
+  fallback_check: [IndexSelectFallbackCheck, self]
 
 le.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
