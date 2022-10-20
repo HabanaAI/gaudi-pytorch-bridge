@@ -330,9 +330,14 @@ class LazyOp {
       T results,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    const auto& node = create_node();
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      isOptimizedLazyEager =
+          info_to_lazy_backend->get_is_optimized_lazy_eager();
+    }
     int i = 0;
     std::vector<at::Tensor> tensors;
+    std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
     const auto& out_shapes = m_out_shapes;
     auto context = habana_lazy_executor.getDeviceExecutionContext();
@@ -342,17 +347,11 @@ class LazyOp {
 
     habana::for_each_in_tuple(
         results,
-        [&node, &i, &tensors, out_shapes, context, this](const auto& result) {
+        [&i, &hl_results, &tensors, context, out_shapes, this](
+            const auto& result) {
           auto hl_result = GetHbLazyTensor(result);
           tensors.push_back(result);
-          updateDstDependencies(hl_result, result, true);
-          ir::Value& out = hl_result.CurrentIrValue();
-          out.SetNode(
-              node,
-              hl_result.GetDevice(),
-              hl_result.GetSizes(),
-              hl_result.dtype_optional(),
-              i);
+          hl_results.push_back(hl_result);
           const auto& out_shape = out_shapes.at(i);
           if (result.sizes() != out_shape ||
               (!m_shape_was_changed_in_tuple.empty() &&
@@ -364,10 +363,31 @@ class LazyOp {
           }
           context->MarkTensorStatus(
               hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-          ++i;
+          i++;
         });
+
+    if (isOptimizedLazyEager == false) {
+      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      i = 0;
+      auto node = create_node();
+      for (auto hl_result : hl_results) {
+        updateDstDependencies(hl_result, tensors[i], false);
+        ir::Value& out = hl_result.CurrentIrValue();
+        out.SetNode(
+            node,
+            hl_result.GetDevice(),
+            hl_result.GetSizes(),
+            hl_result.dtype_optional(),
+            i);
+        i++;
+      }
+    } else {
+      PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
+      std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+      info_to_lazy_backend->set_input_values(input_vals);
+    }
     runSBS(tensors);
-    flush_op(tensors, info_to_lazy_backend);
+    flush_op(tensors, info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -383,10 +403,8 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-    // Temporarily disabled the switch - To Do
     if (is_optimized_lazy_eager_supported(
-            isView, context->viewContext.isLazyViewPresent) &&
-        false) {
+            isView, context->viewContext.isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);
