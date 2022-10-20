@@ -189,133 +189,83 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
       op, graph, syn_in, self.sizes(), self.scalar_type(), dtype_val);
 }
 
-// TO DO: Refactor HandleReductionDimAndKeepdim function to handle
-// different fill_param function Jira:
-// https://jira.habana-labs.com/browse/SW-96835
-std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Tensor& self,
-    std::vector<synTensor> inputs,
-    const at::IntArrayRef dims,
-    bool keepdim,
-    const std::string& guid,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr,
-    std::function<std::shared_ptr<
-        void>(const int64_t, size_t&, int64_t, const at::Scalar&)>
-        fill_param_fn,
-    const at::Scalar& ord) {
-  struct Parameters {
-    std::shared_ptr<void> param_list;
-    size_t size_list{};
-    std::vector<int64_t> shape_list;
-  };
-  auto dim = dims.vec();
-  auto mask = std::bitset<64>();
-  std::vector<int64_t> orig_shape{self.sizes().vec()};
-  int ndims = orig_shape.size();
-  auto num_outputs = output_attr.size();
-  int num_tpc_outputs = 1;
-
-  std::vector<synTensor> tensor_list;
-  std::vector<synapse_helpers::tensor> flatten_input;
-  std::vector<synapse_helpers::tensor> reshape_list;
-  std::vector<synapse_helpers::tensor> tensor_itr;
-  std::vector<Parameters> parameters;
+void ProcessDim(std::vector<int64_t>& dims, const int& ndims) {
   // When dim=[], reduce all dimensions based on keepdim value
-  if (0 == dim.size()) {
+  if (0 == dims.size()) {
     for (int i = 0; i < ndims; ++i) {
-      dim.push_back(i);
+      dims.push_back(i);
     }
   }
-  HABANA_ASSERT(num_outputs <= 2, "Number of outputs is greater than 2.");
+  LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
+}
 
-  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndims);
-  auto num_dims_to_reduce = dim.size();
-  std::vector<int64_t> next_val(ndims);
-  std::iota(next_val.begin(), next_val.end(), 0);
+bool CheckDims(const std::vector<int64_t>& dims) {
+  auto num_dims_to_reduce = dims.size();
   bool flatten_higher_dims = false;
   for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; i++) {
-    if (dim[i] == next_val[i]) {
+    if (dims[i] == i) {
       flatten_higher_dims = true;
     } else {
       flatten_higher_dims = false;
       break;
     }
   }
-  auto use_flat_input =
-      GET_ENV_FLAG_NEW(PT_HPU_REDUCTION_FLATTEN_INPUT) && flatten_higher_dims;
-  if (use_flat_input) {
-    // reshaped_self_sizes is used to hold appropriate input sizes
-    std::vector<int64_t> reshaped_self_sizes;
+  return flatten_higher_dims;
+}
 
-    auto flatten_size = std::accumulate(
-        orig_shape.begin(),
-        orig_shape.begin() + num_dims_to_reduce,
-        1,
-        std::multiplies<int>());
-    if (keepdim) {
-      // we need to keep a size of '1' for upper dims, flattened value at
-      // last pos of "dim array", and original sizes for lower dimensions
-      // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true
-      // becomes [1,1,48,2]
-      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
-        reshaped_self_sizes.emplace_back(1);
-      }
-    }
-    // else all upper dims sizes are flattened into a single dim at 0
+void CombineDims(
+    const at::Tensor& self,
+    std::vector<int64_t>& dim,
+    const bool keepdim,
+    std::vector<int64_t>& reshaped_self_sizes) {
+  auto dim_size = dim.size();
+  std::vector<int64_t> self_shape{self.sizes().vec()};
+  auto flatten_size = std::accumulate(
+      self_shape.begin(),
+      self_shape.begin() + dim_size,
+      1,
+      std::multiplies<int>());
+  if (keepdim) {
+    // we need to keep a size of '1' for upper dims, flattened value at last
+    // pos of "dim array", and original sizes for lower dimensions
     // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
-    // [48,2]
-    reshaped_self_sizes.emplace_back(flatten_size);
-    for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
-      reshaped_self_sizes.emplace_back(orig_shape[i]);
-    }
-    orig_shape = reshaped_self_sizes;
-    ndims = reshaped_self_sizes.size();
-    auto flat_input = OpBackend::BuildReshape(
-        op, graph, inputs[0], reshaped_self_sizes, op->ScalarType());
-    flatten_input.emplace_back(std::move(flat_input));
-    std::vector<int64_t> reshaped_in_dim;
-    // updating the dim input according to reshaped input
-    if (!keepdim) {
-      reshaped_in_dim.push_back(0);
-    } else {
-      reshaped_in_dim.push_back(dim[num_dims_to_reduce - 1]);
-    }
-    dim = reshaped_in_dim;
-  }
-
-  for (const auto& i : dim) {
-    mask.set(c10::maybe_wrap_dim(i, ndims, true));
-  }
-  for (int64_t dimIndex = orig_shape.size() - 1; dimIndex >= 0; dimIndex--) {
-    if (mask[dimIndex]) {
-      orig_shape[dimIndex] = 1;
-      size_t size = 0;
-      auto params = fill_param_fn(ndims, size, dimIndex, ord);
-      parameters.push_back({params, size, orig_shape});
+    // [1,1,48,2]
+    for (unsigned i = 0; i < dim_size - 1; i++) {
+      reshaped_self_sizes.emplace_back(1);
     }
   }
+  // else all upper dims sizes are flattened into a single dim at 0
+  // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
+  // [48,2]
+  reshaped_self_sizes.emplace_back(flatten_size);
+  for (unsigned i = dim_size; i < self.dim(); i++) {
+    reshaped_self_sizes.emplace_back(self_shape[i]);
+  }
+  std::vector<int64_t> reshaped_in_dim;
+  if (!keepdim) {
+    reshaped_in_dim.push_back(0);
+  } else {
+    reshaped_in_dim.push_back(dim[dim.size() - 1]);
+  }
+  dim = reshaped_in_dim;
+}
 
-  // lambda for reduction op build node
-  auto reduction_build_node =
-      [op, &graph, &guid, parameters](
-          std::vector<synTensor> input,
-          const std::vector<NodeAttr::NodeOutputAttr>& attr,
-          int param_index) -> std::vector<synapse_helpers::tensor> {
-    return OpBackend::BuildNode(
-        op,
-        graph,
-        {guid,
-         std::move(input),
-         attr,
-         parameters[param_index].param_list.get(),
-         parameters[param_index].size_list});
-  };
+static synapse_helpers::tensor FlattenInput(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    const std::vector<int64_t>& reshaped_self_sizes) {
+  return OpBackend::BuildReshape(
+      op, graph, syn_in, reshaped_self_sizes, op->ScalarType());
+}
 
-  auto retain_ten_shape =
-      num_outputs > 1 ? parameters[0].shape_list : self.sizes().vec();
-
+static void GuidOutCount(
+    OpBackend* op,
+    const std::string& guid,
+    const std::vector<int64_t>& retain_ten_shape,
+    int& num_tpc_outputs,
+    std::vector<NodeAttr::NodeOutputAttr>& output_attr,
+    size_t num_outputs) {
   // TPC guids which returns two outputs
   std::vector<std::string> multi_output_reduce_ops = {
       "reduce_min_fwd",
@@ -332,20 +282,101 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       break;
     }
   }
-  auto reduce_output_attrs = [output_attr, retain_ten_shape, num_tpc_outputs](
-                                 std::vector<int64_t> outshape)
+}
+
+std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Tensor& self,
+    std::vector<synTensor> inputs,
+    const at::IntArrayRef dims,
+    bool keepdim,
+    const std::string& guid,
+    std::vector<NodeAttr::NodeOutputAttr> output_attr,
+    std::function<std::shared_ptr<
+        void>(const int64_t, size_t&, int64_t, c10::optional<at::Scalar>)>
+        fill_param_fn,
+    c10::optional<at::Scalar> ord) {
+  struct Reduction_Param {
+    std::shared_ptr<void> param;
+    size_t size{};
+    std::vector<int64_t> shape;
+  };
+  auto dim = dims.vec();
+  auto mask = std::bitset<64>();
+  std::vector<int64_t> orig_shape{self.sizes().vec()};
+  int ndims = orig_shape.size();
+  auto num_outputs = output_attr.size();
+  int num_tpc_outputs = 1;
+
+  std::vector<synTensor> tensor_list;
+  std::vector<synapse_helpers::tensor> flatten_input;
+  std::vector<synapse_helpers::tensor> reshape_list;
+  std::vector<synapse_helpers::tensor> tensor_itr;
+  std::vector<Reduction_Param> param_list;
+
+  HABANA_ASSERT(num_outputs <= 2, "Number of outputs is greater than 2.");
+
+  ProcessDim(dim, ndims);
+  auto use_flat_input = CheckDims(dim);
+  if (use_flat_input) {
+    // reshaped_self_sizes is used to hold appropriate input sizes
+    std::vector<int64_t> reshaped_self_sizes;
+    CombineDims(self, dim, keepdim, reshaped_self_sizes);
+
+    auto flat_input = FlattenInput(op, graph, inputs[0], reshaped_self_sizes);
+    flatten_input.emplace_back(std::move(flat_input));
+    orig_shape = reshaped_self_sizes;
+    ndims = reshaped_self_sizes.size();
+  }
+
+  for (const auto& i : dim) {
+    mask.set(c10::maybe_wrap_dim(i, ndims, true));
+  }
+
+  // reduce_Lp_fwd has unique fill_param which takes scalar as extra input
+  for (int64_t dimIndex = orig_shape.size() - 1; dimIndex >= 0; dimIndex--) {
+    if (mask[dimIndex]) {
+      orig_shape[dimIndex] = 1;
+      size_t size = 0;
+      auto params = fill_param_fn(ndims, size, dimIndex, ord);
+      param_list.push_back({params, size, orig_shape});
+    }
+  }
+
+  // lambda for reduction op build node
+  auto reduction_build_node =
+      [op, &graph, &guid, param_list](
+          std::vector<synTensor> input,
+          const std::vector<NodeAttr::NodeOutputAttr>& attr,
+          int param_index) -> std::vector<synapse_helpers::tensor> {
+    return OpBackend::BuildNode(
+        op,
+        graph,
+        {guid,
+         std::move(input),
+         attr,
+         param_list[param_index].param.get(),
+         param_list[param_index].size});
+  };
+  GuidOutCount(
+      op, guid, param_list[0].shape, num_tpc_outputs, output_attr, num_outputs);
+
+  auto reduce_output_attrs =
+      [output_attr, param_list, num_tpc_outputs](std::vector<int64_t> outshape)
       -> std::vector<NodeAttr::NodeOutputAttr> {
     std::vector<NodeAttr::NodeOutputAttr> reduce_output_attrs{
         {outshape, output_attr[0].dtype}};
-    // output shape for the intermediate node can be different from the
-    // shape in output_attr passed to the handle function but the dtype
-    // will be same as in output_attr
+    // output shape for the intermediate node can be different from the shape in
+    // output_attr passed to the handle function but the dtype will be same as
+    // in output_attr
     for (int itr = 1; itr < num_tpc_outputs; itr++) {
-      reduce_output_attrs.push_back({retain_ten_shape, output_attr[itr].dtype});
+      reduce_output_attrs.push_back(
+          {param_list[0].shape, output_attr[itr].dtype});
     }
     return reduce_output_attrs;
   };
-  size_t len = parameters.size();
+  size_t len = param_list.size();
   if (keepdim) {
     // When keepdim value is set to true
     if (len == 1) {
@@ -359,7 +390,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     } else {
       auto op_out = reduction_build_node(
           std::move(inputs),
-          reduce_output_attrs(parameters[0].shape_list),
+          reduce_output_attrs(param_list[0].shape),
           /*param_index*/ 0);
 
       tensor_list.emplace_back(op_out[0].get());
@@ -368,7 +399,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       for (size_t i = 1; i <= len - 1; i++) {
         tensor_itr = reduction_build_node(
             {tensor_list[i - 1]},
-            reduce_output_attrs(parameters[i].shape_list),
+            reduce_output_attrs(param_list[i].shape),
             /*param_index*/ i);
         tensor_list.emplace_back(tensor_itr[0].get());
       }
@@ -390,7 +421,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     auto op_out = reduction_build_node(
         use_flat_input ? std::vector<synTensor>{flatten_input[0].get()}
                        : std::move(inputs),
-        reduce_output_attrs(parameters[0].shape_list),
+        reduce_output_attrs(param_list[0].shape),
         /*param_index*/ 0);
     tensor_list.emplace_back(op_out[0].get());
     if (len == 1) {
@@ -411,13 +442,12 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       for (size_t i = 1; i <= len - 1; i++) {
         tensor_itr = reduction_build_node(
             {tensor_list[i - 1]},
-            reduce_output_attrs(parameters[i].shape_list),
+            reduce_output_attrs(param_list[i].shape),
             /*param_index*/ i);
         tensor_list.emplace_back(tensor_itr[0].get());
       }
-      // when reduction has to be done for all the dimension of input
-      // tensor, TPC expects -[1,1,1,1] shape for 4d input but end
-      // outshape will be
+      // when reduction has to be done for all the dimension of input tensor,
+      // TPC expects -[1,1,1,1] shape for 4d input but end outshape will be
       // {}-0d so reshape is used in this case as well
       for (unsigned int itr = 0; itr < num_outputs; itr++) {
         auto reshape = OpBackend::BuildReshape(

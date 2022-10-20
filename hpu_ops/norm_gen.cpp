@@ -35,7 +35,8 @@ std::shared_ptr<void> FillPFormNormOpParams(
     const int64_t ndim,
     size_t& size,
     int64_t index,
-    const at::Scalar& ord) {
+    c10::optional<at::Scalar> opt_ord) {
+  const at::Scalar ord = opt_ord.value_or(2);
   PARAMS_STUB(ns_ReduceLpV2::Params);
   auto reduction_dim = ndim - 1 - index;
   params->reductionDimension = reduction_dim;
