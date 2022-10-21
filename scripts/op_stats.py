@@ -422,7 +422,7 @@ def main(args):
         fc = f +".csv"
         fj = f +".json"
         df = pd.read_csv (fc, sep ="|")
-        df.to_json (fj)
+        df.to_json (fj, orient='records')
 
     return
     
