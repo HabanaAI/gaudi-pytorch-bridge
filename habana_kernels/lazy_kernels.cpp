@@ -585,92 +585,90 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     return fb_self.copy_(fb_src);
   }
 
-  auto op_func = [self, src, non_blocking]() mutable {
-    ir::NodePtr node;
-    std::vector<at::Tensor> input_pt_vec;
-    // pick the most recent version of src tensor
-    Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
-    HbLazyTensor hb_tensor =
-        GetOrCreateHbLazyTensor(src_updated, src_updated.device());
-    auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
-    auto layout_format = hb_tensor.GetTensorLayout();
-    hlresult.SetTensorLayout(layout_format);
-    /* We can't create a long/double target in the device. Even a cast will
-      not work as these data types are not available within the device. The
-      only way to make progress is to just do a normal D2D so that the
-      target will also be the same as source, and when we want to pull this
-      out to CPU, the D2H will handle the type conversion*/
-    if ((self.scalar_type() == c10::ScalarType::Long) ||
-        (self.scalar_type() == c10::ScalarType::Double) ||
-        (src_updated.dtype() == self.dtype())) {
-      if (hb_tensor.IsExecutionInProgress()) {
-        auto context =
-            habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-        context->JoinPendingLaunchThread();
-      }
-      // If both src and dst are already processed ,  go and do the DMA dont
-      // wait Else , If we already have storage in dst, add memcopy node to
-      // lazy graph and we want to copy to existing tensor and not a new one
-      // Kernel expects us to pass dst as second input in that case
-      auto src_id = hb_tensor.getTensorUniqueId();
-      auto dst_id = hlresult.getTensorUniqueId();
-      if (src_id == dst_id) {
-        return;
-      }
-
-      // graph cycle happens in squad 8x with view table mechanism
-      // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
-      // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
-      auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
-      auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
-
-      if (src_parent_id == dst_id) {
-        return;
-      }
-
-      // Handle views and lhs slice
-      auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
-      if (is_view == false) {
-        AddMemcpy(src_updated, self);
-      }
-    } else {
-      node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
-
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      auto id = GetHbLazyTensor(self).getTensorUniqueId();
-      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-      if (params_ptr != nullptr) {
-        // add strided insert at the cast output
-        at::TensorOptions options = src.options().dtype(self.scalar_type());
-        auto src_cast = empty_hpu_lazy(
-            src.sizes(), options, src.suggest_memory_format(), false);
-
-        auto hl_src_cast = GetHbLazyTensor(src_cast);
-        ir::Value& out = hl_src_cast.CurrentIrValue();
-        out.SetNode(
-            node,
-            hl_src_cast.GetDevice(),
-            hl_src_cast.GetSizes(),
-            hl_src_cast.dtype_optional());
-        flush_op(src_cast);
-
-        HbLazyTensorViews::HandleViewsD2D(src_cast, self);
-      } else {
-        auto hlresult = GetHbLazyTensor(self);
-        ir::Value& out = hlresult.CurrentIrValue();
-        out.SetNode(
-            node,
-            hlresult.GetDevice(),
-            hlresult.GetSizes(),
-            hlresult.dtype_optional());
-        flush_op(self);
-      }
-
-      updateDstDependencies(hlresult, self);
+  ir::NodePtr node;
+  std::vector<at::Tensor> input_pt_vec;
+  // pick the most recent version of src tensor
+  Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
+  HbLazyTensor hb_tensor =
+      GetOrCreateHbLazyTensor(src_updated, src_updated.device());
+  auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
+  auto layout_format = hb_tensor.GetTensorLayout();
+  hlresult.SetTensorLayout(layout_format);
+  /* We can't create a long/double target in the device. Even a cast will not
+    work as these data types are not available within the device. The only way
+    to make progress is to just do a normal D2D so that the target will also
+    be the same as source, and when we want to pull this out to CPU, the D2H
+    will handle the type conversion*/
+  if ((self.scalar_type() == c10::ScalarType::Long) ||
+      (self.scalar_type() == c10::ScalarType::Double) ||
+      (src_updated.dtype() == self.dtype())) {
+    if (hb_tensor.IsExecutionInProgress()) {
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+      context->JoinPendingLaunchThread();
     }
-  };
+    // If both src and dst are already processed ,  go and do the DMA dont
+    // wait Else , If we already have storage in dst, add memcopy node to lazy
+    // graph and we want to copy to existing tensor and not a new one
+    // Kernel expects us to pass dst as second input in that case
+    auto src_id = hb_tensor.getTensorUniqueId();
+    auto dst_id = hlresult.getTensorUniqueId();
+    if (src_id == dst_id) {
+      return self;
+    }
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+    // graph cycle happens in squad 8x with view table mechanism
+    // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
+    // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
+    auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
+    auto src_parent_id = GetHbLazyTensor(src_parent).getTensorUniqueId();
+
+    if (src_parent_id == dst_id) {
+      return self;
+    }
+
+    // Handle views and lhs slice
+    auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
+    if (is_view == false) {
+      AddMemcpy(src_updated, self);
+    }
+  } else {
+    node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    auto id = GetHbLazyTensor(self).getTensorUniqueId();
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+    if (params_ptr != nullptr) {
+      // add strided insert at the cast output
+      at::TensorOptions options = src.options().dtype(self.scalar_type());
+      auto src_cast = empty_hpu_lazy(
+          src.sizes(), options, src.suggest_memory_format(), false);
+
+      auto hl_src_cast = GetHbLazyTensor(src_cast);
+      ir::Value& out = hl_src_cast.CurrentIrValue();
+      out.SetNode(
+          node,
+          hl_src_cast.GetDevice(),
+          hl_src_cast.GetSizes(),
+          hl_src_cast.dtype_optional());
+      flush_op(src_cast);
+
+      HbLazyTensorViews::HandleViewsD2D(src_cast, self);
+    } else {
+      auto hlresult = GetHbLazyTensor(self);
+      ir::Value& out = hlresult.CurrentIrValue();
+      out.SetNode(
+          node,
+          hlresult.GetDevice(),
+          hlresult.GetSizes(),
+          hlresult.dtype_optional());
+      flush_op(self);
+    }
+
+    updateDstDependencies(hlresult, self);
+  }
+
+  return self;
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
@@ -1055,7 +1053,6 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     if (src_device == c10::DeviceType::CPU) {
       self = copy_hpu_lazy_H2D(self, src, non_blocking);
     } else if (src_device == c10::DeviceType::HPU) {
-      habana_lazy::SyncAccThreadPool();
       self = copy_hpu_lazy_D2H(self, src, non_blocking);
     }
   } else {
