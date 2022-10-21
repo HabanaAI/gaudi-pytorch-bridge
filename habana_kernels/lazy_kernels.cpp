@@ -830,6 +830,16 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   context->JoinPendingLaunchThread();
 
+  // Remove this SBS check, as of now prepare sbs inputs on calls .to operator
+  // and on inplace ops that triggers this mark step, which leads to graph
+  // evaluation and we end up losing input tensor.
+  if (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED) {
+    auto hl_t = GetHbLazyTensor(src);
+    if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
+      PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
+      HbLazyTensor::StepMarker({});
+    }
+  }
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
