@@ -741,9 +741,10 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   auto p = inputs[1].toDouble();
   auto scalar_type = self.scalar_type();
   TORCH_CHECK(
-      (scalar_type == c10::ScalarType::BFloat16) ||
-          (scalar_type == c10::ScalarType::Float),
-      "Expected float or int data type");
+      (scalar_type == c10::ScalarType::Float) ||
+          (scalar_type == c10::ScalarType::BFloat16) ||
+          (scalar_type == c10::ScalarType::Half),
+      "Expected float, bfloat16 or half data type");
 
   ns_DropoutKernel::Params params;
 
