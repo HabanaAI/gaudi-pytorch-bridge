@@ -1365,6 +1365,10 @@ run_pytorch_qa_tests()
         _not_set_testpath=1
         __pytorch_qa_test_path+="/../torch_feature_val/single_op/"
         ;;
+    dtypes_val)
+        _not_set_testpath=1
+        __pytorch_qa_test_path+="/../torch_feature_val/misc/dtypes_validation/"
+        ;;
     topology)
         _not_set_testpath=1
         __pytorch_qa_test_path+="/topologies_tests/CI_tests/"
@@ -1428,6 +1432,9 @@ run_pytorch_qa_tests()
         __test_status=$((__test_status_1 | __test_status_2))
     elif [ "$__pytest_marks" == "-m=dsd_subgraph" ] && [ "$__suite_type" == "subgraph" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"dynamic_subgraph.xml" " --mode lazy --dynamic)
+        __test_status=$?
+    elif [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "dtypes_val" ]; then
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"dtypes_val.xml"" )
         __test_status=$?
     else
        if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "all" ]; then
