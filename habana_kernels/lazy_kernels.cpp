@@ -1945,11 +1945,6 @@ Tensor constant_pad_hpu_lazy(
         metadata_indices,
         {PadOperator::compute_output_shape(self, pad)}};
     k.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask(
-          [op = std::move(k), pv = std::move(pad_vec)]() {});
-    }
   };
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(constant_pad_nd, func, out)
 }
@@ -1994,10 +1989,6 @@ Tensor embedding_hpu_lazy(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
 
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-    }
   };
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding, func, out)
 }
@@ -2032,10 +2023,6 @@ Tensor embedding_dense_backward_hpu_lazy(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
 
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-    }
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, func, out)
@@ -2067,10 +2054,6 @@ Tensor embedding_bag_sum_hpu_lazy(
     node_derived->Init(input, indices, offsets, valid_count, kernel_mode);
 
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-    }
   };
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_bag_sum, func, out)
 }
@@ -2136,10 +2119,6 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     auto derived_node = std::dynamic_pointer_cast<ir::EmbeddingBagSumBwd>(node);
     derived_node->Init(out, input, indices, offsets, valid_count, kernel_mode);
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-    }
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_bwd_out, func, out)
@@ -4454,11 +4433,8 @@ void randperm_hpu_lazy_ht(
       {},
       3};
   op.call(output);
-
-  if (habana_lazy::CanUseAccThread()) {
-    habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-  }
 }
+
 Tensor& randperm_hpu_lazy(
     int64_t n,
     c10::optional<Generator> gen,
@@ -4496,10 +4472,6 @@ Tensor& randperm_hpu_lazy(
             {},
             2};
         op.call(output);
-
-        if (habana_lazy::CanUseAccThread()) {
-          habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-        }
       }
     } else {
       LazyOp<Tensor&> op{
@@ -4508,12 +4480,9 @@ Tensor& randperm_hpu_lazy(
           {1},
           {{n}}};
       op.call(output);
-
-      if (habana_lazy::CanUseAccThread()) {
-        habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-      }
     }
   };
+
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(randperm_out, func, output)
 }
 
@@ -5132,22 +5101,9 @@ static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
       LazyOp<at::Tensor> k{
           "hpu::cat", {view_list, dim_, output_shape_tensor}, {1}, {}, 0};
       k.call(out);
-
-      // need to ensure that no tensors will be destructured in the accumulation
-      // thread
-      if (habana_lazy::CanUseAccThread()) {
-        habana_lazy::PushCleanupTask([op = std::move(k)]() {});
-      }
-
     } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
       LazyOp<at::Tensor> k{"aten::cat", {view_list, dim_}, {1}, {}, 0};
       k.call(out);
-
-      // need to ensure that no tensors will be destructured in the accumulation
-      // thread
-      if (habana_lazy::CanUseAccThread()) {
-        habana_lazy::PushCleanupTask([op = std::move(k)]() {});
-      }
     }
   };
 
@@ -5261,10 +5217,6 @@ Tensor& cat_hpu_out_parallel_impl(
     LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
 
     k.call(result);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(k)]() {});
-    }
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat_out, func, result)
@@ -6888,11 +6840,6 @@ at::Tensor roi_align_fwd_hpu_lazy(
       cast_op_ptr.get()->call(rois_f32);
     }
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask(
-          [cast = std::move(cast_op_ptr), op = std::move(op)]() {});
-    }
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(roi_align_fwd, func, out)

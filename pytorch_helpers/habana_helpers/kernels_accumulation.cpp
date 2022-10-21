@@ -70,7 +70,6 @@ void PushCleanupTask(std::function<void()>&& task) {
 
 void ExecuteAllCleanupTasks() {
   PT_LAZY_TRACE
-  std::function<void()> task;
   while (!cleanup_tasks.empty()) {
     cleanup_tasks
         .pop(); // let's assume for now, that bodies of cleanup funcs are empty
@@ -86,8 +85,8 @@ bool CanUseAccThread() {
 }
 
 void SyncAccThreadPool() {
-  PT_LAZY_TRACE
   if (CanUseAccThread()) { // avoid syncing from within thread pool
+    PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
   }

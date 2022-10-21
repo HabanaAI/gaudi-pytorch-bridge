@@ -244,7 +244,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call(self);
 
 #define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                          \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       auto tuple = lazy_op.get_result();                                      \
@@ -257,7 +257,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op, tuple)           \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       tuple = lazy_op.get_result(tuple);                                      \
@@ -286,7 +286,7 @@ inline float& get<float>(fint_t& u) {
   }
 
 #define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)               \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       std::vector<at::Tensor> tensors_copy;                                   \
@@ -301,7 +301,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1, tl2)         \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       std::vector<at::Tensor> tensors_copy;                                   \
@@ -317,7 +317,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)    \
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0) {                      \
+  if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       std::vector<at::Tensor> tensors_copy;                                   \
