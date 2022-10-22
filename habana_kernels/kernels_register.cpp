@@ -1156,30 +1156,6 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
     return max_dim_hpu(self, dim, keepdim);
   }
 };
-at::Tensor hpu_wrap::max(const at::Tensor& self) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("max :", " self=", to_string(self));
-  FALLBACK_IF_UNSUPPORTED_OP(max, PARAMS1(self), PARAMS2(self))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return max_hpu_lazy(self);
-  } else {
-    return max_hpu(self);
-  }
-};
-
-at::Tensor hpu_wrap::min(const at::Tensor& self) {
-  PT_OP_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP(min, PARAMS1(self), PARAMS2(self))
-  PT_LAZY_TRACE;
-  PT_OP_INFO("min :", " self=", to_string(self));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return min_hpu_lazy(self);
-  } else {
-    return min_hpu(self);
-  }
-};
 
 Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
   PT_OP_TRACE;

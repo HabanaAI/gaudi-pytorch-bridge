@@ -79,4 +79,25 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(reduce_max[0]);
   syn_out(1) = std::move(reduce_max[1]);
 }
+
+void MinMaxNoDim::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+
+  auto shape = AllAnyOutputShape(stack)[0];
+
+  auto min_max = HandleReductionDimAndKeepdim(
+      this,
+      graph,
+      self,
+      {syn_in(0)},
+      {},
+      false,
+      guid_,
+      {{shape, ScalarType(), 0}, {shape, c10::ScalarType::Int}});
+
+  syn_out(0) = std::move(min_max[0]);
+}
+
 } // namespace habana

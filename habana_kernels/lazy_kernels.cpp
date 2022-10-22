@@ -6313,18 +6313,6 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(max, kernel)
 }
 
-at::Tensor max_hpu_lazy(const at::Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::max", {self}, {}, {{}}};
-  RUN_MAYBE_WITH_ACC_THREAD(max, k)
-}
-
-at::Tensor min_hpu_lazy(const at::Tensor& self) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::min", {self}, {}, {{}}};
-  RUN_MAYBE_WITH_ACC_THREAD(min, k)
-}
-
 Tensor masked_scale_hpu_lazy(
     const Tensor& self,
     const Tensor& mask,

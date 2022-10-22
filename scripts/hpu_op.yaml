@@ -3302,6 +3302,13 @@ lt.Tensor:
   op_backend: CompareOp
   type_promotion: true
 
+max:
+  custom_output_shape: AllAnyOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_max_fwd
+  op_backend: MinMaxNoDim
+  out_ids: [0]
+
 max.dim_max:
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
@@ -3482,6 +3489,13 @@ median.dim_values:
     Gaudi2: [Float, Int]
     Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
+
+min:
+  custom_output_shape: AllAnyOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_min_fwd
+  op_backend: MinMaxNoDim
+  out_ids: [0]
 
 min.dim:
   force_default: false
