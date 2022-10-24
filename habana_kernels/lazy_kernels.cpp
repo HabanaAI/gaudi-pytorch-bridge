@@ -7084,16 +7084,23 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
       {grad_output, input, weight, bias_opt},
       {},
       {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
-  auto res = k.call();
+  std::vector<at::Tensor> out_v;
+  auto out = k.get_result();
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
   std::vector<at::Tensor> res_vec;
-  res_vec.emplace_back(std::get<0>(res));
-  res_vec.emplace_back(std::get<1>(res));
+  res_vec.emplace_back(std::get<0>(out));
+  res_vec.emplace_back(std::get<1>(out));
   if (bias_opt.value_or(Tensor()).defined()) {
-    res_vec.emplace_back(std::get<02>(res));
+    res_vec.emplace_back(std::get<02>(out));
   } else {
     res_vec.emplace_back(Tensor());
   }
-  return res_vec;
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_non2d_bwd, func, res_vec)
 }
 
 at::Tensor habana_cast_to_fp8_lazy(
