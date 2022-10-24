@@ -12,13 +12,13 @@
  */
 #pragma once
 
-#include <ATen/PTThreadPool.h>
 #include <string>
+#include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 
 namespace habana_lazy {
 
 // returns main accumulation thread pool
-at::PTThreadPool& GetAccThreadPool();
+AccThreadPool& GetAccThreadPool();
 
 // store cleanup tasks that are holding any resources used by accumulation
 // thread pool Its purpose is to avoid deadlock on GIL.

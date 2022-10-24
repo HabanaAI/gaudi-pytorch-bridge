@@ -11,10 +11,8 @@
  *******************************************************************************
  */
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-#include <ATen/PTThreadPool.h>
 #include <string>
 #include <unordered_set>
 
@@ -57,14 +55,14 @@ const std::unordered_set<std::string> AccThreadOpsBlacklist = {
           // recursive lock used for view handling
 };
 
-at::PTThreadPool& GetAccThreadPool() {
-  static at::PTThreadPool thread_pool(1); // single thread only
+static std::queue<AccThreadPool::AccTask> cleanup_tasks;
+
+AccThreadPool& GetAccThreadPool() {
+  static AccThreadPool thread_pool; // single thread only
   return thread_pool;
 }
 
-static std::queue<std::function<void()>> cleanup_tasks;
-
-void PushCleanupTask(std::function<void()>&& task) {
+void PushCleanupTask(AccThreadPool::AccTask&& task) {
   cleanup_tasks.emplace(std::move(task));
 }
 
