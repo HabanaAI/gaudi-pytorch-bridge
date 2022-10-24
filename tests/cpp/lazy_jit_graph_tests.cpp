@@ -19,6 +19,8 @@ class LazyJITTest : public habana_lazy_test::LazyTest {
  public:
   void SetUp() override {
     ForceMode(1);
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 };
 /**

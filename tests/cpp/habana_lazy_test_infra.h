@@ -13,6 +13,7 @@
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"
+#include "habana_lazy/hpu_stage_submission.h"
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -235,6 +236,8 @@ class LazyTest : public ::testing::Test, public EnvHelper {
     DisableCpuFallback();
 
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

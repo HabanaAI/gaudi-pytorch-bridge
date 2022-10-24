@@ -99,6 +99,7 @@ bool HpuOpTestUtilBase::GenerateScalar(
 class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
   void SetUp() override {
     DisableCpuFallback();
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
   void TearDown() override {
     RestoreMode();

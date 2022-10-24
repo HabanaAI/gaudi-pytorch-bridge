@@ -210,6 +210,8 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE_SS) << "\n";
     std::clog << " PT_HPU_ENABLE_STAGE_SUBMISSION = "
               << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION) << "\n";
+    std::clog << " PT_HPU_STAGE_SUBMISSION_MODE = "
+              << GET_ENV_FLAG_NEW(PT_HPU_STAGE_SUBMISSION_MODE) << "\n";
     std::clog << " PT_HPU_PGM_ENABLE_CACHE = "
               << GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) << "\n";
     std::clog << " PT_HPU_ENABLE_LAZY_COLLECTIVES = "

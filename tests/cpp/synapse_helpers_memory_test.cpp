@@ -10,6 +10,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/habana_tensor.h"
 #include "synapse_helpers/synapse_error.h"
@@ -32,6 +33,8 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
     setenv("PT_HPU_POOL_STRATEGY", "5", 1);
     device.cleanup_workspace_buffer();
     device.get_device_memory().reset_pool();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

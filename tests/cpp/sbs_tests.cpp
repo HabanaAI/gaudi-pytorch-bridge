@@ -31,6 +31,8 @@ class SBSWithParamsTest
 
     ResetOpCounters();
     ResetSBSHandlers();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

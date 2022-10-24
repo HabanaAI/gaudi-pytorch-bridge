@@ -40,6 +40,7 @@ class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
       SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
     }
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

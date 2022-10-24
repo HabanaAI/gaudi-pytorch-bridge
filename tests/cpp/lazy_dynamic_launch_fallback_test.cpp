@@ -26,6 +26,8 @@ class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
     EnableDynamicLaunchFallback();
 
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

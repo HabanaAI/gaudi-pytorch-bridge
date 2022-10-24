@@ -14,6 +14,7 @@ using namespace at;
 class DebugUtilsTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     ForceMode(1); // This test suite expects to run only with lazy=1
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 };
 

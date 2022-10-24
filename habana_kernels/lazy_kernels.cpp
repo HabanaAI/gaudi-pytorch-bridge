@@ -882,6 +882,10 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   }
   // No need to CreateHbLazyTensor for self as it is on CPU
   habana_lazy::PermuteTensors::handlePermutedTensor(_src, self, non_blocking);
+
+  habana_lazy::StageSubmission::getInstance().setStageSubmissionFlow(
+      habana_lazy::StageSubmission::Mode::SET_WHEN_D2H_COPY);
+
   return self;
 }
 
@@ -5822,6 +5826,8 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
       // Trigger point execution
       PT_IRGRAPH_DEBUG("step marker due to local scalar");
       HbLazyTensor::StepMarker({});
+      StageSubmission::getInstance().setStageSubmissionFlow(
+          StageSubmission::Mode::SET_WHEN_ANY_ITEM_CALL);
     }
     // if there is a view, we need to sync before accessing the tensor_data.
     // This is because we skip view outputs in stepmarker
@@ -6541,6 +6547,7 @@ Tensor batched_nms_hpu_lazy(
   PT_IRGRAPH_DEBUG("step marker due to nms");
   // .item() internally triggers a mark_step
   auto end = shape_tensor[0].item<int64_t>();
+  StageSubmission::getInstance().setStageSubmissionFlow();
 
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements

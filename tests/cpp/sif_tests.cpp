@@ -23,6 +23,7 @@ class SifTest : public habana_lazy_test::LazyTest {
     DisableDynamicPassFallback();
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     habana::RecipeCacheLRU::get_cache().clear();
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

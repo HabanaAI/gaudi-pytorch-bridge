@@ -11,6 +11,7 @@
 #include "cpu_fallback.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/lazy_kernels.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 
 namespace habana {
@@ -113,6 +114,9 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
       "cpu fallback is not supported during hpu graph capturing");
 
   at::native::cpu_fallback(op, stack);
+
+  ::habana_lazy::StageSubmission::getInstance().setStageSubmissionFlow(
+      ::habana_lazy::StageSubmission::Mode::SET_WHEN_CPU_FALLBACK);
 
   auto new_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
 

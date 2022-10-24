@@ -207,6 +207,7 @@ TEST_F(LazyConvKernelTest, MaxPool2DTest) {
 class LazyConvKernelGraphTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     ForceMode(1);
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 };
 

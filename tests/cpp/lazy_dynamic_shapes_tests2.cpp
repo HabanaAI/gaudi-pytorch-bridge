@@ -38,6 +38,8 @@ class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     habana::RecipeCacheLRU::get_cache().clear();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {
@@ -82,7 +84,6 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
-
   int N = 2, C = 3, D = 4, H = 5, W = 6, dim6 = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {

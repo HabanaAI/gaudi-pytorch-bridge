@@ -17,6 +17,7 @@ using namespace torch;
 class PostOrderTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     ForceMode(1);
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 };
 

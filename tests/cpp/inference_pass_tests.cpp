@@ -30,6 +30,7 @@ class LazyInferencePassTest : public habana_lazy_test::LazyTest {
     DisableCpuFallback();
     SetInferenceMode();
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

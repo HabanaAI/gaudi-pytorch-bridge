@@ -40,6 +40,8 @@ class LazyShapeAgnosticTest : public habana_lazy_test::LazyTest {
     DisableCpuFallback();
 
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {

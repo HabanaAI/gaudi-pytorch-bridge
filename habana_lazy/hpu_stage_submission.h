@@ -15,6 +15,14 @@
 namespace habana_lazy {
 class StageSubmission {
  public:
+  enum Mode {
+    DO_NOT_RESET = 0b1,
+    SET_WHEN_NON_INFERABLE = 0b10,
+    SET_WHEN_CPU_FALLBACK = 0b100,
+    SET_WHEN_D2H_COPY = 0b1000,
+    SET_WHEN_ANY_ITEM_CALL = 0b10000
+  };
+
   static StageSubmission& getInstance() {
     static StageSubmission instance;
     return instance;
@@ -63,28 +71,44 @@ class StageSubmission {
     curr_number_of_accumulated_ops = 0;
     curr_number_of_compound_ops = 0;
 
-    if (enable_stage_submission) {
-      if (is_stage_submission) {
-        max_number_of_compound_ops = find_limit(
-            2 * max_number_of_compound_ops,
-            GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE));
-      } else {
-        max_number_of_compound_ops =
-            GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE);
-      }
+    if (!enable_stage_submission) {
+      return;
+    }
+
+    if (is_stage_submission) {
+      max_number_of_compound_ops = find_limit(
+          2 * max_number_of_compound_ops,
+          GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE));
+    } else {
+      max_number_of_compound_ops =
+          GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE);
     }
   }
 
-  void setStageSubmissionFlow() {
-    if (enable_stage_submission) {
-      is_stage_submission = true;
-      max_number_of_compound_ops =
-          GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE_SS);
+  void setStageSubmissionFlow(Mode mode = Mode::SET_WHEN_NON_INFERABLE) {
+    if (!enable_stage_submission) {
+      return;
     }
+
+    if (!is_mode_set_to(mode)) {
+      return;
+    }
+
+    is_stage_submission = true;
+    max_number_of_compound_ops =
+        GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE_SS);
   }
 
   void resetStageSubmissionFlow() {
+    if (is_mode_set_to(DO_NOT_RESET)) {
+      return;
+    }
+
     is_stage_submission = false;
+  }
+
+  inline bool is_mode_set_to(Mode mode) {
+    return this->mode & mode;
   }
 
  private:
@@ -97,7 +121,10 @@ class StageSubmission {
             GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE)),
         is_stage_submission(0),
         enable_stage_submission(
-            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION)) {}
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION)),
+        mode(
+            static_cast<Mode>(GET_ENV_FLAG_NEW(PT_HPU_STAGE_SUBMISSION_MODE))) {
+  }
   ~StageSubmission() {}
   StageSubmission(const StageSubmission&);
   StageSubmission& operator=(const StageSubmission&);
@@ -108,6 +135,7 @@ class StageSubmission {
   std::atomic<size_t> max_number_of_compound_ops;
   bool is_stage_submission;
   const bool enable_stage_submission;
+  const Mode mode;
 };
 
 class PTOpTrace {

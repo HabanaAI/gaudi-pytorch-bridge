@@ -20,6 +20,7 @@ class FallbackTest : public ::testing::Test,
     SetSeed();
     EnableCpuFallback();
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
   }
 
   void TearDown() override {
