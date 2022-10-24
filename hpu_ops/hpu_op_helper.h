@@ -269,7 +269,11 @@ inline float& get<float>(fint_t& u) {
   }                                                                           \
   return lazy_op.call(tuple);
 
-#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(op, func, out)                   \
+#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(op, func, out) \
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func);       \
+  return out;
+
+#define RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func)                    \
   if (habana_lazy::CanUseAccThread()) {                                      \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
     habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
@@ -279,8 +283,7 @@ inline float& get<float>(fint_t& u) {
     });                                                                      \
   } else {                                                                   \
     func();                                                                  \
-  }                                                                          \
-  return out;
+  }
 
 #define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)               \
   if (habana_lazy::CanUseAccThread()) {                                       \
