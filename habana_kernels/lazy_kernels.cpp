@@ -5060,7 +5060,8 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   return fill_hpu_lazy_(self, 0);
 }
 
-static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
+Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
+  PT_LAZY_TRACE;
   TORCH_CHECK(tensors.size() > 0, "Empty tensors list!");
 
   auto non_empty_list = filter(tensors, is_nonempty_tensor);
@@ -5117,91 +5118,7 @@ static Tensor cat_hpu_parallel_impl(const TensorList tensors, int64_t dim_) {
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat, op_func, out);
 }
 
-Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
-  PT_LAZY_TRACE;
-
-  if (habana_lazy::IsAccThreadEnabled()) {
-    return cat_hpu_parallel_impl(tensors, dim_);
-  }
-
-  // handle views
-  auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
-
-  t_list = filter(t_list, is_nonempty_tensor);
-
-  if (t_list.size() == 0) {
-    TORCH_CHECK(tensors.size() > 0, "Empty tensors list!");
-    auto first_tensor = tensors[0];
-    return empty_hpu_lazy(
-        first_tensor.sizes(),
-        first_tensor.options(),
-        first_tensor.suggest_memory_format(),
-        true);
-  }
-
-  const TensorList view_list{t_list};
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    struct Kernel : public LazyOp<at::Tensor> {
-      explicit Kernel(
-          const at::TensorList tensors,
-          int64_t dim,
-          at::Tensor out_shape_tensor)
-          : LazyOp<at::Tensor>(
-                "hpu::cat",
-                {tensors, dim, out_shape_tensor},
-                {1},
-                {},
-                -1),
-            tensors{tensors},
-            dim{dim} {}
-      at::Tensor get_result_overrideable() override {
-        auto first_tensor = tensors[0];
-        auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
-        return empty_hpu_lazy(
-            shape_out,
-            first_tensor.options(),
-            first_tensor.suggest_memory_format(),
-            false);
-      }
-      const TensorList tensors;
-      int64_t dim;
-    };
-
-    auto output_shape = CatOutOperator::compute_output_shape(tensors, dim_);
-    auto output_shape_tensor = empty_hpu_lazy(
-        IntArrayRef(output_shape),
-        tensors[0].options().dtype(c10::ScalarType::Int),
-        tensors[0].suggest_memory_format(),
-        false,
-        SHAPE_TENSOR);
-    Kernel k{view_list, dim_, output_shape_tensor};
-    return k.call();
-  } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
-    struct Kernel : public LazyOp<at::Tensor> {
-      explicit Kernel(const at::TensorList tensors, int64_t dim)
-          : LazyOp<at::Tensor>("aten::cat", {tensors, dim}, {1}, {}, -1),
-            tensors{tensors},
-            dim{dim} {}
-      at::Tensor get_result_overrideable() override {
-        auto first_tensor = tensors[0];
-
-        auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
-        return empty_hpu_lazy(
-            shape_out,
-            first_tensor.options(),
-            first_tensor.suggest_memory_format(),
-            false);
-      }
-      const TensorList tensors;
-      int64_t dim;
-    };
-    Kernel k{view_list, dim_};
-    return k.call();
-  }
-}
-
-Tensor& cat_hpu_out_parallel_impl(
+Tensor& cat_hpu_lazy_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
@@ -5227,29 +5144,6 @@ Tensor& cat_hpu_out_parallel_impl(
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat_out, func, result)
-}
-
-Tensor& cat_hpu_lazy_out(
-    Tensor& result,
-    const TensorList tensors,
-    int64_t dim_) {
-  PT_LAZY_TRACE;
-  if (habana_lazy::IsAccThreadEnabled()) {
-    return cat_hpu_out_parallel_impl(result, tensors, dim_);
-  }
-  // handle views
-  auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
-  t_list = filter(t_list, is_nonempty_tensor);
-
-  if (t_list.size() == 0) {
-    return result;
-  }
-
-  const TensorList view_list{t_list};
-
-  auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
-  LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
-  return k.call(result);
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
