@@ -16,10 +16,10 @@
 #include <cstddef>
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <memory>
-
-#include <absl/types/variant.h>
+#include <variant>
 
 #include "habana_bridge/kernel/ds_graph_recompile.h"
 #include "habana_bridge/kernel/hpu_habana_cache.h"
@@ -132,6 +132,54 @@ Bucket::Bucket(
   for (auto& el : ranges_)
     score_ += el.second - el.first;
   token_ = habana_helpers::UniqueTokenGenerator::get_gen().token();
+}
+
+Bucket::Bucket(
+    DynamicRanges&& ranges,
+    DynamicDims dynamic_dims,
+    bool is_refine_enabled,
+    SplitPolicy sp,
+    const InpTensorShapes& shapes_,
+    const uint64_t base_time)
+    : ranges_(std::move(ranges)),
+      dynamic_dims_(std::move(dynamic_dims)),
+      base_time_(base_time),
+      refine_candidate_(is_refine_enabled) {
+  if (is_refine_enabled) {
+    CreateSplitStatImpl(sp);
+  }
+  for (auto& el : ranges_)
+    score_ += el.second - el.first;
+  token_ = habana_helpers::UniqueTokenGenerator::get_gen().token(
+      ranges_, dynamic_dims_, shapes_);
+}
+
+uint64_t UniqueTokenGenerator::token(
+    DynamicRanges& ranges,
+    DynamicDims& dynamic_dims,
+    const InpTensorShapes& shapes_) {
+  size_t seed = 0;
+  // Use all shapes information to create a md5sum
+  for (auto const& ent1 : shapes_) {
+    seed = at::hash_combine(seed, ent1.first);
+    auto vec = ent1.second.get_dims();
+    for (auto itr : vec) {
+      seed = at::hash_combine(seed, itr);
+    }
+  }
+  for (auto const& ent1 : ranges) {
+    seed = at::hash_combine(seed, ent1.first);
+    seed = at::hash_combine(seed, ent1.second);
+  }
+  for (auto const& ent1 : dynamic_dims) {
+    seed = at::hash_combine(seed, ent1.first);
+    for (auto const& ent2 : ent1.second) {
+      seed = at::hash_combine(seed, ent2.first);
+      seed = at::hash_combine(seed, ent2.second);
+    }
+  }
+
+  return seed;
 }
 
 void Bucket::Serialize(std::ostream& os) const {
@@ -432,7 +480,8 @@ size_t DynamicBucketInfo::GetBucketId(
 
   cumu_run_count_++;
   if (buckets_.empty()) {
-    buckets_.emplace_back(DynamicRanges{}, DynamicDims{}, true, split_policy_);
+    buckets_.emplace_back(
+        DynamicRanges{}, DynamicDims{}, true, split_policy_, shapes_);
     auto& new_bucket = buckets_.back();
     new_bucket.IncStats({});
 
@@ -488,7 +537,8 @@ size_t DynamicBucketInfo::GetBucketId(
       std::move(ranges),
       dynamic_dims_helper_.dd_,
       refine_enabled_,
-      split_policy_);
+      split_policy_,
+      shapes_);
   auto& new_bucket = buckets_.back();
   new_bucket.IncStats(dims);
 
@@ -717,7 +767,8 @@ Bucket DynamicBucketInfo::ConstructNewBucket(
     result_computed.max_shapes[input.first] = shape_max;
   }
 
-  return Bucket(std::move(new_ranges), dynamic_dims, true, split_policy_);
+  return Bucket(
+      std::move(new_ranges), dynamic_dims, true, split_policy_, shapes_);
 }
 
 void DynamicBucketInfo::split_history(

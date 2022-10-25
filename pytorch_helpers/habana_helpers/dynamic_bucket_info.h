@@ -219,6 +219,13 @@ class Bucket {
       DynamicDims dynamic_dims,
       bool is_refine_enabled,
       SplitPolicy sp,
+      const InpTensorShapes& shapes_,
+      const uint64_t base_time = 0);
+  Bucket(
+      DynamicRanges&& ranges,
+      DynamicDims dynamic_dims,
+      bool is_refine_enabled,
+      SplitPolicy sp,
       const uint64_t base_time = 0);
   bool IsInRange(
       const std::vector<int64_t>& dims,
@@ -996,6 +1003,11 @@ class UniqueTokenGenerator {
   uint64_t token() {
     return ++current_token_;
   }
+
+  uint64_t token(
+      DynamicRanges& ranges,
+      DynamicDims& dynamic_dims,
+      const InpTensorShapes& shapes_);
 
   void set_token(uint64_t token) {
     if (token > current_token_)

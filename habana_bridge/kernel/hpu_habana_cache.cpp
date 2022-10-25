@@ -1988,41 +1988,19 @@ RecipeCacheLRU::RecipeCacheLRU() {
 }
 
 void RecipeCacheLRU::InitDiskCache() {
-  // disk caching is not enabled with dynamic shapes
-  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  // "" is valid method to unset path
-  auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
-  if (recipe_cache_path == NULL) {
-    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
-  }
-
-  bool is_path_set =
-      (recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "");
-  if ((!is_path_set) || (is_ds_enabled)) {
-    PT_BRIDGE_DEBUG("Cannot cache to disk on Init ");
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  if ((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) {
     return;
   }
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
-  // disk caching is not enabled with dynamic shapes
-  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
-  // Reset disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
-  if (recipe_cache_path == NULL) {
-    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
-  }
-  bool is_path_set =
-      (recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "");
-  if ((!is_path_set) || (is_ds_enabled)) {
-    PT_BRIDGE_DEBUG("Cannot cache to disk on reset");
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  if ((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) {
     return;
   }
-
   if (disk_cache_) {
     disk_cache_.reset();
   }
