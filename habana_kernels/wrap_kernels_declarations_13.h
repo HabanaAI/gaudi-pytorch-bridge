@@ -175,10 +175,6 @@ struct hpu_wrap {
   static at::Tensor repeat_interleave(
       const at::Tensor& self,
       c10::optional<int64_t> output_size);
-  static ::std::tuple<at::Tensor, at::Tensor> max(
-      const at::Tensor& self,
-      int64_t dim,
-      bool keepdim);
   static ::std::vector<at::Tensor> split_with_sizes(
       const at::Tensor& self,
       at::IntArrayRef split_sizes,

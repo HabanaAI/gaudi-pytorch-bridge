@@ -900,29 +900,6 @@ at::Tensor hpu_wrap::repeat_interleave(
       Tensor)
   return repeat_inlv_hpu_lazy(repeats, output_size);
 }
-std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "max :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " keepdim=",
-      to_string(keepdim));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      max, PARAMS1(self), PARAMS2(self, dim, keepdim), dim)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return max_dim_hpu_lazy(self, dim, keepdim);
-  } else {
-    return max_dim_hpu(self, dim, keepdim);
-  }
-};
 
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
   static at::Tensor forward(
@@ -2292,8 +2269,6 @@ TORCH_LIBRARY(hpu, m) {
       "randperm_out_ds(Tensor idst, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "randperm_out_ds_ht(Tensor ht, Tensor st, Tensor seed, Tensor output) -> Tensor(a!)");
-  m.def(
-      "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> Tensor");
   m.def(
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor(a!) weights_in, Tensor(b!) moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor(a!), Tensor(b!))");

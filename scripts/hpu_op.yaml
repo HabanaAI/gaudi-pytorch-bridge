@@ -4124,6 +4124,16 @@ max:
   op_backend: ReductionBackendTemplate
   out_ids: [0]
 
+max.dim:
+  force_default: false
+  custom_fill_params: FillMinMaxParams
+  custom_output_shape: MinMaxOutputShape
+  dtypes: [BFloat16, Float, Int]
+  guid: reduce_max_fwd
+  op_frontend: LazyMinMax
+  op_backend: MaxDimOp
+  out_ids: [0, 0]
+
 max.dim_max:
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams

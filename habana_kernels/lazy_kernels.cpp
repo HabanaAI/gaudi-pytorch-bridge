@@ -6921,43 +6921,6 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
   }
 };
 
-std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim) {
-  PT_LAZY_TRACE;
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self, dim, keepdim};
-
-  using T = ::std::tuple<at::Tensor, at::Tensor>;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(const std::vector<at::IValue>& vector_of_inputs)
-        : LazyOp<T>("hpu::max_dim", vector_of_inputs, {}, {}, -1) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim = inputs[1].toInt();
-      auto keepdim = inputs[2].toBool();
-
-      auto shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
-      auto values = empty_hpu_lazy(
-          shape, self.options(), self.suggest_memory_format(), false);
-      auto indices = empty_hpu_lazy(
-          shape,
-          self.options().dtype(c10::ScalarType::Long),
-          self.suggest_memory_format(),
-          false);
-      return T(values, indices);
-    }
-  };
-
-  Kernel kernel{vector_of_inputs};
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(max, kernel)
-}
-
 Tensor masked_scale_hpu_lazy(
     const Tensor& self,
     const Tensor& mask,

@@ -486,10 +486,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_hpu_lazy(
     bool sorted,
     bool return_inverse,
     bool return_counts);
-std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim);
 at::Tensor _copy_from_and_resize_lazy(
     const at::Tensor& self,
     const at::Tensor& dst);

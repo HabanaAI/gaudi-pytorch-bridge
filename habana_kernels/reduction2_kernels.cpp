@@ -424,6 +424,3 @@ Tensor min_hpu(const at::Tensor& self) {
   PT_KERNEL_END;
   return out.at(0);
 }
-
-static auto& Reduction2KernelsKernelRegistry =
-    habana::KernelRegistry().add("hpu::max_dim", KERNEL_FN(MaxDimOperator));

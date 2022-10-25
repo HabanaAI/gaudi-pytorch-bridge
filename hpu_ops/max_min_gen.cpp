@@ -105,4 +105,53 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
   syn_out(0) = std::move(reduce_max[0]);
 }
+
+void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto dim = stack.at(1).toInt();
+  bool keepdim = stack.at(2).toBool();
+  auto outshape = MinMaxOutputShape(stack)[0];
+  size_t size = 0;
+  const auto& params = FillMinMaxParams(stack, size);
+  if (self.dim() == 0) {
+    auto res = BuildOp(
+        graph,
+        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, ScalarType(), 0}});
+    syn_out(0) = std::move(res[0]);
+    syn_out(1) = std::move(res[0]);
+  } else {
+    if (keepdim) {
+      auto max_dim = BuildOp(
+          graph,
+          guid_,
+          {syn_in(0)},
+          {{outshape, ScalarType(), 0}, {outshape, c10::ScalarType::Int, 1}},
+          params.get(),
+          size);
+
+      syn_out(0) = std::move(max_dim[0]);
+      syn_out(1) = std::move(max_dim[1]);
+    } else {
+      auto shape = self.sizes().vec();
+      dim = c10::maybe_wrap_dim(dim, self.dim(), true);
+      shape[dim] = 1;
+
+      auto max_dim = BuildOp(
+          graph,
+          guid_,
+          {syn_in(0)},
+          {{shape, ScalarType()}, {shape, c10::ScalarType::Int}},
+          params.get(),
+          size);
+      auto max =
+          ReshapeHelper(graph, max_dim[0].get(), outshape, ScalarType(), 0);
+      auto max_indices = ReshapeHelper(
+          graph, max_dim[1].get(), outshape, c10::ScalarType::Int, 1);
+      syn_out(0) = std::move(max);
+      syn_out(1) = std::move(max_indices);
+    }
+  }
+}
 } // namespace habana
