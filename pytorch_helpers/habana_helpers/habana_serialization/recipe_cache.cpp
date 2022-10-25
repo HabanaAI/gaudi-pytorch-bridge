@@ -117,52 +117,64 @@ void RecipeCache::store(
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
-  int meta_fd_to_unlock = pop_meta_fd(metadata_path);
 
-  if (recipeHandle && recipeHandle->syn_recipe_handle_ != nullptr) {
-    auto status = synRecipeSerialize(
+  size_t size;
+  int fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
+  bool locked = cfHandler->fileLock(fd, true, size);
+  if (!locked)
+    PT_HABHELPER_WARN(
+        "Error when locking the metadata file ",
+        metadata_path,
+        ", err: ",
+        strerror(errno));
+
+  if (size == 0 && recipeHandle &&
+      recipeHandle->syn_recipe_handle_ != nullptr) {
+    auto serialize_status = synRecipeSerialize(
         recipeHandle->syn_recipe_handle_, recipe_path.c_str());
-    if (status != synSuccess) {
-      cfHandler->fileUnLock(meta_fd_to_unlock);
-      cfHandler->fileClose(meta_fd_to_unlock);
+    if (serialize_status != synSuccess) {
+      cfHandler->fileUnLock(fd);
+      cfHandler->fileClose(fd);
       PT_HABHELPER_WARN(
-          "Failed to serialized recipe(", recipe_path, "). Err: ", status);
+          "Failed to serialized recipe(",
+          recipe_path,
+          "). Err: ",
+          serialize_status);
       return;
     }
+
+    std::ofstream metadata_file(metadata_path.c_str(), std::ofstream::binary);
+    if (!metadata_file.is_open()) {
+      auto err_str = strerror(errno);
+      cfHandler->fileUnLock(fd);
+      cfHandler->fileClose(fd);
+      PT_HABHELPER_WARN(
+          "Failed to separately open metadata file(",
+          recipe_path,
+          ") for writing. Err: ",
+          err_str);
+      return;
+    }
+
+    metadata_file << metadata.rdbuf();
+    metadata_file.close();
+
+    cfHandler->addFileInfo(cache_id);
+
+    PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
+    cfHandler->fileUnLock(fd);
+    cfHandler->fileClose(fd);
+
+    if (send_thread.valid()) {
+      send_thread.get();
+    }
+    if (inter_host_cache_) {
+      send_thread = std::async(
+          std::launch::async, [&] { inter_host_cache_->send_file(cache_id); });
+    }
   } else {
-    cfHandler->fileUnLock(meta_fd_to_unlock);
-    cfHandler->fileClose(meta_fd_to_unlock);
-    return;
-  }
-
-  std::ofstream metadata_file(metadata_path.c_str(), std::ofstream::binary);
-  if (!metadata_file.is_open()) {
-    auto err_str = strerror(errno);
-    cfHandler->fileUnLock(meta_fd_to_unlock);
-    cfHandler->fileClose(meta_fd_to_unlock);
-    PT_HABHELPER_WARN(
-        "Failed to separately open metadata file(",
-        recipe_path,
-        ") for writing. Err: ",
-        err_str);
-    return;
-  }
-
-  metadata_file << metadata.rdbuf();
-  metadata_file.close();
-
-  cfHandler->addFileInfo(cache_id);
-
-  PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
-  cfHandler->fileUnLock(meta_fd_to_unlock);
-  cfHandler->fileClose(meta_fd_to_unlock);
-
-  if (send_thread.valid()) {
-    send_thread.get();
-  }
-  if (inter_host_cache_) {
-    send_thread = std::async(
-        std::launch::async, [&] { inter_host_cache_->send_file(cache_id); });
+    cfHandler->fileUnLock(fd);
+    cfHandler->fileClose(fd);
   }
 }
 
@@ -197,8 +209,8 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
       PT_HABHELPER_DEBUG(
           "Metadata is empty. This process can compile recipe. Saving fd for metadata file ",
           metadata_path);
-      std::unique_lock<std::mutex> lock(mut_);
-      meta2fd_map_.emplace(metadata_path, fd);
+      cfHandler->fileUnLock(fd);
+      cfHandler->fileClose(fd);
       return {};
     } else {
       PT_HABHELPER_DEBUG(
@@ -226,15 +238,6 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
   }
 
   return {};
-}
-
-int RecipeCache::pop_meta_fd(const std::string& metadata_file) {
-  std::unique_lock<std::mutex> lock(mut_);
-  auto it = meta2fd_map_.find(metadata_file);
-  HABANA_ASSERT(it != meta2fd_map_.end());
-  int fd = it->second;
-  meta2fd_map_.erase(it);
-  return fd;
 }
 
 } // namespace serialization

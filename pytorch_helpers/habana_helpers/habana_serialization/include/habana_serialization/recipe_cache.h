@@ -61,9 +61,6 @@ class RecipeCache {
   // stored on disk
   std::unordered_map<std::string, int> meta2fd_map_;
 
-  // helper function to find fd for a given metada file and erase it from the
-  // map
-  int pop_meta_fd(const std::string& lock_file);
 };
 
 } // namespace serialization
