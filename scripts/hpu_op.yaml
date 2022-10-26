@@ -1735,7 +1735,7 @@ div.out:
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
-  fallback_check: [DivTensorFallbackCheck, self, other, rounding_mode]
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_backend: DivRoundModeOperator
 
@@ -1746,7 +1746,7 @@ div.Scalar:
 
 div.Scalar_mode:
   force_default: false
-  fallback_check: [DivScalarFallbackCheck, self, other, rounding_mode]
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_backend: DivRoundModeOperator
   out_ids: [0]
@@ -1761,7 +1761,7 @@ div_.Scalar:
 
 div_.Scalar_mode:
   force_default: false
-  fallback_check: [DivScalarFallbackCheck, self, other, rounding_mode]
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
@@ -1776,7 +1776,7 @@ div.Tensor:
 
 div.Tensor_mode:
   force_default: false
-  fallback_check: [DivTensorFallbackCheck, self, other, rounding_mode]
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   custom_output_shape: BinaryOutputShape
   guid: div
   op_frontend: LazyDiv
@@ -1790,11 +1790,29 @@ div_.Tensor:
 
 div_.Tensor_mode:
   force_default: false
-  fallback_check: [DivTensorFallbackCheck, self, other, rounding_mode]
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   custom_output_shape: BinaryOutputShape
   guid: div
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
+
+div.Scalar_mode_out:
+  custom_output_shape: BinaryOutputShape
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_backend: DivRoundModeOperator
+  scalar_ids: [1]
+  type_promotion: true
+  safe_cast_check: true
+
+div.Scalar_out:
+  custom_output_shape: BinaryOutputShape
+  dtypes: [Float, BFloat16, Int, Char, Byte]
+  guid: div
+  op_backend: DivWithoutRoundModeOperator
+  scalar_ids: [1]
+  promote_int_to_float: true
+  safe_cast_check: true
 
 dot:
   custom_output_shape: DotOutputShape
