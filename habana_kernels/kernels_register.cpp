@@ -34,6 +34,7 @@ Tensor hpu_wrap::_to_copy(
     c10::optional<bool> pin_memory,
     bool non_blocking,
     c10::optional<MemoryFormat> optional_memory_format) {
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "_to_copy :",
       " self=",
@@ -77,6 +78,7 @@ Tensor hpu_wrap::_to_copy(
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "is_pinned :", " self=", to_string(self), " device=", to_string(device));
   return is_pinned_hpu(self, device);
@@ -85,6 +87,7 @@ bool hpu_wrap::is_pinned(
 Tensor hpu_wrap::pin_memory(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "pin_memory :", " self=", to_string(self), " device=", to_string(device));
   return pin_memory_hpu(self, device);
@@ -93,6 +96,7 @@ Tensor hpu_wrap::pin_memory(
 Tensor hpu_wrap::_pin_memory(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "_pin_memory :",
       " self=",
@@ -114,6 +118,7 @@ Tensor linear_(
     const Tensor& input,
     const Tensor& weight,
     const c10::optional<Tensor>& bias_opt) {
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "HpuOp linear:",
       " input=",
@@ -135,6 +140,7 @@ Tensor linear_(
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "copy_ :",
       " self=",
@@ -176,6 +182,7 @@ Tensor hpu_wrap::_reshape_alias(
     IntArrayRef size,
     IntArrayRef stride) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "_reshape_alias :",
       " self=",
@@ -217,6 +224,7 @@ Tensor hpu_wrap::as_strided(
   // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self), PARAMS2(self, size,
   // stride, storage_offset))
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "as_strided :",
       " self=",
@@ -254,6 +262,7 @@ Tensor hpu_wrap::constant_pad_nd(
     IntArrayRef pad,
     const Scalar& value) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "constant_pad :",
       " self=",
@@ -279,6 +288,7 @@ Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& valid_count,
     int64_t kernel_mode) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "embedding_bag_sum :",
       " input=",
@@ -308,6 +318,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     const Tensor& valid_count,
     int64_t kernel_mode) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "embedding_bag_sum_bwd_out :",
       " out=",
@@ -336,6 +347,7 @@ Tensor& hpu_wrap::masked_fill_(
     const Tensor& mask,
     const Tensor& value) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_fill_ :",
       " self=",
@@ -362,6 +374,7 @@ Tensor& hpu_wrap::masked_fill_(
     const Tensor& mask,
     const Scalar& value) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_fill_ :",
       " self=",
@@ -382,6 +395,7 @@ Tensor& hpu_wrap::masked_fill_(
 };
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_select :", " self=", to_string(self), " mask=", to_string(mask));
   FALLBACK_IF_UNSUPPORTED_OP(
@@ -398,6 +412,7 @@ Tensor& hpu_wrap::masked_select_out(
     const Tensor& mask,
     Tensor& out) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_select_out :",
       " self=",
@@ -422,6 +437,7 @@ Tensor hpu_wrap::scatter_add(
     const Tensor& index,
     const Tensor& src) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "scatter_add :",
       " self=",
@@ -448,6 +464,7 @@ Tensor& hpu_wrap::scatter_add_(
     const Tensor& index,
     const Tensor& src) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "scatter_add_ :",
       " self=",
@@ -477,6 +494,7 @@ Tensor& hpu_wrap::index_add_out(
     const Scalar& alpha,
     Tensor& out) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "index_add_out :",
       " self=",
@@ -510,6 +528,7 @@ Tensor& hpu_wrap::masked_scatter_(
     const Tensor& mask,
     const Tensor& source) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_scatter_ :",
       " self=",
@@ -532,6 +551,7 @@ Tensor& hpu_wrap::index_fill_(
     const Tensor& index,
     const Scalar& value) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "index_fill_ :",
       " self=",
@@ -556,6 +576,7 @@ Tensor& hpu_wrap::index_copy_(
     const Tensor& index,
     const Tensor& value) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "index_copy_ :",
       " self=",
@@ -580,6 +601,7 @@ Tensor hpu_wrap::select_backward(
     int64_t dim,
     int64_t index) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "select_backward :",
       " grad=",
@@ -601,6 +623,7 @@ Tensor& hpu_wrap::arange_out(
     const Scalar& step,
     Tensor& output) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "arange_out:",
       " start=",
@@ -623,6 +646,7 @@ Tensor& hpu_wrap::arange_out(
 };
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "nonzero_out :", " self=", to_string(self), " out=", to_string(out));
   FALLBACK_IF_UNSUPPORTED_OP(
@@ -643,6 +667,7 @@ Tensor hpu_wrap::baddbmm(
     const Scalar& beta,
     const Scalar& alpha) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "baddbmm :",
       " self=",
@@ -670,6 +695,7 @@ Tensor& hpu_wrap::baddbmm_out(
     const Scalar& alpha,
     Tensor& out) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "baddbmm_out :",
       " self=",
@@ -703,6 +729,7 @@ Tensor& hpu_wrap::baddbmm_(
     const Scalar& beta,
     const Scalar& alpha) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "baddbmm_ :",
       " self=",
@@ -733,6 +760,7 @@ Tensor hpu_wrap::kl_div_backward(
     int64_t reduction,
     bool log_target) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "kl_div_backward :",
       " grad=",
@@ -919,6 +947,7 @@ Tensor hpu_wrap::instance_norm(
     double eps,
     UNUSED bool cudnn_enabled) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "instance_norm :",
       " input=",
@@ -1014,6 +1043,7 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
     const Tensor& indices,
     Tensor& grad_input) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "max_pool2d_with_indices_backward_out :",
       " grad_output=",
@@ -1076,6 +1106,7 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
 
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "bernoulli_:", "self=", to_string(self), " repeats=", to_string(repeats));
   FALLBACK_IF_UNSUPPORTED_OP(repeat, PARAMS1(self), PARAMS2(self, repeats))
@@ -1090,6 +1121,7 @@ at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
     c10::optional<int64_t> output_size) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "repeat_interleave:",
       "repeats=",
@@ -1108,6 +1140,7 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
     int64_t dim,
     bool keepdim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "max :",
       " self=",
@@ -1127,6 +1160,7 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
 };
 at::Tensor hpu_wrap::max(const at::Tensor& self) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("max :", " self=", to_string(self));
   FALLBACK_IF_UNSUPPORTED_OP(max, PARAMS1(self), PARAMS2(self))
 
@@ -1140,6 +1174,7 @@ at::Tensor hpu_wrap::max(const at::Tensor& self) {
 at::Tensor hpu_wrap::min(const at::Tensor& self) {
   PT_OP_TRACE;
   FALLBACK_IF_UNSUPPORTED_OP(min, PARAMS1(self), PARAMS2(self))
+  PT_LAZY_TRACE;
   PT_OP_INFO("min :", " self=", to_string(self));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return min_hpu_lazy(self);
@@ -1150,6 +1185,7 @@ at::Tensor hpu_wrap::min(const at::Tensor& self) {
 
 Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "one_hot :",
       " self=",
@@ -1191,6 +1227,7 @@ Tensor hpu_wrap::softmax(
     int64_t dim,
     c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "softmax :",
       " self=",
@@ -1210,6 +1247,7 @@ Tensor hpu_wrap::empty(
     c10::optional<bool> pin_memory,
     c10::optional<MemoryFormat> optional_memory_format) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "empty :",
       " size=",
@@ -1244,6 +1282,7 @@ Tensor hpu_wrap::empty_strided(
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "empty_strided :",
       " size=",
@@ -1283,6 +1322,7 @@ Tensor hpu_wrap::empty_strided(
 
 Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "cat :", " tensors=", to_string(tensors), " dim_=", to_string(dim_));
 
@@ -1300,6 +1340,7 @@ Tensor& hpu_wrap::cat_out(
     int64_t dim_,
     Tensor& result) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "cat_out :",
       " tensprs=",
@@ -1324,6 +1365,7 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
     IntArrayRef split_sizes,
     int64_t dim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "split_with_sizes :",
       " self=",
@@ -1348,6 +1390,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
     int64_t dim,
     bool descending) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "sort :",
       " self=",
@@ -1377,6 +1420,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
     bool return_inverse,
     bool return_counts) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "_unique2 :",
       " self=",
@@ -1414,6 +1458,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
 
 std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("unbind :", " self=", to_string(self), " dim=", to_string(dim));
   FALLBACK_IF_UNSUPPORTED_OP_O(unbind, PARAMS1(self), PARAMS2(self, dim), int)
 
@@ -1422,12 +1467,14 @@ std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
 
 Tensor hpu_wrap::alias(const at::Tensor& self) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("alias :", " self=", to_string(self));
   return alias_hpu_lazy(self);
 }
 
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
   FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
@@ -1442,6 +1489,7 @@ Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("squeeze :", " self=", to_string(self));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // using invalid dim size HABANA_DIM_MAX to signal the backend kernel that
@@ -1454,6 +1502,7 @@ at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self, int64_t dim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("squeeze :", " self=", to_string(self), " dim=", to_string(dim));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return squeeze_hpu_lazy(self, dim);
@@ -1464,6 +1513,7 @@ at::Tensor hpu_wrap::squeeze(const at::Tensor& self, int64_t dim) {
 
 at::Tensor& hpu_wrap::squeeze_(at::Tensor& self) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("squeeze_ :", " self=", to_string(self));
   FALLBACK_IF_UNSUPPORTED_OP(squeeze_, PARAMS1(self), PARAMS2(self))
 
@@ -1472,6 +1522,7 @@ at::Tensor& hpu_wrap::squeeze_(at::Tensor& self) {
 
 at::Tensor& hpu_wrap::squeeze_(at::Tensor& self, int64_t dim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("squeeze_ :", " self=", to_string(self), " dim=", to_string(dim));
   FALLBACK_IF_UNSUPPORTED_OP_O(squeeze_, PARAMS1(self), PARAMS2(self, dim), dim)
 
@@ -1489,6 +1540,7 @@ const at::Tensor& hpu_wrap::as_strided_(
   //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
   //  storage_offset);
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "as_strided_ :",
       " self=",
@@ -1507,6 +1559,7 @@ std::vector<at::Tensor> hpu_wrap::split(
     int64_t split_size,
     int64_t dim) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "split :",
       " self=",
@@ -1552,6 +1605,7 @@ Tensor hpu_wrap::upsample_nearest2d(
     OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "upsample_nearest2d :",
       " input=",
@@ -1579,6 +1633,7 @@ Tensor hpu_wrap::upsample_nearest2d_backward(
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "upsample_nearest2d_backward :",
       " grad_output=",
@@ -1609,6 +1664,7 @@ Tensor hpu_wrap::upsample_nearest3d(
     OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "upsample_nearest3d :",
       " input=",
@@ -1636,6 +1692,7 @@ Tensor hpu_wrap::upsample_nearest3d_backward(
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "upsample_nearest3d_backward :",
       " grad_output=",
@@ -1672,6 +1729,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     float mom,
     bool nesterov) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_sparse_sgd_with_valid_count :",
       " gradients=",
@@ -1721,6 +1779,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_sparse_adagrad_with_valid_count :",
       " gradients=",
@@ -1765,6 +1824,7 @@ void optimizer_adamw_hpu_wrap(
     const float epsilon,
     const float weight_decay) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
       " gradient_vec=",
@@ -1820,6 +1880,7 @@ Tensor fused_norm_hpu_wrap(
     const Tensor& max_norm,
     float norm_type) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       "fused_norm :",
       " grad=",
@@ -1845,6 +1906,7 @@ void optimizer_adagrad_hpu_wrap(
     const float lrd,
     const float epsilon) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_adagrad:",
       " gradients=",
@@ -1877,6 +1939,7 @@ void optimizer_ema_hpu_wrap(
     TensorList& updated_ema,
     const at::Tensor& decay) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_ema:",
       " model_inputs=",
@@ -1901,6 +1964,7 @@ void optimizer_sgd_hpu_wrap(
     const float damp,
     const bool nesterov) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd:",
       " gradients=",
@@ -1936,6 +2000,7 @@ void optimizer_sgd_momentum_hpu_wrap(
     const float damp,
     const bool nesterov) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd_momentum:",
       " gradients=",
@@ -1971,6 +2036,7 @@ Tensor optimizer_lamb_fused_norm_hpu_wrap(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_lamb_fused_norm:",
       " grad=",
@@ -2003,6 +2069,7 @@ optimizer_lamb_phase1_hpu_wrap(
     const int bias_correction,
     const float weight_decay) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_lamb_phase1:",
       " gradients=",
@@ -2073,6 +2140,7 @@ void optimizer_lamb_phase2_hpu_wrap(
     const float weight_decay,
     const int use_lamb) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_lamb_phase2:",
       " weight_vec=",
@@ -2119,6 +2187,7 @@ void optimizer_lars_hpu_wrap(
     const float eps,
     const float lr) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_lars_hpu_wrap:",
       " param=",
@@ -2144,6 +2213,7 @@ void optimizer_ResourceApplyMomentum_hpu_wrap(
     const at::TensorList& d_p_list,
     const float momentum) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_ResourceApplyMomentum_hpu_wrap:",
       " params_momentum_buffer_list =",
@@ -2161,6 +2231,7 @@ Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& scores,
     double iou_threshold) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " torchvision_nms:",
       " boxes=",
@@ -2185,6 +2256,7 @@ Tensor habana_nms_hpu_wrap(
     float iou_threshold,
     float score_threshold) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " habana_nms:",
       " boxes=",
@@ -2208,6 +2280,7 @@ Tensor batched_nms_hpu_wrap(
     const at::Tensor& indices,
     float iou_threshold) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " batched_nms:",
       " boxes=",
@@ -2226,6 +2299,7 @@ Tensor hpu_wrap::_masked_scale(
     const Tensor& mask,
     double scale) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " _masked_scale:",
       " self=",
@@ -2260,6 +2334,7 @@ Tensor habana_cast_to_fp8_wrap(
     bool stochastic_rounding,
     int seed) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " habana_cast_to_fp8:",
       " input=",
@@ -2309,6 +2384,7 @@ struct IsfiniteFunction : public torch::autograd::Function<IsfiniteFunction> {
 
 Tensor hpu_wrap::isfinite(const Tensor& self) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(" isfinite:", " self=", to_string(self));
   FALLBACK_IF_UNSUPPORTED_OP(isfinite, PARAMS1(self), PARAMS2(self))
   return IsfiniteFunction::apply(self);
@@ -2350,6 +2426,7 @@ struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
 
 Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   return MatmulFunction::apply(self, other);
 };
@@ -2442,6 +2519,7 @@ Tensor hpu_wrap::adaptive_avg_pool2d(
     const Tensor& input,
     IntArrayRef output_size) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " adaptive_avg_pool2d:",
       " input=",
@@ -2458,6 +2536,7 @@ Tensor hpu_wrap::slice(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " slice:",
       " self=",
@@ -2516,6 +2595,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
 
 Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   PT_OP_TRACE;
+  PT_LAZY_TRACE;
   PT_OP_INFO(
       " dropout:",
       " input=",
