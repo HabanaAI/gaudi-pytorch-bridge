@@ -2236,14 +2236,18 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     const Tensor& index,
     const Tensor& src) {
   PT_LAZY_TRACE;
-  auto node =
-      std::make_shared<habana_lazy::ir::ScatterAdd>(self, dim_, index, src);
-  LazyOp<at::Tensor, ir::ScatterAdd> k{node, {self, dim_, index, src}};
-  auto result = k.call();
-  auto hl_self = GetOrCreateHbLazyTensor(self);
-  // Create MemCopy operator to copy value into self
-  AddMemcpy(result, self);
-  return self;
+
+  auto func = [self, dim_, index, src]() mutable {
+    auto node =
+        std::make_shared<habana_lazy::ir::ScatterAdd>(self, dim_, index, src);
+    LazyOp<at::Tensor, ir::ScatterAdd> k{node, {self, dim_, index, src}};
+    auto result = k.call();
+    auto hl_self = GetOrCreateHbLazyTensor(self);
+    // Create MemCopy operator to copy value into self
+    AddMemcpy(result, self);
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(scatter_add, func, self)
 }
 
 Tensor& _index_put_impl_hpu_lazy_(
