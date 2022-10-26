@@ -4912,21 +4912,6 @@ Tensor sum_dim_IntList_hpu_lazy(
   return kernel.call();
 }
 
-Tensor mean_dim_hpu_lazy(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k(
-      "aten::mean",
-      {self, dim, keepdim, std::move(dtype)},
-      {1, 2, 3}, // metadata_indices
-      {ReduceOperator::compute_output_shape(self, dim, keepdim)});
-  return k.call();
-}
-
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
 

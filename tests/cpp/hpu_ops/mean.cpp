@@ -58,3 +58,24 @@ TEST_F(HpuOpTest, mean_out_5d_float) {
 
   Compare(expected, result, 1e-2, 1e-2);
 }
+
+TEST_F(HpuOpTest, mean_dim_5d_float) {
+  GenerateInputs(1, {{2, 5, 3, 4, 1}});
+  bool keepdim = true;
+
+  auto expected = torch::mean(GetCpuInput(0), {2} /*dim*/, keepdim, {});
+  auto result = torch::mean(GetHpuInput(0), {2} /*dim*/, keepdim, {});
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, mean_dim_bfloat) {
+  GenerateInputs(1, torch::kBFloat16);
+  torch::ScalarType dtype = torch::kFloat;
+  bool keepdim = false;
+
+  auto expected = torch::mean(GetCpuInput(0), {0} /*dim*/, keepdim, dtype);
+  auto result = torch::mean(GetHpuInput(0), {0} /*dim*/, keepdim, dtype);
+
+  Compare(expected, result);
+}

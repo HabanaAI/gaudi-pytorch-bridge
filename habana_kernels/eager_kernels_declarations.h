@@ -501,11 +501,6 @@ at::Tensor sum_dim_IntList_hpu(
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor mean_dim_hpu(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
 at::Tensor sum_hpu(const at::Tensor& self, c10::optional<at::ScalarType> dtype);
 at::Tensor mean_hpu(
     const at::Tensor& self,

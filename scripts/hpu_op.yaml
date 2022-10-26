@@ -3433,7 +3433,9 @@ mean.dim:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
-  override_fn: mean_dim_hpu_lazy
+  guid: reduce_mean_fwd
+  op_template: reduction
+  out_ids: [0]
 
 mean.out:
   dtypes:
