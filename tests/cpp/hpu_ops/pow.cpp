@@ -26,6 +26,22 @@ TEST_F(HpuOpTest, pow_tensor_tensor_out) {
   Compare(expected, result);
 }
 
+TEST_F(HpuOpTest, pow_scalar_) {
+  GenerateInputs(1);
+
+  GetCpuInput(0).pow_(3);
+  GetHpuInput(0).pow_(3);
+
+  Compare(GetCpuInput(0), GetHpuInput(0));
+}
+
+TEST_F(HpuOpTest, pow_scalar) {
+  GenerateInputs(1);
+
+  auto expected = torch::pow(GetCpuInput(0), 2);
+  auto result = torch::pow(GetHpuInput(0), 2);
+  Compare(expected, result);
+}
 TEST_F(HpuOpTest, pow_out_non_hpu_out_tensor) {
   GenerateInputs(2);
   auto out = torch::empty(0);
