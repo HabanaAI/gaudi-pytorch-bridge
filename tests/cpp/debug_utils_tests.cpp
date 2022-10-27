@@ -73,6 +73,9 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
 }
 
 TEST_F(DebugUtilsTest, DebugCustomOp3) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
+    return;
+
   auto S = torch::randn({2, 4}, torch::requires_grad(false));
   auto C = torch::relu(S);
   auto hS = S.to(torch::kHPU);
@@ -96,6 +99,9 @@ TEST_F(DebugUtilsTest, DebugCustomOp3) {
 }
 
 TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
+    return;
+
   auto S = torch::randn({2, 4}, torch::requires_grad(false));
   auto C = torch::relu(S);
   auto hS = S.to(torch::kHPU);

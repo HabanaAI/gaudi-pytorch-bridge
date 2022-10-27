@@ -213,6 +213,16 @@ void HbLazyTensorImpl::SetStorage(at::Storage storage) {
 }
 
 void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE)) {
+    TORCH_CHECK(
+        allow_tensor_metadata_change(),
+        "set_storage ",
+        err_msg_tensor_metadata_change_not_allowed);
+    storage_ = std::move(storage);
+    device_opt_ = storage_.device();
+    return;
+  }
+
   TORCH_CHECK(
       allow_tensor_metadata_change(),
       "set_storage ",
