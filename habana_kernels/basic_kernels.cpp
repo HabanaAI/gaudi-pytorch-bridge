@@ -1458,14 +1458,24 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
 
   auto output = at::as_strided(graph_input, sizes, strides_contig, offset);
 
-  p_context_->syn_outputs_.emplace_back(
+  auto syn_tensor_output =
       habana_helpers::duplicate_tensor_in_memory_section_with_size(
           syn_t_vec[0],
           graph,
           sizes,
           strides_contig,
           offset * graph_input.itemsize(),
-          output_metadata.at(0).external));
+          output_metadata.at(0).external);
+
+  // This flag can be enabled in model scripts only if DDP
+  // gradient_as_bucket_view = True
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT)) {
+    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(output);
+    syn_tensor_output.set_dont_allow_permute(true);
+    hb_impl->SetDontAllowPermutation(true);
+  }
+
+  p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_output));
   p_context_->pt_outputs_.emplace_back(output);
 
   // If shape tensors are not created at frontend we need to create
