@@ -2574,6 +2574,15 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
     auto result = inputs[1].toTensor();
     HABANA_ASSERT(result.scalar_type() == ScalarType::Int);
+    auto idst_sizes = inputs[0].toTensor().sizes().vec();
+    auto step = idst_sizes[0];
+    auto end = idst_sizes[1];
+    auto start = idst_sizes[2];
+    auto output = result.sizes()[0];
+    HABANA_ASSERT(result.scalar_type() == ScalarType::Int);
+    TORCH_CHECK(
+        output == ((end - start) / step),
+        "output != ((end-start)/step) for Arange operator")
 
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
