@@ -45,6 +45,8 @@ std::unordered_set<std::string> load_list(
   return list;
 }
 
+// Below lists are based on the hmp lists from
+// pytorch-integration/python_packages/habana_frameworks/torch/hpex/hmp/
 static const std::unordered_set<std::string> default_lower_ops{
     "addmm",
     "batch_norm",
@@ -57,6 +59,7 @@ static const std::unordered_set<std::string> default_lower_ops{
     "conv_transpose3d",
     "dot",
     "dropout",
+    "feature_dropout"
     "group_norm",
     "instance_norm",
     "layer_norm",
@@ -67,23 +70,58 @@ static const std::unordered_set<std::string> default_lower_ops{
     "mm",
     "mul",
     "mv",
-    "relu",
-    "t"};
+    "softmax",
+    "log_softmax"};
 static const std::unordered_set<std::string> default_fp32_ops{
+    "acos",
+    "addcdiv",
+    "asin",
+    "atan2",
+    "bilinear",
     "binary_cross_entropy",
     "binary_cross_entropy_with_logits",
-    "cross_entropy_loss"
+    "cdist",
+    "cosh",
+    "cosine_embedding_loss",
+    "cosine_similarity",
+    "cross_entropy_loss",
+    "dist",
     "div",
     "divide",
+    "embedding",
     "embedding_bag",
+    "erfinv",
+    "exp",
+    "expm1",
+    "hinge_embedding_loss",
+    "huber_loss",
+    "kl_div",
+    "l1_loss",
     "log",
+    "log10",
+    "log1p",
     "log2",
-    "log_softmax",
+    "logsumexp",
+    "margin_ranking_loss",
+    "mse_loss",
+    "multi_margin_loss",
+    "multilabel_margin_loss",
     "nll_loss",
+    "pdist",
+    "poisson_nll_loss",
+    "pow",
+    "reciprocal",
+    "renorm",
+    "rsqrt",
+    "sinh",
     "smooth_l1_loss",
-    "softmax",
+    "soft_margin_loss",
+    "softplus",
+    "tan",
     "topk",
-    "truediv"};
+    "triplet_margin_loss",
+    "truediv",
+    "true_divide"};
 static const std::unordered_set<std::string> lower_first_ops{
     "layer_norm",
     "group_norm",
