@@ -1575,8 +1575,11 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   auto dim2 = grad_out.dim();
   auto avoid_double_transpose =
       is_specialfold_without_reshape_case(dim1, dim2, dim_out);
+  auto matbw_sizes = other.sizes().vec();
   if ((self.dim() > 1) && !avoid_double_transpose) {
     MatBwTranspose(graph, transpose1, self, p_context_->syn_inputs_[1]);
+    if (skip_other_transpose)
+      std::swap(matbw_sizes[0], matbw_sizes[1]);
   } else {
     MatBwTranspose(graph, identity1, self, p_context_->syn_inputs_[1]);
   }
@@ -1589,7 +1592,7 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
           ? transpose1->GetOutputs()[0]
           : identity1->GetOutputs()[0],
       grad_out,
-      other.sizes(),
+      matbw_sizes,
       ((self.dim() > 1) && !avoid_double_transpose)
           ? transpose1->GetSynOutputs()[0]
           : identity1->GetSynOutputs()[0],

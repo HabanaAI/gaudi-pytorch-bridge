@@ -60,7 +60,6 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
 
     auto out = torch::matmul(mat1, mat2);
     auto out_h = torch::matmul(mat1_h, mat2_h).to(torch::kCPU);
-
     EXPECT_TRUE(allclose(out, out_h, 0.01, 0.01));
   };
 
@@ -111,6 +110,7 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
   matmulbwd_test({2, 3, 4}, {4});
   matmulbwd_test({2, 2, 3, 4}, {2, 4, 3});
   matmulbwd_test({2, 3}, {3, 4});
+  matmulbwd_test({1, 3}, {3, 1});
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
