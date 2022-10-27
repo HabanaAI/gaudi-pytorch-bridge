@@ -60,7 +60,7 @@ class event_handle_cache {
   // we have too many events used at once, hence the limit. In the future, to be
   // on a safe side, we might consider creating bundles of tensors for single
   // event, thus reducing overall number of events in use.
-  static constexpr size_t NUM_EVENTS_MAX = 1000;
+  static constexpr size_t NUM_EVENTS_MAX = 1000000;
   static constexpr size_t NUM_EVENTS_HIGH_WATERMARK = NUM_EVENTS_MAX - 100;
 };
 
