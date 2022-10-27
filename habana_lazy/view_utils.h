@@ -245,6 +245,10 @@ class HbLazyTensorViews {
   static at::Tensor add_identity_lazy(
       const at::Tensor& self,
       c10::optional<at::Tensor> out_t);
+  static std::vector<StridedOpSliceParams> getSliceInsertParams(
+      const at::Tensor& recent_orig_t,
+      const at::Tensor& recent_src_t,
+      const StrideParams* params_ptr);
 };
 
 at::Tensor add_strided_insert_node(

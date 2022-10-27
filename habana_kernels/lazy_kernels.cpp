@@ -386,22 +386,11 @@ void strided_insert_hpu_lazy(
   Tensor recent_orig_t =
       HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
   auto recent_insert_t = HbLazyTensorViews::get_recent_base_tensor(insert_t);
-  // Incase of slice operator on multi axes, it comes as different
-  // slice operation on differnt axes, we combine them into single slice
-  // operation.
-  std::vector<StridedOpSliceParams> back_to_back_slices;
-  auto params_ptr_link = params_ptr;
-  while (params_ptr_link && params_ptr_link->optype == kStridedOpSlice) {
-    back_to_back_slices.push_back(params_ptr_link->params.slice_param);
-    auto parent_id = GetHbLazyTensorId(params_ptr_link->parent);
-    params_ptr_link = context->viewContext.GetViewTableEntry(parent_id);
-  }
-  bool use_strided_insert = (params_ptr_link != nullptr);
+  auto back_to_back_slices = HbLazyTensorViews::getSliceInsertParams(
+      recent_orig_t, recent_insert_t, params_ptr);
 
   at::Tensor out;
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT) ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
-      use_strided_insert) {
+  if (back_to_back_slices.empty()) {
     out = add_strided_insert_node(
         recent_orig_t,
         recent_insert_t,

@@ -638,6 +638,42 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
   return out_vec;
 }
 
+std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
+    const at::Tensor& recent_orig_t,
+    const at::Tensor& recent_src_t,
+    const StrideParams* params_ptr) {
+  // Incase of slice operator on multi axes, it comes as different
+  // slice operation on differnt axes, we combine them into single slice
+  // operation.
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+      (recent_orig_t.sizes().size() != recent_src_t.sizes().size())) {
+    return std::vector<StridedOpSliceParams>();
+  }
+  std::vector<StridedOpSliceParams> back_to_back_slices;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto params_ptr_link = params_ptr;
+  std::unordered_set<int64_t> dims;
+  int64_t dims_size = recent_orig_t.sizes().size() - 1;
+  while (params_ptr_link && params_ptr_link->optype == kStridedOpSlice) {
+    back_to_back_slices.push_back(params_ptr_link->params.slice_param);
+    // If multiple times same dim exists, use strided insert.
+    if (dims.find(params_ptr_link->params.slice_param.dim) != dims.end()) {
+      return std::vector<StridedOpSliceParams>();
+    }
+    // If step size is 1, then use strided_insert
+    if (dims_size == params_ptr_link->params.slice_param.dim &&
+        params_ptr_link->params.slice_param.step == 1) {
+      return std::vector<StridedOpSliceParams>();
+    }
+    dims.insert(params_ptr_link->params.slice_param.dim);
+    auto parent_id = GetHbLazyTensorId(params_ptr_link->parent);
+    params_ptr_link = context->viewContext.GetViewTableEntry(parent_id);
+  }
+  return (params_ptr_link != nullptr) ? std::vector<StridedOpSliceParams>()
+                                      : back_to_back_slices;
+}
+
 bool HbLazyTensorViews::HandleViewsD2D(
     const at::Tensor& src,
     const at::Tensor& dst) {
@@ -673,12 +709,20 @@ bool HbLazyTensorViews::HandleViewsD2D(
       if (src_parent_id != orig_t_id) {
         auto recent_orig_t = get_recent_base_tensor(orig_t);
         auto recent_src_t = get_recent_base_tensor(src);
-        auto out = add_strided_insert_node(
-            recent_orig_t,
-            recent_src_t,
-            params_ptr->strides,
-            params_ptr->offset);
 
+        at::Tensor out;
+        auto back_to_back_slices =
+            getSliceInsertParams(recent_orig_t, recent_src_t, params_ptr);
+        if (back_to_back_slices.empty()) {
+          out = add_strided_insert_node(
+              recent_orig_t,
+              recent_src_t,
+              params_ptr->strides,
+              params_ptr->offset);
+        } else {
+          out = add_slice_insert_node(
+              recent_orig_t, recent_src_t, back_to_back_slices);
+        }
         // update orig tensor map
         context->viewContext.AddOrigTensorMapEntry(orig_t_id, out);
       }
