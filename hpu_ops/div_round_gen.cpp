@@ -44,7 +44,10 @@ static bool DivCommonCheck(
     const c10::IValue& other,
     c10::optional<c10::string_view> rounding_mode) {
   auto promote_int_to_float = rounding_mode == StrModeTrue;
-  auto result_type = GetCommonDtype({self, other}, !promote_int_to_float);
+  auto result_type = GetCommonDtype({self, other}, promote_int_to_float);
+  if (!promote_int_to_float && c10::isIntegralType(result_type, true)) {
+    return true;
+  }
   switch (result_type) {
     case torch::kBFloat16:
     case torch::kFloat32:
@@ -76,6 +79,57 @@ FALLBACK_CHECK(
   return DivCommonCheck(self, other, rounding_mode);
 }
 
+FALLBACK_CHECK(
+    DivTensorFallbackCheck,
+    const at::Tensor& self,
+    const at::Tensor& other) {
+  return DivCommonCheck(self, other, StrModeTrue);
+}
+
+FALLBACK_CHECK(
+    DivScalarFallbackCheck,
+    const at::Tensor& self,
+    const at::Scalar& other) {
+  return DivCommonCheck(self, other, StrModeTrue);
+}
+
+static void convert_scalar_val_to_tensor(std::vector<at::IValue>& inputs) {
+  auto self = inputs[0].toTensor();
+  if (inputs[1].isScalar()) {
+    auto s = inputs[1].toScalar();
+    double val = s.to<double>();
+    c10::ScalarType result_type = GetResultDtype(inputs, false);
+    at::Tensor val_t = habana_lazy::get_tensor_for_scalar(
+        val, self.options().dtype(result_type));
+    inputs[1] = val_t;
+  }
+}
+
+template <>
+LazyDivScalar<at::Tensor>::LazyDivScalar(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
+  convert_scalar_val_to_tensor(get_inputs());
+}
+template <>
+at::Tensor LazyDivScalar<at::Tensor>::get_result_overrideable() {
+  auto inputs = LazyOp<at::Tensor>::get_inputs();
+  auto self = inputs[0].toTensor();
+  auto other = inputs[1].toTensor();
+  c10::ScalarType result_dtype = GetResultDtype(inputs, true);
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+
+  auto result = habana_lazy::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(result_dtype),
+      self.suggest_memory_format(),
+      false);
+
+  return result;
+}
+
 template <>
 LazyDiv<at::Tensor>::LazyDiv(
     const std::string& qualstring,
@@ -95,6 +149,7 @@ LazyDiv<at::Tensor>::LazyDiv(
       "but found '",
       *rounding_mode,
       "'");
+  convert_scalar_val_to_tensor(get_inputs());
 }
 
 template <>
@@ -119,6 +174,19 @@ at::Tensor LazyDiv<at::Tensor>::get_result_overrideable() {
       false);
 
   return result;
+}
+
+template <>
+LazyDivScalarInplace<at::Tensor&>::LazyDivScalarInplace(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  convert_scalar_val_to_tensor(get_inputs());
+}
+template <>
+at::Tensor& LazyDivScalarInplace<at::Tensor&>::get_result_overrideable() {
+  return LazyOp<at::Tensor&>::get_result_overrideable();
 }
 
 static std::vector<synapse_helpers::tensor> CommonFuncForRoundingModeIntType(

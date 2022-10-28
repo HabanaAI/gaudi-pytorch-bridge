@@ -1750,44 +1750,6 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
-Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  // The auto code gen way of implementing div with rounding mode is
-  // more comprehensive. Hence use this op without specific mode
-  // to realize normal div
-
-  c10::optional<c10::string_view> mode = c10::nullopt;
-  return torch::div(self, other, mode);
-}
-Tensor& div_tensor_hpu_lazy_out(
-    const Tensor& self,
-    const Tensor& other,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-  c10::optional<c10::string_view> mode = c10::nullopt;
-  return torch::div_outf(self, other, mode, out);
-}
-
-Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  PT_LAZY_TRACE;
-  c10::optional<c10::string_view> mode = c10::nullopt;
-  return self.div_(other, mode);
-}
-
-Tensor div_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-
-  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
-  c10::optional<c10::string_view> mode = c10::nullopt;
-  return torch::div(self, other_tensor, mode);
-}
-
-Tensor& div_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
-  PT_LAZY_TRACE;
-  c10::optional<c10::string_view> mode = c10::nullopt;
-  return self.div_(other, mode);
-}
-
 Tensor permute_wt_hpu(const Tensor& self) {
   at::Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()

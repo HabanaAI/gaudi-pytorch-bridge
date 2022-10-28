@@ -197,6 +197,4 @@ struct mul_out : OpBackend {
 } // namespace habana
 
 static auto& BinaryOutKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::mul.out", KERNEL_FN(mul_out))
-        .add("hpu::div_out", KERNEL_FN(DivOutOperator));
+    habana::KernelRegistry().add("aten::mul.out", KERNEL_FN(mul_out));

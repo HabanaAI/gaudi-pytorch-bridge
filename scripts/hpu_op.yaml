@@ -1976,8 +1976,10 @@ diag.out:
   op_backend: Diag
 
 div.out:
-  override_fn: div_tensor_hpu_lazy_out
-  acc_thread: true
+  custom_output_shape: BinaryOutputShape
+  fallback_check: [DivTensorFallbackCheck, self, other]
+  guid: div_fwd
+  promote_int_to_float: true
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
@@ -1985,43 +1987,57 @@ div.out_mode:
   guid: div
   op_backend: DivRoundModeOperator
 
+# Convert scalar to tensor for better utilization of cache
+# as in div_scalar_hpu_lazy
 div.Scalar:
   force_default: false
-  override_fn: div_scalar_hpu_lazy
-  acc_thread: true
+  custom_output_shape: BinaryOutputShape
+  fallback_check: [DivScalarFallbackCheck, self, other]
+  guid: div_fwd
+  op_frontend: LazyDivScalar
+  out_ids: [0]
+  promote_int_to_float: true
+
+div_.Scalar:
+  force_default: false
+  custom_output_shape: BinaryOutputShape
+  fallback_check: [DivScalarFallbackCheck, self, other]
+  guid: div_fwd
+  op_frontend: LazyDivScalarInplace
+  inplace_ids: [0]
+  promote_int_to_float: true
 
 div.Scalar_mode:
   force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
+  op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
   out_ids: [0]
-  scalar_ids: [1]
   type_promotion: true
 
-div_.Scalar:
-  force_default: false
-  override_fn: div_scalar_hpu_lazy_
-  acc_thread: true
-
 div_.Scalar_mode:
+  custom_output_shape: BinaryOutputShape
   force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
+  op_frontend: LazyDivScalarInplace
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
-  scalar_ids: [1]
   type_promotion: true
 
 div.Tensor:
+  custom_output_shape: BinaryOutputShape
   force_default: false
-  override_fn: div_tensor_hpu_lazy
-  acc_thread: true
+  fallback_check: [DivTensorFallbackCheck, self, other]
+  guid: div_fwd
+  out_ids: [0]
+  promote_int_to_float: true
 
 div.Tensor_mode:
+  custom_output_shape: BinaryOutputShape
   force_default: false
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
-  custom_output_shape: BinaryOutputShape
   guid: div
   op_frontend: LazyDiv
   op_backend: DivRoundModeOperator
@@ -2029,8 +2045,11 @@ div.Tensor_mode:
 
 div_.Tensor:
   force_default: false
-  override_fn: div_tensor_hpu_lazy_
-  acc_thread: true
+  fallback_check: [DivTensorFallbackCheck, self, other]
+  custom_output_shape: BinaryOutputShape
+  guid: div_fwd
+  inplace_ids: [0]
+  promote_int_to_float: true
 
 div_.Tensor_mode:
   force_default: false
@@ -2044,16 +2063,16 @@ div.Scalar_mode_out:
   custom_output_shape: BinaryOutputShape
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
+  op_frontend: LazyDivScalarInplace
   op_backend: DivRoundModeOperator
-  scalar_ids: [1]
   type_promotion: true
 
 div.Scalar_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [Float, BFloat16, Int, Char, Byte]
+  fallback_check: [DivScalarFallbackCheck, self, other]
   guid: div
   op_backend: DivWithoutRoundModeOperator
-  scalar_ids: [1]
+  op_frontend: LazyDivScalarInplace
   promote_int_to_float: true
 
 dot:

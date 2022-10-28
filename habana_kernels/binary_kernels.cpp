@@ -1855,6 +1855,4 @@ static auto& BinaryKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
         .add("aten::add.Scalar", KERNEL_FN(AddOperator))
-        .add("hpu::rsub.Tensor", KERNEL_FN(RsubOperator))
-        .add("aten::div.Tensor", KERNEL_FN(DivOperator))
-        .add("aten::div.Scalar", KERNEL_FN(DivOperator));
+        .add("hpu::rsub.Tensor", KERNEL_FN(RsubOperator));

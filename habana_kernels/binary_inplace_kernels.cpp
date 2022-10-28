@@ -880,6 +880,4 @@ Tensor& addcdiv_hpu_(
 static auto& BinaryInplaceKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
-        .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator))
-        .add("aten::div_.Tensor", KERNEL_FN(DivInplaceOperator))
-        .add("aten::div_.Scalar", KERNEL_FN(DivInplaceOperator));
+        .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator));
