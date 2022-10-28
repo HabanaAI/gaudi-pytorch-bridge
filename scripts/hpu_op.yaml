@@ -4185,7 +4185,7 @@ randperm.generator_out:
     Gaudi2: [Int]
     Greco: [Int]
   override_fn: randperm_hpu_lazy
-  acc_thread: true
+  acc_thread: false # disbale due to SW-108809
 
 reciprocal:
   force_default: false
