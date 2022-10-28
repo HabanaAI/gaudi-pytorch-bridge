@@ -82,10 +82,14 @@ HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor) {
   return dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
 }
 
-bool CheckAndUpdateSizeStride(
-    HbLazyTensorImpl* impl,
+HbLazyTensor CheckAndUpdateSizeStride(
+    HbLazyTensor hl_t,
     const at::Tensor& tensor) {
   PT_LAZY_TRACE;
+
+  auto t = AtenFromHbLazyTensor(
+      hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  auto impl = GetHbLazyTensorImpl(t);
 
   if (impl->storage().data_ptr() != nullptr) {
     auto at_tensor_size_zero = true;
@@ -96,7 +100,12 @@ bool CheckAndUpdateSizeStride(
       }
     }
 
-    auto hl_t_updated = impl->tensor();
+    if (at_tensor_size_zero) {
+      PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is NOT set!");
+      return hl_t;
+    }
+
+    HbLazyTensor& hl_t_updated = hl_t;
     auto pTensor = hl_t_updated.GetTensorData();
     auto hl_tensor_size_zero = true;
     if (pTensor != c10::nullopt) {
@@ -113,49 +122,48 @@ bool CheckAndUpdateSizeStride(
       }
     }
 
-    if (!at_tensor_size_zero && hl_tensor_size_zero) {
-      auto type = c10::typeMetaToScalarType(tensor.dtype());
-      type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
-      type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
-      auto new_dtype = scalarTypeToTypeMeta(type);
-
-      auto at_internal_tensor = AtenInternalHbTensor(
-          c10::Storage(impl->storage()),
-          new_dtype,
-          DATA_TENSOR,
-          tensor.sizes(),
-          tensor.strides(),
-          tensor.options().memory_format_opt());
-
-      // backend tensor should always be contiguous as per view table design
-      std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
-      if (contig_strides.size()) {
-        habana_helpers::recalc_strides(
-            contig_strides, at_internal_tensor.sizes().vec());
-        c10::IntArrayRef new_strides = contig_strides;
-        at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            at_internal_tensor.sizes(), new_strides);
-      }
-
-      hl_t_updated.SetTensorData(at_internal_tensor);
-
-      PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is set!");
-      PT_LAZY_DEBUG(
-          "CheckAndUpdateSizeStride: at_internal_tensor.storage().nbytes() = ",
-          at_internal_tensor.storage().nbytes());
-
-      // Update Size And Stride Info
-      c10::IntArrayRef tensor_size = tensor.sizes();
-      c10::IntArrayRef tensor_stride = tensor.strides();
-      impl->set_sizes_and_strides(tensor_size, tensor_stride);
-
-      return true;
+    if (!hl_tensor_size_zero) {
+      PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is NOT set!");
+      return hl_t;
     }
 
-    PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is NOT set!");
+    auto type = c10::typeMetaToScalarType(tensor.dtype());
+    type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
+    type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
+    auto new_dtype = scalarTypeToTypeMeta(type);
+
+    auto at_internal_tensor = AtenInternalHbTensor(
+        c10::Storage(impl->storage()),
+        new_dtype,
+        DATA_TENSOR,
+        tensor.sizes(),
+        tensor.strides(),
+        tensor.options().memory_format_opt());
+
+    // backend tensor should always be contiguous as per view table design
+    std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
+    if (contig_strides.size()) {
+      habana_helpers::recalc_strides(
+          contig_strides, at_internal_tensor.sizes().vec());
+      c10::IntArrayRef new_strides = contig_strides;
+      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          at_internal_tensor.sizes(), new_strides);
+    }
+
+    hl_t_updated.SetTensorData(at_internal_tensor);
+
+    PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is set!");
+    PT_LAZY_DEBUG(
+        "CheckAndUpdateSizeStride: at_internal_tensor.storage().nbytes() = ",
+        at_internal_tensor.storage().nbytes());
+
+    // Update Size And Stride Info
+    c10::IntArrayRef tensor_size = tensor.sizes();
+    c10::IntArrayRef tensor_stride = tensor.strides();
+    impl->set_sizes_and_strides(tensor_size, tensor_stride);
   }
 
-  return false;
+  return hl_t;
 }
 
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(
@@ -195,10 +203,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // As set_sizes_and_strides() call in pytorch-fork doesn't impact
   // the backend tensor properties like size, stride etc,
   // here we try to update these properties using frontend tensor info
-  bool updated = CheckAndUpdateSizeStride(impl, tensor);
-  if (updated) {
-    hl_t = impl->tensor();
-  }
+  hl_t = CheckAndUpdateSizeStride(hl_t, tensor);
 
   // if producer is collective, mark step
   if (handle_collective) {
