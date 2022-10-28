@@ -22,6 +22,8 @@ class Reduce2Operator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -36,6 +38,8 @@ class MaxDimOperator : public HabanaOperator {
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
   }
+
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

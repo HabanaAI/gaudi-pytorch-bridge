@@ -26,6 +26,38 @@
 using namespace torch;
 using namespace habana;
 
+OutputShapeInfRetType Reduce2Operator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  Tensor self = inputs[0].toTensor();
+  auto dim_ = inputs[1].toInt();
+
+  // wrap dim to positive value
+  auto dim = c10::maybe_wrap_dim(dim_, self.dim(), true);
+  auto out_shape = self.sizes().vec();
+  out_shape[dim] = 1;
+
+  auto out_metadata = TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format());
+  if (synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco) {
+    out.AddOutputTensor(out_metadata);
+  } else {
+    auto index_metadata = TensorMetaData(
+        out_shape,
+        HabanaOperator::CalculateStrides(
+            out_shape, self.suggest_memory_format()),
+        c10::ScalarType::Int,
+        self.suggest_memory_format());
+    out.AddOutputTensor(out_metadata);
+    out.AddOutputTensor(index_metadata);
+  }
+  return out;
+}
+
 void Reduce2Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -56,6 +88,50 @@ void Reduce2Operator::AllocateAndAddSynapseNode(
     AllocateSynapseOutputs(graph, {output, index}, output_metadata);
   }
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+OutputShapeInfRetType MaxDimOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  Tensor self = inputs[0].toTensor();
+  auto dim_ = inputs[1].toInt();
+  bool keepdim = inputs[2].toBool();
+  auto dim = c10::maybe_wrap_dim(dim_, self.dim(), true);
+
+  auto reduce_op =
+      make_operator<Reduce2Operator>(self.device().index(), this->guid_);
+  auto reduce_op_out = out.call_ComputeOutputShape(reduce_op, inputs);
+
+  auto reshape_op =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
+  auto reshape_index =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
+  if (!keepdim) {
+    auto reduce_op_out1 = std::get<1>(reduce_op_out.GetOutputTensor(0));
+    auto reduce_op_out2 = std::get<1>(reduce_op_out.GetOutputTensor(1));
+
+    auto out_shape = reduce_op_out1.sizes().vec();
+    out_shape.erase(out_shape.cbegin() + dim);
+
+    torch::jit::Stack stack = {IValue(reduce_op_out1), IValue(out_shape)};
+    auto reshape_op_out = out.call_ComputeOutputShape(reshape_op, stack);
+    stack.clear();
+
+    stack = {IValue(reduce_op_out2), IValue(out_shape)};
+    auto reshape_index_out = out.call_ComputeOutputShape(reshape_index, stack);
+
+    out.MoveToOutput(
+        const_cast<IdxTensorTup&&>(reshape_op_out.GetOutputTensor(0)));
+    out.MoveToOutput(
+        const_cast<IdxTensorTup&&>(reshape_index_out.GetOutputTensor(0)));
+  } else {
+    out.MoveToOutput(
+        const_cast<IdxTensorTup&&>(reduce_op_out.GetOutputTensor(0)));
+    out.MoveToOutput(
+        const_cast<IdxTensorTup&&>(reduce_op_out.GetOutputTensor(1)));
+  }
+
+  return out;
 }
 
 void MaxDimOperator::AllocateAndAddSynapseNode(

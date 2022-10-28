@@ -197,6 +197,10 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
 }
 
 TEST_F(LazyReductionKernelTest, MaxDimTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
   torch::Tensor A = torch::randn({2, 3, 4, 5, 6}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut, hIndex, Out, Index;
@@ -205,6 +209,8 @@ TEST_F(LazyReductionKernelTest, MaxDimTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
   EXPECT_EQ(allclose(hIndex.to(torch::kCPU).to(torch::kLong), Index), true);
+
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyReductionKernelTest, MaxDimTest0D) {
