@@ -18,7 +18,8 @@ class SubGraphTestCaseException(BaseException):
 file_name = f"TestAutoGen_{r.randint(0, 20000)}"
 test_case = "TestCase"
 NO_LOG_OP = set()
-REMOVE_TEMP = {'_fused_dropout', 'max_pool2d_with_indices'} # does not produce tensors
+REMOVE_TEMP = {'_fused_dropout'} # does not produce tensors
+is_tuple = {'max_pool2d_with_indices'}
 def insert_char(s, idx, c): 
     return s[:idx] + c + s[idx :]
 
@@ -72,11 +73,15 @@ def process_info_lines(info_lines, graph):
     info_list, c = {}, 0
     s = root[0].split("::")[-1]
     for info_line in info_lines:
+        info = None
         try:
             info = process_info_line(info_line)
         except Exception as e:
             print('Unable to process line (hence ignoring):',info_line) # ignoring and listing unparsable lines
-        if not info: continue
+            continue
+        if not info: 
+            print('Unable to process line (hence ignoring):',info_line) # ignoring and listing unparsable lines
+            continue
         if info[1] not in info_list: info_list[info[1]] = list()
         info_list[info[1]].append(info)
         if info[1] == s or (info[1] == 'convolution' and info[1] in s): # closest key, as there is no 1 vs 1 mapping
@@ -151,6 +156,7 @@ def get_aux_method_body(func_name, var_value_list, is_hpu):
         func_string+=val + ","
     
     func_string = func_string[:-1]
+    if func_string.startswith('std::get<0>'): func_string+=')'
     if(is_hpu): func_string+=(").to(\"hpu\");")
     else: func_string+=");"
     body += "torch::manual_seed(10);\n"
@@ -164,14 +170,14 @@ def wrap_in_aux_method(node, var_value_list ,test_count, mtype):
     '''individual hpu / cpu computation function'''
     name = "M" + str(test_count) +  mtype + "()"
     method_string = "auto "+ name +"{\n"
-    return method_string + get_aux_method_body(node[0].replace('aten', 'at').replace('hpu' , 'at'), var_value_list, (mtype == 'hpu')) + "}\n", name
+    return method_string + get_aux_method_body(node.replace('_overrideable', ''), var_value_list, (mtype == 'hpu')) + "}\n", name
 
 def create_test_Case(method_names, test_count):
     test_string = "TEST("+file_name+ "," + test_case + str(test_count) +")"
     test_string+="{\n"
     test_string+=("auto v1 = " + method_names[0] + ";\n")
     test_string+=("auto v2 = " + method_names[1] + ";\n")
-    test_string+="EXPECT_EQ(allclose(v1, v2), true);\n"
+    test_string+="EXPECT_EQ(allclose(v1, v2, 0.001, 0.001), true);\n"
     test_string+="}\n"
     return test_string
 
@@ -184,8 +190,9 @@ def generate_test_case(graph):
         # print(node)
         if node in NO_LOG_OP or node[0].split(":")[-1] in REMOVE_TEMP: continue
         log_comment = "// FOR " + adj[node]['log_info'][-1] +"\n"
-        cpu = wrap_in_aux_method(node, adj[node]['log_info'][2] ,test_count, 'cpu')
-        hpu = wrap_in_aux_method(node,adj[node]['log_info'][2], test_count, 'hpu')
+        func_name = 'std::get<0>(' + 'torch::'+adj[node]['log_info'][1] if adj[node]['log_info'][1] in is_tuple else 'torch::'+adj[node]['log_info'][1]
+        cpu = wrap_in_aux_method(func_name, adj[node]['log_info'][2] ,test_count, 'cpu')
+        hpu = wrap_in_aux_method(func_name, adj[node]['log_info'][2], test_count, 'hpu')
         test_case = create_test_Case([cpu[-1], hpu[-1]], test_count)
         test_content+=log_comment + cpu[0] + hpu[0] + test_case
         test_count+=1
@@ -220,6 +227,7 @@ def generate_inits(var_value_list, func_name, prev_var_names, is_hpu, level = 0)
         func_string+=val + ","
     
     func_string = func_string[:-1]
+    if func_string.startswith('std::get<0>'): func_string+=')'
     if(is_hpu): func_string+=(").to(\"hpu\");")
     else: func_string+=");"
 
@@ -238,7 +246,7 @@ def generate_inits(var_value_list, func_name, prev_var_names, is_hpu, level = 0)
     new_res_name = f"res_{level}_{num_vars}"
     body += (auto_init + new_res_name +" = " + func_string + "\n")
 
-    return body, [new_res_name] + new_var_names
+    return body, [new_res_name]
 
 def get_neighbors(adj_node):
     try: return adj_node['adj']
@@ -255,10 +263,11 @@ def wrap_in_aux_method_depth(adj, path_nodes, mtype):
         var_names = []
         for n in get_neighbors(adj[node]): 
             if n in node_var_names : var_names.extend(node_var_names[n])
-        instr, var_names = generate_inits(adj[node]['log_info'][2], node[0].replace('aten', 'at').replace('hpu' , 'at') ,var_names, (mtype == 'hpu'), l)
+        func_name = 'std::get<0>(' + 'torch::'+adj[node]['log_info'][1] if adj[node]['log_info'][1] in is_tuple else 'torch::'+adj[node]['log_info'][1]
+        instr, var_names = generate_inits(adj[node]['log_info'][2], func_name.replace('_overrideable', '') ,var_names, (mtype == 'hpu'), l)
         node_var_names[node] = var_names.copy()
         _content+=instr
-    _content+= 'return ' + var_names[-1] + ';\n'
+    _content+= 'return ' + var_names[0] + ';\n'
     return method_string + _content + "}\n", name
 
 
@@ -331,7 +340,7 @@ if __name__ == '__main__':
         print("Final graph : [(op_name) => {previous op call, info}], root, enriched with logs")
         print(graph)
         print("--"*10)
-    print("saving cpp file")
+        print("saving cpp file")
     if not no_test:
         with open(cpp_file_path, 'w+') as f:
             f.write(cpp_test_content)
