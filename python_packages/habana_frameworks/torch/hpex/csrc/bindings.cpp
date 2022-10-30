@@ -1,7 +1,11 @@
 #include <torch/extension.h>
 
 #include "bindings.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "habana_kernels/wrap_kernels_declarations_12.h"
+#else
+#include "habana_kernels/wrap_kernels_declarations_13.h"
+#endif
 
 // Wrappers to match singatures
 static void optimizer_ResourceApplyMomentum(

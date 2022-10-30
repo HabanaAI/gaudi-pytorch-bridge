@@ -17,10 +17,10 @@
 #include <torch/library.h>
 #undef UNUSED // Collision between pytorch_helpers/synapse_helpers/graph.h and
               // c10d::ReduceOp enum from c10d/Types.hpp
-#include <c10d/Types.hpp>
-
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include <c10d/Types.hpp>
 using RedOpType = c10d::ReduceOp;
 #else
+#include <torch/csrc/distributed/c10d/Types.hpp>
 using RedOpType = c10d::ReduceOp::RedOpType;
 #endif

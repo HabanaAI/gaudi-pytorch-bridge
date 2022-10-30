@@ -51,7 +51,7 @@ TEST_F(FallbackTest, Inplace) {
   EXPECT_EQ(freq.at("aten::lgamma.out"), 1);
 }
 
-TEST_F(FallbackTest, inverse) {
+TEST_F(FallbackTest, DISABLED_inverse) {
   auto a = torch::randn({2, 2});
   auto b = a.inverse();
   auto out = torch::transpose(b, 0, 1);
@@ -62,7 +62,7 @@ TEST_F(FallbackTest, inverse) {
   EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
 
   const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
-  EXPECT_EQ(freq.at("aten::_linalg_inv_out_helper_"), 1);
+  EXPECT_EQ(freq.at("aten::linalg_inv_ex.inverse"), 1);
 }
 
 // Test disabled since we do not want to support CPU Fallback for as_strided.

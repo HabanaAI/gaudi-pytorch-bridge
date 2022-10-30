@@ -469,6 +469,12 @@ _index_put_impl_:
   fallback_check: [IndexFallbackCheck, indices]
   override_fn: _index_put_impl_hpu_lazy_
 
+as_strided:
+  override_fn: as_strided_hpu_lazy2
+
+select_backward:
+  override_fn: select_backward_hpu_lazy
+
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu_lazy
 
@@ -2201,6 +2207,15 @@ expm1_:
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
+
+exponential:
+  custom_fill_params: FillExponentialParams
+  dtypes: [BFloat16, Float]
+  force_default: false
+  op_frontend: LazyTensorSeed
+  op_backend: ExponentialSeedTensorInput
+  out_ids: [0]
+  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
 
 exponential_:
   custom_fill_params: FillExponentialParams

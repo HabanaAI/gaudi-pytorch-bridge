@@ -1248,6 +1248,52 @@ ir::NodePtr create_as_strided_node(
 // During lazy we set up the as strided tensor meta data
 // when we get a call back from lowering, we attache the tensor from same memory
 // as source
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+Tensor as_strided_hpu_lazy2(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride,
+    c10::optional<int64_t> offset) {
+  PT_LAZY_TRACE;
+  auto storage_offset_val = offset.value_or(self.storage_offset());
+
+  auto size_in = size;
+  auto stride_in = stride;
+#else
+Tensor as_strided_hpu_lazy2(
+    const Tensor& self,
+    SymIntArrayRef size,
+    SymIntArrayRef stride,
+    c10::optional<SymInt> offset) {
+  PT_LAZY_TRACE;
+  auto storage_offset_val =
+      offset.has_value() ? offset.value().expect_int() : self.storage_offset();
+
+  auto size_in = asIntArrayRefSlow(size);
+  auto stride_in = asIntArrayRefSlow(stride);
+#endif
+  habana_lazy::SyncAccThreadPool();
+
+  // lazy within lazy. as strided node is not here. Only the view table update
+  // happens here
+
+  auto out = HbLazyTensorViews::add_strided_view_node(
+      self,
+      size_in,
+      stride_in,
+      storage_offset_val,
+      true /*is_update_view*/,
+      c10::nullopt);
+  if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
+    flush_op(out);
+  }
+  return out;
+};
+
+// THis kernel has two paths, lowering and lazy
+// During lazy we set up the as strided tensor meta data
+// when we get a call back from lowering, we attache the tensor from same memory
+// as source
 Tensor as_strided_hpu_lazy(
     const Tensor& self,
     IntArrayRef size_in,
@@ -1365,6 +1411,7 @@ Tensor& set_hpu_lazy_(
   return self;
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   PT_LAZY_TRACE;
 
@@ -1418,6 +1465,62 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   }
   return out;
 }
+#else
+Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
+  PT_LAZY_TRACE;
+
+  auto self = self_;
+
+  auto hl_self = GetHbLazyTensor(self);
+
+  // multilevel view optimization
+  // v1 = view(a, out_size1)
+  // v2 = view(v1, out_size2)
+  // The above sequence can be compressed to v2 = view(a, out_size2)
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto self_id = hl_self.getTensorUniqueId();
+  {
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(self_id);
+    if (params_ptr != nullptr) {
+      if (params_ptr->optype == kStridedOpView) {
+        self = params_ptr->parent;
+        PT_VIEWTABLE_DEBUG("invoked multilevel view optimization");
+      }
+    }
+  }
+  auto inferred_size =
+      habana_helpers::infer_size(asIntArrayRefSlow(size), self.numel());
+  auto stride =
+      at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
+  TORCH_CHECK(
+      stride.has_value(),
+      "view size is "
+      "not compatible with input tensor's size and stride (at least one dimension"
+      " spans across two contiguous subspaces). Use .reshape(...) instead.");
+  auto stride_value = *stride;
+
+  auto out = as_strided_hpu_lazy(
+      self, inferred_size, stride_value, self.storage_offset());
+  auto hb_result = GetHbLazyTensor(out);
+  {
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    auto strided_param = HbLazyTensorViews::getViewTableParams(hb_result);
+    // There could be some cases where slice/select/etc followed by view, in
+    // those cases use as_strided instead of using the ViewOP.
+    if (is_fallback_original_op(self, out)) {
+      strided_param->optype = kStridedOpView;
+
+      PT_VIEWTABLE_DEBUG(
+          "view fallback- tensor id: ",
+          hl_self.getTensorUniqueId(),
+          "size ",
+          asIntArrayRefSlow(size));
+    }
+  }
+  return out;
+}
+#endif
 
 void add_tensor_hpu_lazy_parallel_impl(
     const Tensor& self,
@@ -2112,6 +2215,7 @@ Tensor embedding_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding, func, out)
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& indices,
@@ -2146,6 +2250,54 @@ Tensor embedding_dense_backward_hpu_lazy(
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, func, out)
 }
+#else
+Tensor embedding_dense_backward_hpu_lazy(
+    const Tensor& grad,
+    const Tensor& indices,
+    c10::SymInt num_weights,
+    c10::SymInt padding_idx,
+    bool scale_grad_by_freq) {
+  PT_LAZY_TRACE;
+  ir::NodePtr embedding_bwd_node = std::make_shared<ir::Embedding_backward>();
+  std::vector<int64_t> sizes{num_weights.expect_int(), grad.size(-1)};
+
+  LazyOp<at::Tensor, ir::Embedding_backward> op(
+      embedding_bwd_node,
+      {grad,
+       indices,
+       num_weights.expect_int(),
+       padding_idx.expect_int(),
+       scale_grad_by_freq},
+      {sizes});
+
+  auto out = op.get_result();
+
+  auto func = [op = std::move(op),
+               node = std::move(embedding_bwd_node),
+               out,
+               grad,
+               indices,
+               num_weights,
+               padding_idx,
+               scale_grad_by_freq]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::Embedding_backward>(node);
+    node_derived->Init(
+        grad,
+        indices,
+        num_weights.expect_int(),
+        padding_idx.expect_int(),
+        scale_grad_by_freq);
+
+    op.call(out);
+
+    if (habana_lazy::CanUseAccThread()) {
+      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, func, out)
+}
+#endif
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
     const Tensor& indices,
@@ -3222,6 +3374,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   return out;
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor select_backward_hpu_lazy(
     const Tensor& grad,
     at::IntArrayRef input_sizes,
@@ -3231,6 +3384,18 @@ Tensor select_backward_hpu_lazy(
 
   return at::native::select_backward(grad, input_sizes, dim, index);
 }
+#else
+Tensor select_backward_hpu_lazy(
+    const Tensor& grad,
+    at::SymIntArrayRef input_sizes,
+    int64_t dim,
+    int64_t index) {
+  PT_LAZY_TRACE;
+
+  return at::native::select_backward(
+      grad, asIntArrayRefSlow(input_sizes), dim, index);
+}
+#endif
 
 bool can_convert(const Scalar& value) {
   if (value.isFloatingPoint()) {
@@ -4139,6 +4304,7 @@ Tensor batch_norm_backward_elemt_lazy(
   return std::tie(out1, out2);
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
     IntArrayRef normalized_shape_,
@@ -4207,6 +4373,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm, func, out)
 }
+
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& dY,
     const at::Tensor& X,
@@ -4317,6 +4484,189 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm_backward, func, out)
 }
+#else
+std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
+    const Tensor& input,
+    c10::SymIntArrayRef normalized_shape_,
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
+    double eps) {
+  PT_LAZY_TRACE;
+  auto weight = weight_opt.value_or(Tensor());
+  auto sizes_vec = input.sizes().vec();
+  auto normalized_shape_temp = asIntArrayRefSlow(normalized_shape_);
+  // check whether we can use a perf optimized TPC exec path
+  auto use_tpc_affine_path = LayerNormOperator::is_tpc_affine_path(
+      input, normalized_shape_temp, weight);
+  std::vector<int64_t> normalized_shape_vec = normalized_shape_temp.vec();
+  if (use_tpc_affine_path) { // if optimized path, then we can't have
+                             // N/mini-batch-size for generating weights/biases
+    sizes_vec.erase(sizes_vec.begin());
+    // NOTE: Add Hack to indicate to lowering kernel that
+    // elementwise_affine=False Without this we have to change the schema and
+    // add a new variable to indicate the path. If, in future, TPC moves fully
+    // to use optimized path, we can remove this.
+    if (normalized_shape_vec.size() == (size_t)input.dim() - 1) {
+      normalized_shape_vec.insert(normalized_shape_vec.begin(), 1);
+    }
+  }
+  IntArrayRef normalized_shape = normalized_shape_vec;
+  if (!weight.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(normalized_shape_vec, options);
+  }
+
+  auto bias = bias_opt.value_or(Tensor());
+  if (!bias.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    bias = torch::zeros(normalized_shape_vec, options);
+  }
+
+  auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
+
+  ir::NodePtr node = std::make_shared<ir::LayerNormForward>();
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
+      node, {input, normalized_shape, weight, bias, eps}, sizes};
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [node = std::move(node),
+               op = std::move(k),
+               out_v = std::move(out_v),
+               input,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               weight,
+               bias,
+               eps]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::LayerNormForward>(node);
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    node_derived->Init(input, normalized_shape, weight, bias, eps);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm, func, out)
+}
+std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    c10::SymIntArrayRef normalized_shape_,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
+    std::array<bool, 3> grad_input_mask) {
+  PT_LAZY_TRACE;
+  auto normalized_shape = asIntArrayRefSlow(normalized_shape_);
+  // Get Output Image
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  using U = ir::LayerNormBackward;
+  class Kernel : public LazyOp<T, U> {
+   public:
+    Kernel(
+        ir::NodePtr node,
+        const at::Tensor& dY,
+        const at::Tensor& X,
+        IntArrayRef normalized_shape,
+        const at::Tensor& mean,
+        const at::Tensor& rstd,
+        const c10::optional<Tensor>& weight_opt,
+        const c10::optional<Tensor>& bias_opt,
+        std::array<bool, 3> grad_input_mask)
+        : LazyOp<T, U>(
+              std::move(node),
+              {dY,
+               X,
+               mean,
+               rstd,
+               weight_opt,
+               bias_opt,
+               normalized_shape,
+               grad_input_mask},
+              {6, 7},
+              {},
+              -1),
+          dY{dY},
+          normalized_shape{normalized_shape},
+          weight_opt{weight_opt},
+          grad_input_mask{grad_input_mask} {}
+
+   private:
+    T get_result_overrideable() override {
+      auto gamma = weight_opt.value_or(Tensor());
+      auto sizes = LayerNormBackwardOperator::getOutputSizes(dY, gamma);
+      auto result_dY = empty_hpu_lazy(
+          sizes[0], dY.options(), dY.suggest_memory_format(), false);
+      at::Tensor result2, result3;
+      if (grad_input_mask[1]) {
+        result2 = empty_hpu_lazy(
+            sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
+      }
+      if (grad_input_mask[2]) {
+        result3 = empty_hpu_lazy(
+            sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
+      }
+      return std::make_tuple(result_dY, result2, result3);
+    }
+    const at::Tensor& dY;
+    IntArrayRef normalized_shape;
+    const c10::optional<Tensor>& weight_opt;
+    std::array<bool, 3> grad_input_mask;
+  };
+
+  ir::NodePtr node = std::make_shared<ir::LayerNormBackward>();
+  std::vector<int64_t> normalized_shape_vec = normalized_shape.vec();
+
+  Kernel k(
+      node,
+      dY,
+      X,
+      normalized_shape,
+      mean,
+      rstd,
+      weight_opt,
+      bias_opt,
+      grad_input_mask);
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [op = std::move(k),
+               out_v = std::move(out_v),
+               node = std::move(node),
+               dY,
+               X,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               mean,
+               rstd,
+               weight_opt,
+               bias_opt,
+               grad_input_mask = std::move(grad_input_mask)]() mutable {
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    auto derived_node = std::dynamic_pointer_cast<ir::LayerNormBackward>(node);
+    derived_node->Init(
+        dY,
+        X,
+        normalized_shape,
+        mean,
+        rstd,
+        weight_opt,
+        bias_opt,
+        grad_input_mask);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm_backward, func, out)
+}
+#endif
 Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
   std::vector<int64_t> size = {};
   at::Tensor empty_tensor =
@@ -4737,7 +5087,7 @@ at::Tensor repeat_inlv_hpu_lazy(
     return k.call();
   }
 }
-
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
@@ -4804,6 +5154,75 @@ Tensor sum_dim_IntList_hpu_lazy(
   Kernel kernel{vector_of_inputs, result_dtype};
   return kernel.call();
 }
+
+#else
+Tensor sum_dim_IntList_hpu_lazy(
+    const Tensor& self,
+    OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
+
+  at::Tensor self_updated_dtype = self;
+  ScalarType result_dtype;
+  /* Match the HPU return dtype with CPU behaviour.
+   * If 'dtype' parameter is specified and it has value:
+   *      Return result in the dtype as specified by 'dtype' parameter.
+   * Else:
+   * Return result in:
+   * i.  int64 for inputs of integral or bool dtypes
+   * ii. corresponding floating point dtype for inputs
+   *      of FP type.
+   *      ie, fp32 input -> fp32 output
+   *      ie, bf16 input -> bf16 output
+   */
+  if (dtype.has_value()) {
+    if (dtype.value() != self_updated_dtype.scalar_type()) {
+      self_updated_dtype = self.to(dtype.value());
+    }
+    result_dtype = dtype.value();
+  } else {
+    result_dtype = c10::isIntegralType(self_updated_dtype.scalar_type(), true)
+        ? c10::ScalarType::Long
+        : self_updated_dtype.scalar_type();
+  }
+  /* for non-floating types, tpc supports only int dtype for sum */
+  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
+    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
+  }
+  std::vector<at::IValue> vector_of_inputs;
+  vector_of_inputs = {self_updated_dtype, dim.value(), keepdim, dtype};
+
+  using T = at::Tensor;
+  class Kernel : public LazyOp<T> {
+   public:
+    Kernel(
+        const std::vector<at::IValue>& vector_of_inputs,
+        ScalarType result_dtype)
+        : LazyOp<T>("hpu::sum_dim_IntList", vector_of_inputs, {}, {}, -1),
+          result_dtype_(result_dtype) {}
+
+   private:
+    T get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      auto dim = inputs[1].toIntList();
+      auto keepdim = inputs[2].toBool();
+      auto shape =
+          ReduceOperator::compute_output_shape(self, dim.vec(), keepdim);
+      return empty_hpu_lazy(
+          shape,
+          self.options().dtype(result_dtype_),
+          self.suggest_memory_format(),
+          false);
+    }
+    ScalarType result_dtype_;
+  };
+
+  Kernel kernel{vector_of_inputs, result_dtype};
+  return kernel.call();
+}
+#endif
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
@@ -5187,7 +5606,7 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
 
     // no degenerate axis to squeeze
     if ((self.sizes()[dim] != 1) || (self.dim() == 1)) {
-      return self;
+      return alias_hpu_lazy(self);
     }
 
     out = at::native::squeeze(self, dim);
@@ -5908,7 +6327,12 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
     auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
     habana_lazy::SyncAccThreadPool();
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
     inverse_result = view_hpu_lazy(inverse_result, self.sizes());
+#else
+    inverse_result =
+        view_hpu_lazy(inverse_result, fromIntArrayRefUnchecked(self.sizes()));
+#endif
 
     flush_op(inverse_result);
     return std::make_tuple(result, inverse_result);

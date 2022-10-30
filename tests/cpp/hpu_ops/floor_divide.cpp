@@ -257,7 +257,7 @@ HPU_FLOOR_DIVIDE_USUAL_TENSOR_TENSOR_TEST(
     torch::kBFloat16)
 
 HPU_FLOOR_DIVIDE_USUAL_TENSOR_TENSOR_TEST(
-    floor_divide_usual_bfloat_bfloat,
+    DISABLED_floor_divide_usual_bfloat_bfloat,
     SIZE({8, 4, 5}),
     SIZE({4, 5}),
     torch::kBFloat16,

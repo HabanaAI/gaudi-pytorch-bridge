@@ -91,7 +91,8 @@ TEST_F(DebugUtilsTest, DebugCustomOp3) {
   auto storage = hS.storage();
   impl->set_storage_keep_dtype(storage);
   impl->set_storage_offset(0);
-  impl->set_sizes_and_strides({2, 4}, {4, 1});
+  impl->set_sizes_and_strides(
+      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
 
   auto hO = torch::relu(hR);
   auto O = hO.to(torch::kCPU);
@@ -118,7 +119,8 @@ TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
   auto storage = hS.storage();
   impl->set_storage_keep_dtype(storage);
   impl->set_storage_offset(0);
-  impl->set_sizes_and_strides({2, 4}, {4, 1});
+  impl->set_sizes_and_strides(
+      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
 
   auto hO = torch::relu(hR);
   auto O = hO.to(torch::kCPU);

@@ -10,13 +10,21 @@
 
 #pragma once
 
+#include <pybind11/chrono.h>
+#include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
+#include <torch/csrc/api/include/torch/version.h>
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 #include <c10d/ProcessGroup.hpp>
 #include <c10d/Store.hpp>
 #include <c10d/Types.hpp>
 #include <c10d/Utils.hpp>
-#include <pybind11/chrono.h>
-#include <pybind11/functional.h>
-#include <pybind11/pybind11.h>
+#else
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
+#endif
 #include <torch/extension.h>
 #include <chrono>
 #include <mutex>

@@ -13,7 +13,11 @@
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "habana_kernels/wrap_kernels_declarations_12.h"
+#else
+#include "habana_kernels/wrap_kernels_declarations_13.h"
+#endif
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
@@ -175,6 +179,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src_, bool non_blocking) {
   }
 };
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     IntArrayRef size,
@@ -212,34 +217,6 @@ Tensor hpu_wrap::_reshape_alias(
   }
 };
 
-Tensor hpu_wrap::as_strided(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
-  // No CPU fallback for as_strided since H2D & D2H DMA support only contiguous
-  // tensor transfers
-  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self), PARAMS2(self, size,
-  // stride, storage_offset))
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "as_strided :",
-      " self=",
-      to_string(self),
-      " size=",
-      to_string(size),
-      " stride=",
-      to_string(stride),
-      " storage_offset=",
-      to_string(storage_offset));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return as_strided_hpu_lazy(self, size, stride, storage_offset);
-
-  } else {
-    return as_strided_hpu(self, size, stride, storage_offset);
-  }
-};
 Tensor& hpu_wrap::set_(
     Tensor& self,
     Storage source,
@@ -254,6 +231,64 @@ Tensor& hpu_wrap::set_(
       source_Storage_storage_offset)
   return set_hpu_lazy_(self, source, storage_offset, size, stride);
 }
+#else
+Tensor hpu_wrap::_reshape_alias(
+    const Tensor& self,
+    SymIntArrayRef size,
+    SymIntArrayRef stride) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "_reshape_alias :",
+      " self=",
+      to_string(self),
+      " size=",
+      to_string(size),
+      " stride",
+      to_string(stride));
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
+  // TODO: In order to align the changes of bert with Pytorchv1.9 we used
+  // view inplace of as_strided implementation for the reshape of tensor
+  // with no-change.
+  // We need to revert existing change and use only as_strided once we
+  // establish the convergence with below changes.
+  // Pytorch change: https://github.com/pytorch/pytorch/pull/61466
+  // Below is the proposed change:
+  // if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+  //  return as_strided_hpu_lazy(self, size, stride, c10::nullopt);
+  //
+  //} else {
+  //  return as_strided_hpu(self, size, stride, c10::nullopt);
+  //}
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return view_hpu_lazy(self, size);
+  } else {
+    return view_hpu(self, asIntArrayRefSlow(size));
+  }
+};
+
+Tensor& hpu_wrap::set_(
+    Tensor& self,
+    Storage source,
+    SymInt storage_offset,
+    SymIntArrayRef size,
+    SymIntArrayRef stride) {
+  PT_OP_TRACE;
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      set_,
+      PARAMS1(self),
+      PARAMS2(self, source, storage_offset, size, stride),
+      source_Storage_storage_offset)
+  return set_hpu_lazy_(
+      self,
+      source,
+      storage_offset.expect_int(),
+      asIntArrayRefSlow(size),
+      asIntArrayRefSlow(stride));
+}
+
+#endif
 
 Tensor hpu_wrap::_efficientzerotensor(
     IntArrayRef size,
@@ -601,28 +636,6 @@ Tensor& hpu_wrap::index_copy_(
   }
 };
 
-Tensor hpu_wrap::select_backward(
-    const at::Tensor& grad,
-    at::IntArrayRef input_sizes,
-    int64_t dim,
-    int64_t index) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "select_backward :",
-      " grad=",
-      to_string(grad),
-      " input_sizes=",
-      to_string(input_sizes),
-      " dim=",
-      to_string(dim),
-      " index=",
-      to_string(index));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      select_backward, PARAMS1(grad), PARAMS2(grad, input_sizes, dim, index))
-
-  return select_backward_hpu_lazy(grad, input_sizes, dim, index);
-};
 Tensor& hpu_wrap::arange_out(
     const Scalar& start,
     const Scalar& end,
@@ -666,6 +679,7 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   }
 };
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::kl_div_backward(
     const Tensor& grad,
     const Tensor& self,
@@ -695,12 +709,10 @@ Tensor hpu_wrap::kl_div_backward(
       IValue(log_target)};
   check_handle->hpu_check_ivalues("kl_div_backward", op_stack);
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
   FALLBACK_IF_UNSUPPORTED_OP1(
       kl_div_backward,
       PARAMS1(grad, self, target),
       PARAMS2(grad, self, target, reduction, log_target))
-#endif
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
@@ -708,6 +720,7 @@ Tensor hpu_wrap::kl_div_backward(
     return kl_div_backward_hpu(grad, self, target, reduction, log_target);
   }
 };
+#endif
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
     const at::Tensor& input,
@@ -1017,6 +1030,7 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
   }
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1029,6 +1043,22 @@ at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
     return repeat_hpu(self, repeats);
   }
 }
+#else
+at::Tensor hpu_wrap::repeat(
+    const at::Tensor& self,
+    c10::SymIntArrayRef repeats) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "repeat:", "self=", to_string(self), " repeats=", to_string(repeats));
+  FALLBACK_IF_UNSUPPORTED_OP(repeat, PARAMS1(self), PARAMS2(self, repeats))
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return repeat_hpu_lazy(self, asIntArrayRefSlow(repeats));
+  } else {
+    return repeat_hpu(self, asIntArrayRefSlow(repeats));
+  }
+}
+#endif
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
@@ -1115,6 +1145,7 @@ Tensor hpu_wrap::softmax(
   return SoftmaxFunction::apply(self, dim, dtype);
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::empty(
     IntArrayRef size,
     c10::optional<ScalarType> dtype,
@@ -1236,6 +1267,129 @@ Tensor& hpu_wrap::cat_out(
     return cat_hpu_out(result, tensors, dim_);
   }
 };
+#else
+Tensor hpu_wrap::empty(
+    SymIntArrayRef size,
+    c10::optional<ScalarType> dtype,
+    c10::optional<Layout> layout,
+    c10::optional<Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<MemoryFormat> optional_memory_format) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "empty :",
+      " size=",
+      to_string(size),
+      " dtype=",
+      to_string(dtype),
+      " layout=",
+      to_string(layout),
+      " device=",
+      to_string(device),
+      " pin_memory=",
+      to_string(pin_memory),
+      " optional_memory_format=",
+      to_string(optional_memory_format));
+  at::TensorOptions options = at::TensorOptions()
+                                  .dtype(dtype)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory)
+                                  .device(device);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return empty_hpu_lazy(
+        asIntArrayRefSlow(size), options, optional_memory_format);
+  }
+  return empty_hpu(asIntArrayRefSlow(size), options, optional_memory_format);
+};
+
+Tensor hpu_wrap::empty_strided(
+    SymIntArrayRef size,
+    SymIntArrayRef stride,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "empty_strided :",
+      " size=",
+      to_string(size),
+      " stride=",
+      to_string(stride),
+      " dtype=",
+      to_string(dtype),
+      " layout=",
+      to_string(layout),
+      " device=",
+      to_string(device),
+      " pin_memory=",
+      to_string(pin_memory));
+  FALLBACK_IF_UNSUPPORTED_OP_RT(
+      at::dtype_or_default(dtype),
+      empty_strided,
+      PARAMS1(),
+      PARAMS2(size, stride, dtype, layout, device, pin_memory))
+
+  at::TensorOptions options = at::TensorOptions()
+                                  .dtype(std::move(dtype))
+                                  .layout(std::move(layout))
+                                  .pinned_memory(std::move(pin_memory))
+                                  .device(std::move(device));
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return empty_strided_hpu_lazy(
+        asIntArrayRefSlow(size), asIntArrayRefSlow(stride), options);
+  }
+  return empty_strided_hpu(
+      asIntArrayRefSlow(size), asIntArrayRefSlow(stride), options);
+}
+
+Tensor hpu_wrap::cat(const ITensorListRef& tensors, int64_t dim_) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "cat :", " tensors=", to_string(tensors), " dim_=", to_string(dim_));
+
+  FALLBACK_IF_UNSUPPORTED_OP(
+      cat, PARAMS1(tensors.toUnboxed()[0]), PARAMS2(tensors, dim_))
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return cat_hpu_lazy(tensors.toUnboxed(), dim_);
+
+  } else {
+    return cat_hpu(tensors.toUnboxed(), dim_);
+  }
+};
+Tensor& hpu_wrap::cat_out(
+    const ITensorListRef& tensors,
+    int64_t dim_,
+    Tensor& result) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "cat_out :",
+      " tensprs=",
+      to_string(tensors),
+      " dim_=",
+      to_string(dim_),
+      " result=",
+      to_string(result));
+
+  FALLBACK_IF_UNSUPPORTED_OP(
+      cat_out,
+      PARAMS1(result, tensors.toUnboxed()[0]),
+      PARAMS2(tensors, dim_, result))
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return cat_hpu_lazy_out(result, tensors.toUnboxed(), dim_);
+
+  } else {
+    return cat_hpu_out(result, tensors.toUnboxed(), dim_);
+  }
+};
+#endif
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     IntArrayRef split_sizes,
@@ -1348,6 +1502,7 @@ Tensor hpu_wrap::alias(const at::Tensor& self) {
   return alias_hpu_lazy(self);
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1362,6 +1517,23 @@ Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
     return view_hpu(self, size);
   }
 }
+#else
+Tensor hpu_wrap::_unsafe_view(
+    const at::Tensor& self,
+    c10::SymIntArrayRef size) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
+  FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return view_hpu_lazy(self, size);
+  } else {
+    return view_hpu(self, asIntArrayRefSlow(size));
+  }
+}
+#endif
 
 at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
   PT_OP_TRACE;
@@ -1405,6 +1577,7 @@ at::Tensor& hpu_wrap::squeeze_(at::Tensor& self, int64_t dim) {
   return at::native::squeeze_(self, dim);
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 const at::Tensor& hpu_wrap::as_strided_(
     const at::Tensor& self,
     at::IntArrayRef size,
@@ -1429,6 +1602,36 @@ const at::Tensor& hpu_wrap::as_strided_(
       to_string(storage_offset));
   return as_strided_hpu_lazy_(self, size, stride, storage_offset);
 }
+#else
+const at::Tensor& hpu_wrap::as_strided_(
+    const at::Tensor& self,
+    at::SymIntArrayRef size,
+    at::SymIntArrayRef stride,
+    c10::optional<SymInt> storage_offset) {
+  // No CPU fallback for as_strided_ since H2D & D2H DMA support only contiguous
+  // tensor transfers
+  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self)
+  //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
+  //  storage_offset);
+  auto temp_offset = storage_offset.has_value()
+      ? storage_offset.value().expect_int()
+      : self.storage_offset();
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "as_strided_ :",
+      " self=",
+      to_string(self),
+      " size=",
+      to_string(size),
+      " stride=",
+      to_string(stride),
+      " storage_offset=",
+      to_string(storage_offset));
+  return as_strided_hpu_lazy_(
+      self, asIntArrayRefSlow(size), asIntArrayRefSlow(stride), temp_offset);
+}
+#endif
 
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
@@ -2193,6 +2396,18 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
   }
 };
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR >= 13))
+::std::tuple<Tensor, Tensor, Tensor> linear_backward(
+    const Tensor& self,
+    const Tensor& grad_output,
+    const Tensor& weight,
+    UNUSED ::std::array<bool, 3> output_mask) {
+  auto result =
+      linear_non2d_bwd_hpu_lazy(grad_output, self, weight, c10::nullopt);
+  return std::tie(result[0], result[1], result[2]);
+}
+#endif
+
 Tensor hpu_wrap::linear(
     const Tensor& input,
     const Tensor& weight,
@@ -2250,6 +2465,8 @@ struct AdaptiveAvgPool2DFunction
     return {result, torch::Tensor()};
   }
 };
+
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::adaptive_avg_pool2d(
     const Tensor& input,
     IntArrayRef output_size) {
@@ -2291,6 +2508,52 @@ Tensor hpu_wrap::slice(
     return slice_hpu(self, dim, start, end, step);
   }
 };
+#else
+Tensor hpu_wrap::adaptive_avg_pool2d(
+    const Tensor& input,
+    SymIntArrayRef output_size) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " adaptive_avg_pool2d:",
+      " input=",
+      to_string(input),
+      "output_size=",
+      to_string(output_size));
+  return AdaptiveAvgPool2DFunction::apply(
+      input, asIntArrayRefSlow(output_size));
+};
+
+Tensor hpu_wrap::slice(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::optional<c10::SymInt> start,
+    c10::optional<c10::SymInt> end,
+    c10::SymInt step) {
+  auto temp_start = start.has_value() ? start.value().expect_int() : 0;
+  auto temp_end = end.has_value() ? end.value().expect_int() : -1;
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " slice:",
+      " self=",
+      to_string(self),
+      "dim=",
+      to_string(dim),
+      "start=",
+      to_string(start),
+      "end=",
+      to_string(end),
+      "step=",
+      to_string(step));
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return slice_hpu_lazy(self, dim, temp_start, temp_end, step.expect_int());
+  } else {
+    return slice_hpu(self, dim, temp_start, temp_end, step.expect_int());
+  }
+};
+#endif
 
 struct DropoutFunction : public Function<DropoutFunction> {
   static at::Tensor forward(

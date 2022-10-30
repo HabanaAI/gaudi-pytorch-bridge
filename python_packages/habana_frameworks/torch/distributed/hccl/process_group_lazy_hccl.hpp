@@ -10,10 +10,18 @@
 
 #pragma once
 
+#include <torch/csrc/api/include/torch/version.h>
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 #include <c10d/ProcessGroup.hpp>
 #include <c10d/Store.hpp>
 #include <c10d/Types.hpp>
 #include <c10d/Utils.hpp>
+#else
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
+#endif
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 

@@ -1,5 +1,10 @@
-#include <c10d/reducer_timer.hpp>
 #include <c10/core/DeviceGuard.h>
+#include <torch/csrc/api/include/torch/version.h>
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include <c10d/reducer_timer.hpp>
+#else
+#include <torch/csrc/distributed/c10d/reducer_timer.hpp>
+#endif
 #include "habana_helpers/logging.h"
 
 namespace c10d {

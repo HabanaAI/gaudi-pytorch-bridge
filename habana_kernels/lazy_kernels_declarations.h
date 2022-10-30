@@ -27,6 +27,19 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+at::Tensor as_strided_hpu_lazy2(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset);
+#else
+at::Tensor as_strided_hpu_lazy2(
+    const at::Tensor& self,
+    c10::SymIntArrayRef size,
+    c10::SymIntArrayRef stride,
+    c10::optional<c10::SymInt> storage_offset);
+#endif
 at::Tensor alias_hpu_lazy(const at::Tensor& self);
 void strided_insert_hpu_lazy(
     const at::Tensor&,
@@ -43,7 +56,11 @@ at::Tensor& set_hpu_lazy_(
     int64_t storage_offset,
     at::IntArrayRef size,
     at::IntArrayRef stride);
-at::Tensor view_hpu_lazy(const at::Tensor& self, at::IntArrayRef size);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+at::Tensor view_hpu_lazy(const at::Tensor& self_, at::IntArrayRef size);
+#else
+at::Tensor view_hpu_lazy(const at::Tensor& self, at::SymIntArrayRef size);
+#endif
 at::Tensor add_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -125,12 +142,21 @@ at::Tensor embedding_hpu_lazy(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor embedding_dense_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& indices,
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq);
+#else
+at::Tensor embedding_dense_backward_hpu_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& indices,
+    c10::SymInt num_weights,
+    c10::SymInt padding_idx,
+    bool scale_grad_by_freq);
+#endif
 at::Tensor embedding_bag_sum_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,
@@ -228,11 +254,20 @@ at::Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step);
 at::Tensor select_hpu_lazy(const at::Tensor& self, int64_t dim, int64_t index);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor select_backward_hpu_lazy(
     const at::Tensor& grad,
     at::IntArrayRef input_sizes,
     int64_t dim,
     int64_t index);
+#else
+at::Tensor select_backward_hpu_lazy(
+    const at::Tensor& grad,
+    at::SymIntArrayRef input_sizes,
+    int64_t dim,
+    int64_t index);
+#endif
+
 at::Tensor& arange_hpu_lazy(
     at::Tensor& output,
     const at::Scalar& start,
@@ -317,6 +352,7 @@ batch_norm_backward_reduce_lazy(
     double momentum,
     double eps,
     const at::Tensor& counts);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
     const at::Tensor& input,
     at::IntArrayRef normalized_shape,
@@ -332,6 +368,23 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
+#else
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
+    const at::Tensor& input,
+    c10::SymIntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    c10::SymIntArrayRef normalized_shape_,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    std::array<bool, 3> grad_input_mask);
+#endif
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight_opt,
@@ -388,11 +441,20 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor sum_dim_IntList_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
+#else
+at::Tensor sum_dim_IntList_hpu_lazy(
+    const at::Tensor& self,
+    at::OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> dtype);
+#endif
+
 at::Tensor mean_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::ScalarType> dtype);

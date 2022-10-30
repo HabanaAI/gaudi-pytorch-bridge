@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include <torch/csrc/api/include/torch/version.h>
 #include "generated/floor_divide.h"
 #include "habana_kernels/binary_kernels.h"
 
@@ -28,7 +29,11 @@ void FloorDivideOperator::AddNode(
 
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
   const std::string rounding_mode = "trunc";
+#else
+  const std::string rounding_mode = "floor";
+#endif
   std::vector<at::Tensor> tensors = {self, other};
 
   const at::ScalarType& final_result_type = at::result_type(self, other);
