@@ -397,34 +397,52 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               SECTION_SIZE,
               &section_size);
           HABANA_ASSERT(status == synStatus::synSuccess);
-          PT_BRIDGE_DEBUG("section_size:: ", section_size);
-          status = synRecipeSectionGetProp(
-              rv.recipe->syn_recipe_handle_,
-              tensorSectionId,
-              SECTION_DATA,
-              &section_data);
-          HABANA_ASSERT(status == synStatus::synSuccess);
-          std::copy(
-              reinterpret_cast<uint8_t*>(section_data),
-              reinterpret_cast<uint8_t*>(section_data) + section_size,
-              (uint8_t*)tensor.get_host_ptr());
-          auto device_id = tensor.device_id();
-          auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-          auto& dst = iter->first->toTensor();
-          std::atomic<bool> copyDone{false};
-          auto syn_error = device.copy_data_to_device(
-              (void*)tensor.get_host_ptr(),
-              reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-              reinterpret_cast<synapse_helpers::device_ptr>(
-                  dst.storage().data_ptr().get()),
+          PT_BRIDGE_DEBUG(
+              "section_size:: ",
               section_size,
-              [&copyDone]() { copyDone = true; },
-              false,
-              true);
-          TORCH_CHECK(syn_error.status == 0, syn_error.error);
-          // wait for copy completion
-          while (!copyDone) {
-            std::this_thread::yield();
+              " , size (bridge) :: ",
+              tensor.get_host_ptr_size());
+          if (section_size) {
+            if (section_size != tensor.get_host_ptr_size()) {
+              void* host_ptr{nullptr};
+              auto device_id = tensor.device_id();
+              status = synHostFree(device_id, (void*)tensor.get_host_ptr(), 0);
+              HABANA_ASSERT(status == synStatus::synSuccess);
+              status = synHostMalloc(device_id, section_size, 0, &host_ptr);
+              HABANA_ASSERT(status == synStatus::synSuccess);
+              tensor.set_host_ptr(host_ptr);
+              tensor.set_host_ptr_size(section_size);
+              PT_BRIDGE_DEBUG(
+                  "reallocated size (bridge) :: ", tensor.get_host_ptr_size());
+            }
+            status = synRecipeSectionGetProp(
+                rv.recipe->syn_recipe_handle_,
+                tensorSectionId,
+                SECTION_DATA,
+                &section_data);
+            HABANA_ASSERT(status == synStatus::synSuccess);
+            std::copy(
+                reinterpret_cast<uint8_t*>(section_data),
+                reinterpret_cast<uint8_t*>(section_data) + section_size,
+                (uint8_t*)tensor.get_host_ptr());
+            auto device_id = tensor.device_id();
+            auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+            auto& dst = iter->first->toTensor();
+            std::atomic<bool> copyDone{false};
+            auto syn_error = device.copy_data_to_device(
+                (void*)tensor.get_host_ptr(),
+                reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+                reinterpret_cast<synapse_helpers::device_ptr>(
+                    dst.storage().data_ptr().get()),
+                section_size,
+                [&copyDone]() { copyDone = true; },
+                false,
+                true);
+            TORCH_CHECK(syn_error.status == 0, syn_error.error);
+            // wait for copy completion
+            while (!copyDone) {
+              std::this_thread::yield();
+            }
           }
         }
       }

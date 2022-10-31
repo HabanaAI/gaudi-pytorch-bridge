@@ -420,6 +420,7 @@ synapse_error_o tensor::create() {
     if (is_const_section_) {
       auto err = synHostMalloc(device_id_, total_size_bytes_, 0, &host_ptr_);
       HABANA_ASSERT(err != synOutOfHostMemory);
+      host_ptr_size_ = total_size_bytes_;
       status = synTensorSetHostPtr(
           tensor_, host_ptr_, total_size_bytes_, data_type_, false);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(

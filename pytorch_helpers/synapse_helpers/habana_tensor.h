@@ -393,6 +393,14 @@ class tensor final {
     return reinterpret_cast<uint64_t>(host_ptr_);
   }
 
+  void set_host_ptr_size(uint64_t host_ptr_size) {
+    host_ptr_size_ = host_ptr_size;
+  }
+
+  uint64_t get_host_ptr_size() const {
+    return host_ptr_size_;
+  }
+
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
 
   std::string DebugString() const {
