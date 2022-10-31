@@ -340,12 +340,51 @@ synapse_helpers::tensor OpBackend::ReshapeHelper(
 
 void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (isMetaMode()) {
-    const auto& t = stack[0].toTensor();
-    const auto& sizes = m_compute_output_shapes
-        ? m_compute_output_shapes(stack)[0]
-        : t.sizes().vec();
-    m_meta.AddOutputTensor(TensorMetaData(
-        sizes, t.strides().vec(), t.scalar_type(), t.suggest_memory_format()));
+    if (m_is_outfn) { // out place fn
+      for (int i = m_num_out_tensors; i > 0; --i) {
+        const auto& t = stack.at(stack.size() - i).toTensor();
+        m_meta.AddOutputTensor(TensorMetaData(
+            t.sizes().vec(),
+            t.strides().vec(),
+            t.scalar_type(),
+            t.suggest_memory_format()));
+      }
+    } else if (!m_inplace_ids.empty()) { // in place fn
+      for (int inplace_id : m_inplace_ids) {
+        // Index can vary in syn_inputs_ and in stack
+        const auto& ival = stack.at(inplace_id);
+        const auto& tensors = ival.isTensor()
+            ? static_cast<at::List<at::Tensor>>(ival.toTensor())
+            : ival.toTensorList();
+        for (auto i = 0u; i < tensors.size(); ++i) {
+          m_meta.AddOutputTensor(TensorMetaData(
+              tensors[i].sizes().vec(),
+              tensors[i].strides().vec(),
+              tensors[i].scalar_type(),
+              tensors[i].suggest_memory_format()));
+        }
+      }
+    } else { // normal fn
+      const auto& outshapes = ComputeOutputShapes(stack);
+      for (int res_id : m_res_ids) {
+        // Index can vary in syn_inputs_ and in stack
+        const auto& ival = stack.at(res_id);
+        const auto& tensors = ival.isTensor()
+            ? static_cast<at::List<at::Tensor>>(ival.toTensor())
+            : ival.toTensorList();
+        for (auto i = 0u; i < tensors.size(); ++i) {
+          const auto& outshape =
+              outshapes.empty() ? tensors[i].sizes() : outshapes[i];
+          const auto& strides = HabanaOperator::CalculateStrides(
+              outshape.vec(), at::MemoryFormat::Contiguous);
+          m_meta.AddOutputTensor(TensorMetaData(
+              outshape.vec(),
+              strides,
+              tensors[i].scalar_type(),
+              tensors[i].suggest_memory_format()));
+        }
+      }
+    }
     return;
   }
   size_t size = 0;
