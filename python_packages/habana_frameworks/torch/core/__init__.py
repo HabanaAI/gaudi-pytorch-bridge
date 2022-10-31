@@ -113,6 +113,24 @@ def wrap_add_module(self, name, module):
 
 torch.nn.modules.Module.add_module = wrap_add_module
 
+from torch.distributed.constants import default_pg_timeout
+
+ranks_cache = {}
+new_group_orig = torch.distributed.new_group
+
+@wraps(torch.distributed.new_group)
+def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
+    global ranks_cache
+    ranks_tuple = tuple(sorted(tuple(ranks)))
+    if ranks_tuple in ranks_cache:
+        return ranks_cache[ranks_tuple]
+
+    ranks_cache[ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
+    return ranks_cache[ranks_tuple]
+
+torch.distributed.new_group = wrap_new_group
+
+
 module_set_attr_orig = torch.nn.Module.__setattr__
 @wraps(torch.nn.Module.__setattr__)
 def wrap_set_attr(self, name: str, value: Union[torch.Tensor, 'torch.nn.Module']) -> None:
