@@ -3649,7 +3649,10 @@ min.dim_min:
 minimum:
   force_default: false
   broadcast: true
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
   out_ids: [0]
   type_promotion: true
@@ -3657,7 +3660,10 @@ minimum:
 
 minimum.out:
   broadcast: true
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
   type_promotion: true
   safe_cast_check: true
