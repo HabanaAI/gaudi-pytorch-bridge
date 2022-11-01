@@ -4754,50 +4754,102 @@ rsub.Scalar:
 scatter.src:
   force_default: false
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    src: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      src: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
   op_backend: ScatterOperator
   out_ids: [0]
 
 scatter_.src:
   force_default: false
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    src: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      src: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
   op_backend: ScatterOperator
   inplace_ids: [0]
 
 scatter.src_out:
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    src: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
-    out: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      src: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char , Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
 
 scatter.value:
   force_default: false
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      index: [Int]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      index: [Int]
   op_backend: ScatterOperator
   out_ids: [0]
 
 scatter_.value:
   force_default: false
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      index: [Int]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      index: [Int]
   op_backend: ScatterOperator
   inplace_ids: [0]
 
 scatter.value_out:
   dtypes:
-    self: [BFloat16, Float, Int, Short, Byte, Char]
-    index: [Int]
-    out: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi:
+      self: [BFloat16, Float, Int, Short, Byte, Char]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Greco:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
 
 select.int:
