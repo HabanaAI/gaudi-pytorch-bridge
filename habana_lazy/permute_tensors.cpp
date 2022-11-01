@@ -13,6 +13,7 @@
 #include <cstddef>
 #include "habana_device/HPUAllocator.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -21,6 +22,7 @@
 #include "synapse_helpers/layout_utils.h"
 
 using namespace synapse_helpers::layouts;
+using namespace habana_lazy;
 
 namespace habana_lazy {
 
@@ -42,15 +44,20 @@ void PermuteTensors::permuteWeight(torch::Tensor& weight) {
   TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HPU,
       "permuteWeight only for HPU tensors");
+
+  print_tensor_debug(weight);
+
   if (shouldPermuteWeight(weight)) {
     permuteWeightByDim(weight);
   } else if (shouldPermutePreCastedWeight(weight)) {
     auto pre_caster_weight = getPreCastedWeight(weight);
     permuteWeightByDim(pre_caster_weight);
   }
+  print_tensor_debug(weight);
 }
 
 void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
   if (hb_tensor.GetHbLazyTensorData().has_value()) {
     auto hb_data = hb_tensor.GetHbLazyTensorData().value();
@@ -64,12 +71,22 @@ void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
     }
   }
   auto dim = weight.dim();
-  if (dim == 4) {
-    habana_lazy::PermuteTensors::permuteWeightToRSCKInMemory(weight);
-  } else if (dim == 5) {
-    habana_lazy::PermuteTensors::permuteWeightToQRSCKInMemory(weight);
-  } else {
-    HABANA_ASSERT(false && "Permute weight support only 4/5D tensors");
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE)) {
+    if (dim == 4 || dim == 5) {
+      handleWeightTensorLayout(weight);
+    } else {
+      HABANA_ASSERT(false && "Permute weight support only 4/5D tensors");
+    }
+  }
+
+  else if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+    if (dim == 4) {
+      habana_lazy::PermuteTensors::permuteWeightToRSCKInMemory(weight);
+    } else if (dim == 5) {
+      habana_lazy::PermuteTensors::permuteWeightToQRSCKInMemory(weight);
+    } else {
+      HABANA_ASSERT(false && "Permute weight support only 4/5D tensors");
+    }
   }
 }
 
@@ -107,6 +124,8 @@ void PermuteTensors::handlePermutedTensor(
     torch::Tensor& cpuTensor,
     bool non_blocking) {
   PT_LAZY_TRACE;
+  print_tensor_debug(permutedTensor);
+  print_tensor_debug(cpuTensor);
   TORCH_CHECK(
       permutedTensor.device().type() == c10::DeviceType::HPU,
       "handlePermutedTensor permutedTensor should be HPU");
@@ -179,6 +198,7 @@ void PermuteTensors::clearPermuteInformation(
 }
 
 void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   PT_LAYOUTS_DEBUG("Permuting weight to RSCK, count: ", m_permute_counter++);
   torch::Tensor weight_cpu = weight.to(c10::kCPU);
   if (weight.scalar_type() == c10::ScalarType::BFloat16) {
@@ -188,12 +208,14 @@ void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
+  print_tensor_debug(weight);
   // Update Permutation
   increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_rsck_in_memory);
 }
 
 void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   PT_LAYOUTS_DEBUG("Permuting weight to QRSCK, count: ", m_permute_counter++);
   torch::Tensor weight_cpu = weight.to(c10::kCPU);
   if (weight.scalar_type() == c10::ScalarType::BFloat16) {
@@ -203,12 +225,14 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
+  print_tensor_debug(weight);
   // Update lazy & impl status
   increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_qrsck_in_memory);
 }
 
 bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
   PT_LAYOUTS_DEBUG(
       "shouldPermuteWeight tensor: ", weight_hb_tensor.getTensorUniqueId())
@@ -232,6 +256,7 @@ bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
 }
 
 bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
   PT_LAYOUTS_DEBUG(
       "shouldPermutePreCastedWeight tensor: ",
@@ -286,6 +311,7 @@ bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
 
 const torch::Tensor PermuteTensors::getPreCastedWeight(
     const torch::Tensor& weight) {
+  PT_LAZY_TRACE;
   HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
   const auto& ir_value = weight_hb_tensor.GetIrValue();
   const auto& ir_node = ir_value.mp_node;

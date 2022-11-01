@@ -62,6 +62,25 @@ using namespace at;
 namespace habana_lazy {
 static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
+void print_tensor_debug(const torch::Tensor& src) {
+  std::string marker = "********************\n";
+  PT_LAYOUTS_DEBUG(
+      marker,
+      " Tensor Data info:\n",
+      "src device: ",
+      src.device(),
+      ",src format: ",
+      src.suggest_memory_format(),
+      ", contig?:",
+      src.is_contiguous(),
+      ", src.strides(): ",
+      src.strides(),
+      ", src.sizes(): ",
+      src.sizes(),
+      "\n",
+      marker);
+}
+
 static bool is_nonempty_tensor(const at::Tensor& tensor) {
   return tensor.dim() != 1 || tensor.size(0) != 0;
 }
@@ -735,6 +754,15 @@ Tensor as_strided_layout_hpu_lazy(
 }
 
 c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
+  PT_LAZY_TRACE;
+  print_tensor_debug(src);
+  /*  Synapse Layout nomenclature:
+        rsck = {3, 2, 0, 1};
+        qrsck = {4, 3, 0, 1, 2};
+      PT layout struct:
+        LayoutFormatDims = { N,C,H,W}
+        LayoutFormatWithDepthDims = {N,C,D,H,W}
+  */
   static std::vector<int> out_pos = {
       LayoutFormatDims::H,
       LayoutFormatDims::W,
@@ -774,6 +802,7 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes_5d, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes_5d, new_strides);
+      //{4, 3, 0, 1, 2}
       auto permute_tensor = permute_hpu_lazy_internal(
           strided_tensor,
           {LayoutFormatWithDepthDims::W,
@@ -789,6 +818,7 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
       auto strided_tensor =
           // as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
           as_strided_layout_hpu_lazy(src, swapped_sizes, new_strides);
+      //{3, 2, 0, 1}
       auto permute_tensor = permute_hpu_lazy_internal(
           strided_tensor,
           {LayoutFormatDims::W,
@@ -1850,8 +1880,10 @@ Tensor convolution_hpu_lazy(
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+      (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE) ||
+       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE))) {
     habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
+    print_tensor_debug(weight_hpu);
   }
 
   auto weight_hwck = permute_wt_hpu(weight_hpu);
