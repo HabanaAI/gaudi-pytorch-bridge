@@ -174,8 +174,9 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
+  // Bias is the 5th input
   TORCH_CHECK(
-      ((inputs.size() == 2) || (inputs.size() == 4)),
+      ((inputs.size() == 2) || (inputs.size() == 4) || (inputs.size() == 5)),
       "Incorrect size of inputs expected for matmul operator");
 
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
@@ -186,15 +187,20 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
 
   bool mat1_transposed = false;
   bool mat2_transposed = false;
-  if (inputs.size() == 4) {
+  if (inputs.size() > 2) {
     TORCH_CHECK(inputs[2].isBool(), "Input tranpose flag expected to be bool");
     TORCH_CHECK(inputs[3].isBool(), "Input tranpose flag expected to be bool");
     mat1_transposed = inputs[2].toBool();
     mat2_transposed = inputs[3].toBool();
   }
 
+  if (inputs.size() > 4) {
+    TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+  }
+
   check_matmul_params(
       mat1, mat2, mat1_transposed, mat2_transposed, c10::nullopt);
+
   auto shape_out = habana::MMOperator::compute_output_shape(
       mat1, mat2, mat1_transposed, mat2_transposed);
   auto output = habana_helpers::createPTTensor(
@@ -939,6 +945,7 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
 
+  bool reshape_3d_2d = GET_ENV_FLAG_NEW(PT_HPU_MATMUL3D_2D_RESHAPE);
   auto tensor1 = inputs[0].toTensor();
   auto tensor2 = inputs[1].toTensor();
   auto dim_tensor1 = tensor1.dim();
@@ -1183,6 +1190,56 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(
         std::move(bmm_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(bmm_op->GetOutputs()[0]));
+
+  } else if (reshape_3d_2d && (dim_tensor1 == 3) && (dim_tensor2 == 2)) {
+    auto mat1_sizes = tensor1.sizes().vec();
+    auto mat2_sizes = tensor2.sizes().vec();
+    std::vector<int64_t> shape_in{mat1_sizes[0] * mat1_sizes[1], mat1_sizes[2]};
+
+    auto reshape_ten1 = make_operator<ReshapeOperator>(
+        tensor1.device().index(), tensor1.scalar_type());
+    reshape_ten1->SetSynapseInput(p_context_->syn_inputs_[0]);
+    torch::jit::Stack stack = {c10::IValue(tensor1), c10::IValue(shape_in)};
+    reshape_ten1->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));
+    auto t1 = reshape_ten1->GetOutputs()[0];
+    stack.clear();
+
+    auto mm_op = make_operator<habana::MMOperator>(tensor1.device().index());
+    mm_op->SetSynapseInput(reshape_ten1->GetSynOutputs()[0]);
+    mm_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    /*stack = {
+        IValue(t1),
+        IValue(tensor2),
+        IValue(mat1_transposed),
+        IValue(mat2_transposed)};*/
+    stack = {IValue(t1), IValue(tensor2), mat1_transposed, mat2_transposed};
+    if (bias1d_present_for_bmm) {
+      mm_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+      stack.emplace_back(IValue(inputs[2].toTensor()));
+    }
+    OutputMetaData mm_output_metadata{};
+    mm_output_metadata.dtype = output_metadata.at(0).dtype;
+    mm_op->AllocateAndAddSynapseNode(graph, stack, {mm_output_metadata});
+    /*mm_op->AllocateAndAddSynapseNode(
+        graph, stack, habana::OutputMetaDataVector(1));*/
+    stack.clear();
+
+    // reshape the output
+    auto output = mm_op->GetOutputs()[0];
+    int64_t d2 = mat2_transposed ? mat2_sizes[0] : mat2_sizes[1];
+    std::vector<int64_t> shape_out{mat1_sizes[0], mat1_sizes[1], d2};
+    auto reshape_out = make_operator<ReshapeOperator>(
+        tensor1.device().index(), tensor1.scalar_type());
+    reshape_out->SetSynapseInput(mm_op->GetSynOutputs()[0]);
+    stack = {c10::IValue(output), c10::IValue(shape_out)};
+    reshape_out->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(reshape_out->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(reshape_out->GetOutputs()[0]));
+
   } else if (
       (dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
       (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {

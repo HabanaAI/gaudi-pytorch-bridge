@@ -393,6 +393,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool, true);
 // Host processing optimizations
 ENV_STRUCT_DEFINITION(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION, bool, true);
 
+// matmul 3d,2d case handling with reshape
+ENV_STRUCT_DEFINITION(PT_HPU_MATMUL3D_2D_RESHAPE, bool, false);
+
 // Enable communication group caching
 ENV_STRUCT_DEFINITION(PT_ENABLE_COMM_GROUP_CACHE, bool, false);
 // Forward Graph running Hash
