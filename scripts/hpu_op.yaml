@@ -3615,7 +3615,10 @@ median.dim_values:
 
 min:
   custom_output_shape: AllAnyOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int,Half]
   guid: reduce_min_fwd
   op_backend: MinMaxNoDim
   out_ids: [0]
@@ -3624,7 +3627,10 @@ min.dim:
   force_default: false
   custom_fill_params: FillMinMaxParams
   custom_output_shape: MinMaxOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int,Half]
   guid: reduce_min_fwd
   op_frontend: LazyMinMax
   op_backend: MinMaxOut
@@ -3633,7 +3639,10 @@ min.dim:
 min.dim_min:
   custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int,Half]
   guid: reduce_min_fwd
   op_backend: MinMaxOut
 
