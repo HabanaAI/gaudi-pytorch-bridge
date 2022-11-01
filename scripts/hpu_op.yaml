@@ -1066,6 +1066,7 @@ binary_cross_entropy_with_logits:
     Gaudi2: [Float, BFloat16, Half]
     Greco: [Float, BFloat16]
   op_backend: BinaryCrossEntropyWithLogitsFwd
+  fallback_check: [BCELogitsFallbackCheck, self]
   out_ids: [0]
   force_default: false
 

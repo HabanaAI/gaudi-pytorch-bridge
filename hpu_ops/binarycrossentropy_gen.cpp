@@ -19,6 +19,10 @@ constexpr int64_t index_of_fwd_self = 0;
 constexpr int64_t index_of_fwd_reduction = 4;
 constexpr int64_t index_of_bwd_self = 1;
 namespace habana {
+FALLBACK_CHECK(BCELogitsFallbackCheck, const at::Tensor& self) {
+  return !(self.dim() >= 5);
+}
+
 sizes_vec BinaryCrossEntropyFwdOutputShape(const at::Stack& stack) {
   auto reduction = stack.at(index_of_fwd_mode).toInt();
   if (reduction == at::Reduction::Reduction::None)
