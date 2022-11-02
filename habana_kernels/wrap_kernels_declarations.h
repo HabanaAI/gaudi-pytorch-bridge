@@ -230,7 +230,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
       int64_t dim);
-  static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
   static at::Tensor softmax(
       const at::Tensor& self,
       int64_t dim,

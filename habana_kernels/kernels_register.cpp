@@ -1064,19 +1064,6 @@ std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
   }
 };
 
-Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "one_hot :",
-      " self=",
-      to_string(self),
-      " num_classes=",
-      to_string(num_classes));
-  FALLBACK_IF_UNSUPPORTED_OP(one_hot, PARAMS1(self), PARAMS2(self, num_classes))
-  return one_hot_hpu_lazy(self, num_classes);
-}
-
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
   static at::Tensor forward(
       torch::autograd::AutogradContext* ctx,

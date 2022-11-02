@@ -1500,14 +1500,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "one_hot",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double,
-                  at::ScalarType::Long,
-                  at::ScalarType::Int}},
-            },
-            {
                 "repeat",
                 {{at::ScalarType::Short,
                   at::ScalarType::Int,

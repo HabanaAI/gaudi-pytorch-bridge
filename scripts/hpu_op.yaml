@@ -4114,6 +4114,14 @@ norm.ScalarOpt_dtype:
   op_backend: NormHabanaOperator
   out_ids: [0]
 
+one_hot:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
+  override_fn: one_hot_hpu_lazy
+
 permute:
   force_default: false
   override_fn: permute_hpu_lazy
