@@ -30,9 +30,12 @@ namespace habana_lazy {
 class HbLazyTensorImpl : public c10::TensorImpl {
  public:
   HbLazyTensorImpl(HbLazyTensor hb_tensor);
-  HbLazyTensorImpl(HbLazyTensor hb_tensor, c10::Storage&& tensor_storage);
   HbLazyTensorImpl(
-      HbLazyTensor hb_tensor,
+      const HbLazyTensor& hb_tensor,
+      c10::Storage&& tensor_storage);
+  HbLazyTensorImpl(HbLazyTensor&& hb_tensor, c10::Storage&& tensor_storage);
+  HbLazyTensorImpl(
+      HbLazyTensor&& hb_tensor,
       const c10::Storage& tensor_storage,
       c10::DispatchKeySet key_set);
   HbLazyTensor& tensor() {
@@ -72,7 +75,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   void SetupSizeProperties();
   void SetStorage(at::Storage storage);
   void ComputeArrayStrides(
-      std::vector<int64_t>& strides,
+      SmallSizeVec& strides,
       absl::Span<const int64_t> sizes);
 
   bool m_size_initialized;

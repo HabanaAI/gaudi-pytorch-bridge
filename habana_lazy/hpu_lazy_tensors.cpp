@@ -15,7 +15,6 @@
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
 #include "habana_helpers/logging.h"
-#include "habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -229,7 +228,7 @@ HbLazyTensor::HbLazyTensor(const c10::Device& device)
     : mp_data(std::make_shared<Data>(device)) {}
 
 HbLazyTensor::HbLazyTensor(
-    ir::Value ir_value,
+    ir::Value&& ir_value,
     const at::Device& device,
     c10::optional<at::ScalarType> logical_element_type)
     : mp_data(std::make_shared<Data>(
@@ -250,11 +249,13 @@ HbLazyTensor HbLazyTensor::Create(
   return habana_tensor;
 }
 
-void HbLazyTensor::setTensorSize(std::vector<int64_t> sizes) {
-  data()->sizes = sizes;
+void HbLazyTensor::setTensorSize(c10::IntArrayRef sizes) {
+  // create smallvector from intarrayref to avoid heap allocation, using
+  // sizes.vec() to create std::vector is costly due to heap allocation
+  data()->sizes.insert(data()->sizes.begin(), sizes.begin(), sizes.end());
 }
 HbLazyTensor HbLazyTensor::Create(
-    ir::Value ir_value,
+    ir::Value&& ir_value,
     const at::Device& device,
     c10::optional<at::ScalarType> logical_element_type) {
   HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
@@ -448,7 +449,7 @@ const c10::Device& HbLazyTensor::GetDevice() const {
   return data()->device;
 }
 
-const std::vector<int64_t>& HbLazyTensor::GetSizes() const {
+const SmallSizeVec& HbLazyTensor::GetSizes() const {
   return data()->sizes;
 }
 
@@ -553,7 +554,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
   // from metadata(commented line)
   HbLazyTensor hb_tensor = Create(
       // GetIrValueForScalar(fill_value, shape, device)
-      val,
+      std::move(val),
       device,
       scalar_type);
 
@@ -562,7 +563,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
   // Keeping it here for now so that its not implicitly set
   hb_tensor.setPtrDataIrToData();
   // Setup the size information in the data of Lazy tensor
-  hb_tensor.setTensorSize(size.vec());
+  hb_tensor.setTensorSize(size);
   return hb_tensor;
 }
 
@@ -1103,7 +1104,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
     for (auto idx : indices) {
       auto& out_tensor = (*tensors)[idx];
-      out_shapes.push_back(out_tensor.GetSizes());
+      // conversion from smallvector to std::vector, impact on lazy eager perf
+      // should be negligible since graphs in lazy eager are small with only few
+      // outputs. This conversion can be removed if synapse lowering code also
+      // starts using SmallSizeVec in future.
+      auto& t = out_tensor.GetSizes();
+      std::vector<int64_t> outtensor{};
+      outtensor.reserve(t.size());
+      outtensor.insert(outtensor.begin(), t.begin(), t.end());
+      out_shapes.push_back(std::move(outtensor));
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] output idx : ",
           idx,

@@ -29,22 +29,33 @@ at::Tensor HbLazyToAtenTensor(
   return tensor.to(tensor_options, /*non_blocking=*/false, /*copy=*/true);
 }
 
+void CreateStorageForAtenTensor(
+    size_t tensor_size,
+    c10::optional<c10::IntArrayRef> size,
+    c10::Storage& lazy_storage) {
+  auto storage_size = tensor_size;
+  if (size.has_value()) {
+    storage_size *= c10::multiply_integers(size.value());
+  } else {
+    storage_size = 0;
+  }
+  lazy_storage =
+      c10::Storage(c10::make_intrusive<HbLazyStorageImpl>(storage_size));
+}
+
 at::Tensor AtenFromHbLazyTensor(
-    HbLazyTensor HbLazy_tensor,
+    HbLazyTensor&& HbLazy_tensor,
     c10::optional<synTensorType> tensor_type,
     c10::optional<c10::IntArrayRef> size,
     c10::optional<c10::IntArrayRef> stride,
     c10::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
-  auto storage_size = scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize();
-  if (size.has_value()) {
-    storage_size *= c10::multiply_integers(size.value());
-  } else {
-    storage_size = 0;
-  }
-  auto lazy_storage =
-      c10::Storage(c10::make_intrusive<HbLazyStorageImpl>(storage_size));
+  c10::Storage lazy_storage;
+  CreateStorageForAtenTensor(
+      scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
+      size,
+      lazy_storage);
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
       std::move(HbLazy_tensor), std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
@@ -52,7 +63,26 @@ at::Tensor AtenFromHbLazyTensor(
 }
 
 at::Tensor AtenFromHbLazyTensor(
-    HbLazyTensor HbLazy_tensor,
+    const HbLazyTensor& HbLazy_tensor,
+    c10::optional<synTensorType> tensor_type,
+    c10::optional<c10::IntArrayRef> size,
+    c10::optional<c10::IntArrayRef> stride,
+    c10::optional<c10::MemoryFormat> mem_format) {
+  PT_LAZY_TRACE;
+  HABANA_ASSERT(HbLazy_tensor.is_null() == false);
+  c10::Storage lazy_storage;
+  CreateStorageForAtenTensor(
+      scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
+      size,
+      lazy_storage);
+  at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
+      HbLazy_tensor, std::move(lazy_storage)));
+  InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
+  return tensor;
+}
+
+at::Tensor AtenFromHbLazyTensor(
+    HbLazyTensor&& HbLazy_tensor,
     const c10::Storage& storage,
     c10::DispatchKeySet key_set,
     c10::optional<synTensorType> tensor_type,

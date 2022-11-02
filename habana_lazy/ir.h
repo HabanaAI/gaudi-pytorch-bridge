@@ -20,6 +20,7 @@
 
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
+#include "habana_helpers/tensor_utils.h"
 
 namespace habana_lazy {
 struct Data;
@@ -120,7 +121,7 @@ class Output {
     return scalar_type;
   }
 
-  const c10::optional<std::vector<int64_t>> get_sizes() const {
+  const c10::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -130,7 +131,7 @@ class Output {
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
-  c10::optional<std::vector<int64_t>> sizes;
+  c10::optional<SmallSizeVec> sizes;
   c10::optional<at::ScalarType> scalar_type;
   uint64_t unique_id;
 };
@@ -446,10 +447,15 @@ struct Value {
     m_index = index;
   }
 
+  Value(const Value& other) = default;
+  Value(Value&& other) = default;
+  Value& operator=(const Value&) = default;
+  Value& operator=(Value&&) = default;
+
   void SetNode(
       NodePtr node,
       const c10::Device& device,
-      const std::vector<int64_t>& dims,
+      const SmallSizeVec& dims,
       const c10::optional<at::ScalarType> scalar_type,
       size_t index = 0);
 
@@ -506,7 +512,7 @@ struct Value {
     return scalar_type;
   }
 
-  const c10::optional<std::vector<int64_t>> get_sizes() const {
+  const c10::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -532,7 +538,7 @@ struct Value {
   // OutInfo
   c10::optional<c10::Device> device;
   c10::optional<size_t> dims;
-  c10::optional<std::vector<int64_t>> sizes;
+  c10::optional<SmallSizeVec> sizes;
   c10::optional<at::ScalarType> scalar_type;
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;

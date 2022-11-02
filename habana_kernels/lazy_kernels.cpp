@@ -1334,7 +1334,7 @@ const Tensor& as_strided_hpu_lazy_(
     auto hb_result = GetHbLazyTensor(self);
     // update of lazy tensor size is required for permute pass to see output
     // with updated shape
-    hb_result.setTensorSize(size.vec());
+    hb_result.setTensorSize(size);
     ir::Value& out = hb_result.CurrentIrValue();
     out.SetNode(
         node,
@@ -5359,8 +5359,6 @@ Tensor empty_hpu_lazy(
     if (!is_in_lowering_mode) {
       HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
           size, 0, options.device(), typeMetaToScalarType(original_dtype));
-      at_tensor = AtenFromHbLazyTensor(
-          hb_tensor, tensor_type, size, c10::nullopt, mem_format);
 
       // The lazy tensor will have a reference to the internal tensor
       hb_tensor.SetTensorData(at_internal_tensor);
@@ -5374,6 +5372,8 @@ Tensor empty_hpu_lazy(
         hb_tensor.getDataPtr()->execution_status = kEXECUTION_COMPLETE;
       }
 
+      at_tensor = AtenFromHbLazyTensor(
+          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format);
       // As its an inplace op and we want this op to execute
       // we want to wind back status of this tensor to registered
       // so that when post order is created, we actually execute it
@@ -5401,7 +5401,7 @@ Tensor empty_hpu_lazy(
       const auto& storage = base.storage();
       auto key_set = base.key_set();
       return (AtenFromHbLazyTensor(
-          hb_tensor,
+          std::move(hb_tensor),
           storage,
           key_set,
           tensor_type,
@@ -5410,7 +5410,7 @@ Tensor empty_hpu_lazy(
           mem_format));
     } else {
       return (AtenFromHbLazyTensor(
-          hb_tensor, tensor_type, size, c10::nullopt, mem_format));
+          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format));
     }
   }
 }

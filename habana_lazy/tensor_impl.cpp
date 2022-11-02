@@ -38,7 +38,21 @@ HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
 }
 
 HbLazyTensorImpl::HbLazyTensorImpl(
-    HbLazyTensor hb_tensor,
+    const HbLazyTensor& hb_tensor,
+    c10::Storage&& tensor_storage)
+    : c10::TensorImpl(
+          std::move(tensor_storage),
+          c10::DispatchKeySet{
+              at::DispatchKey::HPU,
+              at::DispatchKey::AutogradHPU},
+          c10::scalarTypeToTypeMeta(hb_tensor.dtype())),
+      m_size_initialized(false),
+      m_tensor(hb_tensor) {
+  const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+}
+
+HbLazyTensorImpl::HbLazyTensorImpl(
+    HbLazyTensor&& hb_tensor,
     c10::Storage&& tensor_storage)
     : c10::TensorImpl(
           std::move(tensor_storage),
@@ -52,7 +66,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(
 }
 
 HbLazyTensorImpl::HbLazyTensorImpl(
-    HbLazyTensor hb_tensor,
+    HbLazyTensor&& hb_tensor,
     const c10::Storage& tensor_storage,
     c10::DispatchKeySet key_set)
     : c10::TensorImpl(
@@ -162,7 +176,7 @@ inline int64_t HbLazyTensorImpl::compute_numel() const {
 }
 
 void HbLazyTensorImpl::ComputeArrayStrides(
-    std::vector<int64_t>& strides,
+    SmallSizeVec& strides,
     absl::Span<const int64_t> sizes) {
   for (auto i = sizes.size(); i > 1; --i) {
     strides[i - 2] = strides[i - 1] * sizes[i - 1];
@@ -173,9 +187,9 @@ void HbLazyTensorImpl::SetupSizeProperties() {
   if (!m_size_initialized) {
     // Fill up the basic dimension data members which the base class
     // implementation uses in its APIs.
-    auto sizes_l = m_tensor.GetSizes();
+    auto& sizes_l = m_tensor.GetSizes();
     sizes_and_strides_.set_sizes(sizes_l);
-    std::vector<int64_t> new_stride(sizes_l.size(), 1);
+    SmallSizeVec new_stride(sizes_l.size(), 1);
     ComputeArrayStrides(new_stride, sizes_l);
     const auto new_dim = sizes_l.size();
     if (new_dim > 0) {

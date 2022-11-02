@@ -195,7 +195,7 @@ Node::~Node() {
 void Value::SetNode(
     NodePtr node,
     const c10::Device& device,
-    const std::vector<int64_t>& dims,
+    const SmallSizeVec& dims,
     const c10::optional<at::ScalarType> scalar_type,
     size_t index) {
   if (m_index == 0) {

@@ -17,6 +17,7 @@
 
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/misc_utils.h"
+#include "habana_helpers/tensor_utils.h"
 #include "ir.h"
 #include "ir_utils.h"
 #include "view.h"
@@ -52,7 +53,7 @@ struct Data {
     static_cast<void>(device);
   }
   Data(
-      ir::Value ir_value,
+      ir::Value&& ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type)
       : data_ptr(nullptr),
@@ -82,7 +83,7 @@ struct Data {
   std::string sbs_tensor_name = "";
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
-  std::vector<int64_t> sizes;
+  SmallSizeVec sizes;
   bool is_broadcastable = false;
   LazyTensorExecutionStatus execution_status = kUN_REGISTERED;
   // is_executing flag is set to true if this tensor is part of launch
@@ -165,15 +166,19 @@ class HbLazyTensor {
       const at::Tensor& tensor,
       const c10::Device& device);
   static HbLazyTensor Create(
-      ir::Value ir_value,
+      ir::Value&& ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type);
   // Creates an empty/null tensor.
   HbLazyTensor() = default;
+  HbLazyTensor(const HbLazyTensor& other) = default;
+  HbLazyTensor(HbLazyTensor&& other) = default;
+  HbLazyTensor& operator=(const HbLazyTensor& other) = default;
+  HbLazyTensor& operator=(HbLazyTensor&& other) = default;
   HbLazyTensor(const at::Tensor& tensor, const c10::Device& device);
   HbLazyTensor(const c10::Device& device);
   HbLazyTensor(
-      ir::Value ir_value,
+      ir::Value&& ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
@@ -184,7 +189,7 @@ class HbLazyTensor {
   }
   // int size(int dim) const;
   void SetTensor(at::Tensor tensor);
-  void setTensorSize(std::vector<int64_t> sizes);
+  void setTensorSize(c10::IntArrayRef sizes);
   // Sets up a pointer from IR in data ptr back to data ptr
   // its cyclic in nature, being managed by weak pointer in IR
   void setPtrDataIrToData();
@@ -207,7 +212,7 @@ class HbLazyTensor {
   // Set logical_element_type which is visible to upstream PyTorch.
   void SetScalarType(c10::optional<c10::ScalarType> logical_element_type);
   const c10::Device& GetDevice() const;
-  const std::vector<int64_t>& GetSizes() const;
+  const SmallSizeVec& GetSizes() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
   ir::Value& CurrentIrValue() const;

@@ -24,9 +24,13 @@
 #include <synapse_helpers/graph.h>
 #include <synapse_helpers/habana_tensor.h>
 
+// set to 5 considering tensors upto 5d are most common case where we would like
+// to use SmallVector to avoid heap allocation
+constexpr uint32_t NUM_TENSOR_DIMS = 5;
 using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
 using ValPtr = torch::jit::Value*;
+using SmallSizeVec = c10::SmallVector<int64_t, NUM_TENSOR_DIMS>;
 
 namespace habana_helpers {
 std::string DebugString(const at::Tensor& t, bool print_data = false);
