@@ -49,11 +49,12 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "one_hot",
     "masked_fill_",
     "repeat",
-    "scatter_add"};
+    "scatter_add_"};
 // black list of aut-gen ops that do not support parallel accumulation
 const std::unordered_set<std::string> AccThreadOpsBlacklist = {};
 
 static std::queue<AccThreadPool::AccTask> cleanup_tasks;
+static std::mutex cleanup_mutex;
 
 AccThreadPool& GetAccThreadPool() {
   static AccThreadPool thread_pool; // single thread only
@@ -61,11 +62,14 @@ AccThreadPool& GetAccThreadPool() {
 }
 
 void PushCleanupTask(AccThreadPool::AccTask&& task) {
+  std::unique_lock<std::mutex> lock(cleanup_mutex);
   cleanup_tasks.emplace(std::move(task));
 }
 
 void ExecuteAllCleanupTasks() {
   PT_LAZY_TRACE
+
+  std::unique_lock<std::mutex> lock(cleanup_mutex);
   while (!cleanup_tasks.empty()) {
     cleanup_tasks
         .pop(); // let's assume for now, that bodies of cleanup funcs are empty
@@ -85,6 +89,7 @@ void SyncAccThreadPool() {
     PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
+    ExecuteAllCleanupTasks();
   }
 }
 

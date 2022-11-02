@@ -105,7 +105,6 @@ const std::string get_mem_stat_summary(int device_id) {
 void sync_threads() {
   auto gil_release = pybind11::gil_scoped_release();
   habana_lazy::SyncAccThreadPool();
-  habana_lazy::ExecuteAllCleanupTasks();
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

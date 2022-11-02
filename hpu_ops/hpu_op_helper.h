@@ -278,6 +278,12 @@ inline float& get<float>(fint_t& u) {
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func);       \
   return out;
 
+#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT( \
+    op, func, out, result_func)                            \
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func);       \
+  result_func(out);                                        \
+  return out;
+
 #define RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func)                    \
   if (habana_lazy::CanUseAccThread()) {                                      \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \

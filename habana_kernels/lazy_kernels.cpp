@@ -572,6 +572,9 @@ at::Tensor get_tensor_for_scalar(
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
+
+  habana_lazy::SyncAccThreadPool();
+
   if (!habana_helpers::is_supported_type(self.scalar_type())) {
     // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
     // would fallback to cpu for unsupported dtypes
@@ -672,7 +675,9 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   };
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+  op_func();
+  return self;
+  // RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
@@ -825,6 +830,8 @@ void validateHbTensorData(HbLazyTensor& hb_tensor) {
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
 
+  habana_lazy::SyncAccThreadPool();
+
   // This situation should not occur
   // Throwing an exception here for now to catch any cases that arise
   TORCH_CHECK(
@@ -941,6 +948,9 @@ static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
 
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
+
+  habana_lazy::SyncAccThreadPool();
+
   bool processed = false;
   auto src = src_.contiguous(src_.suggest_memory_format());
   InitSizesAndStrides(
@@ -1102,7 +1112,6 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   // to lazy graph for execution later
   if (!is_d2d_copy) {
     if (src_device == c10::DeviceType::CPU) {
-      habana_lazy::SyncAccThreadPool();
       self = copy_hpu_lazy_H2D(self, src, non_blocking);
     } else if (src_device == c10::DeviceType::HPU) {
       self = copy_hpu_lazy_D2H(self, src, non_blocking);
@@ -1593,7 +1602,12 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   // 8x all reduce optimization to avoid out variant that requires tensor with
   // storage. //TODO enhance lazy op framework to convert out variant to out of
   // place variant
-  auto func = [self, other, out]() mutable {
+  auto shape_changed = self.sizes() != out.sizes();
+  if (shape_changed) {
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
+  }
+
+  auto func = [self, other, out, shape_changed]() mutable {
     auto context =
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     auto id = GetHbLazyTensor(out).getTensorUniqueId();
@@ -1622,6 +1636,10 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
             at::mul_outf(metatens[0], metatens[1], metatens[2]);
         LazyBinaryOp<at::Tensor&> hpu_op{
             "aten::mul", {self, other, out}, true, true, metavar};
+        if (shape_changed) {
+          hpu_op.set_shape_changed();
+        }
+
         hpu_op.call(out);
       }
     }
@@ -2310,7 +2328,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     AddMemcpy(result, self);
   };
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(scatter_add, func, self)
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(scatter_add_, func, self)
 }
 
 Tensor& _index_put_impl_hpu_lazy_(
@@ -5071,14 +5089,21 @@ Tensor& cat_hpu_lazy_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
-  if (filter(tensors, is_nonempty_tensor).empty()) {
+  auto non_empty_list = filter(tensors, is_nonempty_tensor);
+  if (non_empty_list.empty()) {
     return result;
   }
 
   std::vector<Tensor> tensors_copy;
   std::copy(tensors.begin(), tensors.end(), std::back_inserter(tensors_copy));
+  auto out_size = CatOutOperator::compute_output_shape(non_empty_list, dim_);
+  auto out_shape_change = result.sizes() != out_size;
 
-  auto func = [result, tensors = std::move(tensors_copy), dim_]() mutable {
+  auto func = [result,
+               tensors = std::move(tensors_copy),
+               dim_,
+               out_size,
+               out_shape_change]() mutable {
     auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
     t_list = filter(t_list, is_nonempty_tensor);
     if (t_list.empty())
@@ -5086,13 +5111,21 @@ Tensor& cat_hpu_lazy_out(
 
     const TensorList view_list{t_list};
 
-    auto out_size = CatOutOperator::compute_output_shape(t_list, dim_);
     LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
-
+    if (out_shape_change) {
+      k.set_shape_changed();
+    }
     k.call(result);
   };
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat_out, func, result)
+  auto result_func = [out_shape_change, &out_size](at::Tensor& result) {
+    if (out_shape_change) {
+      result.unsafeGetTensorImpl()->set_sizes_contiguous(out_size);
+    }
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(
+      cat_out, func, result, result_func);
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {

@@ -13,6 +13,8 @@
 #include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 #include <ATen/Parallel.h>
 #include <c10/util/thread_name.h>
+#include "pytorch_helpers/habana_helpers/logging.h"
+
 namespace habana_lazy {
 
 AccThreadPool::AccThreadPool() : threads_(1), running_(true), task_count_(0) {
@@ -92,10 +94,16 @@ void AccThreadPool::main_loop() {
       lock.unlock();
 
       // Run the task.
-      task();
-
-      --task_count_;
+      try {
+        task();
+      } catch (const std::exception& e) {
+        PT_BRIDGE_FATAL("Exception in acc thread pool task: ", e.what());
+      } catch (...) {
+        PT_BRIDGE_FATAL("Exception in acc thread pool task: unknown");
+      }
     }
+
+    --task_count_;
   } // while running_
 }
 
