@@ -63,9 +63,10 @@ std::vector<std::shared_ptr<T>> indices_array_to_ptr_array(
     const std::vector<int64_t>& indices,
     const std::vector<std::shared_ptr<T>>& src_array) {
   std::vector<std::shared_ptr<T>> ptr_array;
-  ptr_array.resize(indices.size());
+  ptr_array.reserve(indices.size());
   for (const auto& idx : indices) {
     if (idx == -1) {
+      ptr_array.push_back(nullptr);
       continue;
     }
 

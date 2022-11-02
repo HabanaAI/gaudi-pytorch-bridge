@@ -129,6 +129,10 @@ void RecipeCache::store(
           "Failed to serialized recipe(", recipe_path, "). Err: ", status);
       return;
     }
+  } else {
+    cfHandler->fileUnLock(meta_fd_to_unlock);
+    cfHandler->fileClose(meta_fd_to_unlock);
+    return;
   }
 
   std::ofstream metadata_file(metadata_path.c_str(), std::ofstream::binary);
