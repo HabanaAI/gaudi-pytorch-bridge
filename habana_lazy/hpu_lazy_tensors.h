@@ -190,7 +190,7 @@ class HbLazyTensor {
   void setPtrDataIrToData();
   ir::Value createIrValueFromData();
   void SetTensorData(at::Tensor tensor_data);
-  c10::optional<at::Tensor>& GetTensorData();
+  c10::optional<at::Tensor> GetTensorData();
   void SetCPUTensorData(at::Tensor tensor_data);
   void SetSBSLiveTensorIndication(bool live);
   bool GetSBSLiveTensorIndication() const;

@@ -4801,11 +4801,12 @@ Tensor empty_hpu_lazy(
       nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
     }
     int elem_size = new_dtype.itemsize();
-    int64_t size_bytes = nelements * elem_size;
+    size_t storage_size_bytes = nelements * elem_size;
+    int64_t size_bytes = nelements * original_dtype.itemsize();
     auto storage_impl = c10::make_intrusive<StorageImpl>(
         c10::StorageImpl::use_byte_size_t(),
         size_bytes,
-        allocator->allocate(nelements * elem_size),
+        allocator->allocate(storage_size_bytes),
         allocator,
         /*resizeable=*/true);
     Tensor at_internal_tensor = AtenInternalHbTensor(

@@ -65,7 +65,7 @@ void PtTensorInfo::populate_tinfo(
   buffer_start_ = pt_tensor.storage().data_ptr().get();
 
   numel_ = pt_tensor.numel();
-  size_ = pt_tensor.nbytes();
+  size_ = habana_lazy::GetNBytes(pt_tensor);
   shape_ = pt_tensor.sizes().vec();
   strides_ = pt_tensor.strides().vec();
 

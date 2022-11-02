@@ -17,6 +17,7 @@
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
@@ -42,7 +43,8 @@ inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
 // inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
 inline void THStorage_resizeBytes(
     c10::StorageImpl* self,
-    ptrdiff_t size_bytes) {
+    ptrdiff_t size_bytes,
+    const caffe2::TypeMeta dtype) {
   TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::HPUDeviceAllocator::allocator_active_device_id;
@@ -72,7 +74,7 @@ inline void THStorage_resizeBytes(
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
-          THMin(self->nbytes(), (unsigned long)size_bytes),
+          THMin(habana_lazy::GetNBytes(self, dtype), (unsigned long)size_bytes),
           [&copyDone]() { copyDone = true; });
       TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
@@ -102,8 +104,9 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
     }
     uint64_t new_size_bytes =
         (new_size + self->storage_offset()) * self->dtype().itemsize();
-    if (new_size_bytes > self->storage().nbytes()) {
-      THStorage_resizeBytes(THTensor_getStoragePtr(self), new_size_bytes);
+    if (new_size_bytes > habana_lazy::GetNBytes(self)) {
+      THStorage_resizeBytes(
+          THTensor_getStoragePtr(self), new_size_bytes, self->dtype());
     }
   }
 }

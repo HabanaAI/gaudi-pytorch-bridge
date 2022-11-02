@@ -1,3 +1,4 @@
+#include <c10/core/ScalarType.h>
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -74,7 +75,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
 
 TEST_F(DebugUtilsTest, DebugCustomOp3) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
-    return;
+    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
 
   auto S = torch::randn({2, 4}, torch::requires_grad(false));
   auto C = torch::relu(S);
@@ -96,11 +97,12 @@ TEST_F(DebugUtilsTest, DebugCustomOp3) {
   auto O = hO.to(torch::kCPU);
 
   EXPECT_EQ(allclose(C, O), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
 }
 
 TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
-    return;
+    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
 
   auto S = torch::randn({2, 4}, torch::requires_grad(false));
   auto C = torch::relu(S);
@@ -122,4 +124,39 @@ TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
   auto O = hO.to(torch::kCPU);
 
   EXPECT_EQ(allclose(C, O), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
+}
+
+TEST_F(DebugUtilsTest, CheckTensorSizeForLongType) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
+
+  auto S = torch::randn({1}, torch::requires_grad(false)).to(torch::kLong);
+  auto hS = S.to(torch::kHPU);
+  HbLazyTensor::StepMarker({});
+
+  auto total_size = hS.storage().nbytes();
+  auto element_size = hS.element_size();
+
+  auto num_elements = total_size / element_size;
+  bool equal = (num_elements == 1);
+  EXPECT_EQ(equal, true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE);
+}
+
+TEST_F(DebugUtilsTest, CheckTensorSizeForDoubleType) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
+
+  auto S = torch::randn({1}, torch::dtype(torch::kDouble));
+  auto hS = S.to(torch::kHPU);
+  HbLazyTensor::StepMarker({});
+
+  auto total_size = hS.storage().nbytes();
+  auto element_size = hS.element_size();
+
+  auto num_elements = total_size / element_size;
+  bool equal = (num_elements == 1);
+  EXPECT_EQ(equal, true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE);
 }
