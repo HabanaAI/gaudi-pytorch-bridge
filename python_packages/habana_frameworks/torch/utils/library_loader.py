@@ -53,14 +53,37 @@ def is_habana_avaialble():
     from subprocess import check_output, STDOUT
     cmd = 'hl-smi -v'
     status = False
+    enable_console = True
+    if os.environ.get("ENABLE_CONSOLE") == 'false':
+        enable_console = False
+        os.environ["ENABLE_CONSOLE"] = 'true'
     try:
         result = check_output(cmd, stderr=STDOUT, shell=True).decode()
         if result.find('Habana') != -1:
             status = True
     except Exception as e:
         status = False
+    if enable_console == False:
+        os.environ["ENABLE_CONSOLE"] = 'false'
     return status
 
+def is_habana_available():
+    from subprocess import check_output, STDOUT
+    cmd = 'hl-smi -v'
+    status = False
+    enable_console = True
+    if os.environ.get("ENABLE_CONSOLE") == 'false':
+        enable_console = False
+        os.environ["ENABLE_CONSOLE"] = 'true'
+    try:
+        result = check_output(cmd, stderr=STDOUT, shell=True).decode()
+        if result.find('Habana') != -1:
+            status = True
+    except Exception as e:
+        status = False
+    if enable_console == False:
+        os.environ["ENABLE_CONSOLE"] = 'false'
+    return status
 
 def _load_habana_module(library_list):
     """Load habana libs"""
