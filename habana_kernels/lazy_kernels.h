@@ -284,6 +284,7 @@ class LazyOp {
     PT_LAZY_DEBUG(
         "Lazy Call not_Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
+    habana_lazy::ir::setCurrentModuleName(module_name);
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
@@ -310,6 +311,7 @@ class LazyOp {
       T tensors) {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
     bool isView = false;
+    habana_lazy::ir::setCurrentModuleName(module_name);
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
@@ -408,6 +410,7 @@ class LazyOp {
       T results) {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
+    habana_lazy::ir::setCurrentModuleName(module_name);
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
@@ -430,6 +433,7 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
+    habana_lazy::ir::setCurrentModuleName(module_name);
     viewUpdateInputs();
     const auto& node = create_node();
     const auto& t = get_inputs().at(m_out_index).toTensor();
@@ -453,6 +457,7 @@ class LazyOp {
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList tensors) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
+    habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
     int i = 0;
 
@@ -478,6 +483,7 @@ class LazyOp {
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::Tensor>& tensors) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
+    habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
     int i = 0;
 
@@ -501,6 +507,7 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
       type
       call() {
+    habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& tensors = get_result_overrideable();
     const auto& node = create_node();
     int i = 0;
@@ -527,6 +534,7 @@ class LazyOp {
   typename std::
       enable_if<std::is_same<T, std::vector<at::Tensor>>::value, void>::type
       call(const std::vector<at::Tensor>& tensors) {
+    habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
     int i = 0;
 
@@ -616,6 +624,7 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
+    habana_lazy::ir::setCurrentModuleName(module_name);
     bool isView = false;
     isView = viewUpdateInputs();
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -809,6 +818,7 @@ class LazyOp {
        std::is_same<T, at::Tensor>::value),
       T>::type
   call(at::Tensor& self) {
+    habana_lazy::ir::setCurrentModuleName(module_name);
     PT_LAZY_DEBUG(
         "Lazy Call Inplace/out or regular with acc thread:self :: ",
         m_symbol.toQualString());
@@ -877,6 +887,7 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call(const at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace :: ", m_symbol.toQualString());
+    habana_lazy::ir::setCurrentModuleName(module_name);
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
@@ -1163,6 +1174,10 @@ class LazyOp {
     return m_inputs;
   }
 
+  std::string get_module_name() {
+    return module_name;
+  }
+
   void set_broadcast_details(const std::vector<bool>& bcast_vec) {
     m_bcast_details = bcast_vec;
   }
@@ -1339,7 +1354,7 @@ class LazyOp {
 
     create_inputs(values, input_pt_vec, metadata, false);
     auto node = ir::Node::Create(m_symbol, values);
-    node->SetModuleName(module_name);
+    // node->SetModuleName(module_name);
     if (metadata.size()) {
       node->SetMetaData(metadata);
     }
@@ -1456,6 +1471,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     auto inputs = LazyOp<T>::get_inputs();
 
+    habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
     c10::optional<const at::IValue*> output = is_outfn_
         ? c10::make_optional<const at::IValue*>(&inputs.back())
         : c10::nullopt;
@@ -1500,7 +1516,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
-
+    habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
     // Perform type promotion and validate if promoted type can be casted to
     // output data type.
     auto output = c10::make_optional<const at::IValue*>(
@@ -1544,7 +1560,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type call(
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
-
+    habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
     // Perform type promotion and validate if promoted type can be casted to
     // output data type.
     at::IValue ivalue(self);
