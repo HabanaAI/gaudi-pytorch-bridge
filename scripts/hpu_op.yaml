@@ -7001,99 +7001,91 @@ where.self_out:
 
 xlogy.OutTensor:
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
-  op_backend: XlogYOperator
 
 xlogy.OutScalar_Self:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
 
 xlogy.OutScalar_Other:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
 
 xlogy.Scalar_Self:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
   out_ids: [1]
 
 xlogy.Scalar_Other:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
   out_ids: [0]
 
 xlogy_.Scalar_Other:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
   inplace_ids: [0]
 
 xlogy.Tensor:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
-  op_backend: XlogYOperator
   out_ids: [0]
 
 xlogy_.Tensor:
   force_default: false
   custom_output_shape: XlogYOutputShape
-  guid: log_fwd
+  guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
-  op_backend: XlogYOperator
   inplace_ids: [0]
 
 zero_:
