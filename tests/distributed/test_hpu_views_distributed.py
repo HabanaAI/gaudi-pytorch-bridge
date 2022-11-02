@@ -33,7 +33,7 @@ def reduce_op_worker(rank, world_size):
     else:
        tensor0 = torch.tensor([-1.75, -1.75, -1.75]).to('hpu')
 
-    tensor = tensor0[1:3:1]
+    tensor = tensor0[1:3:1].detach()
 
     dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
 

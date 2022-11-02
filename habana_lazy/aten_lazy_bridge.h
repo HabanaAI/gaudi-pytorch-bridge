@@ -90,7 +90,8 @@ HbLazyTensor CheckAndUpdateSizeStride(
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated = true,
-    bool handle_collective = true);
+    bool handle_collective = true,
+    bool is_size_strides_update = true);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
 

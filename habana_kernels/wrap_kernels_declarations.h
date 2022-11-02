@@ -18,15 +18,15 @@
 
 struct hpu_wrap {
   static at::Tensor empty(
-      at::IntArrayRef size,
+      c10::SymIntArrayRef size,
       c10::optional<at::ScalarType> dtype,
       c10::optional<at::Layout> layout,
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory,
       c10::optional<at::MemoryFormat> optional_memory_format);
   static at::Tensor empty_strided(
-      at::IntArrayRef size,
-      at::IntArrayRef stride,
+      c10::SymIntArrayRef size,
+      c10::SymIntArrayRef stride,
       c10::optional<at::ScalarType> dtype,
       c10::optional<at::Layout> layout,
       c10::optional<at::Device> device,
@@ -45,19 +45,19 @@ struct hpu_wrap {
       bool non_blocking);
   static at::Tensor _reshape_alias(
       const at::Tensor& self,
-      at::IntArrayRef size,
-      at::IntArrayRef stride);
-  //  static at::Tensor as_strided(
-  //      const at::Tensor& self,
-  //      at::IntArrayRef size,
-  //      at::IntArrayRef stride,
-  //      c10::optional<int64_t> storage_offset);
+      c10::SymIntArrayRef size,
+      c10::SymIntArrayRef stride);
+  //   static at::Tensor as_strided(
+  //       const at::Tensor& self,
+  //       c10::SymIntArrayRef size,
+  //       c10::SymIntArrayRef stride,
+  //       c10::optional<c10::SymInt> storage_offset);
   static at::Tensor& set_(
       at::Tensor& self,
       at::Storage source,
-      int64_t storage_offset,
-      at::IntArrayRef size,
-      at::IntArrayRef stride);
+      c10::SymInt storage_offset,
+      c10::SymIntArrayRef size,
+      c10::SymIntArrayRef stride);
   static at::Tensor _efficientzerotensor(
       at::IntArrayRef size,
       c10::optional<at::ScalarType> dtype,
@@ -117,26 +117,26 @@ struct hpu_wrap {
   static at::Tensor slice(
       const at::Tensor& self,
       int64_t dim,
-      c10::optional<int64_t> start,
-      c10::optional<int64_t> end,
-      int64_t step);
-  //  static at::Tensor select_backward(
-  //      const at::Tensor& grad,
-  //      at::IntArrayRef input_sizes,
-  //      int64_t dim,
-  //     int64_t index);
+      c10::optional<c10::SymInt> start,
+      c10::optional<c10::SymInt> end,
+      c10::SymInt step);
+  //   static at::Tensor select_backward(
+  //       const at::Tensor& grad,
+  //       c10::SymIntArrayRef input_sizes,
+  //       int64_t dim,
+  //       int64_t index);
   static at::Tensor& arange_out(
       const at::Scalar& start,
       const at::Scalar& end,
       const at::Scalar& step,
       at::Tensor& output);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
-  static at::Tensor kl_div_backward(
+  /*static at::Tensor kl_div_backward(
       const at::Tensor& grad,
       const at::Tensor& input,
       const at::Tensor& target,
       int64_t reduction,
-      bool log_target);
+      bool log_target);*/
   static ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
       const at::Tensor& input,
       double eps);
@@ -208,9 +208,9 @@ struct hpu_wrap {
       at::Tensor& grad_input);
   static at::Tensor adaptive_avg_pool2d(
       const at::Tensor& self,
-      at::IntArrayRef output_size);
+      c10::SymIntArrayRef output_size);
   static at::Tensor dropout(const at::Tensor& input, double p, bool train);
-  static at::Tensor repeat(const at::Tensor& self, at::IntArrayRef repeats);
+  static at::Tensor repeat(const at::Tensor& self, c10::SymIntArrayRef repeats);
   static at::Tensor repeat_interleave(
       const at::Tensor& self,
       c10::optional<int64_t> output_size);
@@ -223,9 +223,9 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool keepdim);
-  static at::Tensor cat(const at::TensorList tensors, int64_t dim_ = 0);
+  static at::Tensor cat(const at::ITensorListRef& tensors, int64_t dim_ = 0);
   static at::Tensor& cat_out(
-      const at::TensorList tensors,
+      const at::ITensorListRef& tensors,
       int64_t dim_,
       at::Tensor& result);
   static ::std::vector<at::Tensor> split_with_sizes(
@@ -240,16 +240,18 @@ struct hpu_wrap {
   static at::Tensor isfinite(const at::Tensor& self);
   static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
   static at::Tensor alias(const at::Tensor& self);
-  static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
+  static at::Tensor _unsafe_view(
+      const at::Tensor& self,
+      c10::SymIntArrayRef size);
   static at::Tensor squeeze(const at::Tensor& self);
   static at::Tensor squeeze(const at::Tensor& self, int64_t dim);
   static at::Tensor& squeeze_(at::Tensor& self);
   static at::Tensor& squeeze_(at::Tensor& self, int64_t dim);
   static const at::Tensor& as_strided_(
       const at::Tensor& self,
-      at::IntArrayRef size,
-      at::IntArrayRef stride,
-      c10::optional<int64_t> storage_offset);
+      c10::SymIntArrayRef size,
+      c10::SymIntArrayRef stride,
+      c10::optional<c10::SymInt> storage_offset);
 
   static ::std::vector<at::Tensor> split(
       const at::Tensor& self,
@@ -392,6 +394,11 @@ void optimizer_ResourceApplyMomentum_hpu_wrap(
     at::TensorList& params_momentum_buffer_list,
     const at::TensorList& d_p_list,
     const float momentum);
+::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_backward(
+    const at::Tensor& self,
+    const at::Tensor& grad_output,
+    const at::Tensor& weight,
+    ::std::array<bool, 3> output_mask);
 at::Tensor habana_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,

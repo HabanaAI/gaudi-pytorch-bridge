@@ -249,14 +249,20 @@ void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
     PT_LAZY_DEBUG("set_storage_keep_dtype called with frontend storage.");
     return;
   } else { // We have backend storage to be set.
+    auto aten_t = AtenFromHbLazyTensor(
+        m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+
+    auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
+    auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
     std::lock_guard<std::recursive_mutex> lock(
         habana_lazy::HbContextArena::Get()->GetMutex());
-    if (m_tensor.IsExecutionInProgress()) {
+    if (hl_t_updated.IsExecutionInProgress()) {
       auto context =
           habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
       context->JoinPendingLaunchThread();
     }
-    c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+    c10::TensorImpl* impl =
+        ((HbLazyTensor)hl_t_updated).getAttachedTensorImpl();
     // At this point, execution thread is finished.
     if (impl) {
       impl->set_storage_keep_dtype(storage);
@@ -273,6 +279,12 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   // return a dummy storage if it isnt allocated yet
   // its a bit dangerous and we need to ensure storage calls are made only after
   // backend memory allocation for output tensors
+  auto aten_t = AtenFromHbLazyTensor(
+      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+
+  auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
+  auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
+
   {
     // m_tensor is_executing is set to True at point where there is no execution
     // thread. is_executing is to False in execution thread, when tensor_data is
@@ -280,14 +292,16 @@ const at::Storage& HbLazyTensorImpl::storage() const {
     // in between.
     std::lock_guard<std::recursive_mutex> lock(
         habana_lazy::HbContextArena::Get()->GetMutex());
-    if (!m_tensor.IsExecutionInProgress()) {
-      c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+    if (!hl_t_updated.IsExecutionInProgress()) {
+      c10::TensorImpl* impl =
+          ((HbLazyTensor)hl_t_updated).getAttachedTensorImpl();
       if (impl && impl->storage() && !storage_.is_alias_of(impl->storage())) {
         const_cast<HbLazyTensorImpl*>(this)->SetStorage(
             c10::Storage(impl->storage()));
       }
     }
   }
+
   return storage_;
 }
 

@@ -201,7 +201,8 @@ HbLazyTensor CheckAndUpdateSizeStride(
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
-    bool handle_collective) {
+    bool handle_collective,
+    bool is_size_strides_update) {
   HbLazyTensorImpl* impl = GetHbLazyTensorImpl(tensor);
   if (impl == nullptr) {
     return c10::nullopt;
@@ -235,7 +236,9 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // As set_sizes_and_strides() call in pytorch-fork doesn't impact
   // the backend tensor properties like size, stride etc,
   // here we try to update these properties using frontend tensor info
-  hl_t = CheckAndUpdateSizeStride(hl_t, tensor);
+  if (is_size_strides_update) {
+    hl_t = CheckAndUpdateSizeStride(hl_t, tensor);
+  }
 
   // if producer is collective, mark step
   if (handle_collective) {

@@ -555,7 +555,18 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
             base.storage().data_ptr(),
             "base tensor is expected to be have storage");
         auto storage = base.storage();
+
+        // PT doesnt allow set_storage to be invoked on detached tensors
+        // example: all_reduce(a.view().detach())
+        // create a new tensor similar to view tensor t and then set its storage
+        t_updated = empty_hpu_lazy(
+            t.sizes(), t.options(), t.suggest_memory_format(), false);
         t_updated.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
+        t_updated.unsafeGetTensorImpl()->set_storage_offset(
+            t.unsafeGetTensorImpl()->storage_offset());
+        TORCH_CHECK(
+            t_updated.storage().data_ptr(),
+            "t_updated tensor is expected to be have storage");
       } else {
         HandleViews(t, hl_t);
 
