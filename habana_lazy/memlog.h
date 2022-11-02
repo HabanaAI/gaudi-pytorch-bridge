@@ -8,13 +8,14 @@
  ******************************************************************************
  */
 #pragma once
+#include <string_view>
 
 // namespace habana_lazy
 namespace habana_lazy {
 
 void log_dev_mem_stats(
-    const std::string& msg,
-    const std::string& name = "",
+    std::string_view msg,
+    std::string_view name = "",
     uint64_t size = 0);
 
 } // namespace habana_lazy

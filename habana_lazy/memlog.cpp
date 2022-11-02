@@ -44,8 +44,8 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 } // namespace
 
 void log_dev_mem_stats(
-    const std::string& msg,
-    const std::string& name /* = "" */,
+    std::string_view msg,
+    std::string_view name /* = "" */,
     uint64_t size /* = 0 */) {
   static bool s_mem_log_enabled = IS_MEMLOG_DEBUG_ENABLED;
   if (!s_mem_log_enabled) {
