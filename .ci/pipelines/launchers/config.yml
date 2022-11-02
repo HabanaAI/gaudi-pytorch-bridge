@@ -82,7 +82,6 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: Test_pytorch_gaudi2_asic_perf
-  silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
