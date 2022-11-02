@@ -58,6 +58,12 @@ struct hpu_wrap {
       int64_t storage_offset,
       at::IntArrayRef size,
       at::IntArrayRef stride);
+  static at::Tensor _efficientzerotensor(
+      at::IntArrayRef size,
+      c10::optional<at::ScalarType> dtype,
+      c10::optional<at::Layout> layout,
+      c10::optional<at::Device> device,
+      c10::optional<bool> pin_memory);
   static ::std::tuple<at::Tensor, at::Tensor> sort(
       const at::Tensor& self,
       int64_t dim,
