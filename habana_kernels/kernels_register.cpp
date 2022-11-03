@@ -255,30 +255,6 @@ Tensor& hpu_wrap::set_(
   return set_hpu_lazy_(self, source, storage_offset, size, stride);
 }
 
-Tensor hpu_wrap::constant_pad_nd(
-    const Tensor& self,
-    IntArrayRef pad,
-    const Scalar& value) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "constant_pad :",
-      " self=",
-      to_string(self),
-      " pad=",
-      to_string(pad),
-      " value=",
-      to_string(value));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      constant_pad_nd, PARAMS1(self), PARAMS2(self, pad, value))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return constant_pad_hpu_lazy(self, pad, value);
-
-  } else {
-    return constant_pad_hpu(self, pad, value);
-  }
-};
 Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& input,
     const Tensor& indices,

@@ -62,10 +62,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool descending);
-  static at::Tensor constant_pad_nd(
-      const at::Tensor& self,
-      at::IntArrayRef pad,
-      const at::Scalar& value);
   static at::Tensor& masked_fill_(
       at::Tensor& self,
       const at::Tensor& mask,

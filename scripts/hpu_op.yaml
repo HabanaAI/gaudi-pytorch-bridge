@@ -1588,6 +1588,14 @@ clone:
   override_fn: clone_hpu_lazy
   acc_thread: true
 
+constant_pad_nd:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte]
+    Greco: [BFloat16, Float, Int, Half, Short, Char, Byte]
+  override_fn: constant_pad_hpu_lazy
+  force_default: false
+
 convolution_overrideable:
   force_default: false
   dtypes:
