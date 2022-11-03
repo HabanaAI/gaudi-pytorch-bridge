@@ -902,7 +902,8 @@ void calculate_size_stride_cl(
   habana_helpers::recalc_strides(stride, size);
 }
 
-static Tensor permute_hpu_lazy_cl(const Tensor& self, IntArrayRef dims_in) {
+// Use physical permute for internal bridge calls.
+static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
   auto dims_vec = dims_in.vec();
   for (unsigned i = 0; i < dims_in.size(); i++) {
@@ -1066,7 +1067,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
     self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
         size, stride);
-    self = permute_hpu_lazy_cl(self, permute_dims);
+    self = permute_hpu_lazy_phy(self, permute_dims);
   }
 
   // TODO : Handle view table update of channels_last tensor
@@ -3048,7 +3049,7 @@ Tensor& index_fill_hpu_lazy_(
     auto temp = permute_dims[self.dim() - dim_ - 1];
     permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
     permute_dims[self.dim() - 1] = temp;
-    auto permuted_self = permute_hpu_lazy(self, permute_dims);
+    auto permuted_self = permute_hpu_lazy_phy(self, permute_dims);
 
     auto value_dim = permuted_self.sizes().vec();
     value_dim[0] = index.numel();
@@ -3060,7 +3061,7 @@ Tensor& index_fill_hpu_lazy_(
     indices.push_back(index);
     permuted_self =
         index_put_hpu_lazy_(permuted_self, indices, value_tensor, false);
-    permuted_self = permute_hpu_lazy(permuted_self, permute_dims);
+    permuted_self = permute_hpu_lazy_phy(permuted_self, permute_dims);
     LazyOp<at::Tensor&> k{
         "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
     return k.call(self);
@@ -5329,38 +5330,7 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
     }
     return out;
   } else {
-    auto dims_vec = dims_in.vec();
-    for (unsigned i = 0; i < dims_in.size(); i++) {
-      dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
-    }
-    IntArrayRef dims_(dims_vec);
-
-    std::vector<at::IValue> vector_of_inputs;
-
-    vector_of_inputs = {self, dims_};
-
-    using T = at::Tensor;
-    class Kernel : public LazyOp<T> {
-     public:
-      Kernel(const std::vector<at::IValue>& vector_of_inputs)
-          : LazyOp<T>("aten::permute", vector_of_inputs, {}, {}, -1) {}
-
-     private:
-      T get_result_overrideable() override {
-        auto inputs = get_inputs();
-        auto self = inputs[0].toTensor();
-        auto dims = inputs[1].toIntList();
-        std::vector<int64_t> new_sizes, new_strides;
-        std::tie(new_sizes, new_strides) =
-            PermuteOperator::compute_output_shape(self, dims.vec());
-        auto result = empty_strided_hpu_lazy(
-            new_sizes, new_strides, self.options(), false);
-        return result;
-      }
-    };
-
-    Kernel kernel{vector_of_inputs};
-    return kernel.call();
+    return permute_hpu_lazy_phy(self, dims_in);
   }
 }
 
@@ -5649,12 +5619,12 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     std::vector<int64_t> permute_dims(self.dim());
     std::iota(permute_dims.begin(), permute_dims.end(), 0);
     std::swap(permute_dims[dim], permute_dims[self.dim() - 1]);
-    auto permuted_self = permute_hpu_lazy(self, permute_dims);
+    auto permuted_self = permute_hpu_lazy_phy(self, permute_dims);
     dim = self.dim() - 1;
     auto out =
         topk_hpu_lazy_impl(permuted_self, size_dim, dim, descending, true);
-    auto permuted_out_0 = permute_hpu_lazy(std::get<0>(out), permute_dims);
-    auto permuted_out_1 = permute_hpu_lazy(std::get<1>(out), permute_dims);
+    auto permuted_out_0 = permute_hpu_lazy_phy(std::get<0>(out), permute_dims);
+    auto permuted_out_1 = permute_hpu_lazy_phy(std::get<1>(out), permute_dims);
     return std::tie(permuted_out_0, permuted_out_1);
   } else
     return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
