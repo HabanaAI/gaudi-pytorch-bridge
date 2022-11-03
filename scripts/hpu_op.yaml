@@ -5462,7 +5462,10 @@ upsample_bicubic2d:
   force_default: false
   custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5475,7 +5478,10 @@ upsample_bicubic2d:
 upsample_bicubic2d.out:
   custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5488,7 +5494,10 @@ upsample_bicubic2d.vec:
   force_default: false
   custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5502,7 +5511,10 @@ upsample_bicubic2d_backward:
   force_default: false
   custom_fill_params: FillBicubicBwdParams
   custom_output_shape: UpsampleBicubic2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5515,7 +5527,10 @@ upsample_bicubic2d_backward:
 upsample_bicubic2d_backward.grad_input:
   custom_fill_params: FillBicubicBwdParams
   custom_output_shape: UpsampleBicubic2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5528,7 +5543,10 @@ upsample_bicubic2d_backward.vec:
   force_default: false
   custom_fill_params: FillBicubicBwdParams
   custom_output_shape: UpsampleBicubic2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5542,7 +5560,10 @@ upsample_bilinear2d:
   force_default: false
   custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5555,7 +5576,10 @@ upsample_bilinear2d:
 upsample_bilinear2d.out:
   custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5568,7 +5592,10 @@ upsample_bilinear2d.vec:
   force_default: false
   custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5582,7 +5609,10 @@ upsample_bilinear2d_backward:
   force_default: false
   custom_fill_params: FillBilinearBwdParams
   custom_output_shape: UpsampleBilinear2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5595,7 +5625,10 @@ upsample_bilinear2d_backward:
 upsample_bilinear2d_backward.grad_input:
   custom_fill_params: FillBilinearBwdParams
   custom_output_shape: UpsampleBilinear2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5608,7 +5641,10 @@ upsample_bilinear2d_backward.vec:
   force_default: false
   custom_fill_params: FillBilinearBwdParams
   custom_output_shape: UpsampleBilinear2DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5621,7 +5657,10 @@ upsample_bilinear2d_backward.vec:
 upsample_linear1d:
   force_default: false
   custom_output_shape: UpsampleLinear1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   synapse_layouts:
@@ -5631,7 +5670,10 @@ upsample_linear1d:
 
 upsample_linear1d.out:
   custom_output_shape: UpsampleLinear1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   synapse_layouts:
@@ -5641,7 +5683,10 @@ upsample_linear1d.out:
 upsample_linear1d.vec:
   force_default: false
   custom_output_shape: UpsampleLinear1DFwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   out_ids: [0]
@@ -5652,7 +5697,10 @@ upsample_linear1d.vec:
 upsample_linear1d_backward:
   force_default: false
   custom_output_shape: UpsampleLinear1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
   out_ids: [0]
@@ -5662,7 +5710,10 @@ upsample_linear1d_backward:
 
 upsample_linear1d_backward.grad_input:
   custom_output_shape: UpsampleLinear1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
   synapse_layouts:
@@ -5672,7 +5723,10 @@ upsample_linear1d_backward.grad_input:
 upsample_linear1d_backward.vec:
   force_default: false
   custom_output_shape: UpsampleLinear1DBwdOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
   synapse_layouts:
@@ -5683,7 +5737,10 @@ upsample_linear1d_backward.vec:
 upsample_nearest1d:
   force_default: false
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5693,7 +5750,10 @@ upsample_nearest1d:
 
 upsample_nearest1d.out:
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5703,7 +5763,10 @@ upsample_nearest1d.out:
 upsample_nearest1d.vec:
   force_default: false
   custom_output_shape: UpsampleNearest1DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
@@ -5714,7 +5777,10 @@ upsample_nearest1d.vec:
 upsample_nearest1d_backward:
   force_default: false
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5724,7 +5790,10 @@ upsample_nearest1d_backward:
 
 upsample_nearest1d_backward.grad_input:
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5734,7 +5803,10 @@ upsample_nearest1d_backward.grad_input:
 upsample_nearest1d_backward.vec:
   force_default: false
   custom_output_shape: UpsampleNearest1DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
@@ -5747,7 +5819,10 @@ upsample_nearest2d:
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
   op_backend: UpSampleNearest2DOperator
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5761,7 +5836,10 @@ upsample_nearest2d.out:
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
   op_backend: UpSampleNearest2DOperator
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5776,7 +5854,10 @@ upsample_nearest2d_backward:
   custom_output_shape: UpsampleNearest2DBwdOutputShape
   op_backend: UpSampleNearest2DOperator
   op_frontend: LazyUpsample
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5791,7 +5872,10 @@ upsample_nearest2d_backward.grad_input:
   custom_fill_params: FillNearestBwdParams
   custom_output_shape: UpsampleNearest2DBwdOutputShape
   op_backend: UpSampleNearest2DOperator
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5803,7 +5887,10 @@ upsample_nearest2d_backward.grad_input:
 upsample_nearest3d:
   force_default: false
   custom_output_shape: UpsampleNearest3DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
   synapse_layouts:
@@ -5813,7 +5900,10 @@ upsample_nearest3d:
 
 upsample_nearest3d.out:
   custom_output_shape: UpsampleNearest3DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
   synapse_layouts:
@@ -5822,7 +5912,10 @@ upsample_nearest3d.out:
 
 upsample_nearest3d_backward:
   custom_output_shape: UpsampleNearest3DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   force_default: false
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
@@ -5833,7 +5926,10 @@ upsample_nearest3d_backward:
 
 upsample_nearest3d_backward.grad_input:
   custom_output_shape: UpsampleNearest3DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
   synapse_layouts:
@@ -5846,7 +5942,10 @@ upsample_nearest2d_backward.vec:
   custom_output_shape: UpsampleNearest2DBwdOutputShape
   op_backend: UpSampleNearest2DOperator
   op_frontend: LazyUpsample
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
   - [NHWC, NCHW]
@@ -5862,7 +5961,10 @@ upsample_nearest2d.vec:
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
   op_backend: UpSampleNearest2DOperator
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
   - [NHWC, NCHW]
@@ -5874,7 +5976,10 @@ upsample_nearest2d.vec:
 
 upsample_nearest3d.vec:
   custom_output_shape: UpsampleNearest3DFwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
   out_ids: [0]
@@ -5884,7 +5989,10 @@ upsample_nearest3d.vec:
 
 upsample_nearest3d_backward.vec:
   custom_output_shape: UpsampleNearest3DBwdOutputShape
-  dtypes: [BFloat16, Float, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
   out_ids: [0]
