@@ -477,9 +477,9 @@ build_pytorch_modules()
                     --pt_integ_path=$PYTORCH_MODULES_ROOT_PATH \
                     --gen_files_path=$PYTORCH_MODULES_RELEASE_BUILD/generated/)
             cp consolidate_ops_list.csv unique_ops_list.csv unique_ops_list2.csv summary.csv \
-                    consolidate_ops_list.json summary.json $PYTORCH_MODULES_RELEASE_BUILD/
+                    consolidate_ops_list.json unique_ops_list.json unique_ops_list2.json summary.json $PYTORCH_MODULES_RELEASE_BUILD/
             mv consolidate_ops_list.csv unique_ops_list.csv unique_ops_list2.csv summary.csv \
-                    consolidate_ops_list.json summary.json $HABANA_LOGS/
+                    consolidate_ops_list.json unique_ops_list.json unique_ops_list2.json summary.json $HABANA_LOGS/
         fi
 
         cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE
