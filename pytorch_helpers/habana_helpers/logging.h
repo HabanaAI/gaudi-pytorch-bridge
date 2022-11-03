@@ -282,7 +282,8 @@ class PtLogger {
     PARALLEL_ACC = 0x40000,
     LAZY_EAGER = 0x80000,
     MEMLOG = 0x100000,
-    EXEC_THREAD = 0x200000
+    EXEC_THREAD = 0x200000,
+    CUSTOM = 0x400000 // Don't use it in checkin code.
   };
 };
 
@@ -325,6 +326,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("MEMLOG");
     case PtLogger::ModuleMask::EXEC_THREAD:
       return std::string("EXEC_THREAD");
+    case PtLogger::ModuleMask::CUSTOM:
+      return std::string("CUSTOM");
     default:
       return std::string("UNDEFINED");
   }
@@ -614,6 +617,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
 #define PT_LAZY_EXEC_THREAD(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::EXEC_THREAD, __VA_ARGS__)
+#define PT_CUSTOM_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::CUSTOM, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

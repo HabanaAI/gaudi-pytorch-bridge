@@ -87,3 +87,6 @@ def clear_dynamic_bucket_recipe_info() -> None:
 
 def _is_enabled_lazy_collectives() -> bool:
     return _debug_C.is_enabled_lazy_collectives()
+
+def _hb_print(msg) -> None:
+    return _debug_C.hb_print(msg)

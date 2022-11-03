@@ -146,5 +146,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("is_enabled_lazy_collectives", []() {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES);
   });
+  m.def("hb_print", [](const char* msg) { PT_CUSTOM_DEBUG(msg); });
   m.doc() = "This module registers hpu host debug API";
 }

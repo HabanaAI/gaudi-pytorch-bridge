@@ -20,6 +20,7 @@ htdebug._memstat_livealloc("test memory live alloc")
 htdebug._memstat_devmem_start_collect("test memory start collect")
 htdebug._memstat_devmem_start_collect("test memory start collect", False)
 htdebug._memstat_devmem_stop_collect("test memory stop collect")
+htdebug._hb_print("Custom print")
 
 htdebug._dump_refined_recipe_stat()
 htdebug._disable_bucket_refinement()
