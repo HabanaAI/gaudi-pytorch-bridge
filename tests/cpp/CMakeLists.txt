@@ -45,13 +45,19 @@ file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
 find_library(PYTHON3_LIB python3)
 if(NOT PYTHON3_LIB)
   message(STATUS "python3 library not found!!!")
+  # NOTE: Ubuntu 22.04 requires python3.10 version
+  find_library(PYTHON3_LIB python3.10)
+endif()
+
+if(NOT PYTHON3_LIB)
+  message(STATUS "python3.10 library not found!!!")
   # NOTE: Currently depending on python3.8 exclusively, in case version upgrade
   # please change accordingly
   find_library(PYTHON3_LIB python3.8)
 endif()
 
 if(NOT PYTHON3_LIB)
-  message(FATAL_ERROR  "This ENV does not have python3 or python3.8 lib, which is essential!!!")
+  message(FATAL_ERROR  "This ENV does not have python3, python3.8 or python3.10 lib, which is essential!!!")
 endif()
 
 execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
