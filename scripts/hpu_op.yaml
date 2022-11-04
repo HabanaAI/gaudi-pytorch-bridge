@@ -3350,7 +3350,10 @@ linalg_vector_norm.out:
   op_backend: VecNormOp
 
 linspace.out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Byte, Half, Short]
   op_backend: LinspaceOut
   custom_output_shape: LinspaceOutputShape
 
