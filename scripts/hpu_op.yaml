@@ -1890,7 +1890,10 @@ dot.out:
 
 elu:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
     name: ns_EluKernel::Params
@@ -1900,7 +1903,10 @@ elu:
 
 elu_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
     name: ns_EluKernel::Params
@@ -1909,7 +1915,10 @@ elu_:
   inplace_ids: [0]
 
 elu.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
     name: ns_EluKernel::Params
@@ -1919,13 +1928,17 @@ elu.out:
 elu_backward:
   force_default: false
   custom_fill_params: FillEluBackwardParams
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   guid: elu_bwd
   out_ids: [0]
 
 elu_backward.grad_input:
   custom_fill_params: FillEluBackwardParams
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
   guid: elu_bwd
 
 embedding:
@@ -2019,18 +2032,27 @@ eq.Tensor:
 
 erf:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Greco: [Float]
   guid: erf_fwd
   out_ids: [0]
 
 erf_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Greco: [Float]
   guid: erf_fwd
   inplace_ids: [0]
 
 erf.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Greco: [Float]
   guid: erf_fwd
 
 erfc:
