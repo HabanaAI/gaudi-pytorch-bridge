@@ -77,6 +77,16 @@ void ThreadPool::joinAllThreads() {
   }
 }
 
+bool ThreadPool::inThreadPool() const {
+  static thread_local std::thread::id tid = std::this_thread::get_id();
+  for (auto& thread : m_workers) {
+    if (thread.get_id() == tid) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // the destructor joins all threads
 ThreadPool::~ThreadPool() {
   {

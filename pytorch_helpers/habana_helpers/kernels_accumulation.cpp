@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 #include <string>
@@ -81,11 +82,14 @@ bool IsAccThreadEnabled() {
 }
 
 bool CanUseAccThread() {
-  return IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool();
+  return IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool() &&
+      !(SingleTonExecThreadPool::getInstance().inThreadPool() ||
+        habana_lazy_executor.getDeviceExecutionContext(0)
+            ->m_launch_thread_context);
 }
 
 void SyncAccThreadPool() {
-  if (CanUseAccThread()) { // avoid syncing from within thread pool
+  if (CanUseAccThread()) { // avoid syncing from acc and launch thread pools
     PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     GetAccThreadPool().waitWorkComplete();
