@@ -5,6 +5,9 @@ config:
     - repository: pytorch-lightning-fork
     - repository: pytorch-vision-fork
     - repository: pytorch-integration
+  osBuild:
+    debian10.10: "on"
+    ubuntu22.04: 'off'
   dependantComponents:
     - component: deepspeed_fork
       silentMode: true
