@@ -573,8 +573,6 @@ at::Tensor get_tensor_for_scalar(
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
 
-  habana_lazy::SyncAccThreadPool();
-
   if (!habana_helpers::is_supported_type(self.scalar_type())) {
     // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
     // would fallback to cpu for unsupported dtypes
@@ -675,9 +673,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   };
 
-  op_func();
-  return self;
-  // RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
