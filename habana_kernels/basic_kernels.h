@@ -53,26 +53,6 @@ class AsStridedLayoutOperator : public habana::HabanaOperator {
 };
 
 //
-// Cast Operator (Lazy mode only)
-class CastLazyOperator : public habana::HabanaOperator {
- public:
-  CastLazyOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("cast_lazy") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.tpc_input_order = {0};
-  }
-
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-};
-
-//
 // MemCopy Operator
 class MemCopyOperator : public habana::HabanaOperator {
  public:

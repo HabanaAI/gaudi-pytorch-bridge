@@ -152,8 +152,10 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
 }
 
 CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
-    const std::string& guid) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING) &&
+    const std::string& guid,
+    const bool stochastic_rounding_override) {
+  if ((stochastic_rounding_override ||
+       GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
       guid.find("to_f8") != std::string::npos) {
     return CAST_ROUND_SR;
   }

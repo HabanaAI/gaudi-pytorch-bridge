@@ -57,6 +57,10 @@ class OpBackend : public HabanaOperator {
     m_scalar_type = dtype;
   }
 
+  void SetOutputTypeStackIdx(int idx) {
+    m_output_type_stack_idx = idx;
+  }
+
   // keeping AllocateAndAddSynapseNode public to help with calling autogen ops
   // from manually written ops
   void AllocateAndAddSynapseNode(
@@ -186,7 +190,9 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      bool stochastic_rounding_override = false,
+      int sr_seed = 0);
 
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
@@ -226,7 +232,9 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      bool stochastic_rounding_override = false,
+      int sr_seed = 0);
 
   static synapse_helpers::tensor BuildConstant(
       OpBackend* op,
@@ -259,6 +267,7 @@ class OpBackend : public HabanaOperator {
   const bool m_is_outfn;
 
   c10::ScalarType m_scalar_type;
+  std::optional<int> m_output_type_stack_idx;
   bool m_promote_type = false;
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;

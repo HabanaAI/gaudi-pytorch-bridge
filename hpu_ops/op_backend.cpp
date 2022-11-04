@@ -113,6 +113,7 @@ void OpBackend::HandleFn(
   }
 
   std::vector<at::Tensor> tensors;
+
   const auto& outshapes = ComputeOutputShapes(stack);
 
   for (int res_id : m_res_ids) {
@@ -162,6 +163,10 @@ void OpBackend::HandleFn(
     auto dtype = promoted_dtype == c10::ScalarType::Undefined ? t.scalar_type()
                                                               : promoted_dtype;
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
+
+    if (m_output_type_stack_idx.has_value()) {
+      dtype = stack.at(m_output_type_stack_idx.value()).toScalarType();
+    }
 
     const auto& output = habana_helpers::createPTTensor(
         t,
@@ -310,9 +315,19 @@ synapse_helpers::tensor OpBackend::CastHelper(
     at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    bool stochastic_rounding_override,
+    int sr_seed) {
   return OpBackend::BuildCast(
-      this, graph, syn_in, sizes, from, to, final_result_index);
+      this,
+      graph,
+      syn_in,
+      sizes,
+      from,
+      to,
+      final_result_index,
+      stochastic_rounding_override,
+      sr_seed);
 }
 
 synapse_helpers::tensor OpBackend::ConstantHelper(
@@ -401,7 +416,6 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
-
   HandleScalarToTensor(*m_graph, stack);
   HandleTypePromotion(*m_graph, stack);
 
@@ -569,7 +583,9 @@ synapse_helpers::tensor OpBackend::BuildCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    bool stochastic_rounding_override,
+    int sr_seed) {
   const auto& from_str = habana_helpers::name_suffix_from_type(from);
   const auto& to_str = habana_helpers::name_suffix_from_type(to);
   const auto& guid = "cast_" + from_str + "_to_" + to_str;
@@ -613,16 +629,34 @@ synapse_helpers::tensor OpBackend::BuildCast(
         habana_helpers::name_suffix_from_type(src) + "_to_" +
         habana_helpers::name_suffix_from_type(dst);
 
-    ns_CastKernel::Params params{};
-    params.round_mode = habana_helpers::get_cast_rounding_mode(cast_guid);
+    c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
+
+    if ((0 != sr_seed) && (guid.find("to_f8") != std::string::npos)) {
+      // Usage of ParamsV2 type induces explicit seed mode in TPC
+      params.emplace<ns_CastKernel::ParamsV2>();
+      c10::get<ns_CastKernel::ParamsV2>(params).seed = sr_seed;
+    } else {
+      params.emplace<ns_CastKernel::Params>();
+    }
+
+    void* params_ptr = c10::visit(
+        [cast_guid, stochastic_rounding_override](auto& var) {
+          var.round_mode = habana_helpers::get_cast_rounding_mode(
+              cast_guid, stochastic_rounding_override);
+          return reinterpret_cast<void*>(&var);
+        },
+        params);
+    size_t params_size =
+        c10::visit([](const auto& var) { return sizeof(var); }, params);
+
     auto is_last = (i + 1) == cast_sequence.size();
     auto output_index = is_last ? final_result_index : c10::nullopt;
     NodeAttr castnode{
         cast_guid,
         {*input},
         {{sizes, dst, output_index}},
-        &params,
-        sizeof(params)};
+        params_ptr,
+        params_size};
     auto cast = BuildNode(op, graph, std::move(castnode));
     casts.emplace_back(std::move(cast.at(0)));
     input = &casts.back().get();

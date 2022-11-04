@@ -29,7 +29,9 @@ namespace habana_helpers {
 std::optional<std::string> direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key);
 
-CastF32RoundMode_t get_cast_rounding_mode(const std::string& guid);
+CastF32RoundMode_t get_cast_rounding_mode(
+    const std::string& guid,
+    const bool stochastic_rounding_override = false);
 
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
