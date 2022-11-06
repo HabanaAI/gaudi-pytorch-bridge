@@ -1993,15 +1993,17 @@ void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
 }
 
 DiskCache::DiskCache(std::string cache_path)
-    : recipe_cache_(std::move(cache_path)),
-      // TODO: add pytorch version, TICKET SW-62210
-      cache_id_suffix_(absl::StrCat(
-          "_",
-          CacheVersion::libs_env_hash(),
-          "_syn",
-          synGetVersion())) {
+    : recipe_cache_(std::move(cache_path))
+// TODO: add pytorch version, TICKET SW-62210
+{
   if (GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_IGNORE_VERSION)) {
     cache_id_suffix_ = "";
+  } else {
+    constexpr int bufferSize = 256;
+    char versionStr[bufferSize];
+    synDriverGetVersion(versionStr, bufferSize);
+    cache_id_suffix_ =
+        absl::StrCat("_", CacheVersion::libs_env_hash(), "_syn", versionStr);
   }
 }
 

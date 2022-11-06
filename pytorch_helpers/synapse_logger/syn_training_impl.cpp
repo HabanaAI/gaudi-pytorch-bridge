@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include <dlfcn.h>
-#include <synapse.h>
 #include <synapse_api.h> // IWYU pragma: keep
 #include <synapse_api_types.h>
 #include <cstddef>
@@ -43,8 +42,6 @@
 #define SYN_API_INIT_PTR(func) \
   CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
 namespace lib_synapse {
-SYN_API_PTR(synDestroyTensor);
-SYN_API_PTR(synSetCfg);
 SYN_API_PTR(synDeviceSynchronize);
 SYN_API_PTR(synStreamCreate);
 SYN_API_PTR(synStreamDestroy);
@@ -119,8 +116,6 @@ SYN_API_PTR(synSectionSetGroup);
 SYN_API_PTR(synRecipeSectionGetProp);
 
 void LoadSymbols(void* lib_handle) {
-  SYN_API_INIT_PTR(synDestroyTensor);
-  SYN_API_INIT_PTR(synSetCfg);
   SYN_API_INIT_PTR(synDeviceSynchronize);
   SYN_API_INIT_PTR(synStreamCreate);
   SYN_API_INIT_PTR(synStreamDestroy);
@@ -267,25 +262,10 @@ class LogStreamName {
 
 synapse_logger::LogStreamName strLog;
 
-synStatus synDestroyTensor(synTensor tensor) {
-  API_LOG_CALL(ARG(tensor));
-  synStatus status = lib_synapse::synDestroyTensor(tensor);
-  API_LOG_RESULT();
-  return status;
-}
-
 synStatus synInitialize() {
   API_LOG_CALL();
   // Directly calling synInitialize() due to null backend functionality
   synStatus status = lib_synapse::synInitialize();
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus synSetCfg(const char* cfgName, const char* cfgValue) {
-  API_LOG_CALL(ARG_Q(cfgName), ARG_Q(cfgValue));
-  synStatus status;
-  CALL_SYN_FUNC(lib_synapse::synSetCfg, cfgName, cfgValue)
   API_LOG_RESULT();
   return status;
 }

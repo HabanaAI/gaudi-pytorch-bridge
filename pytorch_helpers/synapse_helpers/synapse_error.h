@@ -11,7 +11,7 @@
 
 #include <absl/types/optional.h>
 #include <absl/types/variant.h>
-#include <synapse.h>
+#include <synapse_api.h>
 
 namespace synapse_helpers {
 

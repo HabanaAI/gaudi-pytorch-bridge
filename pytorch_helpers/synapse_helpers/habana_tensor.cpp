@@ -10,7 +10,7 @@
 #include "synapse_helpers/habana_tensor.h"
 
 #include <absl/strings/str_format.h>
-#include <synapse.h>
+#include <synapse_api.h>
 #include <algorithm>
 #include <iterator>
 #include "habana_helpers/logging.h"
@@ -509,7 +509,7 @@ void tensor::cleanup() {
     // once the graph is destroyed.
     if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH))) {
-      synDestroyTensor(tensor_);
+      synTensorDestroy(tensor_);
     }
     tensor_ = nullptr;
   }

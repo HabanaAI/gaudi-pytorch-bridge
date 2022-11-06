@@ -818,7 +818,7 @@ class Log:
                 "synStreamDestroy",
                 # "synStreamSynchronize",
                 # "synWorkspaceGetSize",
-                "synSetCfg",
+                "synConfigurationSet",
                 "synDeviceMalloc",
                 "synDeviceGetMemoryInfo",
                 "synDeviceFree",

@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <synapse.h>
 #include <synapse_api.h> // IWYU pragma: keep
 #include <mutex>
 #include <unordered_map>

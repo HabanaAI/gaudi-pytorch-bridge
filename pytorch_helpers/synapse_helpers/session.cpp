@@ -10,7 +10,7 @@
 
 #include <string>
 
-#include <synapse.h>
+#include <synapse_api.h>
 #include "habana_helpers/logging.h" // IWYU pragma: keep
 #include "synapse_helpers/session.h"
 #include "synapse_helpers/synapse_error.h"

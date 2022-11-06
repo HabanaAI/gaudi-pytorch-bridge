@@ -10,7 +10,6 @@
  *
  *******************************************************************************/
 
-#include <synapse.h>
 #include <synapse_api.h> // IWYU pragma: keep
 #include "logging.h"
 #include "partial_event_emulation.h"
@@ -31,14 +30,6 @@ synStatus SYN_API_CALL synInitialize() {
 
 synStatus SYN_API_CALL synDestroy() {
   return syn_api->synDestroy();
-}
-
-synStatus synSetCfg(const char* cfgName, const char* cfgValue) {
-  return syn_api->synSetCfg(cfgName, cfgValue);
-}
-
-synStatus synGetCfg(const char* cfgName, char* cfgValue, uint64_t size) {
-  return syn_api->synGetCfg(cfgName, cfgValue, size);
 }
 
 synStatus SYN_API_CALL synDeviceSynchronize(const synDeviceId deviceId) {
@@ -319,10 +310,6 @@ synStatus synNodeDependencySet(
       numberblocked);
 }
 
-const char* SYN_API_CALL synGetVersion() {
-  return syn_api->synGetVersion();
-}
-
 synStatus SYN_API_CALL synGraphCompile(
     synRecipeHandle* pRecipeHandle,
     const synGraphHandle graphHandle,
@@ -570,10 +557,6 @@ synStatus SYN_API_CALL synTensorSetPermutation(
     synTensor tensor,
     const synTensorPermutation* permutation) {
   return syn_api->synTensorSetPermutation(tensor, permutation);
-}
-
-synStatus SYN_API_CALL synDestroyTensor(synTensor tensor) {
-  return syn_api->synDestroyTensor(tensor);
 }
 
 synStatus SYN_API_CALL

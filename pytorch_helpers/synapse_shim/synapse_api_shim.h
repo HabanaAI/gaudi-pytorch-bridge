@@ -13,12 +13,9 @@
 
 #include <functional>
 
-#include <synapse.h>
 #include <synapse_api.h> // IWYU pragma: keep
 
 #define SYN_API_SYMBOL_VISIT(visitor)          \
-  visitor(synSetCfg);                          \
-  visitor(synGetCfg);                          \
   visitor(synDeviceSynchronize);               \
   visitor(synStreamCreate);                    \
   visitor(synStreamDestroy);                   \
@@ -49,7 +46,6 @@
   visitor(synNodeCreateWithId);                \
   visitor(synNodeSetDeterministic);            \
   visitor(synNodeDependencySet);               \
-  visitor(synGetVersion);                      \
   visitor(synGraphCompile);                    \
   visitor(synGraphCreate);                     \
   visitor(synGraphCreateEager);                \
@@ -109,7 +105,6 @@
   visitor(synTensorRetrieveLaunchInfoById);    \
   visitor(synTensorRetrieveLaunchInfoByIdExt); \
   visitor(synConstTensorCreate);               \
-  visitor(synDestroyTensor);                   \
   visitor(synTensorSetAllowPermutation);       \
   visitor(synTensorGetHostPtr);                \
   visitor(synTensorSetDeviceDataType);

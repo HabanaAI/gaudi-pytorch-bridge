@@ -316,7 +316,6 @@ class Flow:
                 "#include <sys/stat.h>\n"
                 "#include <unistd.h>\n"
                 "#include <hcl_api.h>\n"
-                "#include <synapse.h>\n"
                 "#include <synapse_api.h>\n"
                 "#include <synapse_api_types.h>\n"
                 '#include "../syncrotron.h"\n'
@@ -414,7 +413,6 @@ class Flow:
                 "#include <unistd.h>",
                 "#include <hcl_api.h>",
                 "#include <memory>",
-                "#include <synapse.h>",
                 "#include <synapse_api.h>",
                 "#include <synapse_api_types.h>",
                 '#include "../compare.h"',
@@ -508,7 +506,6 @@ class Flow:
                 "#include <iostream>",
                 "#include <vector>",
                 "#include <unistd.h>",
-                "#include <synapse.h>",
                 "#include <synapse_api.h>",
                 "",
                 '#define ASSERT_EQ(expected, expr) do { if ((expected) != (expr)) { printf("%s: failed!\\n", #expr); exit(1); }} while (0)',
@@ -822,7 +819,7 @@ class Flow:
                         args["handle"] = entry["result"]["handle"]
                         out(Flow.call(entry, space.get_args(entry, ("handle",))))
 
-                    elif func_def.name == "synDestroyTensor":
+                    elif func_def.name == "synTensorDestroy":
                         out(Flow.call(entry, space.get_args(entry, ("tensor",))))
                     elif func_def.name == "synGraphCreate":
                         v = space.add(entry["result"]["pGraphHandle"], "synGraphHandle", f"graph{no}", local=True)
