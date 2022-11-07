@@ -803,6 +803,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
     if (is_valid_hccl_dtype(data_type)) {
       allreduce_tensors.push_back(tensors[i]);
     } else {
+      PT_DISTRIBUTED_DEBUG("[PYT-DIST] allreduce tensors converted to float ");
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
@@ -881,10 +882,20 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  std::vector<at::Tensor> reduction_tensors;
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    if (is_valid_hccl_dtype(data_type)) {
+      reduction_tensors.push_back(tensors[i]);
+    } else {
+      PT_DISTRIBUTED_DEBUG("[PYT-DIST] reduction tensors converted to float ");
+      reduction_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
+    }
+  }
   auto work = collective(
-      tensors,
-      tensors,
-      [root = opts.rootRank * tensors.size() + opts.rootTensor,
+      reduction_tensors,
+      reduction_tensors,
+      [root = opts.rootRank * reduction_tensors.size() + opts.rootTensor,
        reduceOp = opts.reduceOp,
        this](
           at::Tensor& input,
@@ -933,6 +944,14 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
         return hccl_result;
       });
 
+  for (size_t i = 0; i < tensors.size(); i++) {
+    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    if (!is_valid_hccl_dtype(data_type)) {
+      work->wait();
+      tensors[i].copy_(reduction_tensors[i].to(tensors[i].scalar_type()));
+    }
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -959,6 +978,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     alltoall_out_tensors = outputTensor;
     alltoall_in_tensors = inputTensor;
   } else {
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] alltoall tensors converted to float ");
     alltoall_out_tensors = outputTensor.to(c10::ScalarType::Float);
     alltoall_in_tensors = inputTensor.to(c10::ScalarType::Float);
   }
