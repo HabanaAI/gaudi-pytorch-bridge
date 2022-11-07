@@ -6,6 +6,7 @@ from torch.utils import cpp_extension
 
 import os
 import glob
+import copy
 
 
 def _check_env_flag(name, default=""):
@@ -59,6 +60,7 @@ def get_version():
         try:
             import subprocess
             import re
+
             describe = (
                 subprocess.check_output(
                     ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])
@@ -70,18 +72,26 @@ def get_version():
             return f"{HABANA_DEFAULT_VERSION}+unknown"
 
 
-core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
-hpu_csrc = glob.glob("habana_frameworks/torch/hpu/csrc/*.cpp")
-hccl_csrc = glob.glob("habana_frameworks/torch/distributed/hccl/*.cpp")
-hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
-experimental_csrc = glob.glob("habana_frameworks/torch/utils/experimental/csrc/*.cpp")
-profiler_csrc = glob.glob("habana_frameworks/torch/utils/profiler/csrc/*.cpp")
-debug_csrc = glob.glob("habana_frameworks/torch/utils/debug/csrc/*.cpp")
-activity_profiler_csrc = glob.glob("habana_frameworks/torch/activity_profiler/csrc/*.cpp")
+ext_src_root = os.path.join(root, "python_packages/habana_frameworks/torch")
+
+extensions = [
+    ("habana_frameworks.torch._core_C", glob.glob(f"{ext_src_root}/core/*.cpp")),
+    ("habana_frameworks.torch._hpu_C", glob.glob(f"{ext_src_root}/hpu/csrc/*.cpp")),
+    ("habana_frameworks.torch.distributed._hccl_C", glob.glob(f"{ext_src_root}/distributed/hccl/*.cpp")),
+    ("habana_frameworks.torch._hpex_C", glob.glob(f"{ext_src_root}/hpex/csrc/*.cpp")),
+    ("habana_frameworks.torch.utils._experimental_C", glob.glob(f"{ext_src_root}/utils/experimental/csrc/*.cpp")),
+    ("habana_frameworks.torch.utils._profiler_C", glob.glob(f"{ext_src_root}/utils/profiler/csrc/*.cpp")),
+    ("habana_frameworks.torch.utils._debug_C", glob.glob(f"{ext_src_root}/utils/debug/csrc/*.cpp")),
+    ("habana_frameworks.torch.utils._activity_profiler_C", glob.glob(f"{ext_src_root}/activity_profiler/csrc/*.cpp")),
+]
+assert not any(
+    ext for ext, src in extensions if len(src) == 0
+), f"no sources for extension {next(e for e,s in extensions if len(s)==0)} extensions={extensions}]"
 
 
-class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True)):
+class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True, parallel=len(extensions))):
     def run(self):
+
         super(BuildExt, self).run()
         build_root = os.environ["BUILD_ROOT_LATEST"]
         libs = [
@@ -116,6 +126,16 @@ class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=Tr
         for header in headerfiles:
             copy_file(os.path.join(build_root, header), include_path)
 
+    def build_extension(self, ext):
+        build_root = "PYTORCH_MODULES_DEBUG_BUILD" if self.debug else "PYTORCH_MODULES_RELEASE_BUILD"
+        ext_build_temp_root = os.path.join(os.environ[build_root], "ext_temp")
+        #  build_temp is a property of extension builder, not extension. For this unfortunate reason normally
+        #  individual extensions override one another which prevents parallel build of multiple extensions.
+        #  This overrides build_temp per extension but in order to allow prallelism it is done by copying builder for each extension.
+        ext_builder = copy.copy(self)
+        ext_builder.build_temp = os.path.join(ext_build_temp_root, ext.name)
+        super(BuildExt, ext_builder).build_extension(ext)
+
 
 setup(
     name="habana-torch-plugin",
@@ -136,85 +156,17 @@ setup(
     },
     ext_modules=[
         cpp_extension.CppExtension(
-            name="habana_frameworks.torch._core_C",
-            sources=core_csrc,
+            name=ext_name,
+            sources=ext_src,
             language="c++",
             include_dirs=include_dirs,
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
             libraries=libraries,
             runtime_library_dirs=["$ORIGIN/lib/"],
             extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch._hpu_C",
-            sources=hpu_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch.distributed._hccl_C",
-            sources=hccl_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch._hpex_C",
-            sources=hpex_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch.utils._experimental_C",
-            sources=experimental_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch.utils._profiler_C",
-            sources=profiler_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch.utils._debug_C",
-            sources=debug_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
-        cpp_extension.CppExtension(
-            name="habana_frameworks.torch.utils._activity_profiler_C",
-            sources=activity_profiler_csrc,
-            language="c++",
-            include_dirs=include_dirs,
-            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
-            runtime_library_dirs=["$ORIGIN/lib/"],
-            extra_compile_args=extra_compile_args,
-        ),
+            extra_link_args=extra_link_args,
+        )
+        for ext_name, ext_src in extensions
     ],
     cmdclass={"build_ext": BuildExt},
 )
