@@ -6,6 +6,8 @@ import csv
 import glob
 import yaml
 import pandas as pd
+import datetime
+import json
 
 def match_any(l, match):
     for m in match:
@@ -26,6 +28,10 @@ def write_consolidated_op_list(name, op_d):
     nrv = 0
     rv_df_dt_t = 0
     rv_df_dt_impl = 0
+    rv_df_dt_nimpl = 0
+    rv_df_dt_impl_m = 0
+    rv_df_dt_impl_a = 0
+
     rv_dt_dt_t =0
     rv_dt_dt_impl =0
     rv_dt_dt_nimpl =0
@@ -61,6 +67,10 @@ def write_consolidated_op_list(name, op_d):
                     rv_df_dt_t += 1
                     if row["implemented"] == "yes":
                         rv_df_dt_impl += 1
+                        if row["implement_method"] == "auto":
+                            rv_df_dt_impl_a += 1
+                        elif row["implement_method"] == "manual":
+                            rv_df_dt_impl_m += 1
                 elif row["op_type"] == "dt_dt":
                     rv_dt_dt_t += 1
                     if row["implemented"] == "yes":
@@ -78,13 +88,14 @@ def write_consolidated_op_list(name, op_d):
                         elif row["implement_method"] == "manual":
                             rv_dt_df_impl_m += 1
     nrv = Total - rv
+    rv_df_dt_nimpl = rv_df_dt_t- rv_df_dt_impl
     rv_dt_dt_nimpl = rv_dt_dt_t - rv_dt_dt_impl
     rv_dt_df_nimpl = rv_dt_df_t - rv_dt_df_impl
 
     rv_non_mandat_t = rv_df_dt_t + rv_dt_dt_t
 
     with open("summary.csv", "w", newline='') as summary_csv:
-        header = ["total_ops", "relevant_on_hpu", "not_relevant_on_hpu", "non_mandatroy_total", "df_dt_total", "df_dt_implemented", "dt_dt_total", "dt_dt_implemented", "dt_dt implemented_auto", "dt_dt implemented_manual", "dt_dt_remaining", "mandatory_total", "dt_df_implemented", "dt_df_implemented_auto", "dt_df_implemented_manual", "dt_df_remaining"]
+        header = ["total_ops", "relevant_on_hpu", "not_relevant_on_hpu", "non_mandatroy_total", "df_dt_total", "df_dt_implemented", "df_dt_implemented_auto", "df_dt_implemented_manual", "df_dt_remaining", "dt_dt_total", "dt_dt_implemented", "dt_dt_implemented_auto", "dt_dt_implemented_manual", "dt_dt_remaining", "mandatory_total", "dt_df_implemented", "dt_df_implemented_auto", "dt_df_implemented_manual", "dt_df_remaining"]
         writer = csv.DictWriter(summary_csv, fieldnames=header, delimiter="|")
         writer.writeheader()
         row = {}
@@ -92,16 +103,18 @@ def write_consolidated_op_list(name, op_d):
         row["total_ops"] = Total
         row["relevant_on_hpu"] = rv
         row["not_relevant_on_hpu"] = nrv
-
         row["non_mandatroy_total"] = rv_non_mandat_t
+
         row["df_dt_total"] = rv_df_dt_t
         row["df_dt_implemented"] = rv_df_dt_impl
+        row["df_dt_implemented_auto"] = rv_df_dt_impl_a
+        row["df_dt_implemented_manual"] = rv_df_dt_impl_m
+        row["df_dt_remaining"] = rv_df_dt_nimpl
 
         row["dt_dt_total"] = rv_dt_dt_t
         row["dt_dt_implemented"] = rv_dt_dt_impl
-        row["dt_dt implemented_auto"] = rv_dt_dt_impl_a
-        row["dt_dt implemented_manual"] = rv_dt_dt_impl_m
-
+        row["dt_dt_implemented_auto"] = rv_dt_dt_impl_a
+        row["dt_dt_implemented_manual"] = rv_dt_dt_impl_m
         row["dt_dt_remaining"] = rv_dt_dt_nimpl
 
 
@@ -422,7 +435,10 @@ def main(args):
         fc = f +".csv"
         fj = f +".json"
         df = pd.read_csv (fc, sep ="|")
-        df.to_json (fj, orient='records')
+        t = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        json_list = json.loads(df.to_json(orient='records'))
+        for item in json_list: item['timestamp'] = t
+        with open(fj , 'w+')  as f: json.dump(json_list, f)
 
     return
     
