@@ -1254,7 +1254,7 @@ run_pytorch_modules_tests()
         (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
-		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.masked_select_usual_mix:*UniqueParameterizedTestFixture.tests:HpuOpTest.matmul_5dx1d:LazyConvKernelTest.ConvTranspose3dG2Test:LazyDynamicShapesTest.DS_PadTest_HT:LazyTensorShapeKernelTest.SplitViewTest6D:HpuOpTest.nll_loss2d_fwd_out_bf16:HpuOpTest.prod_dim_with_dtype6d:HpuOpTest.prod_dim7d:HpuOpTest.prod_dim_with_dtype8d:HpuOpTest.multinomial_without_replacement:HpuOpTest.multinomial_with_replacement:LazyBinaryKernelTest.MaxOneInput8DLong:LazyBinaryKernelTest.MinOneInput8DLong:LazyBinaryKernelTest.MaxDim8DimDimNe7Keepdim:LazyBinaryKernelTest.MaxDim8DimDim7:LazyDynamicComputeOutputShapesTest.RoiAlignBwd:LazyDynamicShapesTest.DS_RoiAlignFwdTest:LazyDynamicShapesTest.RepeatInlv1:LazyDynamicShapesTest.RepeatInlv2:LazyDynamicShapesTest.RepeatInlv3:LazyReductionKernelTest.ArgMaxTestNe1:LazyReductionKernelTest.MaxTest:HpuOpTest.multinomial)
+		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16)
     		__test_status=$?
 	fi
     fi
