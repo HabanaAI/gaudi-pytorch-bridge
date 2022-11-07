@@ -81,6 +81,7 @@ void HPUGraph::replay() {
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
     return;
   }
+  habana_lazy::HbLazyTensor::StepMarker({});
   if (graph_) {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         graph_,
