@@ -46,6 +46,56 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
 }
 
+TEST_F(LazyBinaryKernelTest, UnifiedFlowA) {
+  std::vector<int> in_sizes{2, 2, 4, 6, 8, 10, 2};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int dyn_dim = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor B = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor C = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor I = torch::add(hA, hB, 2.3);
+    torch::Tensor out = torch::add(hC, I, 2.3);
+
+    torch::Tensor I_cpu = torch::add(A, B, 2.3);
+    torch::Tensor out_cpu = torch::add(C, I_cpu, 2.3);
+    torch::Tensor out_h = out.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
+
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
+  }
+}
+
+TEST_F(LazyBinaryKernelTest, UnifiedFlowB) {
+  std::vector<int> in_sizes{2, 2};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int dyn_dim = in_sizes[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor B = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor C = torch::randn({2, dyn_dim}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor I = torch::add(hA, hB, 2.3);
+    torch::Tensor out = torch::add(hC, I, 2.3);
+
+    torch::Tensor I_cpu = torch::add(A, B, 2.3);
+    torch::Tensor out_cpu = torch::add(C, I_cpu, 2.3);
+    torch::Tensor out_h = out.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
+
+    PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
+  }
+}
+
 TEST_F(LazyBinaryKernelTest, AddScalarTest) {
   // test case for result = add(tensor, scalar, alpha)
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));

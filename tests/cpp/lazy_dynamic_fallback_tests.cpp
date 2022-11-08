@@ -40,6 +40,7 @@ class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
+    TearDownBridge();
   }
 
   void TearDown() override {
