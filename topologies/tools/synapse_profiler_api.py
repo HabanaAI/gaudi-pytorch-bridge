@@ -3,7 +3,7 @@ import os
 import warnings
 from enum import Enum
 
-path = os.path.dirname(os.getenv('GC_KERNEL_PATH'))
+path = os.path.dirname(os.getenv('GC_KERNEL_PATH').split(':')[0])
 dev_path = os.getenv('BUILD_ROOT_LATEST')
 if dev_path:
     path = dev_path
