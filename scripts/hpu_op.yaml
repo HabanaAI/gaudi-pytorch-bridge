@@ -2702,18 +2702,18 @@ floor_divide_.Tensor:
 frac:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: Frac
   out_ids: [0]
+  guid: frac
 
 frac_:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: Frac
+  guid: frac
   inplace_ids: [0]
 
 frac.out:
   dtypes: [BFloat16, Float]
-  op_backend: Frac
+  guid: frac
 
 frexp.Tensor:
   dtypes: [Float, BFloat16]

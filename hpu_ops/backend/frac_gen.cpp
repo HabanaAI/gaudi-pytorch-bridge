@@ -60,12 +60,6 @@ static auto BuildFrac(
        {{outshape, dtype, out_index}}});
 }
 
-void Frac::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto out = BuildFrac(this, graph, syn_in(0), ScalarType(), outshape, 0);
-  syn_out(0) = std::move(out[0]);
-}
-
 void ForeachFrac::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
