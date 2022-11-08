@@ -5683,6 +5683,7 @@ unique_dim:
 unsqueeze_:
   force_default: false
   override_fn: unsqueeze_hpu_lazy_
+  acc_thread: true
 
 unsqueeze:
   force_default: false

@@ -49,6 +49,15 @@ ir::NodePtr create_as_strided_node(
     const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
+    at::IntArrayRef orig_size,
+    at::IntArrayRef orig_stride,
+    c10::optional<int64_t> storage_offset,
+    bool is_out = false);
+
+ir::NodePtr create_as_strided_node(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset,
     bool is_out = false);
 

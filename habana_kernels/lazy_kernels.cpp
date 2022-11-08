@@ -1144,8 +1144,20 @@ Tensor empty_as_strided_lazy(
 
 ir::NodePtr create_as_strided_node(
     const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset,
+    bool is_out) {
+  return create_as_strided_node(
+      self, size, stride, self.sizes(), self.strides(), storage_offset, is_out);
+}
+
+ir::NodePtr create_as_strided_node(
+    const Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    at::IntArrayRef orig_size,
+    at::IntArrayRef orig_stride,
     c10::optional<int64_t> storage_offset,
     bool is_out) {
   ir::NodePtr node = nullptr;
@@ -1165,7 +1177,7 @@ ir::NodePtr create_as_strided_node(
     }
     PT_DYNAMIC_SHAPE_DEBUG(
         "Strided view Real size = ",
-        self.sizes().vec(),
+        orig_size.vec(),
         " recieved sizes = ",
         size.vec(),
         " strides = ",
@@ -1186,7 +1198,7 @@ ir::NodePtr create_as_strided_node(
         c10::MemoryFormat::Contiguous,
         false,
         SHAPE_TENSOR);
-    if (self.sizes().size() != stride.size()) {
+    if (orig_size.size() != stride.size()) {
       if (node_str == "hpu::strided_view_out_ds") {
         node_str = "hpu::strided_view_out_orig_ds";
       } else {
@@ -1207,7 +1219,7 @@ ir::NodePtr create_as_strided_node(
       HABANA_ASSERT(impl_size_st, "impl_size_st is invalid");
 
       std::vector<int64_t> stride_ratios;
-      auto self_strides = self.strides().vec();
+      auto self_strides = orig_stride.vec();
       auto stride_sizes = stride.vec();
       auto len = stride_sizes.size();
       for (uint64_t i = 0; i < len; i++) {
@@ -1321,18 +1333,19 @@ Tensor as_strided_hpu_lazy(
   return out;
 }
 
-const Tensor& as_strided_hpu_lazy_(
+void as_strided_hpu_lazy_inplace_parralel_impl(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride,
+    IntArrayRef orig_size,
+    IntArrayRef orig_stride,
     c10::optional<int64_t> storage_offset) {
   // We only support contiguous chunks of data to be taken as strided,
   // as Device doesnt support strided tensors we dont support that case
-  ir::NodePtr node = create_as_strided_node(self, size, stride, storage_offset);
+  ir::NodePtr node = create_as_strided_node(
+      self, size, stride, orig_size, orig_stride, storage_offset);
 
   if (node != nullptr) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
-
     auto hb_result = GetHbLazyTensor(self);
     // update of lazy tensor size is required for permute pass to see output
     // with updated shape
@@ -1348,13 +1361,32 @@ const Tensor& as_strided_hpu_lazy_(
     context->MarkTensorStatus(
         hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     flush_op(self);
-    return self;
   } else {
     TORCH_CHECK(
         0,
         "as_strided_ called with strides creating non-contiguous output tensor not supported");
   }
 };
+
+const Tensor& as_strided_hpu_lazy_(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride,
+    c10::optional<int64_t> storage_offset) {
+  auto orig_size = self.sizes().vec();
+  auto orig_stride = self.strides().vec();
+  self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  auto func = [self,
+               size = size.vec(),
+               stride = stride.vec(),
+               orig_size = std::move(orig_size),
+               orig_stride = std::move(orig_stride),
+               storage_offset]() {
+    as_strided_hpu_lazy_inplace_parralel_impl(
+        self, size, stride, orig_size, orig_stride, storage_offset);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(as_strided_, func, self);
+}
 
 void AddMemcpy(const Tensor& src, Tensor& dst) {
   auto hl_dst = GetOrCreateHbLazyTensor(dst);
@@ -1436,8 +1468,8 @@ void view_hpu_lazy_parallel_impl(
   }
   lazy_view_fallback_handle(
       self, out, [size = size.vec()](const Tensor& self, StrideParams* params) {
-        // There could be some cases where slice/select/etc followed by view, in
-        // those cases use as_strided instead of using the ViewOP.
+        // There could be some cases where slice/select/etc followed by view,
+        // in those cases use as_strided instead of using the ViewOP.
         params->optype = kStridedOpView;
 
         PT_VIEWTABLE_DEBUG(
@@ -1656,8 +1688,8 @@ Tensor& baddbmm_hpu_lazy_(
 Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
-  // storage. //TODO enhance lazy op framework to convert out variant to out of
-  // place variant
+  // storage. //TODO enhance lazy op framework to convert out variant to out
+  // of place variant
   auto shape_changed = self.sizes() != out.sizes();
   if (shape_changed) {
     out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
@@ -2069,9 +2101,9 @@ Tensor constant_pad_hpu_lazy(
         // assuming that "pad" has a pair of pad values corresponding to each
         // dim that needs to be padded.
         for (unsigned int i = 0; i < pad.size() / 2; i++) {
-          // Host tensor layout 1D - 10 elements: pad_before[0]...pad_before[4],
-          // pad_after[0] ... pad_after[4] (for dimensionality IFM less then 5
-          // some elements not in use)
+          // Host tensor layout 1D - 10 elements:
+          // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
+          // dimensionality IFM less then 5 some elements not in use)
           pad_ht_vec[i] = pad[2 * i];
           pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
         }
@@ -6157,8 +6189,8 @@ Tensor fused_norm_hpu_lazy(
             hlgrad.dtype_optional(),
             out_index++);
 
-        // add strided insert node. Do not flush in lazy eager as it is a fused
-        // op. step marker will be used at the end
+        // add strided insert node. Do not flush in lazy eager as it is a
+        // fused op. step marker will be used at the end
         strided_insert_hpu_lazy(grad_t, clip_grad, /*is_flush*/ false);
       }
     }
