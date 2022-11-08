@@ -10,6 +10,7 @@
 
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
+#include <ATen/native/TypeProperties.h>
 #include <c10/core/SymIntArrayRef.h>
 #include <cstdlib>
 #include <ctime>
@@ -5482,11 +5483,13 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   // calculate output shape
   auto output_shape =
       CatOutOperator::compute_output_shape(non_empty_list, dim_);
+  auto output_dtype =
+      at::native::result_type(static_cast<ITensorListRef>(tensors));
 
   // allocate output tensor
   auto out = empty_hpu_lazy(
       output_shape,
-      first_tensor.options(),
+      first_tensor.options().dtype(output_dtype),
       first_tensor.suggest_memory_format(),
       false);
 

@@ -9,6 +9,7 @@
  */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
+#include <ATen/native/TypeProperties.h>
 #include <synapse_api.h>
 #include <torch/script.h>
 
@@ -70,6 +71,9 @@ Tensor CatOperator::CheckAllocateOutput(
       dim < first_tensor.ndimension(),
       "Cat dimension specified exceeds tensors dimensions");
 
+  auto output_dtype =
+      at::native::result_type(static_cast<ITensorListRef>(tensors));
+
   std::vector<std::vector<int64_t>> tensors_size;
   auto tensor_count = tensors.size();
   for (unsigned i = 0; i < tensor_count; i++)
@@ -97,7 +101,7 @@ Tensor CatOperator::CheckAllocateOutput(
   auto out = habana_helpers::createPTTensor(
       first_tensor,
       out_size,
-      first_tensor.options(),
+      first_tensor.options().dtype(output_dtype),
       first_tensor.suggest_memory_format(),
       first_tensor.scalar_type(),
       output_metadata.persistent);
@@ -127,6 +131,24 @@ void CatOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[1].toInt();
   auto kernel_dim = (out.ndimension() - dim) - 1;
 
+  auto tensors = inputs[0].toTensorList();
+  auto output_dtype = out.scalar_type();
+  for (unsigned i = 0; i < tensors.size(); i++) {
+    const auto& tensor = tensors.get(i);
+    if (tensor.scalar_type() != output_dtype) {
+      std::string cast_guid = "cast_" +
+          habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
+          habana_helpers::name_suffix_from_type(output_dtype);
+      auto cast =
+          make_operator<CastOperator>(p_context_->device_id_, cast_guid);
+      cast->SetSynapseInput(GetSynInputs()[i]);
+      at::Stack stack{tensor, output_dtype};
+      cast->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      p_context_->syn_input_orig_.emplace_back(
+          std::move(p_context_->syn_inputs_[i]));
+      p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);
+    }
+  }
   p_context_->params_.emplace<int64_t>(kernel_dim);
   p_context_->params_size_ = sizeof(kernel_dim);
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
@@ -289,8 +311,10 @@ void CatOutOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
   auto dim = CheckAllocateOutput(inputs);
+  auto tensors = inputs[0].toTensorList();
   auto out = inputs[2].toTensor();
   auto kernel_dim = (out.ndimension() - dim) - 1;
+  auto output_dtype = out.scalar_type();
 
   p_context_->params_.emplace<int64_t>(kernel_dim);
   p_context_->params_size_ = sizeof(kernel_dim);
@@ -299,8 +323,21 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_inputs;
 
   for (int i = 0; i < (numTensors - 1); i++) {
-    synapse_helpers::tensor& arg_syn_tensor = p_context_->syn_inputs_[i];
-    syn_inputs.push_back(arg_syn_tensor.get());
+    const auto& tensor = tensors.get(i);
+    if (tensor.scalar_type() != output_dtype) {
+      std::string cast_guid = "cast_" +
+          habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
+          habana_helpers::name_suffix_from_type(output_dtype);
+      auto cast =
+          make_operator<CastOperator>(p_context_->device_id_, cast_guid);
+      cast->SetSynapseInput(GetSynInputs()[i]);
+      at::Stack stack{tensor, output_dtype};
+      cast->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      p_context_->syn_input_orig_.emplace_back(
+          std::move(p_context_->syn_inputs_[i]));
+      p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);
+    }
+    syn_inputs.push_back(p_context_->syn_inputs_[i].ref().get());
   }
 
   p_context_->syn_outputs_.emplace_back(
