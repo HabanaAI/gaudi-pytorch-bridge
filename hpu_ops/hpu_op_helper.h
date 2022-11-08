@@ -206,12 +206,18 @@ inline float& get<float>(fint_t& u) {
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
+#define SYNC_ACC_IF_EAGER_VIA_LAZY               \
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) { \
+    habana_lazy::SyncAccThreadPool();            \
+  }
+
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                                \
   if (habana_lazy::CanUseAccThread()) {                                       \
     if (habana_lazy::IsAccumulationForAutogenSupported(#op)) {                \
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       auto result = lazy_op.get_result();                                     \
       scheduleAccTask(std::move(lazy_op), result);                            \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return result;                                                          \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -226,6 +232,7 @@ inline float& get<float>(fint_t& u) {
       auto result = lazy_op.get_result();                                     \
       result_func(result);                                                    \
       scheduleAccTask(std::move(lazy_op), result);                            \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return result;                                                          \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -241,6 +248,7 @@ inline float& get<float>(fint_t& u) {
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       self = lazy_op.get_result(self);                                        \
       scheduleAccTask(std::move(lazy_op), self);                              \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return self;                                                            \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -254,6 +262,7 @@ inline float& get<float>(fint_t& u) {
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       auto tuple = lazy_op.get_result();                                      \
       scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return tuple;                                                           \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -267,6 +276,7 @@ inline float& get<float>(fint_t& u) {
       PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
       tuple = lazy_op.get_result(tuple);                                      \
       scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return tuple;                                                           \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -292,6 +302,7 @@ inline float& get<float>(fint_t& u) {
       func();                                                                \
       habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
     });                                                                      \
+    SYNC_ACC_IF_EAGER_VIA_LAZY;                                              \
   } else {                                                                   \
     func();                                                                  \
   }
@@ -340,6 +351,7 @@ inline float& get<float>(fint_t& u) {
       std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
       auto result = lazy_op.get_result();                                     \
       scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return result;                                                          \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -356,6 +368,7 @@ inline float& get<float>(fint_t& u) {
       std::copy(tl2.begin(), tl2.end(), std::back_inserter(tensors_copy));    \
       auto result = lazy_op.get_result();                                     \
       scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return result;                                                          \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
@@ -371,6 +384,7 @@ inline float& get<float>(fint_t& u) {
       std::copy(                                                              \
           result.begin(), result.end(), std::back_inserter(tensors_copy));    \
       scheduleAccTask(std::move(lazy_op), tensors_copy);                      \
+      SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return;                                                                 \
     } else {                                                                  \
       habana_lazy::SyncAccThreadPool();                                       \
