@@ -1,0 +1,6 @@
+testJobConfig:
+  cpp_test_suite:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
