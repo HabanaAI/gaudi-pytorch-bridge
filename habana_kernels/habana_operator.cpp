@@ -355,7 +355,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         output_metadata.external,
         c10::nullopt,
         output_metadata.name,
-        output_metadata.module_name));
+        output_metadata.module_name + '.' +
+            std::to_string(p_context_->syn_outputs_.size())));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output,
