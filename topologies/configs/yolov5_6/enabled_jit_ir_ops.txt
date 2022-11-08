@@ -52,3 +52,12 @@ hpu::sum_dim_IntList
 #hpu::topk
 hpu::upsample_nearest2d_backward
 hpu::view
+hpu::habana_d2d_memcpy
+aten::embedding
+aten::transpose
+aten::bitwise_not
+aten::cumsum
+aten::bmm
+aten::_softmax
+aten::gelu
+aten::argmax

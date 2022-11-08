@@ -400,6 +400,68 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
   }
 }
 
+OutputShapeInfRetType EmbeddingOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto weight = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+
+  OutputShapeInfRetType out;
+  if (indices.dim() == 1) {
+    // Create IndexSelect operator
+    auto indexSelectOp = make_operator<IndexSelectOperator>(
+        this->p_context_->device_id_, weight.scalar_type());
+    // Build Params for the graph
+    int64_t dim = 0;
+    std::vector<c10::IValue> stack{
+        IValue(weight), IValue(dim), IValue(indices)};
+    auto out_indexSelectOp = out.call_ComputeOutputShape(indexSelectOp, stack);
+    auto out_tensor = out_indexSelectOp.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else {
+    auto size = indices.sizes().vec();
+    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
+    for (auto d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+
+    auto ReshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, indices.scalar_type());
+
+    int64_t data[1];
+    data[0] = indices.numel();
+    c10::IntArrayRef shape(data, 1);
+    // Build Params for the graph
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(indices));
+    stack.emplace_back(IValue(shape));
+    auto out_ReshapeOp = out.call_ComputeOutputShape(ReshapeOp, stack);
+    stack.clear();
+
+    auto indexSelectOp = make_operator<IndexSelectOperator>(
+        this->p_context_->device_id_, weight.scalar_type());
+    // Build Params for the graph
+    int64_t dim = 0;
+    stack.emplace_back(IValue(weight));
+    stack.emplace_back(IValue(dim));
+    stack.emplace_back(IValue(std::get<1>(out_ReshapeOp.GetOutputTensor(0))));
+    auto out_indexSelectOp = out.call_ComputeOutputShape(indexSelectOp, stack);
+    stack.clear();
+
+    auto ReshapeOp_2 = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_,
+        std::get<1>(out_indexSelectOp.GetOutputTensor(0)).scalar_type());
+    // Build Params for the graph
+    stack.emplace_back(
+        IValue(std::get<1>(out_indexSelectOp.GetOutputTensor(0))));
+    stack.emplace_back(IValue(size));
+    auto out_ReshapeOp_2 = out.call_ComputeOutputShape(ReshapeOp_2, stack);
+
+    auto out_tensor = out_ReshapeOp_2.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  }
+  return out;
+}
+
 /** @brief simple lookup table that looks up embeddings in a fixed dictionary
  * and size.
  * @param weight (Tensor) The embedding matrix with number of rows equal to the

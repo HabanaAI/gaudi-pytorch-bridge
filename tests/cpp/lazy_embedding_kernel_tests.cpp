@@ -16,6 +16,8 @@ using namespace at;
 class LazyEmbeddingKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyEmbeddingKernelTest, EmbeddingTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   auto tindices = torch::randint(9, 10, at::IntArrayRef({10}), torch::kInt64);
   torch::Tensor htindices = tindices.to(torch::kHPU);
 
@@ -33,4 +35,5 @@ TEST_F(LazyEmbeddingKernelTest, EmbeddingTest) {
   // -1, false); auto hout_bwd = hembed_bwd.to(torch::kCPU); auto cout_bwd =
   // torch::embedding_dense_backward(tgrad, tindices, 10, -1, false);
   // EXPECT_EQ(allclose(hout_bwd, cout_bwd), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
