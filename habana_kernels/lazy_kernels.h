@@ -1022,8 +1022,14 @@ class LazyOp {
 
     habana::for_each_in_tuple(results, [&](auto& result) {
       auto t = get_inputs().at(m_out_index).toTensor();
+      auto dtype = m_scalar_type != c10::ScalarType::Undefined
+          ? m_scalar_type
+          : t.scalar_type();
       result = empty_hpu_lazy(
-          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
+          m_out_shapes[i++],
+          t.options().dtype(dtype),
+          t.suggest_memory_format(),
+          false);
     });
     return results;
   }

@@ -395,6 +395,15 @@ at::Tensor habana_cast_to_fp8_wrap(
     bool stochastic_rounding,
     int seed);
 #endif
+at::Tensor matmul_ex_wrap(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::ScalarType dtype);
+std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::ScalarType dtype);
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(

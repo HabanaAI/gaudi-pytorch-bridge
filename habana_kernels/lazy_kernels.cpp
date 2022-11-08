@@ -6525,26 +6525,34 @@ Tensor masked_scale_hpu_lazy(
   return scaled;
 }
 
-Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
+Tensor matmul_hpu_lazy(
+    const Tensor& self,
+    const Tensor& other,
+    c10::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
+  c10::ScalarType out_dtype =
+      dtype.has_value() ? dtype.value() : self.dtype().toScalarType();
   LazyOp<Tensor> k(
       "aten::matmul",
       {self, other},
-      {},
-      {MatMulOperator::compute_output_shape(self, other)});
+      {MatMulOperator::compute_output_shape(self, other)},
+      out_dtype);
   RUN_MAYBE_WITH_ACC_THREAD(matmul, k)
 }
 
 std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
-    const Tensor& other) {
+    const Tensor& other,
+    c10::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
+  c10::ScalarType out_dtype =
+      dtype.has_value() ? dtype.value() : self.dtype().toScalarType();
   LazyOp<std::tuple<Tensor, Tensor>> k(
       "hpu::matmul_backward",
       {grad_output, self, other},
-      {},
-      {self.sizes().vec(), other.sizes().vec()});
+      {self.sizes().vec(), other.sizes().vec()},
+      out_dtype);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(matmul_backward, k)
 }
 

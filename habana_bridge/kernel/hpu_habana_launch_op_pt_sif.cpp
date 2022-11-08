@@ -211,6 +211,10 @@ OutputMetaDataVector HabanaLaunchOpPT::populate_node_output_metadata(
   auto node_outs = node->outputs();
   for (auto value_out : node_outs) {
     OutputMetaData md(*value_out);
+    auto out_ptr = value_out->type()->cast<c10::TensorType>();
+    if (out_ptr->scalarType().has_value()) {
+      md.dtype = *out_ptr->scalarType();
+    }
     output_metadata.emplace_back(md);
   }
   return output_metadata;

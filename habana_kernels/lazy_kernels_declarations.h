@@ -677,11 +677,15 @@ at::Tensor masked_scale_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mask,
     double scale);
-at::Tensor matmul_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
+at::Tensor matmul_hpu_lazy(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    c10::optional<at::ScalarType> dtype = c10::nullopt);
 std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    const at::Tensor& other);
+    const at::Tensor& other,
+    c10::optional<at::ScalarType> dtype = c10::nullopt);
 at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& boxes,
     const at::Tensor& scores,

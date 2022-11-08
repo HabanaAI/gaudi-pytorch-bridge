@@ -2288,6 +2288,23 @@ Tensor habana_cast_to_fp8_wrap(
   }
 }
 #endif
+at::Tensor matmul_ex_wrap(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::ScalarType dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  return matmul_hpu_lazy(self, other, dtype);
+}
+std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& other,
+    at::ScalarType dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  return matmul_backward_hpu_lazy(grad_output, self, other, dtype);
+}
 
 /***********************************************************************************
  * Kernels requiring autograd override

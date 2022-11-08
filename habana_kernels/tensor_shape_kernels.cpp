@@ -601,6 +601,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::Short:
     case c10::ScalarType::Bool:
     case c10::ScalarType::Half:
+    case c10::ScalarType::Fp8r152:
       return true;
     default:
       return false;

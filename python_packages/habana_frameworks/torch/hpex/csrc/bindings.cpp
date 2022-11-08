@@ -140,6 +140,25 @@ optimizer_sparse_sgd_with_valid_count(
       false);
 }
 
+at::Tensor matmul_ex_wrap_py(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    py::object dtype) {
+  return matmul_ex_wrap(
+      self, other, torch::python::detail::py_object_to_dtype(dtype));
+}
+std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap_py(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& other,
+    py::object dtype) {
+  return matmul_ex_backward_wrap(
+      grad_output,
+      self,
+      other,
+      torch::python::detail::py_object_to_dtype(dtype));
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   //////////////////////////// Optimizers /////////////////////////////////////
   m.def(
@@ -226,4 +245,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &habana_cast_to_fp8_wrap,
       "Cast FP32 or BF16 to lower precission with optional stochastic rounding");
 #endif
+  m.def("matmul_ex", &matmul_ex_wrap_py, "Matmul with explicit dtype");
+  m.def(
+      "matmul_ex_backward",
+      &matmul_ex_backward_wrap_py,
+      "MatmulBackward with explicit dtype");
 }

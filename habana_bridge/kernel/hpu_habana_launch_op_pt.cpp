@@ -332,6 +332,10 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
       if (md.persistent) {
         md.external = IsValueExternal(value_out);
       }
+      auto out_ptr = value_out->type()->cast<c10::TensorType>();
+      if (out_ptr->scalarType().has_value()) {
+        md.dtype = *out_ptr->scalarType();
+      }
       output_metadata.emplace_back(md);
     }
   } else {
@@ -340,6 +344,10 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
       md.persistent = nodeOutputPersistencePerValue(node, value_out);
       if (md.persistent) {
         md.external = IsValueExternal(value_out);
+      }
+      auto out_ptr = value_out->type()->cast<c10::TensorType>();
+      if (out_ptr->scalarType().has_value()) {
+        md.dtype = *out_ptr->scalarType();
       }
       output_metadata.emplace_back(md);
     }

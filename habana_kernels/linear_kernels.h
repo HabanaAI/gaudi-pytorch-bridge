@@ -174,6 +174,7 @@ class MatmulBackwardOperator : public HabanaOperator {
       at::Tensor& mat2,
       synapse_helpers::tensor& syn_input1,
       synapse_helpers::tensor& syn_input2,
+      const OutputMetaData& output_metadata,
       bool avoid_mat1_transpose = false);
 
   void MatBwSize(

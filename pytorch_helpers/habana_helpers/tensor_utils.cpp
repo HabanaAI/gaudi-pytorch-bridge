@@ -514,6 +514,7 @@ at::Tensor habana_helpers::createPTTensor(
     c10::ScalarType data_type,
     bool is_persistent) {
   at::Tensor t;
+  HABANA_ASSERT(c10::ScalarType::Undefined != data_type, "undefined dtype");
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(
         size,

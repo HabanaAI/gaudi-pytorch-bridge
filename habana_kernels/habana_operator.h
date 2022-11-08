@@ -244,6 +244,7 @@ class OutputMetaData {
   std::string module_name;
   bool persistent{false};
   bool external{false};
+  at::ScalarType dtype{at::ScalarType::Undefined};
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(){};
 };
