@@ -31,7 +31,10 @@ class Convolution : public ir::Node {
     OUTPUT_MASK_INDEX
   };
   Convolution() = delete;
-  Convolution(
+  Convolution(const std::string& qual_str)
+      : Node(c10::Symbol::fromQualString(qual_str)) {}
+
+  void Init(
       const at::Tensor& input,
       const at::Tensor& weight,
       const at::Tensor& bias,
@@ -40,8 +43,7 @@ class Convolution : public ir::Node {
       at::IntArrayRef dilation,
       bool transposed,
       at::IntArrayRef output_padding,
-      int64_t groups)
-      : Node(c10::Symbol::fromQualString("aten::convolution_overrideable")) {
+      int64_t groups) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
 
@@ -75,7 +77,7 @@ class Convolution : public ir::Node {
     m_meta_data.set(groups, static_cast<size_t>(ConvParams::GROUPS_INDEX));
   }
 
-  Convolution(
+  void Init(
       const at::Tensor& grad_output,
       const at::Tensor& input,
       const at::Tensor& weight,
@@ -85,9 +87,7 @@ class Convolution : public ir::Node {
       bool transposed,
       at::IntArrayRef output_padding,
       int64_t groups,
-      std::vector<bool> output_mask)
-      : Node(c10::Symbol::fromQualString(
-            "aten::convolution_backward_overrideable")) {
+      std::vector<bool> output_mask) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);

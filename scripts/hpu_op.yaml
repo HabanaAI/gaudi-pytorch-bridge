@@ -1719,6 +1719,7 @@ convolution_overrideable:
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_hpu_lazy
+  acc_thread: true
 
 convolution_backward_overrideable:
   force_default: false
@@ -1727,6 +1728,7 @@ convolution_backward_overrideable:
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_backward_hpu_lazy
+  acc_thread: true
 
 copysign.out:
   custom_output_shape: BinaryOutputShape
