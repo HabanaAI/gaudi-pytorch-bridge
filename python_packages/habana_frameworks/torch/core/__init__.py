@@ -121,7 +121,11 @@ new_group_orig = torch.distributed.new_group
 @wraps(torch.distributed.new_group)
 def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
     global ranks_cache
-    ranks_tuple = tuple(sorted(tuple(ranks)))
+    if ranks == None:
+        actual_world_size = torch.distributed.distributed_c10d.get_world_size()
+        ranks_tuple = tuple(list(range(0, actual_world_size)))
+    else:
+        ranks_tuple = tuple(sorted(tuple(ranks)))
     if ranks_tuple in ranks_cache:
         return ranks_cache[ranks_tuple]
 
