@@ -97,7 +97,7 @@ class RequirementPurpose(Enum):
     RUNTIME = "runtime"
 
 
-def get_required_pt_package_name(pt_ver, purpose):
+def get_required_pt_package_name(pt_ver, purpose) -> str:
     profiles_json = _get_profiles_json()
     required_pt = profiles_json['required_pt']
     if pt_ver in required_pt:
@@ -111,7 +111,7 @@ def get_required_pt_package_name(pt_ver, purpose):
     return req
 
 
-def get_required_pt(pt_ver, purpose):
+def get_required_pt(pt_ver, purpose) -> str:
     pt_package_name = get_required_pt_package_name(pt_ver, purpose)
     if pt_ver == "nightly":
         return pt_package_name

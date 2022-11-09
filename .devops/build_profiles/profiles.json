@@ -37,18 +37,17 @@
     }
   },
   "required_pt": {
-    "default": "torch",
-    "nightly": "torch-nightly"
+    "default": "torch"
   },
   "pt_versions": {
     "current": {
       "version": "1.12.0"
     },
     "previous": {
-      "version": "1.12.0"
+      "version": "1.12.0+cpu"
     },
     "rc": {
-      "version": "1.13.0"
+      "version": "1.13.0rc3+cpu"
     },
     "nightly": {
       "version": "nightly"

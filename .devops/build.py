@@ -23,7 +23,12 @@ import tempfile
 from collections import namedtuple, defaultdict
 from contextlib import contextmanager
 from build_profiles import profile_getter
-from build_profiles.version import Version
+from build_profiles.version import (
+    Version,
+    is_official_nightly_cpu_version,
+    is_official_stable_cpu_version,
+    is_pt_fork_version,
+)
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from io import StringIO
 
@@ -133,7 +138,7 @@ def get_release_version():
         raise Exception("Could not retrieve version")
     if len(ver_str) < 3:
         raise Exception(
-            f"Version table too small. Something was not retrieved: {ver_str}.."
+            f"Version table too small. Something was not retrieved: {ver_str}"
         )
 
     return ".".join(ver_str)
@@ -211,13 +216,15 @@ def prepare_env(venv_dir):
     return env
 
 
-def run(*args, venv="."):
+def run(*args, venv=".") -> None:
     log.info(f"In venv {venv} calling `{' '.join(args)}`")
     # must run through shell because otherwise changing PATH has no effect
-    sp.check_call(" ".join(args), env=prepare_env(venv), shell=True)
+    sp.check_call(
+        " ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash"
+    )
 
 
-def outof(*args, venv="."):
+def outof(*args, venv=".") -> str:
     log.debug(f"In {venv} capturing output of `{' '.join(args)}`")
     # must run through shell because otherwise changing PATH has no effect
     result = sp.check_output(
@@ -263,7 +270,7 @@ class RecreateVenv:
         return RecreateVenv.FORCE, RecreateVenv.AS_NEEDED, RecreateVenv.NEVER
 
 
-def query_installed_pt_ver(venv_dir, venv_python, label=None):
+def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Version]:
     verbose = " --verbose" if log.isEnabledFor(logging.DEBUG) else ""
     installed_pt_ver = outof(
         venv_python, build_py, "--get-pt-version" + verbose, venv=venv_dir
@@ -273,12 +280,33 @@ def query_installed_pt_ver(venv_dir, venv_python, label=None):
     return Version(installed_pt_ver, label=label)
 
 
-def pip_install_requirements(
-    pt_modules_root, pt_ver, venv_dir, venv_python, label=None
-):
+# TODO: support RC builds
+def resolve_pip_args(pt_ver: Union[str, Version]) -> Tuple[str, str]:
+    """Returns a tuple with pip arguments required for installing the PT wheel."""
+    if pt_ver == "nightly":
+        pip_args = (
+            "--pre",
+            "--extra-index-url",
+            "https://download.pytorch.org/whl/nightly/cpu",
+        )
+        return pip_args
+
+    if is_official_stable_cpu_version(pt_ver):
+        pip_args = ("--extra-index-url", "https://download.pytorch.org/whl/cpu")
+    elif is_pt_fork_version(pt_ver):
+        pip_args = tuple()
+    else:
+        raise ValueError(
+            f"Unable to deduce a supported build type from PT version: {pt_ver}"
+        )
+    return pip_args
+
+
+def install_requirements(pt_modules_root, pt_ver, venv_dir, venv_python, label=None):
     user = tuple()
     if venv_dir is None:
         user = ("--user",)
+
     run(
         venv_python,
         "-m",
@@ -290,8 +318,12 @@ def pip_install_requirements(
         f"{pt_modules_root}/requirements.txt",
         venv=venv_dir,
     )
-    required_pt = profile_getter.get_required_pt(pt_ver, profile_getter.RequirementPurpose.BUILD)  # e.g. 'torch==1.12.0'
-    # TODO: fetch_pt_from_artifactory(pt_ver) or if pt_ver.significant_matches(get_pt_version(venv_python)): build_pt_fork(venv_python)
+
+    required_pt = profile_getter.get_required_pt(
+        pt_ver, profile_getter.RequirementPurpose.BUILD
+    )  # e.g. 'torch==1.12.0'
+    version_specific_pip_args = resolve_pip_args(pt_ver)
+    # TODO: if PT from fork: fetch it from artifactory or build_pt_fork(venv_python)
     run(
         venv_python,
         "-m",
@@ -300,9 +332,55 @@ def pip_install_requirements(
         "-U",
         *user,
         required_pt,
+        *version_specific_pip_args,
         venv=venv_dir,
     )
+
+    # TODO: support parallel builds with different kinetos/pybinds
+
+    kineto_root = os.environ["KINETO_ROOT"]
+    if kineto_root:
+        log.info("git submodule update for Kineto")
+        run(f"cd {kineto_root} && git submodule update --init --recursive")
+
+    # TODO: where to get Kineto from for non-PT-fork builds?
+
+    # # Chances are system yarn won't work for you. You can try installing a
+    # # working one using brew or from other sources. U20's default version (0.X)
+    # # doesn't know the install command.
+    # run(
+    #     f"source {os.environ['PYTORCH_MODULES_ROOT_PATH']}/.ci/scripts/build.sh && ",
+    #     "__get_func_name() { true; } && __check_mandatory_pkgs() { true; } &&"
+    #     "__running_in_venv() { " + str(venv_dir is not None).lower() + "; } && "
+    #     f"build_pytorch_tb_plugin --install -c",
+    #     venv=venv_dir,
+    # )
+
+    log.info("git submodule update for pybind11")
+    run(
+        f"cd {os.environ['PYTORCH_MODULES_ROOT_PATH']} &&",
+        "git submodule sync && ",
+        "git submodule update --init --recursive",
+    )
+
     return query_installed_pt_ver(venv_dir, venv_python, label=label)
+
+
+def ensure_packaging_is_installed(venv_python, venv_dir) -> None:
+    try:
+        run(venv_python, "-c", '"import packaging"', venv=venv_dir)
+    except sp.CalledProcessError:
+        log.debug("Installing packaging module")
+        user = ("--user",) if venv_dir is None else tuple()
+        run(
+            venv_python,
+            "-m",
+            "pip",
+            "install",
+            "packaging",
+            *user,
+            venv=venv_dir,
+        )
 
 
 def prepare_venv(
@@ -386,6 +464,7 @@ def prepare_venv(
     if pt_ver in ("nightly",):
         update = True
         label = pt_ver
+    ensure_packaging_is_installed(venv_python, venv_dir)
     installed_pt_ver = query_installed_pt_ver(venv_dir, venv_python, label=label)
     if installed_pt_ver is None:
         update = True
@@ -393,7 +472,7 @@ def prepare_venv(
         update = False
 
     if update:
-        installed_pt_ver = pip_install_requirements(
+        installed_pt_ver = install_requirements(
             pt_modules_root,
             pt_ver,
             venv_dir,
@@ -943,7 +1022,7 @@ def run_cmake_build_generation(
     cmake_flags = add_python_env_flags(cmake_flags, common_venv_build_env)
     cmake_flags = append_cmake_torch_path(cmake_flags, common_venv_build_env)
     try:
-        #  TODO: -DBUILD_PKGS=$__build_ext -DINSTALL_PKGS=$__install_ext -DBUILD_TESTS=$__build_cpp_tests
+        #  TODO: -DBUILD_PKGS=$__build_ext -DINSTALL_PKGS=$__install_ext pt_vers py_ver
         run(
             "cmake",
             pt_modules_root,
@@ -1147,7 +1226,7 @@ def append_cmake_torch_path(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMa
 
 def get_python_exec(build_env):
     if build_env.venv_dir == ".":
-        return f"python{build_env.py_ver}"
+        return shutil.which(f"python{build_env.py_ver}")
     else:
         return os.path.join(build_env.venv_dir, "bin", f"python{build_env.py_ver}")
 
@@ -1181,7 +1260,6 @@ def install_wheel():
 
 
 system_python_version = Version(sys.version_info)
-default_make_flags = {"--no-print-directory": ("-w", "--print-directory")}
 
 
 class SmartFormatter(argparse.RawDescriptionHelpFormatter):
@@ -1223,6 +1301,7 @@ def parse_args():
  compiled for the newest PT.""",
         formatter_class=SmartFormatter,
     )
+
     parser.add_argument(
         "--python-versions",
         choices=supported_python_versions + ("all", "current"),
@@ -1233,6 +1312,7 @@ def parse_args():
         f"{system_python_version})",
     )
     version_args = parser.add_mutually_exclusive_group()
+    # Original --pt-version dropped as it's broken in master - likely unused
     version_args.add_argument(
         "--pt-versions",
         choices=supported_pt_versions + ("all", "current", "nightly"),
@@ -1317,7 +1397,7 @@ def parse_args():
         "-l",
         "--no_cpp_tests",
         action="store_true",
-        help="Don't build tests. " "Toggling between -l and full builds requires -c",
+        help="Don't build tests. Toggling between -l and full builds requires -c",
     )
     parser.add_argument(
         "--no-swig",
@@ -1325,28 +1405,21 @@ def parse_args():
         help="Build without swig even if it's available",
     )
     parser.add_argument(
-        "--no-tidy", action="store_true", help="Build without clang-tidy"
+        "-y", "--no-tidy", action="store_true", help="Build without clang-tidy"
     )
     parser.add_argument(
-        "--no-iwyu", action="store_true", help="build without Include What You Use"
+        "--no-iwyu", action="store_true", help="Build without Include What You Use"
     )
     parser.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
-        help="Enable diagnostic"
-        "output. Single -v shows output from build script, double -vv"
-        "additionally enables printing of compilation command lines.",
+        help="Enable diagnostic output. Single -v shows output from build "
+        "script, double -vv additionally enables printing of compilation "
+        "command lines.",
     )
-    # Mapping between default flag and negating flags. When a negating flag is
-    # passed from console then it disables the default flag.
-    parser.add_argument(
-        "--make-flag",
-        action="append",
-        help=f"Args forwarded to make. Default set is {default_make_flags.keys()}. "
-        "Other interesting flags are --output-sync=target and --keep-going but refer to gnu make docs for details.",
-    )
+
     parser.add_argument(
         "--cmake-flag",
         action="append",
@@ -1636,7 +1709,7 @@ def select_python_versions(args) -> Set[Version]:
 
 def setup_logging(args) -> StringIO:
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARN,
+        level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)05s [%(filename)s:%(lineno)d] %(" "message)s",
         datefmt="%Y-%m-%d:%H:%M:%S",
     )
@@ -1673,7 +1746,7 @@ def main():
     if args.use_icecc:
         ensure_icecc_setup()
 
-    if args.manylinux:
+    if args.manylinux:  # TODO
         raise NotImplemented("Manylinux builds not yet supported for PT")
         ManylinuxRunner(with_icecc=args.use_icecc).run(raw_args)
         exit()
@@ -1718,19 +1791,12 @@ def main():
             args, wheel_configs
         )
 
-        extra_make_flags = args.make_flag if args.make_flag else []
-        applicable_default_flags = [
-            default_flag
-            for default_flag, negating_flags in default_make_flags.items()
-            if not any(args_flag in negating_flags for args_flag in extra_make_flags)
-        ]
-
         build(
             build_dir,
             jobs=args.jobs,
             targets=wheel_targets,
             verbose=args.verbose,
-            extra_make_flags=extra_make_flags + applicable_default_flags,
+            extra_make_flags={"--no-print-directory"},
             use_icecc=args.use_icecc,
         )
         if args.run_ctest:
@@ -1747,55 +1813,18 @@ def main():
 if __name__ == "__main__":
     main()
 
-###  TODO
+
+###  TODO: which of the below we should add support for?
+
 # local __install_ext="OFF";
-# local __pt_vers="";
-# local __pt_mod_tag="pytorch_integration_tags";
-# local __pt_integ_vers="pytorch_integration_version";
-# local __default_vers="default_vers";
-# local __def_vers="";
-# local __pytorch_module_name="pytorch_bridge";
-# local __recursive="";
-# local __result="";
-# local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json";
-# local __build_cpp_tests="ON";
 # local __build_with_shim="ON";
 # local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py";
 # local __build_manylinux_whl="false";
-# local __set_py_vers="false";
-
-# -a | --build-all)
-#     __all="yes"
-# ;;
-# -j | --jobs)
-#     shift;
-#     __jobs=$1
-# ;;
-# -c | --configure)
-#     __configure="yes"
-# ;;
-# -h | --help)
-#     usage $__scriptname;
-#     return 0
-# ;;
-# -r | --release)
-#     __debug="";
-#     __release="yes"
-# ;;
-# --recursive)
-#     __recursive="yes"
-# ;;
-# -y | --no-tidy)
-#     __no_tidy="yes"
-# ;;
-# -s | --sanitize)
-#     __sanitize="ON"
-# ;;
 # -n | --no-ext-build)
 #     __build_ext="OFF";
 #     __skip_ext_build=""
 # ;;
-# #     local __whl_params="bdist_wheel";
+#     local __whl_params="bdist_wheel";
 # -i | --install-ext)
 #     __install_ext="ON";
 #     __whl_params="install"
@@ -1807,9 +1836,6 @@ if __name__ == "__main__":
 #     set_python_version $2;
 #     __set_py_vers="true"
 # ;;
-# -l | --no_cpp_tests)
-#     __build_cpp_tests="OFF"
-# ;;
 # --no_shim)
 #     __build_with_shim="OFF"
 # ;;
@@ -1820,98 +1846,10 @@ if __name__ == "__main__":
 # *)
 #     __argument=$1
 # ;;
-
-# install_pkg=($__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt);
-# if ! __running_in_venv; then
-#     install_pkg+=(--user);
-# fi;
-# "${install_pkg[@]}";
-# rm -rf $BUILD_ROOT_LATEST/.debug;
-# if [ -n "$KINETO_ROOT" ]; then
-#     echo "git submodule update for kineto";
-#     pushd $KINETO_ROOT;
-#     __result=$?;
-#     if [ $__result -ne 0 ]; then
-#         echo "Unable to cd into Kineto's root ($KINETO_ROOT)";
-#         return $__result;
-#     fi;
-#     git submodule update --init;
-#     popd;
-# fi;
-# pushd $PYTORCH_MODULES_ROOT_PATH;
-# echo "git submodule update for pybind11";
-# git submodule sync;
-# __result=$?;
-# if [ $__result -ne 0 ]; then
-#     echo "git submodule init failed!";
-#     popd;
-#     restore_python_version;
-#     return $__result;
-# fi;
-# git submodule update --init --recursive;
-# __result=$?;
-# if [ $__result -ne 0 ]; then
-#     echo "git submodule update failed!";
-#     popd;
-#     restore_python_version;
-#     return $__result;
-# fi;
+# # submodules...
 # __def_vers=$(grep  -A3 $__pt_integ_vers $__ver_path | grep $__default_vers | cut -d':' -f 2);
-# if [ -n "$__pt_vers" ] && [ "$__def_vers" != "$__pt_vers" ]; then
-#     __branch=$(grep -A3 $__pt_mod_tag  __ver_path | grep $__pt_vers | awk -F $__pt_vers '{print $2}' | cut -d':' -f 2);
-#     if [ $__result -ne 0 ]; then
-#         echo "version $__pt_vers  not found!";
-#         __conda deactivate;
-#         popd;
-#         restore_python_version;
-#         return $__result;
-#     fi;
-#     echo " tag $__branch";
-#     git fetch $__branch;
-#     echo "git checkout $__branch";
-#     git checkout $__branch;
-#     __result=$?;
-#     if [ $__result -ne 0 ]; then
-#         echo "git checkout $__branch failed!";
-#         __conda deactivate;
-#     ...
-#     fi
-# fi
-# if [ "$__pt_vers" == "" ]; then
-#     echo "Default branch will be compiled";
-# fi;
 # popd;
-# if [ -n "$__all" ]; then
-#     __debug="yes";
-#     __release="yes";
-# fi;
-# CLANG_TIDY_DEFINE="";
-# if [ ! -z "$__no_tidy" ]; then
-#     CLANG_TIDY_DEFINE="-DCLANG_TIDY=";
-# fi;
-# if [ -n "$__recursive" ]; then
-#     local __release_par="";
-#     local __configure_par="";
-#     local __jobs_par="";
-#     if [ -n "$__configure" ]; then
-#         __configure_par="-c";
-#     fi;
-#     if [ -n "$__release" ]; then
-#         __release_par="-r";
-#     fi;
-#     if [ -n "$__all" ]; then
-#         __release_par="-a";
-#     fi;
-#     __jobs_par="-j $__jobs";
-#     echo "Building pre-requisite packages for $__pytorch_module_name";
-#     __common_build_dependency -m $__pytorch_module_name $__configure_par $__release_par $__jobs_par;
-#     __result=$?;
-#     if [ $__result -ne 0 ]; then
-#         echo "Failed to build dependency packages $__pytorch_module_name";
-#         restore_python_version;
-#         return $__result;
-#     fi;
-# fi;
+# # ...
 # if [ -n "$__debug" ]; then
 #     echo -e "Building in debug mode";
 #     if [ ! -d $PYTORCH_MODULES_DEBUG_BUILD ]; then
