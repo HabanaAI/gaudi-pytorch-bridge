@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "habana_operator.h"
 #include "habana_bridge/kernel/hpu_shape_inference.h"
@@ -89,42 +92,29 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
     const at::IntArrayRef sizes,
     c10::MemoryFormat format) {
-  switch (sizes.size()) {
-    case 5: {
-      if (c10::MemoryFormat::ChannelsLast3d == format) {
-        return {
-            sizes[1] * sizes[2] * sizes[3] * sizes[4],
-            1,
-            sizes[1] * sizes[3] * sizes[4],
-            sizes[1] * sizes[4],
-            sizes[1]};
-      }
-      return {
-          sizes[1] * sizes[2] * sizes[3] * sizes[4],
-          sizes[4] * sizes[3] * sizes[2],
-          sizes[4] * sizes[3],
-          sizes[4],
-          1};
+  std::vector<int64_t> result;
+  if (((sizes.size() == 5) && (format == c10::MemoryFormat::ChannelsLast3d)) ||
+      ((sizes.size() == 4) && (format == c10::MemoryFormat::ChannelsLast))) {
+    std::vector<int64_t> prod(sizes.begin() + 2, sizes.end());
+    prod.push_back(sizes[1]);
+    for (int i = prod.size() - 2; i >= 0; --i) {
+      prod[i] *= prod[i + 1];
     }
-    case 4: {
-      if (c10::MemoryFormat::ChannelsLast == format) {
-        return {
-            sizes[1] * sizes[2] * sizes[3], 1, sizes[1] * sizes[3], sizes[1]};
-      }
-      return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
+
+    result.push_back(prod[0]);
+    result.push_back(1);
+    result.insert(result.end(), prod.begin() + 1, prod.end());
+  } else {
+    if (!sizes.empty()) {
+      result.insert(result.end(), sizes.begin() + 1, sizes.end());
+      result.push_back(1);
     }
-    case 3:
-      return {sizes[1] * sizes[2], sizes[2], 1};
-    case 2:
-      return {sizes[1], 1};
-    case 1:
-      return {1};
-    case 0:
-      return {};
-    default:
-      HABANA_ASSERT(0);
-  };
-  return {};
+
+    for (int i = result.size() - 3; i >= 0; --i) {
+      result[i] *= result[i + 1];
+    }
+  }
+  return result;
 }
 
 void habana::HabanaOperator::CreateGraphAndCompile(

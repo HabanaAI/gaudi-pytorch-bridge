@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -1125,4 +1137,88 @@ TEST_F(LazyBinaryKernelTest, PowFwdF16) {
 
   EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+enum class OpMode {
+  Normal,
+  Inplace,
+  Output,
+};
+
+// Also validates ComputeOutputShape for GUID atan2_fwd_f32
+static void TestAtan2(OpMode opMode, bool ndims) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+
+  std::vector<int64_t> dimensions;
+  if (ndims) {
+    dimensions = {2, 3, 2, 3, 2, 3, 2, 3};
+  } else {
+    dimensions = {4, 5, 3};
+  }
+  torch::Tensor A = torch::rand(dimensions);
+  torch::Tensor B = torch::rand(dimensions);
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+
+  Tensor expected;
+  Tensor result;
+  switch (opMode) {
+    case OpMode::Normal:
+      expected = torch::atan2(A, B);
+      result = torch::atan2(hA, hB);
+      break;
+    case OpMode::Inplace:
+      expected = A.atan2_(B);
+      result = hA.atan2_(hB);
+      break;
+    case OpMode::Output:
+      if (ndims) {
+        // Maximum supported input/output tensor dimensions for constant_f32
+        // is 5. So we can't initialize with zeros_like or anything else
+        // similar.
+        expected = A;
+        result = hA;
+      } else {
+        expected = torch::zeros_like(A);
+        result = torch::zeros_like(hA);
+      }
+      at::atan2_out(expected, A, B);
+      at::atan2_out(result, hA, hB);
+      break;
+  }
+
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32) {
+  TestAtan2(OpMode::Normal, false);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32Inplace) {
+  TestAtan2(OpMode::Inplace, false);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32Out) {
+  TestAtan2(OpMode::Output, false);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32Nd) {
+  TestAtan2(OpMode::Normal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32InplaceNd) {
+  TestAtan2(OpMode::Inplace, true);
+}
+
+TEST_F(LazyBinaryKernelTest, Atan2FwdF32OutNd) {
+  TestAtan2(OpMode::Output, true);
 }

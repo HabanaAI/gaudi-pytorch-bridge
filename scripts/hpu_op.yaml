@@ -1,3 +1,14 @@
+# ******************************************************************************
+# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ******************************************************************************
 __ilshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
@@ -922,6 +933,36 @@ atan_:
   dtypes: [Float]
   guid: atan_fwd
   inplace_ids: [0]
+
+atan2:
+  force_default: false
+  broadcast: true
+  promote_int_to_float: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: atan2_fwd
+  out_ids: [0]
+
+atan2_:
+  force_default: false
+  promote_int_to_float: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: atan2_fwd
+  inplace_ids: [0]
+
+atan2.out:
+  broadcast: true
+  promote_int_to_float: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: atan2_fwd
 
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -3031,7 +3072,7 @@ leaky_relu:
   tpc_param:
     name: ns_LeakyReluKernel::Params
     params:
-    - [1, double]
+    - [1, float]
 
 leaky_relu_:
   force_default: false
@@ -3044,7 +3085,7 @@ leaky_relu_:
   tpc_param:
     name: ns_LeakyReluKernel::Params
     params:
-    - [1, double]
+    - [1, float]
 
 leaky_relu.out:
   dtypes:
@@ -3055,7 +3096,7 @@ leaky_relu.out:
   tpc_param:
     name: ns_LeakyReluKernel::Params
     params:
-    - [1, double]
+    - [1, float]
 
 lerp.Scalar:
   force_default: false

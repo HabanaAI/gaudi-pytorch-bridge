@@ -1,3 +1,15 @@
+# ******************************************************************************
+# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ******************************************************************************
+import math
 import torch
 import pytest
 import random
@@ -14,7 +26,12 @@ W = 24
 # C - input channels
 test_case_list = [
     #  N, H, W, C,
-    (N, H, W, C,),
+    (
+        N,
+        H,
+        W,
+        C,
+    ),
 ]
 
 binary_inplace_op_list = [
@@ -25,6 +42,7 @@ binary_inplace_op_list = [
     ("sub_", {"alpha": 0.1}),
     ("mul_", {}),
     ("div_", {}),
+    ("atan2_", {}),
 ]
 
 binary_op_list = [
@@ -35,16 +53,20 @@ binary_op_list = [
     (torch.div, {}),
     (torch.max, {}),
     (torch.min, {}),
+    (torch.atan2, {}),
 ]
 
 # This list is used to test tensor_out variants of operators
 binary_op_out_list = [
     # op, op params dict
-    (torch.div, {})
+    (torch.div, {}),
+    (torch.atan2, {}),
 ]
 
 data_type_list = [
     (torch.float, 0.001),
+    (torch.bfloat16, 0.01),
+    (torch.float64, 0.001),
 ]
 
 
@@ -71,9 +93,7 @@ def test_hpu_binary_inplace_op(N, H, W, C, binary_op, kernel_params_fwd):
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_inplace_op_list)
-def test_hpu_binary_inplace_op_broadcast_case1(
-    N, H, W, C, binary_op, kernel_params_fwd
-):
+def test_hpu_binary_inplace_op_broadcast_case1(N, H, W, C, binary_op, kernel_params_fwd):
     in_out_tensor = torch.randn(N, C, H, W)
     kernel_params_fwd["other"] = torch.randn(H, W)
     evaluate_fwd_inplace_kernel(
@@ -85,9 +105,7 @@ def test_hpu_binary_inplace_op_broadcast_case1(
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_inplace_op_list)
-def test_hpu_binary_inplace_op_broadcast_case2(
-    N, H, W, C, binary_op, kernel_params_fwd
-):
+def test_hpu_binary_inplace_op_broadcast_case2(N, H, W, C, binary_op, kernel_params_fwd):
     in_out_tensor = torch.randn(N, C, H, W)
     kernel_params_fwd["other"] = torch.randn(H, 1)
     evaluate_fwd_inplace_kernel(
@@ -102,9 +120,8 @@ def test_hpu_binary_inplace_op_pow(N, H, W, C):
     kernel_params_fwd = {}
     in_out_tensor = torch.randn(N, C, H, W)
     kernel_params_fwd["exponent"] = torch.randn(N, C, H, W)
-    evaluate_fwd_inplace_kernel(
-        in_out_tensor=in_out_tensor, kernel_name="pow_", kernel_params=kernel_params_fwd
-    )
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name="pow_", kernel_params=kernel_params_fwd)
+
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_mult_bool_op(N, H, W, C):
@@ -113,13 +130,29 @@ def test_hpu_mult_bool_op(N, H, W, C):
     kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(torch.bool)
     evaluate_fwd_kernel(kernel=torch.mul, kernel_params=kernel_params_fwd)
 
+
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_atan2_special(dtype, tol):
+    binary_op = torch.atan2
+
+    special = [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
+    x = [special] * len(special)
+    y = [[v] * len(special) for v in special]
+
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor(y).to(dtype)
+    kernel_params_fwd["other"] = torch.tensor(x).to(dtype)
+    evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd, atol=tol, rtol=tol)
+
+
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd, dtype, tol):
     kernel_params_fwd["input"] = torch.randn(N, C, H, W).to(dtype)
     kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(dtype)
-    evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd)
+    evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd, atol=tol, rtol=tol)
+
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
@@ -169,11 +202,13 @@ def test_hpu_binary_op_pow_scalar_tensor(N, H, W, C):
     kernel_params_fwd["exponent"] = torch.randn(N, C, H, W)
     evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
+
 def test_hpu_binary_op_remainder_tensor_tensor():
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
-    kernel_params_fwd["other"] =  torch.tensor([3, 5]).to(torch.int)
+    kernel_params_fwd["other"] = torch.tensor([3, 5]).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
 
 def test_hpu_binary_op_remainder_tensor_scalar():
     kernel_params_fwd = {}
@@ -181,15 +216,17 @@ def test_hpu_binary_op_remainder_tensor_scalar():
     kernel_params_fwd["other"] = 3
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
+
 def test_hpu_binary_op_remainder_tensor_tensor_0d():
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.tensor(4).to(torch.int)
-    kernel_params_fwd["other"] =  torch.tensor(3).to(torch.int)
+    kernel_params_fwd["other"] = torch.tensor(3).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
+
 def test_hpu_binary_op_remainder_tensor_tensor_inplace():
-    input = torch.tensor([4,8,2]).to(torch.int)
-    other = torch.tensor([3,5,7]).to(torch.int)
+    input = torch.tensor([4, 8, 2]).to(torch.int)
+    other = torch.tensor([3, 5, 7]).to(torch.int)
 
     input_hpu = input.to("hpu")
     other_hpu = other.to("hpu")
@@ -199,8 +236,9 @@ def test_hpu_binary_op_remainder_tensor_tensor_inplace():
 
     compare_tensors(input_hpu, input, atol=0.001, rtol=0.001)
 
+
 def test_hpu_binary_op_remainder_tensor_scalar_inplace():
-    input = torch.tensor([4,8,2]).to(torch.int)
+    input = torch.tensor([4, 8, 2]).to(torch.int)
     other = int(3)
 
     input_hpu = input.to("hpu")
@@ -211,8 +249,9 @@ def test_hpu_binary_op_remainder_tensor_scalar_inplace():
 
     compare_tensors(cpu_out, input, atol=0.001, rtol=0.001)
 
+
 def test_hpu_binary_op_remainder_tensor_tensor_inplace_0d():
-    input = torch.tensor([4,8,2]).to(torch.int)
+    input = torch.tensor([4, 8, 2]).to(torch.int)
     other = torch.tensor(3).to(torch.int)
 
     input_hpu = input.to("hpu")
@@ -224,12 +263,14 @@ def test_hpu_binary_op_remainder_tensor_tensor_inplace_0d():
 
     compare_tensors(cpu_out, input, atol=0.001, rtol=0.001)
 
+
 def test_hpu_remainder_tensor_op_out_intype():
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
     kernel_params_fwd["other"] = torch.tensor([3, 5]).to(torch.int)
     kernel_params_fwd["out"] = torch.tensor([0, 0]).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
 
 def test_hpu_remainder_scalar_op_out_intype():
     kernel_params_fwd = {}
@@ -238,12 +279,14 @@ def test_hpu_remainder_scalar_op_out_intype():
     kernel_params_fwd["out"] = torch.tensor([0, 0]).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
+
 def test_hpu_remainder_tensor_op_out_intype_0d():
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.tensor(4).to(torch.int)
     kernel_params_fwd["other"] = 3
     kernel_params_fwd["out"] = torch.tensor(0)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
 
 def test_hpu_remainder_tensor_op_resizeoutput():
     kernel_params_fwd = {}
@@ -252,6 +295,7 @@ def test_hpu_remainder_tensor_op_resizeoutput():
     kernel_params_fwd["out"] = torch.empty(1).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
+
 def test_hpu_remainder_scalar_op_resizeoutput():
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.tensor([4, 2, 7]).to(torch.int)
@@ -259,9 +303,6 @@ def test_hpu_remainder_scalar_op_resizeoutput():
     kernel_params_fwd["out"] = torch.empty(1).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
+
 if __name__ == "__main__":
-    test_hpu_binary_op_broadcast_case2(
-        *test_case_list[0],
-        torch.add,
-        {}
-    )
+    test_hpu_binary_op_broadcast_case2(*test_case_list[0], torch.add, {})

@@ -674,7 +674,7 @@ void LeakyReluOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input 1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be scalar");
 
-  ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<double>()};
+  ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<float>()};
 
   UnaryLikeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
@@ -716,7 +716,7 @@ void LeakyReluBackwardOperator::AllocateAndAddSynapseNode(
           " inputs for LeakyReluBackward operator but received " +
           std::to_string(inputs.size()) + " inputs.");
   ns_LeakyReluKernel::Params param{
-      inputs[2].toScalar().to<double>()}; // 3rd input is the Scalar
+      inputs[2].toScalar().to<float>()}; // 3rd input is the Scalar
   auto output = habana_helpers::createPTTensor(
       inputs[0].toTensor(), output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
