@@ -488,10 +488,6 @@ at::Tensor& bernoulli_scalar_hpu(
     at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-at::Tensor& randperm_hpu(
-    at::Tensor& out,
-    int64_t n,
-    c10::optional<at::Generator> gen = c10::nullopt);
 std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu(
     const at::Tensor& self,
     double p,

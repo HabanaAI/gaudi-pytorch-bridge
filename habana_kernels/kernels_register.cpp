@@ -2700,10 +2700,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "arange_out_ds_ht(Tensor host, Tensor(a!) out, Tensor out_shape) -> Tensor(a!)");
   m.def("diag_out(Tensor self, int diagonal, Tensor(a!) out) -> Tensor(a!)");
+  m.def("randperm_out(int n, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "randperm_out(int n, Generator? generator, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "randperm_out_ds(Tensor idst, Generator? generator, Tensor(a!) out) -> Tensor(a!)");
+      "randperm_out_ds(Tensor idst, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "randperm_out_ds_ht(Tensor ht, Tensor st, Tensor seed, Tensor output) -> Tensor(a!)");
   m.def(

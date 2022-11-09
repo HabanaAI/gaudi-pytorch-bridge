@@ -4812,6 +4812,7 @@ Tensor& randperm_hpu_lazy(
       if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
         randperm_hpu_lazy_ht(output, n, gen);
       } else {
+        auto seed = habana::get_seed_tensor_hpu(gen);
         std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
         auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
         auto params_shape = empty_hpu_lazy(
@@ -4821,19 +4822,13 @@ Tensor& randperm_hpu_lazy(
             false,
             INPUT_DESCRIBING_SHAPE_TENSOR);
         LazyOp<Tensor&> op{
-            "hpu::randperm_out_ds",
-            {params_shape, std::move(gen), output},
-            {},
-            {},
-            2};
+            "hpu::randperm_out_ds", {params_shape, seed, output}, {}, {}, 2};
         op.call(output);
       }
     } else {
+      auto seed = habana::get_seed_tensor_hpu(gen);
       LazyOp<Tensor&> op{
-          "hpu::randperm_out",
-          {Scalar((int32_t)n), std::move(gen), output},
-          {1},
-          {{n}}};
+          "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {}, {{n}}};
       op.call(output);
     }
   };

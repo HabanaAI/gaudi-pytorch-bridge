@@ -494,11 +494,9 @@ void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
 
 void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr& habana_op,
-    torch::jit::Node* node,
-    torch::jit::Stack& stack) {
+    torch::jit::Node* node) {
   auto node_ins = node->inputs();
   int input_idx = 0;
-  auto node_qual_str = node->kind().toQualString();
   for (const auto value_in : node_ins) {
     auto value_exists = value_to_ivalue.find(value_in);
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
@@ -535,38 +533,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     // the 1st time we come into else part. Since we want to generate the
     // seed_tensor only once that is why the check on 1st non-tensor input
     // argument.
-    else if (
-        (!strcmp("hpu::randperm_out", node_qual_str) && 0 == input_idx) ||
-        (!strcmp("hpu::randperm_out_ds", node_qual_str) && 1 == input_idx)) {
-      // Create the seed tensor
-      // TODO : check for the generator when the generator could be passed
-      // as an IValues
-      at::Tensor seed_tensor =
-          RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
-
-      auto& syn_tensor =
-          habana_op->AllocateSynapseInput(*syn_graph_ptr, seed_tensor, true);
-
-      std::ostringstream oss;
-      oss << "%dma_input" << '_' << dma_input_idx;
-      dma_input_idx++;
-      std::string irn{oss.str()};
-      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-          seed_tensor,
-          syn_tensor.name(),
-          irn,
-          watch_tensor_flag_,
-          syn_tensor.id(),
-          DATA_TENSOR,
-          habana_op->getDMAInputGeneratorType());
-      ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
-      auto dma_tensor_idx = aten_dma_inputs.size();
-      ti->set_dma_tensor_idx(dma_tensor_idx);
-      dma_input_tensorinfos.emplace_back(ti);
-      // Saving as persistent intermediate tensor
-      aten_dma_inputs.push_back(seed_tensor);
-      input_idx++;
-    }
   } // for (const auto value_in : node_ins)
 }
 
@@ -1785,7 +1751,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     torch::jit::Stack input_stack = getStackForNode(node);
 
     // Create/attach the synapse inputs from aten tensors
-    GetSynapseInputs(HabanaKernel, node, input_stack);
+    GetSynapseInputs(HabanaKernel, node);
 
     // setup the config params for the kernels
     if (is_jit_cached_graph_info_available == false) {

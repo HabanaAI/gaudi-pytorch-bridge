@@ -152,12 +152,6 @@ class RandpermOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-  static at::Tensor GenerateAndCopySeedToHPU(
-      torch::jit::Stack& inputs,
-      bool is_persistent);
-  DMAInputGeneratorType getDMAInputGeneratorType() override {
-    return DMAInputGeneratorType::SEEDTENSOR;
-  }
 };
 
 class RandpermOperatorHT : public RandpermOperator {
