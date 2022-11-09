@@ -9,13 +9,11 @@ import cProfile, pstats
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import habana_frameworks.torch.core as htcore
-from habana_frameworks.torch.utils.library_loader import load_habana_module
 
 torch.manual_seed(0)
-load_habana_module()
 device = torch.device('hpu')
 
-ITER=500
+ITER=10
 TENSOR_LEN=1024*1024*1
 
 class DistSetup:
@@ -24,7 +22,7 @@ class DistSetup:
         self.world_size = world_size
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12340'
-        import habana_frameworks.torch.core.hccl
+        import habana_frameworks.torch.distributed.hccl
         dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
         # Following Code is to ensure that HCL_Init is done
         _tensor = torch.ones(1).to(device)
@@ -44,6 +42,18 @@ def sync_reduce_func(hpu, world_size, dtype):
         torch.distributed.reduce(_tensor, src_hpu)
         if hpu==src_hpu:
             assert(torch.equal(_tensor, _tensor_ref) and _tensor.dtype == dtype)
+
+# Test: Functional test of synchronous AllGather
+def sync_allGather_func(hpu, world_size, dtype):
+    _tensor_ref = [i * torch.ones(TENSOR_LEN).to(dtype).to(device) for i in range(world_size)]
+
+    for i in range(ITER):
+        _tensor_list = [torch.zeros(TENSOR_LEN).to(dtype).to(device) for _ in range(world_size)]
+
+        _tensor = hpu * torch.ones(TENSOR_LEN).to(dtype).to(device)
+        torch.distributed.all_gather(_tensor_list, _tensor)
+        for t1, t2 in zip(_tensor_ref, _tensor_list):
+            assert(torch.equal(t1.cpu(), t2.cpu()) and t1.dtype == dtype and t1.dtype == t2.dtype)
 
 # Test: Functional test of synchronous Reduce
 def sync_reduceScatter_func(hpu, world_size, dtype):
@@ -188,6 +198,8 @@ def main(hpu, world_size, dtype, func):
                                 sync_allReduce_func,
                                 sync_allReduce_tensorLife,
                                 async_allReduce_tensorLife,
+
+                                sync_allGather_func,
 
                                 sync_broadcast_func,
                                 sync_broadcast_tensorLife,
