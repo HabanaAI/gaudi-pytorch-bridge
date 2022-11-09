@@ -305,6 +305,22 @@ NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   return node;
 }
 
+size_t Node::get_hash_without_connections() {
+  if (0 == m_node_hash_without_connection) {
+    // Op id
+    m_node_hash_without_connection = static_cast<uint32_t>(m_op);
+    // Op metadata
+    m_node_hash_without_connection = at::hash_combine(
+        m_node_hash_without_connection, m_meta_data.get_hash());
+    // Op deterministic flag
+    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+      m_node_hash_without_connection =
+          at::hash_combine(m_node_hash_without_connection, deterministic);
+    }
+  }
+  return m_node_hash_without_connection;
+}
+
 size_t Node::get_hash() {
   if (0 == m_node_hash) {
     m_node_hash = static_cast<uint32_t>(m_op);

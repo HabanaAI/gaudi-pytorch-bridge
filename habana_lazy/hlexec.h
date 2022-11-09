@@ -285,6 +285,27 @@ class HlExec {
     m_g_hash_ = p_h;
   }
 
+  void set_fwd_graph_hash(size_t p_h) {
+    m_fwd_graph_hash_ = p_h;
+  }
+
+  size_t get_fwd_graph_hash() {
+    return m_fwd_graph_hash_;
+  }
+
+  bool isRunningHashCacheMiss() {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH))
+      return false;
+    auto mp_g_and_meta_data_ =
+        habana_lazy::LazyGraphCache::GetLazyCache()
+            .GetOptimizedJITGraphAndMetaData(m_fwd_graph_hash_);
+    return (mp_g_and_meta_data_ == nullptr);
+  }
+
+  void set_fwd_graph_stack_map(std::vector<uint64_t> graph_input_stack_map) {
+    m_fwd_graph_stack_map_ = graph_input_stack_map;
+  }
+
   void set_graph_key(size_t graphKey) {
     mp_g_and_meta_data_->set_cached_graph_key(graphKey);
   }
@@ -331,6 +352,8 @@ class HlExec {
   GraphPtr mp_g_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_;
   size_t m_g_hash_;
+  size_t m_fwd_graph_hash_ = 0;
+  std::vector<uint64_t> m_fwd_graph_stack_map_;
   std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyInfo = nullptr;
   std::vector<bool> node_bcast_map_;
   static std::unordered_map<size_t, size_t> s_graphIndexMap;

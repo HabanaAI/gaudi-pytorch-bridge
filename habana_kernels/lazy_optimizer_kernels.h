@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "habana_kernels/lazy_kernels.h"
+#include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/ops/unpack.h"
 
 namespace habana_lazy {
@@ -222,7 +223,6 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
         hl_result1.GetDevice(),
         hl_result1.GetSizes(),
         hl_result1.dtype_optional());
-
     habana_lazy::ir::NodePtr node_unpack =
         std::make_shared<habana_lazy::ir::ListUnpack>(out);
     for (size_t i = 0; i < noOfTensor; ++i) {

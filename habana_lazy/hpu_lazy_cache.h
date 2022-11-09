@@ -292,6 +292,14 @@ struct OptimizedJITGraphAndMetaData {
     is_shape_agnostic_supported = flag;
   }
 
+  void set_fwd_graph_builder_stack_map(std::vector<uint64_t> stack_idx_map) {
+    stack_idx_fwd_graph_builder = stack_idx_map;
+  }
+
+  std::vector<uint64_t> get_fwd_graph_builder_stack_map() {
+    return stack_idx_fwd_graph_builder;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -317,6 +325,7 @@ struct OptimizedJITGraphAndMetaData {
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   std::unordered_map<uint64_t, synTensor> syn_tensor_id_to_tensor_handle{};
   bool is_shape_agnostic_supported = true;
+  std::vector<uint64_t> stack_idx_fwd_graph_builder{};
 };
 
 /**

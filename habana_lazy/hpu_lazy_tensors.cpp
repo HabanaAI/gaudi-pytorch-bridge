@@ -1105,6 +1105,64 @@ void LaunchSyncTensorsGraph(
       launch_info.launch_counter);
 }
 
+void PrepareStackMapFromRunPostOrder(
+    c10::Device& device,
+    exec::HlExec& hlexec,
+    habana_lazy::ir::PostOrderData& po_data) {
+  auto& graph_hash_builder = GraphHashBuilder::getInstance();
+  auto fwd_running_hash = hlexec.get_fwd_graph_hash();
+
+  auto mp_g_and_meta_data_ =
+      habana_lazy::LazyGraphCache::GetLazyCache()
+          .GetOptimizedJITGraphAndMetaData(fwd_running_hash);
+  PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss");
+  graph_hash_builder.prepareInputsStackMap(po_data.inputs);
+  hlexec.set_fwd_graph_stack_map(graph_hash_builder.getInputStackMap());
+
+  graph_hash_builder.invalidateDeviceTids(device);
+  graph_hash_builder.reset();
+}
+
+void SetupExecutionFromRunningHash(
+    c10::Device& device,
+    exec::HlExec& hlexec,
+    const std::vector<HbLazyTensor>& tensors,
+    const std::vector<int>& indices,
+    habana_lazy::ir::PostOrderData& po_data) {
+  auto& graph_hash_builder = GraphHashBuilder::getInstance();
+  uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+
+  fwd_running_hash = at::hash_combine(fwd_running_hash, indices.size());
+  for (auto idx : indices)
+    fwd_running_hash = at::hash_combine(fwd_running_hash, idx);
+  PT_IRGRAPH_DEBUG("\nFwd_running_hash : ", fwd_running_hash);
+
+  hlexec.set_fwd_graph_hash(fwd_running_hash);
+
+  auto mp_g_and_meta_data_ =
+      habana_lazy::LazyGraphCache::GetLazyCache()
+          .GetOptimizedJITGraphAndMetaData(fwd_running_hash);
+
+  if (mp_g_and_meta_data_ != nullptr) {
+    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Hit");
+    // prepare po_data inputs and outputs
+    po_data.outputs.reserve(indices.size());
+    for (auto index : indices) {
+      auto ir_value = tensors.at(index).CurrentIrValue();
+      if (ir_value) {
+        // update output list
+        po_data.outputs.push_back(ir_value);
+      }
+    }
+
+    auto stack_input_map =
+        mp_g_and_meta_data_->get_fwd_graph_builder_stack_map();
+    graph_hash_builder.prepareInputs(stack_input_map, po_data.inputs);
+    graph_hash_builder.invalidateDeviceTids(device);
+    graph_hash_builder.reset();
+  }
+}
+
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
@@ -1216,8 +1274,18 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           optimized_lazy_eager_key);
     }
   } else {
-    po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+      SetupExecutionFromRunningHash(device, hlexec, *tensors, indices, po_data);
+    }
 
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH) ||
+        hlexec.isRunningHashCacheMiss()) {
+      po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
+      if (hlexec.isRunningHashCacheMiss()) {
+        // Prepare Input Stack map from post order for cache Miss case
+        PrepareStackMapFromRunPostOrder(device, hlexec, po_data);
+      }
+    }
     // When queuing synlaunches is enabled, we shouldnot do
     // JoinPendingLaunchThread. if the mode is sync/threadpool/eager is not
     // enabled, then JoinPendingLaunchThread must be done
@@ -1234,7 +1302,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       // ValidateSyncInputTensors(po_data.inputs);
       stack = PrepareInputStack(
           tensors, indices, po_data.inputs, false, &po_data.post_order);
-
       hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
 
       hlexec.GetOrCreate(po_data, stack);

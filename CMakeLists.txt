@@ -186,6 +186,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/sbs_runner.cpp
   habana_lazy/visualize.cpp
   habana_lazy/lazy_storage.cpp
+  habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
   habana_lazy/hpu_stage_submission.cpp
 )

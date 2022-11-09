@@ -257,18 +257,23 @@ void HlExec::GetOrCreate(
   PruneDuplicateStackInputs(stack, is_duplicate_vec);
   CreateNodeBcastMap(po_data.post_order);
 
-  m_g_hash_ = habana_lazy::LazyArgumentSpec(
-                  true,
-                  stack,
-                  po_data.post_order_nodes_hash,
-                  po_data.inputs,
-                  po_data.value_input_nodes_map,
-                  po_data.outputs,
-                  parent_vec,
-                  node_bcast_map_)
-                  .hashCode();
-  uint64_t unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
-  m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
+  uint64_t unique_cntr = 0;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    m_g_hash_ = m_fwd_graph_hash_;
+  } else {
+    m_g_hash_ = habana_lazy::LazyArgumentSpec(
+                    true,
+                    stack,
+                    po_data.post_order_nodes_hash,
+                    po_data.inputs,
+                    po_data.value_input_nodes_map,
+                    po_data.outputs,
+                    parent_vec,
+                    node_bcast_map_)
+                    .hashCode();
+    unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
+    m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
+  }
   auto ConstructJITGraph{
       // Create a JIT graph from the post order graph
       // Optimization is done during Create() itself
@@ -280,6 +285,8 @@ void HlExec::GetOrCreate(
             torch::jit::last(stack, mp_g_->inputs().size());
         mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>(
             mp_g_, input_refs, unique_cntr, node_bcast_map_);
+        mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
+            m_fwd_graph_stack_map_);
       }};
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {

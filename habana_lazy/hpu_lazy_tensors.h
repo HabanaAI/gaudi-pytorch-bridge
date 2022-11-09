@@ -97,6 +97,7 @@ struct Data {
   // graph generated it will be reset to 0. We are only tracking version for
   // that particular graph execution.
   int version = 0;
+  int64_t running_cntr = -1; // -1 is invalid tensor ID.
 }; // namespace habana_lazy
 
 struct HbLazyFrontEndInfoToBackend {

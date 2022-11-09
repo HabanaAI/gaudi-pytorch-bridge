@@ -356,6 +356,7 @@ class Node {
   friend struct Value;
 
   size_t get_hash();
+  size_t get_hash_without_connections();
 
   bool is_input() const {
     return m_is_input;
@@ -412,6 +413,7 @@ class Node {
   NodePtrList m_uses_reverse_nodes;
   MetaData m_meta_data;
   size_t m_node_hash = 0;
+  size_t m_node_hash_without_connection = 0;
   size_t post_order_pos = ULLONG_MAX;
   std::vector<at::Tensor> m_input_pt_tensors;
   std::shared_ptr<std::string> m_scope;

@@ -20,6 +20,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
+#include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/sbs_runner.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -716,7 +717,6 @@ class LazyOp {
     }
 
     const auto& node = create_node();
-
     hl_self = GetHbLazyTensor(out_t);
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(
@@ -1032,6 +1032,14 @@ class LazyOp {
   // Needed for _out ops to make sure we add potential resize op.
   void set_shape_changed() {
     m_shape_was_changed = true;
+  }
+
+  const std::vector<at::IValue>& inputs() const {
+    return m_inputs;
+  }
+
+  const c10::Symbol& symbol() const {
+    return m_symbol;
   }
 
  private:

@@ -150,7 +150,6 @@ at::Tensor add_slice_insert_node(
         paramsvec.insert(paramsvec.end(), {n.dim, start, end, n.step});
       });
   auto node = std::make_shared<ir::SliceInsert>(orig_t, insert_t, paramsvec);
-
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
@@ -236,7 +235,6 @@ Tensor add_strided_insert_node(
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
-
   ir::Value& out = hl_result.CurrentIrValue();
   out.SetNode(
       node,
