@@ -177,6 +177,10 @@ TEST_F(EagerKernelTest, LeakyReluInplaceTest) {
 }
 
 TEST_F(EagerKernelTest, LeakyReluBackwardTest) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   const std::vector<int64_t> dimentions{2, 3};
 
   auto grad = torch::randn(dimentions, torch::requires_grad(false));
