@@ -492,9 +492,6 @@ at::Tensor sum_dim_IntList_hpu(
     at::IntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-at::Tensor mean_hpu(
-    const at::Tensor& self,
-    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu(
     const at::Tensor& self,
     bool sorted,

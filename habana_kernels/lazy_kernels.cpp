@@ -4910,12 +4910,6 @@ Tensor sum_dim_IntList_hpu_lazy(
 }
 #endif
 
-Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::mean", {self, dtype}, {}, {{}}};
-  RUN_MAYBE_WITH_ACC_THREAD(mean, k)
-}
-
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
     c10::optional<synTensorType> tensor_type,

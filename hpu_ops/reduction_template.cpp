@@ -346,11 +346,17 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     mask.set(c10::maybe_wrap_dim(i, ndims, true));
   }
 
+  int threshold = ndims == 0 ? -1 : 0;
   // reduce_Lp_fwd has unique fill_param which takes scalar as extra input
-  for (int64_t dimIndex = orig_shape.size() - 1; dimIndex >= 0; dimIndex--) {
-    if (mask[dimIndex]) {
-      orig_shape[dimIndex] = 1;
+  for (int64_t dimIndex = orig_shape.size() - 1; dimIndex >= threshold;
+       dimIndex--) {
+    if (mask[dimIndex] || ndims == 0) {
       size_t size = 0;
+      // Orig shape reduction can be ignored for ndims == 0 where dimIndex
+      // becomes negative
+      if (dimIndex >= 0) {
+        orig_shape[dimIndex] = 1;
+      }
       auto params = fill_param_fn(ndims, size, dimIndex, ord);
       param_list.push_back({params, size, orig_shape});
     }

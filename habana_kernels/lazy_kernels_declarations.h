@@ -443,9 +443,6 @@ at::Tensor sum_dim_IntList_hpu_lazy(
     c10::optional<at::ScalarType> dtype);
 #endif
 
-at::Tensor mean_hpu_lazy(
-    const at::Tensor& self,
-    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
     const at::Tensor& self,
     bool sorted,

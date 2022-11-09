@@ -79,3 +79,22 @@ TEST_F(HpuOpTest, mean_dim_bfloat) {
 
   Compare(expected, result);
 }
+
+TEST_F(HpuOpTest, mean_3d_float) {
+  GenerateInputs(1, {{4, 6, 7}});
+  torch::ScalarType dtype = torch::kBFloat16;
+
+  auto expected = torch::mean(GetCpuInput(0), dtype);
+  auto result = torch::mean(GetHpuInput(0), dtype);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, mean_bfloat) {
+  GenerateInputs(1, torch::kBFloat16);
+
+  auto expected = torch::mean(GetCpuInput(0));
+  auto result = torch::mean(GetHpuInput(0));
+
+  Compare(expected, result);
+}
