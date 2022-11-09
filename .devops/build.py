@@ -290,6 +290,8 @@ def pip_install_requirements(
         f"{pt_modules_root}/requirements.txt",
         venv=venv_dir,
     )
+    required_pt = profile_getter.get_required_pt(pt_ver, profile_getter.RequirementPurpose.BUILD)  # e.g. 'torch==1.12.0'
+    # TODO: fetch_pt_from_artifactory(pt_ver) or if pt_ver.significant_matches(get_pt_version(venv_python)): build_pt_fork(venv_python)
     run(
         venv_python,
         "-m",
@@ -297,7 +299,7 @@ def pip_install_requirements(
         "install",
         "-U",
         *user,
-        profile_getter.get_required_pt(pt_ver, profile_getter.RequirementPurpose.BUILD),
+        required_pt,
         venv=venv_dir,
     )
     return query_installed_pt_ver(venv_dir, venv_python, label=label)
@@ -1040,15 +1042,14 @@ def get_current_pt_version() -> Optional[Version]:
     This is used for an internal call as well as via a subprocess call to
     `build.py --get-pt-version` to probe virtual build environments.
     """
+    log.debug(f"Python executable: {sys.executable}")
     try:
         sys.path = [path for path in sys.path if path != os.getcwd()]
         import torch as pt
 
-        log.debug(f"Python executable: {sys.executable}")
         log.debug(f"PyTorch path: {pt.__path__}")
-
         return Version(pt.__version__)
-    except Exception as e:
+    except ImportError as e:
         log.debug(e)
         return None
 
@@ -1199,27 +1200,27 @@ def parse_args():
   Virtual environments
   --------------------
  This tool uses python virtual environments located at $HOME/.venv_<pt_version>
- to supply different versions of pytorch binary for building. User may reuse
+ to supply different versions of PyTorch binary for building. User may reuse
  existing virtual environments by symbolically linking them to these locations.
  In case a virtual env is not present, it will be created. In case a virtual env
- does not offer proper version of pytorch then it will be installed. The
- exact PT version to be installed is determined based on .devops/build_profiles/profiles.json
+ does not offer proper version of pytorch then it will be installed. The exact
+ PT version to be installed is determined based on .devops/build_profiles/profiles.json
  If a virtual env offers invalid version of PT, then this script fails.
  For example assume user is building --pt_version=current, then:
-     PT version available | script result
-     ---------------------+---------------------------------
-                     none | install pytorch=={profile_getter.get_version_literal("current")}
+     PT version available  | script result
+     ----------------------+---------------------------------
+                     none  | install pytorch=={profile_getter.get_version_literal("current")}
                     {profile_getter.get_version_literal("previous")} | use pytorch=={profile_getter.get_version_literal("previous")}
-                    1.14  | fail
+                    1.14   | fail
 
   Build directories
   -----------------
- This tool creates and uses multiple cmake build directories under
- {build_root}/{build_dir_suffix}/<pt_version>/<cmake_config>.
- Build artifacts are linked to $PYTORCH_MODULES_<cmake_config>_BUILD so that all
- targets with PT version suffix are taken from respective build_root
- subdirectory, and all pt-version-agnostic files are taken as compiled for the
- newest pt.""",
+ This tool creates and uses multiple CMake build directories under
+ {build_root}/{build_dir_suffix}/<pt_version>/<cmake_build_type>.
+ Build artifacts are linked to $PYTORCH_MODULES_<cmake_build_type>_BUILD
+ so that all targets with PT version suffix are taken from respective
+ build_root subdirectory, and all PT-version-agnostic files are taken as
+ compiled for the newest PT.""",
         formatter_class=SmartFormatter,
     )
     parser.add_argument(
@@ -1555,6 +1556,21 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConf
             json.dump(wheel_manifest, wheel_manifest_fd)
 
 
+def list_wheel_specs_for_specific_pt_versions(versions: Set) -> List[WheelSpec]:
+    return [
+        WheelSpec(
+            wheel_name="habana_torch_plugin",
+            pt_versions=versions,
+            wheel_src_dir="python_packages",
+        ),
+        WheelSpec(
+            wheel_name="habana_torch_dataloader",
+            pt_versions=versions,
+            wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
+        ),
+    ]
+
+
 def prepare_wheel_specs(args, current_pt_version):
     if args.wheel_spec:
         wheel_specs = parse_wheel_spec(args.wheel_spec)
@@ -1574,50 +1590,16 @@ def prepare_wheel_specs(args, current_pt_version):
                     f"are {supported_pt_versions}."
                 )
                 sys.exit(1)
-            wheel_specs = [
-                WheelSpec(
-                    wheel_name="habana_torch_plugin",
-                    pt_versions={supported},
-                    wheel_src_dir="python_packages",
-                ),
-                WheelSpec(
-                    wheel_name="habana_torch_dataloader",
-                    pt_versions={supported},
-                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
-                ),
-            ]
+            wheel_specs = list_wheel_specs_for_specific_pt_versions({supported})
         elif "all" in args.pt_versions:
-            wheel_specs = [
-                WheelSpec(
-                    wheel_name="habana_torch_plugin",
-                    pt_versions=set(supported_pt_versions),
-                    wheel_src_dir="python_packages",
-                ),
-                WheelSpec(
-                    wheel_name="habana_torch_dataloader",
-                    pt_versions=set(supported_pt_versions),
-                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
-                ),
-            ]
+            wheel_specs = list_wheel_specs_for_specific_pt_versions(
+                set(supported_pt_versions)
+            )
         else:
-            wheel_specs = [
-                WheelSpec(
-                    wheel_name="habana_torch_plugin",
-                    pt_versions=set(
-                        ver if ver == "nightly" else Version(ver)
-                        for ver in args.pt_versions
-                    ),
-                    wheel_src_dir="python_packages",
-                ),
-                WheelSpec(
-                    wheel_name="habana_torch_dataloader",
-                    pt_versions=set(
-                        ver if ver == "nightly" else Version(ver)
-                        for ver in args.pt_versions
-                    ),
-                    wheel_src_dir="pytorch_helpers/dataloader/habana_dataloader",
-                ),
-            ]
+            versions = set(
+                ver if ver == "nightly" else Version(ver) for ver in args.pt_versions
+            )
+            wheel_specs = list_wheel_specs_for_specific_pt_versions(versions)
     return current_pt_version, wheel_specs
 
 
