@@ -145,6 +145,9 @@ void RandomSeedTensorInput::AddNode(
         size);
 
     PARAMS_STUB(ns_CastKernel::Params);
+    // Round down so that the upper limit is not included in the generated seq.
+    // The assumption is that the float vaues dont include the upper limit.
+    params->round_mode = CAST_ROUND_DOWN;
     auto cast = BuildOp(
         graph,
         "cast_f32_to_i32",
