@@ -1,5 +1,5 @@
 config:
-  jobTimeout: '120'
+  jobTimeout: '180'
   gerritTriggerMap:
     - repository: pytorch-fork
     - repository: pytorch-lightning-fork
