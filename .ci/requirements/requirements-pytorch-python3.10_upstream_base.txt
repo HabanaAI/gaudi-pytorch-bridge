@@ -1,0 +1,10 @@
+-r requirements-pytorch-python3.8_base.txt
+
+# Open source packages
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==1.12.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torchvision==0.13.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+tensorboard==2.9.1
+pytorch-lightning==1.7.7
