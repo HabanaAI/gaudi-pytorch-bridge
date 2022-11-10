@@ -28,10 +28,16 @@ device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
 
   uint64_t id = h.id_;
   uint64_t offset = h.offset_;
-
   uint64_t combined = id << offset_bits;
   combined |= offset;
 
+  PT_SYNHELPER_DEBUG(
+      "reinterpret_to_pointer h.id::",
+      id,
+      " offset::",
+      offset,
+      " ptr::",
+      combined);
   return combined;
 }
 
@@ -47,6 +53,13 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
   uint64_t offset = ptr & ((1ULL << offset_bits) - 1);
   uint64_t id = ptr >> offset_bits;
 
+  PT_SYNHELPER_DEBUG(
+      "reinterpret_from_pointer  h.id::",
+      id,
+      " offset::",
+      offset,
+      " Ptr::",
+      ptr);
   return mem_handle(id, offset);
 }
 
@@ -77,19 +90,37 @@ HandlesMap::HandlesMap() {
   handle_.emplace_back(Record{});
 }
 
+void HandlesMap::check_id_overflow(mem_handle::id_t id, size_t size) {
+  uint64_t id_to_check = id;
+  auto limit = (id_to_check << offset_bits) + size;
+  if ((limit >> offset_bits) != id) {
+    // TBD for larger handles will be addressed in SW-110816
+    PT_SYNHELPER_FATAL("Handle overflow occurred");
+  }
+}
 mem_handle::id_t HandlesMap::Insert(size_t size) {
   if (!free_handles_.empty()) {
     auto id = free_handles_.front();
+    check_id_overflow(id, size);
     free_handles_.pop();
     handle_[id] = Record(size);
+    PT_SYNHELPER_DEBUG("Reuse handleid ::", id, " Size::", size);
     return id;
   } else {
-    if (handle_.size() > std::numeric_limits<mem_handle::id_t>::max()) {
-      PT_SYNHELPER_WARN("All possible device memory handles has been used");
+    constexpr static int bits_in_byte = 8;
+    if (handle_.size() >
+        std::bitset<sizeof(device_ptr) * bits_in_byte - offset_bits>()
+            .set()
+            .to_ullong()) {
+      // TBD for larger handles will be addressed in SW-110816
+      PT_SYNHELPER_FATAL("All possible device memory handles has been used");
       return mem_handle::invalid_handle;
     }
     handle_.emplace_back(size);
-    return handle_.size() - 1;
+    auto id = handle_.size() - 1;
+    check_id_overflow(id, size);
+    PT_SYNHELPER_DEBUG("Insert new handleid ::", id, " Size::", size);
+    return id;
   }
 }
 
@@ -108,6 +139,7 @@ void HandlesMap::Erase(mem_handle::id_t id) {
   handle_[id].active_ = false;
   handle_[id].ptr_size_.size_ = 0;
   handle_[id].ptr_size_.ptr_ = nullptr;
+  PT_SYNHELPER_DEBUG("Free handle h.id:", id, " active::", handle_[id].active_);
   free_handles_.push(id);
 }
 

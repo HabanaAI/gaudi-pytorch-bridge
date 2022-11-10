@@ -16,6 +16,7 @@
 
 namespace synapse_helpers {
 
+static constexpr uint64_t offset_bits = 34;
 class mem_handle {
  public:
   using id_t = uint32_t;
@@ -54,7 +55,7 @@ class mem_handle {
  private:
   mem_handle(id_t id, offset_t offset) : id_(id), offset_(offset) {}
   static void ensure_fits_ptr(const mem_handle&);
-  static constexpr uint64_t offset_bits = 32;
+  static constexpr uint64_t offset_bits = 34;
   id_t id_ = 0;
   offset_t offset_ = 0;
 
@@ -80,6 +81,7 @@ class HandlesMap {
   HandlesMap();
 
   mem_handle::id_t Insert(size_t size);
+  void check_id_overflow(mem_handle::id_t id, size_t size);
   PtrSize GetPtrSize(mem_handle::id_t id) const;
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
   void Erase(mem_handle::id_t id);
