@@ -3737,7 +3737,8 @@ logaddexp2.out:
 logcumsumexp:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: LogCumsumExp
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
   out_ids: [0]
 
 log_sigmoid_backward:
@@ -3801,7 +3802,8 @@ _log_softmax_backward_data.out:
 logcumsumexp.out:
   force_default: false
   dtypes: [BFloat16, Float]
-  op_backend: LogCumsumExp
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
 
 logical_and:
   broadcast: true

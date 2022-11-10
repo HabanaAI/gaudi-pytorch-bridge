@@ -117,7 +117,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/linspace_gen.cpp
           backend/log10_gen.cpp
           backend/log_normal_gen.cpp
-          backend/logcumsumexp_gen.cpp
           backend/logical_gen.cpp
           backend/logit_gen.cpp
           backend/logsigmoid_gen.cpp
