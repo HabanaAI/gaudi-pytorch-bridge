@@ -288,8 +288,6 @@ Tensor& hpu_wrap::set_(
       asIntArrayRefSlow(stride));
 }
 
-#endif
-
 Tensor hpu_wrap::_efficientzerotensor(
     IntArrayRef size,
     c10::optional<ScalarType> dtype,
@@ -321,6 +319,7 @@ Tensor hpu_wrap::_efficientzerotensor(
   fill_hpu_lazy_(zero_tensor, 0);
   return zero_tensor;
 };
+#endif
 
 Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& input,
