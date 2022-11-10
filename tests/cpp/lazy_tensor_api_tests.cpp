@@ -6,7 +6,6 @@
 #include "habana_device/HPUGuardImpl.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"

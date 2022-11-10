@@ -8,7 +8,6 @@
 #include <string>
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
