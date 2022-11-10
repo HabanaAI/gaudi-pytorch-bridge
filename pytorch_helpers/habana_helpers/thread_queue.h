@@ -35,6 +35,7 @@ class Queue {
   virtual T pop() = 0;
   virtual T& front() = 0;
   virtual bool empty() = 0;
+  virtual size_t size() const = 0;
   static Queue<T>* Create(QueueType type, size_t size);
   virtual ~Queue<T>() = default;
 };
@@ -213,6 +214,10 @@ class StdQueue : public Queue<T> {
   bool emplace(const T& data) {
     m_queue.push(data);
     return true;
+  }
+
+  size_t size() const {
+    return m_queue.size();
   }
 
   T& front() {

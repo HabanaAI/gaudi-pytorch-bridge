@@ -27,7 +27,7 @@ using NodeSet = std::unordered_set<ir::NodePtr>;
 using EmissionMap = std::unordered_map<NodePtr, EmitStatus>;
 using ValueNodeListMap = std::unordered_map<
     ir::Value,
-    std::vector<ir::Node*>,
+    std::vector<std::shared_ptr<Node>>,
     ir::ValueHash,
     ir::ValueEqual>;
 

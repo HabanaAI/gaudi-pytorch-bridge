@@ -21,6 +21,7 @@
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"
+#include "habana_lazy/hpu_lazy_launch.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/sbs_debug.h"
@@ -268,6 +269,10 @@ at::Tensor CopyTensor(const at::Tensor& ref) {
 
 at::Tensor HbLazyTensor::ToTensor(bool detached) {
   at::Tensor tensor;
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      GetDevice().index());
+  context->JoinPendingLaunchThread();
+
   c10::optional<at::Tensor> tensor_data = CurrentTensorData();
   if (!tensor_data) {
     // TODO:: Will need to check if we need to activate this path
@@ -849,14 +854,24 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   return pt_tensor;
 }
 
-bool CheckPrevLaunchDependancy(habana_lazy::ir::ValueList& inputs) {
+void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    if (d == nullptr) {
+      PT_LAZY_FATAL(
+          "Error, ValidateSyncInputTensors m_data_ptr expired. irValue:",
+          in.ToString());
+    }
     if (d && (!d->tensor_data.has_value())) {
-      return true;
+      PT_LAZY_FATAL(
+          "Error, ValidateSyncInputTensors tensor_data is empty. Tensorid:",
+          d->unique_id,
+          " QueueStatus:",
+          SingleTonExecThreadPool::getInstance().ToString(),
+          " irValue:",
+          in.ToString());
     }
   }
-  return false;
 }
 
 torch::jit::Stack PrepareInputStack(
@@ -864,7 +879,8 @@ torch::jit::Stack PrepareInputStack(
     std::vector<int>& indices,
     habana_lazy::ir::ValueList& inputs,
     bool is_OptimizedLazyEager UNUSED,
-    habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
+    habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
+    bool copy_scalar_to_hpu = true) {
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
   torch::jit::Stack stack;
@@ -874,7 +890,7 @@ torch::jit::Stack PrepareInputStack(
   stack.reserve(std::max(inputs.size(), indices.size()));
 
   // Initiate non-blocking copy to device for all scalar inputs
-  if (!context->copy_scalar_to_hpu_tensor_list.empty()) {
+  if (copy_scalar_to_hpu && !context->copy_scalar_to_hpu_tensor_list.empty()) {
     habana_helpers::copy_scalars_to_device(
         context->copy_scalar_to_hpu_tensor_list);
     context->copy_scalar_to_hpu_tensor_list.clear();
@@ -959,57 +975,55 @@ void PostLaunch(
 }
 
 void LaunchSyncTensorsGraph(
-    std::vector<HbLazyTensor> tensors_ptr,
-    std::vector<int> indices,
-    exec::HlExec hlexec,
-    torch::jit::Stack stack,
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
-    std::vector<at::Tensor> retained_tensor_list,
-    bool async,
-    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-        optimized_path_jit_ir_and_mdata,
-    std::string lazyOpName,
-    size_t optimizedLazyEagerKey,
-    bool isOptimizedLazyEager,
-    const c10::hpu::HPUStream& stream,
-    synEventHandle event_handle,
-    synapse_helpers::hpuStream_t event_stream,
-    bool event_flag) {
+    LaunchTensorsInfo launch_info,
+    LaunchEagerInfo lazy_eager_info,
+    LaunchStreamInfo stream_info) {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = true;
-  std::vector<HbLazyTensor>* tensors = &tensors_ptr;
-
+  std::vector<HbLazyTensor>* tensors = &launch_info.tensors_ptr;
+  PT_LAZY_EXEC_THREAD(
+      "Launch started async:",
+      launch_info.async,
+      " has_queued:",
+      launch_info.has_queued,
+      " launch_counter:",
+      launch_info.launch_counter);
   // Launch the execution
   std::exception_ptr launch_except = nullptr;
   bool exception = false;
-  if (isOptimizedLazyEager) {
+  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
+      optimized_path_jit_ir_and_mdata =
+          lazy_eager_info.optimized_path_jit_ir_and_mdata;
+  if (lazy_eager_info.isOptimizedLazyEager) {
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
-    optimized_path_jit_ir_and_mdata->SetOpName(lazyOpName);
+    optimized_path_jit_ir_and_mdata->SetOpName(lazy_eager_info.lazyOpName);
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
-    optimized_path_jit_ir_and_mdata->SetHPUStream(stream);
-    optimized_path_jit_ir_and_mdata->SetEventHandle(event_handle);
-    optimized_path_jit_ir_and_mdata->SetEventRecordStream(event_stream);
+    optimized_path_jit_ir_and_mdata->SetHPUStream(stream_info.stream);
+    optimized_path_jit_ir_and_mdata->SetEventHandle(stream_info.event_handle);
+    optimized_path_jit_ir_and_mdata->SetEventRecordStream(
+        stream_info.event_stream);
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-      auto& input_values = lazyFrontEndInfo->get_input_values();
-      stack = PrepareInputStack(tensors, indices, input_values, true);
+      auto& input_values = lazy_eager_info.lazyFrontEndInfo->get_input_values();
+      launch_info.stack =
+          PrepareInputStack(tensors, launch_info.indices, input_values, true);
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] PrepareInputStack in Launch for key: ",
-          optimizedLazyEagerKey);
+          lazy_eager_info.optimizedLazyEagerKey);
     }
 
     try {
-      habanaLoweringOp.run(stack);
+      habanaLoweringOp.run(launch_info.stack);
       if (optimized_path_jit_ir_and_mdata->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
         // To Do - To incorporate the Graph index change
         PT_LAZY_DEBUG(
             "Removing Optimized JIT IR Graph with :: key ",
-            optimizedLazyEagerKey,
+            lazy_eager_info.optimizedLazyEagerKey,
             " from the Optimized JIT Cache");
         OptimizedLazyGraphCache::GetOptimizedLazyCache().RemoveGraph(
-            optimizedLazyEagerKey);
+            lazy_eager_info.optimizedLazyEagerKey);
       }
     } catch (...) {
       launch_except = std::current_exception();
@@ -1018,16 +1032,47 @@ void LaunchSyncTensorsGraph(
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   } else {
     try {
-      hlexec.Launch(stack, stream, event_handle, event_stream, event_flag);
-      if (hlexec.GetJITGraphMetaDataPtr()->get_syn_graph_empty_flag() == true) {
+      if (launch_info.has_queued) {
+        ValidateSyncInputTensors(launch_info.po_data.inputs);
+        launch_info.stack = PrepareInputStack(
+            tensors,
+            launch_info.indices,
+            launch_info.po_data.inputs,
+            false,
+            &launch_info.po_data.post_order,
+            false);
+
+        launch_info.hlexec.set_lazy_front_end_info(
+            lazy_eager_info.lazyFrontEndInfo);
+        launch_info.hlexec.GetOrCreate(launch_info.po_data, launch_info.stack);
+
+        if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+          // Setting output shapes for the lazy eager shape agnostic graph
+          launch_info.hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(
+              lazy_eager_info.out_shapes);
+        }
+      }
+      // Dump the JIT graph with PT_IRGRAPH_DEBUG
+      PT_IRGRAPH_DEBUG(DumpGraph(launch_info.hlexec.get_graph()));
+
+      launch_info.hlexec.Launch(
+          launch_info.stack,
+          stream_info.stream,
+          stream_info.event_handle,
+          stream_info.event_stream,
+          stream_info.event_flag);
+      if (launch_info.hlexec.GetJITGraphMetaDataPtr()
+              ->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
         PT_LAZY_DEBUG(
             "Removing JIT IR Graph with :: key ",
-            hlexec.GetGraphHash(),
+            launch_info.hlexec.GetGraphHash(),
             ", graph_index ",
-            visualize::GetGraphIndex(hlexec.GetGraphHash()),
+            visualize::GetGraphIndex(launch_info.hlexec.GetGraphHash()),
             " from  the JIT Cache");
-        LazyGraphCache::GetLazyCache().RemoveGraph(hlexec.GetGraphHash());
+        LazyGraphCache::GetLazyCache().RemoveGraph(
+            launch_info.hlexec.GetGraphHash());
       }
     } catch (...) {
       launch_except = std::current_exception();
@@ -1035,16 +1080,29 @@ void LaunchSyncTensorsGraph(
     }
   }
 
-  PostLaunch(tensors, stack, indices, retained_tensor_list, exception);
+  PostLaunch(
+      tensors,
+      launch_info.stack,
+      launch_info.indices,
+      lazy_eager_info.retained_tensor_list,
+      exception);
 
   // Rethrow exception in case exception occuured during launch
   if (exception) {
-    if (async) {
+    if (launch_info.async) {
       context->m_launch_thread_exception_handler = launch_except;
     }
     std::rethrow_exception(launch_except);
   }
   context->m_launch_thread_context = false;
+  launch_info.input_list.clear();
+  PT_LAZY_EXEC_THREAD(
+      "Launch completed async:",
+      launch_info.async,
+      " has_queued:",
+      launch_info.has_queued,
+      " launch_counter:",
+      launch_info.launch_counter);
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
@@ -1058,6 +1116,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   PT_LAZY_TRACE;
   if (!(*tensors).size())
     return;
+
+  LaunchStreamInfo stream_info = {
+      c10::hpu::getCurrentHPUStream(), event_handle, event_stream, event_flag};
 
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
@@ -1127,6 +1188,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
       optimized_path_jit_ir_and_mdata;
   std::string lazy_op_name{};
+  bool has_queued = false;
+  std::vector<std::shared_ptr<Data>> input_list;
 
   if (isOptimizedLazyEager) {
     HABANA_ASSERT(lazyFrontEndInfo != nullptr);
@@ -1154,26 +1217,42 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     }
   } else {
     po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
-        !async || CheckPrevLaunchDependancy(po_data.inputs)) {
+
+    // When queuing synlaunches is enabled, we shouldnot do
+    // JoinPendingLaunchThread. if the mode is sync/threadpool/eager is not
+    // enabled, then JoinPendingLaunchThread must be done
+    if (!GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) ||
+        !context->copy_scalar_to_hpu_tensor_list.empty() || !async) {
+      PT_LAZY_EXEC_THREAD(
+          "SyncTensors not queueing, async:",
+          async,
+          " scalar_to_hpu_tensor_list size:",
+          context->copy_scalar_to_hpu_tensor_list.size());
       context->JoinPendingLaunchThread();
+      // ValidateSyncInputTensors(po_data.inputs);
+      stack = PrepareInputStack(
+          tensors, indices, po_data.inputs, false, &po_data.post_order);
+
+      hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
+
+      hlexec.GetOrCreate(po_data, stack);
+
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+        // Setting output shapes for the lazy eager shape agnostic graph
+        hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
+      }
+      // Dump the JIT graph with PT_IRGRAPH_DEBUG
+      PT_IRGRAPH_DEBUG(DumpGraph(hlexec.get_graph()));
+    } else {
+      for (const auto& in : po_data.inputs) {
+        std::shared_ptr<Data> d = in.m_data_ptr.lock();
+        input_list.emplace_back(std::move(d));
+      }
+      has_queued = true;
     }
-
-    stack = PrepareInputStack(
-        tensors, indices, po_data.inputs, false, &po_data.post_order);
-
-    hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
-
-    hlexec.GetOrCreate(po_data, stack);
-
-    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-      // Setting output shapes for the lazy eager shape agnostic graph
-      hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
-    }
-
-    // Dump the JIT graph with PT_IRGRAPH_DEBUG
-    PT_IRGRAPH_DEBUG(DumpGraph(hlexec.get_graph()));
   }
 
   // Remove any tensor_data held at output, this will reduce the memory
@@ -1181,9 +1260,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   for (auto idx : indices) {
     auto& out_tensor = (*tensors)[idx];
     out_tensor.SetExecutionInProgress();
-    if (!async) {
-      out_tensor.SetTensorData(at::Tensor());
-    }
     // clear IR values corresponding to sync tensors
     out_tensor.ClearAndAssignNewIrValue();
   }
@@ -1196,80 +1272,74 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     t.AssignIrValue(val);
   }
 
-  // Save po_data input and output to context for perf mode
-  if (context->getCapturing()) {
-    context->saveInputsAndOutputs(
-        po_data.inputs, po_data.outputs, *tensors, indices);
-  }
-
-  if (async) {
-    // Use threadpool if the hosttracing is enabled or if its eager mode
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
-        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) ||
-        GET_ENV_FLAG_NEW(TRACE_POINT_ENABLE)) {
-      context->m_launch_thread_handle =
-          SingleTonExecThreadPool::getInstance().enqueue(
-              LaunchSyncTensorsGraph,
-              *tensors,
-              std::vector<int>(indices),
-              exec::HlExec(hlexec),
-              torch::jit::Stack(stack),
-              lazyFrontEndInfo,
-              context->m_retained_tensor_list,
-              async,
-              optimized_path_jit_ir_and_mdata,
-              lazy_op_name,
-              optimized_lazy_eager_key,
-              isOptimizedLazyEager,
-              c10::hpu::getCurrentHPUStream(),
-              event_handle,
-              event_stream,
-              event_flag);
-    } else {
-      context->m_launch_thread_handle = std::async(
-          std::launch::async,
-          LaunchSyncTensorsGraph,
-          *tensors,
-          std::vector<int>(indices),
-          exec::HlExec(hlexec),
-          torch::jit::Stack(stack),
-          lazyFrontEndInfo,
-          context->m_retained_tensor_list,
-          async,
-          optimized_path_jit_ir_and_mdata,
-          lazy_op_name,
-          optimized_lazy_eager_key,
-          isOptimizedLazyEager,
-          c10::hpu::getCurrentHPUStream(),
-          event_handle,
-          event_stream,
-          event_flag);
-    }
-  } else {
-    LaunchSyncTensorsGraph(
-        *tensors,
-        std::vector<int>(indices),
-        exec::HlExec(hlexec),
-        torch::jit::Stack(stack),
-        lazyFrontEndInfo,
-        context->m_retained_tensor_list,
-        async,
-        optimized_path_jit_ir_and_mdata,
-        lazy_op_name,
-        optimized_lazy_eager_key,
-        isOptimizedLazyEager,
-        c10::hpu::getCurrentHPUStream(),
-        event_handle,
-        event_stream,
-        event_flag);
-  }
-
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
     for (auto t : context->viewContext.updated_bucket_list) {
       // clear IR values corresponding to sync tensors
       t.ClearAndAssignNewIrValue();
     }
   }
+
+  // Save po_data input and output to context for perf mode
+  if (context->getCapturing()) {
+    context->saveInputsAndOutputs(
+        po_data.inputs, po_data.outputs, *tensors, indices);
+  }
+
+  // A static counter to map the async launches used only for debugs.
+  static size_t launch_counter = 1;
+  LaunchTensorsInfo launch_info = {
+      *tensors,
+      std::move(input_list),
+      indices,
+      std::move(po_data),
+      hlexec,
+      stack,
+      async,
+      has_queued,
+      launch_counter};
+
+  LaunchEagerInfo lazy_eager_info = {
+      lazyFrontEndInfo,
+      context->m_retained_tensor_list,
+      optimized_path_jit_ir_and_mdata,
+      lazy_op_name,
+      out_shapes,
+      optimized_lazy_eager_key,
+      isOptimizedLazyEager};
+
+  if (async) {
+    // Use threadpool if the hosttracing is enabled or if its eager mode
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
+        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+      context->m_launch_thread_handle =
+          SingleTonExecThreadPool::getInstance().enqueue(
+              LaunchSyncTensorsGraph,
+              std::move(launch_info),
+              std::move(lazy_eager_info),
+              std::move(stream_info));
+    } else {
+      context->m_launch_thread_handle = std::async(
+          std::launch::async,
+          LaunchSyncTensorsGraph,
+          std::move(launch_info),
+          std::move(lazy_eager_info),
+          std::move(stream_info));
+    }
+  } else {
+    LaunchSyncTensorsGraph(
+        std::move(launch_info),
+        std::move(lazy_eager_info),
+        std::move(stream_info));
+  }
+  PT_LAZY_EXEC_THREAD(
+      "SyncTensorsGraphInternal async:",
+      async,
+      " has_queued:",
+      has_queued,
+      " launch_counter:",
+      launch_counter++,
+      " QueueStatus:",
+      SingleTonExecThreadPool::getInstance().ToString());
 
   // clear the context
   context->clear();

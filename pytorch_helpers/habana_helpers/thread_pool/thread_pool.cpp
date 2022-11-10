@@ -56,7 +56,15 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
           }
         }
 
-        task();
+        // Run the task.
+        try {
+          task();
+        } catch (const std::exception& e) {
+          PT_BRIDGE_FATAL("Exception in launch thread pool task: ", e.what());
+        } catch (...) {
+          PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
+        }
+
         if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
             (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
           this->has_work.store(false);
@@ -85,6 +93,15 @@ bool ThreadPool::inThreadPool() const {
     }
   }
   return false;
+}
+
+std::string ThreadPool::ToString() {
+  std::stringstream ss;
+  ss << "ThreadPool has_work:" << has_work;
+  ss << " has_queued_items:" << has_queued_items;
+  ss << " m_workers size:" << m_workers.size();
+  ss << " m_tasks size:" << m_tasks->size();
+  return ss.str();
 }
 
 // the destructor joins all threads

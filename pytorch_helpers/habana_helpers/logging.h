@@ -66,6 +66,13 @@ inline uint64_t get_tid() {
   return tid;
 }
 
+uint64_t get_rank_internal();
+
+inline uint64_t get_rank() {
+  static uint64_t tid{static_cast<uint64_t>(get_rank_internal())};
+  return tid;
+}
+
 inline void append_hdr(std::string& result) {
   auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch();
   auto epochSeconds =
@@ -78,13 +85,14 @@ inline void append_hdr(std::string& result) {
   localtime_r(&unixTimestamp, &ltime);
   absl::StrAppendFormat(
       &result,
-      "[%02d-%02d %02d:%02d:%02d::%06d][%ld]",
+      "[%02d-%02d %02d:%02d:%02d::%06d][R%03d][%ld]",
       ltime.tm_mon + 1,
       ltime.tm_mday,
       ltime.tm_hour,
       ltime.tm_min,
       ltime.tm_sec,
       usecs.count(),
+      get_rank(),
       get_tid());
 }
 
@@ -273,7 +281,8 @@ class PtLogger {
     LAYOUTS = 0x20000,
     PARALLEL_ACC = 0x40000,
     LAZY_EAGER = 0x80000,
-    MEMLOG = 0x100000
+    MEMLOG = 0x100000,
+    EXEC_THREAD = 0x200000
   };
 };
 
@@ -314,6 +323,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("LAZY_EAGER");
     case PtLogger::ModuleMask::MEMLOG:
       return std::string("MEMLOG");
+    case PtLogger::ModuleMask::EXEC_THREAD:
+      return std::string("EXEC_THREAD");
     default:
       return std::string("UNDEFINED");
   }
@@ -365,15 +376,15 @@ class PTFuncLog {
   }
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                                          \
-  {                                                                     \
-    Logger::habana_assert(                                              \
-        __func__,                                                       \
-        __FILE__,                                                       \
-        static_cast<uint32_t>(__LINE__),                                \
-        Logger::str(                                                    \
-            "FATAL ERROR :: MODULE:" + Logger::DebugString(MOD) + " " + \
-            __VA_ARGS__));                                              \
+#define PT_MOD_FATAL(MOD, ...)                               \
+  {                                                          \
+    Logger::habana_assert(                                   \
+        __func__,                                            \
+        __FILE__,                                            \
+        static_cast<uint32_t>(__LINE__),                     \
+        Logger::str(                                         \
+            Logger::print_hdr() + "FATAL ERROR :: MODULE:" + \
+            Logger::DebugString(MOD) + " " + __VA_ARGS__));  \
   }
 
 #define PT_DEVICE_FATAL(...) \
@@ -601,6 +612,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::LAYOUTS, __VA_ARGS__)
 #define PT_LAZY_EAGER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
+#define PT_LAZY_EXEC_THREAD(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::EXEC_THREAD, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

@@ -21,6 +21,15 @@ uint64_t get_tid_internal() {
   return tid;
 }
 
+uint64_t get_rank_internal() {
+  uint64_t node_id = 0;
+  char* node_id_ptr = std::getenv("ID");
+  if (node_id_ptr != nullptr) {
+    node_id = std::stoul(node_id_ptr, nullptr, 16);
+  }
+  return node_id;
+}
+
 void habana_assert(
     const char* func,
     const char* file,
@@ -29,6 +38,7 @@ void habana_assert(
   throw c10::Error(
       msg,
       Logger::str(
+          Logger::print_hdr(),
           "Habana exception raised from ",
           func,
           " at ",
