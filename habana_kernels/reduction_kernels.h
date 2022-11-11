@@ -298,6 +298,9 @@ class ReduceSumBwdOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 // Reduce Mean Backward Operator.
@@ -314,6 +317,9 @@ class ReduceMeanBwdOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 class ReduceMultiOutputOperator : public ReduceOperator {

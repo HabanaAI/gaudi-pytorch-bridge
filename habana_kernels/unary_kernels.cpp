@@ -47,6 +47,19 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+OutputShapeInfRetType UnaryOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto input = inputs[0].toTensor();
+  out.AddOutputTensor(TensorMetaData(
+      input.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          input.sizes().vec(), input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format()));
+  return out;
+}
+
 void UnaryInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,

@@ -948,6 +948,82 @@ void KlDivOperator::AllocateAndAddSynapseNode(
   }
 }
 
+OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  int64_t reduction = inputs[2].toInt();
+  bool log_target = inputs[3].toBool();
+
+  torch::jit::Stack stack;
+  HabanaOperatorPtr log_exp_op;
+  HabanaOperatorPtr threshold_op;
+  OutputShapeInfRetType out;
+  OutputShapeInfRetType out_log_exp_op;
+  OutputShapeInfRetType out_threshold_op;
+  if (log_target) {
+    log_exp_op =
+        make_operator<ExpOperator>(self.device().index(), self.scalar_type());
+    stack = {IValue(target)};
+    out_log_exp_op = out.call_ComputeOutputShape(log_exp_op, stack);
+    stack.clear();
+  } else {
+    log_exp_op =
+        make_operator<LogOperator>(self.device().index(), self.scalar_type());
+    stack = {IValue(target)};
+    out_log_exp_op = out.call_ComputeOutputShape(log_exp_op, stack);
+    stack.clear();
+
+    threshold_op = make_operator<ThresholdBackwardOperator>(
+        self.device().index(), self.scalar_type());
+    stack = {
+        IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0))),
+        IValue(target),
+        IValue(0.0f)};
+    out_threshold_op = out.call_ComputeOutputShape(threshold_op, stack);
+    stack.clear();
+  }
+
+  auto sub_op =
+      make_operator<SubOperator>(self.device().index(), self.scalar_type());
+  stack = {
+      (log_target) ? IValue(target)
+                   : IValue(std::get<1>(out_threshold_op.GetOutputTensor(0))),
+      IValue(self),
+      IValue(1)};
+  auto out_sub_op = out.call_ComputeOutputShape(sub_op, stack);
+  stack.clear();
+
+  auto mul_op1 =
+      make_operator<MulOperator>(self.device().index(), self.scalar_type());
+  stack = {
+      (log_target) ? IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0)))
+                   : IValue(target),
+      IValue(std::get<1>(out_sub_op.GetOutputTensor(0)))};
+  auto out_mul_op1 = out.call_ComputeOutputShape(mul_op1, stack);
+  stack.clear();
+
+  if (reduction != at::Reduction::Reduction::None) {
+    auto sum_mean_op = (reduction == at::Reduction::Reduction::Sum)
+        ? static_cast<HabanaOperatorPtr>(make_operator<SumOperator>(
+              self.device().index(), self.scalar_type()))
+        : static_cast<HabanaOperatorPtr>(make_operator<MeanOperator>(
+              self.device().index(), self.scalar_type()));
+    stack = {
+        IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))),
+        IValue(self.scalar_type())};
+    auto out_sum_mean_op = out.call_ComputeOutputShape(sum_mean_op, stack);
+    stack.clear();
+
+    auto out_tensor = out_sum_mean_op.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else {
+    auto out_tensor = out_mul_op1.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  }
+  return out;
+}
+
 Tensor kl_div_hpu(
     const Tensor& self,
     const Tensor& target,
@@ -1099,6 +1175,91 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
         std::move(mul_op4->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(mul_op4->GetOutputs()[0]));
   }
+}
+
+OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_out = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto target = inputs[2].toTensor();
+  int64_t reduction = inputs[3].toInt();
+  bool log_target = inputs[4].toBool();
+
+  torch::jit::Stack stack;
+  HabanaOperatorPtr exp_op;
+  OutputShapeInfRetType out;
+  OutputShapeInfRetType out_exp_op;
+  if (log_target) {
+    exp_op =
+        make_operator<ExpOperator>(self.device().index(), self.scalar_type());
+    stack = {IValue(target)};
+    out_exp_op = out.call_ComputeOutputShape(exp_op, stack);
+    stack.clear();
+  }
+
+  if (reduction != at::Reduction::Reduction::None) {
+    auto shape = self.sizes().vec();
+    int flattened_size = std::accumulate(
+        shape.cbegin(), shape.cend(), 1, std::multiplies<int>());
+    int64_t data[1];
+    data[0] = flattened_size;
+    IntArrayRef size_arr(data, 1);
+    auto sum_mean_op = (reduction == at::Reduction::Reduction::Sum)
+        ? static_cast<HabanaOperatorPtr>(make_operator<ReduceSumBwdOperator>(
+              self.device().index(), self.scalar_type()))
+        : static_cast<HabanaOperatorPtr>(make_operator<ReduceMeanBwdOperator>(
+              self.device().index(), self.scalar_type()));
+    stack = {IValue(grad_out), IValue(size_arr), IValue(0)};
+    auto out_sum_mean_op = out.call_ComputeOutputShape(sum_mean_op, stack);
+    stack.clear();
+
+    auto shape1 = self.sizes().vec();
+    auto reshape_op = make_operator<ReshapeOperator>(
+        self.device().index(), self.scalar_type());
+    stack = {
+        IValue(std::get<1>(out_sum_mean_op.GetOutputTensor(0))),
+        IValue(shape1)};
+    auto out_reshape_op = out.call_ComputeOutputShape(reshape_op, stack);
+    stack.clear();
+
+    auto mul_op1 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+
+    stack = {
+        IValue(std::get<1>(out_reshape_op.GetOutputTensor(0))),
+        (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
+                     : IValue(target)};
+    auto out_mul_op1 = out.call_ComputeOutputShape(mul_op1, stack);
+    stack.clear();
+
+    auto mul_op3 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    stack = {IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))), IValue(-1)};
+    auto out_mul_op3 = out.call_ComputeOutputShape(mul_op3, stack);
+    stack.clear();
+
+    auto out_tensor = out_mul_op3.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  } else {
+    auto mul_op2 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    stack = {
+        IValue(grad_out),
+        (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
+                     : IValue(target)};
+    auto out_mul_op2 = out.call_ComputeOutputShape(mul_op2, stack);
+    stack.clear();
+
+    auto mul_op4 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    stack = {IValue(std::get<1>(out_mul_op2.GetOutputTensor(0))), IValue(-1)};
+    auto out_mul_op4 = out.call_ComputeOutputShape(mul_op4, stack);
+    stack.clear();
+
+    auto out_tensor = out_mul_op4.GetOutputTensor(0);
+    out.MoveToOutput(std::move(out_tensor));
+  }
+  return out;
 }
 
 Tensor kl_div_backward_hpu(

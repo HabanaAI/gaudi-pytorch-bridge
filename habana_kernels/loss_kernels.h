@@ -163,6 +163,9 @@ class KlDivOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       int64_t reduction);
@@ -184,6 +187,9 @@ class KlDivBwdOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
 };
 
 // BceFwd Operator

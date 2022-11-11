@@ -1266,6 +1266,21 @@ void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+OutputShapeInfRetType ReduceSumBwdOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_out = inputs[0].toTensor();
+  auto dim_arr_vec = inputs[1].toIntVector();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(habana::TensorMetaData(
+      dim_arr_vec,
+      HabanaOperator::CalculateStrides(
+          dim_arr_vec, grad_out.suggest_memory_format()),
+      grad_out.scalar_type(),
+      grad_out.suggest_memory_format()));
+  return out;
+}
+
 void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1299,6 +1314,21 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutputs(graph, {output}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+OutputShapeInfRetType ReduceMeanBwdOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto grad_out = inputs[0].toTensor();
+  auto dim_arr_vec = inputs[1].toIntVector();
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(habana::TensorMetaData(
+      dim_arr_vec,
+      HabanaOperator::CalculateStrides(
+          dim_arr_vec, grad_out.suggest_memory_format()),
+      grad_out.scalar_type(),
+      grad_out.suggest_memory_format()));
+  return out;
 }
 
 void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(

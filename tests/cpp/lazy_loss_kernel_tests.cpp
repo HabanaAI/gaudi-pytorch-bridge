@@ -99,6 +99,8 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
 }
 
 TEST_F(LazyLossKernelTest, KLDivLossTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   auto kl_div_test = [](Tensor& input,
                         Tensor& target,
                         Tensor& grad_out,
@@ -186,6 +188,7 @@ TEST_F(LazyLossKernelTest, KLDivLossTest) {
   reduction = at::Reduction::None;
   kl_div_test(input, target, grad_out_none, reduction, true, true);
   kl_div_test(input, target, grad_out_none, reduction, false, true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyLossKernelTest, NllLossFwdTest) {

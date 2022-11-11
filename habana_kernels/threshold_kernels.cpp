@@ -44,6 +44,19 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+habana::OutputShapeInfRetType habana::ThresholdBackwardOperator::
+    ComputeOutputShape(torch::jit::Stack& inputs) {
+  auto self = inputs[1].toTensor();
+  habana::OutputShapeInfRetType out;
+  out.AddOutputTensor(habana::TensorMetaData(
+      self.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          self.sizes().vec(), self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  return out;
+}
+
 /***************************************************************************
  * @brief Implements backward pass for torch.nn.Threshold(threshold: float,
  *value: float)
