@@ -831,7 +831,6 @@ Tensor HbLazyTensorViews::add_permute_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
   return result;
 }
 

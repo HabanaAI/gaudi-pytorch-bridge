@@ -271,25 +271,8 @@ optimizer_lamb_phase1_hpu_lazy(
   habana_lazy::SyncAccThreadPool();
   static_cast<void>(lr);
 
-  /*
-  Assuming mark step is present before optimizer is invoked
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hl_grad = GetHbLazyTensor(gradients[i]);
-    updateDstDependencies(hl_grad, gradients[i], true);
-
-    auto hl_wts = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hl_wts, weights[i], true);
-
-    auto hlexpavg = GetHbLazyTensor(exp_avg[i]);
-    updateDstDependencies(hlexpavg, exp_avg[i], true);
-
-    auto hlexpavgsq = GetHbLazyTensor(exp_avg_sq[i]);
-    updateDstDependencies(hlexpavgsq, exp_avg_sq[i], true);
-  }
-  */
-
   auto hl_clip_global = GetHbLazyTensor(clip_global_grad_norm);
-  updateDstDependencies(hl_clip_global, clip_global_grad_norm, true);
+  updateDstDependencies(clip_global_grad_norm);
   // TODO: SW-69618 JIT optimization passes are failing for
   // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
   // dont support tensorlist in lowering that matches kernel schema.

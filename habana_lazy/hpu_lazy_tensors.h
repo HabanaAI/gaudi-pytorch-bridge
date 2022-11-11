@@ -336,15 +336,7 @@ class HbLazyTensor {
     else
       return c10::nullopt;
   }
-  void updateVersion() {
-    data()->version++;
-  }
-  void resetVersionCounter() {
-    data()->version = 0;
-  }
-  int getVersion() const {
-    return data()->version;
-  }
+
   void SetTensorLayout(LayoutFormat layout) {
     data()->tensor_layout = layout;
   }

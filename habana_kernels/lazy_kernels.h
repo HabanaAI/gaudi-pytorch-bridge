@@ -34,10 +34,7 @@ enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
 at::Tensor permute_wt_hpu(const at::Tensor& self);
 void AddMemcpy(const at::Tensor& src, at::Tensor& dst);
 at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor);
-void updateDstDependencies(
-    habana_lazy::HbLazyTensor& hl_dst,
-    const at::Tensor& dst,
-    bool in_place = false);
+void updateDstDependencies(const at::Tensor& dst);
 
 at::Tensor empty_as_strided_lazy(
     const at::Tensor& self,
@@ -273,7 +270,6 @@ class LazyOp {
             hl_result.GetSizes(),
             hl_result.dtype_optional(),
             i);
-        updateDstDependencies(hl_result, tensors[i], false);
         i++;
       }
     } else {
@@ -393,7 +389,6 @@ class LazyOp {
       i = 0;
       auto node = create_node();
       for (auto hl_result : hl_results) {
-        updateDstDependencies(hl_result, tensors[i], false);
         ir::Value& out = hl_result.CurrentIrValue();
         out.SetNode(
             node,
@@ -455,7 +450,6 @@ class LazyOp {
         hl_result.GetDevice(),
         hl_result.GetSizes(),
         hl_result.dtype_optional());
-    updateDstDependencies(hl_result, result, false);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(result);
@@ -472,7 +466,7 @@ class LazyOp {
 
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
-      updateDstDependencies(hl_result, tensor, true);
+      updateDstDependencies(tensor);
       hl_result.CurrentIrValue().SetNode(
           node,
           hl_result.GetDevice(),
@@ -498,7 +492,7 @@ class LazyOp {
 
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
-      updateDstDependencies(hl_result, tensor, true);
+      updateDstDependencies(tensor);
       hl_result.CurrentIrValue().SetNode(
           node,
           hl_result.GetDevice(),
@@ -529,7 +523,6 @@ class LazyOp {
           hl_result.GetSizes(),
           hl_result.dtype_optional(),
           i++);
-      updateDstDependencies(hl_result, tensor, false);
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
@@ -555,7 +548,6 @@ class LazyOp {
           hl_result.GetSizes(),
           hl_result.dtype_optional(),
           i++);
-      updateDstDependencies(hl_result, tensor, false);
     }
     runSBS(tensors);
     flush_op(tensors);
@@ -583,7 +575,6 @@ class LazyOp {
           hl_result.GetDevice(),
           hl_result.GetSizes(),
           hl_result.dtype_optional());
-      updateDstDependencies(hl_result, result, false);
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
@@ -618,7 +609,6 @@ class LazyOp {
           hl_result.GetDevice(),
           hl_result.GetSizes(),
           hl_result.dtype_optional());
-      updateDstDependencies(hl_result, self, false);
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
@@ -779,7 +769,7 @@ class LazyOp {
       // skip ctrl edges for inplace
       // TODO do the same for out variants
       if (!is_inplace(m_symbol)) {
-        updateDstDependencies(hl_self, self_updated, true);
+        updateDstDependencies(self_updated);
       }
       const auto& node = create_node();
       ir::Value& out = hl_self.CurrentIrValue();
@@ -864,6 +854,7 @@ class LazyOp {
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
     auto hl_self = GetHbLazyTensor(self);
+    updateDstDependencies(self);
     const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(
@@ -871,7 +862,6 @@ class LazyOp {
         hl_self.GetDevice(),
         hl_self.GetSizes(),
         hl_self.dtype_optional());
-    updateDstDependencies(hl_self, self, true);
 
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()

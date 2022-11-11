@@ -535,9 +535,6 @@ void HbLazyTensor::ClearAndAssignNewIrValue() {
       }
     }
   }
-  // The version of lazy tensors is maintained per graph execution
-  // reset the counter for use in next graph
-  resetVersionCounter();
   AssignIrValue(val);
 }
 
@@ -1173,33 +1170,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
     }
 
-    // This is the logic to remove outputs of control edges that are dangling
-    // from
-    // the outputs of JIT graph We dont want to alter graph execution, so
-    // removing after graph is already prepared. Also we DO want that the
-    // tensors of this node are marked processed, as they would have through
-    // output stack So we do all the markings before entering execution
-    bool remove_control_edge_outputs = true;
-    if (remove_control_edge_outputs) {
-      int vec_index = 0;
-      int num_outputs = po_data.outputs.size();
-      for (int i = 0; i < num_outputs; i++) {
-        auto ir_value = po_data.outputs[vec_index];
-        auto data = ir_value.m_data_ptr.lock();
-        if (ir_value.mp_node->is_control_edge() && data->version == 0) {
-          auto& tensor = (*tensors)[i];
-
-          ir::Value val = tensor.createIrValueFromData();
-          tensor.AssignIrValue(val);
-          context->MarkTensorExecuted(data);
-          po_data.outputs.erase(po_data.outputs.begin() + vec_index);
-          indices.erase(indices.begin() + vec_index);
-          hlexec.get_graph()->eraseOutput(vec_index);
-        } else {
-          vec_index++;
-        }
-      }
-    }
     // Dump the JIT graph with PT_IRGRAPH_DEBUG
     PT_IRGRAPH_DEBUG(DumpGraph(hlexec.get_graph()));
   }
@@ -1221,7 +1191,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     t.SetExecutionInProgress();
     context->executing_tids.emplace_back(t.getTensorUniqueId());
     ir::Value val = t.createIrValueFromData();
-    t.resetVersionCounter();
     t.AssignIrValue(val);
   }
 
