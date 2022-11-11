@@ -241,4 +241,34 @@ DTypeHelper DTypeHelper::binary_op_with_int_to_float_promotion(
   return dtype_helper;
 }
 
+c10::ScalarType DTypeHelper::get_compute_dtype(
+    const std::vector<at::IValue>& stack,
+    c10::optional<const at::IValue*> output,
+    bool promote_to_common_type,
+    bool promote_int_to_float,
+    bool safe_cast,
+    bool double_support,
+    bool int64_support) {
+  std::vector<const at::IValue*> inputs;
+  inputs.reserve(stack.size());
+  for (const auto& val : stack) {
+    // TODO Implement div.xx_mode correctly and remove this check
+    if (val.isTensor() or val.isScalar()) {
+      inputs.emplace_back(&val);
+    }
+  }
+
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs(std::move(inputs))
+      .set_promote_to_common_type(promote_to_common_type)
+      .set_promote_int_to_float(promote_int_to_float)
+      .set_safe_cast_to_output(safe_cast);
+
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper.get_common_dtype(double_support, int64_support);
+}
 } // namespace habana_helpers

@@ -516,32 +516,38 @@ abs.out:
 
 acos:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: acos_fwd
   out_ids: [0]
 
 acos.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: acos_fwd
 
 acos_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: acos_fwd
   inplace_ids: [0]
 
 acosh:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: acosh_fwd
   out_ids: [0]
 
 acosh.out:
   dtypes: [Float]
+  promote_int_to_float: true
   guid: acosh_fwd
 
 acosh_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: acosh_fwd
   inplace_ids: [0]
@@ -888,48 +894,57 @@ argmin.out:
 
 asin:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: asin_fwd
   out_ids: [0]
 
 asin.out:
   dtypes: [Float]
+  promote_int_to_float: true
   guid: asin_fwd
 
 asin_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: asin_fwd
   inplace_ids: [0]
 
 asinh:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: asinh_fwd
   out_ids: [0]
 
 asinh.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: asinh_fwd
 
 asinh_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: asinh_fwd
   inplace_ids: [0]
 
 atan:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: atan_fwd
   out_ids: [0]
 
 atan.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: atan_fwd
 
 atan_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: atan_fwd
   inplace_ids: [0]
@@ -1765,6 +1780,7 @@ copysign.Tensor:
 
 cos:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1773,6 +1789,7 @@ cos:
   out_ids: [0]
 
 cos.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1781,6 +1798,7 @@ cos.out:
 
 cos_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1790,6 +1808,7 @@ cos_:
 
 cosh:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -1798,6 +1817,7 @@ cosh:
   out_ids: [0]
 
 cosh.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -1806,6 +1826,7 @@ cosh.out:
 
 cosh_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -2137,6 +2158,7 @@ eq.Tensor:
 
 erf:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2146,6 +2168,7 @@ erf:
 
 erf_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2154,6 +2177,7 @@ erf_:
   inplace_ids: [0]
 
 erf.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2162,17 +2186,20 @@ erf.out:
 
 erfc:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Erfc
   out_ids: [0]
 
 erfc_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Erfc
   inplace_ids: [0]
 
 erfc.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Erfc
 
@@ -2183,16 +2210,19 @@ erfinv:
   out_ids: [0]
 
 erfinv_:
+  promote_int_to_float: true
   dtypes: [Float]
   force_default: false
   guid: erfinv_fwd
   inplace_ids: [0]
 
 erfinv.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: erfinv_fwd
 
 exp:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2202,6 +2232,7 @@ exp:
   force_default: false
 
 exp_:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2211,6 +2242,7 @@ exp_:
   force_default: false
 
 exp.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2219,16 +2251,19 @@ exp.out:
 
 exp2:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   out_ids: [0]
 
 exp2.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
 
 exp2_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   inplace_ids: [0]
@@ -2240,16 +2275,19 @@ expand:
 
 expm1:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: expm1_fwd
   out_ids: [0]
 
 expm1.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: expm1_fwd
 
 expm1_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
@@ -3168,6 +3206,7 @@ linspace.out:
   custom_output_shape: LinspaceOutputShape
 
 log.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3176,6 +3215,7 @@ log.out:
 
 log:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3185,6 +3225,7 @@ log:
 
 log_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3194,33 +3235,39 @@ log_:
 
 log1p:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   out_ids: [0]
 
 log1p_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   inplace_ids: [0]
 
 log1p.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
 
 log10:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Log10
   out_ids: [0]
 
 log10_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Log10
   inplace_ids: [0]
 
 log10.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Log10
 
@@ -3233,6 +3280,7 @@ log2.out:
 
 log2:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3242,6 +3290,7 @@ log2:
 
 log2_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4496,17 +4545,20 @@ randperm.generator_out:
 
 reciprocal:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
   out_ids: [0]
 
 reciprocal_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
   inplace_ids: [0]
 
 reciprocal.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
 
@@ -4857,17 +4909,20 @@ rrelu_with_noise_backward:
 
 rsqrt:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
   out_ids: [0]
 
 rsqrt_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
   inplace_ids: [0]
 
 rsqrt.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
 
@@ -5026,6 +5081,7 @@ sgn_:
   inplace_ids: [0]
 
 sigmoid.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5034,6 +5090,7 @@ sigmoid.out:
 
 sigmoid:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5043,6 +5100,7 @@ sigmoid:
 
 sigmoid_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5122,6 +5180,7 @@ silu_backward.grad_input:
 
 sin:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5130,6 +5189,7 @@ sin:
   out_ids: [0]
 
 sin.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5138,6 +5198,7 @@ sin.out:
 
 sin_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5147,26 +5208,31 @@ sin_:
 
 sinc:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Sinc
   out_ids: [0]
 
 sinc.out:
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Sinc
 
 sinc_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [BFloat16, Float]
   op_backend: Sinc
   inplace_ids: [0]
 
 sinh.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: sinh_fwd
 
 sinh:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: sinh_fwd
   out_ids: [0]
@@ -5354,17 +5420,20 @@ special_xlog1py.self_scalar_out:
   op_backend: XlogYOperator
 
 special_entr:
+  promote_int_to_float: true
   dtypes: [Float]
   force_default: false
   op_backend: SpecialEntr
   out_ids: [0]
 
 special_entr.out:
+  promote_int_to_float: true
   dtypes: [Float]
   op_backend: SpecialEntr
 
 sqrt:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5373,6 +5442,7 @@ sqrt:
   out_ids: [0]
 
 sqrt.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5381,6 +5451,7 @@ sqrt.out:
 
 sqrt_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5531,23 +5602,27 @@ take.out:
   op_backend: TakeOperator
 
 tan.out:
+  promote_int_to_float: true
   dtypes: [Float]
   guid: tan_fwd
 
 tan:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: tan_fwd
   out_ids: [0]
 
 tan_:
   force_default: false
+  promote_int_to_float: true
   dtypes: [Float]
   guid: tan_fwd
   inplace_ids: [0]
 
 tanh:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5556,6 +5631,7 @@ tanh:
   out_ids: [0]
 
 tanh.out:
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5564,6 +5640,7 @@ tanh.out:
 
 tanh_:
   force_default: false
+  promote_int_to_float: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

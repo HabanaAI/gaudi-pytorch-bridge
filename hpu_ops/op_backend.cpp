@@ -146,11 +146,15 @@ void OpBackend::HandleFn(
 
   auto promoted_dtype = c10::ScalarType::Undefined;
   if (m_promote_type or m_promote_int_to_float) {
-    auto dtype_helper = habana_helpers::DTypeHelper::
-        binary_op_with_optional_int_to_float_promotion(
-            stack, m_promote_int_to_float, c10::nullopt, false);
-
-    m_scalar_type = promoted_dtype = dtype_helper.get_result_dtype();
+    m_scalar_type = promoted_dtype =
+        habana_helpers::DTypeHelper::get_compute_dtype(
+            stack,
+            c10::nullopt,
+            true,
+            m_promote_int_to_float,
+            false,
+            false,
+            false);
   }
 
   int i = 0;
@@ -230,12 +234,12 @@ void OpBackend::HandleTypePromotion(
         IsInplace() ? &stack.front() : &stack.back());
   }
 
-  auto dtype_helper = habana_helpers::DTypeHelper::
-      binary_op_with_optional_int_to_float_promotion(
-          stack, m_promote_int_to_float, output, false);
-
-  auto compute_type = dtype_helper.get_common_dtype();
-  m_scalar_type = compute_type;
+  at::Stack op_inputs = stack;
+  if (m_is_outfn) {
+    op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
+  }
+  m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
+      op_inputs, output, true, m_promote_int_to_float, false, false, false);
 
   auto skipScalarCastNeeded = [&](size_t i) -> bool {
     // Scalars (which are not converted to tensors - index not found in
@@ -247,10 +251,13 @@ void OpBackend::HandleTypePromotion(
   };
 
   bool cast_inserted = false;
-  for (size_t i = 0; i < 2; ++i) {
+  for (size_t i = 0; i < op_inputs.size(); ++i) {
+    if (!(stack[i].isScalar() or stack[i].isTensor())) {
+      continue;
+    }
     auto input_type = GetScalarType(stack, i);
     if (habana_helpers::pytorch_to_synapse_type(input_type) ==
-        habana_helpers::pytorch_to_synapse_type(compute_type)) {
+        habana_helpers::pytorch_to_synapse_type(m_scalar_type)) {
       continue;
     }
 
@@ -266,7 +273,7 @@ void OpBackend::HandleTypePromotion(
         syn_in(i),
         stack.at(i).isTensor() ? stack_tensor(stack, i).sizes() : 1,
         input_type,
-        compute_type);
+        m_scalar_type);
 
     if (!isMetaMode()) {
       // Replace the input with the casted input
@@ -281,7 +288,7 @@ void OpBackend::HandleTypePromotion(
   // Update the guid to reflect the promoted type
   SetGuid(
       guid_.substr(0, guid_.find_last_of('_') + 1) +
-      habana_helpers::name_suffix_from_type(compute_type));
+      habana_helpers::name_suffix_from_type(m_scalar_type));
 }
 
 std::vector<synapse_helpers::tensor> OpBackend::BuildOp(

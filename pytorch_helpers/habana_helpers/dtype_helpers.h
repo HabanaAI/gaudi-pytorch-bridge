@@ -54,6 +54,14 @@ class DTypeHelper {
       const std::vector<at::IValue>& stack,
       c10::optional<const at::IValue*> output,
       bool safe_cast);
+  static c10::ScalarType get_compute_dtype(
+      const std::vector<at::IValue>& stack,
+      c10::optional<const at::IValue*> output,
+      bool promote_to_common_type,
+      bool promote_int_to_long,
+      bool safe_cast,
+      bool double_support = true,
+      bool int64_support = true);
 
  private:
   bool promote_common_input_type_ = false;

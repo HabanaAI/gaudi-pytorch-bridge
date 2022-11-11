@@ -1429,8 +1429,6 @@ class PromoteIntToFloat : public LazyOp<T> {
           out_shapes_fn = nullptr);
 
  private:
-  habana_helpers::DTypeHelper dtype_helper_;
-
   T get_result_overrideable() override;
 };
 

@@ -73,15 +73,13 @@ template <>
 PromoteIntToFloat<at::Tensor>::PromoteIntToFloat(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    bool is_outfn,
-    bool safe_cast_check,
+    bool /*is_outfn*/,
+    bool /*safe_cast_check*/,
     const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
-    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  HABANA_ASSERT(!is_outfn, "Unexpected output op variant");
-  dtype_helper_ =
-      habana_helpers::DTypeHelper::binary_op_with_int_to_float_promotion(
-          inputs, c10::nullopt, safe_cast_check);
+    : LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  set_scalar_type(habana_helpers::DTypeHelper::get_compute_dtype(
+      inputs, c10::nullopt, true, true, false));
 }
 
 template <>
@@ -89,35 +87,26 @@ PromoteIntToFloat<at::Tensor&>::PromoteIntToFloat(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     bool is_outfn,
-    bool safe_cast_check,
+    bool /*safe_cast_check*/,
     const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
         out_shapes_fn)
     : LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
-  // Perform type promotion and validate if promoted type can be casted to
+  // Perform type promotion and validate if promoted type can cast to
   // output data type.
-  auto output = c10::make_optional<const at::IValue*>(
+  auto&& output = c10::make_optional<const at::IValue*>(
       is_outfn ? &inputs.back() : &inputs.front());
-  dtype_helper_ =
-      habana_helpers::DTypeHelper::binary_op_with_int_to_float_promotion(
-          inputs, output, safe_cast_check);
+  // Exclude out tensor from inputs
+  at::Stack op_inputs = inputs;
+  if (is_outfn) {
+    op_inputs = {inputs.begin(), inputs.end() - 1};
+  }
+  set_scalar_type(habana_helpers::DTypeHelper::get_compute_dtype(
+      op_inputs, output, true, true, true));
 }
 
 template <>
 at::Tensor PromoteIntToFloat<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = LazyOp<at::Tensor>::get_inputs();
-  const auto& self = inputs.at(0).toTensor();
-
-  auto result_type = dtype_helper_.get_result_dtype();
-
-  const auto& outshape = LazyOp<at::Tensor>::get_out_shapes().empty()
-      ? self.sizes()
-      : LazyOp<at::Tensor>::get_out_shapes().at(0);
-
-  return empty_hpu_lazy(
-      outshape,
-      self.options().device(c10::kHPU).dtype(result_type),
-      self.suggest_memory_format(),
-      false);
+  return LazyOp<at::Tensor>::get_result_overrideable();
 }
 
 template <>
