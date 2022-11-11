@@ -945,10 +945,12 @@ void PostLaunch(
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
       !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
     PT_LAZY_EAGER_DEBUG(
-        "[LAZY EAGER MT] retained_tensor_list : ", retained_tensor_list);
+        "[LAZY EAGER MT] retained_tensor_list, size : ",
+        retained_tensor_list.size());
     // TODO: To clear at the right place: retained_tensor_list.clear()
   } else {
-    PT_LAZY_DEBUG("retained_tensor_list : ", retained_tensor_list);
+    PT_LAZY_DEBUG(
+        " Clearing retained_tensor_list, size : ", retained_tensor_list.size());
     retained_tensor_list.clear();
   }
 
