@@ -6267,6 +6267,10 @@ view:
   override_fn: view_hpu_lazy
   acc_thread: true
 
+linear_backward:
+  override_fn: linear_bwd_hpu_lazy
+  acc_thread: true
+
 where.self:
   custom_output_shape: WhereOutputShape
   guid: where_fwd

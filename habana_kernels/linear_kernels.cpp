@@ -1756,7 +1756,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
   auto grad_out = inputs[0].toTensor();
   auto input = inputs[1].toTensor();
   auto weight = inputs[2].toTensor();
-  auto bias = inputs[3].toOptional<Tensor>().value_or(Tensor());
+  auto bias_grad_required = inputs[3].toBool();
   auto device_id = p_context_->device_id_;
 
   // Note: grad_self = matmul_bwd(grad_out, w.T())
@@ -1794,7 +1794,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(std::move(t_op1->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(t_op1->GetOutputs()[0]));
   }
-  if (bias.defined()) { // bias tensor available
+  if (bias_grad_required) { // bias grad required
     auto sumOp = make_operator<SumDimOperator>(
         this->p_context_->device_id_, grad_out.scalar_type());
     std::vector<int64_t> dim_arr_vec;
@@ -1837,6 +1837,4 @@ static auto& LinearKernelsKernelRegistry =
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
         .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator))
         .add("aten::linear", KERNEL_FN_DROP_ARG2(LinearForwardOperator))
-        .add(
-            "hpu::linear_non2d_bwd",
-            KERNEL_FN_DROP_ARG2(LinearBackwardOperator));
+        .add("hpu::linear_bwd", KERNEL_FN_DROP_ARG2(LinearBackwardOperator));

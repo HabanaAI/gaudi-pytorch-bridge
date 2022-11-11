@@ -2830,7 +2830,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
   m.def(
-      "hpu::linear_non2d_bwd(Tensor grad_out, Tensor input, Tensor weight, Tensor? bias) -> (Tensor, Tensor, Tensor)");
+      "hpu::linear_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::identity(Tensor self) -> (Tensor)");
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");

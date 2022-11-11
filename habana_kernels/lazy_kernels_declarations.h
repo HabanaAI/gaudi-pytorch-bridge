@@ -764,4 +764,9 @@ at::Tensor habana_cast_to_fp8_lazy(
     const at::Tensor& input,
     bool stochastic_rounding,
     int seed);
+::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
+    const at::Tensor& self,
+    const at::Tensor& grad_output,
+    const at::Tensor& weight,
+    ::std::array<bool, 3> output_mask);
 } // namespace habana_lazy

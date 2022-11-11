@@ -6976,8 +6976,8 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
       bias_opt.value_or(Tensor()).defined() ? weight.sizes().vec()[0] : 0;
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
-      "hpu::linear_non2d_bwd",
-      {grad_output, input, weight, bias_opt},
+      "hpu::linear_bwd",
+      {grad_output, input, weight, bias_opt.has_value()},
       {},
       {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
   std::vector<at::Tensor> out_v;
@@ -6996,7 +6996,7 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   } else {
     res_vec.emplace_back(Tensor());
   }
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_non2d_bwd, func, res_vec)
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res_vec)
 }
 
 at::Tensor habana_cast_to_fp8_lazy(
@@ -7011,6 +7011,42 @@ at::Tensor habana_cast_to_fp8_lazy(
       {input.sizes().vec()},
       c10::ScalarType::Fp8r152};
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8, k_)
+}
+
+::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& grad_output,
+    const at::Tensor& weight,
+    ::std::array<bool, 3> output_mask) {
+  PT_LAZY_TRACE;
+  PT_OP_TRACE;
+  c10::optional<at::Tensor> bias_opt;
+  auto bias_elem_count = weight.sizes().vec()[0];
+  std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
+      "hpu::linear_bwd",
+      {grad_output, input, weight, output_mask[2]},
+      {},
+      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
+  std::vector<at::Tensor> out_v;
+  auto out = k.get_result();
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  std::vector<at::Tensor> res_vec;
+  res_vec.emplace_back(std::get<0>(out));
+  res_vec.emplace_back(std::get<1>(out));
+  if (output_mask[2]) {
+    res_vec.emplace_back(std::get<02>(out));
+  } else {
+    res_vec.emplace_back(Tensor());
+  }
+  std::tuple<at::Tensor, at::Tensor, at::Tensor> res(
+      res_vec[0], res_vec[1], res_vec[2]);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res)
 }
 
 } // namespace habana_lazy
