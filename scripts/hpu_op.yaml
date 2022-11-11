@@ -3394,8 +3394,8 @@ logical_or.out:
 logical_xor:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi: [BFloat16, Float, Byte, Char]
+    Gaudi2: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   force_default: false
   guid: xor
@@ -3415,8 +3415,8 @@ logical_xor_:
 logical_xor.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi: [BFloat16, Float, Byte, Char]
+    Gaudi2: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   guid: xor
 
