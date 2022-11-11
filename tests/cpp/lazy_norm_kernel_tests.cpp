@@ -131,6 +131,9 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   auto batch_dim = 1;
   auto channel_dim = 320;
   auto depth_dim = 8;
@@ -185,6 +188,7 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
       allclose(result_lazy_hpu, result_cpu, 0.01, 0.01) &&
           allclose(hgrad_in_hpu, grad_in, 0.01, 0.01),
       true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
@@ -546,6 +550,9 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
 }
 
 TEST_F(LazyNormKernelTest, InstanceNorm) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
@@ -571,6 +578,7 @@ TEST_F(LazyNormKernelTest, InstanceNorm) {
   HbLazyTensor::StepMarker({});
 
   EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.001, 0.001), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyNormKernelTest, InstanceNormNormv) {

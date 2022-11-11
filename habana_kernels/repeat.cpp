@@ -47,6 +47,39 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
   return padded_size;
 }
 
+OutputShapeInfRetType RepeatOperatorHT::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto input = inputs[0].toTensor();
+
+  auto repeat_shape_tensor = inputs[2].toTensor();
+  auto repeat_shape = repeat_shape_tensor.sizes().vec();
+  int64_t size = static_cast<int64_t>(repeat_shape.size());
+
+  std::vector<int64_t> rpt_cast;
+  for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
+    rpt_cast.push_back(static_cast<int64_t>(n));
+  });
+  auto out_size = RepeatOperator::compute_output_shape(input, rpt_cast);
+
+  if (size > input.ndimension()) {
+    auto reshapeSize = RepeatOperator::compute_reshape_output(
+        input, IntArrayRef(rpt_cast.data(), rpt_cast.size()));
+    auto reshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, input.scalar_type());
+    torch::jit::Stack temp_stack = {IValue(input), IValue(reshapeSize)};
+    out.call_ComputeOutputShape(reshapeOp, temp_stack);
+  }
+
+  auto out_metadata = TensorMetaData(
+      out_size,
+      HabanaOperator::CalculateStrides(out_size, input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+  out.AddOutputTensor(out_metadata);
+  return out;
+}
+
 void RepeatOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

@@ -40,6 +40,7 @@ struct RepeatOperatorHT : public RepeatOperator {
   RepeatOperatorHT(int device_id, c10::ScalarType scalarType)
       : RepeatOperator(device_id, scalarType) {}
 
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

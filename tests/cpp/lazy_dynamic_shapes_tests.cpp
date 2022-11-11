@@ -1772,10 +1772,14 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
     bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
     EXPECT_EQ(equal, true);
   };
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
   pad_test({0, 14, 0, 0}, {3, 80, 122});
   pad_test({0, 0, 0, 22}, {3, 87, 80});
   pad_test({0, 28, 0, 0}, {3, 80, 106});
   pad_test({0, 0, 0, 20}, {3, 119, 80});
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, DS_PadTest_IDST) {

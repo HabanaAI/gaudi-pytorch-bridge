@@ -1420,6 +1420,39 @@ std::vector<int64_t> InstanceNormOperator::compute_output_shape(
   }
 }
 
+OutputShapeInfRetType InstanceNormOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  const auto input = inputs[0].toTensor();
+  auto is_norm_3d = is_5d_tensor(input.sizes().vec());
+  auto beta = inputs[1].toTensor();
+
+  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
+                                  : c10::MemoryFormat::ChannelsLast;
+  auto mean_var_shape =
+      InstanceNormOperator::compute_output_shape(input, memory_format);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      input.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          input.sizes(), input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format()));
+
+  auto current_mean = TensorMetaData(
+      mean_var_shape,
+      HabanaOperator::CalculateStrides(
+          mean_var_shape, beta.suggest_memory_format()),
+      beta.scalar_type(),
+      beta.suggest_memory_format());
+
+  // current_mean and current_istd
+  out.AddOutputTensor(current_mean);
+  out.AddOutputTensor(current_mean);
+
+  return out;
+}
+
 void InstanceNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
@@ -1527,6 +1560,40 @@ std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
 
     return {input.sizes().vec()[channels_idx]};
   }
+}
+
+OutputShapeInfRetType InstanceNormBackwardOperator::ComputeOutputShape(
+    Stack& in_stack) {
+  auto input = in_stack[0].toTensor();
+  auto mean = in_stack[2].toTensor();
+
+  auto is_norm_3d = is_5d_tensor(input.sizes().vec());
+
+  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
+                                  : c10::MemoryFormat::ChannelsLast;
+  auto grad_beta_gamma_shape =
+      InstanceNormBackwardOperator::compute_output_shape(input, memory_format);
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(TensorMetaData(
+      input.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          input.sizes(), input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format()));
+  // grad_beta, grad_gamma
+  auto grad_beta = TensorMetaData(
+      grad_beta_gamma_shape,
+      HabanaOperator::CalculateStrides(
+          grad_beta_gamma_shape, mean.suggest_memory_format()),
+      mean.scalar_type(),
+      mean.suggest_memory_format());
+
+  // grad_beta, grad_gamma
+  out.AddOutputTensor(grad_beta);
+  out.AddOutputTensor(grad_beta);
+
+  return out;
 }
 
 void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(

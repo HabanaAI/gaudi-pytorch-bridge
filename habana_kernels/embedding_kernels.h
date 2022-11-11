@@ -161,6 +161,7 @@ class PadOperatorHT : public PadOperator {
   PadOperatorHT(int device_id, c10::ScalarType scalarType)
       : PadOperator(device_id, scalarType) {}
 
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

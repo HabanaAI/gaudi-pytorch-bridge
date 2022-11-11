@@ -432,7 +432,7 @@ class InstanceNormOperator : public habana::HabanaOperator {
     kernel_meta_data_.tpc_input_order = {0, 2, 1};
 
   }
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -466,7 +466,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
   }
-
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
