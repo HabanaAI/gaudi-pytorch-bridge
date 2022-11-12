@@ -71,7 +71,7 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
 // black list of aut-gen ops that do not support parallel accumulation
 const std::unordered_set<std::string> AccThreadOpsBlacklist = {};
 
-static std::queue<AccThreadPool::AccTask> cleanup_tasks;
+static std::queue<std::function<void()>> cleanup_tasks;
 static std::mutex cleanup_mutex;
 
 AccThreadPool& GetAccThreadPool() {
@@ -79,7 +79,7 @@ AccThreadPool& GetAccThreadPool() {
   return thread_pool;
 }
 
-void PushCleanupTask(AccThreadPool::AccTask&& task) {
+void PushCleanupTask(std::function<void()>&& task) {
   std::unique_lock<std::mutex> lock(cleanup_mutex);
   cleanup_tasks.emplace(std::move(task));
 }
@@ -87,10 +87,11 @@ void PushCleanupTask(AccThreadPool::AccTask&& task) {
 void ExecuteAllCleanupTasks() {
   PT_LAZY_TRACE
 
-  std::unique_lock<std::mutex> lock(cleanup_mutex);
-  while (!cleanup_tasks.empty()) {
-    cleanup_tasks
-        .pop(); // let's assume for now, that bodies of cleanup funcs are empty
+  std::queue<AccThreadPool::AccTask> empty;
+  {
+    std::unique_lock<std::mutex> lock(cleanup_mutex);
+    // let's assume for now, that bodies of cleanup funcs are empty
+    cleanup_tasks.swap(empty);
   }
 }
 

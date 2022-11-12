@@ -53,7 +53,7 @@ bool AccThreadPool::inThreadPool() const {
   return false;
 }
 
-void AccThreadPool::run(AccTask func) {
+void AccThreadPool::run(std::function<void()>&& func) {
   if (threads_.size() == 0) {
     throw std::runtime_error("No threads to run a task");
   }

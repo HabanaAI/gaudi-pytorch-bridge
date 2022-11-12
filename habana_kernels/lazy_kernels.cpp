@@ -479,9 +479,10 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
   const auto& t =
       empty_hpu_lazy({}, scalar_tensor.options(), c10::nullopt, true);
 
+  t.unsafeGetTensorImpl()->set_wrapped_number(true);
+
   auto func = [scalar_tensor, t]() {
     const auto& context = habana_lazy_executor.getDeviceExecutionContext(0);
-    t.unsafeGetTensorImpl()->set_wrapped_number(true);
 
     bool processed = false;
     const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
@@ -1366,7 +1367,7 @@ const Tensor& as_strided_hpu_lazy_(
                stride = stride.vec(),
                orig_size = std::move(orig_size),
                orig_stride = std::move(orig_stride),
-               storage_offset]() {
+               storage_offset = std::move(storage_offset)]() {
     as_strided_hpu_lazy_inplace_parralel_impl(
         self, size, stride, orig_size, orig_stride, storage_offset);
   };

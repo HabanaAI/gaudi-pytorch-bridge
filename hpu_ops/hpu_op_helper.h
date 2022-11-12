@@ -33,11 +33,11 @@ void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
 template <class T, class InputType>
 void scheduleAccTask(T&& lazy_op, InputType tensor) {
   habana_lazy::GetAccThreadPool().run(
-      [op = std::move(lazy_op), tensor]() mutable {
+      [op = std::move(lazy_op), tensor = std::move(tensor)]() mutable {
         PT_LAZY_TRACE;
         op.call(tensor);
         habana_lazy::PushCleanupTask(
-            [op = std::move(op), self = std::move(tensor)]() {});
+            [op = std::move(op), tensor = std::move(tensor)]() {});
       });
 }
 
@@ -47,7 +47,7 @@ void scheduleAccTask(
     std::vector<at::Tensor> result // pass explicit as copy to keep alive
 ) {
   habana_lazy::GetAccThreadPool().run(
-      [op = std::move(lazy_op), result]() mutable {
+      [op = std::move(lazy_op), result = std::move(result)]() mutable {
         PT_LAZY_TRACE;
         op.call(result);
         habana_lazy::PushCleanupTask(
@@ -62,7 +62,7 @@ void scheduleAccTask(
     std::vector<at::Tensor>&& tensor_list_copy) {
   habana_lazy::GetAccThreadPool().run(
       [op = std::move(lazy_op),
-       result,
+       result = std::move(result),
        tensor_list_copy = std::move(tensor_list_copy)]() mutable {
         PT_LAZY_TRACE;
         op.call(result);
@@ -317,7 +317,7 @@ inline float& get<float>(fint_t& u) {
           lazy_view_fallback_handle(                                          \
               self, out, param_setter, additional_predicate);                 \
           habana_lazy::PushCleanupTask(                                       \
-              [self_in = std::move(self),                                     \
+              [self = std::move(self),                                        \
                out = std::move(out),                                          \
                param_setter = std::move(param_setter),                        \
                additional_predicate = std::move(additional_predicate)]() {}); \
@@ -383,7 +383,7 @@ inline float& get<float>(fint_t& u) {
       std::vector<at::Tensor> tensors_copy;                                   \
       std::copy(                                                              \
           result.begin(), result.end(), std::back_inserter(tensors_copy));    \
-      scheduleAccTask(std::move(lazy_op), tensors_copy);                      \
+      scheduleAccTask(std::move(lazy_op), std::move(tensors_copy));           \
       SYNC_ACC_IF_EAGER_VIA_LAZY;                                             \
       return;                                                                 \
     } else {                                                                  \

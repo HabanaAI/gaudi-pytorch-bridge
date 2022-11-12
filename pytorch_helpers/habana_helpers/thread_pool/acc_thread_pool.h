@@ -28,7 +28,7 @@ class AccThreadPool {
   ~AccThreadPool();
 
   bool inThreadPool() const;
-  void run(AccTask func);
+  void run(std::function<void()>&& func);
   void waitWorkComplete();
 
  private:
