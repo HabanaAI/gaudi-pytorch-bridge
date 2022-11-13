@@ -10,4 +10,3 @@ config:
     ubuntu22.04: 'off'
   dependantComponents:
     - component: deepspeed_fork
-      silentMode: true
