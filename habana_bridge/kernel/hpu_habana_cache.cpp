@@ -674,7 +674,7 @@ void RecipeValueSpec::update_patching_table(
         // auto tensor_idx = tensors.first;
         // auto& ti = tensors.second;
 
-        PT_TEST_DEBUG(
+        PT_DYNAMIC_SHAPE_DEBUG(
             "update_patching_table :: before updating tidx : ",
             tensor_idx,
             ", tinfo: ",
@@ -699,7 +699,7 @@ void RecipeValueSpec::update_patching_table(
         }
         ti->set_shape(new_sizes);
         ti->set_strides(strides);
-        PT_TEST_DEBUG(
+        PT_DYNAMIC_SHAPE_DEBUG(
             "update_patching_table :: after  updating tidx : ",
             tensor_idx,
             ", tinfo: ",
