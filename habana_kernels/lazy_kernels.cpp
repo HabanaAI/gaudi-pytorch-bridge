@@ -5086,7 +5086,7 @@ Tensor sum_dim_IntList_hpu_lazy(
   };
 
   Kernel kernel{vector_of_inputs, result_dtype};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(sum_dim, kernel)
 }
 
 #else
@@ -5154,14 +5154,14 @@ Tensor sum_dim_IntList_hpu_lazy(
   };
 
   Kernel kernel{vector_of_inputs, result_dtype};
-  return kernel.call();
+  RUN_MAYBE_WITH_ACC_THREAD(sum_dim, kernel)
 }
 #endif
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::mean", {self, dtype}, {}, {{}}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(mean, k)
 }
 
 void InitSizesAndStrides(
@@ -6847,36 +6847,6 @@ at::Tensor roi_align_bwd_hpu_lazy(
       {},
       {out_shape});
   RUN_MAYBE_WITH_ACC_THREAD(roi_align_bwd, k)
-}
-
-Tensor silu_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k("aten::silu", {self});
-  return k.call();
-}
-
-Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
-  PT_LAZY_TRACE;
-  CONVERT_0D_TO_1D(self)
-  LazyOp<at::Tensor&> k("aten::silu", {out, self});
-  auto& result = k.call(out);
-  CONVERT_1D_TO_0D(self, result)
-  return result;
-}
-
-Tensor cumsum_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  at::Tensor self_updated_dtype = self;
-  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
-    self_updated_dtype = self.to(dtype.value());
-  }
-
-  LazyOp<at::Tensor> k{"aten::cumsum", {self_updated_dtype, dim, dtype}};
-  return k.call();
 }
 
 at::Tensor& broadcast_hpu_lazy_(

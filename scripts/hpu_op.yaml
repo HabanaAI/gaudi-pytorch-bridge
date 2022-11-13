@@ -3682,6 +3682,7 @@ mean:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: mean_hpu_lazy
+  acc_thread: true
 
 mean.dim:
   force_default: false
@@ -5460,6 +5461,7 @@ sum.dim_IntList:
     Gaudi2: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: sum_dim_IntList_hpu_lazy
+  acc_thread: true
 
 sum.IntList_out:
   dtypes:
