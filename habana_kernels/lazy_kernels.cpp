@@ -924,8 +924,6 @@ static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
 
-  habana_lazy::SyncAccThreadPool();
-
   bool processed = false;
   auto src = src_.contiguous(src_.suggest_memory_format());
   InitSizesAndStrides(
@@ -1263,8 +1261,6 @@ Tensor as_strided_hpu_lazy2(
   auto size_in = asIntArrayRefSlow(size);
   auto stride_in = asIntArrayRefSlow(stride);
 #endif
-  habana_lazy::SyncAccThreadPool();
-
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
 
@@ -2264,10 +2260,6 @@ Tensor embedding_dense_backward_hpu_lazy(
         scale_grad_by_freq);
 
     op.call(out);
-
-    if (habana_lazy::CanUseAccThread()) {
-      habana_lazy::PushCleanupTask([op = std::move(op)]() {});
-    }
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_dense_backward, func, out)
@@ -2820,7 +2812,6 @@ Tensor index_put_frontend_impl_hpu_lazy(
     HbLazyTensor::StepMarker({});
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
-      habana_lazy::SyncAccThreadPool();
       indices_vec_out.insert(
           indices_vec_out.cend(), list.cbegin(), list.cend());
     }
@@ -6039,7 +6030,6 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
 
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   Scalar out;
   // If self is a lazy tensor make sure the execution till the point of self
   // getting flled has finished before we start copying
@@ -6240,7 +6230,6 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
   auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
   // Flipping to match the cpu results
   result = torch::flip(result, {0});
-  habana_lazy::SyncAccThreadPool();
   flush_op(result);
 
   if (return_inverse) {
@@ -6248,7 +6237,6 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     // Index flipping to match the cpu results
     Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
     auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
-    habana_lazy::SyncAccThreadPool();
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
     inverse_result = view_hpu_lazy(inverse_result, self.sizes());
 #else
@@ -6936,7 +6924,6 @@ at::Tensor& recv_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
   LazyOp<at::Tensor&> k(
       "hccl::recv_", {tensor, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
