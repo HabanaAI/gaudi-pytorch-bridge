@@ -13,6 +13,14 @@ def clangFormatValidation = [
         }
     }
 ]
+def checkYAMLLinter = [
+    'YAML file validation': { util ->
+        util.runShellCommandWrapper("""
+            __check_pytorch_dev_py_deps
+            yamllint -c \${PYTORCH_MODULES_ROOT_PATH}/.yamllint \${PYTORCH_MODULES_ROOT_PATH}/scripts/hpu_op.yaml
+        """)
+    }
+]
 def pytorchLightningFork = [
     'Build Pytorch lightning fork': { util ->
         util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
@@ -41,7 +49,7 @@ def preBuildStages = [
     }
 ]
 if(env.GERRIT_PROJECT == 'pytorch-integration' && !env.isPromote) {
-    preBuildStages = clangFormatValidation + preBuildStages
+    preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
 }
 if(env.GERRIT_PROJECT == 'pytorch-lightning-fork' && !env.isPromote) {
     preBuildStages =  preBuildStages + pytorchLightningFork

@@ -1517,7 +1517,7 @@ install_requirements_pytorch()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    install_cmd=($__pip_cmd install ninja wheel)
+    install_cmd=($__pip_cmd install ninja wheel yamllint)
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-${__python_cmd}_base.txt)
     if ! __running_in_venv; then
         cmd+=(--user)

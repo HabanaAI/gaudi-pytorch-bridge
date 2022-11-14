@@ -3543,7 +3543,7 @@ max.dim_max:
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int , Half]
+    Gaudi2: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_max_fwd
   op_backend: MinMaxOut
@@ -3552,9 +3552,9 @@ maximum:
   force_default: false
   broadcast: true
   dtypes:
-     Gaudi: [BFloat16, Float, Int]
-     Gaudi2: [BFloat16, Float, Int, Half]
-     Greco: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   out_ids: [0]
   type_promotion: true
@@ -3563,9 +3563,9 @@ maximum:
 maximum.out:
   broadcast: true
   dtypes:
-     Gaudi: [BFloat16, Float, Int]
-     Gaudi2: [BFloat16, Float, Int, Half]
-     Greco: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   type_promotion: true
   safe_cast_check: true
@@ -3734,7 +3734,7 @@ min:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
-    Greco: [BFloat16, Float, Int,Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_backend: MinMaxNoDim
   out_ids: [0]
@@ -3746,7 +3746,7 @@ min.dim:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
-    Greco: [BFloat16, Float, Int,Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_frontend: LazyMinMax
   op_backend: MinMaxOut
@@ -3758,7 +3758,7 @@ min.dim_min:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
-    Greco: [BFloat16, Float, Int,Half]
+    Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_backend: MinMaxOut
 
@@ -4451,7 +4451,7 @@ randperm.generator_out:
     Gaudi2: [Int]
     Greco: [Int]
   override_fn: randperm_hpu_lazy
-  acc_thread: false # disbale due to SW-108809
+  acc_thread: false  # disbale due to SW-108809
 
 reciprocal:
   force_default: false
@@ -4895,7 +4895,7 @@ scatter.src_out:
       out: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char , Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco:
@@ -4912,10 +4912,10 @@ scatter.value:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
     Greco:
-      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
   op_backend: ScatterOperator
   out_ids: [0]
@@ -4927,10 +4927,10 @@ scatter_.value:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
     Greco:
-      self: [BFloat16, Float, Int, Short, Byte, Char,Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
   op_backend: ScatterOperator
   inplace_ids: [0]
