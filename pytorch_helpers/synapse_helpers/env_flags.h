@@ -390,6 +390,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool, true);
 // Host processing optimizations
 ENV_STRUCT_DEFINITION(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION, bool, true);
 
+// Enable communication group caching
+ENV_STRUCT_DEFINITION(PT_ENABLE_COMM_GROUP_CACHE, bool, false);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

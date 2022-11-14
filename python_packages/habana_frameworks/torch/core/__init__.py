@@ -1,5 +1,6 @@
 import torch
 import warnings
+from os import environ
 from .step_closure import *
 from collections import deque
 from functools import wraps
@@ -124,28 +125,34 @@ init_process_group_orig = torch.distributed.init_process_group
 @wraps(torch.distributed.new_group)
 def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
     global ranks_cache
-    if ranks == None:
-        actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-        ranks_tuple = tuple(list(range(0, actual_world_size)))
+    cache_enable = environ.get('PT_ENABLE_COMM_GROUP_CACHE', "False")
+    if cache_enable.lower() == "true":
+        global ranks_cache
+        if ranks == None:
+            actual_world_size = torch.distributed.distributed_c10d.get_world_size()
+            ranks_tuple = tuple(list(range(0, actual_world_size)))
+        else:
+            ranks_tuple = tuple(sorted(tuple(ranks)))
+        if ranks_tuple in ranks_cache:
+            return ranks_cache[ranks_tuple]
+        else:
+            ranks_cache[ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
+            return ranks_cache[ranks_tuple]
     else:
-        ranks_tuple = tuple(sorted(tuple(ranks)))
-    if ranks_tuple in ranks_cache:
-        return ranks_cache[ranks_tuple]
-
-    ranks_cache[ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
-    return ranks_cache[ranks_tuple]
+        return new_group_orig(ranks, timeout, backend, pg_options)
 
 @wraps(torch.distributed.init_process_group)
 def wrap_init_process_group(backend, init_method=None, timeout=datetime.timedelta(seconds=1800), world_size=- 1, rank=- 1, store=None, group_name='', pg_options=None):
     global ranks_cache
-
     init_process_group_orig(backend, init_method, timeout, world_size, rank, store, group_name, pg_options)
-
-    actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-    ranks_tuple = tuple(list(range(0, actual_world_size)))
-
-    ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
-    return ranks_cache[ranks_tuple]
+    cache_enable = environ.get('PT_ENABLE_COMM_GROUP_CACHE', "False")
+    if cache_enable.lower() == "true":
+        actual_world_size = torch.distributed.distributed_c10d.get_world_size()
+        ranks_tuple = tuple(list(range(0, actual_world_size)))
+        ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
+        return ranks_cache[ranks_tuple]
+    else:
+        return torch.distributed.distributed_c10d._get_default_group()
 
 torch.distributed.new_group = wrap_new_group
 torch.distributed.init_process_group = wrap_init_process_group
