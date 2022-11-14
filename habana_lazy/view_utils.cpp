@@ -423,16 +423,33 @@ void HbLazyTensorViews::add_strided_view_node_parallel_impl(
   params.offset = storage_offset;
   params.optype = kStridedOpDefault;
 
+  auto hb_result = GetHbLazyTensor(out);
+  ir::Value& out_val = hb_result.CurrentIrValue();
+
   if (is_update_view) {
     std::tie(params.sizes, params.strides) =
         AsStridedOperator::compute_output_shape(self, size_in, stride_in);
     updateViewTable(out, params);
+
+    // book keeping to aid addition of strided view outputs for gradient views
+    // of bucket
+    if (params.base.dim() == 1) {
+      HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(
+          hb_result.GetDevice());
+
+      auto shared_ptr = out_val.m_data_ptr.lock();
+
+      if (shared_ptr) {
+        std::lock_guard<std::recursive_mutex> lock(
+            habana_lazy::HbContextArena::Get()->GetMutex());
+        devctx->tensors_data_opt[hb_result.getTensorUniqueId()] =
+            out_val.m_data_ptr;
+      }
+    }
   } else {
-    auto hb_result = GetHbLazyTensor(out);
-    ir::Value& out = hb_result.CurrentIrValue();
     ir::NodePtr node = create_as_strided_node(
         params.base, size_in, stride_in, storage_offset, is_out);
-    out.SetNode(
+    out_val.SetNode(
         node,
         hb_result.GetDevice(),
         hb_result.GetSizes(),
@@ -1034,7 +1051,7 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
   // bucket size.
   std::vector<HbLazyTensor> maybe_view_outputs;
 
-  for (auto& uid_wptr : devctx->tensors_data) {
+  for (auto& uid_wptr : devctx->tensors_data_opt) {
     std::shared_ptr<Data> data = uid_wptr.second.lock();
     if (data != nullptr) {
       auto hl_t = HbLazyTensor(std::move(data));
