@@ -177,16 +177,15 @@ Tensor hpu_wrap::_reshape_alias(
   // We need to revert existing change and use only as_strided once we
   // establish the convergence with below changes.
   // Pytorch change: https://github.com/pytorch/pytorch/pull/61466
-  // Below is the proposed change:
-  // if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-  //  return as_strided_hpu_lazy(self, size, stride, c10::nullopt);
   //
-  //} else {
-  //  return as_strided_hpu(self, size, stride, c10::nullopt);
-  //}
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return view_hpu_lazy(self, size);
+  // Note: as_strided_hpu_lazy is enabled only for lazy eager mode '2'
+  const auto& mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  if (mode == 2) {
+    return as_strided_hpu_lazy(self, size, stride, self.storage_offset());
+  }
 
+  if (mode != 0) {
+    return view_hpu_lazy(self, size);
   } else {
     return view_hpu(self, size);
   }
@@ -229,14 +228,18 @@ Tensor hpu_wrap::_reshape_alias(
   // We need to revert existing change and use only as_strided once we
   // establish the convergence with below changes.
   // Pytorch change: https://github.com/pytorch/pytorch/pull/61466
-  // Below is the proposed change:
-  // if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-  //  return as_strided_hpu_lazy(self, size, stride, c10::nullopt);
   //
-  //} else {
-  //  return as_strided_hpu(self, size, stride, c10::nullopt);
-  //}
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+  // Note: as_strided_hpu_lazy is enabled only for lazy eager mode '2'
+  const auto& mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  if (mode == 2) {
+    return as_strided_hpu_lazy(
+        self,
+        asIntArrayRefSlow(size),
+        asIntArrayRefSlow(stride),
+        self.storage_offset());
+  }
+
+  if (mode != 0) {
     return view_hpu_lazy(self, size);
   } else {
     return view_hpu(self, C10_AS_INTARRAYREF_SLOW(size));
