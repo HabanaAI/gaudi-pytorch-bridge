@@ -98,24 +98,6 @@ class ReluInplaceOperator : public UnaryInplaceOperator {
             "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-// Leaky Relu Operator
-class LeakyReluOperator : public UnaryLikeOperator {
- public:
-  LeakyReluOperator(
-      int device_id,
-      c10::ScalarType scalarType,
-      bool inplace = false)
-      : UnaryLikeOperator(
-            device_id,
-            "leakyrelu_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType),
-            inplace) {}
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 // Elu Operator
 class EluOperator : public UnaryLikeOperator {
  public:
@@ -125,19 +107,6 @@ class EluOperator : public UnaryLikeOperator {
             "elu_fwd_" + habana_helpers::name_suffix_from_type(scalarType),
             inplace) {}
 
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class LeakyReluBackwardOperator : public UnaryBackwardOperator {
- public:
-  LeakyReluBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : UnaryBackwardOperator(
-            device_id,
-            "leakyrelu_bwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

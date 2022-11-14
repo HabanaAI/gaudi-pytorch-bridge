@@ -962,12 +962,6 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
-                "leaky_relu_backward",
-                {{at::ScalarType::Double,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16}},
-            },
-            {
                 "hardsigmoid_backward",
                 {{at::ScalarType::Double,
                   at::ScalarType::Float,
@@ -1454,18 +1448,6 @@ static const std::
                   at::ScalarType::Byte,
                   at::ScalarType::Char,
                   at::ScalarType::Bool}},
-            },
-            {
-                "leaky_relu_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "leaky_relu",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
             },
             {
                 "hardsigmoid_",

@@ -267,153 +267,6 @@ Tensor& relu_hpu_(Tensor& self) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for self = torch.leakyrelu_(self)
- * @param [out] self - output tensor, 1-4D, BF16/FP32
- * @param [in] self - input tensor, 1-4D, BF16/FP32
- * @param [in] negative_slope - scalar of type double
- ************************************************************************/
-Tensor& leaky_relu_hpu_(Tensor& self, const at::Scalar& negative_slope) {
-  PT_KERNEL_BEGIN;
-  bool isSelf_0d = false;
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-    isSelf_0d = true;
-  }
-  at::ScalarType scalar_type = self.scalar_type();
-  size_t device_id = self.device().index();
-  // Create the operator
-  // inplace = true
-  LeakyReluOperator Op(device_id, scalar_type, true);
-  std::string node_type =
-      "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self), IValue(negative_slope)};
-
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, pt_inputs[0]);
-  } else {
-    // Create Graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  if (isSelf_0d) {
-    SET_SIZE_STRIDE_0D(self);
-  }
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for self = torch.leakyrelu(self)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] self - input tensor, 1-4D, BF16/FP32
- * @param [in] negative_slope - scalar of type double
- ************************************************************************/
-Tensor leaky_relu_hpu(const Tensor& self, at::Scalar negative_slope) {
-  PT_KERNEL_BEGIN;
-  bool isSelf_0d = false;
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-    isSelf_0d = true;
-  }
-  at::ScalarType scalar_type = self.scalar_type();
-  size_t device_id = self.device().index();
-  // Create the operator
-  LeakyReluOperator Op(device_id, scalar_type);
-  std::string node_type =
-      "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self), IValue(negative_slope)};
-
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // Create Graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  auto output = out.at(0);
-  if (isSelf_0d) {
-    SET_SIZE_STRIDE_0D(self);
-    SET_SIZE_STRIDE_0D(output);
-  }
-  PT_KERNEL_END;
-  return output;
-}
-
-at::Tensor leaky_relu_backward_hpu(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& negative_slope,
-    bool self_is_result) {
-  PT_KERNEL_BEGIN;
-  bool isSelf_0d = false;
-  bool isGradOutput_0d = false;
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-    isSelf_0d = true;
-  }
-  if (grad_output.dim() == 0) {
-    SET_SIZE_STRIDE_1D(grad_output);
-    isGradOutput_0d = true;
-  }
-  at::ScalarType scalar_type = self.scalar_type();
-  size_t device_id = self.device().index();
-  // Create the operator
-  LeakyReluBackwardOperator Op(device_id, scalar_type);
-  std::string node_type =
-      "leakyrelu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{grad_output, self};
-  std::vector<c10::IValue> stack = {
-      IValue(grad_output),
-      IValue(self),
-      IValue(negative_slope),
-      IValue(self_is_result)};
-
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // Create Graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  auto output = out.at(0);
-  if (isSelf_0d) {
-    SET_SIZE_STRIDE_0D(self);
-    SET_SIZE_STRIDE_0D(output);
-  }
-  if (isGradOutput_0d) {
-    SET_SIZE_STRIDE_0D(grad_output);
-  }
-  PT_KERNEL_END;
-  return output;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for output = torch.sigmoid(input)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] input - input tensor, 1-4D, BF16/FP32
@@ -676,23 +529,6 @@ Tensor& log2_hpu_(Tensor& self) {
   return self;
 }
 
-void LeakyReluOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      std::string("Incorrect size of inputs expected for ") +
-          (m_inplace ? "LeakyRelu_" : "LeakyRelu") + " operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input 1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be scalar");
-
-  ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<float>()};
-
-  UnaryLikeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
-}
-
 void EluOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -714,25 +550,6 @@ void EluOperator::AllocateAndAddSynapseNode(
   ns_EluKernel::Params param{inputs[1].toScalar().toFloat()};
 
   UnaryLikeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
-}
-
-void LeakyReluBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  const unsigned short constExpectedNoOfInput = 4;
-
-  TORCH_CHECK(
-      inputs.size() == constExpectedNoOfInput,
-      std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
-          " inputs for LeakyReluBackward operator but received " +
-          std::to_string(inputs.size()) + " inputs.");
-  ns_LeakyReluKernel::Params param{
-      inputs[2].toScalar().to<float>()}; // 3rd input is the Scalar
-  auto output = habana_helpers::createPTTensor(
-      inputs[0].toTensor(), output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 

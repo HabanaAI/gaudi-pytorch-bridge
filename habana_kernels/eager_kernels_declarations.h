@@ -606,13 +606,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu(
     bool descending);
 at::Tensor relu_hpu(const at::Tensor& input);
 at::Tensor& relu_hpu_(at::Tensor& self);
-at::Tensor& leaky_relu_hpu_(at::Tensor& self, const at::Scalar& negative_slope);
-at::Tensor leaky_relu_hpu(const at::Tensor& self, at::Scalar negative_slope);
-at::Tensor leaky_relu_backward_hpu(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    const at::Scalar& negative_slope,
-    bool self_is_result);
 at::Tensor sigmoid_hpu(const at::Tensor& input);
 at::Tensor sigmoid_backward_hpu(
     const at::Tensor& grad_in,
