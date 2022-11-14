@@ -10,6 +10,7 @@
 #include "generated/amax.h"
 #include "generated/amin.h"
 #include "generated/aminmax.h"
+#include "hpu_op_helper.h"
 #include "reduction_template.h"
 
 namespace habana {
@@ -55,6 +56,17 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
   const auto& dtype_suffix =
       habana_helpers::name_suffix_from_type(op->ScalarType());
 
+  const bool greco_device = is_Greco_device();
+
+  std::vector<NodeAttr::NodeOutputAttr> amin_output_attrs;
+  std::vector<NodeAttr::NodeOutputAttr> amax_output_attrs;
+  amin_output_attrs.push_back({output_shape, self.scalar_type(), final_idx1});
+  amax_output_attrs.push_back({output_shape, self.scalar_type(), final_idx2});
+
+  if (!greco_device) {
+    amin_output_attrs.push_back({output_shape, self.scalar_type()});
+    amax_output_attrs.push_back({output_shape, self.scalar_type()});
+  }
   auto amin = HandleReductionDimAndKeepdim(
       op,
       graph,
@@ -63,8 +75,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       dim,
       keepdim,
       "reduce_min_fwd_" + dtype_suffix,
-      {{output_shape, self.scalar_type(), final_idx1},
-       {output_shape, self.scalar_type()}});
+      amin_output_attrs);
 
   auto amax = HandleReductionDimAndKeepdim(
       op,
@@ -74,8 +85,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       dim,
       keepdim,
       "reduce_max_fwd_" + dtype_suffix,
-      {{output_shape, self.scalar_type(), final_idx2},
-       {output_shape, self.scalar_type()}});
+      amax_output_attrs);
 
   amin_max.emplace_back(std::move(amin[0]));
   amin_max.emplace_back(std::move(amax[0]));

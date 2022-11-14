@@ -59,13 +59,37 @@ std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
+static void DummyOutput(
+    synapse_helpers::graph& graph,
+    PytorchKernelContextPtr& p_context_,
+    bool persistent,
+    bool external) {
+  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+      p_context_->pt_outputs_.at(1), graph, persistent, external));
+}
+
 void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
-
   auto shape = MinMaxOutputShape(stack)[0];
 
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {shape, ScalarType(), 0}, {shape, c10::ScalarType::Int, 1}};
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs_greco{
+      {shape, ScalarType(), 0}};
+
+  const bool greco_device = is_Greco_device();
+
+  if (greco_device) {
+    p_context_->syn_outputs_.pop_back();
+
+    DummyOutput(
+        graph,
+        p_context_,
+        IsOutputPersistent(1),
+        m_output_metadata.at(1).external);
+  }
   auto reduce_max = HandleReductionDimAndKeepdim(
       this,
       graph,
@@ -74,30 +98,11 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim,
       keepdim,
       guid_,
-      {{shape, ScalarType(), 0}, {shape, c10::ScalarType::Int, 1}});
+      greco_device ? output_attrs_greco : output_attrs);
 
+  if (!is_Greco_device()) {
+    syn_out(1) = std::move(reduce_max[1]);
+  }
   syn_out(0) = std::move(reduce_max[0]);
-  syn_out(1) = std::move(reduce_max[1]);
 }
-
-void MinMaxNoDim::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-
-  auto shape = AllAnyOutputShape(stack)[0];
-
-  auto min_max = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      self,
-      {syn_in(0)},
-      {},
-      false,
-      guid_,
-      {{shape, ScalarType(), 0}, {shape, c10::ScalarType::Int}});
-
-  syn_out(0) = std::move(min_max[0]);
-}
-
 } // namespace habana

@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #pragma once
+#include <habana_device/hpu_cached_devices.h>
 #include <perf_lib_layer_params.h>
 #include "op_backend.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
@@ -121,6 +122,12 @@ inline std::string& update_guid_dtype(
 inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
   auto dim = at::maybe_wrap_dim(dim_, max_dims, /*wrap_scalar=*/true);
   return static_cast<int>(max_dims - dim - 1);
+}
+
+inline bool is_Greco_device() {
+  return (
+      synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco);
 }
 
 std::string to_string(const at::IValue& ival);

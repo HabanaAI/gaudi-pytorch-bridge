@@ -251,7 +251,7 @@ static void GuidOutCount(
     const std::vector<int64_t>& retain_ten_shape,
     int& num_tpc_outputs,
     std::vector<NodeAttr::NodeOutputAttr>& output_attr,
-    size_t num_outputs) {
+    size_t num_outputs_required) {
   // TPC guids which returns two outputs
   static std::vector<std::string> multi_output_reduce_ops = {
       "reduce_min_fwd",
@@ -259,12 +259,38 @@ static void GuidOutCount(
       "reduce_Lp_fwd",
       "reduce_log_sum_exp_fwd",
       "reduce_log_sum_fwd"};
-  for (const auto& multi_output_reduce_op : multi_output_reduce_ops) {
-    if (guid.find(multi_output_reduce_op) != std::string::npos) {
+  std::vector<std::string>
+      multi_output_reduce_ops_with_retain_tensor_int_dtype = {
+          "reduce_min_fwd", "reduce_max_fwd"};
+
+  bool retain_tensor_int = false;
+  for (size_t i = 0;
+       i < multi_output_reduce_ops_with_retain_tensor_int_dtype.size();
+       i++) {
+    if (guid.find(multi_output_reduce_ops_with_retain_tensor_int_dtype[i]) !=
+        std::string::npos) {
+      retain_tensor_int = true;
+    }
+  }
+
+  for (size_t i = 0; i < multi_output_reduce_ops.size(); i++) {
+    if (guid.find(multi_output_reduce_ops[i]) != std::string::npos) {
       num_tpc_outputs = 2;
-      // when caller needs only one output but TPC retuns two output
-      if (num_outputs == 1)
-        output_attr.push_back({retain_ten_shape, op->ScalarType()});
+      // when caller needs only one output but TPC returns two output
+      if (num_outputs_required == 1) {
+        // For Greco, TPC returns only one output
+        if (synapse_helpers::HPURegistrar::get_device().type() ==
+            synDeviceType::synDeviceGreco) {
+          num_tpc_outputs = 1;
+          break;
+        } else {
+          // For Gaudi/Gaudi2 , TPC returns 2 outputs
+          output_attr.push_back(
+              {retain_ten_shape,
+               (retain_tensor_int == true) ? c10::ScalarType::Int
+                                           : op->ScalarType()});
+        }
+      }
       break;
     }
   }
@@ -318,7 +344,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   auto mask = std::bitset<64>();
   std::vector<int64_t> orig_shape{self.sizes().vec()};
   int ndims = orig_shape.size();
-  auto num_outputs = output_attr.size();
+  auto num_outputs_required = output_attr.size();
   int num_tpc_outputs = 1;
 
   std::vector<synTensor> tensor_list;
@@ -327,7 +353,8 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   std::vector<synapse_helpers::tensor> tensor_itr;
   std::vector<Reduction_Param> param_list;
 
-  HABANA_ASSERT(num_outputs <= 2, "Number of outputs is greater than 2.");
+  HABANA_ASSERT(
+      num_outputs_required <= 2, "Number of outputs is greater than 2.");
 
   ProcessDim(dim, ndims);
   auto use_flat_input = CheckDims(dim);
@@ -378,7 +405,12 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
          param_list[param_index].size});
   };
   GuidOutCount(
-      op, guid, param_list[0].shape, num_tpc_outputs, output_attr, num_outputs);
+      op,
+      guid,
+      param_list[0].shape,
+      num_tpc_outputs,
+      output_attr,
+      num_outputs_required);
 
   auto reduce_output_attrs = [output_attr, param_list, num_tpc_outputs](
                                  const std::vector<int64_t>& outshape)
@@ -421,7 +453,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
             /*param_index*/ i);
         tensor_list.emplace_back(tensor_itr[0].get());
       }
-      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+      for (unsigned int itr = 0; itr < num_outputs_required; itr++) {
         auto reshape = OpBackend::BuildReshape(
             op,
             graph,
@@ -443,7 +475,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
         /*param_index*/ 0);
     tensor_list.emplace_back(op_out[0].get());
     if (len == 1) {
-      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+      for (unsigned int itr = 0; itr < num_outputs_required; itr++) {
         auto reshape = OpBackend::BuildReshape(
             op,
             graph,
@@ -467,7 +499,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       // when reduction has to be done for all the dimension of input tensor,
       // TPC expects -[1,1,1,1] shape for 4d input but end outshape will be
       // {}-0d so reshape is used in this case as well
-      for (unsigned int itr = 0; itr < num_outputs; itr++) {
+      for (unsigned int itr = 0; itr < num_outputs_required; itr++) {
         auto reshape = OpBackend::BuildReshape(
             op,
             graph,
