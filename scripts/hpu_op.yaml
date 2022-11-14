@@ -484,6 +484,7 @@ _index_put_impl_:
 
 as_strided:
   override_fn: as_strided_hpu_lazy2
+  acc_thread: true
 
 select_backward:
   override_fn: select_backward_hpu_lazy
@@ -1093,6 +1094,7 @@ baddbmm:
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   force_default: false
   override_fn: baddbmm_hpu_lazy
+  acc_thread: true
 
 baddbmm_:
   dtypes:
@@ -1102,6 +1104,7 @@ baddbmm_:
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   force_default: false
   override_fn: baddbmm_hpu_lazy_
+  acc_thread: true
 
 baddbmm.out:
   dtypes:
@@ -1110,6 +1113,7 @@ baddbmm.out:
     Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   override_fn: baddbmm_out_hpu_lazy
+  acc_thread: true
 
 bernoulli:
   force_default: false
