@@ -47,11 +47,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       c10::SymIntArrayRef size,
       c10::SymIntArrayRef stride);
-  //   static at::Tensor as_strided(
-  //       const at::Tensor& self,
-  //       c10::SymIntArrayRef size,
-  //       c10::SymIntArrayRef stride,
-  //       c10::optional<c10::SymInt> storage_offset);
   static at::Tensor& set_(
       at::Tensor& self,
       at::Storage source,
@@ -120,23 +115,12 @@ struct hpu_wrap {
       c10::optional<c10::SymInt> start,
       c10::optional<c10::SymInt> end,
       c10::SymInt step);
-  //   static at::Tensor select_backward(
-  //       const at::Tensor& grad,
-  //       c10::SymIntArrayRef input_sizes,
-  //       int64_t dim,
-  //       int64_t index);
   static at::Tensor& arange_out(
       const at::Scalar& start,
       const at::Scalar& end,
       const at::Scalar& step,
       at::Tensor& output);
   static at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
-  /*static at::Tensor kl_div_backward(
-      const at::Tensor& grad,
-      const at::Tensor& input,
-      const at::Tensor& target,
-      int64_t reduction,
-      bool log_target);*/
   static ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
       const at::Tensor& input,
       double eps);

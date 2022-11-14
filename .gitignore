@@ -3,6 +3,7 @@
 .idea/
 .vscode/*
 data/
+habana_kernels/wrap_kernels_declarations.h
 .pytest_cache/
 __pycache__/
 *.log

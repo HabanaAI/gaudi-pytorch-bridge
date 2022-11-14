@@ -47,11 +47,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef size,
       at::IntArrayRef stride);
-  //  static at::Tensor as_strided(
-  //      const at::Tensor& self,
-  //      at::IntArrayRef size,
-  //      at::IntArrayRef stride,
-  //      c10::optional<int64_t> storage_offset);
   static at::Tensor& set_(
       at::Tensor& self,
       at::Storage source,
@@ -114,11 +109,6 @@ struct hpu_wrap {
       c10::optional<int64_t> start,
       c10::optional<int64_t> end,
       int64_t step);
-  //  static at::Tensor select_backward(
-  //      const at::Tensor& grad,
-  //      at::IntArrayRef input_sizes,
-  //      int64_t dim,
-  //     int64_t index);
   static at::Tensor& arange_out(
       const at::Scalar& start,
       const at::Scalar& end,
