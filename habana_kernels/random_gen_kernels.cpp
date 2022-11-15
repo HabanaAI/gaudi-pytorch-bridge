@@ -722,6 +722,28 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+OutputShapeInfRetType DropoutOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+
+  OutputShapeInfRetType out;
+  // output
+  out.AddOutputTensor(habana::TensorMetaData(
+      self.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          self.sizes().vec(), self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  // output_mask
+  out.AddOutputTensor(habana::TensorMetaData(
+      self.sizes().vec(),
+      HabanaOperator::CalculateStrides(
+          self.sizes().vec(), self.suggest_memory_format()),
+      c10::ScalarType::Char,
+      self.suggest_memory_format()));
+  return out;
+}
+
 void DropoutOperator::SetPTOutputs(
     const torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {

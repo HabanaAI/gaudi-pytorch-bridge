@@ -527,6 +527,9 @@ class UniqueOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 

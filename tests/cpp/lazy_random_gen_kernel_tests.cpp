@@ -16,6 +16,8 @@ using namespace at;
 class LazyRandomGenKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   auto in = torch::randn({2, 3, 4}, torch::dtype(torch::kFloat));
   constexpr double p = 0.3;
   auto h_in = in.to(torch::kHPU);
@@ -34,6 +36,7 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
 
   EXPECT_TRUE(torch::equal(lazy1_result1, lazy2_result1));
   EXPECT_TRUE(torch::equal(lazy1_result2, lazy2_result2));
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyRandomGenKernelTest, FusedDropoutTest_different_seed) {

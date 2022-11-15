@@ -1112,6 +1112,8 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, UniqueOp) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   c10::ScalarType dtype{torch::kInt32};
 
   std::vector<int> in_sizes{4, 6, 8};
@@ -1133,6 +1135,7 @@ TEST_F(LazyDynamicShapesTest, UniqueOp) {
     auto out_cpuv = std::get<0>(out_cpu.view(-1).sort());
     auto out_hpuv = std::get<0>(h_cout.view(-1).sort());
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {

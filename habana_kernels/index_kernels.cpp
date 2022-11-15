@@ -3572,6 +3572,29 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  int elements = self.numel();
+  std::vector<int64_t> output_shape{elements};
+  std::vector<int64_t> valid_shape{1};
+
+  OutputShapeInfRetType out;
+  out.AddOutputTensor(habana::TensorMetaData(
+      output_shape,
+      HabanaOperator::CalculateStrides(
+          output_shape, self.suggest_memory_format()),
+      self.scalar_type(),
+      self.suggest_memory_format()));
+  out.AddOutputTensor(habana::TensorMetaData(
+      valid_shape,
+      HabanaOperator::CalculateStrides(
+          valid_shape, self.suggest_memory_format()),
+      c10::ScalarType::Int,
+      self.suggest_memory_format()));
+  return out;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.unique operator
  * @param self - Input tensor

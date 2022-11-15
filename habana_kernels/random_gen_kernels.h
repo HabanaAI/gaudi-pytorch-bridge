@@ -106,6 +106,9 @@ class DropoutOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
+  virtual OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override;
+
   static at::Tensor GenerateAndCopySeedToHPU(
       torch::jit::Stack& inputs,
       bool is_persistent);
