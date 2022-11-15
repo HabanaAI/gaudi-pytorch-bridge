@@ -4829,10 +4829,7 @@ Tensor& randperm_hpu_lazy(
     }
   };
 
-  // disbale due to SW-108809
-  // RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(randperm_out, func, output)
-  func();
-  return output;
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(randperm_out, func, output)
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
