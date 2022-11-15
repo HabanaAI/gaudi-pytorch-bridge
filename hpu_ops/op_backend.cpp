@@ -563,9 +563,11 @@ synapse_helpers::tensor OpBackend::BuildCast(
     const at::ScalarType& from,
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
-  const auto& guid = "cast_" + habana_helpers::name_suffix_from_type(from) +
-      "_to_" + habana_helpers::name_suffix_from_type(to);
-  HABANA_ASSERT(from != to, guid, " cannot be used.");
+  const auto& from_str = habana_helpers::name_suffix_from_type(from);
+  const auto& to_str = habana_helpers::name_suffix_from_type(to);
+  const auto& guid = "cast_" + from_str + "_to_" + to_str;
+  HABANA_ASSERT(
+      from_str != to_str, guid, " cannot be used, from=", from, " to=", to);
 
   // We want either 1 or 0 as results and not the entire i8 range as a bool
   // output.
