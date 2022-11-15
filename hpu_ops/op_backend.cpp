@@ -233,18 +233,18 @@ void OpBackend::HandleTypePromotion(
     return;
   }
 
-  c10::optional<const at::IValue*> output = c10::nullopt;
-  if (IsOutputAvailable()) {
-    output = c10::make_optional<const at::IValue*>(
-        IsInplace() ? &stack.front() : &stack.back());
-  }
-
   at::Stack op_inputs = stack;
   if (m_is_outfn) {
     op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
   }
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
-      op_inputs, output, true, m_promote_int_to_float, false, false, false);
+      op_inputs,
+      c10::nullopt,
+      true,
+      m_promote_int_to_float,
+      false,
+      false,
+      false);
 
   auto skipScalarCastNeeded = [&](size_t i) -> bool {
     // Scalars (which are not converted to tensors - index not found in

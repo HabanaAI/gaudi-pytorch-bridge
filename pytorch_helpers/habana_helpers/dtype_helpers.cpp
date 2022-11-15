@@ -243,7 +243,7 @@ DTypeHelper DTypeHelper::binary_op_with_int_to_float_promotion(
 
 c10::ScalarType DTypeHelper::get_compute_dtype(
     const std::vector<at::IValue>& stack,
-    c10::optional<const at::IValue*> output,
+    c10::optional<at::Tensor> opt_output,
     bool promote_to_common_type,
     bool promote_int_to_float,
     bool safe_cast,
@@ -264,8 +264,10 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
       .set_promote_int_to_float(promote_int_to_float)
       .set_safe_cast_to_output(safe_cast);
 
-  if (output.has_value()) {
-    dtype_helper.add_output(output.value());
+  at::IValue output;
+  if (opt_output.has_value()) {
+    output = *opt_output;
+    dtype_helper.add_output(&output);
   }
 
   dtype_helper.build();

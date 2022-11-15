@@ -4699,6 +4699,7 @@ pow.Scalar:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float]
   force_default: false
+  op_frontend: PowScalar
   guid: pow_fwd
   out_ids: [1]
   scalar_ids: [0]
@@ -4999,6 +5000,7 @@ remainder.Scalar_Tensor:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
+  op_frontend: RemainderScalarTensor
   op_backend: RemainderOp
   out_ids: [1]
   scalar_ids: [0]

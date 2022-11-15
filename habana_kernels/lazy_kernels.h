@@ -1046,6 +1046,10 @@ class LazyOp {
     return m_symbol;
   }
 
+  void set_scalar_type(const c10::ScalarType scalar_type) {
+    m_scalar_type = scalar_type;
+  }
+
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isDevice() || input.isIntList() ||
@@ -1230,10 +1234,6 @@ class LazyOp {
     std::terminate();
   }
 
-  void set_scalar_type(const c10::ScalarType scalar_type) {
-    m_scalar_type = scalar_type;
-  }
-
   inline bool is_optimized_lazy_eager_supported(
       bool is_view,
       bool is_lazy_view_present) {
@@ -1411,38 +1411,6 @@ class LazyOp {
     }
   }
 } __attribute__((aligned(64)));
-
-template <typename T>
-class LazyOpWithTypePromotion : public LazyOp<T> {
- public:
-  explicit LazyOpWithTypePromotion(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      bool is_outfn,
-      bool safe_cast_check_,
-      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
-          out_shapes_fn = nullptr);
-
- private:
-  habana_helpers::DTypeHelper dtype_helper_;
-
-  T get_result_overrideable() override;
-};
-
-template <typename T>
-class PromoteIntToFloat : public LazyOp<T> {
- public:
-  explicit PromoteIntToFloat(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      bool is_outfn,
-      bool safe_cast_check_,
-      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
-          out_shapes_fn = nullptr);
-
- private:
-  T get_result_overrideable() override;
-};
 
 template <typename ReturnType>
 class LazyBinaryOp : public LazyOp<ReturnType> {

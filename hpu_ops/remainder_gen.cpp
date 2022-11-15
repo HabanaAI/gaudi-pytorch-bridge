@@ -14,6 +14,18 @@
 
 namespace habana {
 
+template <>
+RemainderScalarTensor<at::Tensor>::RemainderScalarTensor(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, 1) {}
+
+template <>
+at::Tensor RemainderScalarTensor<at::Tensor>::get_result_overrideable() {
+  return LazyOp::get_result_overrideable();
+}
+
 void RemainderOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

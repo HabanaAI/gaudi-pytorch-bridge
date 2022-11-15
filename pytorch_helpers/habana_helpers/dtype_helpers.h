@@ -56,7 +56,7 @@ class DTypeHelper {
       bool safe_cast);
   static c10::ScalarType get_compute_dtype(
       const std::vector<at::IValue>& stack,
-      c10::optional<const at::IValue*> output,
+      c10::optional<at::Tensor> opt_output,
       bool promote_to_common_type,
       bool promote_int_to_long,
       bool safe_cast,
