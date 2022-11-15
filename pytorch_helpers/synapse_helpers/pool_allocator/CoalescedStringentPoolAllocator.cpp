@@ -692,6 +692,14 @@ void* CoalescedStringentPooling::pool_alloc_chunk(
 
 void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   void* ptr = nullptr;
+  PT_DEVMEM_DEBUG("CS_POOL:: alloc_chunk requested size::", size);
+
+  if (size % DEFAULT_ALIGNMENT != 0) {
+    PT_DEVMEM_FATAL(
+        "CS_POOL:: alloc_chunk requested size not aligned to default size::",
+        size);
+  }
+
   if (small_allocs_)
     ptr = small_allocs_->Allocate(size);
   if (ptr != nullptr) {

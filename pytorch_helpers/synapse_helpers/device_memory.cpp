@@ -480,11 +480,16 @@ Lock::~Lock() {
 struct HandleMover {
   HandleMover() = default;
 
-  HandleMover(mem_handle::id_t handle, void* source_pointer, size_t size)
+  HandleMover(
+      mem_handle::id_t handle,
+      void* source_pointer,
+      size_t size,
+      size_t actual_size)
       : handle_(handle),
         source_pointer_(source_pointer),
         destination_pointer_(nullptr),
-        size_(size) {}
+        size_(size),
+        actual_size_(actual_size) {}
 
   void* GetSource() const {
     return source_pointer_;
@@ -502,6 +507,10 @@ struct HandleMover {
     return size_;
   }
 
+  size_t ActualSize() const {
+    return actual_size_;
+  }
+
   bool operator<(const HandleMover& rhs) const {
     return source_pointer_ < rhs.source_pointer_;
   }
@@ -517,7 +526,7 @@ struct HandleMover {
       pool_allocator::SubAllocator& allocator,
       HandlesMap& h2pMap,
       bool workspace) {
-    destination_pointer_ = allocator.pool_alloc_chunk(size_, workspace);
+    destination_pointer_ = allocator.pool_alloc_chunk(actual_size_, workspace);
     if (destination_pointer_ == nullptr) {
       PT_DEVMEM_FATAL("destination_pointer_ allocation failed");
     }
@@ -529,6 +538,7 @@ struct HandleMover {
   void* source_pointer_;
   void* destination_pointer_;
   size_t size_;
+  size_t actual_size_;
 };
 } // namespace defragment
 } // namespace
@@ -652,7 +662,7 @@ bool device_memory::defragment_memory(
       continue;
     }
 
-    movers.emplace_back(it->handle_, it->ptr_, it->size_);
+    movers.emplace_back(it->handle_, it->ptr_, it->size_, it->actual_size_);
   }
 
   if (movers.empty()) {
@@ -674,8 +684,8 @@ bool device_memory::defragment_memory(
       auto destination = mover.GetDestination();
       if (previous_destination < destination) {
         if (static_cast<void*>(
-                static_cast<int8_t*>(previous_destination) + mover.Size()) >
-            destination) {
+                static_cast<int8_t*>(previous_destination) +
+                mover.ActualSize()) > destination) {
           PT_DEVMEM_FATAL(
               "Defragmentation: New and old resource memory location is overlapping. Cannot move allocation");
         }
@@ -683,7 +693,7 @@ bool device_memory::defragment_memory(
       uint64_t src_base_addr = reinterpret_cast<uint64_t>(mover.GetSource());
       uint64_t dst_base_addr =
           reinterpret_cast<uint64_t>(mover.GetDestination());
-      size_t size = mover.Size();
+      size_t size = mover.ActualSize();
       uint64_t src_end_addr = src_base_addr + size;
       uint64_t dst_end_addr = dst_base_addr + size;
       if (!(dst_end_addr <= src_base_addr || src_end_addr <= dst_base_addr)) {
@@ -709,7 +719,7 @@ bool device_memory::defragment_memory(
       }
 
       ++total_moved_resources;
-      total_moved_memory += mover.Size();
+      total_moved_memory += mover.ActualSize();
     }
     MoveData(device_, move_address);
     PT_DEVMEM_DEBUG(
