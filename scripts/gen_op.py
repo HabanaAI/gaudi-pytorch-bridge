@@ -325,7 +325,7 @@ class Op(object):
         return self.op.get("promote_int_to_float", False)
 
     def safe_cast_check(self):
-        return self.op.get("safe_cast_check", False)
+        return self.op.get("safe_cast_check", None)
 
     def custom_schema(self):
         args = self.op.get("schema_args", None)
@@ -650,11 +650,14 @@ def frontend(
     op_frontend_class = ctxop.get_op_frontend_class()
     code = ""
 
+    # TODO safe cast check should be done for out variants without type promotion too
+    # https://jira.habana-labs.com/browse/SW-111202
     if ctxop.supports_type_promotion() or ctxop.promote_int_to_float():
         # Exclude out tensor
         in_params = param_vars[:-1] if is_out_fn(fname) else param_vars[:]
 
         # HACK: alpha for add/sub does not contribute to type promotion
+        # https://jira.habana-labs.com/browse/SW-111203
         skip_alpha_ops = ("add", "add_", "sub", "sub_", "rsub", "rsub_")
         if skip_alpha_ops.count(opname):
             in_params.remove("alpha")
@@ -662,24 +665,16 @@ def frontend(
         promote_to_common_type = (
             ctxop.supports_type_promotion() or ctxop.promote_int_to_float()
         )
-        safe_cast = False
-        # Compare produces bool output, so safe cast is not required
-        compare_ops = (
-            "ge",
-            "ge_",
-            "gt",
-            "gt_",
-            "le",
-            "le_",
-            "lt",
-            "lt_",
-            "ne",
-            "ne_",
-            "eq",
-            "eq_",
-        )
-        if is_inplace_or_out_op(fname) and not compare_ops.count(opname):
-            safe_cast = True
+
+        safe_cast_check = is_inplace_or_out_op(fname)
+        if ctxop.safe_cast_check() is not None:
+            assert is_inplace_or_out_op(
+                fname
+            ), f"safe_cast_check cannot check for non inplace/non out variant, op={fname}"
+            assert (
+                ctxop.safe_cast_check() == False
+            ), f"safe_cast_check is true by default for inplace/out variant, op={fname}"
+            safe_cast_check = ctxop.safe_cast_check()
 
         code += (
             f"  auto&& compute_type = "
@@ -687,7 +682,7 @@ def frontend(
             f'{lazyop_call_args if lazyop_call_args else "c10::nullopt"}, '
             f"{str(promote_to_common_type).lower()}/*promote_to_common_type*/, "
             f"{str(ctxop.promote_int_to_float()).lower()}/*promote_int_to_float*/, "
-            f"{str(safe_cast).lower()}/*safe_cast*/);\n\n"
+            f"{str(safe_cast_check).lower()}/*safe_cast*/);\n\n"
         )
 
     dtypes = ctxop.get_dtypes()
