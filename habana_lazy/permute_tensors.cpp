@@ -182,6 +182,11 @@ void PermuteTensors::setMemoryPermutation(
   HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
   auto hb_data = hb_tensor.GetHbLazyTensorData().value();
   auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Setting permute on HbInternal address : ",
+      hb_impl,
+      " storage address : ",
+      hb_impl->data());
   hb_impl->SetMemoryPermutation(permutation);
 }
 
@@ -252,6 +257,15 @@ bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
         "shouldPermuteWeight already permuted to: ",
         VecToString(required_permute));
   }
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] shouldPermuteWeight tensor: ",
+      weight_hb_tensor.getTensorUniqueId(),
+      " is_permuted : ",
+      is_permuted,
+      " curr perm : ",
+      VecToString(current_permutaion),
+      " req perm : ",
+      VecToString(required_permute));
   return is_input && !is_permuted;
 }
 

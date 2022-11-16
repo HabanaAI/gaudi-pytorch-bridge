@@ -28,6 +28,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "synapse_common_types.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/time_slot.h"
@@ -274,7 +275,9 @@ struct RecipeValueSpec {
       std::unordered_map<uint64_t, synTensor>&
           synapse_tensor_id_to_tensor_handle,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
-      std::vector<int64_t> new_shape);
+      std::vector<int64_t> new_shape,
+      std::vector<uint8_t> permute_or_empty = {});
+  void update_output_permutation();
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
@@ -403,6 +406,8 @@ struct RecipeValueSpec {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
+  std::vector<uint64_t> output_tensor_ids{};
+  std::vector<bool> output_tensor_alllow_permutations{};
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;

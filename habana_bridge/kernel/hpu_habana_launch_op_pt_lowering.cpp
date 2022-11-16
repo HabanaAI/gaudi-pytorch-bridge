@@ -205,6 +205,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
           PT_BRIDGE_DEBUG(
               "Updating the PT tensor HbInternalTensorImpl address: ",
               impl,
+              " storage address : ",
+              impl->data(),
               " with permutation: ",
               VecToString(permute_or_empty),
               " old permutation was: ",

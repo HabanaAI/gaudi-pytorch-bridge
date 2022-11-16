@@ -632,16 +632,133 @@ inline void RecipeValueSpec::update_new_tensor(
     size_t ridx,
     std::unordered_map<uint64_t, synTensor>& synapse_tensor_id_to_tensor_handle,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
-    std::vector<int64_t> new_shape) {
+    std::vector<int64_t> new_shape,
+    std::vector<uint8_t> permute_or_empty) {
   auto tinfo = dtensorinfos->at(ridx);
   size_t tensorId = tinfo->get_tensor_id();
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] ridx : ", ridx, " tensor id : ", tensorId);
   synTensor new_handle = get_syn_new_handle(
       synapse_tensor_id_to_tensor_handle, synapse_orig_to_new_handle, tensorId);
+
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] new handle : ",
+      new_handle,
+      " is_output : ",
+      tinfo->is_output(),
+      " is_duplicate : ",
+      tinfo->is_duplicate(),
+      " is_ZST : ",
+      tinfo->is_ZST(),
+      " allow perm : ",
+      tinfo->get_allow_permutation(),
+      " output idx : ",
+      tinfo->get_output_index(),
+      " perm : ",
+      VecToString(permute_or_empty));
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    if (tinfo->is_output() && !tinfo->is_duplicate() && !tinfo->is_ZST()) {
+      if (tinfo->get_allow_permutation()) {
+        synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
+        tinfo->setHbInternalPermute(permute_or_empty);
+      }
+      output_tensor_ids.at(tinfo->get_output_index()) = tensorId;
+      output_tensor_alllow_permutations.at(tinfo->get_output_index()) =
+          tinfo->get_allow_permutation();
+    } else if (!tinfo->is_output()) {
+      if (permute_or_empty.size() > 0) {
+        synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
+        tinfo->setHbInternalPermute(permute_or_empty);
+      }
+    }
+  }
+
   if (new_handle) {
     update_tensor_shape(synapse_graph_ptr, new_handle, tinfo, new_shape);
   }
+}
+
+void RecipeValueSpec::update_output_permutation() {
+  PT_BRIDGE_BEGIN;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    std::vector<synRetrievedLaunchTensorInfoExt> tensor_info_vec;
+
+    std::vector<IValPtrShared> outputs = {};
+    for (size_t i = 0; i < output_tensor_ids.size(); i++) {
+      if (output_tensor_alllow_permutations.at(i)) {
+        synRetrievedLaunchTensorInfoExt record = {};
+        record.tensorId = output_tensor_ids.at(i);
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] preparing to query tensor: ",
+            record.tensorId);
+        tensor_info_vec.push_back(record);
+        outputs.emplace_back(aten_outputs->at(i));
+      }
+    }
+
+    // querying synapse output tensors permutations:
+    auto&& error_optional{synapse_helpers::graph::query_recipe_tensor_info(
+        recipe, tensor_info_vec)};
+    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+      auto& error = error_optional.value();
+      PT_BRIDGE_FATAL(
+          "syn query recipe tensor info encountered : ",
+          error.error,
+          " ",
+          error.status);
+      TORCH_CHECK(
+          false,
+          std::string("syn query recipe tensor info failed ") +
+              std::string(error.error) + std::string(" ") +
+              std::to_string(error.status));
+    }
+
+    size_t count = 0;
+    for (auto& info : tensor_info_vec) {
+      if (info.tensorType == TENSOR_TYPE_INVALID) {
+        PT_BRIDGE_WARN(
+            "Synapse returned a TENSOR_TYPE_INVALID when querying the persistent tensors for permutations, in tensor: ",
+            info.tensorId,
+            " . It means that the synapse tensor is not in the recipe, probably not attached to a node");
+        count++;
+        continue;
+      }
+      std::vector<uint8_t> permute_vec(
+          info.tensorPermutation, info.tensorPermutation + info.tensorDims);
+      // if this is an identity permutation we set empty permute
+      bool is_identity_perm = true;
+      for (size_t i = 0; i < permute_vec.size() - 1; ++i) {
+        if (permute_vec[i] + 1 != permute_vec[i + 1]) {
+          PT_LAZY_EAGER_DEBUG(
+              "[LAZY EAGER SHAPE AGNOSTIC] Detected a real permutation (not identity)");
+          is_identity_perm = false;
+          break;
+        }
+      }
+      auto permute_or_empty =
+          is_identity_perm ? std::vector<uint8_t>() : permute_vec;
+      auto hb_internal_tensor =
+          habana_lazy::GetHbInternalTensorImpl(outputs.at(count)->toTensor());
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] Synapse returned persistent tensorId=",
+          info.tensorId,
+          " HbInternal address: : ",
+          hb_internal_tensor,
+          " HbInternal storage address: : ",
+          hb_internal_tensor->data(),
+          "; info.tensorPermutation = {",
+          VecToString(permute_vec),
+          "}\n");
+      hb_internal_tensor->SetMemoryPermutation(permute_or_empty);
+      count++;
+    }
+  }
+
+  PT_BRIDGE_END;
 }
 
 void RecipeValueSpec::update_patching_table(
@@ -784,6 +901,8 @@ void RecipeValueSpec::update_patching_table(
       PT_BRIDGE_DEBUG(
           "Cache input HbInternal address: ",
           impl,
+          " storage address : ",
+          impl->data(),
           " permute: ",
           VecToString(impl->GetMemoryPermutation()));
       bool is_shape_tensor = impl && impl->isShapeTensor();
@@ -797,7 +916,8 @@ void RecipeValueSpec::update_patching_table(
               ridx,
               synapse_tensor_id_to_tensor_handle,
               synapse_orig_to_new_handle,
-              input.toTensor().sizes().vec());
+              input.toTensor().sizes().vec(),
+              impl->GetMemoryPermutation());
           dtinfos_patched_count++;
         }
       } else {
@@ -809,13 +929,22 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(t);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
+        auto impl = habana_lazy::GetHbInternalTensorImpl(t);
+        PT_BRIDGE_DEBUG(
+            "Cache input HbInternal address: ",
+            impl,
+            " storage address : ",
+            impl->data(),
+            " permute: ",
+            VecToString(impl->GetMemoryPermutation()));
         if (enable_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
               synapse_tensor_id_to_tensor_handle,
               synapse_orig_to_new_handle,
-              t.sizes().vec());
+              t.sizes().vec(),
+              impl->GetMemoryPermutation());
           dtinfos_patched_count++;
         }
         ridx++;
@@ -976,6 +1105,8 @@ void RecipeValueSpec::update_patching_table(
 
   // Patch outputs
   if (enable_shape_agnostic_graph) {
+    output_tensor_ids = std::vector<uint64_t>(aten_output_num);
+    output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
     TORCH_CHECK(
         aten_output_num == output_shapes.size(),
         "number of output shapes for patching ",
@@ -1010,6 +1141,16 @@ void RecipeValueSpec::update_patching_table(
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto tshape{ti.get_shape()};
     auto pt_output = create_empty_tensor(ti);
+    if (enable_shape_agnostic_graph) {
+      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_output);
+      PT_BRIDGE_DEBUG(
+          "output HbInternal address: ",
+          impl,
+          " storage address : ",
+          impl->data(),
+          " permute: ",
+          VecToString(impl->GetMemoryPermutation()));
+    }
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache hit :: Creating new output with shape : ",
         pt_output.sizes());
@@ -1169,6 +1310,12 @@ void RecipeValueSpec::update_patching_table(
         dtinfos_patched_count,
         ", mismatch with num_tinfos : ",
         num_tinfos);
+
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] output_tensor_ids size : ",
+        output_tensor_ids.size(),
+        " output_tensor_alllow_permutations size : ",
+        output_tensor_alllow_permutations.size());
   }
   PT_BRIDGE_END;
 }

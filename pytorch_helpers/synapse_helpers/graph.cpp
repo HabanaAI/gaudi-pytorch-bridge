@@ -188,6 +188,23 @@ synapse_error_o graph::setTensorGeometry(
   return {};
 }
 
+synapse_error_o graph::setTensorPermutation(
+    synTensor tensor_handle,
+    std::vector<uint8_t>& permute_or_empty) {
+  PT_SYNHELPER_BEGIN;
+  synStatus status = synSuccess;
+  synTensorPermutation perm = {};
+  perm.dims = permute_or_empty.size();
+  for (size_t i = 0; i < perm.dims; i++) {
+    perm.permutation[i] = permute_or_empty[i];
+  }
+
+  status = synTensorSetPermutation(tensor_handle, &perm);
+  SYNAPSE_SUCCESS_CHECK("Tensor Set Permutation failed.", status)
+  PT_SYNHELPER_END;
+  return {};
+}
+
 graph::graph(graph&& other) noexcept
     : device_{other.device_},
       name_{other.name_},

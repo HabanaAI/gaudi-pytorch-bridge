@@ -784,6 +784,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
               name,
               " id: ",
               tensor_id,
+              " HbInternal address : ",
+              hb_weight_impl,
+              " storage address : ",
+              hb_weight_impl->data(),
               " permutation: ",
               VecToString(permutation));
         }
@@ -832,6 +836,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             name,
             " id: ",
             tensor_id,
+            " HbInternal address : ",
+            hb_weight_impl,
+            " storage address : ",
+            hb_weight_impl->data(),
             " permutation: ",
             VecToString(permutation));
       }
@@ -975,6 +983,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
             name,
             " id: ",
             tensor_id,
+            " HbInternal address : ",
+            hb_weight_impl,
+            " storage address : ",
+            hb_weight_impl->data(),
             " permutation: ",
             VecToString(permutation));
       }

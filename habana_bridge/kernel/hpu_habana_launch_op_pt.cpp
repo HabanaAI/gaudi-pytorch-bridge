@@ -2675,6 +2675,11 @@ void RecipeValueSpec::create_outdup(
           impl->GetMemoryPermutation());
       impl->SetMemoryPermutation(ti.getHbInternalPermute());
     }
+    PT_LAZY_EAGER_DEBUG(
+        " duplicate output HbInternal address : ",
+        impl,
+        " storage address : ",
+        impl->data());
   }
 
   ti.patch(pt_outdup);
@@ -3002,6 +3007,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       if (enable_tensor_dump_) {
         DumpTensors_pre(rv);
       }
+
+      rv.update_output_permutation();
 
       rv.launch(
           hpu_stream,

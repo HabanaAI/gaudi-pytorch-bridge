@@ -58,6 +58,10 @@ class graph {
       synTensor tensor_handle,
       std::vector<int64_t> shape);
 
+  static synapse_error_o setTensorPermutation(
+      synTensor tensor_handle,
+      std::vector<uint8_t>& permute_or_empty);
+
   synapse_error_o add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
