@@ -39,7 +39,7 @@ TEST_F(LazyMiscTest, CloneTest) {
   EXPECT_EQ(allclose(x, y, 0.001, 0.001), true);
 }
 
-TEST_F(LazyMiscTest, CloneIRTest) {
+TEST_F(LazyMiscTest, DISABLED_CloneIRTest) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.relu();
   tensor_in1 = tensor_in1.clone();

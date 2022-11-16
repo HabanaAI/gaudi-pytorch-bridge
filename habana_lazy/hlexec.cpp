@@ -589,8 +589,9 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
   }
 
   {
-    remove_redundant_memcpy(mp_g_);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "remove_redundant_memcpy");
+    // remove_redundant_memcpy(mp_g_);
+    // visualize::DumpOptimizedGraph(mp_g_, m_g_hash_,
+    // "remove_redundant_memcpy");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM() ||
