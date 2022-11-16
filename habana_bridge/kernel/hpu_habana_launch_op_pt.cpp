@@ -3204,7 +3204,7 @@ void HabanaLaunchOpPT::run_pass() {
 
   //
   // Run the compile and execute method to infer the shapes
-  static auto syn_graph =
+  static thread_local auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
   CreateValueToIvalueMapForInputs();

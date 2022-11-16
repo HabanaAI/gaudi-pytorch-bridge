@@ -398,7 +398,7 @@ void HabanaLaunchOpPT::RunHybridSif(
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
 
-  static auto syn_graph =
+  static thread_local auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
 
