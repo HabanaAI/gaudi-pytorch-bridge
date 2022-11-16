@@ -24,8 +24,8 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
   auto mat1 = stack_tensor(stack, idxMat1);
   auto mat2 = stack_tensor(stack, idxMat2);
   TORCH_CHECK(
-      self.dim() == 2 || self.dim() == 1,
-      "addmm: Expected self to be 1-D or 2-D, but got ",
+      self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
+      "addmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
   TORCH_CHECK(
@@ -48,8 +48,8 @@ sizes_vec AddBMMOutshape(const at::Stack& stack) {
   auto batch1 = stack_tensor(stack, idxBatch1);
   auto batch2 = stack_tensor(stack, idxBatch2);
   TORCH_CHECK(
-      self.dim() == 2 || self.dim() == 1,
-      "addbmm: Expected self to be 1-D or 2-D, but got ",
+      self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
+      "addbmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
   TORCH_CHECK(
