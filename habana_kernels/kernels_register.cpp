@@ -563,28 +563,6 @@ Tensor& hpu_wrap::index_add_out(
   }
 }
 
-Tensor& hpu_wrap::masked_scatter_(
-    Tensor& self,
-    const Tensor& mask,
-    const Tensor& source) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "masked_scatter_ :",
-      " self=",
-      to_string(self),
-      " mask=",
-      to_string(mask),
-      " source=",
-      to_string(source));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_scatter_hpu_lazy_(self, mask, source);
-  } else {
-    HABANA_ASSERT(0 && "masked_scatter is not implemented for eager mode");
-    return masked_scatter_hpu_lazy_(self, mask, source);
-  }
-};
-
 Tensor& hpu_wrap::index_fill_(
     Tensor& self,
     int64_t dim,

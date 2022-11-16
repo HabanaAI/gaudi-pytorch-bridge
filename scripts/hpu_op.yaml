@@ -475,10 +475,10 @@ _fused_dropout:
 
 _index_put_impl_:
   dtypes:
-    Gaudi: [BFloat16, Float, Char, Short, Int]
-    Gaudi2: [BFloat16, Float, Half, Char, Short, Int]
-    Gaudi3: [BFloat16, Float, Half, Char, Short, Int]
-    Greco: [BFloat16, Float, Char, Short, Int]
+    Gaudi: [BFloat16, Float, Char, Int]
+    Gaudi2: [BFloat16, Float, Half, Char, Int]
+    Gaudi3: [BFloat16, Float, Half, Char, Int]
+    Greco: [BFloat16, Float, Char, Int]
   fallback_check: [IndexFallbackCheck, indices]
   override_fn: _index_put_impl_hpu_lazy_
 
@@ -3817,6 +3817,13 @@ _masked_scale:
     Greco: [BFloat16, Float, Int, Half]
   op_backend: MaskedScale
   out_ids: [0]
+
+masked_scatter_:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
+  override_fn: masked_scatter_hpu_lazy_
 
 max:
   custom_output_shape: AllAnyOutputShape
