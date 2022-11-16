@@ -165,6 +165,10 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -212,6 +216,10 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
 }
 
 TEST_F(GraphOptimizeTest, BnReluOptTest) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -322,6 +330,10 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
 
 // input(NCHW) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_NCHW) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -347,6 +359,10 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW) {
 
 // input(NCHW) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -434,6 +450,10 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
 
 // input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
 TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto wt = torch::randn(
@@ -637,6 +657,10 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
 
 // input(NCHW) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_cache) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -970,6 +994,10 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
 }
 
 TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto A = torch::randn({16});
   auto B = torch::randn({2, 3, 16, 8});
   auto wt = torch::randn({16, 3, 4, 4});
@@ -990,6 +1018,10 @@ TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {
 }
 
 TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto A = torch::randn({2, 13, 5});
   auto B = torch::randn({2, 3, 16, 8});
   auto wt = torch::randn({16, 3, 4, 4});
@@ -1012,6 +1044,10 @@ TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
 }
 
 TEST_F(GraphOptimizeTest, ConvCatConv) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGreco) {
+    GTEST_SKIP();
+  }
   auto input_tensor =
       torch::arange(90, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 6, 5}); // nchw

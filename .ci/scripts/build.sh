@@ -130,7 +130,7 @@ function pytorch_usage()
         echo -e "  -s,  --specific-test TEST           Run TEST"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi or gaudi2. Default is gaudi"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
@@ -1255,6 +1255,10 @@ run_pytorch_modules_tests()
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
 		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16)
+    		__test_status=$?
+        elif [ "$__dut" == "greco" ]; then
+        echo "Running greco tests"
+		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool*)
     		__test_status=$?
 	fi
     fi
