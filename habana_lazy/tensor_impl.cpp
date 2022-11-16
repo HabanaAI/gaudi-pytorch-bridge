@@ -268,6 +268,7 @@ void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
       impl->set_storage_keep_dtype(storage);
       PT_LAZY_DEBUG("set_storage_keep_dtype called with backend storage.");
     } else {
+      storage_ = std::move(storage);
       PT_LAZY_DEBUG(
           "set_storage_keep_dtype called with backend storage, but impl in NULL");
     }
