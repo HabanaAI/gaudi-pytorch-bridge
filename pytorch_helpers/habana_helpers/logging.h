@@ -160,6 +160,8 @@ class PtLogger {
   void loadMask() {
     module_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
     type_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    if (GET_ENV_FLAG_NEW(TRACE_POINT_ENABLE))
+      type_mask_ |= TypeMask::RUNTIME_PROFILE;
 
     char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
 
