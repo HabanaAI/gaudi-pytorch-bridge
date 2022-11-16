@@ -1201,6 +1201,17 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::gather(
     for (int r = 0; r < numRanks; r++) {
       if (r == getRank()) {
         outputs[r].copy_(inputTensors[0]);
+        std::vector<int> devices;
+        for (auto it = hccl_communicator_.begin();
+             it != hccl_communicator_.end();
+             it++) {
+          devices.push_back(it->first);
+        }
+        std::vector<int> res;
+        std::vector<at::Tensor> outputs;
+        auto deviceCtxts = getDeviceCtxtList(devices);
+        auto comms = getCommList(devices);
+        work = initWork(outputs, res, comms, deviceCtxts);
       } else {
         std::vector<at::Tensor> recvTensor;
         recvTensor.push_back(outputs[r]);

@@ -178,6 +178,25 @@ def hostsync_broadcast(hpu, world_size, dtype):
         _tensor = torch.ones(TENSOR_LEN).to(device)
         torch.distributed.broadcast(_tensor, 0)
 
+# Test: Functional test of synchronous Gather
+def sync_gather_func(hpu, world_size, dtype):
+    _tensor_ref = [i * torch.ones(TENSOR_LEN).to(dtype).to(device) for i in range(world_size)]
+
+    _tensor_list = [torch.ones(TENSOR_LEN).to(dtype).to(device) for _ in range(world_size)]
+
+    _tensor = hpu * torch.ones(TENSOR_LEN).to(dtype).to(device)
+
+    if (torch.distributed.get_rank() == 0):
+        torch.distributed.gather( tensor=_tensor, gather_list=_tensor_list, async_op=False)
+    else:
+        torch.distributed.gather( tensor=_tensor, dst=0, async_op=True)
+
+    torch.distributed.barrier()
+    if (torch.distributed.get_rank() == 0):
+        for t1, t2 in zip(_tensor_ref, _tensor_list):
+            assert(torch.equal(t1.cpu(), t2.cpu()) and t1.dtype == dtype and t1.dtype == t2.dtype)
+
+
 def main(hpu, world_size, dtype, func):
     _ = DistSetup(hpu, world_size)
     pr = cProfile.Profile()
@@ -200,6 +219,7 @@ def main(hpu, world_size, dtype, func):
                                 async_allReduce_tensorLife,
 
                                 sync_allGather_func,
+                                sync_gather_func,
 
                                 sync_broadcast_func,
                                 sync_broadcast_tensorLife,
@@ -232,6 +252,17 @@ def test_second(func, n_hpus, dtype):
                                 hostsync_broadcast
                               ])
 def test_third(func, n_hpus, dtype):
+    mp.spawn(main, args=(n_hpus, dtype, func), nprocs=n_hpus, join=True)
+
+    assert(True)
+
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("dtype", [torch.float])
+@pytest.mark.parametrize("n_hpus", [2])
+@pytest.mark.parametrize("func", [
+                                sync_gather_func
+                              ])
+def test_fourth(func, n_hpus, dtype):
     mp.spawn(main, args=(n_hpus, dtype, func), nprocs=n_hpus, join=True)
 
     assert(True)
