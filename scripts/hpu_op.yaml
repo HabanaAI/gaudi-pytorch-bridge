@@ -3617,14 +3617,14 @@ logaddexp2:
   force_default: false
   broadcast: true
   dtypes: [BFloat16, Float]
-  op_backend: LogAddExp2
+  guid: logaddexp2_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
-  op_backend: LogAddExp2
+  guid: logaddexp2_fwd
   promote_to_common_type: [self, other]
 
 logcumsumexp:
