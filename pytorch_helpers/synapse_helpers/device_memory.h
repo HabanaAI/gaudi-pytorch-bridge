@@ -68,6 +68,10 @@ class device_memory {
   size_t get_total_memory_required(absl::Span<const device_ptr>);
   size_t block_align(size_t n);
   bool is_memory_available(size_t size);
+  bool is_memory_available(
+      size_t persistent_size,
+      size_t curr_ws_size,
+      size_t new_ws_size);
   bool is_allocated(const device_ptr address) const;
   size_t get_max_cntgs_chunk_size() const;
 

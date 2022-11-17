@@ -953,4 +953,15 @@ bool device_memory::is_memory_available(size_t size) {
   return true;
 }
 
+bool device_memory::is_memory_available(
+    size_t persistent_size,
+    size_t curr_ws_size,
+    size_t new_ws_size) {
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    return suballoc_->is_memory_available(
+        persistent_size, curr_ws_size, new_ws_size);
+  }
+  return true;
+}
+
 } // namespace synapse_helpers

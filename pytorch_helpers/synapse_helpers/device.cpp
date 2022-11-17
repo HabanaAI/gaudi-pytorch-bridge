@@ -310,9 +310,11 @@ device::device(
         prealloc_addr, prealloc_size, *this);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) > 0) {
-    const size_t global_workspace_size = get_workspace_size();
-    workspace_buffer_ = get_workspace_buffer(global_workspace_size);
+  // GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_INITIAL_WORKSPACE_SIZE in GB
+  const size_t init_size =
+      GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) * 1024 * 1024 * 1024;
+  if (init_size > 0) {
+    workspace_buffer_ = get_workspace_buffer(init_size);
 
     PT_SYNHELPER_DEBUG(
         "Allocating static workspace at ",
@@ -484,21 +486,6 @@ int device::get_total_device_count() {
   }
 
   return count;
-}
-
-// GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
-uint64_t device::get_workspace_size() {
-  uint64_t workspaceSize = GLOBAL_WORKSPACE_SIZE;
-  auto init_size = GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE);
-  if (init_size > 0) {
-    workspaceSize = init_size * 1024 * 1024 * 1024;
-    if (workspaceSize == 0) {
-      PT_DEVICE_DEBUG("WorkSpace size not specified, setting default");
-      workspaceSize = GLOBAL_WORKSPACE_SIZE;
-    }
-  }
-  PT_DEVICE_DEBUG("WorkSpace size requested for :: ", workspaceSize);
-  return workspaceSize;
 }
 
 void device::cleanup() {
@@ -1041,23 +1028,36 @@ device_ptr device::get_workspace_buffer(size_t size) {
   return workspace_buffer_;
 }
 
-size_t device::get_least_workspace_size(size_t req_workspace_size) {
+size_t device::get_least_workspace_size(
+    size_t persistent_size,
+    size_t req_workspace_size) {
   size_t least_workspace_size = 0;
+  // 1. based on the rank select the workspace size which is >=
+  // req_workspace_size and < current_ws_size.
+  // 2. if the slected least_workspace_size is > than the req_workspace_size,
+  // check with the new ws memory is available.
+  // 3. if available, use the least_workspace_size else use the
+  // req_workspace_size
+  size_t current_ws_size = workspace_size_;
   if (workspace_usage_.size() > 1) {
-    size_t last_workspace_size = std::prev(workspace_usage_.end())->first;
     uint32_t usage_rank = 0;
     auto itr = workspace_usage_.begin();
     for (; itr != workspace_usage_.end(); ++itr) {
-      if (itr->first >= req_workspace_size &&
-          itr->first < last_workspace_size && itr->second > usage_rank) {
+      if (itr->first >= req_workspace_size && itr->first < current_ws_size &&
+          itr->second > usage_rank) {
         least_workspace_size = itr->first;
         usage_rank = itr->second;
       }
     }
   }
-  return (
-      least_workspace_size > req_workspace_size ? least_workspace_size
-                                                : req_workspace_size);
+
+  if ((least_workspace_size > req_workspace_size) &&
+      (device_memory_.is_memory_available(
+          persistent_size, current_ws_size, least_workspace_size))) {
+    return least_workspace_size;
+  }
+
+  return req_workspace_size;
 }
 
 void device::cleanup_workspace_buffer() {

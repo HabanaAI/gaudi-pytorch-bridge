@@ -456,7 +456,12 @@ class device {
     deterministic_ = val;
   }
 
-  size_t get_least_workspace_size(size_t req_workspace_size);
+  size_t get_workspace_size() {
+    return workspace_size_;
+  }
+  size_t get_least_workspace_size(
+      size_t persistent_size,
+      size_t req_workspace_size);
 
  private:
   friend class stream;
@@ -472,8 +477,6 @@ class device {
   void synchronize_event(shared_event& event) {
     sem_.synchronize_event(event);
   }
-
-  uint64_t get_workspace_size();
 
   std::shared_ptr<session> synapse_session_;
 

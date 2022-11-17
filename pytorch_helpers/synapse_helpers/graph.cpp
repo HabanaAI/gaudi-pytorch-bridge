@@ -524,21 +524,29 @@ synapse_error_o graph::launch(
       addresses[i] = static_cast<uint64_t>(0);
     }
   }
+
+  size_t least_workspace_size = workspace_size;
   if (GET_ENV_FLAG_NEW(PT_ENABLE_WORKSPACE_MEMORY_SHRINK, 1)) {
     size_t tensor_mem =
         device.get_device_memory().get_total_memory_required(addresses);
     bool oom_may = !device.get_device_memory().is_memory_available(tensor_mem);
     if (oom_may) {
-      size_t least_workspace_size =
-          device.get_least_workspace_size(workspace_size);
+      least_workspace_size =
+          device.get_least_workspace_size(tensor_mem, workspace_size);
       device.cleanup_workspace_buffer();
-      workspace_size = least_workspace_size;
     }
   }
-  auto workspace_buffer = device.get_workspace_buffer(workspace_size);
+  auto workspace_buffer = device.get_workspace_buffer(least_workspace_size);
 
   habana_lazy::log_dev_mem_stats(
       "Post-Workspace", recipe_handle.recipe_name_, workspace_size);
+
+  log_graph_info(
+      device,
+      recipe_handle.recipe_name_.c_str(),
+      device.get_device_memory().get_total_memory_required(addresses),
+      workspace_size,
+      device.get_workspace_size());
 
   memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
   {
@@ -563,12 +571,6 @@ synapse_error_o graph::launch(
       ++index;
       ++iter;
     }
-
-    log_graph_info(
-        device,
-        recipe_handle.recipe_name_.c_str(),
-        device.get_device_memory().get_total_memory_required(addresses),
-        workspace_size);
 
     habana_lazy::log_dev_mem_stats(
         "Post-Tensors",

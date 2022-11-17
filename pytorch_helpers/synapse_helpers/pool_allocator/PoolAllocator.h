@@ -70,6 +70,13 @@ class PoolingStrategy {
   virtual size_t get_max_cntgs_chunk_size() const {
     return -1;
   };
+
+  virtual bool is_memory_available(
+      UNUSED size_t persistant_size,
+      UNUSED size_t curr_ws_size,
+      UNUSED size_t new_ws_size) const {
+    return true;
+  }
 };
 
 class SubAllocator {
@@ -152,6 +159,14 @@ class SubAllocator {
 
   void print_pool_stats() const {
     return this->strategy_->print_pool_stats();
+  }
+
+  bool is_memory_available(
+      size_t persistant_size,
+      size_t curr_ws_size,
+      size_t new_ws_size) const {
+    return this->strategy_->is_memory_available(
+        persistant_size, curr_ws_size, new_ws_size);
   }
 
   size_t get_max_cntgs_chunk_size() const {

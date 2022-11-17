@@ -242,7 +242,8 @@ void log_graph_info(
     synapse_helpers::device& device,
     std::string graph_name,
     size_t size,
-    size_t wsize);
+    size_t wsize,
+    size_t actual_size);
 
 void log_synDeviceRecordGraphTensorInfo(
     const std::string& name,

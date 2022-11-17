@@ -321,6 +321,25 @@ bool CoalescedStringentPooling::is_memory_available(size_t size) const {
   return true;
 }
 
+bool CoalescedStringentPooling::is_memory_available(
+    size_t persistant_size,
+    size_t curr_ws_size,
+    size_t new_ws_size) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+
+  if ((persistant_size + new_ws_size) + (bytes_in_use - curr_ws_size) >
+      max_pool_size) {
+    PT_DEVMEM_DEBUG(
+        "total requested memory size::",
+        persistant_size,
+        " with new workspace size::",
+        new_ws_size,
+        " not available");
+    return false;
+  }
+  return true;
+}
+
 bool CoalescedStringentPooling::is_mem_threshold_hit() const {
   // not used in case of CoalescedStringentPooling
   return false;

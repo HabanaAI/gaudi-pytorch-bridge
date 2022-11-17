@@ -109,6 +109,10 @@ class CoalescedStringentPooling : public PoolingStrategy {
   std::pair<void*, size_t> get_tail_chunk_info() const override;
   std::tuple<void*, size_t, size_t> get_small_alloc_info() const override;
   bool is_memory_available(size_t size) const override;
+  bool is_memory_available(
+      size_t persistant_size,
+      size_t curr_ws_size,
+      size_t new_ws_size) const override;
   void print_pool_stats() const override;
   size_t get_max_cntgs_chunk_size() const override;
 

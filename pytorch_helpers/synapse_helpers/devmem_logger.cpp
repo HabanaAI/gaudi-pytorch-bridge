@@ -1032,12 +1032,13 @@ void log_graph_info(
     synapse_helpers::device& device,
     std::string graph_name,
     size_t size,
-    size_t wsize) {
+    size_t wsize,
+    size_t used_ws_size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     std::stringstream msg;
     msg << "GRAPH " << graph_name << " total Memory::" << size
-        << " WS::" << wsize;
+        << " Required WS::" << wsize << " Used Size" << used_ws_size;
     synapse_helpers::print_live_allocations(msg.str().c_str());
   }
   if (dmd.is_fragment_json_enabled()) {
