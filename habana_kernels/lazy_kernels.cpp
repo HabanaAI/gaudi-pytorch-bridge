@@ -1856,29 +1856,6 @@ Tensor convolution_hpu_lazy(
 
   auto weight_hwck = permute_wt_hpu(weight_hpu);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    auto hb_tensor = GetHbLazyTensor(weight_hwck);
-    if (hb_tensor.isStorageAttached()) {
-      auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
-      if (at_internal_tensor.has_storage()) {
-        auto internal_tensor =
-            habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-        internal_tensor->SetConstTensor(true);
-      }
-    }
-    if (bias.defined()) {
-      auto hb_tensor = GetHbLazyTensor(bias);
-      if (hb_tensor.isStorageAttached()) {
-        auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
-        if (at_internal_tensor.has_storage()) {
-          auto internal_tensor =
-              habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-          internal_tensor->SetConstTensor(true);
-        }
-      }
-    }
-  }
-
   bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
                              ->IsEnabledWeightPermutePass())
       ? false

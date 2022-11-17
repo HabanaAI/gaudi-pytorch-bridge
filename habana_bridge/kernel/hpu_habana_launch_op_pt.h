@@ -306,6 +306,7 @@ class HabanaLaunchOpPT {
       dfs_time_in_out_map;
   size_t dfs_cnt = 0;
 
+  void ProcessNodesForConstantTensors();
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
   // 2. Input Stack

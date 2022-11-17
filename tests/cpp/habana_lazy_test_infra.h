@@ -30,6 +30,7 @@ class EnvHelper {
   bool m_defined = false;
   unsigned m_saved = 0;
   unsigned m_dynamic = 0;
+  unsigned m_inference = 0;
   unsigned m_fallback_pass = 1;
   unsigned m_fallback_launch = 0;
   uint64_t m_seed = InitSeed();
@@ -63,6 +64,19 @@ class EnvHelper {
   void UnsetDynamicMode() {
     if (!m_dynamic) {
       UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    }
+  }
+
+  void SetInferenceMode() {
+    m_inference = GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE);
+    if (!m_inference) {
+      SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
+    }
+  }
+
+  void UnsetInferenceMode() {
+    if (!m_inference) {
+      UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE);
     }
   }
 

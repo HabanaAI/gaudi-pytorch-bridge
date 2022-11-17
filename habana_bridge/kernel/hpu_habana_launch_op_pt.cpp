@@ -1623,6 +1623,68 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 }
 
+void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
+  // for each node, we verify all the cases where the tensors can be constants.
+  // One such case is T followed by addmm/ matmul and input to transpose is
+  // constant. Bias to mm/matmul is constant. For other cases such as Linear and
+  // Convolution, constants are marked directly in AllocateAndAddSynapseNode as
+  // it's not optimal here to again do string and shape comparison to find
+  // weights when we already have it in AllocateAndAddSynapseNode
+  torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
+  for (auto* node : graph_nodes) {
+    if (node->kind() == torch::jit::aten::t) {
+      auto uses = node->output(0)->uses();
+      for (auto u : uses) {
+        auto mm_node = u.user;
+        if (mm_node->scope()->name().toUnqualString() ==
+                node->scope()->name().toUnqualString() &&
+            strcmp(node->scope()->name().toUnqualString(), "") != 0) {
+          auto bias_idx = 0;
+          if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
+            // Setting Bias
+            mm_node->input(0) == node->output(0) ? bias_idx = 1 : bias_idx = 0;
+            auto mm_value_in = mm_node->input(bias_idx);
+            auto mm_tensor = value_to_ivalue[mm_value_in]->toTensor();
+            auto mm_impl = habana_lazy::GetHbInternalTensorImpl(mm_tensor);
+            mm_impl->SetConstTensor(true);
+            // Setting Transpose input as Constant
+            auto value_in = node->input(0);
+            auto tensor = value_to_ivalue[value_in]->toTensor();
+            auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+            impl->SetConstTensor(true);
+          }
+          if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
+            auto value_in = node->input(0);
+            auto tensor = value_to_ivalue[value_in]->toTensor();
+            auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+            impl->SetConstTensor(true);
+          }
+        }
+      }
+    } else if (node->kind() == torch::jit::aten::convolution_overrideable) {
+      auto value_in = node->input(1);
+      auto tensor = value_to_ivalue[value_in]->toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      impl->SetConstTensor(true);
+    } else if (node->kind() == torch::jit::aten::linear) {
+      auto value_in = node->input(1);
+      auto tensor = value_to_ivalue[value_in]->toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      impl->SetConstTensor(true);
+      if (node->inputs().size() > 2) {
+        value_in = node->input(2);
+        auto value_exists = value_to_ivalue.find(value_in);
+        if (value_exists != std::end(value_to_ivalue)) {
+          tensor = value_to_ivalue[value_in]->toTensor();
+          impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+          if (impl)
+            impl->SetConstTensor(true);
+        }
+      }
+    }
+  }
+}
+
 void HabanaLaunchOpPT::BuildSynapseGraph(
     synapse_helpers::graph& syn_graph,
     bool is_shape_inference) {
@@ -1646,6 +1708,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // topoloically sorted
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+    ProcessNodesForConstantTensors();
   // This is an optimization pass to mark all the nodes with sepcial layout
   // like weights which have HWCK Only activated in lazy mode for now
   bool is_jit_cached_graph_info_available =
