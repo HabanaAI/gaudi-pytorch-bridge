@@ -19,6 +19,21 @@ enum MaxpoolVariant {
   MAXPOOL3D = 3,
 };
 
+static bool is_greco_device() {
+  return (
+      synapse_helpers::HPURegistrar::get_device().type() ==
+      synDeviceType::synDeviceGreco);
+}
+
+static void DummyOutput(
+    synapse_helpers::graph& graph,
+    PytorchKernelContextPtr& p_context_,
+    bool persistent,
+    bool external) {
+  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+      p_context_->pt_outputs_.at(1), graph, persistent, external));
+}
+
 template <>
 LazyMaxPool2d<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool2d(
     const std::string& qualstring,
@@ -203,6 +218,7 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
         input_shape.rbegin()[1] + padding[0])
       --output_shape.rbegin()[1];
   }
+
   return {output_shape, output_shape};
 }
 
@@ -676,13 +692,35 @@ void MaxPool2DWithIndicesOut::AddNode(
       ScalarType(),
       trans_params);
 
-  // maxpool2d guid will return tuple of tensors (indices tensor, output
-  // tensor)
+  // maxpool2d guid will return tuple of tensors except greco device
+  // (indices tensor, output tensor)
+  // For greco device, only `output tensor` will be returned
+
+  const bool greco_device = is_greco_device();
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attr;
+  int64_t maxpool_out_index;
+  if (greco_device) {
+    p_context_->syn_outputs_.pop_back();
+    // dummy output in place of indices tensor
+    DummyOutput(
+        graph,
+        p_context_,
+        IsOutputPersistent(1),
+        m_output_metadata.at(1).external);
+    output_attr.push_back({transpose_outshape, ScalarType()});
+    maxpool_out_index = 0;
+  } else {
+    output_attr.push_back({transpose_outshape, index_type});
+    output_attr.push_back({transpose_outshape, ScalarType()});
+    maxpool_out_index = 1;
+  }
+
   auto maxpool2d = BuildOp(
       graph,
       "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {input_transpose[0].get()},
-      {{transpose_outshape, index_type}, {transpose_outshape, ScalarType()}},
+      output_attr,
       params.get(),
       size);
 
@@ -694,23 +732,24 @@ void MaxPool2DWithIndicesOut::AddNode(
   auto output = ShapeTranspose(
       this,
       graph,
-      {maxpool2d[1].get()},
-      out_shape[0],
+      {maxpool2d[maxpool_out_index].get()},
+      out_shape[maxpool_out_index],
       ScalarType(),
       trans_params,
       0);
-
-  auto output_indx = ShapeTranspose(
-      this,
-      graph,
-      {maxpool2d[0].get()},
-      out_shape[0],
-      index_type,
-      trans_params,
-      1);
-
   syn_out(0) = std::move(output.at(0));
-  syn_out(1) = std::move(output_indx.at(0));
+
+  if (!greco_device) {
+    auto output_indx = ShapeTranspose(
+        this,
+        graph,
+        {maxpool2d[0].get()},
+        out_shape[0],
+        index_type,
+        trans_params,
+        1);
+    syn_out(1) = std::move(output_indx.at(0));
+  }
 }
 
 // Since the out varriant intices tensor has some issue
