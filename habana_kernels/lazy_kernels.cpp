@@ -3127,7 +3127,10 @@ Tensor& index_fill_hpu_lazy_(
   auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   if (dim_ == 0) {
     auto value_dim = self.sizes().vec();
-    value_dim[0] = index.numel();
+    if (value_dim.size())
+      value_dim[0] = index.numel();
+    else
+      value_dim.emplace_back(index.numel());
     auto value_tensor = empty_hpu_lazy(
         value_dim, self.options(), self.suggest_memory_format(), true);
     fill_hpu_lazy_(value_tensor, value);
@@ -5672,6 +5675,8 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
+    if (self.dim() == 0 && self.numel() == 1)
+      return {self.clone()};
     auto out = at::native::permute(self, dims_in);
     auto param_setter = [dims_in = dims_in.vec()](
                             const Tensor& self, StrideParams* strided_param) {
