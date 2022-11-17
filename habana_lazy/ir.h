@@ -33,10 +33,13 @@ class Node;
 struct Value;
 class MetaData;
 
+constexpr size_t inlined_inputs_count = 8;
 using DataPtr = std::shared_ptr<Data>;
 using NodePtr = std::shared_ptr<Node>;
 using NodePtrList = std::vector<NodePtr>;
+using InlinedNodePtrList = c10::SmallVector<NodePtr, inlined_inputs_count>;
 using ValueList = std::vector<Value>;
+using InlinedValueList = c10::SmallVector<Value, inlined_inputs_count>;
 using ValuePtr = std::shared_ptr<Value>;
 using ValuePtrList = std::vector<ValuePtr>;
 using IndexToIvalMap = std::unordered_map<size_t, torch::jit::IValue>;
@@ -273,168 +276,12 @@ class MetaData {
 };
 
 /**
- * Node in the IR Graph
- *
- * A Node in an IR Graphs represents an aten operator.
- * Inputs represents connections into this Node (or Operator).
- * Inputs to the Node are in order (as per aten operator schema)
- * num_outputs represent number of outputs generated from this
- * Node.
- *
- */
-class Node {
- public:
-  Node() = delete;
-  Node(c10::Symbol op, bool _is_input = false);
-
-  const c10::Symbol op() const {
-    return m_op;
-  }
-
-  std::string GetName() const {
-    std::stringstream ss;
-    ss << "n" << m_id;
-    return (!m_scope || m_scope->empty())
-        ? m_op.toQualString()
-        : *m_scope + "/" + m_op.toQualString();
-  }
-
-  std::shared_ptr<std::string> GetScope() const {
-    return m_scope;
-  }
-
-  void SetModuleName(std::string name) {
-    module_name = name;
-  }
-
-  std::string GetModuleName() {
-    return module_name;
-  }
-
-  virtual std::string ToString() const;
-  virtual std::string ToStringIrGraph() const;
-
-  void AddInput(const Value& value);
-
-  void ReplaceInput(
-      const Value& value,
-      size_t operand_index,
-      const at::Tensor& tensor);
-
-  absl::flat_hash_set<Use, Use>& GetUses() {
-    return m_uses;
-  }
-
-  const ValueList GetInputs() const {
-    return m_inputs;
-  }
-
-  const Output GetOutput(size_t index) const {
-    TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
-    return m_outputs[index];
-  }
-
-  virtual ~Node();
-
-  static NodePtr Create(c10::Symbol oper, const ValueList& inputs);
-
-  size_t GetNumOutputs() const {
-    return m_outputs.size();
-  }
-
-  const MetaData& GetMetaData() const {
-    return m_meta_data;
-  }
-
-  void SetMetaData(MetaData metadata) {
-    m_meta_data = std::move(metadata);
-    m_meta_data.enableToString();
-  }
-
-  void AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec);
-
-  friend struct Value;
-
-  size_t get_hash();
-  size_t get_hash_without_connections();
-
-  bool is_input() const {
-    return m_is_input;
-  }
-
-  bool is_control_edge() const {
-    return m_is_control_edge;
-  }
-  void set_as_control_edge() {
-    m_is_control_edge = true;
-  }
-
-  void set_as_output_tensor_list() {
-    m_is_output_tensor_list = true;
-  }
-
-  bool is_output_tensor_list() const {
-    return m_is_output_tensor_list;
-  }
-
-  const std::vector<bool>& get_broadcast_details() const {
-    return m_bcast_details;
-  }
-
-  size_t get_post_order_pos() {
-    return post_order_pos;
-  }
-
-  void set_post_order_pos(size_t pos) {
-    post_order_pos = pos;
-  }
-
-  uint64_t get_id() const {
-    return m_id;
-  }
-
-  void set_broadcast_details(const std::vector<bool>& bcast_details) {
-    m_bcast_details = bcast_details;
-  }
-
-  bool getDeterministic() {
-    return deterministic;
-  }
-
- protected:
-  c10::Symbol m_op;
-  bool m_is_input = false;
-  bool m_is_control_edge = false;
-  bool m_is_output_tensor_list = false;
-  std::vector<bool> m_bcast_details;
-  ValueList m_inputs;
-  OutputList m_outputs;
-  absl::flat_hash_set<Use, Use> m_uses;
-  NodePtrList m_uses_reverse_nodes;
-  MetaData m_meta_data;
-  size_t m_node_hash = 0;
-  size_t m_node_hash_without_connection = 0;
-  size_t post_order_pos = ULLONG_MAX;
-  std::vector<at::Tensor> m_input_pt_tensors;
-  std::shared_ptr<std::string> m_scope;
-  uint64_t m_id;
-  bool deterministic = 0;
-  std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
-  std::string module_name = std::string();
-};
-
-inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
-  stream << node.ToString() << "\n";
-  return stream;
-}
-
-/**
  * Intermediate struct that connects nodes/operators in Graph
  *
  * The Value struct is an interface for handling different aten
  * types (tensor, scalar, int, double, bool)
  */
-struct Value {
+struct Value final {
   Value() : unique_id(unique_id_count++) {}
   Value(DataPtr data_ptr, size_t index)
       : unique_id(unique_id_count++), m_data_ptr(data_ptr) {
@@ -518,8 +365,6 @@ struct Value {
     return sizes;
   }
 
-  virtual ~Value();
-
   /* Unique id for Value */
   uint64_t unique_id;
   /* The payload field holds the values */
@@ -545,6 +390,161 @@ struct Value {
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;
 };
+/**
+ * Node in the IR Graph
+ *
+ * A Node in an IR Graphs represents an aten operator.
+ * Inputs represents connections into this Node (or Operator).
+ * Inputs to the Node are in order (as per aten operator schema)
+ * num_outputs represent number of outputs generated from this
+ * Node.
+ *
+ */
+class Node {
+ public:
+  Node() = delete;
+  Node(c10::Symbol op, bool _is_input = false);
+
+  const c10::Symbol op() const {
+    return m_op;
+  }
+
+  std::string GetName() const {
+    std::stringstream ss;
+    ss << "n" << m_id;
+    return (!m_scope || m_scope->empty())
+        ? m_op.toQualString()
+        : *m_scope + "/" + m_op.toQualString();
+  }
+
+  std::shared_ptr<std::string> GetScope() const {
+    return m_scope;
+  }
+
+  void SetModuleName(std::string name) {
+    module_name = name;
+  }
+
+  std::string GetModuleName() {
+    return module_name;
+  }
+
+  virtual std::string ToString() const;
+  virtual std::string ToStringIrGraph() const;
+
+  void AddInput(const Value& value);
+
+  void ReplaceInput(
+      const Value& value,
+      size_t operand_index,
+      const at::Tensor& tensor);
+
+  absl::flat_hash_set<Use, Use>& GetUses() {
+    return m_uses;
+  }
+
+  const InlinedValueList& GetInputs() const {
+    return m_inputs;
+  }
+
+  const Output GetOutput(size_t index) const {
+    TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
+    return m_outputs[index];
+  }
+
+  virtual ~Node();
+
+  static NodePtr Create(c10::Symbol oper, const InlinedValueList& inputs);
+
+  size_t GetNumOutputs() const {
+    return m_outputs.size();
+  }
+
+  const MetaData& GetMetaData() const {
+    return m_meta_data;
+  }
+
+  void SetMetaData(MetaData metadata) {
+    m_meta_data = std::move(metadata);
+    m_meta_data.enableToString();
+  }
+
+  void AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec);
+
+  friend struct Value;
+
+  size_t get_hash();
+  size_t get_hash_without_connections();
+
+  bool is_input() const {
+    return m_is_input;
+  }
+
+  bool is_control_edge() const {
+    return m_is_control_edge;
+  }
+  void set_as_control_edge() {
+    m_is_control_edge = true;
+  }
+
+  void set_as_output_tensor_list() {
+    m_is_output_tensor_list = true;
+  }
+
+  bool is_output_tensor_list() const {
+    return m_is_output_tensor_list;
+  }
+
+  const std::vector<bool>& get_broadcast_details() const {
+    return m_bcast_details;
+  }
+
+  size_t get_post_order_pos() {
+    return post_order_pos;
+  }
+
+  void set_post_order_pos(size_t pos) {
+    post_order_pos = pos;
+  }
+
+  uint64_t get_id() const {
+    return m_id;
+  }
+
+  void set_broadcast_details(std::vector<bool>&& bcast_details) {
+    m_bcast_details = std::move(bcast_details);
+  }
+
+  bool getDeterministic() {
+    return deterministic;
+  }
+
+ protected:
+  c10::Symbol m_op;
+  bool m_is_input = false;
+  bool m_is_control_edge = false;
+  bool m_is_output_tensor_list = false;
+  std::vector<bool> m_bcast_details;
+  InlinedValueList m_inputs;
+  OutputList m_outputs;
+  absl::flat_hash_set<Use, Use> m_uses;
+  InlinedNodePtrList m_uses_reverse_nodes;
+  MetaData m_meta_data;
+  size_t m_node_hash = 0;
+  size_t m_node_hash_without_connection = 0;
+  size_t post_order_pos = ULLONG_MAX;
+  c10::SmallVector<at::Tensor, 8> m_input_pt_tensors;
+  std::shared_ptr<std::string> m_scope;
+  uint64_t m_id;
+  bool deterministic = 0;
+  std::unordered_map<uint32_t, uint32_t> m_pt_vec_to_input_ival;
+  std::string module_name = std::string();
+};
+
+inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
+  stream << node.ToString() << "\n";
+  return stream;
+}
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
   stream << value.ToString() << "\n";

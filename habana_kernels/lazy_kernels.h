@@ -280,7 +280,7 @@ class LazyOp {
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
-      info_to_lazy_backend->set_input_values(input_vals);
+      info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
@@ -406,7 +406,7 @@ class LazyOp {
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
-      info_to_lazy_backend->set_input_values(input_vals);
+      info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
@@ -583,7 +583,7 @@ class LazyOp {
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
-      info_to_lazy_backend->set_input_values(input_vals);
+      info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
@@ -617,7 +617,7 @@ class LazyOp {
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
-      info_to_lazy_backend->set_input_values(input_vals);
+      info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
 
     runSBS(self);
@@ -769,9 +769,9 @@ class LazyOp {
       // identify the inplace index and replace it with updated version
       // m_inputs will be used in create_node()
       for (size_t idx = 0; idx < m_inputs.size(); idx++) {
-        auto t = m_inputs[idx];
+        auto& t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
-          m_inputs[idx] = self_updated;
+          t = self_updated;
         }
       }
       // special handling for self tensor
@@ -798,7 +798,7 @@ class LazyOp {
       } else {
         PT_LAZY_DEBUG("Optimized Lazy Eager Inplace Path Chosen");
         std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
-        info_to_lazy_backend->set_input_values(input_vals);
+        info_to_lazy_backend->set_input_values(std::move(input_vals));
       }
     } else {
       HandleViewsInplace(self, hl_self);
@@ -1074,12 +1074,14 @@ class LazyOp {
          !input.toList().elementType()->cast<at::TensorType>());
   }
 
+  template <typename ValuesT = ir::ValueList>
   void create_inputs(
-      ir::ValueList& values,
+      ValuesT& values,
       std::vector<at::Tensor>& input_pt_vec,
       ir::MetaData& metadata,
       bool is_optimized_lazy_eager) {
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    values.reserve(m_inputs.size());
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
       if (m_metadata_indices.count(i)) {
@@ -1119,7 +1121,7 @@ class LazyOp {
             // Taking care of duplicate values here itself for optimized lazy
             // eager. In normal flow it is taken care later in the flow. To Do
             // - To make it same for normal flow as well.
-            auto it = find(values.begin(), values.end(), val);
+            auto it = std::find(values.begin(), values.end(), val);
             if (it == values.end()) {
               values.emplace_back(val);
             }
@@ -1167,7 +1169,7 @@ class LazyOp {
               // flow. To Do
               // - To make it same for normal flow as well.
               auto val = GetHbLazyTensor(t).GetIrValue();
-              auto it = find(values.begin(), values.end(), val);
+              auto it = std::find(values.begin(), values.end(), val);
               if (it == values.end()) {
                 values.emplace_back(val);
               }
@@ -1208,8 +1210,8 @@ class LazyOp {
     return module_name;
   }
 
-  void set_broadcast_details(const std::vector<bool>& bcast_vec) {
-    m_bcast_details = bcast_vec;
+  void set_broadcast_details(std::vector<bool>&& bcast_vec) {
+    m_bcast_details = std::move(bcast_vec);
   }
 
   void set_inputs(const std::vector<at::IValue>& inputs) {
@@ -1342,7 +1344,7 @@ class LazyOp {
   }
 
   std::vector<ir::Value> prepare_lazy_eager_input_values() {
-    ir::ValueList values;
+    std::vector<ir::Value> values;
     std::vector<at::Tensor> input_pt_vec;
     ir::MetaData metadata;
 
@@ -1374,7 +1376,7 @@ class LazyOp {
 
   template <typename N = NodeConstruct>
   std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
-    ir::ValueList values;
+    ir::InlinedValueList values;
     std::vector<at::Tensor> input_pt_vec;
     ir::MetaData metadata;
 
@@ -1386,7 +1388,7 @@ class LazyOp {
     }
 
     node->AddInputPtTensors(input_pt_vec);
-    node->set_broadcast_details(m_bcast_details);
+    node->set_broadcast_details(std::move(m_bcast_details));
     return node;
   }
 
@@ -1607,6 +1609,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     size_t ndim = dimsA > dimsB ? dimsA : dimsB;
 
     std::vector<bool> bcast_vec;
+    bcast_vec.reserve(2 * ndim);
     // Use ptrdiff_t to ensure signed comparison.
     for (ptrdiff_t i = (ptrdiff_t)ndim - 1; i >= 0; --i) {
       bool is_broadcast_a = false;

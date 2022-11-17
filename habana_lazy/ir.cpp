@@ -140,30 +140,30 @@ void Node::ReplaceInput(
 
 Node::~Node() {
   // auto hash1 = this->get_hash();
-  for (auto node_ptr : m_uses_reverse_nodes) {
-    auto node = node_ptr.get();
-    if (node) {
-      auto& uses = node->GetUses();
-      /* Note :
-        Ideally we dont need to clear all uses. But if its cleared individually,
-        i could see use.mp_node is invalid as it was freed as part of
-        postorder/SetNode functions. This 2 cases it will be freed and
-        use.mp_node will be dangling and use.mp_node->get_hash() will create
-        segfault. This scenario happens while running UT cases all together.
-        Probably because the ut teardown is not proper.
-        Individually testcases will run without any issues.
-      */
-      // for (ir::Use use : uses) {
-      //   auto hash2 = use.mp_node->get_hash();
-      //   if (hash2 == hash1) {
-      //     uses.erase(use);
-      //   }
-      // }
-      uses.clear();
+  if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
+    for (auto node_ptr : m_uses_reverse_nodes) {
+      auto node = node_ptr.get();
+      if (node) {
+        auto& uses = node->GetUses();
+        /* Note :
+          Ideally we dont need to clear all uses. But if its cleared
+          individually, i could see use.mp_node is invalid as it was freed as
+          part of postorder/SetNode functions. This 2 cases it will be freed and
+          use.mp_node will be dangling and use.mp_node->get_hash() will create
+          segfault. This scenario happens while running UT cases all together.
+          Probably because the ut teardown is not proper.
+          Individually testcases will run without any issues.
+        */
+        // for (ir::Use use : uses) {
+        //   auto hash2 = use.mp_node->get_hash();
+        //   if (hash2 == hash1) {
+        //     uses.erase(use);
+        //   }
+        // }
+        uses.clear();
+      }
     }
   }
-  m_uses_reverse_nodes.clear();
-  m_uses.clear();
   for (const auto& k : m_pt_vec_to_input_ival) {
     auto& tensor = m_input_pt_tensors.at(k.first);
     auto inp = m_inputs.at(k.second);
@@ -186,10 +186,6 @@ Node::~Node() {
       inp.mp_node->m_input_pt_tensors.emplace_back(tensor);
     }
   }
-  m_inputs.clear();
-  m_outputs.clear();
-  m_input_pt_tensors.clear();
-  m_pt_vec_to_input_ival.clear();
 }
 
 void Value::SetNode(
@@ -297,7 +293,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
   }
 }
 
-NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
+NodePtr Node::Create(c10::Symbol oper, const InlinedValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
   for (auto& i : inputs) {
     node->AddInput(i);
@@ -376,8 +372,6 @@ bool Value::DataPtrValid() const {
 bool Value::DataPtrValidAndNotExpired() const {
   return DataPtrValid() && !m_data_ptr.expired();
 }
-
-Value::~Value() {}
 
 Output::Output(const Value& v)
     : m_node(v.mp_node.get()), m_index(v.GetIndex()) {

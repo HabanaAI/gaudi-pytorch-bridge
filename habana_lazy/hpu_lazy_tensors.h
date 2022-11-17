@@ -134,8 +134,8 @@ struct HbLazyFrontEndInfoToBackend {
     return input_values;
   }
 
-  void set_input_values(std::vector<ir::Value>& input_vals) {
-    input_values = input_vals;
+  void set_input_values(std::vector<ir::Value>&& input_vals) {
+    input_values = std::move(input_vals);
   }
 
   bool get_is_hccl_send_mark_step() {
@@ -217,7 +217,7 @@ class HbLazyTensor {
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
   ir::Value& CurrentIrValue() const;
-  ir::Value GetIrValue() const;
+  const ir::Value& GetIrValue() const;
   c10::optional<at::Tensor> CurrentTensorData() const;
   void setTensorOriginalType(c10::ScalarType type);
   c10::ScalarType getTensorOriginalType() const;

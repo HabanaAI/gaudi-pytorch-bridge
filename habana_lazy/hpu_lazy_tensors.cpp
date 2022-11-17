@@ -318,8 +318,8 @@ void HbLazyTensor::SetExecutionInProgress() const {
   data()->is_executing = true;
 }
 
-ir::Value HbLazyTensor::GetIrValue() const {
-  ir::Value ir_value = CurrentIrValue();
+const ir::Value& HbLazyTensor::GetIrValue() const {
+  ir::Value& ir_value = CurrentIrValue();
   if (ir_value) {
     return ir_value;
   }
@@ -890,7 +890,7 @@ void SetLaunchContextFlags(
 torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices,
-    habana_lazy::ir::ValueList& inputs,
+    ir::ValueList& inputs,
     bool is_OptimizedLazyEager UNUSED,
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
     bool copy_scalar_to_hpu = true) {
