@@ -9,11 +9,13 @@
  */
 #pragma once
 #include <thread>
+
 #include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
+#include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "synapse_helpers/util.h"
 #include "torch/csrc/jit/ir/ir.h"
 
@@ -184,6 +186,19 @@ class HbExecutionContext {
     return m_capturing_graph;
   }
 
+  void setCaptureGraph(at::hpu::HPUGraph* hpu_graph) {
+    HABANA_ASSERT(m_captured_hpu_graph == nullptr || hpu_graph == nullptr)
+    m_captured_hpu_graph = hpu_graph;
+  }
+
+  at::hpu::HPUGraph* getCaptureGraph() {
+    return m_captured_hpu_graph;
+  }
+
+  void CaptureGraphMarkStep() {
+    m_captured_hpu_graph->mark_step();
+  }
+
   void saveInputsAndOutputs(
       ir::ValueList inputVals,
       ir::ValueList outputVals,
@@ -264,6 +279,7 @@ class HbExecutionContext {
   ir::ValueList m_output_vals;
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
   bool m_capturing_graph{false};
+  at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
 };
 
 class HbExecutionContextArena {

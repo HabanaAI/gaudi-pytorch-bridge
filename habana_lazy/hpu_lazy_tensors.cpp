@@ -1593,6 +1593,9 @@ void HbLazyTensor::StepMarker(
     UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     switch_dynamic_mode = false;
   }
+  if (context->getCapturing()) {
+    context->CaptureGraphMarkStep();
+  }
 }
 
 void HbLazyTensor::SetDynamicMode() {

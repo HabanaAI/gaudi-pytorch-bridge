@@ -103,6 +103,15 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   HpuFallbackHelper::get()->increment_count(op_name);
   auto old_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
 
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+
+  habana_lazy::HbExecutionContext* context =
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+
+  HABANA_ASSERT(
+      context->getCapturing() == false,
+      "cpu fallback is not supported during hpu graph capturing");
+
   at::native::cpu_fallback(op, stack);
 
   auto new_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
