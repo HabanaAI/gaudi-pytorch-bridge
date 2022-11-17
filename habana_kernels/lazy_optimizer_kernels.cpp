@@ -516,6 +516,8 @@ void optimizer_lars_hpu_lazy(
     const float weight_decay,
     const float eps,
     const float lr) {
+  habana_lazy::SyncAccThreadPool();
+
   auto lr_t = get_tensor_for_scalar(lr, params[0].options());
   LazyOptimizationOp<void> lo(
       "hpu::habanaOptimizerLars",
@@ -527,6 +529,8 @@ void optimizer_ResourceApplyMomentum_hpu_lazy(
     at::TensorList& params_momentum_buffer_list,
     const at::TensorList& d_p_list,
     const float momentum) {
+  habana_lazy::SyncAccThreadPool();
+
   LazyOptimizationOp<void> lo(
       "hpu::habanaOptimizerResourceApplyMomentum",
       {params_momentum_buffer_list, d_p_list, momentum});

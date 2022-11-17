@@ -6528,7 +6528,7 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
       {grad_output, self, other},
       {},
       {self.sizes().vec(), other.sizes().vec()});
-  return k.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(matmul_backward, k)
 }
 
 Tensor habana_nms_hpu_lazy(
