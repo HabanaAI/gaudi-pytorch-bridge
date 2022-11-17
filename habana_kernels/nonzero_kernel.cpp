@@ -93,7 +93,7 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
   auto elements = self.numel();
   if ((synapse_helpers::HPURegistrar::get_device().type() !=
        synDeviceType::synDeviceGreco) and
-      (self.dim() <= 4)) {
+      (self.dim() <= 4) and (self.dim() > 0)) {
     elements = 1;
     auto last_dim_rounded = round_dims(self, 64);
     for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
