@@ -83,7 +83,7 @@ at::Tensor get_tensor_for_scalar(
     const at::TensorOptions& options = {});
 
 void flush_op(
-    at::TensorList tensors,
+    size_t out_tensor_count = 0,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
 
@@ -281,7 +281,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
-    flush_op(tensors, info_to_lazy_backend, hl_results);
+    flush_op(tensors.size(), info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -406,7 +406,7 @@ class LazyOp {
     }
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
-    flush_op(tensors, info_to_lazy_backend, hl_results);
+    flush_op(tensors.size(), info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -480,7 +480,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
-    flush_op(tensors);
+    flush_op(tensors.size());
   }
 
   template <typename T = ReturnType>
@@ -504,7 +504,7 @@ class LazyOp {
           hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
     runSBS(tensors);
-    flush_op(tensors);
+    flush_op(tensors.size());
   }
 
   template <typename T = ReturnType>
@@ -528,7 +528,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(tensors);
-    flush_op(tensors);
+    flush_op(tensors.size());
 
     return tensors;
   }
@@ -551,7 +551,7 @@ class LazyOp {
           i++);
     }
     runSBS(tensors);
-    flush_op(tensors);
+    flush_op(tensors.size());
   }
 
   template <typename T = ReturnType>
@@ -584,7 +584,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(result);
-    flush_op(result, info_to_lazy_backend, {hl_result});
+    flush_op(1, info_to_lazy_backend, {hl_result});
     return result;
   }
 
@@ -617,7 +617,7 @@ class LazyOp {
     }
 
     runSBS(self);
-    flush_op(self, info_to_lazy_backend, {hl_result});
+    flush_op(1, info_to_lazy_backend, {hl_result});
     return self;
   }
 
@@ -725,7 +725,7 @@ class LazyOp {
         hl_self.GetSizes(),
         hl_self.dtype_optional());
 
-    flush_op(out_t);
+    flush_op(1);
     // add strided insert node and update most recent version of original
     // tensor
     strided_insert_hpu_lazy(self, out_t);
@@ -806,7 +806,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(self, sbs_stack);
-    flush_op(self, info_to_lazy_backend);
+    flush_op(1, info_to_lazy_backend);
     return self;
   }
 
@@ -878,7 +878,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(self);
-    flush_op(self, std::move(info_to_lazy_backend));
+    flush_op(1, std::move(info_to_lazy_backend));
     return self;
   }
 

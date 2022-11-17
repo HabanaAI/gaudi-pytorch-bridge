@@ -49,7 +49,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
   auto result =
       k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
 
-  flush_op({});
+  flush_op();
 
   return result;
 }
@@ -104,7 +104,7 @@ void optimizer_ema_hpu_lazy(
         updated_ema[i], node_unpack, out_index);
   }
 
-  flush_op({});
+  flush_op();
 }
 
 void optimizer_adamw_hpu_lazy(
@@ -227,7 +227,7 @@ void optimizer_adamw_hpu_lazy(
           weights[i], node_unpack, out_index);
     }
 
-    flush_op({});
+    flush_op();
   };
 
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
@@ -433,7 +433,7 @@ optimizer_lamb_phase1_hpu_lazy(
     HbLazyTensor::StepMarker({});
   }
 
-  flush_op({});
+  flush_op();
   return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
 }
 
@@ -467,7 +467,7 @@ void optimizer_lamb_phase2_hpu_lazy(
        weight_decay,
        use_lamb});
   loo.call(weights);
-  flush_op(weights);
+  flush_op(weights.size());
 }
 
 void optimizer_adagrad_hpu_lazy(

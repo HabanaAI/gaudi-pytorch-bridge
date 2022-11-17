@@ -159,7 +159,7 @@ at::Tensor add_slice_insert_node(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
-  flush_op(result);
+  flush_op(1);
   return result;
 }
 
@@ -243,7 +243,7 @@ Tensor add_strided_insert_node(
       hl_result.dtype_optional());
 
   if (is_flush) {
-    flush_op(result);
+    flush_op(1);
   }
   return result;
 }
@@ -1010,7 +1010,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
   input_pt_vec.emplace_back(self);
   input_pt_vec.emplace_back(expand_shape);
   node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
+  flush_op(1);
   return result;
 }
 

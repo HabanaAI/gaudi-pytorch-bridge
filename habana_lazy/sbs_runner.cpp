@@ -15,6 +15,7 @@
 #include "debug_utils.h"
 #include "lazy_executor.h"
 #include "passes/pass_utils.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "sbs_debug.h"
 
 namespace habana_lazy {
@@ -200,8 +201,10 @@ void SBSRunner::handleTensorForCPUInput(
   if (input.device().type() != c10::DeviceType::HPU) {
     // a special case when tensor is still on CPU - see set_inputs()
     inputs_modified.push_back(std::move(input.detach().to(c10::kHPU)));
-    ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
-    // validate sbs run in test
+    if (!habana_lazy::IsAccThreadEnabled() || habana_lazy::CanUseAccThread()) {
+      ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
+      // validate sbs run in test
+    }
     return;
   }
   auto hl_input = GetHbLazyTensor(input);
@@ -209,8 +212,10 @@ void SBSRunner::handleTensorForCPUInput(
   if ((pTensor != c10::nullopt) && hl_input.GetSBSLiveTensorIndication()) {
     inputs_modified.push_back(
         std::move(pTensor.value().detach().to(c10::kHPU)));
-    ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
-    // validate sbs run in test
+    if (!habana_lazy::IsAccThreadEnabled() || habana_lazy::CanUseAccThread()) {
+      ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
+      // validate sbs run in test
+    }
   } else {
     if (hl_input.GetSBSLiveTensorIndication()) {
       PT_LAZY_WARN(

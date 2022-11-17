@@ -769,7 +769,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     std::set<int64_t> bucket_id,
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
-  if (StageSubmission::getInstance().getCurrentAccumulatedOps() == 0) {
+  if (StageSubmission::getInstance().getCurrentOpCount() == 0) {
     // if the accumulated op is empty, then just record the event
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (event_handle) {

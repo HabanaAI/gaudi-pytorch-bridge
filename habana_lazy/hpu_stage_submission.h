@@ -20,6 +20,9 @@ class StageSubmission {
     return instance;
   }
 
+  size_t getCurrentOpCount() {
+    return curr_op_count;
+  }
   size_t getCurrentAccumulatedOps() {
     return curr_number_of_accumulated_ops;
   }
@@ -31,6 +34,9 @@ class StageSubmission {
   }
   size_t getMaxCompoundOps() {
     return max_number_of_compound_ops;
+  }
+  void incrementOpCount() {
+    curr_op_count++;
   }
   void incrementAccumulatedOps() {
     curr_number_of_accumulated_ops++;
@@ -53,6 +59,7 @@ class StageSubmission {
   }
 
   void resetCurrentAccumulatedOps() {
+    curr_op_count = 0;
     curr_number_of_accumulated_ops = 0;
     curr_number_of_compound_ops = 0;
 
@@ -82,7 +89,8 @@ class StageSubmission {
 
  private:
   StageSubmission()
-      : curr_number_of_accumulated_ops(0),
+      : curr_op_count(0),
+        curr_number_of_accumulated_ops(0),
         curr_number_of_compound_ops(0),
         max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)),
         max_number_of_compound_ops(
@@ -93,6 +101,7 @@ class StageSubmission {
   ~StageSubmission() {}
   StageSubmission(const StageSubmission&);
   StageSubmission& operator=(const StageSubmission&);
+  std::atomic<size_t> curr_op_count;
   std::atomic<size_t> curr_number_of_accumulated_ops;
   std::atomic<size_t> curr_number_of_compound_ops;
   const size_t max_number_of_accumulated_ops;
